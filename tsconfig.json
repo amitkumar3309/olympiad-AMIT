@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "module": "node16",
+    "moduleResolution": "node16",
+    "target": "es2020",
+    "lib": ["es2020"],
+    "types": ["node"],
+
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+
+    "sourceMap": true
+  }
+}
