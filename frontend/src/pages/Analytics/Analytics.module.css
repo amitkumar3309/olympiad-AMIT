@@ -1,0 +1,42 @@
+.wrap {
+  padding: 32px 0 60px;
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.chartRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.insightList {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.insightList li {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 900px) {
+  .statRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .chartRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .statRow {
+    grid-template-columns: 1fr;
+  }
+}

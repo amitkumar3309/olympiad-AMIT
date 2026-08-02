@@ -1,0 +1,170 @@
+.loginWrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 20px;
+}
+
+.loginCard {
+  max-width: 380px;
+  width: 100%;
+  text-align: center;
+}
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  background: var(--bg);
+  color: var(--text-main);
+}
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sidebarBrand {
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 0.4px;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.menuItem,
+.menuItemActive {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.menuItemActive {
+  background: var(--royal-blue);
+  color: #fff;
+}
+
+.menuItem:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.main {
+  flex: 1;
+  padding: 24px 32px;
+  min-width: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.burger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-main);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.tableCard {
+  margin-top: 20px;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th {
+  text-align: left;
+  padding: 10px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .statRow {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .burger {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 60;
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .main {
+    padding: 16px;
+  }
+
+  .statRow {
+    grid-template-columns: 1fr;
+  }
+}

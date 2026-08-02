@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://amit-olympiad.vercel.app/api/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

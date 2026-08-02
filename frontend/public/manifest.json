@@ -1,0 +1,15 @@
+{
+  "name": "A.M.I.T Olympiad Portal",
+  "short_name": "AMIT Olympiad",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F0F4F8",
+  "theme_color": "#0052FF",
+  "icons": [
+    {
+      "src": "/favicon.ico.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}

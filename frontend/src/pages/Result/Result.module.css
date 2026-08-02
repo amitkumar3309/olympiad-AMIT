@@ -1,0 +1,63 @@
+.wrap {
+  padding: 32px 0 60px;
+  max-width: 560px;
+}
+
+.searchRow {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
+
+.searchRow input {
+  flex: 1;
+}
+
+.resultCard {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.idLine {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.scoreRow {
+  display: flex;
+  justify-content: space-around;
+  margin: 24px 0;
+}
+
+.scoreValue {
+  display: block;
+  font-size: 24px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--royal-blue);
+}
+
+.scoreLabel {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .searchRow {
+    flex-direction: column;
+  }
+
+  .scoreRow {
+    flex-direction: column;
+    gap: 16px;
+  }
+}

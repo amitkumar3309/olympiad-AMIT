@@ -1,0 +1,26 @@
+.tile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+.icon {
+  font-size: 28px;
+  color: var(--royal-blue);
+  flex-shrink: 0;
+}
+
+.value {
+  font-size: 22px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+}
+
+.label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}

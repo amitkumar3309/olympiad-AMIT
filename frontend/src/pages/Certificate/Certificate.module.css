@@ -1,0 +1,93 @@
+.wrap {
+  padding: 32px 0 60px;
+  text-align: center;
+}
+
+.certificate {
+  max-width: 640px;
+  margin: 24px auto 0;
+  padding: 48px 32px;
+  border: 3px double var(--gold);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, #fffdf5, #fff);
+  box-shadow: var(--shadow-md);
+}
+
+.certLogo {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 16px;
+  border-radius: 10px;
+}
+
+.presented {
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.recipient {
+  font-family: var(--font-display);
+  font-size: 36px;
+  color: var(--royal-blue);
+  margin: 8px 0 16px;
+}
+
+.desc {
+  max-width: 440px;
+  margin: 0 auto 24px;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+  margin-bottom: 24px;
+}
+
+.metaLabel {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.metaValue {
+  display: block;
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.signature {
+  font-family: var(--font-display);
+  font-style: italic;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.actions {
+  margin-top: 24px;
+}
+
+@media (max-width: 600px) {
+  .certificate {
+    padding: 32px 18px;
+  }
+
+  .recipient {
+    font-size: 26px;
+  }
+
+  .metaRow {
+    gap: 24px;
+  }
+}
+
+@media print {
+  header,
+  footer,
+  .actions {
+    display: none;
+  }
+}
