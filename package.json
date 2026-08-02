@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "tsx": "^4.23.1"
+  },
+  "scripts": {
+    "start": "npx tsx src/server.ts"
+  }
+}

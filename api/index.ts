@@ -1,0 +1,1 @@
+import app from '../src/server'; // (Agar aapka server code kisi aur file mein hai, ya agar aapne yehi saara code index.ts mein daala hai toh us hisab se export karein)

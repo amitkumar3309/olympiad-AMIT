@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:,">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A.M.I.T Olympiad | National Level Scholarship & Competitive Exam Portal</title>
+    
+    <!-- SEO & Open Graph Meta Tags -->
+    <meta name="description" content="Register for A.M.I.T Olympiad. Access advanced AI question generators, mock tests, class-wise homework status, and national rankings for students.">
+    <meta name="keywords" content="Olympiad Exam, AMIT Olympiad, School Competition, AI Question Generator, Student Portal, Online Exam">
+    <meta name="author" content="A.M.I.T Institution">
+
+    <!-- Open Graph / Social Media Sharing -->
+    <meta property="og:title" content="A.M.I.T Olympiad | Shape Your Child's Future">
+    <meta property="og:description" content="National level academic competition with AI-driven performance analytics and instant score tracking.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="http://localhost:8080/">
+    <meta property="og:image" content="http://localhost:8080/assets/banner.png">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="A.M.I.T Olympiad">
+    <meta name="twitter:description" content="Join India's smartest student testing and analytics platform.">
+
+    <!-- PWA Manifest & Theme -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0052FF">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FIREBASE LIBRARIES FOR AUTH -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <style>
+        :root {
+            --royal-blue: #0052FF;
+            --dark-navy: #0A1128;
+            --gold: #FFD700;
+            --accent-glow: rgba(0, 82, 255, 0.15);
+            --bg-light: #F8FAFC;
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --success-green: #10B981;
+            --flame-orange: #F97316;
+        }
+
+        * { box-sizing: border-box; scroll-behavior: smooth; margin: 0; padding: 0; }
+        body { font-family: 'Poppins', sans-serif; background-color: var(--bg-light); color: var(--text-main); line-height: 1.6; overflow-x: hidden; }
+        
+        /* NAVIGATION */
+        nav {
+            position: fixed; top: 0; left: 0; width: 100%; background: rgba(10, 17, 40, 0.95); backdrop-filter: blur(12px);
+            display: flex; justify-content: space-between; align-items: center; padding: 12px 25px; z-index: 1000; border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .nav-brand { display: flex; align-items: center; gap: 10px; color: white; font-weight: 700; font-size: 16px; letter-spacing: 0.5px; cursor: pointer; }
+        .nav-brand img { height: 40px; width: auto; max-width: 130px; object-fit: contain; border-radius: 6px; background: white; padding: 3px; }
+        
+        .nav-live-winner { background: rgba(255,215,0,0.1); border: 1px solid rgba(255,215,0,0.3); padding: 5px 12px; border-radius: 20px; color: var(--gold); font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+        
+        .nav-links { display: flex; gap: 16px; align-items: center; flex-wrap: nowrap; }
+        .nav-links a { text-decoration: none; transition: 0.3s; white-space: nowrap; font-size: 13px; }
+        
+        .std-link { color: #CBD5E1; font-weight: 500; }
+        .std-link:hover { color: white; }
+        
+        .portal-link { font-weight: 600; color: white; display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 6px; background: rgba(255,255,255,0.05); }
+        .portal-link:hover { background: rgba(255,255,255,0.15); }
+        
+        .admin-link { color: #F59E0B; font-weight: 600; display: flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 6px; }
+        .admin-link:hover { background: rgba(245, 158, 11, 0.1); }
+        
+        .btn-profile { background: var(--gold); color: var(--dark-navy) !important; padding: 7px 16px; border-radius: 30px; font-weight: 700; box-shadow: 0 4px 10px rgba(255,215,0,0.2); }
+        .btn-register { background: var(--royal-blue); color: white !important; padding: 7px 16px; border-radius: 30px; font-weight: 700; box-shadow: 0 4px 10px rgba(0,82,255,0.3); }
+
+        /* HERO SECTION */
+        .hero {
+            position: relative; background: linear-gradient(135deg, var(--dark-navy), #020617); color: white; padding: 160px 20px 90px 20px; overflow: hidden;
+        }
+        .math-bg-symbols {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.04; font-size: 120px; font-weight: 800; pointer-events: none;
+            display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; z-index: 1;
+        }
+        .hero-container { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 40px; position: relative; z-index: 2; }
+        .hero-content { flex: 1; text-align: left; }
+        .hero-badge { background: rgba(255,215,0,0.1); color: var(--gold); border: 1px solid rgba(255,215,0,0.3); padding: 6px 16px; border-radius: 30px; font-size: 13px; font-weight: 600; display: inline-block; margin-bottom: 20px; }
+        .hero h1 { font-size: clamp(34px, 4vw, 56px); font-weight: 800; line-height: 1.1; margin-bottom: 15px; letter-spacing: -1px; }
+        .hero h1 span { background: linear-gradient(to right, #60A5FA, var(--gold)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero-subtitle { font-size: 18px; color: #94A3B8; margin-bottom: 25px; font-weight: 400; }
+        .hero-subtitle strong { color: white; }
+        .hero-btns { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+        
+        .btn-primary { background: var(--royal-blue); color: white; padding: 14px 32px; border-radius: 12px; font-weight: 600; text-decoration: none; box-shadow: 0 10px 25px rgba(0,82,255,0.4); transition: 0.3s; border: none; cursor: pointer; display: inline-block; text-align: center; }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 18px 35px rgba(0,82,255,0.6); }
+        .btn-secondary { background: rgba(255,255,255,0.08); color: white; padding: 14px 32px; border-radius: 12px; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.15); transition: 0.3s; display: inline-block; text-align: center; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+
+        /* HERO VISUAL & LOGO CARD */
+        .hero-visual { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
+        .logo-glow {
+            position: absolute; width: 260px; height: 260px; background: radial-gradient(circle, rgba(0,82,255,0.35) 0%, rgba(255,215,0,0.1) 50%, transparent 70%); border-radius: 50%; z-index: 1; filter: blur(25px); animation: pulseGlow 5s ease-in-out infinite;
+        }
+        @keyframes pulseGlow { 0%, 100% { transform: scale(1); opacity: 0.7; } 50% { transform: scale(1.15); opacity: 1; } }
+        
+        .animated-logo-card {
+            position: relative; z-index: 2; background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.2); padding: 30px 40px; border-radius: 28px; backdrop-filter: blur(12px); text-align: center; box-shadow: 0 30px 60px rgba(0,0,0,0.4);
+            animation: floatAndRotate 6s ease-in-out infinite; cursor: pointer; user-select: none;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.4s ease;
+        }
+        @keyframes floatAndRotate { 
+            0%, 100% { transform: translateY(0px) rotate(-1.5deg); } 
+            50% { transform: translateY(-10px) rotate(1.5deg); } 
+        }
+        
+        .animated-logo-card.interactive-active {
+            animation: logoInteractionAnim 0.6s ease forwards !important;
+            box-shadow: 0 0 40px rgba(0, 82, 255, 0.6), 0 0 60px rgba(255, 215, 0, 0.5) !important;
+            border-color: var(--gold) !important;
+        }
+        @keyframes logoInteractionAnim {
+            0% { transform: scale(1) rotate(0deg); }
+            30% { transform: scale(1.15) rotate(5deg); }
+            60% { transform: scale(1.12) rotate(-3deg); }
+            100% { transform: scale(1.1) rotate(0deg); }
+        }
+
+        .logo-emblem-img { max-height: 75px; width: auto; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,82,255,0.5)); display: block; margin: 0 auto 10px auto; background: white; padding: 4px; border-radius: 8px; }
+        .logo-title-text { font-size: 18px; font-weight: 800; color: white; letter-spacing: 1px; }
+        .logo-subtitle-text { font-size: 12px; font-weight: 500; color: var(--gold); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .floating-welcome-msg {
+            position: absolute; top: -75px; left: 50%; transform: translateX(-50%) translateY(15px);
+            background: rgba(10, 17, 40, 0.98); border: 2px solid var(--gold); padding: 10px 18px; border-radius: 14px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.6); z-index: 30; text-align: center; white-space: nowrap;
+            opacity: 0; pointer-events: none; transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .floating-welcome-msg.show-msg { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        .floating-welcome-msg h5 { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+        .floating-welcome-msg p { color: #E2E8F0; font-size: 10px; font-style: italic; }
+
+        .hero-empower-caption { margin-top: 18px; font-size: 14px; font-weight: 600; color: #CBD5E1; letter-spacing: 0.5px; z-index: 2; text-align: center; }
+
+        /* FLOATING SYMBOLS & SPARKLES */
+        .interactive-symbol {
+            position: absolute; font-size: 24px; font-weight: 800; color: var(--gold); pointer-events: none; z-index: 25;
+            animation: floatSymbolAway 1.5s ease-out forwards;
+        }
+        @keyframes floatSymbolAway {
+            0% { transform: translate(0, 0) scale(0.5); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(1.2); opacity: 0; }
+        }
+
+        /* COUNTDOWN */
+        .countdown-container {
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); display: inline-flex;
+            padding: 10px 20px; border-radius: 14px; gap: 15px; backdrop-filter: blur(10px);
+        }
+        .countdown-item { text-align: center; }
+        .countdown-number { font-size: 22px; font-weight: 700; color: var(--gold); }
+        .countdown-label { font-size: 10px; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* TRUST BAR & STATS */
+        .trust-bar-top { background: white; border-bottom: 1px solid #E2E8F0; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.02); position: relative; z-index: 9; }
+        .trust-bar-container { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 20px; text-align: center; }
+        .trust-badge-item { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--dark-navy); }
+
+        .stats-bar {
+            max-width: 1050px; margin: 40px auto 60px auto; background: white; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+            display: grid; grid-template-columns: repeat(4, 1fr); padding: 35px 30px; text-align: center; position: relative; z-index: 10; border: 1px solid #E2E8F0;
+        }
+        .stat-item { padding: 10px; }
+        .stat-icon { font-size: 32px; margin-bottom: 10px; display: block; }
+        .stat-item h3 { font-size: 30px; font-weight: 800; color: var(--dark-navy); margin-bottom: 5px; }
+        .stat-item p { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .wrapper { max-width: 1100px; margin: 0 auto; padding: 20px 20px 60px 20px; }
+        .section-title { text-align: center; margin-bottom: 45px; }
+        .section-title h2 { font-size: 34px; font-weight: 800; color: var(--dark-navy); margin-bottom: 8px; letter-spacing: -0.5px; }
+        .section-title p { color: var(--text-muted); font-size: 15px; }
+
+        /* WINNERS & CHAMPIONS */
+        .live-winners-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin-bottom: 80px; }
+        .winner-card {
+            background: white; border-radius: 24px; padding: 30px 25px; text-align: center; border: 1px solid #E2E8F0;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.05); position: relative; transition: 0.3s;
+        }
+        .winner-card:hover { transform: translateY(-6px); box-shadow: 0 25px 45px rgba(0,82,255,0.1); border-color: var(--gold); }
+        .winner-medal-badge { position: absolute; top: 15px; right: 15px; font-size: 24px; }
+        .winner-avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; object-position: center top; margin: 0 auto 15px auto; border: 4px solid var(--gold); box-shadow: 0 8px 20px rgba(0,0,0,0.1); background-color: #F1F5F9; }
+        .winner-card h4 { font-size: 18px; font-weight: 700; color: var(--dark-navy); margin-bottom: 4px; }
+        .winner-school-info { font-size: 13px; color: var(--text-muted); margin-bottom: 12px; }
+        .winner-stat-pill { display: inline-block; background: rgba(0,82,255,0.08); color: var(--royal-blue); font-weight: 700; font-size: 12px; padding: 6px 14px; border-radius: 20px; margin-top: 8px; }
+
+        .hall-archive-tabs { display: flex; gap: 10px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+        .archive-tab { background: #E2E8F0; border: none; padding: 10px 22px; border-radius: 30px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: 0.3s; }
+        .archive-tab.active { background: var(--dark-navy); color: var(--gold); box-shadow: 0 4px 15px rgba(0,0,0,0.15); }
+        
+        .champions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin-bottom: 80px; }
+        .champion-card { background: white; border-radius: 20px; padding: 30px; border: 1px solid #E2E8F0; box-shadow: 0 10px 30px rgba(0,0,0,0.03); text-align: center; }
+        .champion-avatar { width: 90px; height: 90px; border-radius: 50%; object-fit: cover; object-position: center top; margin: 0 auto 12px auto; border: 3px solid var(--gold); box-shadow: 0 6px 15px rgba(0,0,0,0.08); background: #F1F5F9; }
+
+        /* PROFILE MODAL & LOGIN MODAL */
+        .profile-modal-overlay, .login-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 17, 40, 0.85); backdrop-filter: blur(8px);
+            z-index: 9999; display: none; align-items: center; justify-content: center;
+        }
+        .profile-modal-box, .login-modal-box {
+            background: white; border-radius: 24px; padding: 40px; max-width: 650px; width: 90%; max-height: 90vh; overflow-y: auto;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.5); border: 2px solid var(--royal-blue); position: relative;
+        }
+        .login-modal-box { max-width: 450px; text-align: center; }
+
+        /* FOUNDER CARD */
+        .founder-card {
+            background: white; border-radius: 24px; padding: 50px; box-shadow: 0 15px 40px rgba(0,0,0,0.06); border: 1px solid #E2E8F0;
+            display: flex; align-items: center; gap: 45px; margin-bottom: 80px; transition: 0.4s ease;
+        }
+        .founder-card:hover { transform: translateY(-6px); box-shadow: 0 25px 50px rgba(0,82,255,0.1); }
+        .founder-img {
+            width: 200px; height: 200px; border-radius: 16px; object-fit: cover; object-position: center top; border: 5px solid var(--gold); flex-shrink: 0;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15); background-color: #F1F5F9;
+        }
+        .founder-text h3 { font-size: 26px; color: var(--dark-navy); margin-bottom: 12px; font-weight: 700; }
+        .founder-text p { font-size: 15px; color: #475569; font-style: italic; line-height: 1.7; margin-bottom: 15px; }
+        .founder-text .author { font-weight: 700; color: var(--royal-blue); font-style: normal; font-size: 16px; }
+
+        /* PRIZES */
+        .prizes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; margin-bottom: 80px; }
+        .prize-box {
+            background: white; border-radius: 20px; padding: 35px 25px; text-align: center; border: 1px solid #E2E8F0;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.03); position: relative; overflow: hidden; transition: 0.4s;
+        }
+        .prize-box:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(0,82,255,0.1); }
+        .prize-box::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 6px; }
+        .prize-gold::before { background: linear-gradient(to right, #F59E0B, var(--gold)); }
+        .prize-silver::before { background: linear-gradient(to right, #94A3B8, #CBD5E1); }
+        .prize-bronze::before { background: linear-gradient(to right, #B45309, #D97706); }
+        .prize-icon { font-size: 52px; margin-bottom: 15px; display: block; }
+        .prize-box h4 { font-size: 20px; font-weight: 700; color: var(--dark-navy); margin-bottom: 10px; }
+        .prize-amount { font-size: 30px; font-weight: 800; color: var(--royal-blue); }
+
+        /* REGISTRATION FORM */
+        .reg-card { background: white; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.06); border: 1px solid #E2E8F0; padding: 45px; margin-bottom: 80px; }
+        .progress-wizard { display: flex; justify-content: space-between; position: relative; margin-bottom: 30px; padding: 0 20px; }
+        .progress-wizard::before { content: ''; position: absolute; top: 18px; left: 15%; width: 70%; height: 3px; background: #E2E8F0; z-index: 1; }
+        .step-node { position: relative; z-index: 2; text-align: center; }
+        .step-circle { width: 38px; height: 38px; border-radius: 50%; background: #E2E8F0; color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; margin: 0 auto 8px auto; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .step-node.active .step-circle { background: var(--royal-blue); color: white; box-shadow: 0 0 0 5px var(--accent-glow); }
+        .step-node.completed .step-circle { background: #10B981; color: white; }
+        .step-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+        .step-node.active .step-label { color: var(--royal-blue); }
+
+        .live-form-progress { background: #F1F5F9; border-radius: 12px; padding: 15px 20px; margin-bottom: 30px; border: 1px solid #E2E8F0; }
+        .progress-bar-header { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; color: var(--dark-navy); margin-bottom: 8px; }
+        .progress-track { width: 100%; height: 8px; background: #E2E8F0; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--royal-blue); width: 0%; transition: width 0.4s ease; border-radius: 4px; }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group.full { grid-column: span 2; }
+        .form-group label { display: block; font-weight: 600; font-size: 12px; color: #334155; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .input-with-icon { position: relative; }
+        .input-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 16px; color: var(--text-muted); pointer-events: none; }
+        .form-control { width: 100%; padding: 13px 16px 13px 45px; border: 2px solid #E2E8F0; border-radius: 12px; font-size: 14px; font-family: 'Poppins', sans-serif; transition: all 0.3s ease; background: #F8FAFC; }
+        .form-control:focus { outline: none; border-color: var(--royal-blue); background: white; box-shadow: 0 0 0 5px var(--accent-glow); }
+        
+        .submit-btn {
+            background: var(--royal-blue); color: white; width: 100%; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: 700;
+            border: none; cursor: pointer; margin-top: 25px; box-shadow: 0 10px 25px rgba(0,82,255,0.3); transition: 0.3s;
+        }
+        .submit-btn:hover { background: #0043D0; box-shadow: 0 15px 30px rgba(0,82,255,0.5); transform: translateY(-2px); }
+
+        #otp-section, #payment-section, #success-section, #loading-section { display: none; text-align: center; padding: 10px 0; }
+        .qr-box { background: #F8FAFC; border: 2px dashed #CBD5E1; display: inline-block; padding: 20px; border-radius: 20px; margin: 20px 0; }
+        .qr-box img { max-width: 200px; border-radius: 10px; }
+        .success-badge { font-size: 60px; color: #10B981; margin-bottom: 10px; display: block; }
+        .loader { border: 4px solid #E2E8F0; border-top: 4px solid var(--royal-blue); border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin: 25px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* GALLERY */
+        .gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 80px; }
+        .gallery-item { position: relative; border-radius: 16px; overflow: hidden; height: 240px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); background: #E2E8F0; border: 1px solid #CBD5E1; }
+        .gallery-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+        .gallery-item:hover .gallery-img { transform: scale(1.1); }
+        .gallery-overlay {
+            position: absolute; bottom: 0; left: 0; width: 100%; background: linear-gradient(to top, rgba(10,17,40,0.85), transparent);
+            padding: 20px 15px 15px 15px; color: white; font-weight: 600; font-size: 14px; text-align: center; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .gallery-item:hover .gallery-overlay { opacity: 1; }
+
+        /* FAQ */
+        .faq-container { max-width: 800px; margin: 0 auto 80px auto; display: flex; flex-direction: column; gap: 15px; }
+        .faq-item { background: white; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+        .faq-question { padding: 20px 25px; font-weight: 700; color: var(--dark-navy); font-size: 16px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .faq-question::after { content: '+'; font-size: 22px; color: var(--royal-blue); transition: transform 0.3s ease; }
+        .faq-item.active .faq-question::after { transform: rotate(45deg); }
+        .faq-answer { padding: 0 25px 20px 25px; color: var(--text-muted); font-size: 14px; line-height: 1.6; display: none; }
+        .faq-item.active .faq-answer { display: block; }
+
+        /* FOOTER */
+        footer { background: var(--dark-navy); color: #94A3B8; padding: 60px 20px 30px 20px; }
+        .footer-grid { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 2fr 1.5fr 1fr; gap: 40px; margin-bottom: 40px; }
+        .footer-col h4 { color: white; font-size: 18px; font-weight: 700; margin-bottom: 15px; }
+        .footer-col p { font-size: 14px; margin-bottom: 12px; }
+        .social-links { display: flex; gap: 15px; margin-top: 15px; }
+        .social-links a { color: white; background: rgba(255,255,255,0.1); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: 0.3s; }
+        .social-links a:hover { background: var(--royal-blue); transform: translateY(-3px); }
+        .footer-links { list-style: none; }
+        .footer-links li { margin-bottom: 10px; }
+        .footer-links a { color: #94A3B8; text-decoration: none; font-size: 14px; transition: 0.3s; }
+        .footer-links a:hover { color: white; }
+        .footer-bottom { max-width: 1100px; margin: 0 auto; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 25px; text-align: center; font-size: 13px; color: #64748B; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+
+        @media (max-width: 900px) {
+            .hero-container { flex-direction: column; text-align: center; }
+            .hero-content { text-align: center; }
+            .hero-btns { justify-content: center; }
+            .live-winners-grid, .champions-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 768px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); gap: 15px; padding: 20px; }
+            .founder-card { flex-direction: column; text-align: center; padding: 30px; }
+            .prizes-grid { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: span 1; }
+            .footer-grid { grid-template-columns: 1fr; }
+            nav { padding: 10px 15px; }
+            .nav-links { display: none; }
+            .gallery-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAVIGATION -->
+<nav>
+  <div class="nav-brand" onclick="triggerLogoInteraction(event)">
+    <img src="logo.png" alt="AMIT Logo" onerror="this.src='https://via.placeholder.com/120x45?text=AMIT+LOGO'"> A.M.I.T. OLYMPIAD
+  </div>
+  
+  <div class="nav-live-winner">
+    👑 Today's Leader: <span id="navWinnerName">Amit Kumar</span>
+  </div>
+
+  <div class="nav-links">
+    <a href="/admin.html" target="_blank" style="color: #F59E0B; font-weight: 800; border: 1px solid #F59E0B; padding: 4px 12px; border-radius: 20px; background: rgba(245, 158, 11, 0.1);">⚙️ Admin Panel</a>
+    <a href="/exam.html" target="_blank" style="color: #10B981; font-weight: 700;">📝 Live Exam</a>
+    <a href="/result.html" target="_blank" style="color: #60A5FA; font-weight: 700;">🏆 View Result</a>
+
+    <a href="#liveWinners" class="std-link">Top Champions</a>
+    <a href="#hallOfChampions" class="std-link">Hall of Fame</a>
+    <a href="#about" class="std-link">Founder</a>
+    <a href="#prizes" class="std-link">Prizes</a>
+    <a href="javascript:void(0)" onclick="openStudentProfileModal()" class="btn-profile">My Profile 👤</a>
+    <a href="#registration" class="btn-register">Register</a>
+  </div>
+</nav>
+
+<!-- HERO SECTION -->
+<section class="hero">
+  <div class="math-bg-symbols">
+    <span>π</span><span>Σ</span><span>∞</span><span>√</span><span>x²</span>
+  </div>
+  <div class="hero-container">
+    <div class="hero-content">
+      <span class="hero-badge">🌟 National Level Mathematics Competition</span>
+      <h1>AMIT MATHS OLYMPIAD <span>2027</span></h1>
+      <div class="hero-subtitle">Think Faster. <strong>Solve Smarter.</strong> Become a Champion.</div>
+      
+      <!-- COUNTDOWN TIMER -->
+      <div class="countdown-container" style="margin-bottom: 30px;">
+        <div class="countdown-item">
+          <div class="countdown-number" id="days">00</div>
+          <div class="countdown-label">Days</div>
+        </div>
+        <div class="countdown-item">
+          <div class="countdown-number" id="hours">00</div>
+          <div class="countdown-label">Hours</div>
+        </div>
+        <div class="countdown-item">
+          <div class="countdown-number" id="minutes">00</div>
+          <div class="countdown-label">Mins</div>
+        </div>
+        <div class="countdown-item">
+          <div class="countdown-number" id="seconds">00</div>
+          <div class="countdown-label">Secs</div>
+        </div>
+      </div>
+
+      <!-- 🟢 REGISTER KE NICHE STUDENT LOGIN BUTTON ADD KIYA GAYA HAI -->
+      <div class="hero-btns">
+        <a href="#registration" class="btn-primary">Register Now ➔</a>
+        <a href="javascript:void(0)" onclick="openLoginModal()" class="btn-secondary" style="background: rgba(0,82,255,0.2); border-color: var(--royal-blue); color: white;">Student Login 🔑</a>
+        <a href="#liveWinners" class="btn-secondary">View Top Champions</a>
+      </div>
+    </div>
+
+    <!-- ANIMATED LOGO CARD -->
+    <div class="hero-visual">
+      <div class="logo-glow"></div>
+      <div class="animated-logo-card" id="interactiveLogoCard" onclick="triggerLogoInteraction(event)">
+        
+        <div class="floating-welcome-msg" id="floatingWelcomeMsg">
+          <h5>🏆 Welcome Future Champion!</h5>
+          <p>"Believe in Yourself. Solve. Learn. Win."</p>
+        </div>
+
+        <img src="logo.png" alt="AMIT Emblem" class="logo-emblem-img" onerror="this.src='https://via.placeholder.com/85?text=LOGO'">
+        <div class="logo-title-text">A.M.I.T. OLYMPIAD</div>
+        <div class="logo-subtitle-text">Excellence in Mathematics</div>
+      </div>
+      <div class="hero-empower-caption">✨ Empowering Future Mathematical Champions</div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST BAR -->
+<div class="trust-bar-top">
+  <div class="trust-bar-container">
+    <div class="trust-badge-item"><span>⭐</span> ⭐⭐⭐⭐⭐ Rated by Students</div>
+    <div class="trust-badge-item"><span>🏫</span> Trusted by 450+ Schools</div>
+    <div class="trust-badge-item"><span>👨‍🎓</span> 15,000+ Students Registered</div>
+    <div class="trust-badge-item"><span>🏆</span> National Level Mathematics Competition</div>
+  </div>
+</div>
+
+<!-- LIVE STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <span class="stat-icon">📅</span>
+    <h3 id="statTodayReg">142</h3>
+    <p>Today's Registrations</p>
+  </div>
+  <div class="stat-item">
+    <span class="stat-icon">🧠</span>
+    <h3 id="statTodayChallenges">1,280</h3>
+    <p>Challenges Solved Today</p>
+  </div>
+  <div class="stat-item">
+    <span class="stat-icon">⚡</span>
+    <h3 id="statFastestTime">8.91s</h3>
+    <p>Current Fastest Time</p>
+  </div>
+  <div class="stat-item">
+    <span class="stat-icon">🏫</span>
+    <h3 id="statSchoolsCount">450+</h3>
+    <p>Participating Schools</p>
+  </div>
+</div>
+
+<div class="wrapper">
+
+  <!-- TOP 3 WINNERS -->
+  <div class="section-title" id="liveWinners">
+    <h2>🏆 Today's Champions</h2>
+    <p>Publicly recognizing today's fastest problem-solving leaders</p>
+  </div>
+  <div class="live-winners-grid" id="homepageTopWinnersContainer"></div>
+
+  <!-- HALL OF CHAMPIONS -->
+  <div class="section-title" id="hallOfChampions">
+    <h2>🏛️ Hall of Champions Archive</h2>
+    <p>Official historical records of daily, weekly, monthly and olympiad winners</p>
+  </div>
+  
+  <div class="hall-archive-tabs">
+    <button class="archive-tab active" onclick="switchArchiveTab('daily')">Daily Winners</button>
+    <button class="archive-tab" onclick="switchArchiveTab('weekly')">Weekly Winners</button>
+    <button class="archive-tab" onclick="switchArchiveTab('monthly')">Monthly Winners</button>
+    <button class="archive-tab" onclick="switchArchiveTab('olympiad')">Olympiad Winners</button>
+  </div>
+
+  <div class="champions-grid" id="hallOfChampionsContainer"></div>
+
+  <!-- FOUNDER SECTION -->
+  <div class="founder-card" id="about">
+    <img src="amit_kumar.jpg" alt="Amit Kumar" class="founder-img" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80'">
+    <div class="founder-text">
+      <h3>A Message to Every Future Champion</h3>
+      <p>"Dear Students, hard work and consistency can beat any talent. A.M.I.T. Olympiad is not just an exam; it's a battleground for your mind. Dare to think differently, prepare with full dedication, and let your results make the noise."</p>
+      <div class="author">— Amit Kumar (M.D. & Founder)</div>
+    </div>
+  </div>
+
+  <!-- PRIZES -->
+  <div class="section-title" id="prizes">
+    <h2>National Excellence Awards</h2>
+    <p>Rewarding extraordinary talent with prestigious cash prizes</p>
+  </div>
+  <div class="prizes-grid">
+    <div class="prize-box prize-gold">
+      <span class="prize-icon">🥇</span>
+      <h4>1st Prize</h4>
+      <div class="prize-amount">₹ 5,100</div>
+    </div>
+    <div class="prize-box prize-silver">
+      <span class="prize-icon">🥈</span>
+      <h4>2nd Prize</h4>
+      <div class="prize-amount">₹ 2,100</div>
+    </div>
+    <div class="prize-box prize-bronze">
+      <span class="prize-icon">🥉</span>
+      <h4>3rd Prize</h4>
+      <div class="prize-amount">₹ 1,100</div>
+    </div>
+  </div>
+
+  <!-- REGISTRATION FORM -->
+  <div class="reg-card" id="registration">
+    
+    <div class="progress-wizard">
+      <div class="step-node active" id="wizard-step-1">
+        <div class="step-circle">1</div>
+        <div class="step-label">Student & Photo</div>
+      </div>
+      <div class="step-node" id="wizard-step-2">
+        <div class="step-circle">2</div>
+        <div class="step-label">OTP Verification</div>
+      </div>
+      <div class="step-node" id="wizard-step-3">
+        <div class="step-circle">3</div>
+        <div class="step-label">Fee Payment</div>
+      </div>
+    </div>
+
+    <div class="live-form-progress">
+      <div class="progress-bar-header">
+        <span>Registration Progress (All Fields Compulsory)</span>
+        <span id="progressPercentText">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="formProgressFill"></div>
+      </div>
+    </div>
+
+    <!-- Step 1: Form -->
+    <div id="registration-section">
+      <div class="section-title" style="margin-bottom: 25px;">
+        <h2>Start Your Olympiad Journey</h2>
+        <p>Complete all compulsory fields and passport photo upload.</p>
+      </div>
+      
+      <form id="regForm" onsubmit="handleRegistrationSubmit(event)">
+        <div class="form-grid">
+          
+          <div class="form-group">
+            <label>Student Name (Full Name)</label>
+            <div class="input-with-icon">
+              <span class="input-icon">👤</span>
+              <input type="text" id="regName" class="form-control" placeholder="e.g., Amit Kumar" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <div class="input-with-icon">
+              <span class="input-icon">📅</span>
+              <input type="date" id="regDob" class="form-control" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Father's Name</label>
+            <div class="input-with-icon">
+              <span class="input-icon">👤</span>
+              <input type="text" id="regFather" class="form-control" placeholder="Father's full name" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Mother's Name</label>
+            <div class="input-with-icon">
+              <span class="input-icon">👤</span>
+              <input type="text" id="regMother" class="form-control" placeholder="Mother's full name" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Gender</label>
+            <div class="input-with-icon">
+              <span class="input-icon">👤</span>
+              <select id="regGender" class="form-control" required>
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Class / Grade</label>
+            <div class="input-with-icon">
+              <span class="input-icon">🎓</span>
+              <input type="text" id="regClass" class="form-control" placeholder="e.g., 8th" required>
+            </div>
+          </div>
+
+          <div class="form-group full">
+            <label>School Name</label>
+            <div class="input-with-icon">
+              <span class="input-icon">🏫</span>
+              <input type="text" id="regSchool" class="form-control" placeholder="Full school name" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>District</label>
+            <div class="input-with-icon">
+              <span class="input-icon">📍</span>
+              <input type="text" id="regDistrict" class="form-control" placeholder="e.g., Hanumangarh" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>State</label>
+            <div class="input-with-icon">
+              <span class="input-icon">🏛️</span>
+              <input type="text" id="regState" class="form-control" placeholder="e.g., Rajasthan" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Mobile Number (WhatsApp)</label>
+            <div class="input-with-icon">
+              <span class="input-icon">📞</span>
+              <input type="tel" id="regMobile" class="form-control" pattern="[6-9][0-9]{9}" placeholder="10-digit starting with 6-9" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Alternate Mobile Number</label>
+            <div class="input-with-icon">
+              <span class="input-icon">📱</span>
+              <input type="tel" id="regAltMobile" class="form-control" pattern="[6-9][0-9]{9}" placeholder="10-digit number" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Email ID (Optional)</label>
+            <div class="input-with-icon">
+              <span class="input-icon">📧</span>
+              <input type="email" id="regEmail" class="form-control" placeholder="student@gmail.com">
+            </div>
+          </div>
+
+          <div class="form-group full">
+            <label>Student Passport Size Photo (Compulsory | Max 2MB | JPG/PNG/WEBP)</label>
+            <input type="file" id="regPhotoFile" class="form-control" accept="image/jpeg, image/png, image/webp" onchange="previewStudentPhoto(event)" required style="padding: 10px;">
+            <div id="photoPreviewBox" style="margin-top: 15px; display: none; text-align: center;">
+              <img id="uploadedPhotoPreview" src="" alt="Preview" style="width: 110px; height: 110px; border-radius: 12px; object-fit: cover; border: 3px solid var(--royal-blue);">
+              <p style="font-size: 11px; color: var(--success-green); font-weight: 700; margin-top: 5px;">✔ Photo validated successfully</p>
+            </div>
+          </div>
+
+        </div>
+        <button type="submit" class="submit-btn" id="sendOtpBtn">Verify Mobile via OTP ➔</button>
+      </form>
+    </div>
+
+    <!-- Step 2: OTP -->
+    <div id="otp-section">
+      <h2>Mobile Number Verification (OTP)</h2>
+      <p style="color: var(--text-muted); margin: 15px 0;">We have sent a 6-digit OTP to your mobile number. (For demo testing, enter: <strong>123456</strong>)</p>
+      
+      <div class="form-group" style="max-width: 300px; margin: 20px auto;">
+        <input type="text" id="otpInputCode" class="form-control" placeholder="Enter 6-digit OTP" maxlength="6" style="text-align: center; font-size: 20px; letter-spacing: 5px;">
+      </div>
+
+      <button onclick="verifyMobileOTP()" class="submit-btn" style="max-width: 350px; margin: 10px auto;">Verify & Proceed to Payment ➔</button>
+      <button onclick="location.reload()" style="background: transparent; color: var(--text-muted); border: none; cursor: pointer; margin-top: 15px; font-weight: 600;">Cancel / Edit Form</button>
+    </div>
+
+    <!-- Step 3: Payment -->
+    <div id="payment-section">
+      <h2>Complete Registration Fee</h2>
+      <p style="color: var(--text-muted);">Scan the QR code below using any UPI app to pay.</p>
+      <div class="qr-box">
+        <img src="my_qr.png" alt="Payment QR Code">
+      </div>
+      <div class="form-group" style="max-width: 400px; margin: 0 auto; text-align: left;">
+        <label>Enter 12-digit UTR / Reference No.</label>
+        <div class="input-with-icon">
+          <span class="input-icon">💳</span>
+          <input type="text" id="utrNumber" class="form-control" placeholder="e.g., 312345678901" required>
+        </div>
+      </div>
+      <button onclick="submitFinalRegistration()" class="submit-btn" style="max-width: 400px; margin: 20px auto;">Final Submit Registration</button>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loading-section">
+      <h2>Processing Securely...</h2>
+      <div class="loader"></div>
+      <p style="color: var(--text-muted);">(Admin Review Status: Pending Approval)</p>
+    </div>
+
+    <!-- Step 4: Success -->
+    <div id="success-section">
+      <span class="success-badge">✔️</span>
+      <h2 style="color: #10B981; margin-bottom: 10px;">REGISTRATION SUCCESSFUL!</h2>
+      <h3 style="color: var(--dark-navy); margin-bottom: 15px;">Your Status: Pending Admin Review</h3>
+      <p style="background: #F1F5F9; padding: 15px; border-radius: 12px; color: var(--text-muted); max-width: 500px; margin: 0 auto 30px auto;">
+        Your application and photo have been securely sent to our database.
+      </p>
+      <div style="border-top: 1px solid #E2E8F0; padding-top: 30px;">
+        <button onclick="openStudentProfileModal()" class="submit-btn" style="max-width: 350px; margin: 0 auto; background: var(--royal-blue);">View My Student Profile 👤</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- GALLERY -->
+  <div class="section-title" id="gallery">
+    <h2>Glimpses of Excellence</h2>
+    <p>Moments from our award ceremonies, student workshops, and national events</p>
+  </div>
+  <div class="gallery-grid">
+    <div class="gallery-item">
+      <img src="images/gallery/award1.jpg" alt="Award Ceremony" class="gallery-img" onerror="this.src='https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=600&q=80'">
+      <div class="gallery-overlay">Award Ceremony</div>
+    </div>
+    <div class="gallery-item">
+      <img src="images/gallery/award2.jpg" alt="Award Ceremony 2" class="gallery-img" onerror="this.src='https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=600&q=80'">
+      <div class="gallery-overlay">National Felicitations</div>
+    </div>
+    <div class="gallery-item">
+      <img src="images/gallery/students1.jpg" alt="Students" class="gallery-img" onerror="this.src='https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=600&q=80'">
+      <div class="gallery-overlay">Students in Action</div>
+    </div>
+    <div class="gallery-item">
+      <img src="images/gallery/students2.jpg" alt="Students 2" class="gallery-img" onerror="this.src='https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=600&q=80'">
+      <div class="gallery-overlay">Workshop Sessions</div>
+    </div>
+    <div class="gallery-item">
+      <img src="images/gallery/teacher1.jpg" alt="Teachers" class="gallery-img" onerror="this.src='https://images.unsplash.com/photo-1577896851231-70ef18881754?auto=format&fit=crop&w=600&q=80'">
+      <div class="gallery-overlay">Expert Faculty</div>
+    </div>
+    <div class="gallery-item">
+      <img src="images/gallery/certificate1.jpg" alt="Certificates" class="gallery-img" onerror="this.src='https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80'">
+      <div class="gallery-overlay">Merit & Certificates</div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="section-title" id="faq">
+    <h2>Frequently Asked Questions</h2>
+    <p>Got questions? We have got clear answers for you.</p>
+  </div>
+  <div class="faq-container">
+    <div class="faq-item">
+      <div class="faq-question">Who can participate?</div>
+      <div class="faq-answer">Students studying in classes from standard 1st to 12th across any recognized board (CBSE, ICSE, State Board) are eligible to participate.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question">Is there negative marking?</div>
+      <div class="faq-answer">No, there is zero negative marking in the AMIT Maths Olympiad examination, encouraging students to attempt all challenging questions with confidence.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question">Can I participate next year?</div>
+      <div class="faq-answer">Yes, active students can participate every year according to their corresponding academic grade level.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-question">How will results be announced?</div>
+      <div class="faq-answer">Results are declared directly on our secure portal and official Telegram channel with downloadable merit rank cards.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- STUDENT LOGIN MODAL -->
+<div class="login-modal-overlay" id="studentLoginModal">
+  <div class="login-modal-box" style="text-align:center;">
+    <span onclick="closeLoginModal()" style="position: absolute; top: 15px; right: 20px; font-size: 20px; cursor: pointer;">✕</span>
+    <h3 style="margin-bottom: 10px; color: var(--dark-navy);">🎓 Student Login</h3>
+    <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Enter your Student ID to enter dashboard.</p>
+
+    <div id="loginStep1">
+      <input type="text" id="loginStudentId" class="form-control" placeholder="Enter Student ID (e.g. AMIT_7821)" required style="margin-bottom:15px; padding-left:16px;">
+      <button onclick="requestStudentOTP()" class="submit-btn" style="margin-top:0;">Send OTP ➔</button>
+    </div>
+
+    <div id="loginStep2" style="display:none;">
+      <p style="font-size: 12px; color: var(--success-green); margin-bottom: 10px;">OTP sent! (Demo OTP: 123456)</p>
+      <input type="text" id="loginOtpCode" class="form-control" placeholder="123456" maxlength="6" style="text-align:center; letter-spacing:4px; margin-bottom:15px; padding-left:16px;">
+      <button onclick="verifyLoginOTP()" class="submit-btn" style="margin-top:0;">Verify & Enter Dashboard 🚀</button>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT PROFILE MODAL -->
+<div class="profile-modal-overlay" id="studentProfileModal">
+  <div class="profile-modal-box">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid #E2E8F0; padding-bottom: 15px;">
+      <h3 style="color: var(--dark-navy); font-size: 22px; font-weight: 800;">👤 Student Command Center</h3>
+      <button onclick="closeStudentProfileModal()" style="background: #F1F5F9; border: none; font-size: 16px; font-weight: 700; width: 35px; height: 35px; border-radius: 50%; cursor: pointer;">✕</button>
+    </div>
+    
+    <div style="display: flex; gap: 25px; align-items: center; margin-bottom: 25px; background: var(--bg-light); padding: 20px; border-radius: 16px;">
+      <img id="profileModalPhoto" src="amit_kumar.jpg" alt="Student" style="width: 90px; height: 90px; border-radius: 14px; object-fit: cover; border: 3px solid var(--gold);">
+      <div>
+        <h4 id="profileModalName" style="font-size: 20px; font-weight: 700; color: var(--dark-navy);">Amit Kumar</h4>
+        <p id="profileModalMeta" style="font-size: 13px; color: var(--text-muted);">SGS DAV | Class 8 | Hanumangarh, Rajasthan</p>
+        <span id="profileModalStatus" style="display: inline-block; background: rgba(16,185,129,0.15); color: var(--success-green); font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 20px; margin-top: 6px;">Status: Verified (Active)</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px;">
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 15px; text-align: center;">
+        <h4 id="profileModalRank" style="font-size: 20px; font-weight: 800; color: var(--royal-blue);">#2</h4>
+        <p style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">National Rank</p>
+      </div>
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 15px; text-align: center;">
+        <h4 id="profileModalXP" style="font-size: 20px; font-weight: 800; color: var(--gold);">140 XP</h4>
+        <p style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total XP</p>
+      </div>
+      <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 15px; text-align: center;">
+        <h4 id="profileModalLevel" style="font-size: 20px; font-weight: 800; color: var(--success-green);">Level 1</h4>
+        <p style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Level Status</p>
+      </div>
+    </div>
+
+    <h4 style="font-size: 16px; font-weight: 700; color: var(--dark-navy); margin-bottom: 12px;">🏅 Badges & Achievements</h4>
+    <div id="profileModalBadges" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;"></div>
+    
+    <a href="/analytics.html" target="_blank" class="submit-btn" style="background: var(--royal-blue); color: white; text-align: center; text-decoration: none; display: block; margin-bottom: 15px;">
+      View AI Performance Analysis
+    </a>
+    <button onclick="closeStudentProfileModal()" class="submit-btn" style="margin-top: 0;">Close Profile</button>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-col">
+      <h4>A.M.I.T. Educational Institution</h4>
+      <p>Empowering young minds through rigorous analytical thinking, advanced mathematics, and world-class Olympiad training.</p>
+      <div class="social-links">
+        <a href="https://wa.me/919782870716" target="_blank" title="WhatsApp">💬</a>
+        <a href="https://t.me/" target="_blank" title="Telegram">✈️</a>
+        <a href="#" target="_blank" title="Instagram">📸</a>
+        <a href="#" target="_blank" title="Facebook">📘</a>
+        <a href="#" target="_blank" title="YouTube">▶️</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Quick Links</h4>
+      <ul class="footer-links">
+        <li><a href="#about">About Founder</a></li>
+        <li><a href="#liveWinners">Top Champions</a></li>
+        <li><a href="#hallOfChampions">Hall of Champions</a></li>
+        <li><a href="#prizes">National Prizes</a></li>
+        <li><a href="#registration">Student Registration</a></li>
+        <li><a href="/exam.html" target="_blank" style="color: #10B981; font-weight: 600;">📝 Online Exam Portal</a></li>
+        <li><a href="/result.html" target="_blank" style="color: #60A5FA; font-weight: 600;">🏆 Check Student Results</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contact Support</h4>
+      <p>📞 Helpline: +91 9782870716</p>
+      <p>📧 Email: support@amitolympiad.com</p>
+      <p>📍 Location: India</p>
+      <div style="margin-top: 15px;">
+        <a href="https://maps.google.com" target="_blank" style="color: var(--gold); text-decoration: none; font-size: 13px; font-weight: 600;">🗺️ View on Google Maps</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div>© 2027 A.M.I.T. Olympiad. All Rights Reserved. Helpline: 9782870716</div>
+    <div style="display: flex; gap: 20px;">
+      <a href="#" style="color: #94A3B8; text-decoration: none;">Privacy Policy</a>
+      <a href="#" style="color: #94A3B8; text-decoration: none;">Terms of Service</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const PlatformDataStore = {
+    liveStats: { todayReg: 142, todayChallenges: 1280, fastestTime: "8.91s", schoolsCount: "450+" },
+    topWinnersToday: [
+      { name: "Amit Kumar", class: "Class 8", school: "SGS DAV", district: "Hanumangarh", state: "Rajasthan", time: "8.91 Seconds", xp: "+50 XP", medal: "🥇", crown: "Golden Crown", photo: "amit_kumar.jpg" },
+      { name: "Aarav Mehta", class: "Class 10", school: "DPS Delhi", district: "New Delhi", state: "Delhi", time: "9.12 Seconds", xp: "+30 XP", medal: "🥈", crown: "Silver Crown", photo: "amit_kumar.jpg" },
+      { name: "Sneha Kulkarni", class: "Class 9", school: "St. Xavier’s", district: "Mumbai", state: "Maharashtra", time: "9.35 Seconds", xp: "+20 XP", medal: "🥉", crown: "Bronze Crown", photo: "amit_kumar.jpg" }
+    ],
+    hallOfChampionsArchive: {
+      daily: [
+        { name: "Amit Kumar", school: "SGS DAV", district: "Hanumangarh", state: "Rajasthan", achievement: "Fastest Daily Solver", year: "2026", medal: "Gold Medal", photo: "amit_kumar.jpg" },
+        { name: "Aarav Mehta", school: "DPS Delhi", district: "New Delhi", state: "Delhi", achievement: "Daily Runner Up", year: "2026", medal: "Silver Medal", photo: "amit_kumar.jpg" }
+      ],
+      weekly: [{ name: "Sneha Kulkarni", school: "St. Xavier’s", district: "Mumbai", state: "Maharashtra", achievement: "Weekly Champion", year: "2026", medal: "Gold Medal", photo: "amit_kumar.jpg" }],
+      monthly: [{ name: "Kabir Sharma", school: "Mother’s Int.", district: "Delhi", state: "Delhi", achievement: "Monthly Topper", year: "2026", medal: "Diamond Medal", photo: "amit_kumar.jpg" }],
+      olympiad: [{ name: "Aarav Mehta", school: "DPS Delhi", district: "New Delhi", state: "Delhi", achievement: "National Olympiad #1", year: "2025", medal: "Olympiad Trophy", photo: "amit_kumar.jpg" }]
+    },
+    studentProfile: {
+      name: "Amit Kumar", school: "SGS DAV", district: "Hanumangarh", state: "Rajasthan",
+      rank: "#2", xp: "140 XP", level: "Level 1", status: "Verified (Active)",
+      badges: ["🥉 Bronze Solver", "⚡ Speed Solver", "🎯 Accuracy Master"], photo: "amit_kumar.jpg"
+    }
+  };
+
+  document.addEventListener("DOMContentLoaded", () => {
+    renderLiveWinners();
+    renderHallOfChampions('daily');
+    updateLiveStatsDisplay();
+  });
+
+  function renderLiveWinners() {
+    const container = document.getElementById("homepageTopWinnersContainer");
+    if (!container) return;
+    container.innerHTML = PlatformDataStore.topWinnersToday.map(w => `
+      <div class="winner-card">
+        <span class="winner-medal-badge">${w.medal}</span>
+        <img src="${w.photo}" alt="${w.name}" class="winner-avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'">
+        <h4>${w.name}</h4>
+        <div class="winner-school-info">${w.school}, ${w.district}, ${w.state}</div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Grade: ${w.class} | Time: <strong>${w.time}</strong></p>
+        <span class="winner-stat-pill">👑 ${w.crown} (${w.xp})</span>
+      </div>
+    `).join('');
+  }
+
+  function switchArchiveTab(tabName) {
+    document.querySelectorAll('.archive-tab').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    renderHallOfChampions(tabName);
+  }
+
+  function renderHallOfChampions(category) {
+    const list = PlatformDataStore.hallOfChampionsArchive[category];
+    const container = document.getElementById("hallOfChampionsContainer");
+    if (!container) return;
+    container.innerHTML = list.map(c => `
+      <div class="champion-card">
+        <img src="${c.photo}" alt="${c.name}" class="champion-avatar" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'">
+        <h4 style="font-size: 17px; font-weight: 700; color: var(--dark-navy); margin-bottom: 3px;">${c.name}</h4>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">${c.school}, ${c.district}, ${c.state}</p>
+        <div style="font-size: 12px; font-weight: 600; color: var(--royal-blue); margin-bottom: 6px;">🎯 ${c.achievement} (${c.year})</div>
+        <span style="display: inline-block; background: rgba(255,215,0,0.15); color: #B45309; font-weight: 700; font-size: 11px; padding: 4px 12px; border-radius: 20px;">🏅 ${c.medal}</span>
+      </div>
+    `).join('');
+  }
+
+  function updateLiveStatsDisplay() {
+    document.getElementById("statTodayReg").innerText = PlatformDataStore.liveStats.todayReg;
+    document.getElementById("statTodayChallenges").innerText = PlatformDataStore.liveStats.todayChallenges;
+    document.getElementById("statFastestTime").innerText = PlatformDataStore.liveStats.fastestTime;
+    document.getElementById("statSchoolsCount").innerText = PlatformDataStore.liveStats.schoolsCount;
+  }
+
+  function previewStudentPhoto(event) {
+    const file = event.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("❌ File size exceeds 2 MB. Please upload a smaller photo.");
+        event.target.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById("uploadedPhotoPreview").src = e.target.result;
+        document.getElementById("photoPreviewBox").style.display = "block";
+      }
+      reader.readAsDataURL(file);
+    }
+  }
+
+  let temporaryRegistrationData = null;
+
+  function handleRegistrationSubmit(event) {
+    event.preventDefault();
+    const name = document.getElementById("regName").value.trim();
+    const mobile = document.getElementById("regMobile").value.trim();
+    const photoFile = document.getElementById("regPhotoFile").files[0];
+
+    if (!photoFile) {
+      alert("❌ Student passport size photo upload is compulsory.");
+      return;
+    }
+
+    temporaryRegistrationData = { name, mobile };
+    
+    document.getElementById("registration-section").style.display = "none";
+    document.getElementById("otp-section").style.display = "block";
+    document.getElementById("wizard-step-1").className = "step-node completed";
+    document.getElementById("wizard-step-2").className = "step-node active";
+  }
+
+  function verifyMobileOTP() {
+    const otpVal = document.getElementById("otpInputCode").value.trim();
+    if (otpVal !== "123456") {
+      alert("❌ Incorrect OTP. Please enter '123456' for demo testing.");
+      return;
+    }
+    document.getElementById("otp-section").style.display = "none";
+    document.getElementById("payment-section").style.display = "block";
+    document.getElementById("wizard-step-2").className = "step-node completed";
+    document.getElementById("wizard-step-3").className = "step-node active";
+  }
+
+  async function submitFinalRegistration() {
+    document.getElementById("payment-section").style.display = "none";
+    document.getElementById("loading-section").style.display = "block";
+
+    setTimeout(async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                fullName: temporaryRegistrationData ? temporaryRegistrationData.name : "Amit Student", 
+                mobile: temporaryRegistrationData ? temporaryRegistrationData.mobile : "9782870716" 
+            })
+        });
+
+        const result = await response.json();
+        document.getElementById("loading-section").style.display = "none";
+
+        if(result.success) {
+            document.getElementById("success-section").style.display = "block";
+            const successMsg = document.querySelector("#success-section p");
+            successMsg.innerHTML = `Your application and photo have been securely sent to our database. <br><br> <strong style="color: #0052FF; font-size: 18px;">🎯 Your Student ID: ${result.student.studentId}</strong> <br><br> Please save this ID. Once verified by admin, your profile will unlock!`;
+            document.getElementById("wizard-step-3").className = "step-node completed";
+        } else {
+            alert("❌ Server Error: " + result.error);
+            document.getElementById("payment-section").style.display = "block";
+        }
+      } catch (error) {
+        document.getElementById("loading-section").style.display = "none";
+        alert("❌ Server se connection nahi ho paya. Error: " + error.message);
+        document.getElementById("payment-section").style.display = "block";
+      }
+    }, 1000);
+  }
+
+  function openStudentProfileModal() {
+    const p = PlatformDataStore.studentProfile;
+    document.getElementById("profileModalName").innerText = p.name;
+    document.getElementById("profileModalMeta").innerText = `${p.school} | ${p.district}, ${p.state}`;
+    document.getElementById("profileModalRank").innerText = p.rank;
+    document.getElementById("profileModalXP").innerText = p.xp;
+    document.getElementById("profileModalLevel").innerText = p.level;
+    
+    const badgeContainer = document.getElementById("profileModalBadges");
+    badgeContainer.innerHTML = p.badges.map(b => `<span style="background: rgba(255,215,0,0.15); color: #B45309; font-weight: 700; font-size: 11px; padding: 6px 14px; border-radius: 20px;">${b}</span>`).join('');
+
+    document.getElementById("studentProfileModal").style.display = "flex";
+  }
+
+  function closeStudentProfileModal() {
+    document.getElementById("studentProfileModal").style.display = "none";
+  }
+
+  /* STUDENT LOGIN MODAL FUNCTIONS */
+  function openLoginModal() {
+    document.getElementById("studentLoginModal").style.display = "flex";
+    document.getElementById("loginStep1").style.display = "block";
+    document.getElementById("loginStep2").style.display = "none";
+  }
+  function closeLoginModal() {
+    document.getElementById("studentLoginModal").style.display = "none";
+  }
+  function requestStudentOTP() {
+    const sId = document.getElementById("loginStudentId").value.trim();
+    if(!sId) { alert("Please enter your Student ID"); return; }
+    document.getElementById("loginStep1").style.display = "none";
+    document.getElementById("loginStep2").style.display = "block";
+  }
+  function verifyLoginOTP() {
+    const otp = document.getElementById("loginOtpCode").value.trim();
+    if(otp !== "123456") { alert("Incorrect OTP. Enter 123456"); return; }
+    window.location.href = "/dashboard.html";
+  }
+
+  /* COUNTDOWN TIMER */
+  const countdownDate = new Date("August 10, 2026 23:59:59").getTime();
+  setInterval(() => {
+    const now = new Date().getTime();
+    const distance = countdownDate - now;
+    if (distance > 0) {
+      document.getElementById("days").innerText = String(Math.floor(distance / (1000 * 60 * 60 * 24))).padStart(2, '0');
+      document.getElementById("hours").innerText = String(Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))).padStart(2, '0');
+      document.getElementById("minutes").innerText = String(Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+      document.getElementById("seconds").innerText = String(Math.floor((distance % (1000 * 60)) / 1000)).padStart(2, '0');
+    }
+  }, 1000);
+
+  function triggerLogoInteraction(event) {
+    event.preventDefault();
+    const logoCard = document.getElementById('interactiveLogoCard');
+    if (!logoCard) return;
+    logoCard.classList.remove('interactive-active');
+    void logoCard.offsetWidth;
+    logoCard.classList.add('interactive-active');
+    setTimeout(() => { logoCard.classList.remove('interactive-active'); }, 600);
+
+    const welcomeMsg = document.getElementById('floatingWelcomeMsg');
+    if (welcomeMsg) {
+      welcomeMsg.classList.add('show-msg');
+      setTimeout(() => { welcomeMsg.classList.remove('show-msg'); }, 3000);
+    }
+  }
+
+  const formInputs = document.querySelectorAll('#regForm input, #regForm select');
+  formInputs.forEach(input => {
+    input.addEventListener('input', calculateFormProgress);
+    input.addEventListener('change', calculateFormProgress);
+  });
+
+  function calculateFormProgress() {
+    let total = formInputs.length;
+    let filled = 0;
+    formInputs.forEach(inp => { if (inp.value && inp.value.trim() !== "") filled++; });
+    let percentage = Math.round((filled / total) * 100);
+    document.getElementById('formProgressFill').style.width = percentage + '%';
+    document.getElementById('progressPercentText').innerText = percentage + '%';
+  }
+
+  const faqItems = document.querySelectorAll('.faq-item');
+  faqItems.forEach(item => {
+    const question = item.querySelector('.faq-question');
+    question.addEventListener('click', () => {
+      faqItems.forEach(other => { if (other !== item) other.classList.remove('active'); });
+      item.classList.toggle('active');
+    });
+  });
+</script>
+</body>
+</html>
