@@ -195,6 +195,18 @@ If `dbName` says `test`, the URI is still missing its path. That field was added
 
 ---
 
+## /ready reports "disconnected" on Vercel even though the database is fine
+
+**Problem**: `GET /ready` returned `503 {"db":"disconnected"}` in production, but hitting any database-backed route immediately afterwards worked, and a second `/ready` then returned `200 {"db":"connected"}`.
+
+**Cause**: The original readiness handler only *inspected* `mongoose.connection.readyState`; it never tried to connect. On Vercel every request can land on a freshly started container which has not opened a connection yet, because connections are established lazily by the `ensureDb` middleware on data routes. So a cold container truthfully reported "no connection in this container" — which reads as "the database is down" and is useless for an uptime monitor or a deploy gate. It was not reproducible locally, where the long-lived process connects once at boot.
+
+**Solution**: `/ready` now *attempts* a connection via `connectDB()` before reporting, catching failures and falling through to 503. `connectDB()` caches and de-duplicates in-flight connects, so on a warm container this adds nothing.
+
+**Verification**: `/ready` returns 200 on the first call to a cold deployment, and still returns 503 when the database genuinely cannot be reached.
+
+---
+
 ## Template for new entries
 
 ```
