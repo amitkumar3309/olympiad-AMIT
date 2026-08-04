@@ -5,6 +5,6 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src", "api", "tests", "vitest.config.mts"],
+  "include": ["src", "api", "tests", "scripts", "vitest.config.mts"],
   "exclude": ["dist", "node_modules"]
 }

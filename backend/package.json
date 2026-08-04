@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:email": "tsx scripts/verify-email.ts"
   },
   "dependencies": {
     "@vercel/node": "^5.9.3",
