@@ -53,12 +53,16 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   src/config/env.ts           dotenv load + zod validation of process.env
   src/config/index.ts         typed config (the ONLY place deriving app config from env)
   src/db/connection.ts        cached connect/disconnect + connection-state helpers
-  src/lib/                    logger (pino), ApiError, apiResponse helpers
+  src/lib/                    logger (pino), ApiError, apiResponse helpers,
+                              mathContent (LaTeX grammar), slug, serviceError
+  src/services/               question + taxonomy business rules (Milestone 4);
+                              routes do HTTP, services own the rules
   src/middleware/             auth, validate, errorHandler, rateLimiter,
                               requestLogger, ensureDb
   src/models/                 one Mongoose model per file + barrel index
   src/routes/health.routes.ts /health (liveness), /ready (readiness)
-  src/routes/v1/              auth, analytics, questions, admin, users, misc
+  src/routes/v1/              auth, analytics, questions (student reads),
+                              questionsAdmin, taxonomy, admin, users, misc
                               + barrel index
   src/validation/             zod schemas
   src/lib/permissions.ts      THE role -> permission table (start here for authz)
@@ -107,6 +111,8 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 ## Backend Conventions
 
 - There are **two** auth cookies: `access_token` (short-lived JWT) and `refresh_token` (opaque, rotating). Both `httpOnly`, `secure` only in production, `sameSite: 'none'` in prod / `'lax'` in dev (prod frontend and backend are different Vercel domains, so cross-site cookies are required). Do not change these without understanding the split-domain implication — see [`SECURITY.md`](SECURITY.md).
+- **Never return a raw Mongoose document from a question endpoint.** `questions.routes.ts` and `questionsAdmin.routes.ts` each build an explicit view: the student view omits `isCorrect`, `solution`, `booleanAnswer`, `numericAnswer` and `tolerance`; the author view includes them. They are two functions rather than one with an `includeAnswers` flag on purpose — before Milestone 4 this endpoint was unauthenticated and served the whole answer key. Do not merge them.
+- Author-written content that may contain maths must be validated with `validateMathContent()` from `lib/mathContent.ts`, and rendered only through `frontend/src/components/MathText.tsx`. Never put question content into `dangerouslySetInnerHTML` yourself — the safety of the whole scheme is that prose becomes a React text node and only KaTeX output becomes HTML.
 - **`requirePermission('...')` is the gate for new routes**, not a role check. The role → permission table in `src/lib/permissions.ts` is the *only* place a role may be mapped to a capability — **never** compare `req.user.role` to a literal in a handler or route (see [`DECISIONS.md`](DECISIONS.md)). Add a permission to that table if none fits. `requireAuth(...roles)` still exists but only for gates that genuinely concern identity rather than capability (e.g. `/auth/logout-all`). For a decision that depends on the data being addressed rather than the path, use `callerCan()` / `callerCanFresh()` — the latter re-reads the role from the database and is what you want before granting access to *someone else's* data.
 - Authentication is stateless (no DB read). **Authorization is not, for privileged permissions**: `requirePermission` re-reads `role`/`status`/`tokenVersion` from MongoDB so a demotion or suspension takes effect at once instead of surviving the access token's TTL. Do not "optimise" that read away. It also means privileged routes need a database connection in order to authorize, and answer 503 without one.
 - Any route that changes an account, a role, or the question bank must call `recordAudit(req, {...})` from `src/lib/audit.ts` with an action from `src/models/AuditLog.ts`. Audit writes are best-effort by design and must never fail the action they describe.
@@ -116,7 +122,10 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Database Conventions
 
-- MongoDB via Mongoose, one model per file in `src/models/` — **8 models** (see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md)). `AuditLog` deliberately has **no** TTL index, unlike the two token collections. `ExamAttempt` and `Result` exist but are **not wired to any route** — do not assume they are populated.
+- MongoDB via Mongoose, one model per file in `src/models/` — **11 models** (see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md)). `AuditLog` deliberately has **no** TTL index, unlike the two token collections. `ExamAttempt` and `Result` exist but are **not wired to any route** — do not assume they are populated.
+- **`Question` was rewritten in Milestone 4** and cannot read documents created before it (`subject` went from `String` to `ObjectId`, which throws a cast error on read rather than being a tolerable missing field). Legacy documents must be deleted with `backend/scripts/migrate-questions.ts` — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+- Topics **and subtopics** are the same `Topic` collection, distinguished by a nullable `parent` and a derived `depth` capped at 1. Do not add a separate `Subtopic` model without a `DECISIONS.md` entry.
+- `backend/.env` holds the **production** Atlas URI, so `npm start` locally writes to live data. Use `npm run dev:local --prefix backend` for local work — it forces a localhost database.
 - `Student.passwordHash` is `select: false`. A query that needs it must opt in with `.select('+passwordHash')`; never remove that guard.
 - `Student.email` is required and unique, and was added in Milestone 2, so **documents created before it lack the field** and will fail validation on save. There is no migration script — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 - Any route that touches the database must have the `ensureDb` middleware applied **after** validation/auth. Without it the route will work locally but fail in production, because the serverless entry never runs the local bootstrap that connects at startup.

@@ -2,6 +2,41 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-05 — Milestone 4: Complete Question Bank System
+
+The question bank became a real, authored system: a subject/topic/subtopic taxonomy, four question types with per-type answer shapes, marks and negative marks, an editorial workflow, tags, search/filter/sort/pagination, and an admin UI with a live maths preview. **No exam, results, certificate or leaderboard behaviour changed** — those surfaces are still mock; this milestone builds what they will eventually read from.
+
+**Security fix — the answer key was public.** `GET /api/v1/questions` had **no authentication middleware at all** and returned raw documents including `correctAnswer`, so anyone on the internet could fetch the answer key for the whole bank. It is now gated on `questions:read`, and the student response is an explicit allow-list that omits `isCorrect`, `solution`, `booleanAnswer`, `numericAnswer` and `tolerance` by construction. The author view is a separate function behind `questions:write`, deliberately not one function with an `includeAnswers` flag. See [`SECURITY.md`](SECURITY.md).
+
+**Taxonomy**
+- New `Subject` collection: name (unique case-insensitively), derived slug, description, status, display order.
+- New `Topic` collection holding **both topics and subtopics**, distinguished by a nullable `parent` and a derived `depth` capped at 1. Uniqueness is scoped to the parent, so "Fractions" may exist under two subjects and as a subtopic of each.
+- Archiving is refused while published questions still reference the entry, and says how many.
+
+**Questions** — `Question` was rewritten:
+- Four types: `single_choice`, `multiple_choice`, `true_false`, `numeric` (with optional tolerance). Each uses exactly one answer representation and the validator **rejects the fields belonging to the other types**.
+- Options are now subdocuments with a server-assigned stable `key` and an `isCorrect` flag, replacing `correctAnswer`-as-literal-text — which meant fixing a typo in an option silently invalidated every recorded answer.
+- `marks` (0.25–100) and `negativeMarks` (a magnitude to deduct, 0 disables it, cannot exceed `marks`).
+- Status workflow `draft → in_review → published`, plus `archived`. Everything is created as a draft; publishing additionally requires a solution and a resolvable answer key.
+- Tags (lowercased, de-duplicated), `revision` bumped on every edit, and created/updated actor labels.
+
+**Mathematics** — content is plain text with LaTeX islands (`$…$`, `$$…$$`), rendered by KaTeX. Prose is rendered as React text nodes and only KaTeX's own output is inserted as HTML, so author text never reaches an HTML sink. The backend independently rejects link, file-inclusion and macro-definition commands, unbalanced delimiters, markup and control characters. KaTeX is lazy-loaded so the main bundle stays at ~476 KB.
+
+**APIs** (all under `/api/v1`)
+- New: `GET /subjects`, `GET /topics`, `POST /admin/subjects`, `PATCH /admin/subjects/:id`, `POST /admin/topics`, `PATCH /admin/topics/:id`.
+- New: `GET /admin/questions`, `GET /admin/questions/:id`, `POST /admin/questions`, `PUT /admin/questions/:id`, `PATCH /admin/questions/:id/status`, `DELETE /admin/questions/:id`.
+- Changed: `GET /questions` and `GET /questions/:id` are authenticated, published-only and answer-stripped; a draft asked for by id returns **404, not 403**.
+- Changed: `POST /admin/generate-questions` now requires real subject and topic ids and writes **drafts only**, so template placeholder text can never reach a student.
+- Listing supports `page`/`limit`, an **allow-listed** `sort` (so a caller cannot make the database sort by an unindexed field), `order`, literal regex-escaped `search` across text/tags/solutions, and filters on status, subject, topic, subtopic, class, difficulty, type and tag. `_id` is a sort tiebreaker so pagination is stable.
+
+**Permissions** — two added: `questions:delete` (separate because it is the one question-bank action that destroys data) and `taxonomy:write`. Six new audit actions.
+
+**Admin frontend** — three new pages: `/admin/questions` (list with search/filter/sort/pagination and loading/error/empty states), `/admin/questions/new` and `/:id/edit` (form with a live side-by-side maths preview), `/admin/taxonomy` (nested subject → topic → subtopic tree). The "AI Question Generator" page now says plainly that it is a template filler, not AI.
+
+**Breaking change** — the `Question` rewrite cannot read pre-Milestone-4 documents (`subject` went from `String` to `ObjectId`, which is a **cast error on read**, not a missing field). Every such document came from the old template generator and nothing references questions yet, so `backend/scripts/migrate-questions.ts` reports them and removes them with `--delete`. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
+**Testing** — 77 new tests (`tests/questionBank.test.ts`), taking the suite from 147 to **224**. They cover the whole CRUD flow end to end, per-type answer rules, the maths grammar including macro-expansion and markup attacks, the editorial workflow and its illegal transitions, search/filter/sort/pagination, and the answer-key protection from a real student session. Test files now run **sequentially** (`fileParallelism: false`): five suites start their own `mongod`, and in parallel they contended badly enough to fail with unrelated duplicate-key errors. `clearTestDb()` now throws instead of silently no-oping when there is no connection, which is what made that diagnosable.
+
 ## 2026-08-05 — Full registration details are collected and persisted
 
 Registration previously asked for four things (full name, mobile, email, password). It now collects the complete entrant record the owner specified, and every field is written to MongoDB as part of the same request. **No exam, results, certificate or leaderboard behaviour changed.**

@@ -1,0 +1,184 @@
+.intro {
+  margin: 0 0 14px;
+  max-width: 76ch;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.archivedToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.notice {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--success);
+  font-size: 0.88rem;
+}
+
+.forms {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.inlineForm {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.inlineForm > label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.inlineRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.centered,
+.empty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+.emptyHint {
+  margin: 0;
+  max-width: 48ch;
+  font-size: 0.88rem;
+}
+
+.tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.subject {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 12px 14px;
+}
+
+.busy {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.subjectHead,
+.topicRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.disclosure {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 4px;
+}
+
+.subjectName {
+  font-weight: 700;
+}
+
+.slug {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.topicCount {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.archivedBadge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--royal-blue);
+}
+
+.linkButton:hover {
+  background: rgba(79, 70, 229, 0.12);
+}
+
+.linkButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.noTopics {
+  margin: 10px 0 0 26px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.topics,
+.subtopics {
+  list-style: none;
+  margin: 10px 0 0 26px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.subtopics {
+  margin-left: 22px;
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
+}
+
+.topicName {
+  font-size: 0.92rem;
+}
+
+.subtopicName {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}

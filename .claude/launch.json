@@ -9,6 +9,13 @@
       "autoPort": false
     },
     {
+      "name": "amit-olympiad-backend-local-db",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "backend", "run", "dev:local"],
+      "port": 8081,
+      "autoPort": false
+    },
+    {
       "name": "amit-olympiad-frontend",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "frontend", "run", "dev"],

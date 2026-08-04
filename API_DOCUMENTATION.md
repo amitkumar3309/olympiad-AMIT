@@ -143,12 +143,103 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 
 ### `POST /api/v1/admin/generate-questions`
 - **Auth**: `requirePermission('questions:write')` (admin and super admin).
+- **Request** (**changed in Milestone 4**): `{ subject, topic, classLevel, difficulty?, count }`. `subject` and `topic` are now **ObjectIds of real taxonomy rows** — the bank no longer accepts a free-text subject, so the generator cannot invent classification nothing else knows about. `count` is 1–20.
+- **Behaviour**: creates `count` **draft** questions from a template string (**not** an AI/LLM call — no AI provider is integrated anywhere in this backend). It goes through the same `createQuestion` service as a hand-authored question, so it cannot bypass the taxonomy consistency checks. Because everything it writes is a draft, template placeholder text can never reach a student.
+- **Response 201**: `{ success, message, questions: [{ id, questionText, status }] }`.
 - **Side effect**: writes a `questions.generated` audit entry.
-- **Request**: `{ classLevel, subject, topic, difficulty?, questionType?, count }` — `count` is coerced to an integer and constrained to 1–20.
-- **Behaviour**: generates `count` template-string questions (**not** an AI/LLM call — no AI provider is integrated) and `insertMany`s them.
-- **Errors**: `400`, `401`/`403`, `429`, `503`, `500`.
+- **Errors**: `400` (unknown subject/topic, or a topic from another subject), `401`/`403`, `429`, `503`, `500`.
 - **Called by**: `AiGenerator.tsx`.
-- **Note**: `topic` only appears inside the generated text; `Question` has no `topic` field.
+
+---
+
+## Question bank (Milestone 4)
+
+Taxonomy routes live in `backend/src/routes/v1/taxonomy.routes.ts`; question routes are split between `questions.routes.ts` (student-facing reads) and `questionsAdmin.routes.ts` (authoring). Business rules are in `backend/src/services/`.
+
+### Taxonomy — reading
+
+Reading the taxonomy needs only `questions:read`, which **every student holds**: subject and topic lists are what a practice or exam filter is built from, and they carry no answer data.
+
+#### `GET /api/v1/subjects`
+- **Permission**: `questions:read`.
+- **Query**: `status` (`active`/`archived`), optional. Omit for both.
+- **Response 200**: `{ success, subjects: Subject[] }`, ordered by `displayOrder` then `name`.
+
+#### `GET /api/v1/topics`
+- **Permission**: `questions:read`.
+- **Query**: `subject` (id), `parent`, `status` — all optional. **`parent=root`** returns top-level topics only; `parent=<topicId>` returns that topic's subtopics; omitting `parent` returns every level. A literal `root` sentinel is used rather than an empty string, because an empty query value is indistinguishable from an absent parameter.
+- **Response 200**: `{ success, topics: Topic[] }` — each with `parent` and `depth` (0 = topic, 1 = subtopic).
+
+### Taxonomy — writing
+
+Both require **`taxonomy:write`** (admin and super admin; no student holds it). Both write a `subject.changed` / `topic.changed` audit entry.
+
+#### `POST /api/v1/admin/subjects`
+- **Request**: `{ name, description?, displayOrder? }`. `slug` is derived — do not send it.
+- **Response 201**: `{ success, subject }`.
+- **Errors**: `400` (name contains `$`, `<` or `>`), `409` duplicate name (case-insensitive), `401`/`403`.
+
+#### `PATCH /api/v1/admin/subjects/:id`
+- **Request**: any of `{ name, description, displayOrder, status }`. A genuine patch — an **empty body is rejected with 400** rather than reported as a no-op success. Renaming re-derives the slug.
+- **Errors**: `400`, `404`, `409` duplicate name, **`409` when archiving a subject that still has published questions** (the message says how many).
+
+#### `POST /api/v1/admin/topics`
+- **Request**: `{ subject, parent?, name, description?, displayOrder? }`. Supplying `parent` makes the row a **subtopic**; omitting it makes a top-level topic. `depth` is derived, never sent.
+- **Errors**: `400` (unknown subject/parent, a parent from a **different subject**, or nesting deeper than subtopic), `409` duplicate name **within the same parent** (the same name under a different parent is allowed), `401`/`403`.
+
+#### `PATCH /api/v1/admin/topics/:id`
+- **Request**: any of `{ name, description, displayOrder, status }`; empty body → 400.
+- **Errors**: as above, plus `409` when archiving with published questions attached (checked against both `topic` and `subtopic` references).
+
+### Questions — student-facing reads
+
+#### `GET /api/v1/questions`
+- **Permission**: `questions:read`. **This endpoint had no authentication at all before Milestone 4** and returned raw documents including `correctAnswer` — the entire answer key was readable by anyone on the internet. See [`SECURITY.md`](SECURITY.md).
+- **Query**: `page`, `limit` (≤50), `sort`, `order`, `search`, `subject`, `topic`, `subtopic`, `classLevel`, `difficulty`, `type`, `tag`. There is deliberately **no `status` parameter**: the route pins the visible statuses to `published`, and accepting the parameter would imply it could be changed.
+- **Response 200**: `{ success, questions, pagination }`. Each question is an explicit allow-list that **omits every answer field** — options carry only `key` and `text` (never `isCorrect`), and `solution`, `booleanAnswer`, `numericAnswer` and `tolerance` are absent. A test asserts none of those names appears in the body.
+- **Errors**: `400` bad query, `401`, `429`, `503`.
+
+#### `GET /api/v1/questions/:id`
+- **Permission**: `questions:read`. Same stripped view.
+- **Errors**: `400` malformed id, `401`, **`404` for a question that exists but is not published** — 403 would confirm that a draft with that id is being prepared, which is not a student's business.
+
+### Questions — authoring
+
+All require **`questions:write`** except the delete, which requires **`questions:delete`**.
+
+#### `GET /api/v1/admin/questions`
+- **Query**: `page` (≥1), `limit` (1–100), `sort`, `order` (`asc`/`desc`), `search`, `status`, `subject`, `topic`, `subtopic`, `classLevel`, `difficulty`, `type`, `tag`.
+- `sort` is constrained to an **allow-list** (`createdAt`, `updatedAt`, `marks`, `difficulty`, `classLevel`); anything else is 400. Passing the parameter through would let a caller sort by an unindexed field, which is a cheap way to make the database do expensive work.
+- `search` matches `questionText`, `tags` and `solution`, case-insensitively and **literally** — the term is regex-escaped, so `.*` matches nothing rather than everything (asserted by a test). It searches the LaTeX source, so an author can find `x^2-9`.
+- Filters combine as **AND**. `_id` is appended to every sort as a tiebreaker, so pagination is stable and no question can appear on two pages.
+- **Response 200**: `{ success, questions, pagination }` — the **author's** view, including `isCorrect`, `solution` and the answer fields. This is a separate function from the student view rather than one function with an `includeAnswers` flag, so the two cannot be confused at a call site.
+
+#### `GET /api/v1/admin/questions/:id`
+- **Response 200**: `{ success, question }` (author's view). `400` malformed id, `404` unknown.
+
+#### `POST /api/v1/admin/questions`
+- **Request**: `{ questionText, type, options[], booleanAnswer, numericAnswer, tolerance, solution, subject, topic, subtopic, classLevel, difficulty, marks, negativeMarks, tags[] }`.
+- **Always created as a `draft`** — "saved" and "visible to students" can never be the same keystroke. Option `key`s are assigned by the server.
+- **Validation**: per-type answer rules (a choice type needs ≥2 options and exactly one / at least two correct; `true_false` needs `booleanAnswer`; `numeric` needs `numericAnswer`), **plus rejection of the fields a type does not use**. Duplicate option text, all-options-correct, `negativeMarks > marks`, and every LaTeX rule in `lib/mathContent.ts` are refused.
+- **Response 201**: `{ success, question }`. Writes a `question.created` audit entry.
+- **Errors**: `400` validation or an inconsistent taxonomy triplet (topic from another subject, subtopic from another topic, a subtopic passed as `topic`), `401`/`403`, `429`, `503`.
+
+#### `PUT /api/v1/admin/questions/:id`
+- Takes the **whole content**, not a patch: whether `options` is required depends on `type`, so a partial update could leave the document in a state no create request could produce.
+- Increments `revision`. **409 if the question is archived** — restore it to a draft first.
+- Writes a `question.updated` audit entry.
+
+#### `PATCH /api/v1/admin/questions/:id/status`
+- **Request**: `{ status, reason? }`.
+- Permitted transitions: `draft → in_review|published|archived`, `in_review → draft|published|archived`, `published → archived|draft`, `archived → draft`. Anything else is **409**, as is moving to the status it already has.
+- **Publishing additionally requires a `solution`** and a resolvable answer key — a published question is one a student is graded on, so the things that would make grading wrong or unexplainable are blocked here rather than discovered later.
+- Writes a `question.status.changed` audit entry.
+
+#### `DELETE /api/v1/admin/questions/:id`
+- **Permission**: `questions:delete` — separate from `questions:write` because it is the one question-bank action that destroys data rather than changing it.
+- Permitted **only** for a question that has never been published. A currently-published question is refused, and so is one whose `publishedAt` is set even if it has since returned to draft — so unpublishing first is not a way around it. Once a question could have been answered, deleting it would orphan the attempt that references it.
+- Reads the question **before** deleting so the audit entry can still name what was destroyed. Writes `question.deleted`.
+- **Errors**: `400`, `403`, `404`, `409` (archive it instead).
 
 ---
 
@@ -205,12 +296,7 @@ All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `re
 
 ## IMPLEMENTED — but not called by the frontend
 
-### `GET /api/v1/questions`
-- **Auth**: none (public).
-- **Query params**: optional `classLevel`, `subject`, `difficulty`.
-- **Validation** (`listQuestionsQuerySchema`): each must be a plain non-empty string; `difficulty` must be one of `Easy`/`Medium`/`Hard`. A repeated key (`?difficulty=a&difficulty=b`) arrives as an array and is rejected with 400, so no non-string value can reach the Mongoose filter — see [`SECURITY.md`](SECURITY.md).
-- **Response 200**: `{ success: true, count: number, data: Question[] }`, hard-limited to 20 results, no pagination.
-- **Frontend**: no page calls this yet.
+`GET /api/v1/questions` and `GET /api/v1/questions/:id` are documented under "Question bank (Milestone 4)" above. They are real, authenticated and answer-stripped, but **no student-facing page calls them yet** — `Exam.tsx` is still a hardcoded five-question quiz. Wiring the exam to them is the next milestone's work.
 
 ---
 

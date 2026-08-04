@@ -1,12 +1,16 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-05 (registration now collects and persists the full entrant record, including a photo)._
+_Last updated: 2026-08-05 (Milestone 4 — Complete Question Bank System, implemented and verified)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
 ## Current Development Phase
 
-**Registration data capture: implemented and verified end-to-end.** Registration collects the full entrant record the owner specified — three name parts, both parents' names, date of birth, class, school, full address, mobile, email and a mandatory photo — and writes every field to MongoDB in the same request. Previously it stored only name/mobile/email/password. Photos live in a new `StudentPhoto` collection and are served by an authorization-checked endpoint.
+**Milestone 4 — Complete Question Bank System: implemented and verified end-to-end.** Questions are now authored, reviewed and published through a real admin interface: a subject / topic / subtopic taxonomy, four question types with per-type answer shapes, marks and negative marks, an editorial workflow, tags, and search / filter / sort / pagination. Mathematics is written as LaTeX and rendered with KaTeX through a text/math split that keeps author content out of every HTML sink. It also closed a serious hole: `GET /questions` was **unauthenticated and returned the answer key**.
+
+The exam, results, certificates and leaderboard pages are **still mock** — this milestone builds the bank they will eventually read from, and deliberately did not touch them.
+
+Before that, **registration data capture: implemented and verified end-to-end.** Registration collects the full entrant record the owner specified — three name parts, both parents' names, date of birth, class, school, full address, mobile, email and a mandatory photo — and writes every field to MongoDB in the same request. Previously it stored only name/mobile/email/password. Photos live in a new `StudentPhoto` collection and are served by an authorization-checked endpoint.
 
 Before that, **Milestone 3 — RBAC and User Management Foundation: implemented and verified end-to-end.** Authorization is now permission-based with a single role → permission table, three roles exist (`student` / `admin` / `superadmin`), administrators can be created and managed from the app, account status finally has a UI, and every administrative action — plus every refused one — is written to a queryable audit trail. Privileged requests re-read the caller's role from the database, so revoking access takes effect immediately rather than at token expiry.
 
@@ -14,11 +18,13 @@ No other product feature was touched. The exam, results, certificates and leader
 
 ## Last Completed Milestone
 
-**Milestone 3 — RBAC and User Management Foundation.** Preceded by Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
+**Milestone 4 — Complete Question Bank System.** Preceded by Milestone 3 — RBAC and User Management Foundation.
+
+**Milestone 3 detail:** Preceded by Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
 
 ## Current Milestone
 
-None formally in progress. The registration-data work above was an owner-requested fix rather than a numbered milestone; Milestone 4 is still to be chosen (see "Immediate Next Task").
+None in progress. Milestone 4 is complete; awaiting owner selection of Milestone 5 (see "Immediate Next Task").
 
 ## Completed Modules (real, end-to-end)
 
@@ -41,10 +47,11 @@ None formally in progress. The registration-data work above was an owner-request
 - **Admin accounts (Milestone 3)** — the env-configured **root** account holds `superadmin` and is the bootstrap identity (8-hour token, no refresh token, no database record, by design). It can promote any verified active account to `admin`, which revokes that account's sessions so the new role is picked up on a fresh sign-in. Promoted admins sign in through the normal student login and inherit lockout, rotation, verification and password reset. `superadmin` is not assignable through any API.
 - **Student & admin account management (Milestone 3)** — `/admin/users`: real paginated listing with literal (regex-escaped) search and status/role filters, suspend / deactivate / reactivate, and grant/revoke admin for a super admin only. Suspension ends live sessions immediately; reactivation clears the lockout counters. `status` is no longer settable only by a direct database edit.
 - **Audit trail (Milestone 3)** — `AuditLog` collection and `/admin/audit-log` page. Records role changes, status changes, question generation, administrative sign-ins, **and refused privileged requests** with the exact missing permission. No TTL. Writes are best-effort so a failed audit write never fails the action it describes.
-- **Question listing** — `GET /api/v1/questions` reads real documents with validated query params.
-- **AI Question Generator (partial)** — admin-only, really writes to MongoDB; the "AI" is a template-string generator, not a model call.
+- **Question bank (Milestone 4)** — real end-to-end. `Subject` + `Topic` (topics and subtopics in one self-referencing collection, depth capped at 1) + a rewritten `Question` with four types (`single_choice`, `multiple_choice`, `true_false`, `numeric`), server-assigned option keys with `isCorrect` flags, marks and negative marks, a `draft → in_review → published` workflow plus reversible `archived`, tags, and a `revision` counter. Full admin CRUD with search (literal, regex-escaped, across text/tags/solutions), filters, allow-listed sorting and stable pagination. Business rules live in `src/services/`.
+- **Mathematical content (Milestone 4)** — stored as plain text with LaTeX islands (`$…$`, `$$…$$`), rendered by KaTeX. Prose becomes React text nodes and only KaTeX's own output is inserted as HTML, so author text never reaches an HTML sink; the backend independently refuses link, file-inclusion and macro-definition commands, unbalanced delimiters, markup and control characters.
+- **Template draft generator** — the page formerly called "AI Question Generator". Still a template-string filler and **not** AI (no AI provider is integrated anywhere), but it now requires real subject and topic ids and writes **drafts only**, so placeholder text cannot reach a student.
 - **Registration data capture** — `POST /auth/register` collects and persists `firstName` / `middleName` / `lastName` (with `fullName` derived), `fatherName`, `motherName`, `dateOfBirth`, `classLevel` (ten fixed values, 5th–12th with the three 12th-class streams), `schoolName`, `address`, plus the existing mobile / email / password. A **mandatory photo** (≤2 MB, JPEG/PNG/WebP, magic-byte checked) is stored in the new `StudentPhoto` collection and served by `GET /students/:studentId/photo`, readable by the student themselves or by staff holding `students:read`. The admin table shows photo, class and school.
-- **Backend test suite** — **147 passing tests** across 9 files, all against a real in-memory MongoDB where a database is needed: 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2).
+- **Backend test suite** — **224 passing tests** across 10 files, all against a real in-memory MongoDB where a database is needed: 77 question-bank tests (Milestone 4), 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2). Test files run **sequentially** — see [`TESTING.md`](TESTING.md).
 
 ## Partially Completed Modules
 
@@ -56,7 +63,7 @@ None formally in progress. The registration-data work above was an owner-request
 
 Unchanged by Milestone 2:
 
-- **Exam / exam attempts** — client-side hardcoded 5-question quiz; nothing submitted. `ExamAttempt` model unused.
+- **Exam / exam attempts** — still a client-side hardcoded 5-question quiz; nothing submitted. `ExamAttempt` model unused. **The question bank it should read from now exists** (`GET /questions`, published-only, answer-stripped) — wiring it up is the obvious next milestone.
 - **Results** — fabricated client-side by hashing the entered Student ID. `Result` model unused.
 - **Certificates** — rendered client-side from the logged-in student's name/ID.
 - **Leaderboard** — hardcoded in `Landing.tsx` and `Dashboard.tsx`; the backend route exists but is never called.
@@ -89,23 +96,28 @@ lib/tokens.ts             access JWTs, refresh-token rotation, single-use tokens
 lib/email.ts              nodemailer SMTP + log/in-memory transports + templates
 lib/permissions.ts        THE role -> permission table (Milestone 3)
 lib/classLevels.ts        the ten offered classes (5th-12th + 12th streams)
+lib/mathContent.ts        LaTeX grammar + dangerous-command rejection
+lib/slug.ts               name -> stable handle
+lib/serviceError.ts       maps a thrown ApiError to the response envelope
+services/                 question + taxonomy business rules (Milestone 4)
 lib/audit.ts              audit-trail recorder (Milestone 3)
 middleware/               auth (authenticate/requireAuth/requirePermission),
                           validate, errorHandler, rateLimiter,
                           requestLogger, ensureDb
-models/                   9 models, one file each (+ StudentPhoto)
+models/                   11 models, one file each (+ Subject, Topic)
 routes/health.routes.ts   /health, /ready
-routes/v1/                auth (12 routes), analytics, questions, admin,
-                          users (5 admin/audit routes), misc
-validation/               zod schemas for auth + questions + users
-tests/                    9 suites, 147 tests (real-DB auth + RBAC + registration)
+routes/v1/                auth (12 routes), analytics, questions (student reads),
+                          questionsAdmin (6 CRUD routes), taxonomy (6 routes),
+                          admin, users (5 admin/audit routes), misc
+validation/               zod schemas for auth + questions + taxonomy + users
+tests/                    10 suites, 224 tests (auth + RBAC + registration + question bank)
 ```
 
-`ExamAttempt` and `Result` remain defined but unused. Three routes (`daily-challenge`, `leaderboard`, `certificates/:studentId`) are still static mocks.
+`ExamAttempt` and `Result` remain defined but unused. Three routes (`daily-challenge`, `leaderboard`, `certificates/:studentId`) are still static mocks. `GET /questions` is now real and authenticated but **no student page calls it yet** — the exam is still a hardcoded quiz.
 
 ## Current Database State
 
-MongoDB via Mongoose, **9 models**: `Student` (now with `role` and the nine registration fields), `Question`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`, plus new **`StudentPhoto`**. The two token collections store only SHA-256 hashes and carry TTL indexes; `AuditLog` deliberately has **no** TTL. Unique indexes on `Student.mobile`, `Student.email`, `Student.studentId` and `StudentPhoto.student`, and a non-unique index on `Student.role`.
+MongoDB via Mongoose, **11 models**: `Student` (with `role` and the nine registration fields), `StudentPhoto`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`, plus Milestone 4's **`Subject`**, **`Topic`** and a rewritten **`Question`**. The two token collections store only SHA-256 hashes and carry TTL indexes; `AuditLog` deliberately has **no** TTL. Unique indexes on `Student.mobile`, `Student.email`, `Student.studentId` and `StudentPhoto.student`, and a non-unique index on `Student.role`.
 
 **Photo storage is bounded by the database.** At 2 MB a photo, the Atlas free tier's 512 MB holds roughly **250 students** — enough for a first cohort, and the first thing that will force a paid tier or an image CDN.
 
@@ -179,6 +191,11 @@ Backend: `MONGO_URI`, `JWT_SECRET` (mandatory in production), `ADMIN_EMAIL`, `AD
 7. **No rate limit specific to the admin routes.** They sit behind the general `/api` limiter only.
 8. **Registration photos are stored as uploaded** — not re-encoded and not stripped of metadata, so EXIF (including any GPS tags a phone wrote) is kept and served back to staff. Re-encoding through an image library would fix it; see [`SECURITY.md`](SECURITY.md).
 9. **A photo cannot be replaced or removed.** There is no upload route beyond registration, so a wrong photo currently needs a direct database edit.
+10. **Pre-Milestone-4 `Question` documents are unreadable** and must be deleted — `subject` changed from `String` to `ObjectId`, which is a cast error on read, not a tolerable missing field. Run `npx tsx scripts/migrate-questions.ts` (add `--delete`). All such documents are old template placeholders; nothing references them.
+11. **No question-bank rate limit of its own.** Authoring routes sit behind the general `/api` limiter, like the other admin routes.
+12. **Question images are not supported.** A question is text plus LaTeX only, so a geometry diagram cannot be attached. Registration photos proved the storage pattern; nothing reuses it yet.
+
+Fixed in Milestone 4: `GET /questions` being **unauthenticated and returning the answer key**; `correctAnswer` stored as literal option text (so editing a typo invalidated recorded answers); `Question` having no `topic` field despite the generator asking for one; subjects and topics existing only as free-text strings; and the template generator being able to invent taxonomy nothing else knew about.
 
 Fixed in Milestone 3: the absent admin tooling for account status, the inline role checks scattered across handlers, the analytics route's role comparison, the 15-minute window in which a demoted admin kept working, and `logout-all` being unusable by a non-student role.
 
@@ -194,6 +211,7 @@ Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with 
 - No CI pipeline; verification commands are run manually.
 - No CSRF token mechanism (production cookies are `sameSite: 'none'` because the apps are on different domains).
 - No frontend test suite at all — so the route guards, permission-aware navigation and unauthorized states are verified only by hand in a browser.
+- **Two parsers implement the LaTeX grammar** — `backend/src/lib/mathContent.ts` and `frontend/src/components/MathText.tsx`. Both are deliberately a single left-to-right scan with no nesting so they can be checked against each other by reading them, and they differ in one intended way (the frontend renders an unclosed delimiter as literal text so a half-typed formula still previews). A change to one must be mirrored.
 - The frontend mirrors the *names* of the permissions as a TypeScript union in `api/types.ts`. The mapping is not duplicated (it comes from the server), but adding a permission means adding its name in two places.
 - The unversioned `/api/*` alias should eventually be removed.
 - Pre-existing `npm audit` findings in `@vercel/node`'s build-time dependency tree.
@@ -203,7 +221,9 @@ Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with 
 Two things gate a real launch, in this order:
 
 1. **Owner action: configure SMTP** (see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)). Still outstanding, and unchanged by Milestone 3: until it is set, no student can receive a verification link in production, which also means no new account can be promoted to admin (promotion requires a verified account).
-2. **Owner decision: Milestone 4.** With authorization and account management done, the strongest candidate is now **exam submission → `ExamAttempt` → real results**: both models already exist and are unused, it is the only path that makes the analytics real branch reachable, it converts the four remaining mock surfaces (Exam, Results, Certificates, Leaderboard) in one dependency chain, and it needs no external account or spend. The alternative is the payment gateway, which is the only thing between the current flow and collecting real money but requires a provider decision and cost approval.
+2. **Deploy step: delete the legacy question documents.** Before or immediately after deploying Milestone 4, run `npx tsx scripts/migrate-questions.ts --delete` against the production database. Until then the admin question list will error on any pre-Milestone-4 document. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
+3. **Owner decision: Milestone 5.** The strongest candidate is now clearly **exam submission → `ExamAttempt` → real results**. It was already the front-runner, and Milestone 4 removed its main blocker: there is now a real bank of published, class-and-topic-filtered questions to build a paper from, served through an endpoint that already withholds the answer key. Both models exist and are unused, it is the only path that makes the analytics real-data branch reachable, it converts the four remaining mock surfaces (Exam, Results, Certificates, Leaderboard) in one dependency chain, and it needs no external account or spend. The alternative is the payment gateway, which is the only thing between the current flow and collecting real money but requires a provider decision and cost approval.
 
 Smaller follow-ups worth considering either way: CSRF tokens (now the top security gap, with real state-mutating admin routes to protect), a tighter rate limit on the admin routes, and a student self-service profile page — the last of which grew more valuable now that registration captures nine more fields a student may need to correct, and a photo they cannot currently replace.
 

@@ -1,0 +1,197 @@
+/* Editor and preview side by side on a wide screen, stacked below 1100px so the
+   preview stays reachable on a tablet rather than being pushed off-canvas. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form {
+  min-width: 0;
+}
+
+.legend {
+  margin: 0 0 16px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  max-width: 70ch;
+}
+
+.legend code,
+.hint code,
+.previewNote code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.required {
+  color: var(--danger);
+  margin-left: 2px;
+  font-weight: 700;
+}
+
+.sectionTitle {
+  margin: 26px 0 12px;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0 18px;
+}
+
+.hint {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.optionRow input[type='text'],
+.optionRow .form-control {
+  flex: 1;
+}
+
+.removeOption {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.removeOption:hover {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.formActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 26px;
+  flex-wrap: wrap;
+}
+
+.centered {
+  display: grid;
+  place-items: center;
+  gap: 14px;
+  padding: 56px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.centeredActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* --- Preview -------------------------------------------------------------- */
+
+.preview {
+  position: sticky;
+  top: 20px;
+  min-width: 0;
+}
+
+.previewTitle {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.previewCard {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-height: 160px;
+}
+
+.previewEmpty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.previewStem {
+  font-size: 1rem;
+  color: var(--text-main);
+}
+
+.previewOptions {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.previewOptions li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 0.93rem;
+}
+
+.previewCorrect {
+  border-color: rgba(16, 185, 129, 0.5) !important;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.previewKey {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.previewAnswer {
+  margin: 16px 0 0;
+  font-size: 0.93rem;
+}
+
+.previewSolution {
+  margin-top: 18px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(148, 163, 184, 0.1);
+  font-size: 0.92rem;
+}
+
+.previewNote {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}

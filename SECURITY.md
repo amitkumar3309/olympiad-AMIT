@@ -40,10 +40,16 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `students:read` | — | yes | yes |
 | `students:status:write` | — | yes | yes |
 | `questions:write` | — | yes | yes |
+| `questions:delete` | — | yes | yes |
+| `taxonomy:write` | — | yes | yes |
 | `audit:read` | — | yes | yes |
 | `users:role:write` | — | — | **yes** |
 
 `users:role:write` is confined to `superadmin` on purpose: an ordinary admin cannot create more admins, so one compromised admin session cannot widen itself.
+
+`questions:delete` (Milestone 4) is separate from `questions:write` because it is the only question-bank action that **destroys** data rather than changing it. Archiving — the normal removal path, and reversible — needs only `questions:write`. Both currently sit with `admin`, but splitting them now means restricting deletion later is a one-line change to this table rather than a route audit.
+
+`questions:read` is held by every student and now also gates the taxonomy reads (`GET /subjects`, `GET /topics`): a practice or exam filter is built from those lists, and they carry no answer data.
 
 ### How a request is authorized
 
@@ -166,6 +172,38 @@ Implemented in Milestone 3 as a queryable `AuditLog` collection, readable in-app
 Recording refusals is the security-relevant part: a run of `authz.denied` rows against one account is the signature of a privilege-escalation attempt, and it would be invisible if only successes were stored. Only authenticated callers produce rows, so an unauthenticated flood cannot inflate the collection. There is no TTL — an audit trail that deletes itself is not an audit trail.
 
 The structured logger still records the events it did before (refresh-token reuse with student and family id, account lockouts, email delivery failures) and now also logs every authorization denial and every role change at `warn`.
+
+## Answer-key exposure — fixed in Milestone 4
+
+Before Milestone 4, `GET /api/v1/questions` had **no authentication middleware at all** and returned raw Mongoose documents. The old `Question` model stored the answer in a `correctAnswer` field, so **anyone on the internet could fetch the answer key** for every question in the bank with a single unauthenticated request. Nothing exploited it only because no page ever called the endpoint and the bank held nothing but template placeholders.
+
+Three things now stand between a student and the answers:
+
+1. **The endpoint is authenticated.** `requirePermission('questions:read')` — a guest gets 401, asserted on both `/api/v1` and the unversioned `/api` alias.
+2. **The response is an allow-list that omits every answer field.** `studentQuestionView` in `questions.routes.ts` builds the payload field by field: options carry only `key` and `text`, and `isCorrect`, `solution`, `booleanAnswer`, `numericAnswer` and `tolerance` are never included. Adding one is a deliberate edit, not an accident of returning a document. Tests assert none of those names appears in the body.
+3. **The author view is a separate function.** `adminQuestionView` (which does include the answers) lives in a different file behind `questions:write`. Deliberately two functions rather than one with an `includeAnswers` boolean — a boolean parameter is one mistaken argument away from serving the answer key to students; two functions cannot be confused at a call site.
+
+Related: unpublished questions are invisible to students, and a student asking for a draft by id gets **404, not 403** — 403 would confirm that a draft with that id is being prepared.
+
+## Mathematical content
+
+Question content is stored as **plain text with LaTeX islands** (`$…$`, `$$…$$`). It is never stored as HTML and never rendered through an HTML sink.
+
+The safety property is a split, not a sanitiser:
+
+- **Prose** is rendered as a React text node, which React escapes. Author text therefore cannot become markup, because it never takes the HTML path at all.
+- **LaTeX** is compiled by KaTeX, and only KaTeX's own output is inserted as HTML. KaTeX runs with `trust: false` (its default, set explicitly in `MathText.tsx`), which refuses `\href`, `\url` and `\includegraphics`.
+
+So the only HTML on the page is HTML KaTeX generated from a restricted grammar. That does not depend on sanitising anything.
+
+The storage boundary enforces the same rules independently (`backend/src/lib/mathContent.ts`), so a second consumer — an export, an email, a future PDF generator — inherits them instead of re-deriving them:
+
+- **Balanced delimiters**, with `\$` for a literal dollar sign; unclosed or empty math is refused.
+- **Forbidden LaTeX commands**: `\href`/`\url` (inject a link into what should be an equation), `\input`/`\include`/`\write`/`\openout`/`\read`/`\includegraphics` (file and I/O access in a real TeX pipeline — harmless in KaTeX, catastrophic if the content is ever fed to one), and `\def`/`\let`/`\newcommand`/`\csname`/`\expandafter`/`\catcode`/`\loop`/`\repeat` (macro expansion, which enables exponential-expansion denial of service in the reader's browser).
+- **Markup and event handlers** (`<script`, `<iframe`, `javascript:`, `on…=`) are refused anywhere in the text. They cannot execute given the rendering split above, but their presence means either an attack attempt or a confused author.
+- **Control characters** are refused; math islands are length- and count-capped (500 chars each, 40 per question) as a cheap complexity bound.
+
+Relying on one render-time flag for a stored-content guarantee is the kind of single point of failure that stops being true when someone adds MathJax or flips a default, which is why both halves exist. Verified in a real browser: a `<script>` tag in a question produces **zero** script elements in the DOM and displays as escaped text; unparseable LaTeX shows its own source flagged in red rather than a blank.
 
 ## Remaining Gaps, in priority order
 

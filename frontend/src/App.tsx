@@ -1,11 +1,25 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute, RequirePermission } from './components/ProtectedRoute'
+import Spinner from './components/Spinner'
 import Landing from './pages/Landing/Landing'
 import Admin from './pages/Admin/Admin'
 import AdminUsers from './pages/Admin/Users'
 import AdminAuditLog from './pages/Admin/AuditLog'
-import AiGenerator from './pages/AiGenerator/AiGenerator'
+
+/**
+ * The question-bank pages are loaded on demand.
+ *
+ * They pull in KaTeX for maths rendering, which is ~300 KB of JS and CSS. Only
+ * staff ever open these routes, so bundling it into the main entry would make every
+ * student download a maths typesetter to look at the landing page. Splitting here
+ * keeps the initial bundle roughly where it was before Milestone 4.
+ */
+const AdminQuestions = lazy(() => import('./pages/Admin/Questions'))
+const AdminQuestionForm = lazy(() => import('./pages/Admin/QuestionForm'))
+const AdminTaxonomy = lazy(() => import('./pages/Admin/Taxonomy'))
+const AiGenerator = lazy(() => import('./pages/AiGenerator/AiGenerator'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Exam from './pages/Exam/Exam'
@@ -20,6 +34,15 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        {/* One boundary around every route: only the lazily-loaded ones can suspend,
+            and a single fallback is simpler than wrapping each of them. */}
+        <Suspense
+          fallback={
+            <div style={{ display: 'grid', placeItems: 'center', minHeight: '60vh' }}>
+              <Spinner />
+            </div>
+          }
+        >
         <Routes>
           <Route path="/" element={<Landing />} />
           {/* Public auth flows — reached from emailed links, so they must not be gated. */}
@@ -44,6 +67,40 @@ export default function App() {
             element={
               <RequirePermission permission="audit:read">
                 <AdminAuditLog />
+              </RequirePermission>
+            }
+          />
+          {/* Question bank. `questions:write` gates authoring; the delete button
+              inside the list is additionally gated on `questions:delete`. */}
+          <Route
+            path="/admin/questions"
+            element={
+              <RequirePermission permission="questions:write">
+                <AdminQuestions />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/questions/new"
+            element={
+              <RequirePermission permission="questions:write">
+                <AdminQuestionForm />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/questions/:id/edit"
+            element={
+              <RequirePermission permission="questions:write">
+                <AdminQuestionForm />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/taxonomy"
+            element={
+              <RequirePermission permission="taxonomy:write">
+                <AdminTaxonomy />
               </RequirePermission>
             }
           />
@@ -88,6 +145,7 @@ export default function App() {
             }
           />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   )

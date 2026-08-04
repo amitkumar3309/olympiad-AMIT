@@ -52,24 +52,39 @@ describe('POST /api/v1/admin/generate-questions validation', () => {
   });
 });
 
-describe('GET /api/v1/questions query validation', () => {
-  it('accepts a request with no query filters (schema treats all filters as optional)', async () => {
+/**
+ * `GET /questions` is **authenticated** as of Milestone 4. It used to have no auth
+ * middleware at all and returned raw documents including `correctAnswer`, so the
+ * answer key was readable by anyone on the internet.
+ *
+ * Authorization runs before validation, so an anonymous request is refused before
+ * the query schema is ever consulted — which is why the query-validation cases moved
+ * to `questionBank.test.ts`, where a real session exists. What belongs here is the
+ * gate itself, asserted on both the versioned and unversioned mounts.
+ */
+describe('GET /api/v1/questions is no longer anonymous', () => {
+  it('refuses an unauthenticated request', async () => {
     const res = await request(app).get('/api/v1/questions');
-    expect(res.status).not.toBe(400);
-  });
-
-  it('passes a VALID query through without a 500 (regression: Express 5 req.query is getter-only)', async () => {
-    // Assigning to req.query throws in Express 5, which surfaced as a 500 only
-    // on the success path — a weaker `not.toBe(400)` assertion hid it. With no
-    // database reachable the DB gate answers 503, so the one status this must
-    // never be is 500.
-    const res = await request(app).get('/api/v1/questions').query({ difficulty: 'Easy' });
-    expect(res.status).not.toBe(500);
-  });
-
-  it('rejects an unsupported difficulty value with 400', async () => {
-    const res = await request(app).get('/api/v1/questions').query({ difficulty: 'Impossible' });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
+  });
+
+  it('refuses an unauthenticated request on the unversioned /api alias too', async () => {
+    const res = await request(app).get('/api/questions');
+    expect(res.status).toBe(401);
+  });
+
+  it('does not leak an answer key to an anonymous caller', async () => {
+    const res = await request(app).get('/api/v1/questions');
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain('correctAnswer');
+    expect(body).not.toContain('isCorrect');
+    expect(body).not.toContain('solution');
+  });
+
+  it('refuses an anonymous single-question read as well', async () => {
+    const res = await request(app).get('/api/v1/questions/000000000000000000000001');
+    expect(res.status).toBe(401);
+    expect(res.status).not.toBe(200);
   });
 });

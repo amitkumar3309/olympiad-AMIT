@@ -207,6 +207,47 @@ If `dbName` says `test`, the URI is still missing its path. That field was added
 
 ---
 
+
+## Admin question list errors after deploying Milestone 4: `Cast to ObjectId failed for value "Mathematics"`
+
+**Symptom**: after deploying Milestone 4, `GET /admin/questions` (and the `/admin/questions` page) returns 500, with a Mongoose `CastError` in the logs naming a string like `"Mathematics"` or `"Maths"` for path `subject`.
+
+**Cause**: Milestone 4 rewrote the `Question` schema. `subject` changed from a free-text `String` to an `ObjectId` reference to the new `Subject` collection, and `topic` became a required reference that did not exist before. Mongoose casts on read, so a document holding a string where the schema declares an `ObjectId` cannot be read through the model at all. This is unlike the Milestone 4 `Student` fields, which are merely *absent* on old documents and are therefore tolerable — a missing field reads as `undefined`, a wrong type throws.
+
+**Fix**: delete the legacy documents. Every one was produced by the old template generator (their text reads `...What is the advanced solution for X? [Sample 1]`), so none is real content, and nothing references questions yet — `ExamAttempt` and `Result` are still unwired — so there are no attempts to orphan.
+
+From `backend/`, first see what is there (this makes no change):
+
+```bash
+npx tsx scripts/migrate-questions.ts
+```
+
+Then remove them:
+
+```bash
+npx tsx scripts/migrate-questions.ts --delete
+```
+
+The script identifies a legacy document by **shape**, not by date: `subject` is a string, or the removed `correctAnswer` field is present, or the now-required `topic` is missing. It reads through the raw MongoDB driver rather than the Mongoose model, deliberately — the model is the thing that cannot cast them.
+
+Afterwards the bank is empty. Create a subject and topic at `/admin/taxonomy`, then author real questions at `/admin/questions`.
+
+## Running the app locally writes to the production database
+
+**Symptom**: subjects, topics or questions created while developing show up for real users; or you are reluctant to click anything locally in case it touches live data.
+
+**Cause**: `backend/.env` holds the production MongoDB Atlas connection string, because that is what a deployed-style run needs. `npm start` and `npm run dev` both read it, so the obvious local command talks to production.
+
+**Fix**: use the local entry point added in Milestone 4, which forces `MONGO_URI` to localhost regardless of `.env`:
+
+```bash
+npm run dev:local --prefix backend
+```
+
+It prints the URI it is using, and sets a known root-admin credential (`root@localhost` / `LocalDevAdmin9`) so you can sign in to a fresh empty local database — the production `ADMIN_PASSWORD_HASH` has no plaintext anyone has locally. It requires a MongoDB on `localhost:27017`; override with `LOCAL_MONGO_URI` if yours is elsewhere.
+
+This cannot affect any deployed environment: Vercel runs `api/index.ts`, never this script.
+
 ## Template for new entries
 
 ```

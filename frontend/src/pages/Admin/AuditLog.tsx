@@ -8,7 +8,13 @@ import styles from './AuditLog.module.css'
 const ACTION_LABELS: Record<AuditAction, string> = {
   'user.role.changed': 'Role changed',
   'student.status.changed': 'Account status changed',
-  'questions.generated': 'Questions generated',
+  'questions.generated': 'Template drafts generated',
+  'question.created': 'Question created',
+  'question.updated': 'Question edited',
+  'question.status.changed': 'Question status changed',
+  'question.deleted': 'Question deleted',
+  'subject.changed': 'Subject changed',
+  'topic.changed': 'Topic changed',
   'admin.session.started': 'Admin signed in',
   'authz.denied': 'Permission denied',
 }

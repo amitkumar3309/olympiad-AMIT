@@ -36,8 +36,16 @@ export const PERMISSIONS = [
   'students:read',
   /** Suspend, deactivate or reactivate a student account. */
   'students:status:write',
-  /** Write to the question bank (currently the generator route). */
+  /** Create and edit questions, and move them through the editorial workflow. */
   'questions:write',
+  /**
+   * Hard-delete a question. Separate from `questions:write` because it is the one
+   * question-bank action that destroys data rather than changing it — archiving,
+   * which is the normal removal path, needs only `questions:write`.
+   */
+  'questions:delete',
+  /** Create, edit and archive subjects, topics and subtopics. */
+  'taxonomy:write',
   /** Read the administrative audit trail. */
   'audit:read',
 
@@ -65,6 +73,8 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'students:read',
   'students:status:write',
   'questions:write',
+  'questions:delete',
+  'taxonomy:write',
   'audit:read',
 ];
 

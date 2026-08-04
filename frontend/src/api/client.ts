@@ -80,6 +80,10 @@ export const api = {
     request<T>(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PATCH', body: body !== undefined ? JSON.stringify(body) : undefined }),
+  /** Full replacement. Used for a question edit, which sends the whole content. */
+  put: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
+  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   /** Attempts a session refresh directly; used on app start to restore a session. */
   tryRefresh: refreshSession,
 }

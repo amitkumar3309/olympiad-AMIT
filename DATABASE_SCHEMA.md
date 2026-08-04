@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. **Nine models** as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` and nine registration fields on `Student`). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Eleven models** as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 ## Status legend
 - `ACTIVE` — model is written to and/or read by at least one route.
@@ -69,21 +69,93 @@ Indexes: unique on `student`. **No TTL** — a photo lasts as long as the accoun
 
 Served by `GET /students/:studentId/photo` (see [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md)). Accounts registered before Milestone 4 have no row here, and that endpoint answers 404.
 
-## `Question` — ACTIVE
+## `Subject` — ACTIVE
 
-Purpose: Olympiad question bank, populated only via the AI-generator admin route today. Read queries against it are now validated by `listQuestionsQuerySchema` before a filter is built.
+Purpose: the top level of the question taxonomy. **Added in Milestone 4.**
 
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `questionText` | String | **yes** | — | |
-| `options` | [String] (each required) | **yes** (array items) | — | No enforced length (UI assumes 4 options but schema doesn't enforce it). |
-| `correctAnswer` | String | **yes** | — | Stored as the literal option text, not an index — fragile if option text is edited later. |
-| `classLevel` | String | **yes** | — | Free text, e.g. `"Class 8"`. |
-| `subject` | String | no | `"Mathematics"` | |
-| `difficulty` | String enum | no | `"Medium"` | One of `Easy`/`Medium`/`Hard`. |
-| `createdAt` | Date | no | `Date.now` | |
+| `name` | String | **yes** | — | Max 80 chars. Unique **case-insensitively** (a collated index), so "Algebra" and "algebra" are one subject, not two. Plain text: `$`, `<` and `>` are rejected, because names render as labels and never through the maths renderer. |
+| `slug` | String | **yes** | — | `unique`. Derived from `name` by `lib/slug.ts`, and re-derived on rename. A handle, **not** an authorization key. |
+| `description` | String \| null | no | `null` | Max 500 chars. |
+| `status` | String enum | no | `'active'` | `active` / `archived`. Indexed. |
+| `displayOrder` | Number | no | `0` | Ascending sort key, so subjects need not be alphabetical. |
+| `createdBy` / `createdByLabel` | ObjectId \| null / String \| null | no | `null` | Actor, with the label denormalised as in `AuditLog`. |
+| `createdAt` / `updatedAt` | Date | auto | — | Mongoose `timestamps`. |
 
-Note: the AI generator accepts a `topic` input from the admin form but **the schema has no `topic` field**, so the topic is baked only into `questionText` as a string and is not separately queryable.
+Indexes: unique on `slug`; unique collated on `name`; compound `status + displayOrder + name` for the listing.
+
+---
+
+## `Topic` — ACTIVE
+
+Purpose: topics **and subtopics** — the same collection, distinguished by `parent`. **Added in Milestone 4.**
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `subject` | ObjectId → `Subject` | **yes** | — | Indexed. |
+| `parent` | ObjectId → `Topic` \| null | no | `null` | `null` for a top-level topic; a topic id makes this row a **subtopic**. |
+| `depth` | Number | no | `0` | 0 = topic, 1 = subtopic. Derived from `parent` by the service, never sent by a client. Capped at `MAX_TOPIC_DEPTH` (1). |
+| `name` | String | **yes** | — | Max 120 chars, plain text (same rule as `Subject.name`). |
+| `slug` | String | **yes** | — | **Not globally unique** — see below. |
+| `description` | String \| null | no | `null` | |
+| `status` | String enum | no | `'active'` | `active` / `archived`. Indexed. |
+| `displayOrder` | Number | no | `0` | |
+| `createdBy` / `createdByLabel` | ObjectId \| null / String \| null | no | `null` | |
+| `createdAt` / `updatedAt` | Date | auto | — | |
+
+Indexes: unique compound on `subject + parent + slug`; compound `subject + parent + displayOrder + name`.
+
+**Why uniqueness is scoped to the parent rather than global**: "Fractions" may legitimately exist under both Arithmetic and Algebra, and as a subtopic of each. A globally unique slug would reject that.
+
+**Why one collection instead of a separate `Subtopic` model**: a second model would duplicate every field and every query, and would make "everything under this subject" two queries instead of one. The `depth` cap of 1 is a deliberate product limit, not a technical one — raising it means changing `MAX_TOPIC_DEPTH` and the admin form, not the schema. See the Milestone 4 ADR in [`DECISIONS.md`](DECISIONS.md).
+
+**Archiving is refused** while published questions still reference the entry (as either `topic` or `subtopic`); the API answers 409 and says how many.
+
+---
+
+## `Question` — ACTIVE
+
+Purpose: the Olympiad question bank. **Rewritten in Milestone 4** — questions are now authored through a real CRUD interface with an editorial workflow, rather than only being filled by the template generator.
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `questionText` | String | **yes** | — | Max 5000. Plain text with LaTeX islands (`$…$`, `$$…$$`), validated by `lib/mathContent.ts`. |
+| `type` | String enum | **yes** | — | `single_choice` / `multiple_choice` / `true_false` / `numeric`. Determines which answer field is used — and which are **forbidden**. |
+| `options` | [{ `key`, `text`, `isCorrect` }] | no | `[]` | Choice types only; max 8. `key` (`a`, `b`, …) is assigned by the **server**. |
+| `booleanAnswer` | Boolean \| null | no | `null` | `true_false` only. |
+| `numericAnswer` | Number \| null | no | `null` | `numeric` only. |
+| `tolerance` | Number \| null | no | `null` | `numeric` only; null means an exact match is required. |
+| `solution` | String \| null | no | `null` | Max 8000, LaTeX-aware. **Required before publishing.** |
+| `subject` | ObjectId → `Subject` | **yes** | — | Indexed. |
+| `topic` | ObjectId → `Topic` | **yes** | — | Indexed. Must be `depth: 0` and belong to `subject`. |
+| `subtopic` | ObjectId → `Topic` \| null | no | `null` | Must have `topic` as its parent. |
+| `classLevel` | String enum | **yes** | — | One of `CLASS_LEVELS` — the same ten values registration uses. Indexed. |
+| `difficulty` | String enum | no | `'Medium'` | `Easy`/`Medium`/`Hard`. Indexed. |
+| `marks` | Number | **yes** | — | 0.25–100. |
+| `negativeMarks` | Number | no | `0` | 0–100, a **magnitude to deduct**; `0` disables negative marking. Cannot exceed `marks`. |
+| `status` | String enum | no | `'draft'` | `draft` / `in_review` / `published` / `archived`. Indexed. |
+| `tags` | [String] | no | `[]` | Lowercased, trimmed, de-duplicated. Indexed. Max 20. |
+| `revision` | Number | no | `1` | Incremented on every content edit, so an exam attempt can record which version it showed. |
+| `createdBy` / `createdByLabel` | ObjectId \| null / String \| null | no | `null` | |
+| `updatedBy` / `updatedByLabel` | ObjectId \| null / String \| null | no | `null` | |
+| `publishedAt` | Date \| null | no | `null` | When last published. **Historical** — deliberately *not* cleared when a question returns to `draft`, because it is the witness the hard-delete guard tests. `status` is the authority on current visibility. |
+| `archivedAt` | Date \| null | no | `null` | Cleared on restore. |
+| `createdAt` / `updatedAt` | Date | auto | — | |
+
+Indexes: `status + createdAt`, `subject + topic + status`, `classLevel + difficulty + status`, `tags`.
+
+**The answer shape per type is exclusive.** Validation requires the fields a type uses *and rejects the ones it does not*, so a `numeric` question cannot carry an option list nothing will read, and an MCQ cannot carry a stray `numericAnswer` — the kind of bad data that later looks like a rendering bug.
+
+**Answers are keyed, not text-matched.** The old model stored `correctAnswer` as the literal option *string*, so fixing a typo in an option silently invalidated every recorded answer. Correctness is now a per-option `isCorrect` flag against a stable server-assigned `key`.
+
+**Deletion**: archiving is the normal path. A hard delete is permitted **only** for a question that has never been published (`publishedAt` is null) and requires the separate `questions:delete` permission.
+
+### Breaking change — pre-Milestone-4 documents
+
+The rewrite is **not** backward compatible: `subject` went from `String` to `ObjectId`, `topic` did not exist, `options` went from `[String]` to subdocuments, and `correctAnswer` is gone. A `String` where the schema now declares an `ObjectId` makes Mongoose throw a **cast error on read**, so a legacy document is unreadable through the model — the "required on create only" approach used for the Milestone 4 `Student` fields cannot rescue it.
+
+Every document that could exist was produced by the old template generator and was never real content, and nothing references questions yet (`ExamAttempt` / `Result` are still unwired), so there is nothing of value to preserve. Run `npx tsx scripts/migrate-questions.ts` to report them, then re-run with `--delete` to remove them. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
 ---
 

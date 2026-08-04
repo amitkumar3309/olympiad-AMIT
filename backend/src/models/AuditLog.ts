@@ -11,8 +11,20 @@ export const AUDIT_ACTIONS = [
   'user.role.changed',
   /** An admin suspended, deactivated or reactivated an account. */
   'student.status.changed',
-  /** Questions were written to the bank. */
+  /** Questions were written to the bank in bulk by the generator route. */
   'questions.generated',
+  /** A single question was authored. */
+  'question.created',
+  /** A question's content was edited (its revision was bumped). */
+  'question.updated',
+  /** A question moved through the editorial workflow (draft/review/published/archived). */
+  'question.status.changed',
+  /** A never-published question was hard-deleted. */
+  'question.deleted',
+  /** A subject was created or edited. */
+  'subject.changed',
+  /** A topic or subtopic was created or edited. */
+  'topic.changed',
   /** An account holding an elevated role signed in. */
   'admin.session.started',
   /**
@@ -23,7 +35,7 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const AUDIT_TARGET_TYPES = ['student', 'question', 'route', 'system'] as const;
+export const AUDIT_TARGET_TYPES = ['student', 'question', 'subject', 'topic', 'route', 'system'] as const;
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number];
 
 export interface AuditLogDocument extends Document {

@@ -29,10 +29,23 @@ export async function stopTestDb(): Promise<void> {
   mem = null;
 }
 
-/** Wipes every collection so each test starts from a known-empty state. */
+/**
+ * Wipes every collection so each test starts from a known-empty state.
+ *
+ * Throws rather than returning quietly when there is no connection. It used to
+ * no-op in that case, which meant a harness problem presented as a pile of
+ * unrelated assertion failures further down the file: the next test would find the
+ * previous test's data and report a duplicate-key 409, rather than "the database was
+ * never cleared". Failing here names the actual cause.
+ */
 export async function clearTestDb(): Promise<void> {
   const { db } = mongoose.connection;
-  if (!db) return;
+  if (!db) {
+    throw new Error(
+      `clearTestDb(): no database connection (mongoose readyState=${mongoose.connection.readyState}). ` +
+        'startTestDb() must have run for this file, and no other file may have disconnected the shared instance.',
+    );
+  }
   const collections = await db.collections();
   await Promise.all(collections.map((c) => c.deleteMany({})));
 }

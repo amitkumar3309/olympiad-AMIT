@@ -1,17 +1,19 @@
 # TESTING.md
 
-_Last updated: 2026-08-05 (registration details and photo storage)._
+_Last updated: 2026-08-05 (Milestone 4 — Complete Question Bank System)._
 
 ## Current State
 
-The backend has a working test suite: **147 passing tests across 9 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **224 passing tests across 10 files** (`backend/tests/`). The frontend still has **no test suite**.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|
-| `backend/` | vitest + supertest (+ mongodb-memory-server) | 147 | Passing |
+| `backend/` | vitest + supertest (+ mongodb-memory-server) | 224 | Passing |
 | `frontend/` | none configured | 0 | Not started |
 
-**134 of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 62 RBAC/privilege-escalation tests (Milestone 3), 40 registration-detail tests (Milestone 4) and 32 auth integration tests (Milestone 2). That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
+**211 of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 77 question-bank tests (Milestone 4), 62 RBAC/privilege-escalation tests (Milestone 3), 40 registration-detail tests and 32 auth integration tests (Milestone 2).
+
+**Test files run one at a time** (`fileParallelism: false` in `vitest.config.mts`). Five suites now start their own `mongod`; run in parallel they contended for CPU and ports, and the failure that produced was not a clean error — it surfaced as unrelated duplicate-key 409s in whichever suite lost the race. The whole run takes about 40 seconds sequentially, which is a good trade for not chasing phantom failures. Relatedly, `clearTestDb()` now **throws** when there is no connection instead of silently doing nothing; the silent no-op is what turned a harness problem into a pile of confusing assertion failures. That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
 
 ## Commands
 
@@ -99,6 +101,22 @@ vitest + supertest, chosen in [`DECISIONS.md`](DECISIONS.md) (2026-08-04). vites
 - **Photo**: stored in `StudentPhoto` with the right content type and byte length, and asserted **not** to appear anywhere on the student document; over-2 MB, a non-image with an image MIME type (the magic-byte check), a disallowed image type, and a non-data-URL are each refused with no account created.
 - **Reading a photo back**: a student gets their own with `Content-Type: image/jpeg` and `Cache-Control: private`; a guest gets 401; **another student gets 403**; an admin gets 200; a missing account does not 500; and the gate is asserted on the unversioned `/api` alias too.
 - **Legacy accounts**: a pre-Milestone-4 document is inserted straight into the collection, bypassing the model, and an admin is asserted to still be able to suspend it — the regression that plain `required: true` would have caused.
+
+### Question bank (real database)
+
+`tests/questionBank.test.ts` — **77 tests**, the Milestone 4 suite. Everything goes through the **API** rather than inserting documents directly, so each test exercises the same validation and authorization a real author would hit.
+
+- **The full CRUD flow in one test**: create → read → update → publish → archive → restore → delete-refused → delete-a-fresh-draft-succeeds. It asserts the draft default, the server-assigned option keys (`a`–`d`), the revision bump, tag normalisation, and that `publishedAt` survives a return to draft while `archivedAt` is cleared.
+- **Taxonomy**: slug derivation, case-insensitive duplicate rejection, rename re-deriving the slug, an empty PATCH body rejected rather than reported as success, and archiving refused while published questions reference the entry.
+- **Subtopics**: depth 0 vs 1 in one collection, a third level refused, a parent from a different subject refused, the same topic name allowed under two subjects but not twice under one parent, and `parent=root` vs `parent=<id>` listing.
+- **Taxonomy consistency on a question**: a topic from another subject, a subtopic from another topic, and a subtopic passed in the `topic` field are each refused — these are the mismatches Mongoose refs cannot prevent and that would produce a question no filter could find.
+- **Per-type answer rules**: all four types accepted; wrong correct-option counts, duplicate option text, all-options-correct, a single option, and every "must not carry" case (a numeric answer on an MCQ, options on a numeric, tolerance on a non-numeric) refused.
+- **Marks**: stored, defaulted to no negative marking, and refused when negative marks exceed the marks awarded, when signed, or when absurd.
+- **Mathematics**: LaTeX stored verbatim; escaped `\$` accepted; unbalanced and empty delimiters refused; **macro-definition bombs** (`\def`, `
+ewcommand`, `\csname`) refused; `\href`/`\includegraphics`/`\input` refused; `<script>`, `onerror=` and `<iframe>` refused; and the same rules asserted on options and solutions, not just the stem.
+- **Editorial workflow**: publishing without a solution refused; `draft → in_review → published` accepted; `archived → published` refused; a no-op transition refused; an unknown status rejected with 400.
+- **Search / filter / sort / paginate**: stable pagination with no question on two pages, a past-the-end page returning empty rather than erroring, filters combining as AND, a `.*` search term matching **nothing** (proving the regex escape), LaTeX source being searchable, sorting both directions, and an off-allow-list sort key or over-large page size rejected.
+- **Answer-key protection**: from a real student session, neither the listing nor a single read contains `isCorrect`, `solution`, `numericAnswer` or `booleanAnswer` — while the options themselves are still present, because a student has to answer. Drafts are invisible; a draft asked for by id returns **404, not 403**. Every admin endpoint is refused to a student (403) and a guest (401), including through the unversioned `/api` alias.
 
 ### Foundation suites (no database)
 

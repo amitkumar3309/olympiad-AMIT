@@ -17,6 +17,7 @@ import {
   loginRootAdmin,
   createAdminSession,
 } from './helpers/auth';
+import { createTaxonomy } from './helpers/questions';
 
 beforeAll(startTestDb, 60_000);
 afterAll(stopTestDb);
@@ -55,7 +56,15 @@ const ADMIN_ENDPOINTS: Array<{ name: string; call: (cookie: string) => request.T
       request(app)
         .post(`${API}/admin/generate-questions`)
         .set('Cookie', cookie)
-        .send({ classLevel: '8', subject: 'Maths', topic: 'Algebra', difficulty: 'Easy', count: 1 }),
+        // Authorization runs before validation, so this never reaches the schema;
+        // the ids are syntactically valid so the entry still reads as a real call.
+        .send({
+          classLevel: 'Class 8',
+          subject: '000000000000000000000001',
+          topic: '000000000000000000000002',
+          difficulty: 'Easy',
+          count: 1,
+        }),
   },
 ];
 
@@ -467,16 +476,25 @@ describe('administrative audit trail', () => {
 
   it('records question generation', async () => {
     const { cookies } = await createAdminSession(app);
+    // The generator now has to name a real subject and topic — it can no longer
+    // invent free-text taxonomy (Milestone 4).
+    const taxonomy = await createTaxonomy(app, cookies, { subject: 'Geometry', topic: 'Circles' });
 
     await request(app)
       .post(`${API}/admin/generate-questions`)
       .set('Cookie', cookieHeader(cookies))
-      .send({ classLevel: '9', subject: 'Maths', topic: 'Geometry', difficulty: 'Hard', count: 2 })
-      .expect(200);
+      .send({
+        classLevel: 'Class 9',
+        subject: taxonomy.subjectId,
+        topic: taxonomy.topicId,
+        difficulty: 'Hard',
+        count: 2,
+      })
+      .expect(201);
 
     const entry = await AuditLog.findOne({ action: 'questions.generated' });
     expect(entry).not.toBeNull();
-    expect(entry!.metadata).toMatchObject({ subject: 'Maths', topic: 'Geometry', count: 2 });
+    expect(entry!.metadata).toMatchObject({ subject: taxonomy.subjectId, topic: taxonomy.topicId, count: 2 });
   });
 
   it('records an administrative sign-in', async () => {

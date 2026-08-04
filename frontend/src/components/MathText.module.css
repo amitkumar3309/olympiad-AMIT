@@ -1,0 +1,29 @@
+.root {
+  /* Author text may contain newlines that are meaningful (a multi-line stem), and
+     long formulas must not push a table cell wider than the viewport. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.inline {
+  white-space: normal;
+}
+
+.display {
+  display: block;
+  margin: 10px 0;
+  overflow-x: auto;
+  white-space: normal;
+}
+
+/* LaTeX that KaTeX could not parse: shown as its own source so the author can see
+   and fix exactly what they typed, rather than a silent blank. */
+.invalid {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}

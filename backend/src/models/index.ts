@@ -1,5 +1,7 @@
 export * from './Student';
 export * from './StudentPhoto';
+export * from './Subject';
+export * from './Topic';
 export * from './Question';
 export * from './ExamAttempt';
 export * from './Result';
