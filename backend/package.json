@@ -7,7 +7,7 @@
   "scripts": {
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "compile": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
     "lint": "eslint .",
     "test": "vitest run",

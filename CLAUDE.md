@@ -74,6 +74,7 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Architecture Rules
 
+- **Never add a script named `build` to `backend/package.json`.** Vercel's zero-config sees a `build` script, runs it, and then fails the deployment with `No Output Directory named "public" found` — because the backend is a serverless function, not a static site. `@vercel/node` compiles `api/index.ts` and its TypeScript imports on its own, so no build step is wanted. The equivalent local command is deliberately named **`compile`**. This exact regression broke production once; see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 - Keep the backend/frontend split. Do not merge them into one Vercel project unless [`DECISIONS.md`](DECISIONS.md) is updated first — this was a deliberate move (see the "Rebuild frontend in React, add real authentication, split into separate services" commit).
 - The backend is already split into `config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/` (Milestone 1, recorded in `DECISIONS.md`). Put new code in the matching folder; don't add logic back into `server.ts`, which is bootstrap-only.
 - `src/app.ts` must stay the single place the app is assembled, because both the local server and the Vercel serverless entry import it. Anything that must run in production has to be wired there or into a route/middleware — **not** into `server.ts`, which never executes on the serverless path.
@@ -170,7 +171,7 @@ A task is complete only when, as applicable:
 - [ ] Loading / error / empty states exist in any new frontend view
 - [ ] `npm run typecheck --prefix backend` passes / `tsc -b` passes for the frontend
 - [ ] `npm run lint` passes in the affected app(s) (`eslint` backend, `oxlint` frontend)
-- [ ] `npm test --prefix backend` passes (and `npm run build --prefix backend` still passes afterwards — these two have conflicted before)
+- [ ] `npm test --prefix backend` passes (and `npm run compile --prefix backend` still passes afterwards — these two have conflicted before)
 - [ ] Production build passes (`npm run build` in the affected app)
 - [ ] Docs updated: at minimum `PROJECT_STATE.md` + `FEATURE_STATUS.md`, plus any of the others this task touched
 

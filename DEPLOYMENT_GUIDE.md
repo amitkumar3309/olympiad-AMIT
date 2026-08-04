@@ -34,6 +34,7 @@ Two **separate** Vercel projects — this is intentional (see [`DECISIONS.md`](D
 ### Backend project
 1. In Vercel, import the repo but set the project's **Root Directory** to `backend/`.
 2. Vercel auto-detects `backend/api/index.ts` as a serverless function (via `@vercel/node`, already a dependency) and `backend/vercel.json` rewrites all paths to it.
+   - **The backend must have no `build` script.** `@vercel/node` compiles the TypeScript entrypoint itself. If a script named `build` exists, Vercel runs it and then fails with `No Output Directory named "public" found`. The local type-emitting command is named `compile` for exactly this reason — do not rename it back.
 3. Add the env vars from [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) (backend table) in Settings → Environment Variables.
 4. Deploy. Note the resulting production URL (e.g. `https://amit-olympiad.vercel.app`).
 

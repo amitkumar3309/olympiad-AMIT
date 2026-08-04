@@ -161,6 +161,19 @@ grep -o "http://localhost:5173/verify-email?token=[a-f0-9]*" backend.log | tail 
 
 ---
 
+## Backend Vercel deploy fails: `No Output Directory named "public" found`
+
+**Problem**: The backend build on Vercel completes `tsc` and then fails with
+`Error: No Output Directory named "public" found after the Build completed.`
+
+**Cause**: A regression introduced in Milestone 1. The backend is a serverless function, not a static site — but Milestone 1 added a `"build": "tsc -p tsconfig.json"` script to `backend/package.json` for local verification. Vercel's zero-config detection sees any script named `build`, runs it, and then looks for static output in `public/`. There is none, so the deploy fails. It went unnoticed for two milestones because neither was actually deployed; the last successful backend deploy (commit `9dbdf27`, Aug 2) predated the script.
+
+**Solution**: Rename the script. It is now `compile`, so Vercel's detection finds no build step and simply packages `api/index.ts`, which is what worked before. `@vercel/node` compiles the TypeScript entrypoint and its imports itself, so no build step is needed or wanted during deployment. `CLAUDE.md` now carries an explicit rule against reintroducing a `build` script here.
+
+**Verification**: `npm run compile --prefix backend` still type-emits locally, and the Vercel backend deploy proceeds to "Ready" instead of erroring on the output directory. Afterwards `GET /health` returns 200 (it 404s on the old code), which confirms the new code is actually live.
+
+---
+
 ## Template for new entries
 
 ```

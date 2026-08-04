@@ -30,7 +30,7 @@ npm run lint --prefix backend
 ```
 
 ```bash
-npm run build --prefix backend
+npm run compile --prefix backend
 ```
 
 ```bash
