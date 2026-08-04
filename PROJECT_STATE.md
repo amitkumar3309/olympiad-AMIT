@@ -1,151 +1,168 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-04 (Milestone 1 — Backend & Database Foundation, implemented)._
+_Last updated: 2026-08-04 (Milestone 2 — Complete Authentication System, implemented)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
 ## Current Development Phase
 
-**Milestone 1 — Backend and Database Foundation: implemented and verified locally.** The backend was refactored from a single 450-line file into a modular Express 5 + TypeScript application with environment validation, structured logging, a global error handler, a request-validation architecture, security middleware, health/readiness endpoints, graceful shutdown, and a working test suite.
+**Milestone 2 — Complete Authentication System: implemented and verified end-to-end.** Registration, email verification, login (mobile *or* email), short-lived access tokens with rotating refresh tokens, password reset, session revocation, account status handling and lockout are all real, database-backed, and covered by integration tests against a real MongoDB.
 
-Product features were deliberately **not** added in this milestone — no new business endpoints exist.
+No other product feature was touched. The exam, results, certificates, leaderboard and analytics pages are still mock — unchanged from Milestone 1.
 
 ## Last Completed Milestone
 
-**Milestone 1 — Backend and Database Foundation.** Preceded by Phase 0 (repository audit, commit `cc1399b`).
+**Milestone 2 — Complete Authentication System.** Preceded by Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
 
 ## Current Milestone
 
-None in progress. Awaiting owner selection of Milestone 2 (see "Immediate Next Task").
+None in progress. Awaiting owner selection of Milestone 3.
 
 ## Completed Modules (real, end-to-end)
 
-- **Backend foundation** — modular structure, env validation (zod, fail-closed on missing `JWT_SECRET` in production), typed config, MongoDB connection module with serverless-safe caching, structured logging (pino), request logging, global error handler + 404 handler, request validation middleware, `helmet`, explicit CORS allow-list, rate limiting, `/health` + `/ready`, graceful shutdown on SIGTERM/SIGINT.
-- **API versioning** — all routes served at `/api/v1/*` (canonical) and `/api/*` (compatibility alias). The frontend now calls `/api/v1` via a single `API_BASE` constant.
-- **Student registration / login / logout / session check** — real bcrypt + JWT + MongoDB.
-- **Admin login** — single env-configured account, JWT cookie, role-gated.
-- **Route protection** — `ProtectedRoute` / `AdminRoute` on the frontend, `requireAuth()` on the backend.
-- **Question listing** — `GET /api/v1/questions` reads real `Question` documents, now with validated query params.
-- **AI Question Generator (partial)** — admin-only endpoint really writes to MongoDB. The "AI" is a template-string generator, not a model call.
-- **Backend test suite** — 12 passing tests (vitest + supertest) covering health, readiness, error envelopes, the version alias, and request validation.
+- **Backend foundation** (Milestone 1) — modular structure, env validation, typed config, DB connection module, structured + request logging, global error handling, request validation, `helmet`, CORS allow-list, rate limiting, `/health` + `/ready`, graceful shutdown.
+- **API versioning** — `/api/v1/*` canonical, `/api/*` compatibility alias.
+- **Authentication (Milestone 2)** — all of the following are real and tested:
+  - Registration with `fullName`, `mobile`, `email`, `password`; bcrypt (cost 12); unique `mobile`/`email`/`studentId`.
+  - Email verification via a single-use, hashed, 24-hour token emailed to the student. Login is blocked until verified.
+  - Login by **mobile number or email**, with account-status checks and lockout after 5 failed attempts (15 minutes).
+  - Access tokens (15 min JWT, `httpOnly` cookie) + opaque refresh tokens (30 days, rotated on use, stored SHA-256-hashed) with reuse/theft detection that revokes the whole token family.
+  - `/auth/refresh`, `/auth/logout` (this device), `/auth/logout-all` (everywhere, bumps `tokenVersion`).
+  - Forgot password → single-use 30-minute reset token → reset, which also revokes every session. No account enumeration on either endpoint.
+  - Current-user endpoint, and frontend session restoration across a browser reload (tries `/auth/me`, falls back to one refresh).
+  - Per-endpoint rate limiting on every sensitive route.
+- **Route protection** — `requireAuth(...roles)` on the backend; `ProtectedRoute` / `AdminRoute` on the frontend.
+- **Admin login** — single env-configured account, 8-hour access token, no refresh token (by design).
+- **Question listing** — `GET /api/v1/questions` reads real documents with validated query params.
+- **AI Question Generator (partial)** — admin-only, really writes to MongoDB; the "AI" is a template-string generator, not a model call.
+- **Backend test suite** — 44 passing tests, including 32 auth integration tests against a real in-memory MongoDB.
 
 ## Partially Completed Modules
 
-- **Student analytics** — real model + route, but falls back to hardcoded demo data when no `StudentAnalytics` document exists, and **nothing in the codebase ever creates one**. Every real student therefore sees only the fallback.
+- **Student analytics** — real model + route, but falls back to hardcoded demo data because nothing ever creates a `StudentAnalytics` document. Every real student sees only the fallback.
 - **AI insights** — real rule-based logic (not ML), reachable only on the currently-unpopulated real-data path.
 
 ## Pending / Not Started Modules (UI exists, no real backend wiring)
 
-Unchanged by Milestone 1 — all still mock or absent:
+Unchanged by Milestone 2:
 
-- **Exam / exam attempts** — `Exam.tsx` is a client-side hardcoded 5-question quiz; nothing is submitted. `ExamAttempt` model unused.
-- **Results** — `Result.tsx` fabricates results by hashing the entered Student ID client-side. `Result` model unused.
-- **Certificates** — rendered client-side from the logged-in student's name/ID; the backend certificates route is never called.
+- **Exam / exam attempts** — client-side hardcoded 5-question quiz; nothing submitted. `ExamAttempt` model unused.
+- **Results** — fabricated client-side by hashing the entered Student ID. `Result` model unused.
+- **Certificates** — rendered client-side from the logged-in student's name/ID.
 - **Leaderboard** — hardcoded in `Landing.tsx` and `Dashboard.tsx`; the backend route exists but is never called.
-- **Daily challenge** — backend route exists (static mock), no frontend page calls it.
-- **Payments** — static QR image; no gateway, no verification, no transaction record.
-- **OTP / mobile verification** — frontend-only fake (hardcoded `'123456'`), no SMS provider.
-- **Admin student management** — `Admin.tsx` table is a hardcoded 4-row array; no list-students route exists.
+- **Daily challenge** — backend route exists (static mock), no frontend caller.
+- **Payments** — static QR image; no gateway, no verification, no transaction record. Registration still proceeds on a self-reported "I've paid" click.
+- **Mobile/SMS verification** — deliberately dropped. The fake client-side OTP step was **deleted**; email verification replaces it. No SMS provider is integrated.
+- **Admin student management** — hardcoded 4-row table; no list-students route.
 - **XP / Levels / Badges / Achievements / Journey map / Gallery / Hall of Fame / Notifications / Audit logs / Subscriptions** — not started.
 
 ## Current Frontend State
 
-React 19 SPA, 9 routes. All API access flows through `frontend/src/api/client.ts`, which now prefixes a single `API_BASE = '/api/v1'`; callers pass version-agnostic paths (`/auth/login`). Verified: `oxlint` passes (one pre-existing fast-refresh warning in `AuthContext.tsx`), `tsc -b && vite build` succeeds, the app boots with no console errors and reaches the backend through the Vite proxy. Pages still render hardcoded data where noted above.
+React 19 SPA, 12 routes (3 new: `/verify-email`, `/forgot-password`, `/reset-password`). All API access flows through `frontend/src/api/client.ts`, which prefixes `API_BASE = '/api/v1'` and transparently refreshes an expired access token once before retrying, de-duplicating concurrent refreshes through a single shared promise. `AuthContext` exposes register / login / logout / logout-everywhere / verify / resend / forgot / reset and restores the session on load. Verified: `oxlint` passes (one pre-existing fast-refresh warning), `tsc -b && vite build` succeeds, and the full flow was driven through a real browser with no console errors.
 
 ## Current Backend State
 
 Modular Express 5 app under `backend/src/`:
 
 ```
-app.ts              builds the configured Express app (used by dev + serverless)
-server.ts           local process bootstrap: connect, listen, graceful shutdown
-config/env.ts       loads .env (dotenv) + validates via zod
-config/index.ts     typed config; fails closed on missing prod JWT_SECRET
-db/connection.ts    cached connect/disconnect + connection-state helpers
-lib/                logger (pino), ApiError, response helpers
-middleware/         auth, validate, errorHandler, rateLimiter, requestLogger, ensureDb
-models/             5 Mongoose models, one file each
+app.ts                    Express app assembly
+server.ts                 local bootstrap + graceful shutdown
+config/env.ts             dotenv + zod validation (now incl. token/email settings)
+config/index.ts           typed config; separate access/refresh cookie options
+db/connection.ts          cached connect/disconnect + state helpers
+lib/logger.ts             pino
+lib/ApiError.ts           typed operational errors
+lib/apiResponse.ts        { success, ... } envelope helpers
+lib/password.ts           bcrypt hash/verify (cost 12; 4 under test for speed)
+lib/tokens.ts             access JWTs, refresh-token rotation, single-use tokens
+lib/email.ts              nodemailer SMTP + log/in-memory transports + templates
+middleware/               auth, validate, errorHandler, rateLimiter,
+                          requestLogger, ensureDb
+models/                   7 models, one file each
 routes/health.routes.ts   /health, /ready
-routes/v1/          auth, analytics, questions, admin, misc
-validation/         zod schemas for auth + questions
+routes/v1/                auth (12 routes), analytics, questions, admin, misc
+validation/               zod schemas for auth + questions
+tests/                    7 suites, 44 tests (incl. real-DB auth integration)
 ```
 
-`ExamAttempt` and `Result` models remain defined but unused by any route. Three routes (`daily-challenge`, `leaderboard`, `certificates/:studentId`) are still static mocks with no DB access, relocated unchanged into `routes/v1/misc.routes.ts`.
+`ExamAttempt` and `Result` remain defined but unused. Three routes (`daily-challenge`, `leaderboard`, `certificates/:studentId`) are still static mocks.
 
 ## Current Database State
 
-MongoDB via Mongoose. `MONGO_URI` is read from `backend/.env` locally (a real Atlas cluster is configured) and from Vercel env vars in production. Connection is opened by the local bootstrap **and** lazily per-request by the `ensureDb` middleware, which is what makes the Vercel serverless path work. `serverSelectionTimeoutMS` is set explicitly (8s normally, 300ms in tests) instead of Mongoose's 30s default. No migrations tooling, no seed script, no indexes beyond the implicit unique index on `Student.mobile`.
+MongoDB via Mongoose, **7 models**: `Student` (extended), `Question`, `ExamAttempt`, `Result`, `StudentAnalytics`, plus new `RefreshToken` and `VerificationToken`. Both new collections store only SHA-256 hashes of their tokens and carry TTL indexes so expired rows are removed automatically. Unique indexes now exist on `Student.mobile`, `Student.email` and `Student.studentId`.
 
-**Live connectivity is unverified from this development sandbox** — outbound raw DNS/TCP is blocked here (`querySrv ECONNREFUSED`), so Atlas cannot be reached. The credentials themselves were never proven wrong. The owner must confirm connectivity locally; see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+**Atlas connectivity is still unverified from this development sandbox** (outbound raw DNS/TCP is blocked). Milestone 2 was instead verified against a real MongoDB run locally on port 27017, which exercised the same code paths, indexes and constraints. The owner must still confirm Atlas works from their machine — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
 ## Current Authentication State
 
-Real for both roles. Improved in Milestone 1: production now **refuses to start** without `JWT_SECRET` (previously it warned and continued with a hardcoded default), and the three auth routes are rate limited. Still missing: account lockout, password reset, email/phone verification (no email field on `Student`), CSRF tokens.
+Complete for students; deliberately simpler for the single admin. Implemented: bcrypt password hashing, email verification, login by mobile or email, access/refresh token split with rotation and theft detection, revocation (per-device and everywhere), password reset that revokes all sessions, account status (`active`/`suspended`/`deactivated`), failed-login lockout, per-endpoint rate limiting, and no account enumeration on login, forgot-password or resend-verification.
+
+Still missing: CSRF tokens (see [`SECURITY.md`](SECURITY.md)), two-factor auth, and any admin-facing tooling to change a student's status (the field exists; nothing but a direct database edit sets it).
 
 ## Current Payment State
 
-None. No provider selected, no code. Static QR image only, with no link to the registration transaction.
+None. No provider selected, no code. Static QR image only, with no link to the registration transaction — registration completes regardless of whether payment happened.
 
 ## Current Deployment State
 
-Two independent Vercel projects, unchanged in structure:
-- `backend/` — serverless function via `api/index.ts`, which now imports the app from `src/app.ts`.
-- `frontend/` — static Vite build; `vercel.json` rewrites `/api/*` to a hardcoded backend URL and everything else to `index.html`.
+Two independent Vercel projects, unchanged in structure. `backend/api/index.ts` imports the app from `src/app.ts`; the per-request `ensureDb` middleware is what makes the serverless path connect at all.
 
-Because the frontend now requests `/api/v1/...` and both the Vite dev proxy and the Vercel rewrite pass the remaining path through unchanged, no deploy config changed. **Deployment ordering matters**: deploy the backend before the frontend, or the frontend's `/api/v1` calls will hit an older backend that lacks those paths.
+**Deployment ordering matters**: deploy the backend before the frontend, since the frontend calls `/api/v1/*`. Milestone 2 adds a second requirement: **set the SMTP and `FRONTEND_URL` env vars before students register in production**, or verification emails will not be delivered (they will only be written to the server log) and their links will point at the wrong host.
 
 ## Important File Locations
 
 | Concern | Location |
 |---|---|
 | Express app assembly | [backend/src/app.ts](backend/src/app.ts) |
-| Local bootstrap / shutdown | [backend/src/server.ts](backend/src/server.ts) |
-| Vercel serverless entry | [backend/api/index.ts](backend/api/index.ts) |
-| Env loading + validation | [backend/src/config/env.ts](backend/src/config/env.ts) |
-| Typed config | [backend/src/config/index.ts](backend/src/config/index.ts) |
-| DB connection | [backend/src/db/connection.ts](backend/src/db/connection.ts) |
-| Per-request DB gate | [backend/src/middleware/ensureDb.ts](backend/src/middleware/ensureDb.ts) |
-| Validation middleware | [backend/src/middleware/validate.ts](backend/src/middleware/validate.ts) |
-| Health / readiness | [backend/src/routes/health.routes.ts](backend/src/routes/health.routes.ts) |
-| Backend tests | [backend/tests/](backend/tests/) |
-| Frontend API client | [frontend/src/api/client.ts](frontend/src/api/client.ts) |
+| Auth routes (all 12) | [backend/src/routes/v1/auth.routes.ts](backend/src/routes/v1/auth.routes.ts) |
+| Token service | [backend/src/lib/tokens.ts](backend/src/lib/tokens.ts) |
+| Password hashing | [backend/src/lib/password.ts](backend/src/lib/password.ts) |
+| Email service + templates | [backend/src/lib/email.ts](backend/src/lib/email.ts) |
+| Auth middleware | [backend/src/middleware/auth.ts](backend/src/middleware/auth.ts) |
+| Rate limiters | [backend/src/middleware/rateLimiter.ts](backend/src/middleware/rateLimiter.ts) |
+| Auth validation schemas | [backend/src/validation/authSchemas.ts](backend/src/validation/authSchemas.ts) |
+| Student / token models | [backend/src/models/](backend/src/models/) |
+| Auth integration tests | [backend/tests/auth.flows.test.ts](backend/tests/auth.flows.test.ts), [backend/tests/auth.security.test.ts](backend/tests/auth.security.test.ts) |
+| Frontend API client (auto-refresh) | [frontend/src/api/client.ts](frontend/src/api/client.ts) |
 | Session/auth state | [frontend/src/context/AuthContext.tsx](frontend/src/context/AuthContext.tsx) |
+| New auth pages | [frontend/src/pages/Auth/](frontend/src/pages/Auth/) |
 | Dev server config | [.claude/launch.json](.claude/launch.json) |
 
 ## Current Environment Requirements
 
-Backend: `MONGO_URI`, `JWT_SECRET` (mandatory in production), `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, optionally `FRONTEND_URL`, `PORT`, `NODE_ENV`. Frontend: none. `backend/.env.example` now exists with placeholders. Full detail in [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
+Backend: `MONGO_URI`, `JWT_SECRET` (mandatory in production), `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `FRONTEND_URL` (now also the base for emailed links), and the SMTP group (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`, `EMAIL_FROM`). Optional policy knobs: `ACCESS_TOKEN_TTL`, `REFRESH_TOKEN_TTL_DAYS`, `ADMIN_TOKEN_TTL`, `REQUIRE_EMAIL_VERIFICATION`, `MAX_FAILED_LOGINS`, `ACCOUNT_LOCK_MINUTES`. Frontend: none. Full detail in [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
+
+**SMTP is not yet configured** — until the owner sets it, emails are written to the backend log rather than delivered.
 
 ## Known Bugs
 
-1. **`studentId` collision risk** — still generated as `AMIT_${Math.floor(Math.random()*10000)}` with no uniqueness check or unique index. Two students can collide. **Not fixed in Milestone 1.**
-2. **Analytics never persisted** — `generateAIInsights()` mutates `aiInsights` in memory and never saves. Harmless only because the real-data branch is unreachable; will silently no-op once analytics are written.
+1. **Existing student documents predate `email`.** `email` is now required and unique, so any `Student` created before Milestone 2 lacks it and will fail validation the next time it is saved. Reads still work. There is no migration script. If the Atlas database holds real students, they must be given addresses (or removed) before they can log in — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+2. **Analytics never persisted** — `generateAIInsights()` mutates `aiInsights` in memory and never saves. Harmless only because the real-data branch is unreachable.
 3. **Dead models** — `ExamAttempt` and `Result` are defined but untouched by any route.
-4. **`/api/v1/auth/me` returns 503 when the database is down even for guests** — the DB gate runs before the cookie check, so a visitor with no session gets 503 instead of 401. The frontend treats any failure as "guest", so behaviour is correct, but the status code is broader than ideal.
+4. **`/api/v1/auth/me` returns 503 when the database is unreachable** for students (admins answer from the token alone). The frontend treats any failure as "guest", so behaviour is correct, but the status is broader than ideal.
+5. **No admin tooling for account status.** `status` is enforced on login and on every `/auth/me`, but only a direct database edit can set it.
 
-Fixed in Milestone 1: the insecure `JWT_SECRET` fallback, the permissive CORS fallback, missing security headers, missing rate limiting, and the unvalidated `req.query` filter construction.
+Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with retry-on-collision), the absent password reset, the absent email verification, and the inability to revoke a session.
 
 ## Technical Debt
 
 - `ExamAttempt` / `Result` models still unused.
-- Hardcoded production backend URL inside `frontend/vercel.json` instead of an env-driven rewrite.
-- Mixed English/Hindi user-facing error strings in the backend (`"Kuch gadbad ho gayi"`) — carried over verbatim; worth a deliberate localisation decision.
-- No CI pipeline; the verification commands are run manually.
-- No integration tests against a real database (deliberate — see [`TESTING.md`](TESTING.md)).
-- The unversioned `/api/*` alias should eventually be removed once nothing depends on it.
-- Pre-existing high/moderate `npm audit` findings in `@vercel/node`'s build-time dependency tree; fixing requires a breaking `@vercel/node` v4 upgrade.
+- No migration tooling — the `email` backfill above has to be done by hand.
+- Hardcoded production backend URL inside `frontend/vercel.json`.
+- Mixed English/Hindi error strings are now gone from the auth routes, but `PROJECT_STATE`-era Hinglish may remain elsewhere; no deliberate localisation decision has been made.
+- No CI pipeline; verification commands are run manually.
+- No CSRF token mechanism (production cookies are `sameSite: 'none'` because the apps are on different domains).
+- No frontend test suite at all.
+- The unversioned `/api/*` alias should eventually be removed.
+- Pre-existing `npm audit` findings in `@vercel/node`'s build-time dependency tree.
 
 ## Immediate Next Task
 
-Awaiting owner decision on Milestone 2. The highest-value candidates, in the order recommended after Phase 0:
+Two things gate a real launch, in this order:
 
-1. Wire the **leaderboard** to real data.
-2. Wire **exam submission** → `ExamAttempt` → real **results** (both models already exist, unused).
-3. Real **admin student management** (no list-students route exists at all).
-4. Populate **`StudentAnalytics`** so analytics stop being a demo fallback.
-
-Fixing the `studentId` collision risk should be folded into whichever of these first depends on `studentId` as a key.
+1. **Owner action: configure SMTP** (see the instructions at the end of the Milestone 2 hand-off, and [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)). Until then, no student can receive a verification link in production.
+2. **Owner decision: Milestone 3.** Strongest candidates: wire exam submission → `ExamAttempt` → real results (both models exist, unused); real admin student management (would also give `status` a UI); or the payment gateway decision, which is the only thing standing between the current flow and collecting real money.
 
 ## Recent Architectural Decisions
 
-See [`DECISIONS.md`](DECISIONS.md). Milestone 1 added four ADRs: the modular backend split, `/api/v1` versioning with a compatibility alias, the chosen foundation libraries, and the decision that backend tests do not require a real MongoDB.
+See [`DECISIONS.md`](DECISIONS.md). Milestone 2 added six ADRs: the access/refresh token split, login by mobile-or-email, verification-before-login, SMTP via nodemailer with a log fallback, admins having no refresh token, and adopting a real in-memory MongoDB for integration tests (superseding the Milestone 1 decision against it).

@@ -93,10 +93,22 @@ See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. Five
 
 ## Authentication Architecture — CURRENT
 
-- Stateless JWT (`jsonwebtoken`), signed with `JWT_SECRET` (env, insecure hardcoded fallback if unset — see [`SECURITY.md`](SECURITY.md)), 7-day expiry, delivered via an `httpOnly` cookie named `token`.
-- Two payload shapes share one token type: `{role: 'student', sub, studentId}` or `{role: 'admin', email}`.
-- No refresh tokens, no token revocation list — logout just clears the client cookie; a stolen token remains valid for up to 7 days.
-- Admin identity is **not** in the database at all — it's two env vars (`ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`) compared directly in the login route. There is exactly one admin account, by design.
+_Rewritten in Milestone 2. The previous design was a single 7-day JWT with no revocation._
+
+**Two credentials, different jobs:**
+
+- **Access token** — a JWT signed with `JWT_SECRET` (mandatory in production), 15 minutes, `httpOnly` session cookie `access_token`. Claims: `role`, `sub`, `studentId`, `email`, `tv`. Verified statelessly by `requireAuth(...roles)` — signature, expiry and role only, no database read.
+- **Refresh token** — 32 bytes of `crypto.randomBytes`, opaque, 30 days, `httpOnly` cookie `refresh_token`. Persisted in the `RefreshToken` collection as a **SHA-256 hash only**, rotated on every use, and grouped into a per-login "family".
+
+**Rotation and theft response**: each refresh mints a new token, revokes the old one, and links them. Replaying an already-rotated token revokes the entire family, since two holders of one token means theft or replay.
+
+**Revocation model**: `logout` revokes just the presented refresh token; `logout-all` and password resets revoke every token *and* bump `Student.tokenVersion`, which invalidates outstanding access tokens (checked as `tv` on `/auth/me`). Because access-token checks are stateless, a revoked session can survive at most one access-token lifetime — a deliberate trade-off documented in [`SECURITY.md`](SECURITY.md).
+
+**Email-bound flows**: verification (24h) and password reset (30 min) use single-use tokens from the `VerificationToken` collection, also stored hashed, consumed atomically so a link cannot be redeemed twice.
+
+**Identity**: students log in with **either** their mobile number or their email address. Login is refused until the email is verified (`REQUIRE_EMAIL_VERIFICATION`). Accounts carry a `status` (`active`/`suspended`/`deactivated`) enforced at login, on refresh, and on every `/auth/me`, plus failed-login lockout.
+
+**Admin** identity is still **not** in the database — two env vars compared in the login route. It gets a single longer-lived access token (8h) and **no** refresh token, because there is no student record to anchor a token family to (see [`DECISIONS.md`](DECISIONS.md)).
 
 ## API Architecture — CURRENT
 
@@ -107,9 +119,18 @@ REST-ish under `/api/v1/*` (canonical) with `/api/*` retained as a backward-comp
 - **CURRENT**: Static image assets (`logo.png`, QR code, founder photo) are bundled into the frontend build via Vite's asset pipeline — not served from any external storage or CDN, not user-uploadable.
 - **PLANNED**: No file/image upload feature exists anywhere (no multipart handling, no S3/Cloudinary/etc. integration). Needed eventually for things like certificate PDFs or a gallery, but nothing is wired up.
 
-## Email Architecture — PLANNED (not started)
+## Email Architecture — CURRENT
 
-No email-sending library, no provider integration, no email field on any model. The registration "OTP" flow is entirely fake and client-side only.
+_Implemented in Milestone 2. The fake client-side "OTP" step was deleted._
+
+- `lib/email.ts` sends through **`nodemailer` over plain SMTP**, configured entirely by env vars, so any free-tier provider (Brevo, Resend, Mailtrap, a Gmail app password) works without a code change or vendor SDK.
+- Three transports, chosen by environment:
+  - **test** → captured in memory, letting tests assert on the real generated link;
+  - **SMTP configured** → real delivery;
+  - **SMTP unset** → written to the structured log, including the working link, so local development works before any provider exists.
+- Two templates: email verification and password reset. Link bases come from `FRONTEND_URL`.
+- Delivery failures are logged and swallowed, never surfaced, so a dead provider cannot become a 500 or leak whether an address exists.
+- **Not yet configured** — until the owner sets `SMTP_*`, production would only log emails. See [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
 
 ## Payment Architecture — PLANNED (not started)
 
@@ -129,7 +150,21 @@ No payment gateway SDK/dependency in either `package.json`. The registration flo
 
 **Any DB-backed request**: rate limiter → zod validation → `requireAuth` (where applicable) → `ensureDb` (connect-or-503) → handler. A malformed request therefore returns 400 without ever touching the database, and an unreachable database returns a clean 503 rather than a 500 or a hang.
 
-**Registration**: Landing form (details → fake OTP → fake payment) → `POST /api/v1/auth/register` → bcrypt hash → `Student.save()` → JWT cookie issued → frontend sets `AuthContext` state → redirect to `/dashboard`.
+**Registration (Milestone 2)**: Landing form (details → payment placeholder) → `POST /api/v1/auth/register` → bcrypt hash (cost 12) → `Student` created unverified with a unique `studentId` (retrying on collision) → single-use token stored hashed → verification email → **no session issued**. The UI then says "check your email".
+
+**Email verification**: emailed link → `/verify-email?token=…` → `POST /api/v1/auth/verify-email` → token consumed atomically → `isEmailVerified: true` → student can now sign in.
+
+**Login**: `POST /api/v1/auth/login` with mobile *or* email → lockout check → bcrypt compare (incrementing the failure counter and locking after 5) → status check → verification check → access + refresh cookies issued, refresh row written hashed.
+
+**Authenticated request**: `access_token` cookie → stateless verification in `requireAuth` → handler. On a 401 the frontend client transparently calls `/auth/refresh` once (de-duplicated through a shared promise) and replays the request.
+
+**Refresh**: `refresh_token` cookie → hash lookup → reuse/expiry checks → new token minted, old one revoked and linked → both cookies re-set.
+
+**Password reset**: `POST /auth/forgot-password` (always a generic 200) → hashed single-use token → emailed link → `/reset-password?token=…` → new hash written, `tokenVersion` bumped, **all** refresh tokens revoked, email marked verified, cookies cleared.
+
+**Session restoration after reload**: `AuthContext` calls `/auth/me`; if that fails it attempts one `/auth/refresh` and retries before concluding the visitor is a guest. This is what keeps a signed-in student signed in across a browser refresh, given the access cookie is a session cookie.
+
+**Legacy registration flow (removed)**: Landing form (details → fake OTP → fake payment) → `POST /api/v1/auth/register` → bcrypt hash → `Student.save()` → JWT cookie issued → frontend sets `AuthContext` state → redirect to `/dashboard`.
 
 **Student login**: Landing modal → `POST /api/v1/auth/login` → bcrypt compare → JWT cookie → `AuthContext` updated.
 

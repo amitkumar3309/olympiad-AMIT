@@ -6,19 +6,19 @@ A UI page existing with hardcoded/mock data is recorded as its own row/note — 
 
 **Infrastructure rows** (below the feature table) track the Milestone 1 backend foundation separately, since those are cross-cutting capabilities rather than user-facing features.
 
-_Last updated: 2026-08-04, after Milestone 1. No user-facing feature moved from mock to real in that milestone — it was foundation work only._
+_Last updated: 2026-08-04, after Milestone 2. Authentication moved from partly-real to complete and tested; **no other** user-facing feature changed._
 
 | Feature | Frontend | Backend | Database | Testing | Notes |
 |---|---|---|---|---|---|
-| Registration | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | IN_PROGRESS | Real end-to-end: form → `/api/v1/auth/register` → `Student` doc → JWT cookie. Input now validated by a zod schema and rate limited. Tests cover the validation layer only, not a real DB round-trip. "OTP" step before it is fake (see Email verification). |
-| Login | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | NOT_STARTED | `/api/v1/auth/login`, bcrypt compare, JWT cookie. Now validated + rate limited. No automated test of a successful login (needs a real DB). |
-| Logout | IMPLEMENTED | IMPLEMENTED | N/A | NOT_STARTED | `/api/v1/auth/logout`, clears cookie. No DB access. |
-| Email verification | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | No email field on `Student` at all. "OTP" UI is a hardcoded client-side literal (`123456`), no SMS/email provider. |
-| Forgot password | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | No route, no UI. |
-| Reset password | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | Depends on Forgot password. |
-| Student profile | NOT_STARTED | NOT_STARTED | IN_PROGRESS | NOT_STARTED | `Student` model stores `fullName`/`mobile`/`studentId` only; no profile page/edit UI. |
-| Admin authentication | IMPLEMENTED | IMPLEMENTED | N/A (env-based) | NOT_STARTED | Single admin account via `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH` env vars, no admin registration flow (intentional). Now validated + rate limited. |
-| RBAC | IMPLEMENTED | IMPLEMENTED | N/A | IN_PROGRESS | Two roles (`student`, `admin`) enforced via JWT payload + `requireAuth(...roles)`, now in `middleware/auth.ts`. A test asserts an unauthenticated request to a protected route gets 401. No finer-grained permissions. |
+| Registration | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | TESTED | Real end-to-end: form (now incl. email) → `/api/v1/auth/register` → `Student` doc → verification email. Issues **no session** — the student must verify first. Unique `mobile`/`email`/`studentId`, bcrypt cost 12, rate limited 10/hour. The fake OTP step was **deleted**. Covered by real-database integration tests. |
+| Login | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | TESTED | `/api/v1/auth/login` accepts **mobile or email**. bcrypt compare, access + refresh cookies, account-status and verification gates, lockout after 5 failures (423), no account enumeration. Fully covered by integration tests. |
+| Logout | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | TESTED | `/auth/logout` revokes the presented refresh token server-side (other devices stay signed in); `/auth/logout-all` revokes every session and bumps `tokenVersion`. Both tested. |
+| Email verification | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | TESTED | Real single-use, hashed, 24h token emailed via SMTP (`nodemailer`); `/verify-email` page + `/auth/resend-verification`. **Login is blocked until verified.** `VerificationToken` collection with TTL. **Owner action outstanding: SMTP not yet configured**, so emails are currently only written to the server log. |
+| Forgot password | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | TESTED | `/forgot-password` page → `POST /auth/forgot-password`, emails a single-use 30-minute hashed token. Always returns an identical generic response so accounts cannot be enumerated (asserted by test). Rate limited 5/hour. |
+| Reset password | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | TESTED | `/reset-password?token=` page → `POST /auth/reset-password`. Single-use token, revokes **every** session, bumps `tokenVersion`, clears lockout, marks the email verified. Tested incl. reuse and expiry. |
+| Student profile | NOT_STARTED | NOT_STARTED | IMPLEMENTED | NOT_STARTED | `Student` now stores `fullName`/`mobile`/`email`/`studentId`/`status`/verification state, exposed read-only via `/auth/me`. Still **no profile page and no way to edit anything** — that is the gap. |
+| Admin authentication | IMPLEMENTED | IMPLEMENTED | N/A (env-based) | NOT_STARTED | Single env-configured account, no registration flow (intentional). Issues an 8h access token and **no refresh token** — there is no DB record to anchor a token family to (see `DECISIONS.md`). Not covered by integration tests. |
+| RBAC | IMPLEMENTED | IMPLEMENTED | N/A | TESTED | Two roles enforced via the access-token `role` claim + `requireAuth(...roles)`. Tests cover unauthenticated, forged, expired and revoked tokens against protected routes. No finer-grained permissions. |
 | Student dashboard | IN_PROGRESS | NOT_STARTED | N/A | NOT_STARTED | Page exists (`Dashboard.tsx`), shows real logged-in student name/ID, but leaderboard + stat tiles are hardcoded constants, not fetched. |
 | Admin dashboard | IN_PROGRESS | NOT_STARTED | N/A | NOT_STARTED | Page exists (`Admin.tsx`), auth is real, but the students table and weekly-accuracy chart are hardcoded constants — no "list students" route exists. |
 | Student management | NOT_STARTED | NOT_STARTED | N/A | NOT_STARTED | No route to list/search/edit/delete students. Table shown in Admin UI is 4 fake rows. |
@@ -46,8 +46,8 @@ _Last updated: 2026-08-04, after Milestone 1. No user-facing feature moved from 
 | Subscriptions | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | Not applicable yet — one-time registration only. |
 | Settings | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | No account settings page for student or admin. |
 | Audit logs | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | No admin action logging. |
-| Security (baseline hardening) | N/A | IMPLEMENTED | N/A | NOT_STARTED | Milestone 1 added `helmet`, an explicit CORS allow-list (no more reflect-any fallback), rate limiting on auth + general routes, zod request validation, and a production start-up failure when `JWT_SECRET` is unset. **Deliberately not automatically tested** at owner instruction — see [`TESTING.md`](TESTING.md). Still missing: CSRF tokens, account lockout. See [`SECURITY.md`](SECURITY.md). |
-| Deployment | IMPLEMENTED | IMPLEMENTED | N/A | NOT_STARTED | Both apps have working Vercel configs; unchanged by Milestone 1 (the frontend's `/api/*` rewrite passes the `/v1` segment through). Production builds verified locally for both apps. **Deploy the backend before the frontend** — the frontend now calls `/api/v1`. Not verified live; owner should confirm both projects deploy and Atlas is reachable. |
+| Security (baseline hardening) | N/A | IMPLEMENTED | IMPLEMENTED | IN_PROGRESS | Milestone 1 headers/CORS/validation, plus Milestone 2: token rotation with theft detection, hashed token storage, single-use email tokens, bcrypt cost 12, per-endpoint rate limits, account lockout, no enumeration. Token/password/status behaviour is now **tested**; rate limiting, headers and CORS are still not asserted. **CSRF remains the top open gap** — see [`SECURITY.md`](SECURITY.md). |
+| Deployment | IMPLEMENTED | IMPLEMENTED | N/A | NOT_STARTED | Both apps have working Vercel configs; production builds verified locally. **Deploy the backend before the frontend.** Milestone 2 adds two prerequisites: set the `SMTP_*` vars (or students get no verification email) and set `FRONTEND_URL` (or emailed links point at localhost). Deploying also **signs everyone out**, because the cookie names changed. Not verified live. |
 
 ## Infrastructure / foundation (Milestone 1)
 
@@ -76,12 +76,22 @@ These are backend capabilities, not user-facing features. `TESTED` here means co
 | Production build scripts | IMPLEMENTED | N/A | `build` (`tsc -p tsconfig.json`) emits only `src`/`api` to `dist/`. |
 | Type checking | IMPLEMENTED | N/A | `typecheck` (`tsc -p tsconfig.test.json`) covers src + api + tests. Passes. |
 | Linting (backend) | IMPLEMENTED | N/A | `eslint` + `typescript-eslint` flat config. Passes clean. |
-| Backend testing foundation | IMPLEMENTED | TESTED | vitest + supertest, 12 passing tests, no real DB required. |
+| Backend testing foundation | IMPLEMENTED | TESTED | vitest + supertest, **44 passing tests**. 32 are auth integration tests against a real in-memory MongoDB; the rest need no database. |
+| Access / refresh token service | IMPLEMENTED | TESTED | `lib/tokens.ts` — 15-min access JWT with a `tv` revocation claim, plus opaque 30-day refresh tokens stored SHA-256-hashed and rotated on use, with family-wide revocation on reuse. |
+| Session / token revocation | IMPLEMENTED | TESTED | Per-device (`logout`), everywhere (`logout-all`), and automatic on password reset. Access-token revocation is bounded by the 15-min TTL — a documented trade-off. |
+| Password hashing | IMPLEMENTED | TESTED | `lib/password.ts`, bcrypt cost 12 (4 under test). `passwordHash` is `select: false` so it cannot leak. |
+| Email delivery | IMPLEMENTED | IN_PROGRESS | `lib/email.ts` — `nodemailer` over SMTP (provider-agnostic), with a log transport when unset and an in-memory transport under test. Flow logic is tested; **real delivery is unverified and SMTP is not yet configured**. |
+| Account status handling | IMPLEMENTED | TESTED | `active`/`suspended`/`deactivated`, enforced at login, on refresh, and on every `/auth/me`, so suspending kills live sessions. **No admin UI sets it** — direct DB edit only. |
+| Account lockout | IMPLEMENTED | TESTED | 5 failed logins → 15-minute lock, returning 423 even for the correct password. |
+| Auth state restoration | IMPLEMENTED | NOT_STARTED | `AuthContext` tries `/auth/me`, then one `/auth/refresh`, before concluding "guest". Verified by a real browser reload, not by automated test. |
+| Transparent token refresh (frontend) | IMPLEMENTED | NOT_STARTED | `api/client.ts` retries once after a 401, de-duplicating concurrent refreshes through a shared promise so rotation cannot trip theft detection. Verified manually. |
 
 ## Summary counts
 
-- IMPLEMENTED end-to-end (user-facing): Registration, Login, Logout, Admin auth, RBAC, Question bank (read), Deployment config.
+- IMPLEMENTED end-to-end (user-facing): Registration, Email verification, Login, Logout, Forgot password, Reset password, Admin auth, RBAC, Question bank (read), Deployment config.
+- TESTED against a real database: Registration, Email verification, Login, Logout/logout-all, Forgot password, Reset password, RBAC, token revocation, account status, lockout.
 - IMPLEMENTED (infrastructure, Milestone 1): all rows in the table above.
 - Mostly mock/frontend-only despite a real-looking page: Student dashboard, Admin dashboard, Exam/Attempts, Results, Certificates, Leaderboards, Daily challenge, Analytics (fallback path). **Unchanged by Milestone 1.**
-- Not started at all: Email verification, Password reset, Student profile editing, Student management (admin CRUD), Subjects/Topics as real entities, Practice zone, Mock tests, XP/Levels/Badges/Achievements/Journey map, Notifications, Gallery, Hall of Fame, Payments, Subscriptions, Settings, Audit logs.
+- Not started at all: Student profile editing, Student management (admin CRUD), Subjects/Topics as real entities, Practice zone, Mock tests, XP/Levels/Badges/Achievements/Journey map, Notifications, Gallery, Hall of Fame, Payments, Subscriptions, Settings, Audit logs, CSRF protection, two-factor auth.
+- Deliberately dropped: SMS/mobile OTP verification. The fake client-side OTP step was deleted and replaced by real email verification; no SMS provider is integrated (it would also breach the ₹0 constraint).
 - Nothing anywhere is marked `DEPLOYED` — Milestone 1 has not been deployed or verified in production.

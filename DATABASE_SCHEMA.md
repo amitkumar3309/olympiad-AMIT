@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. As of Milestone 1 each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`), re-exported from `models/index.ts`. They were moved out of the old single-file `server.ts` **without any schema change** — every field, default, enum and constraint below is byte-for-byte what it was before. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Seven models** as of Milestone 2 (Milestone 2 added `RefreshToken` and `VerificationToken`, and extended `Student`). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`), re-exported from `models/index.ts`. They were moved out of the old single-file `server.ts` **without any schema change** — every field, default, enum and constraint below is byte-for-byte what it was before. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 ## Status legend
 - `ACTIVE` — model is written to and/or read by at least one route.
@@ -15,16 +15,25 @@ Purpose: one document per registered student; the sole source of truth for stude
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | `fullName` | String | no | — | |
-| `mobile` | String | **yes** | — | `unique: true` — Mongoose creates a unique index; this is the login identifier. |
-| `passwordHash` | String | **yes** | — | bcrypt hash, 10 salt rounds. |
-| `studentId` | String | no | — | App-generated as `AMIT_<0-9999 random>` at registration time. **No uniqueness constraint or collision check** — see known bug in [`PROJECT_STATE.md`](PROJECT_STATE.md). |
+| `mobile` | String | **yes** | — | `unique`, trimmed. Usable as a login identifier. |
+| `email` | String | **yes** | — | `unique`, lowercased, trimmed. **Added in Milestone 2.** Usable as a login identifier, and the only channel for verification and password reset. |
+| `passwordHash` | String | **yes** | — | bcrypt, cost 12 (4 under test for speed). **Excluded from query results at the schema level** (`select: false`) so it cannot leak through a route that forgets to project it away; the login handler opts in with `.select('+passwordHash')`. |
+| `studentId` | String | **yes** | — | `AMIT_0000`–`AMIT_9999`, now **`unique`**. Registration retries on a duplicate-key error, which fixes the silent-collision bug recorded in earlier versions of `PROJECT_STATE.md`. |
+| `isEmailVerified` | Boolean | no | `false` | Login is refused while `false` (unless `REQUIRE_EMAIL_VERIFICATION=false`). Set by verifying, and also by completing a password reset (which proves mailbox control). |
+| `status` | String enum | no | `'active'` | One of `active` / `suspended` / `deactivated`. Checked on login, on every `/auth/me`, and on refresh. No admin UI sets it yet. |
+| `tokenVersion` | Number | no | `0` | Incremented by `logout-all` and by a password reset. Access tokens carry the value they were signed with (`tv`); a mismatch means the token predates the revocation and is rejected. |
+| `failedLoginAttempts` | Number | no | `0` | Reset on a successful login. |
+| `lockedUntil` | Date \| null | no | `null` | Set once `failedLoginAttempts` reaches `MAX_FAILED_LOGINS`; login returns `423` until it passes. |
+| `lastLoginAt` | Date \| null | no | `null` | |
 | `registeredAt` | Date | no | `Date.now` | |
 
-Relationships: `studentId` (not `_id`) is used as the informal foreign key by `ExamAttempt`, `Result`, and `StudentAnalytics` — but since it's a plain unindexed String with no uniqueness guarantee, this is a soft, unenforced relationship, not a real Mongo reference (`ObjectId` ref).
+Indexes: unique on `mobile`, `email`, and `studentId`.
 
-No email field. No role field (role is inferred purely from which JWT was issued, not stored on the document).
+**Migration warning**: `email` is required and unique, so any `Student` document created before Milestone 2 has no email and will fail validation on its next save. Reads still work. There is no migration script — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
----
+Relationships: `studentId` remains the informal, human-facing key used by `ExamAttempt`, `Result` and `StudentAnalytics`. It is now unique, but those are still plain strings rather than real `ObjectId` references. The new auth collections below correctly use an `ObjectId` ref to `Student`.
+
+There is no `role` field — role is carried by the token, and the admin has no `Student` document at all.
 
 ## `Question` — ACTIVE
 
@@ -98,6 +107,43 @@ Purpose: per-student rolled-up performance metrics + AI-generated insight string
 | `lastUpdated` | Date | no | `Date.now` | Never actually updated by any write path, since nothing writes to this collection at all today. |
 
 `GET /api/v1/analytics/:studentId` does `findOne` on this collection; if not found, returns a hardcoded mock payload instead of a 404 — meaning the API contract for "not found" is currently indistinguishable from "found, with demo data." Nothing in the codebase ever inserts a `StudentAnalytics` document, so this collection is likely empty in any real deployment.
+
+---
+
+## `RefreshToken` — ACTIVE (added in Milestone 2)
+
+Purpose: one document per issued refresh token. This collection is what makes sessions revocable.
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `tokenHash` | String | **yes** | — | `unique`. **SHA-256 of the token; the raw value is never stored**, so a database leak yields no usable sessions. SHA-256 rather than bcrypt because these are 256 bits of randomness, not guessable passwords — there is nothing to brute-force and lookups must be fast. |
+| `student` | ObjectId → `Student` | **yes** | — | Indexed. A real reference, unlike the legacy `studentId` strings. |
+| `familyId` | String (UUID) | **yes** | — | Indexed. Shared by every token descended from one login, so a whole lineage can be revoked at once. |
+| `expiresAt` | Date | **yes** | — | TTL index (`expireAfterSeconds: 0`) — MongoDB deletes expired rows itself, so no cleanup job is needed. |
+| `revokedAt` | Date \| null | no | `null` | Set by logout, logout-all, password reset, or rotation. |
+| `replacedByHash` | String \| null | no | `null` | Hash of the token that superseded this one. Its presence marks the token as already rotated, which is how reuse is detected. |
+| `userAgent` | String | no | — | Audit context only. |
+| `ip` | String | no | — | Audit context only. |
+| `createdAt` | Date | no | `Date.now` | |
+
+**Rotation and theft detection**: every refresh issues a new token, marks the old one revoked, and links the two. Presenting an already-rotated token means two parties hold the same credential — almost always theft or a replay — so the entire `familyId` is revoked, forcing a fresh login.
+
+---
+
+## `VerificationToken` — ACTIVE (added in Milestone 2)
+
+Purpose: single-use, expiring tokens emailed to a student, for both email verification and password reset.
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `tokenHash` | String | **yes** | — | `unique`. SHA-256 only; the raw token exists solely in the email that was sent. |
+| `student` | ObjectId → `Student` | **yes** | — | Indexed. |
+| `type` | String enum | **yes** | — | `email_verify` (24h) or `password_reset` (30 min). |
+| `expiresAt` | Date | **yes** | — | TTL index (`expireAfterSeconds: 0`). |
+| `usedAt` | Date \| null | no | `null` | Makes each token strictly one-shot. Consumed via `findOneAndUpdate` filtered on `usedAt: null`, so two concurrent redemptions cannot both succeed. |
+| `createdAt` | Date | no | `Date.now` | |
+
+Issuing a new token of a given type marks any outstanding token of that same type as used, so only the newest link in an inbox works.
 
 ---
 

@@ -1,7 +1,12 @@
+export type AccountStatus = 'active' | 'suspended' | 'deactivated'
+
 export interface Student {
   fullName: string
   mobile: string
+  email: string
   studentId: string
+  isEmailVerified: boolean
+  status: AccountStatus
 }
 
 export interface Admin {

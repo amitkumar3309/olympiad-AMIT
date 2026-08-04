@@ -1,15 +1,15 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-04 (Milestone 1)._
+_Last updated: 2026-08-04 (Milestone 2 — Complete Authentication System)._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
 Response envelope: `{ success: true, ... }` or `{ success: false, error: string }`, produced by `sendSuccess`/`sendError` in `backend/src/lib/apiResponse.ts`. Validation failures additionally include a `details` array.
 
-Middleware order on data routes: `rateLimit → validate → requireAuth → ensureDb → handler`. Consequences worth knowing when reading the error lists below:
+Middleware order on data routes: `rateLimit → validate → requireAuth → ensureDb → handler`. Validation therefore runs before any database work, and before the auth gate on public routes. Consequences worth knowing when reading the error lists below:
 - Malformed input returns **400** without touching the database.
 - An unreachable database returns **503** (`"Database unavailable. Please try again shortly."`), not a 500 or a hang.
-- All `/api*` routes are rate limited (general limiter); the three auth routes have a stricter limiter. Exceeding either returns **429**.
+- All `/api*` routes are rate limited (general limiter). Sensitive auth routes have their own tighter limiters, listed per endpoint below. Exceeding any of them returns **429**.
 
 ---
 
@@ -30,60 +30,104 @@ Middleware order on data routes: `rateLimit → validate → requireAuth → ens
 
 ---
 
-## IMPLEMENTED — and called by the frontend
+## Authentication (Milestone 2)
 
-The frontend calls these through `api.get`/`api.post` in `frontend/src/api/client.ts`, which prefixes `API_BASE = '/api/v1'`.
+All auth routes live in `backend/src/routes/v1/auth.routes.ts`. Two cookies are involved:
+
+| Cookie | Contents | Lifetime | Notes |
+|---|---|---|---|
+| `access_token` | JWT (`role`, `sub`, `studentId`, `email`, `tv`) | 15 min (`ACCESS_TOKEN_TTL`) | Session cookie — no `maxAge`; the `exp` claim is the authority. |
+| `refresh_token` | 32 random bytes, opaque | 30 days (`REFRESH_TOKEN_TTL_DAYS`) | Stored SHA-256-hashed; rotated on every use. |
+
+Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in production (the apps are on different domains). `tv` is the student's `tokenVersion`; a mismatch means the session was revoked.
 
 ### `POST /api/v1/auth/register`
-- **Auth**: none (public). Stricter auth rate limiter applies.
-- **Request**: `{ fullName: string, mobile: string, password: string }`
-- **Validation** (`registerSchema`, zod): all three required; `fullName`/`mobile` trimmed and non-empty; `password` at least 6 characters. Rejected before any DB access.
-- **Response 200**: `{ success: true, message: string, student: { fullName, mobile, studentId } }` + sets the `token` httpOnly cookie.
-- **Errors**: `400` validation (with `details`), `409` duplicate mobile, `429` rate limited, `503` DB unavailable, `500` unexpected (message is Hinglish: `"Kuch gadbad ho gayi"`, carried over verbatim).
-- **Note**: `studentId` is generated as `AMIT_<random 0-9999>` with **no uniqueness check** — see known bugs in [`PROJECT_STATE.md`](PROJECT_STATE.md).
+- **Auth**: none. **Rate limit**: 10/hour per IP.
+- **Request**: `{ fullName, mobile, email, password }`
+- **Validation**: `fullName` 2–120 chars; `mobile` 10–15 digits (spaces/dashes stripped); `email` a valid address, lowercased; `password` ≥8 chars containing at least one letter and one number.
+- **Response 201**: `{ success, message, requiresEmailVerification, student }` — and **no session cookies**. The student must verify first.
+- **Errors**: `400` validation, `409` duplicate email *or* duplicate mobile (distinct messages), `429`, `503`, `500`.
+- **Side effect**: emails a single-use verification link valid for 24 hours.
+
+### `POST /api/v1/auth/verify-email`
+- **Auth**: none (the token *is* the credential). **Rate limit**: 20/15 min.
+- **Request**: `{ token }` — the value from the emailed link.
+- **Response 200**: `{ success, message, student }` with `isEmailVerified: true`.
+- **Errors**: `400` invalid / already used / expired (each with its own message), `429`, `503`.
+- Tokens are single-use and consumed atomically, so a link cannot be redeemed twice even under a race.
+
+### `POST /api/v1/auth/resend-verification`
+- **Auth**: none. **Rate limit**: 5/hour.
+- **Request**: `{ email }`
+- **Response 200**: always the same generic message, whether or not the address exists or is already verified — this endpoint must not reveal which addresses are registered.
 
 ### `POST /api/v1/auth/login`
-- **Auth**: none (public). Stricter auth rate limiter applies.
-- **Request**: `{ mobile: string, password: string }`
-- **Validation** (`loginSchema`): both required and non-empty.
-- **Response 200**: `{ success: true, student: { fullName, mobile, studentId } }` + sets `token` cookie.
-- **Errors**: `400` validation, `401` invalid credentials, `429`, `503`, `500`.
+- **Auth**: none. **Rate limit**: 10/15 min per IP, plus per-account lockout.
+- **Request**: `{ identifier, password }` — `identifier` is the **mobile number or the email address**.
+- **Response 200**: `{ success, student }` + sets both cookies.
+- **Errors**:
+  - `400` validation.
+  - `401` invalid credentials — identical message for "no such account" and "wrong password", to prevent enumeration.
+  - `403` account `suspended` / `deactivated`.
+  - `403` with `code: 'EMAIL_NOT_VERIFIED'` when the address is unverified and `REQUIRE_EMAIL_VERIFICATION` is on. The frontend keys off `code` to offer a resend link.
+  - `423` account temporarily locked (after `MAX_FAILED_LOGINS`, for `ACCOUNT_LOCK_MINUTES`). The message includes the remaining minutes.
+  - `429`, `503`, `500`.
 
 ### `POST /api/v1/auth/admin/login`
-- **Auth**: none (public), but requires `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH` configured server-side. Stricter auth rate limiter applies.
-- **Request**: `{ email: string, password: string }`
-- **Response 200**: `{ success: true, admin: { email } }` + sets `token` cookie with role `admin`.
-- **Errors**: `400` validation, `401` invalid credentials, `500` if the admin env vars are missing (`"Admin account is not configured."`), `429`, `503`.
+- **Auth**: none. **Rate limit**: 10/15 min. Requires `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH`.
+- **Response 200**: `{ success, admin: { email } }` + an 8-hour `access_token`. **No refresh token** — see [`DECISIONS.md`](DECISIONS.md).
+- **Errors**: `400`, `401` invalid credentials, `500` admin not configured.
+
+### `POST /api/v1/auth/refresh`
+- **Auth**: the `refresh_token` cookie. **Rate limit**: 60/15 min.
+- **Response 200**: `{ success, student }` + a **new** access token and a **rotated** refresh token.
+- **Errors**: `401` when the token is missing, unknown, expired, or belongs to a non-active account — cookies are cleared in every case.
+- **Theft detection**: presenting an already-rotated token revokes the entire token family and returns `401` (`"…ended for security reasons…"`). Clients must therefore not refresh concurrently; the frontend de-duplicates through one shared promise.
 
 ### `POST /api/v1/auth/logout`
-- **Auth**: none required (safe no-op if already logged out). **DB**: not touched.
-- **Response 200**: `{ success: true }`, clears the `token` cookie.
+- **Auth**: none required (safe to call when already signed out).
+- Revokes **only** the presented refresh token, so other devices stay signed in, and clears both cookies. Never fails: cookies are cleared even if the database write errors.
+
+### `POST /api/v1/auth/logout-all`
+- **Auth**: `requireAuth('student')`.
+- Revokes every refresh token for the student **and** increments `tokenVersion`, which invalidates all outstanding access tokens at their next `/auth/me` or refresh.
 
 ### `GET /api/v1/auth/me`
-- **Auth**: reads the `token` cookie directly rather than via `requireAuth`, since it must also answer for guests.
-- **Response 200 (student)**: `{ success: true, role: 'student', student: { fullName, mobile, studentId } }`
-- **Response 200 (admin)**: `{ success: true, role: 'admin', admin: { email } }`
-- **Errors**: `401` no/invalid/expired cookie, or the token's student `_id` no longer resolves. `503` if the database is unreachable.
-- **Known nuance**: `ensureDb` runs before the cookie check, so a guest receives `503` instead of `401` while the database is down. The frontend treats any failure as "guest", so behaviour is correct — logged in [`PROJECT_STATE.md`](PROJECT_STATE.md).
+- **Auth**: reads the `access_token` cookie directly (not via `requireAuth`) because it must also answer for guests.
+- **Response 200 (student)**: `{ success, role: 'student', student }`
+- **Response 200 (admin)**: `{ success, role: 'admin', admin: { email } }` — answered from the token alone, so it works even when MongoDB is down.
+- **Errors**: `401` no/invalid/expired token, unknown student, or a stale `tv` (revoked session); `403` account no longer active; `503` database unreachable.
+
+### `POST /api/v1/auth/forgot-password`
+- **Auth**: none. **Rate limit**: 5/hour.
+- **Request**: `{ email }`
+- **Response 200**: always the same generic message regardless of whether the account exists. Verified by a test that asserts the responses are byte-identical.
+- **Side effect**: for an active account, emails a single-use reset link valid 30 minutes. Issuing a new link invalidates any previous outstanding one.
+
+### `POST /api/v1/auth/reset-password`
+- **Auth**: none (the token is the credential). **Rate limit**: 20/15 min.
+- **Request**: `{ token, password }` — same password policy as registration.
+- **Response 200**: `{ success, message }`
+- **Errors**: `400` invalid / already used / expired token, `429`, `503`.
+- **Side effects**: sets the new hash, increments `tokenVersion`, revokes **every** refresh token, clears the lockout counters, marks the email verified (completing a reset proves mailbox control), and clears cookies.
+
+---
+
+## Other implemented routes called by the frontend
 
 ### `GET /api/v1/analytics/:studentId`
-- **Auth**: `requireAuth('student', 'admin')`.
-- **Authorization**: a student may only fetch their own `:studentId` (403 otherwise); an admin may fetch any.
-- **Response 200**: `{ success: true, data: AnalyticsData }` — the real `StudentAnalytics` document if one exists, **otherwise a hardcoded demo payload**. The shape is identical either way, so callers cannot distinguish real from demo data. Because nothing in the codebase ever creates a `StudentAnalytics` document, this currently **always** returns the demo payload.
+- **Auth**: `requireAuth('student', 'admin')`. A student may fetch only their own ID (403 otherwise); admins may fetch any.
+- **Response 200**: `{ success, data: AnalyticsData }` — the real `StudentAnalytics` document if one exists, **otherwise a hardcoded demo payload**. Since nothing creates those documents, this currently always returns demo data.
 - **Errors**: `401`, `403`, `429`, `503`, `500`.
 - **Called by**: `Analytics.tsx`, `Report.tsx`.
 
 ### `POST /api/v1/admin/generate-questions`
 - **Auth**: `requireAuth('admin')`.
-- **Request**: `{ classLevel: string, subject: string, topic: string, difficulty?: 'Easy'|'Medium'|'Hard', questionType?: unknown, count: number }`
-- **Validation** (`generateQuestionsSchema`): `classLevel`/`subject`/`topic` required and non-empty; `difficulty` must be one of the three values (defaults to `Medium`); `count` coerced to an integer and constrained to **1–20** (previously unbounded server-side).
-- **Behaviour**: generates `count` template-string questions (**not** an AI/LLM call — no AI provider is integrated anywhere in this codebase) and `insertMany`s them.
-- **Response 200**: `{ success: true, message: string, data: Question[] }`
-- **Errors**: `400` validation, `401`/`403` not an admin, `429`, `503`, `500`.
+- **Request**: `{ classLevel, subject, topic, difficulty?, questionType?, count }` — `count` is coerced to an integer and constrained to 1–20.
+- **Behaviour**: generates `count` template-string questions (**not** an AI/LLM call — no AI provider is integrated) and `insertMany`s them.
+- **Errors**: `400`, `401`/`403`, `429`, `503`, `500`.
 - **Called by**: `AiGenerator.tsx`.
-- **Note**: `topic` is used only inside the generated `questionText`; the `Question` schema has no `topic` field, so it is not separately queryable.
-
----
+- **Note**: `topic` only appears inside the generated text; `Question` has no `topic` field.
 
 ## IMPLEMENTED — but not called by the frontend
 

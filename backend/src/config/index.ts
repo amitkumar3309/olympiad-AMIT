@@ -2,6 +2,7 @@ import { env } from './env';
 import { logger } from '../lib/logger';
 
 const isProd = env.NODE_ENV === 'production';
+const isTest = env.NODE_ENV === 'test';
 
 const INSECURE_DEV_JWT_SECRET = 'dev_insecure_secret_change_me';
 
@@ -33,10 +34,32 @@ if (isProd && (!env.ADMIN_EMAIL || !env.ADMIN_PASSWORD_HASH)) {
   logger.warn('ADMIN_EMAIL / ADMIN_PASSWORD_HASH are not fully set — admin login will be unavailable until both are configured.');
 }
 
+const smtpConfigured = Boolean(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS);
+if (!smtpConfigured && !isTest) {
+  logger.warn(
+    'SMTP is not configured — verification and password-reset emails will be written to the log instead of sent. ' +
+      'Set SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS to deliver real email (see ENVIRONMENT_VARIABLES.md).',
+  );
+}
+
+/**
+ * Base URL the emailed links point at. Falls back to the local dev frontend so
+ * links are still clickable during development.
+ */
+const publicAppUrl = env.FRONTEND_URL ?? LOCAL_FRONTEND_ORIGIN;
+
+/** Shared cookie attributes. `sameSite: 'none'` in production because the
+ *  frontend and backend are on different Vercel domains (see SECURITY.md). */
+const baseCookie = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+};
+
 export const config = {
   env: env.NODE_ENV,
   isProd,
-  isTest: env.NODE_ENV === 'test',
+  isTest,
   port: env.PORT,
   mongoUri: env.MONGO_URI,
   mongo: {
@@ -44,23 +67,51 @@ export const config = {
     // function's own limit — a dead database would hang the request until the
     // platform killed it instead of returning a clean 503. Tests use a very
     // short value so the no-database path fails fast.
-    serverSelectionTimeoutMS: env.NODE_ENV === 'test' ? 300 : 8000,
+    serverSelectionTimeoutMS: isTest ? 300 : 8000,
   },
   jwtSecret,
+  publicAppUrl,
   admin: {
     email: env.ADMIN_EMAIL,
     passwordHash: env.ADMIN_PASSWORD_HASH,
+    tokenTtl: env.ADMIN_TOKEN_TTL,
   },
   cors: {
     origins: corsOrigins,
   },
   auth: {
-    cookieName: 'token',
-    cookieOptions: {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+    /** Short-lived access token. */
+    accessCookieName: 'access_token',
+    /** Long-lived, rotating, opaque refresh token. */
+    refreshCookieName: 'refresh_token',
+    accessTokenTtl: env.ACCESS_TOKEN_TTL,
+    refreshTokenTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
+    requireEmailVerification: env.REQUIRE_EMAIL_VERIFICATION,
+    maxFailedLogins: env.MAX_FAILED_LOGINS,
+    accountLockMinutes: env.ACCOUNT_LOCK_MINUTES,
+    bcryptRounds: isTest ? 4 : 12,
+    accessCookieOptions: {
+      ...baseCookie,
+      // Deliberately no maxAge: a session cookie. The token's own `exp` claim
+      // is the real authority; the cookie should not outlive the browser session.
+    },
+    refreshCookieOptions: {
+      ...baseCookie,
+      maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
+    },
+    /** Verification / password-reset link lifetimes. */
+    emailVerifyTtlHours: 24,
+    passwordResetTtlMinutes: 30,
+  },
+  email: {
+    configured: smtpConfigured,
+    from: env.EMAIL_FROM,
+    smtp: {
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+      secure: env.SMTP_SECURE,
     },
   },
   rateLimit: {

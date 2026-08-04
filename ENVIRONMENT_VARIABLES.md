@@ -67,3 +67,77 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ## Keeping `.env.example` in sync
 
 `backend/.env.example` is the template a new contributor copies to `.env`. Whenever you add a variable to the zod schema in `backend/src/config/env.ts`, add it to **both** `.env.example` (placeholder value) and the table above in the same change.
+
+
+---
+
+## Milestone 2 additions — tokens, auth policy, and email
+
+### Token lifetimes (all optional)
+
+| Variable | Required | Purpose | Example | Notes |
+|---|---|---|---|---|
+| `ACCESS_TOKEN_TTL` | optional (default `15m`) | Lifetime of the short access-token JWT. | `15m` | Also the maximum time a revoked session can linger — see [`SECURITY.md`](SECURITY.md). Shorter is safer but means more refresh traffic. |
+| `REFRESH_TOKEN_TTL_DAYS` | optional (default `30`) | How long a student stays signed in without re-entering a password. | `30` | Rotated on every use. |
+| `ADMIN_TOKEN_TTL` | optional (default `8h`) | Admin access-token lifetime. | `8h` | Admins get no refresh token, so this is how often they re-authenticate. |
+
+### Auth policy (all optional)
+
+| Variable | Required | Purpose | Example | Notes |
+|---|---|---|---|---|
+| `REQUIRE_EMAIL_VERIFICATION` | optional (default `true`) | Whether students must click the emailed link before they can sign in. | `true` | **Escape hatch**: set to `false` only if mail delivery breaks and you need a way in. Accepts `true`/`false`/`1`/`0`. |
+| `MAX_FAILED_LOGINS` | optional (default `5`) | Failed attempts before an account locks. | `5` | |
+| `ACCOUNT_LOCK_MINUTES` | optional (default `15`) | How long the lock lasts. | `15` | |
+
+### Email / SMTP
+
+| Variable | Required | Purpose | Where to get it | Example |
+|---|---|---|---|---|
+| `SMTP_HOST` | required to send real email | SMTP server hostname. | Your email provider's dashboard. | `smtp-relay.brevo.com` |
+| `SMTP_PORT` | required to send real email | SMTP port. | Same. | `587` |
+| `SMTP_USER` | required to send real email | SMTP login. | Same. | `you@smtp-brevo.com` |
+| `SMTP_PASS` | required to send real email | SMTP key/password. **A secret.** | Same. | `xsmtpsib-…` |
+| `SMTP_SECURE` | optional (default `false`) | Implicit TLS. | — | `false` for port 587 (STARTTLS), `true` for 465. |
+| `EMAIL_FROM` | optional (has a placeholder default) | The From address recipients see. | You choose, but your provider must authorise the domain. | `AMIT Olympiad <no-reply@yourdomain.com>` |
+
+**If SMTP is unset, the app still works**: verification and reset emails are written to the backend log (including the real, working link) instead of being sent. That keeps local development fully testable before you sign up for anything. It is **not** acceptable in production — real students cannot read your server log.
+
+`FRONTEND_URL` gains a second job in Milestone 2: it is the base for the links inside those emails. If it is wrong or unset in production, links will point at `http://localhost:5173` and be useless to students.
+
+---
+
+## Beginner instructions: free SMTP with Brevo (recommended)
+
+Brevo's free tier allows 300 emails/day, needs no credit card, and works over plain SMTP. Any equivalent provider (Resend, Mailtrap, or a Gmail app password) works the same way — only the four `SMTP_*` values change.
+
+1. Go to **brevo.com** and create a free account. Confirm your own email address when they ask.
+2. In the left sidebar, open **Transactional** → **Settings** → **SMTP & API**, then choose the **SMTP** tab.
+   (If you land on a "Campaigns" screen, look for the account menu → *Transactional*.)
+3. You will see values labelled something like:
+   - **SMTP server**: `smtp-relay.brevo.com` → this is your `SMTP_HOST`
+   - **Port**: `587` → this is your `SMTP_PORT`
+   - **Login**: an address ending in `@smtp-brevo.com` → this is your `SMTP_USER`
+4. Click **Generate a new SMTP key** (sometimes "Create a new SMTP key"). Copy the key **immediately** — it is shown only once. That value is your `SMTP_PASS`.
+5. Authorise a sender address: go to **Senders, Domains & Dedicated IPs** → **Senders** → **Add a sender**, and add the address you want mail to come from. Brevo emails you a confirmation link; click it.
+   - If you do not own a domain, use a personal address here for now. Mail sent from an unauthorised address is rejected or lands in spam.
+   - Whatever you authorise becomes your `EMAIL_FROM`, in the form `AMIT Olympiad <that-address>`.
+6. Open `backend/.env` (create it by copying `backend/.env.example` if it does not exist) and fill in:
+   ```
+   SMTP_HOST=smtp-relay.brevo.com
+   SMTP_PORT=587
+   SMTP_USER=<the login from step 3>
+   SMTP_PASS=<the key from step 4>
+   SMTP_SECURE=false
+   EMAIL_FROM=AMIT Olympiad <the address you authorised in step 5>
+   ```
+7. Restart the backend (`npm run dev --prefix backend`). The startup warning about SMTP being unconfigured should disappear.
+8. Test it: register a student through the site with an address you can actually read, and confirm the verification email arrives. If nothing arrives, check the backend log — a delivery failure is logged there with the provider's reason.
+
+### Setting the same values on Vercel (production)
+
+1. Open your **backend** project on vercel.com → **Settings** → **Environment Variables**.
+2. Add each of the six `SMTP_*` / `EMAIL_FROM` values from step 6, for the **Production** environment.
+3. While you are there, confirm `FRONTEND_URL` is set to your real frontend URL — the emailed links are built from it.
+4. **Redeploy the backend.** Vercel does not apply new environment variables to an already-running deployment.
+
+Never paste these values into a public repository, issue, or screenshot; `SMTP_PASS` is a live credential.

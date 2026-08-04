@@ -100,6 +100,67 @@ Log real problems + solutions here as they're encountered, so we don't re-solve 
 
 ---
 
+## Existing student documents have no `email` after Milestone 2
+
+**Problem**: `Student.email` is now required and unique. Any student document created before Milestone 2 lacks it, so saving that document fails validation, and the student cannot complete flows that write to their record (including login, which updates `lastLoginAt`).
+**Cause**: The field was added because email verification and password reset are impossible without an address. No migration was written, because it is unknown whether the Atlas database holds real students or only test rows.
+**Solution**: Decide per database.
+- If the rows are throwaway test data, delete them: connect with MongoDB Compass or `mongosh` and run `db.students.deleteMany({ email: { $exists: false } })`.
+- If they are real students, give each one an address and mark it unverified so they are forced through verification:
+  `db.students.updateMany({ email: { $exists: false } }, { $set: { isEmailVerified: false, status: 'active', tokenVersion: 0, failedLoginAttempts: 0 } })` — then set `email` individually, since it must be unique per student.
+**Verification**: `db.students.countDocuments({ email: { $exists: false } })` returns `0`, and an affected student can log in.
+
+---
+
+## `Model.init()` fails in tests with "Cannot read properties of undefined (reading 'createCollection')"
+
+**Problem**: The first auth integration test run failed at setup with that error, and every test in the file was skipped.
+**Cause**: `tests/helpers/db.ts` called `Model.init()` after connecting to the in-memory MongoDB. `init()` also performs `autoCreate`, i.e. it tries to create the collection — and because the models are compiled at import time (they come in with `src/app.ts`, before any connection exists), that auto-create raced the freshly opened connection and found `connection.db` still undefined. It reproduced only in the test environment; a standalone script that compiled its model *after* connecting worked fine.
+**Solution**: Await `mongoose.connection.asPromise()`, then build indexes with `Model.createIndexes()` instead of `init()`. Indexes are what the tests actually need (unique constraints), and `createIndexes` does not try to create collections — MongoDB creates those implicitly on first insert.
+**Verification**: All 32 auth integration tests pass, including the duplicate-email and duplicate-mobile assertions that only mean anything once unique indexes exist.
+
+---
+
+## Auth tests timed out at 5000ms after adding the database
+
+**Problem**: Two tests began failing with "Test timed out in 5000ms".
+**Cause**: Two separate costs. bcrypt at cost 12 takes ~250ms per hash and the auth suites hash dozens of times; and Mongoose's default `serverSelectionTimeoutMS` of 30s applies whenever a route touches an unreachable database.
+**Solution**: Drop bcrypt cost to 4 and `serverSelectionTimeoutMS` to 300ms when `NODE_ENV=test` (both live in `config/index.ts`). Neither changes the code path — the same functions run, just faster. The shorter selection timeout is also better in production than Mongoose's default, which exceeds a Vercel function's own limit.
+**Verification**: The full 44-test suite runs in about 5 seconds.
+
+---
+
+## Verification and reset emails are not arriving
+
+**Problem**: A student registers but no email appears.
+**Cause**: Almost always that SMTP is unconfigured. With `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS` unset, the app deliberately writes the email to the server log instead of sending it, and logs a startup warning saying so. This is intended for local development; in production it means students get nothing.
+**Solution**: Configure SMTP — step-by-step instructions for Brevo's free tier are in `ENVIRONMENT_VARIABLES.md`. Then redeploy (Vercel does not apply new env vars to a running deployment).
+**Verification**: The startup warning disappears; a real registration produces an email; the log shows `Email sent`. To continue locally *without* SMTP, pull the link straight out of the backend log:
+```bash
+grep -o "http://localhost:5173/verify-email?token=[a-f0-9]*" backend.log | tail -1
+```
+**Note**: that log line contains a live, working token, so a development log is sensitive — don't paste it publicly.
+
+---
+
+## Emailed links point at localhost in production
+
+**Problem**: Students receive verification/reset emails whose links go to `http://localhost:5173`.
+**Cause**: Link bases come from `FRONTEND_URL`, which falls back to the local dev origin when unset. In Milestone 1 that variable only affected CORS, so it was easy to leave unset.
+**Solution**: Set `FRONTEND_URL` on the **backend** Vercel project to the real frontend URL (no trailing slash), then redeploy the backend.
+**Verification**: Register a test account in production and confirm the link host is correct.
+
+---
+
+## Everyone was signed out after deploying Milestone 2
+
+**Problem**: All existing users are suddenly logged out.
+**Cause**: Expected, not a bug. The single `token` cookie was replaced by `access_token` + `refresh_token`, so no pre-existing cookie is recognised.
+**Solution**: None needed — users sign in again. Worth mentioning in any release note so it doesn't look like an outage.
+**Verification**: A fresh login works and sets both new cookies.
+
+---
+
 ## Template for new entries
 
 ```

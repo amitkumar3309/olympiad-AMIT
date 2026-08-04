@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 import Button from '../../components/Button'
@@ -7,7 +7,13 @@ import { useAuth, ApiError } from '../../context/AuthContext'
 import qrCode from '../../assets/my_qr.png'
 import styles from './Landing.module.css'
 
-type WizardStep = 'details' | 'otp' | 'payment' | 'success'
+/**
+ * The registration wizard used to contain a fake client-side "OTP" step that
+ * accepted the hardcoded string 123456. That step is gone: mobile verification
+ * was never real, and email verification now happens for real, out of band, via
+ * a single-use link sent to the student's inbox.
+ */
+type WizardStep = 'details' | 'payment' | 'success'
 
 const CHAMPIONS = [
   { rank: '🥇', name: 'Amit Kumar', school: 'SGS DAV, Hanumangarh, Rajasthan', meta: 'Class 8 · 8.91s', badge: 'Golden Crown (+50 XP)' },
@@ -23,49 +29,45 @@ const FAQS = [
 
 export default function Landing() {
   const navigate = useNavigate()
-  const { register, login } = useAuth()
+  const { register, login, resendVerification } = useAuth()
 
   const [step, setStep] = useState<WizardStep>('details')
   const [fullName, setFullName] = useState('')
   const [mobile, setMobile] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [otp, setOtp] = useState('')
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [registeredId, setRegisteredId] = useState('')
+  const [resendNotice, setResendNotice] = useState('')
 
   const [loginOpen, setLoginOpen] = useState(false)
-  const [loginMobile, setLoginMobile] = useState('')
+  const [loginIdentifier, setLoginIdentifier] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
+  const [needsVerification, setNeedsVerification] = useState(false)
   const [loginSubmitting, setLoginSubmitting] = useState(false)
 
   function handleDetailsSubmit(e: FormEvent) {
     e.preventDefault()
     setFormError('')
-    if (!fullName.trim() || !mobile.trim() || !password || !confirmPassword) {
+    if (!fullName.trim() || !mobile.trim() || !email.trim() || !password || !confirmPassword) {
       setFormError('Please fill in every field.')
       return
     }
-    if (password.length < 6) {
-      setFormError('Password must be at least 6 characters.')
+    if (password.length < 8) {
+      setFormError('Password must be at least 8 characters.')
+      return
+    }
+    if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      setFormError('Password must contain at least one letter and one number.')
       return
     }
     if (password !== confirmPassword) {
       setFormError('Passwords do not match.')
       return
     }
-    setStep('otp')
-  }
-
-  function handleOtpSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (otp.trim() !== '123456') {
-      setFormError("Incorrect OTP. Enter '123456' for this demo verification step.")
-      return
-    }
-    setFormError('')
     setStep('payment')
   }
 
@@ -73,8 +75,13 @@ export default function Landing() {
     setSubmitting(true)
     setFormError('')
     try {
-      const student = await register(fullName.trim(), mobile.trim(), password)
-      setRegisteredId(student.studentId)
+      const result = await register({
+        fullName: fullName.trim(),
+        mobile: mobile.trim(),
+        email: email.trim(),
+        password,
+      })
+      setRegisteredId(result.student.studentId)
       setStep('success')
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Registration failed. Please try again.')
@@ -84,15 +91,30 @@ export default function Landing() {
     }
   }
 
+  async function handleResend() {
+    setResendNotice('')
+    try {
+      setResendNotice(await resendVerification(email.trim()))
+    } catch (err) {
+      setResendNotice(err instanceof ApiError ? err.message : 'Could not send a new link.')
+    }
+  }
+
   async function handleLoginSubmit(e: FormEvent) {
     e.preventDefault()
     setLoginError('')
+    setNeedsVerification(false)
     setLoginSubmitting(true)
     try {
-      await login(loginMobile.trim(), loginPassword)
+      await login(loginIdentifier.trim(), loginPassword)
       navigate('/dashboard')
     } catch (err) {
-      setLoginError(err instanceof ApiError ? err.message : 'Login failed.')
+      if (err instanceof ApiError) {
+        setLoginError(err.message)
+        setNeedsVerification(err.code === 'EMAIL_NOT_VERIFIED')
+      } else {
+        setLoginError('Login failed.')
+      }
     } finally {
       setLoginSubmitting(false)
     }
@@ -145,9 +167,8 @@ export default function Landing() {
         <div className={`card ${styles.wizardCard}`}>
           <div className={styles.steps}>
             <span className={step === 'details' ? styles.stepActive : styles.stepDone}>1. Details</span>
-            <span className={step === 'otp' ? styles.stepActive : step === 'details' ? '' : styles.stepDone}>2. OTP Verification</span>
-            <span className={step === 'payment' ? styles.stepActive : step === 'success' ? styles.stepDone : ''}>3. Payment</span>
-            <span className={step === 'success' ? styles.stepActive : ''}>4. Done</span>
+            <span className={step === 'payment' ? styles.stepActive : step === 'success' ? styles.stepDone : ''}>2. Payment</span>
+            <span className={step === 'success' ? styles.stepActive : ''}>3. Verify Email</span>
           </div>
 
           {formError && <p className="error-text">{formError}</p>}
@@ -157,20 +178,41 @@ export default function Landing() {
               <h2>Start Your Olympiad Journey</h2>
               <div className={styles.formGrid}>
                 <div className="form-group">
-                  <label>Student Name (Full Name)</label>
-                  <input className="form-control" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                  <label htmlFor="reg-name">Student Name (Full Name)</label>
+                  <input id="reg-name" className="form-control" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
                 </div>
                 <div className="form-group">
-                  <label>Mobile Number (WhatsApp)</label>
-                  <input className="form-control" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
+                  <label htmlFor="reg-mobile">Mobile Number (WhatsApp)</label>
+                  <input id="reg-mobile" className="form-control" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
                 </div>
                 <div className="form-group">
-                  <label>Password</label>
-                  <input type="password" className="form-control" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label>Confirm Password</label>
+                  <label htmlFor="reg-email">Email Address</label>
                   <input
+                    id="reg-email"
+                    type="email"
+                    className="form-control"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                  <p className={styles.fieldHint}>We'll send a verification link here. You'll need it to sign in.</p>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-password">Password</label>
+                  <input
+                    id="reg-password"
+                    type="password"
+                    className="form-control"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <p className={styles.fieldHint}>At least 8 characters, including a letter and a number.</p>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-confirm">Confirm Password</label>
+                  <input
+                    id="reg-confirm"
                     type="password"
                     className="form-control"
                     value={confirmPassword}
@@ -180,29 +222,7 @@ export default function Landing() {
                 </div>
               </div>
               <Button type="submit" fullWidth>
-                Verify Mobile via OTP ➔
-              </Button>
-            </form>
-          )}
-
-          {step === 'otp' && (
-            <form onSubmit={handleOtpSubmit}>
-              <h2>Mobile Number Verification (OTP)</h2>
-              <p>We have sent a 6-digit OTP to your mobile number. (For demo testing, enter: <strong>123456</strong>)</p>
-              <div className="form-group">
-                <input
-                  className={`form-control ${styles.otpInput}`}
-                  maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="Enter 6-digit OTP"
-                />
-              </div>
-              <Button type="submit" fullWidth>
-                Verify &amp; Proceed to Payment ➔
-              </Button>
-              <Button type="button" variant="ghost" fullWidth onClick={() => setStep('details')}>
-                Cancel / Edit Form
+                Continue to Payment ➔
               </Button>
             </form>
           )}
@@ -214,21 +234,28 @@ export default function Landing() {
                 <img src={qrCode} alt="Payment QR code" />
               </div>
               <Button onClick={handlePaymentConfirm} disabled={submitting} fullWidth>
-                {submitting ? 'Confirming...' : "I've Paid — Complete Registration ➔"}
+                {submitting ? 'Creating your account...' : "I've Paid — Create My Account ➔"}
+              </Button>
+              <Button type="button" variant="ghost" fullWidth onClick={() => setStep('details')}>
+                Back to details
               </Button>
             </div>
           )}
 
           {step === 'success' && (
             <div className={styles.center}>
-              <span className={styles.successBadge}>✅</span>
-              <h2>Welcome, {fullName}!</h2>
+              <span className={styles.successBadge}>📧</span>
+              <h2>Almost there, {fullName}!</h2>
               <p>
-                Your Student ID is <strong>{registeredId}</strong>. You're now logged in — head to your dashboard to
-                get started.
+                Your Student ID is <strong>{registeredId}</strong>. We've emailed a verification link to{' '}
+                <strong>{email}</strong> — click it to activate your account, then sign in.
               </p>
-              <Button onClick={() => navigate('/dashboard')} fullWidth>
-                Go to Dashboard 🚀
+              {resendNotice && <p className={styles.resendNotice}>{resendNotice}</p>}
+              <Button variant="outline" fullWidth onClick={handleResend}>
+                Didn't get it? Resend the link
+              </Button>
+              <Button variant="ghost" fullWidth onClick={() => setLoginOpen(true)}>
+                I've verified — sign me in
               </Button>
             </div>
           )}
@@ -252,14 +279,30 @@ export default function Landing() {
           <div className={`card ${styles.modal}`} onClick={(e) => e.stopPropagation()}>
             <h2>Student Login</h2>
             {loginError && <p className="error-text">{loginError}</p>}
+            {needsVerification && (
+              <p className={styles.resendNotice}>
+                Need a new verification link?{' '}
+                <Link to="/verify-email" onClick={() => setLoginOpen(false)}>
+                  Request one here
+                </Link>
+                .
+              </p>
+            )}
             <form onSubmit={handleLoginSubmit}>
               <div className="form-group">
-                <label>Mobile Number</label>
-                <input className="form-control" value={loginMobile} onChange={(e) => setLoginMobile(e.target.value)} required />
+                <label htmlFor="login-identifier">Mobile Number or Email</label>
+                <input
+                  id="login-identifier"
+                  className="form-control"
+                  value={loginIdentifier}
+                  onChange={(e) => setLoginIdentifier(e.target.value)}
+                  required
+                />
               </div>
               <div className="form-group">
-                <label>Password</label>
+                <label htmlFor="login-password">Password</label>
                 <input
+                  id="login-password"
                   type="password"
                   className="form-control"
                   value={loginPassword}
@@ -268,8 +311,13 @@ export default function Landing() {
                 />
               </div>
               <Button type="submit" fullWidth disabled={loginSubmitting}>
-                {loginSubmitting ? 'Logging in...' : 'Login & Enter Dashboard 🚀'}
+                {loginSubmitting ? 'Signing in...' : 'Login & Enter Dashboard 🚀'}
               </Button>
+              <div className={styles.modalLinks}>
+                <Link to="/forgot-password" onClick={() => setLoginOpen(false)}>
+                  Forgot your password?
+                </Link>
+              </div>
               <Button type="button" variant="ghost" fullWidth onClick={() => setLoginOpen(false)}>
                 Cancel
               </Button>

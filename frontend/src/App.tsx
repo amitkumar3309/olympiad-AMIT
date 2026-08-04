@@ -10,6 +10,9 @@ import Exam from './pages/Exam/Exam'
 import Certificate from './pages/Certificate/Certificate'
 import Report from './pages/Report/Report'
 import Result from './pages/Result/Result'
+import VerifyEmail from './pages/Auth/VerifyEmail'
+import ForgotPassword from './pages/Auth/ForgotPassword'
+import ResetPassword from './pages/Auth/ResetPassword'
 
 export default function App() {
   return (
@@ -17,6 +20,10 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Landing />} />
+          {/* Public auth flows — reached from emailed links, so they must not be gated. */}
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/result" element={<Result />} />
           <Route path="/certificate" element={<Certificate />} />
           <Route path="/admin" element={<Admin />} />

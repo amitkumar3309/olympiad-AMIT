@@ -2,6 +2,60 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-04 — Milestone 2: Complete Authentication System
+
+Authentication is now real end-to-end: registration, email verification, login, token refresh, logout, password reset, revocation, account status and lockout. **No mock authentication and no fake logged-in users remain anywhere.**
+
+**Database changes**
+- `Student` extended: added `email` (required, unique, lowercased), `isEmailVerified`, `status` (`active`/`suspended`/`deactivated`), `tokenVersion`, `failedLoginAttempts`, `lockedUntil`, `lastLoginAt`. `studentId` is now **unique**, and `passwordHash` is `select: false` so it cannot leak through a route that forgets to exclude it.
+- New `RefreshToken` collection: SHA-256 hash only, per-login `familyId`, rotation bookkeeping (`revokedAt`, `replacedByHash`), TTL index.
+- New `VerificationToken` collection: SHA-256 hash only, `type` (`email_verify` | `password_reset`), single-use `usedAt`, TTL index.
+- **Breaking for existing data**: `email` is required and unique, so `Student` documents created before this milestone will fail validation on their next save. No migration script — see `TROUBLESHOOTING.md`.
+
+**API changes** (all under `/api/v1`)
+- New: `POST /auth/verify-email`, `POST /auth/resend-verification`, `POST /auth/refresh`, `POST /auth/logout-all`, `POST /auth/forgot-password`, `POST /auth/reset-password`.
+- Changed: `POST /auth/register` now requires `email`, enforces a stronger password policy, returns `201`, and **no longer issues a session** — the student must verify first.
+- Changed: `POST /auth/login` now takes `identifier` (mobile **or** email) instead of `mobile`, and can return `403` with `code: 'EMAIL_NOT_VERIFIED'` or `423` when locked out.
+- Changed: `POST /auth/logout` revokes the presented refresh token server-side rather than only clearing a cookie.
+- Changed: the auth cookie `token` is replaced by `access_token` (15 min) plus `refresh_token` (30 days). **Any session issued before this deploy is invalidated.**
+
+**Security changes**
+- Access/refresh token split with rotation and theft detection: replaying a rotated refresh token revokes the entire token family.
+- Both refresh and email tokens are stored as SHA-256 hashes only; raw values never reach the database.
+- Email tokens are single-use, consumed atomically via `findOneAndUpdate` on `usedAt: null` so concurrent redemptions cannot both succeed.
+- bcrypt cost raised from 10 to 12.
+- Password reset revokes every session and bumps `tokenVersion`.
+- Account lockout after 5 failed logins for 15 minutes.
+- Per-endpoint rate limits replacing the single shared auth limiter (tightest on the email-sending routes, which consume a third-party quota).
+- No account enumeration on login, `forgot-password`, or `resend-verification` — asserted by a test comparing known/unknown responses.
+- `studentId` collision bug fixed (unique index plus retry-on-duplicate).
+
+**Email**
+- New `lib/email.ts` using `nodemailer` over plain SMTP, so any free-tier provider works via env vars alone. Falls back to writing emails (with working links) to the structured log when SMTP is unset, and captures them in memory under test.
+- **Owner action still required**: SMTP is not configured, so production would only log emails. See `ENVIRONMENT_VARIABLES.md`.
+
+**Frontend**
+- `api/client.ts` transparently refreshes an expired access token once and replays the request, de-duplicating concurrent refreshes through one shared promise (necessary, or the backend's reuse detection would correctly kill the session).
+- `AuthContext` gained verify / resend / forgot / reset / logout-everywhere, and now restores sessions across a browser reload by falling back to one refresh attempt.
+- New pages: `/verify-email`, `/forgot-password`, `/reset-password`.
+- Registration form gained an email field and a stronger password rule; the post-registration step now says "check your email".
+- **Removed the fake OTP step** that accepted the hardcoded string `123456`.
+
+**Breaking changes**
+- All existing sessions are invalidated (cookie names changed).
+- `POST /auth/login` request shape changed (`mobile` → `identifier`).
+- `POST /auth/register` requires `email` and no longer logs the user in.
+- Pre-existing `Student` documents need an `email` before they can be saved or logged into.
+
+**Verification**
+- Backend: `typecheck`, `lint`, `test` (**44/44**, up from 12) and `build` all pass; tests still pass after a build.
+- Frontend: `lint` passes (one pre-existing warning) and `build` succeeds.
+- **32 auth integration tests run against a real MongoDB** (`mongodb-memory-server`), covering both required journeys plus invalid and expired tokens, rotation reuse, revocation, account status and lockout.
+- Additionally verified by hand against a real database and a real browser: registered, was correctly blocked from logging in unverified, verified via the real emailed link, logged in with the mobile number, hit a protected route, refreshed (confirming rotation), replayed the old token (confirming family revocation), then reset the password through the UI and confirmed the old password and pre-reset sessions were dead.
+- Atlas connectivity itself remains unverified from this sandbox (network-restricted); a local MongoDB was used instead.
+
+---
+
 ## 2026-08-04 — Milestone 1: Backend & Database Foundation
 
 Foundation work only — **no new product features, no new business endpoints**. All pre-existing route behaviour and response shapes were preserved.

@@ -30,7 +30,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 - **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind). Linter: `oxlint`.
 - **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. Modular structure since Milestone 1 (`config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/`). Uses `zod` (validation), `pino` (logging), `helmet`, `express-rate-limit`. Linter: `eslint` + `typescript-eslint`. Tests: `vitest` + `supertest`.
 - **Database**: MongoDB via Mongoose.
-- **Auth**: JWT (`jsonwebtoken`) stored in an `httpOnly` cookie, passwords hashed with `bcryptjs`.
+- **Auth**: short-lived access JWT + rotating opaque refresh token, both in `httpOnly` cookies; passwords hashed with `bcryptjs` (cost 12). Email via `nodemailer` over SMTP.
 - **Deployment target**: Vercel, two **separate projects** — `frontend/` and `backend/` each have their own `vercel.json`. There is no monorepo-level Vercel config.
 - **Package manager**: npm (separate `package-lock.json` per app — no workspaces).
 
@@ -101,15 +101,19 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Backend Conventions
 
-- Auth cookie name is `token`, `httpOnly`, `secure` only in production, `sameSite: 'none'` in prod / `'lax'` in dev (because prod frontend and backend are different Vercel domains, so cross-site cookies are required). Do not change these without understanding the split-domain cookie implication — see [`SECURITY.md`](SECURITY.md).
-- `requireAuth(...roles)` middleware is the only auth gate — reuse it; do not hand-roll JWT verification in a new route.
+- There are **two** auth cookies: `access_token` (short-lived JWT) and `refresh_token` (opaque, rotating). Both `httpOnly`, `secure` only in production, `sameSite: 'none'` in prod / `'lax'` in dev (prod frontend and backend are different Vercel domains, so cross-site cookies are required). Do not change these without understanding the split-domain implication — see [`SECURITY.md`](SECURITY.md).
+- `requireAuth(...roles)` middleware is the only auth gate — reuse it; do not hand-roll token verification in a new route. It is deliberately stateless (no DB read); if you need the full student record, load it in the handler.
+- Never store a token in the database in plaintext. Use `hashToken()` from `lib/tokens.ts` (SHA-256) for refresh and email tokens; use `lib/password.ts` (bcrypt) for passwords. Never log a raw token outside the dev email transport.
+- Auth responses must not reveal whether an account exists. Login uses one message for unknown-account and wrong-password; `forgot-password` and `resend-verification` always return the same generic 200.
 - Every route returns JSON with a `success` boolean. Never return a bare array/object without it.
 
 ## Database Conventions
 
-- MongoDB via Mongoose, one model per file in `src/models/` (see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md)). `ExamAttempt` and `Result` models exist but are **not yet wired to any route** — do not assume they are populated.
+- MongoDB via Mongoose, one model per file in `src/models/` — **7 models** (see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md)). `ExamAttempt` and `Result` exist but are **not wired to any route** — do not assume they are populated.
+- `Student.passwordHash` is `select: false`. A query that needs it must opt in with `.select('+passwordHash')`; never remove that guard.
+- `Student.email` is required and unique, and was added in Milestone 2, so **documents created before it lack the field** and will fail validation on save. There is no migration script — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 - Any route that touches the database must have the `ensureDb` middleware applied **after** validation/auth. Without it the route will work locally but fail in production, because the serverless entry never runs the local bootstrap that connects at startup.
-- Student lookups use Mongo's own `_id` for the JWT `sub`, but the human-facing identifier is the app-generated `studentId` (`AMIT_<random 0-9999>`). This ID is **not guaranteed unique** — see [`SECURITY.md`](SECURITY.md) / [`PROJECT_STATE.md`](PROJECT_STATE.md) known bugs. Fix collision risk before relying on `studentId` as a primary key for anything new.
+- Student lookups use Mongo's own `_id` for the token `sub`; the human-facing identifier is `studentId` (`AMIT_0000`–`AMIT_9999`). It is now **uniquely indexed**, with registration retrying on collision, so it is safe to rely on — but it is still a plain string, not an `ObjectId` reference.
 
 ## API Conventions
 
@@ -118,8 +122,10 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Authentication Conventions
 
-- Two independent identities: `student` (registered via `/api/auth/register`, mobile+password) and `admin` (single account, credentials from env vars, no admin registration flow/UI exists — by design, see [`DECISIONS.md`](DECISIONS.md)).
-- There is no email/SMS verification on the backend. The frontend's "OTP" step in registration is a **client-side-only fake** (hardcoded literal `123456`) — do not treat it as real verification when building features that depend on a verified phone number.
+- Two independent identities: `student` (registered via `/api/v1/auth/register` with fullName + mobile + **email** + password) and `admin` (single account from env vars, no registration flow — by design, see [`DECISIONS.md`](DECISIONS.md)).
+- Students log in with **either** their mobile number or their email (`identifier` field). Email verification is **real** and required before login; the old fake client-side OTP step has been deleted. Do not reintroduce any mock verification.
+- Admins get a longer-lived access token and **no** refresh token, because there is no `Student` record to anchor a token family to.
+- Registration deliberately does **not** create a session. Don't "helpfully" log the student in on registration.
 
 ## Security Rules
 
@@ -129,9 +135,10 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Testing Requirements
 
-- The **backend** has a test suite: `vitest` + `supertest`, run with `npm test --prefix backend`. The **frontend** still has none. See [`TESTING.md`](TESTING.md).
-- Backend tests deliberately run **without a database** (`NODE_ENV=test` skips `.env` loading so they can't pick up real secrets). Don't add a test that silently requires a live MongoDB; if you need one, propose `mongodb-memory-server` in [`DECISIONS.md`](DECISIONS.md) first.
-- **Security behaviour is currently not automatically tested, by owner instruction** — the code is active, the tests are deferred. Don't interpret the absence of security tests as absence of security.
+- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for auth integration tests against a **real** MongoDB. Run with `npm test --prefix backend`. The **frontend** still has none. See [`TESTING.md`](TESTING.md).
+- `NODE_ENV=test` skips `.env` loading, so tests can never pick up real secrets, and also lowers bcrypt cost and disables rate limiters for speed/determinism. Don't "fix" any of that.
+- Use `tests/helpers/db.ts` (real in-memory MongoDB) and `tests/helpers/auth.ts` (`registerVerifyLogin`, cookie parsing, real token extraction from the captured email) rather than writing new harnesses.
+- **Rate limiting, security headers and CORS are implemented but not asserted by tests.** Absence of a test is not absence of the protection.
 - Write assertions that name the status they forbid (`expect(res.status).not.toBe(500)`), not vague ones. A weak `not.toBe(400)` assertion hid a real 500 bug during Milestone 1.
 - Adding a frontend test framework requires a `DECISIONS.md` entry first.
 

@@ -117,10 +117,29 @@
   text-align: left;
 }
 
-.otpInput {
+.fieldHint {
+  margin: 6px 0 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.resendNotice {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(0, 82, 255, 0.08);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.modalLinks {
+  margin: 12px 0 4px;
   text-align: center;
-  font-size: 22px;
-  letter-spacing: 8px;
+  font-size: 0.9rem;
+}
+
+.modalLinks a {
+  color: var(--primary);
 }
 
 .center {
