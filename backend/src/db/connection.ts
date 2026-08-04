@@ -52,3 +52,15 @@ export function getConnectionState(): ConnectionState {
 export function isConnected(): boolean {
   return mongoose.connection.readyState === 1;
 }
+
+/**
+ * Which database the connection actually landed in.
+ *
+ * Worth surfacing: a MONGO_URI with no path (…mongodb.net with no `/name`)
+ * connects successfully but silently uses MongoDB's default database, `test`.
+ * Writes then succeed while appearing to vanish, because you're looking at the
+ * wrong database in Atlas. Exposing the name on /ready makes that obvious.
+ */
+export function getDatabaseName(): string | null {
+  return mongoose.connection.db?.databaseName ?? null;
+}

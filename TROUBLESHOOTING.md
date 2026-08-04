@@ -174,6 +174,27 @@ grep -o "http://localhost:5173/verify-email?token=[a-f0-9]*" backend.log | tail 
 
 ---
 
+## Registration succeeds and the email arrives, but no student appears in MongoDB
+
+**Problem**: A student registers, the API returns 201, the verification email is delivered — yet the `students` collection in Atlas looks empty.
+
+**Cause**: `MONGO_URI` had no database name. A connection string that ends at the host, e.g.
+`mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net` with no `/name` path, connects perfectly well but uses MongoDB's **default database, which is called `test`**. Every write succeeded — into `test`, not `amit-olympiad` — so the data appears to vanish simply because you are looking at the wrong database in Atlas. Nothing was lost.
+
+**Solution**: Append the database name (and keep any query string after it):
+```
+mongodb+srv://<user>:<password>@<cluster>.mongodb.net/amit-olympiad?retryWrites=true&w=majority
+```
+Update it in **both** `backend/.env` and the backend's Vercel environment variables, then redeploy. Documents already written to `test` are not moved by this — either re-register, or copy the collections across in Atlas.
+
+**Verification**: `GET /ready` now reports the database it is actually using:
+```json
+{"success":true,"status":"ready","db":"connected","dbName":"amit-olympiad"}
+```
+If `dbName` says `test`, the URI is still missing its path. That field was added specifically so this failure can never be silent again.
+
+---
+
 ## Template for new entries
 
 ```

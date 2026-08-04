@@ -4,6 +4,7 @@ import request from 'supertest';
 vi.mock('../src/db/connection', () => ({
   getConnectionState: () => 'connected',
   isConnected: () => true,
+  getDatabaseName: () => 'amit-olympiad',
   connectDB: vi.fn(),
   disconnectDB: vi.fn(),
 }));
@@ -16,6 +17,6 @@ describe('GET /ready', () => {
   it('returns 200 when the DB reports connected', async () => {
     const res = await request(app).get('/ready');
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ success: true, status: 'ready', db: 'connected' });
+    expect(res.body).toMatchObject({ success: true, status: 'ready', db: 'connected', dbName: 'amit-olympiad' });
   });
 });

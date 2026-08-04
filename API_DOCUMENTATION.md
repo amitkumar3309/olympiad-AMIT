@@ -24,7 +24,7 @@ Middleware order on data routes: `rateLimit → validate → requireAuth → ens
 ### `GET /ready`
 - **Auth**: none. **Rate limited**: no.
 - **DB**: inspects the Mongoose connection state (does not open a connection).
-- **Response 200**: `{ success: true, status: 'ready', db: 'connected' }`
+- **Response 200**: `{ success: true, status: 'ready', db: 'connected', dbName: 'amit-olympiad' }` — `dbName` is the database actually in use, which catches a `MONGO_URI` missing its database path (see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)).
 - **Response 503**: `{ success: false, error: 'Not ready', db: 'disconnected' }`
 - Use this for uptime monitoring and deployment gating; use `/health` to check only that the process is alive.
 

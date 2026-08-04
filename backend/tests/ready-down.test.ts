@@ -4,6 +4,7 @@ import request from 'supertest';
 vi.mock('../src/db/connection', () => ({
   getConnectionState: () => 'disconnected',
   isConnected: () => false,
+  getDatabaseName: () => null,
   connectDB: vi.fn(),
   disconnectDB: vi.fn(),
 }));
