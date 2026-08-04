@@ -43,9 +43,15 @@ export default function Navbar() {
               </Link>
             </>
           )}
-          {/* Driven by permission, not by which kind of account is signed in: a
-              student promoted to admin keeps their student links and gains this one. */}
-          {can('students:read') && (
+          {/* Shown to guests as the visible way in to the admin portal (the link
+              lands on the sign-in form), and to anyone who actually holds the
+              permission. Deliberately hidden from a signed-in plain student, who
+              would only reach the Unauthorized screen by following it.
+
+              For a signed-in user this is driven by the permission, not by which
+              kind of account is signed in: a student promoted to admin keeps their
+              student links and gains this one. */}
+          {(state.status === 'guest' || can('students:read')) && (
             <Link to="/admin" onClick={() => setOpen(false)}>
               Admin
             </Link>
