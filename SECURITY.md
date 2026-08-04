@@ -57,7 +57,7 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 - **Lateral protection**: an ordinary admin cannot change the status of an account that holds a role (only a super admin can), and nobody can change their own role or their own status.
 - Roles cannot be self-assigned at registration: the handler picks fields explicitly, the zod schema strips unknown keys, and `role` defaults to `student` in the schema.
 
-Verified by `backend/tests/rbac.test.ts` (61 tests), which drives the escalation attempts directly rather than through the UI. See [`TESTING.md`](TESTING.md).
+Verified by `backend/tests/rbac.test.ts` (62 tests), which drives the escalation attempts directly rather than through the UI. See [`TESTING.md`](TESTING.md).
 
 ### The frontend is not a security boundary
 

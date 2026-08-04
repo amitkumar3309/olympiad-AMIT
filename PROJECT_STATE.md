@@ -41,7 +41,7 @@ None in progress. Awaiting owner selection of Milestone 4.
 - **Audit trail (Milestone 3)** — `AuditLog` collection and `/admin/audit-log` page. Records role changes, status changes, question generation, administrative sign-ins, **and refused privileged requests** with the exact missing permission. No TTL. Writes are best-effort so a failed audit write never fails the action it describes.
 - **Question listing** — `GET /api/v1/questions` reads real documents with validated query params.
 - **AI Question Generator (partial)** — admin-only, really writes to MongoDB; the "AI" is a template-string generator, not a model call.
-- **Backend test suite** — **105 passing tests** across 8 files, all against a real in-memory MongoDB where a database is needed: 61 RBAC / privilege-escalation tests (Milestone 3) and 32 auth integration tests (Milestone 2).
+- **Backend test suite** — **106 passing tests** across 8 files, all against a real in-memory MongoDB where a database is needed: 62 RBAC / privilege-escalation tests (Milestone 3) and 32 auth integration tests (Milestone 2).
 
 ## Partially Completed Modules
 
@@ -94,7 +94,7 @@ routes/health.routes.ts   /health, /ready
 routes/v1/                auth (12 routes), analytics, questions, admin,
                           users (5 admin/audit routes), misc
 validation/               zod schemas for auth + questions + users
-tests/                    8 suites, 105 tests (incl. real-DB auth + RBAC)
+tests/                    8 suites, 106 tests (incl. real-DB auth + RBAC)
 ```
 
 `ExamAttempt` and `Result` remain defined but unused. Three routes (`daily-challenge`, `leaderboard`, `certificates/:studentId`) are still static mocks.

@@ -4,14 +4,14 @@ _Last updated: 2026-08-05 (Milestone 3 — RBAC and User Management Foundation).
 
 ## Current State
 
-The backend has a working test suite: **105 passing tests across 8 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **106 passing tests across 8 files** (`backend/tests/`). The frontend still has **no test suite**.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|
-| `backend/` | vitest + supertest (+ mongodb-memory-server) | 105 | Passing |
+| `backend/` | vitest + supertest (+ mongodb-memory-server) | 106 | Passing |
 | `frontend/` | none configured | 0 | Not started |
 
-**93 of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 61 RBAC/privilege-escalation tests (Milestone 3) and 32 auth integration tests (Milestone 2). That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
+**94 of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 62 RBAC/privilege-escalation tests (Milestone 3) and 32 auth integration tests (Milestone 2). That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
 
 ## Commands
 
@@ -74,7 +74,7 @@ vitest + supertest, chosen in [`DECISIONS.md`](DECISIONS.md) (2026-08-04). vites
 
 ### RBAC and privilege escalation (real database)
 
-`tests/rbac.test.ts` — **61 tests**, the Milestone 3 suite. Its organising idea is that authorization must be attacked at the API, not through the UI, so every case issues raw HTTP requests with hand-built cookies.
+`tests/rbac.test.ts` — **62 tests**, the Milestone 3 suite. Its organising idea is that authorization must be attacked at the API, not through the UI, so every case issues raw HTTP requests with hand-built cookies.
 
 - **The permission surface**: a student's token grants only student permissions; the root account is `superadmin` and holds `users:role:write`; a promoted admin holds the administrative permissions but *not* `users:role:write`.
 - **A student cannot reach admin APIs**: every one of the six admin endpoints is asserted to return **403** for a student and **401** for a guest, via `it.each` so a newly added endpoint cannot quietly skip the check. Also asserted through the unversioned `/api` alias, so the compatibility mount is not a way around the gate, and asserted not to leak another account's email in the refusal body.

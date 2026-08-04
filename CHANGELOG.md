@@ -45,7 +45,7 @@ Authorization moved from scattered role checks to a single permission table, adm
 - `api/client.ts` gained `patch`.
 
 **Testing**
-- New `backend/tests/rbac.test.ts` — **61 tests**, taking the suite from 44 to **105**. Covers: every admin route refused to a student (403) and to a guest (401), including through the unversioned `/api` alias; forged, role-tampered, unknown-role and role-less tokens; `role` submitted at registration being ignored; a demoted admin's still-valid token; suspended and deleted accounts; an admin trying to promote anyone or suspend a peer; cross-account analytics reads; and every audit entry, including refusals.
+- New `backend/tests/rbac.test.ts` — **62 tests**, taking the suite from 44 to **106**. Covers: every admin route refused to a student (403) and to a guest (401), including through the unversioned `/api` alias; forged, role-tampered, unknown-role and role-less tokens; `role` submitted at registration being ignored; a demoted admin's still-valid token; suspended and deleted accounts; an admin trying to promote anyone or suspend a peer; cross-account analytics reads; and every audit entry, including refusals.
 - `tests/setup.ts` provisions root-admin credentials in-process so the real admin-login path is exercised without committing a password hash.
 
 **Verified**
