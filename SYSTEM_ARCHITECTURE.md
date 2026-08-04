@@ -23,7 +23,7 @@ Two independently deployed Vercel projects, no shared build, no monorepo tool. T
 
 - **Framework**: React 19, `react-router-dom` v7 `BrowserRouter` with 9 top-level routes, all declared in [frontend/src/App.tsx](frontend/src/App.tsx).
 - **State**: One global context, `AuthContext` (`frontend/src/context/AuthContext.tsx`), a discriminated union `{status: 'loading'|'guest'|'student'|'admin', ...}`. No Redux/Zustand/React Query — every page manages its own `useState`/`useEffect` data fetching.
-- **Data fetching**: `frontend/src/api/client.ts` — a thin `fetch` wrapper (`api.get`/`api.post`) that always sends `credentials: 'include'` and throws a typed `ApiError` on non-2xx. Pages call this directly in `useEffect`; there is no caching layer, so every page re-fetches on mount.
+- **Data fetching**: `frontend/src/api/client.ts` — a thin `fetch` wrapper (`api.get`/`api.post`) that always sends `credentials: 'include'` and throws a typed `ApiError` on non-2xx. Pages call this directly in `useEffect`; there is no caching layer, so every page re-fetches on mount. It also owns `API_BASE = '/api/v1'` and prefixes every request, so callers pass version-agnostic paths (`/auth/login`, not `/api/auth/login`) and the API version changes in exactly one place.
 - **Styling**: CSS Modules per page/component (`*.module.css`) plus a small global stylesheet `src/styles/theme.css` and global utility classes (`container`, `card`, `form-group`, `form-control`, `error-text`) referenced by className string rather than imported — these are assumed to live in `theme.css`.
 - **Charts**: `chart.js` + `react-chartjs-2`, wrapped in a single reusable `ChartCard` component supporting line/bar.
 - **Icons/fonts**: loaded via CDN `<link>` tags in `index.html` (Phosphor Icons, Google Fonts) — not npm dependencies.
@@ -43,13 +43,51 @@ Pages that **do** genuinely round-trip to the backend: `Landing` (register/login
 
 ## Backend Architecture — CURRENT
 
-- **Framework**: Express 5, TypeScript, executed via `tsx` locally (`npm run dev`/`start`) and as a Vercel serverless function in production via [backend/api/index.ts](backend/api/index.ts) (which just re-exports the Express `app` — `@vercel/node` handles the adaptation).
-- **Everything lives in one file**: [backend/src/server.ts](backend/src/server.ts) — CORS/middleware setup, DB connection, all 5 Mongoose model definitions, the JWT auth middleware, and all 11 routes. No `routes/`, `controllers/`, or `models/` directories exist yet.
-- **Middleware stack**: `cors` (origin from `FRONTEND_URL` env or `localhost:5173`, `credentials: true`), `express.json()`, `cookie-parser`. No `helmet`, no rate limiter, no request logger beyond `console.log`.
-- **DB connection pattern**: a Vercel-serverless-aware guard (`if (mongoose.connection.readyState === 0)`) so repeated cold starts don't open duplicate connections; called once at module load, not lazily per-request.
-- **Auth middleware**: `requireAuth(...roles)` reads the `token` cookie, verifies the JWT, checks the decoded `role` against the allowed roles for that route, attaches `req.user`.
+_Restructured in Milestone 1 (2026-08-04). Previously all logic lived in a single ~450-line `server.ts`._
+
+- **Framework**: Express 5 + TypeScript, run via `tsx` locally and as a Vercel serverless function in production.
+- **Two entry points, one app**:
+  - `src/app.ts` — `createApp()` assembles middleware and routes and exports a configured app. Imported by **both** the local server and the Vercel entry (`api/index.ts`).
+  - `src/server.ts` — local/standalone process bootstrap only: eagerly connects to MongoDB (non-fatally), starts the HTTP listener, and installs SIGTERM/SIGINT graceful-shutdown handlers. **Never executed on the serverless path.**
+- **Module layout**:
+
+```
+src/
+  app.ts                  Express app assembly (middleware order matters, see below)
+  server.ts               local bootstrap + graceful shutdown
+  config/env.ts           dotenv load + zod validation of process.env
+  config/index.ts          typed config derived from env (the only consumer of env.ts)
+  db/connection.ts        connect/disconnect, cached + de-duplicated, state helpers
+  lib/logger.ts           pino instance
+  lib/ApiError.ts         operational error class with status code + factories
+  lib/apiResponse.ts      sendSuccess / sendError (the { success, ... } envelope)
+  middleware/auth.ts          requireAuth(...roles)
+  middleware/validate.ts      zod validation for body/query/params
+  middleware/errorHandler.ts  global error handler + 404 handler
+  middleware/rateLimiter.ts   general + auth limiters
+  middleware/requestLogger.ts pino-http
+  middleware/ensureDb.ts      per-request DB connection gate
+  models/                 one Mongoose model per file + barrel index
+  routes/health.routes.ts /health, /ready
+  routes/v1/              auth, analytics, questions, admin, misc + barrel index
+  validation/             zod schemas (authSchemas, questionSchemas)
+```
+
+- **Middleware order in `app.ts`** (deliberate):
+  1. `helmet` + `x-powered-by` disabled
+  2. request logging (`pino-http`)
+  3. CORS (explicit allow-list, `credentials: true`)
+  4. `express.json`, `cookie-parser`
+  5. **health routes** — mounted *before* the rate limiter so monitoring probes are never throttled and never depend on the DB
+  6. general rate limiter
+  7. `/api/v1` routes, then the same router again at `/api` (compatibility alias)
+  8. 404 handler, then the global error handler
+- **Per-route middleware order** for data routes: `rateLimit → validate → requireAuth → ensureDb → handler`. Validation runs *before* the DB gate so malformed input returns 400 even when the database is down.
+- **Error handling**: routes retain their own `try/catch` returning the `{ success, error }` envelope; the global handler is the safety net for validation failures, 404s, thrown `ApiError`s, and anything an async handler rejects with (Express 5 forwards those automatically).
 
 ## Database Architecture — CURRENT
+
+**Connection strategy (Milestone 1)**: `db/connection.ts` owns a single cached connection. `connectDB()` returns immediately if already connected and de-duplicates concurrent calls via a shared in-flight promise, so it is safe to call per request. It is invoked from two places: eagerly by `server.ts` at local boot (non-fatally — a failure logs and the server still starts, with `/ready` reporting 503), and lazily by the `ensureDb` middleware on every DB-backed route. The lazy path is what makes production work at all: the Vercel serverless entry imports `app.ts` directly and never runs `server.ts`, so without `ensureDb` no connection would ever be opened. `serverSelectionTimeoutMS` is set explicitly (8s normally, 300ms under test) rather than relying on Mongoose's 30s default, which exceeds a serverless function's own timeout.
 
 See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. Five collections declared: `Student`, `Question`, `ExamAttempt`, `Result`, `StudentAnalytics`. Of these, `ExamAttempt` and `Result` are declared but never referenced by any route (dead code today). No indexes beyond the implicit unique index on `Student.mobile`. No migration tool, no seed script.
 
@@ -62,7 +100,7 @@ See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. Five
 
 ## API Architecture — CURRENT
 
-REST-ish under `/api/*`, JSON in/out, consistent `{success: boolean, ...}` response envelope. See [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for the full endpoint list split into implemented-and-wired vs. implemented-but-orphaned vs. planned.
+REST-ish under `/api/v1/*` (canonical) with `/api/*` retained as a backward-compatible alias mounting the same router — see [`DECISIONS.md`](DECISIONS.md). JSON in/out, consistent `{success: boolean, ...}` response envelope produced by `lib/apiResponse.ts`. Request bodies and query params are validated by zod schemas via `middleware/validate.ts` before any handler runs. See [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for the full endpoint list split into implemented-and-wired vs. implemented-but-orphaned vs. planned.
 
 ## Storage Architecture — CURRENT / PLANNED
 
@@ -79,21 +117,26 @@ No payment gateway SDK/dependency in either `package.json`. The registration flo
 
 ## Deployment Architecture — CURRENT
 
-- `backend/vercel.json`: rewrites all paths to `/api` (the serverless function entry).
+- `backend/vercel.json`: rewrites all paths to `/api` (the serverless function entry). `api/index.ts` imports the app from `src/app.ts` (not `src/server.ts`), so the serverless path never runs the local bootstrap — DB connection there is handled by the `ensureDb` middleware.
 - `frontend/vercel.json`: rewrites `/api/*` to a **hardcoded absolute URL** `https://amit-olympiad.vercel.app/api/$1` (the backend's production deployment), and everything else to `/index.html` for SPA routing.
+- Since the frontend now requests `/api/v1/...`, and both the Vite dev proxy and the Vercel `/api/(.*)` rewrite pass the remainder of the path through unchanged, **no deploy config needed to change** for versioning. It does introduce a deployment-ordering requirement: deploy the **backend first**, otherwise a newly deployed frontend calls `/api/v1/*` against an older backend that only serves `/api/*` and every request 404s.
 - This means the frontend's production build always points at one specific backend Vercel deployment URL — if the backend project's URL ever changes (e.g., project renamed), `frontend/vercel.json` must be updated manually.
 - Local dev uses a different mechanism entirely: Vite's dev proxy (`vite.config.ts`) forwards `/api` to `http://localhost:8081`, matching the port in `.claude/launch.json`.
 
 ## Major Data Flows — CURRENT
 
-**Registration**: Landing form (details → fake OTP → fake payment) → `POST /api/auth/register` → bcrypt hash → `Student.save()` → JWT cookie issued → frontend sets `AuthContext` state → redirect to `/dashboard`.
+**Liveness / readiness probing**: `GET /health` returns 200 from the process with no DB involvement. `GET /ready` inspects the Mongoose connection state and returns 200 `{status:'ready'}` or 503 `{db:'disconnected'}`. Both are mounted before the rate limiter, so probes are never throttled.
 
-**Student login**: Landing modal → `POST /api/auth/login` → bcrypt compare → JWT cookie → `AuthContext` updated.
+**Any DB-backed request**: rate limiter → zod validation → `requireAuth` (where applicable) → `ensureDb` (connect-or-503) → handler. A malformed request therefore returns 400 without ever touching the database, and an unreachable database returns a clean 503 rather than a 500 or a hang.
 
-**Session restore**: On every SPA load, `AuthContext` calls `GET /api/auth/me` once; cookie absent/invalid → `guest` state.
+**Registration**: Landing form (details → fake OTP → fake payment) → `POST /api/v1/auth/register` → bcrypt hash → `Student.save()` → JWT cookie issued → frontend sets `AuthContext` state → redirect to `/dashboard`.
 
-**Admin question generation**: `AiGenerator.tsx` form → `POST /api/admin/generate-questions` (admin-only) → template-generates N question objects → `Question.insertMany()` → returned and rendered; these are real DB writes, but the "questions" are not written by an AI model.
+**Student login**: Landing modal → `POST /api/v1/auth/login` → bcrypt compare → JWT cookie → `AuthContext` updated.
 
-**Analytics view**: `Analytics.tsx`/`Report.tsx` → `GET /api/analytics/:studentId` → looks up `StudentAnalytics` by `studentId` → **always missing today** → hardcoded mock JSON returned instead → rendered as if real.
+**Session restore**: On every SPA load, `AuthContext` calls `GET /api/v1/auth/me` once; cookie absent/invalid → `guest` state.
+
+**Admin question generation**: `AiGenerator.tsx` form → `POST /api/v1/admin/generate-questions` (admin-only) → template-generates N question objects → `Question.insertMany()` → returned and rendered; these are real DB writes, but the "questions" are not written by an AI model.
+
+**Analytics view**: `Analytics.tsx`/`Report.tsx` → `GET /api/v1/analytics/:studentId` → looks up `StudentAnalytics` by `studentId` → **always missing today** → hardcoded mock JSON returned instead → rendered as if real.
 
 **Exam / Results / Certificates / Leaderboard / Daily challenge**: each is either a closed client-side loop with no network call, or a backend endpoint with no frontend caller. No data flows between them today.

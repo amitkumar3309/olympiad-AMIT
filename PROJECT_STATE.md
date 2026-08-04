@@ -1,110 +1,151 @@
 # PROJECT_STATE.md
 
-_Last audited: 2026-08-04 (Phase 0 repository audit, no code changes made)._
+_Last updated: 2026-08-04 (Milestone 1 — Backend & Database Foundation, implemented)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
 ## Current Development Phase
 
-**Phase 0 — Repository audit complete.** No new product features have been implemented in this session. The codebase was inherited from prior sessions (see `git log`) as a working demo/MVP with a real auth backbone but mostly mock/static product data.
+**Milestone 1 — Backend and Database Foundation: implemented and verified locally.** The backend was refactored from a single 450-line file into a modular Express 5 + TypeScript application with environment validation, structured logging, a global error handler, a request-validation architecture, security middleware, health/readiness endpoints, graceful shutdown, and a working test suite.
+
+Product features were deliberately **not** added in this milestone — no new business endpoints exist.
 
 ## Last Completed Milestone
 
-Commit `9dbdf27` — "Rebuild frontend in React, add real authentication, split into separate services." The project was rebuilt from an earlier (pre-React) form into: a React SPA (`frontend/`) + an Express/Mongoose API (`backend/`), with real bcrypt+JWT student and admin authentication, deployed as two separate Vercel projects.
+**Milestone 1 — Backend and Database Foundation.** Preceded by Phase 0 (repository audit, commit `cc1399b`).
 
 ## Current Milestone
 
-Not yet defined by the owner. Recommended next milestone (pending approval — see end of audit report given in chat): decide which mock features become real first (likely leaderboard + exam submission + results, since the DB models already half-exist).
+None in progress. Awaiting owner selection of Milestone 2 (see "Immediate Next Task").
 
 ## Completed Modules (real, end-to-end)
 
-- **Student registration** — `POST /api/auth/register`, writes to MongoDB, hashes password, issues JWT cookie.
-- **Student login/logout/session check** — `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`.
-- **Admin login** — single hardcoded-via-env admin account, JWT cookie, role-gated.
+- **Backend foundation** — modular structure, env validation (zod, fail-closed on missing `JWT_SECRET` in production), typed config, MongoDB connection module with serverless-safe caching, structured logging (pino), request logging, global error handler + 404 handler, request validation middleware, `helmet`, explicit CORS allow-list, rate limiting, `/health` + `/ready`, graceful shutdown on SIGTERM/SIGINT.
+- **API versioning** — all routes served at `/api/v1/*` (canonical) and `/api/*` (compatibility alias). The frontend now calls `/api/v1` via a single `API_BASE` constant.
+- **Student registration / login / logout / session check** — real bcrypt + JWT + MongoDB.
+- **Admin login** — single env-configured account, JWT cookie, role-gated.
 - **Route protection** — `ProtectedRoute` / `AdminRoute` on the frontend, `requireAuth()` on the backend.
-- **AI Question Generator (partial)** — admin-only endpoint really writes generated question documents to MongoDB. The "AI" itself is a template-string generator, not a real model call (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)).
-- **Question listing** — `GET /api/questions` really reads from MongoDB.
+- **Question listing** — `GET /api/v1/questions` reads real `Question` documents, now with validated query params.
+- **AI Question Generator (partial)** — admin-only endpoint really writes to MongoDB. The "AI" is a template-string generator, not a model call.
+- **Backend test suite** — 12 passing tests (vitest + supertest) covering health, readiness, error envelopes, the version alias, and request validation.
 
 ## Partially Completed Modules
 
-- **Student analytics** — real Mongoose model + route (`GET /api/analytics/:studentId`), but falls back to hardcoded mock data when no `StudentAnalytics` document exists for a student — and **nothing in the codebase ever creates a `StudentAnalytics` document**, so every real student currently only ever sees the mock fallback.
-- **AI insights** — `generateAIInsights()` is real logic (rule-based, not ML) but only runs on the (currently unreachable) real-data path.
+- **Student analytics** — real model + route, but falls back to hardcoded demo data when no `StudentAnalytics` document exists, and **nothing in the codebase ever creates one**. Every real student therefore sees only the fallback.
+- **AI insights** — real rule-based logic (not ML), reachable only on the currently-unpopulated real-data path.
 
 ## Pending / Not Started Modules (UI exists, no real backend wiring)
 
-- **Exam / exam attempts** — `Exam.tsx` is a fully client-side, hardcoded 5-question quiz. `ExamAttempt` Mongoose model exists but no route ever reads/writes it. Nothing is submitted to the server.
-- **Results** — `Result.tsx` computes a fake result by hashing the entered Student ID client-side (`mockLookup`). `Result` Mongoose model exists but is unused by any route.
-- **Certificates** — `Certificate.tsx` renders a printable certificate from the logged-in student's name/ID only; the backend's `GET /api/certificates/:studentId` (hardcoded mock array) is never called by the frontend.
-- **Leaderboard** — hardcoded in both `Landing.tsx` and `Dashboard.tsx`; the backend's `GET /api/leaderboard` (hardcoded mock) exists but is **never called** by the frontend.
-- **Daily challenge** — backend route `GET /api/daily-challenge` (hardcoded mock) exists, **no frontend page calls it at all**.
-- **Payments** — Landing page shows a static QR image and a button that immediately calls `register()` — there is no real payment gateway integration, no payment verification, no order/transaction record anywhere.
-- **OTP / mobile verification** — frontend-only fake, hardcoded literal `'123456'`; no SMS provider integrated; backend never asked to verify anything.
-- **Admin student management** — `Admin.tsx` table is a hardcoded 4-row array, not a fetch from `Student` collection. No route exists to list students at all.
-- **XP / Levels / Badges / Achievements / Journey map / Gallery / Hall of Fame / Notifications / Audit logs / Subscriptions** — not started. No models, no routes, no UI beyond scattered decorative mentions (e.g., "XP" numbers hardcoded in UI copy).
+Unchanged by Milestone 1 — all still mock or absent:
+
+- **Exam / exam attempts** — `Exam.tsx` is a client-side hardcoded 5-question quiz; nothing is submitted. `ExamAttempt` model unused.
+- **Results** — `Result.tsx` fabricates results by hashing the entered Student ID client-side. `Result` model unused.
+- **Certificates** — rendered client-side from the logged-in student's name/ID; the backend certificates route is never called.
+- **Leaderboard** — hardcoded in `Landing.tsx` and `Dashboard.tsx`; the backend route exists but is never called.
+- **Daily challenge** — backend route exists (static mock), no frontend page calls it.
+- **Payments** — static QR image; no gateway, no verification, no transaction record.
+- **OTP / mobile verification** — frontend-only fake (hardcoded `'123456'`), no SMS provider.
+- **Admin student management** — `Admin.tsx` table is a hardcoded 4-row array; no list-students route exists.
+- **XP / Levels / Badges / Achievements / Journey map / Gallery / Hall of Fame / Notifications / Audit logs / Subscriptions** — not started.
 
 ## Current Frontend State
 
-React 19 SPA, 9 routes (`/`, `/result`, `/certificate`, `/admin`, `/ai-generator`, `/dashboard`, `/analytics`, `/report`, `/exam`). Visually complete/polished for these routes; several pull from hardcoded arrays instead of the API. No page for a public daily-challenge/leaderboard view even though the backend has endpoints for them.
+React 19 SPA, 9 routes. All API access flows through `frontend/src/api/client.ts`, which now prefixes a single `API_BASE = '/api/v1'`; callers pass version-agnostic paths (`/auth/login`). Verified: `oxlint` passes (one pre-existing fast-refresh warning in `AuthContext.tsx`), `tsc -b && vite build` succeeds, the app boots with no console errors and reaches the backend through the Vite proxy. Pages still render hardcoded data where noted above.
 
 ## Current Backend State
 
-Single-file Express app (`backend/src/server.ts`, ~450 lines). Connects to MongoDB on cold start (Vercel-serverless-friendly `readyState` check). 5 Mongoose models declared; 2 of them (`ExamAttempt`, `Result`) are dead code today (defined, never used by any route). 11 routes total, of which 3 are pure hardcoded-mock endpoints with no DB access and no auth (`/api/daily-challenge`, `/api/leaderboard`, `/api/certificates/:studentId`).
+Modular Express 5 app under `backend/src/`:
+
+```
+app.ts              builds the configured Express app (used by dev + serverless)
+server.ts           local process bootstrap: connect, listen, graceful shutdown
+config/env.ts       loads .env (dotenv) + validates via zod
+config/index.ts     typed config; fails closed on missing prod JWT_SECRET
+db/connection.ts    cached connect/disconnect + connection-state helpers
+lib/                logger (pino), ApiError, response helpers
+middleware/         auth, validate, errorHandler, rateLimiter, requestLogger, ensureDb
+models/             5 Mongoose models, one file each
+routes/health.routes.ts   /health, /ready
+routes/v1/          auth, analytics, questions, admin, misc
+validation/         zod schemas for auth + questions
+```
+
+`ExamAttempt` and `Result` models remain defined but unused by any route. Three routes (`daily-challenge`, `leaderboard`, `certificates/:studentId`) are still static mocks with no DB access, relocated unchanged into `routes/v1/misc.routes.ts`.
 
 ## Current Database State
 
-MongoDB (via `MONGO_URI`, defaults to `mongodb://localhost:27017/amit-olympiad` if unset). No migrations tooling, no seed script, no indexes beyond Mongoose's implicit `unique: true` on `Student.mobile`. Nobody has confirmed (in this audit) whether a real Atlas cluster is currently provisioned — the owner should confirm this (see beginner-instructions section of the audit reply).
+MongoDB via Mongoose. `MONGO_URI` is read from `backend/.env` locally (a real Atlas cluster is configured) and from Vercel env vars in production. Connection is opened by the local bootstrap **and** lazily per-request by the `ensureDb` middleware, which is what makes the Vercel serverless path work. `serverSelectionTimeoutMS` is set explicitly (8s normally, 300ms in tests) instead of Mongoose's 30s default. No migrations tooling, no seed script, no indexes beyond the implicit unique index on `Student.mobile`.
+
+**Live connectivity is unverified from this development sandbox** — outbound raw DNS/TCP is blocked here (`querySrv ECONNREFUSED`), so Atlas cannot be reached. The credentials themselves were never proven wrong. The owner must confirm connectivity locally; see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
 ## Current Authentication State
 
-Real for both roles. Known weaknesses (see [`SECURITY.md`](SECURITY.md)): JWT falls back to an insecure default secret if `JWT_SECRET` is unset (only warns, doesn't refuse to start); no rate limiting on login/register; no account lockout; no password reset flow at all (`PROJECT_STATE.md` / `FEATURE_STATUS.md`: NOT_STARTED); no email verification (no email field even exists on `Student`).
+Real for both roles. Improved in Milestone 1: production now **refuses to start** without `JWT_SECRET` (previously it warned and continued with a hardcoded default), and the three auth routes are rate limited. Still missing: account lockout, password reset, email/phone verification (no email field on `Student`), CSRF tokens.
 
 ## Current Payment State
 
-None. No provider selected, no code, no `DECISIONS.md` entry yet. Purely a static QR image with no linkage to the registration transaction.
+None. No provider selected, no code. Static QR image only, with no link to the registration transaction.
 
 ## Current Deployment State
 
-Two independent Vercel projects:
-- `backend/` — deployed as a serverless function (`api/index.ts` → Express app via `@vercel/node`), `vercel.json` rewrites everything to `/api`.
-- `frontend/` — static Vite build, `vercel.json` rewrites `/api/*` to a **hardcoded** production backend URL (`https://amit-olympiad.vercel.app/api/$1`) and everything else to `index.html` (SPA fallback).
-Local dev: Vite dev server proxies `/api` to `http://localhost:8081` (`vite.config.ts`); `.claude/launch.json` runs the backend on port 8081 and frontend on 5173.
+Two independent Vercel projects, unchanged in structure:
+- `backend/` — serverless function via `api/index.ts`, which now imports the app from `src/app.ts`.
+- `frontend/` — static Vite build; `vercel.json` rewrites `/api/*` to a hardcoded backend URL and everything else to `index.html`.
+
+Because the frontend now requests `/api/v1/...` and both the Vite dev proxy and the Vercel rewrite pass the remaining path through unchanged, no deploy config changed. **Deployment ordering matters**: deploy the backend before the frontend, or the frontend's `/api/v1` calls will hit an older backend that lacks those paths.
 
 ## Important File Locations
 
 | Concern | Location |
 |---|---|
-| All backend logic | [backend/src/server.ts](backend/src/server.ts) |
+| Express app assembly | [backend/src/app.ts](backend/src/app.ts) |
+| Local bootstrap / shutdown | [backend/src/server.ts](backend/src/server.ts) |
 | Vercel serverless entry | [backend/api/index.ts](backend/api/index.ts) |
-| Frontend routes | [frontend/src/App.tsx](frontend/src/App.tsx) |
-| API fetch wrapper | [frontend/src/api/client.ts](frontend/src/api/client.ts) |
+| Env loading + validation | [backend/src/config/env.ts](backend/src/config/env.ts) |
+| Typed config | [backend/src/config/index.ts](backend/src/config/index.ts) |
+| DB connection | [backend/src/db/connection.ts](backend/src/db/connection.ts) |
+| Per-request DB gate | [backend/src/middleware/ensureDb.ts](backend/src/middleware/ensureDb.ts) |
+| Validation middleware | [backend/src/middleware/validate.ts](backend/src/middleware/validate.ts) |
+| Health / readiness | [backend/src/routes/health.routes.ts](backend/src/routes/health.routes.ts) |
+| Backend tests | [backend/tests/](backend/tests/) |
+| Frontend API client | [frontend/src/api/client.ts](frontend/src/api/client.ts) |
 | Session/auth state | [frontend/src/context/AuthContext.tsx](frontend/src/context/AuthContext.tsx) |
-| Route guards | [frontend/src/components/ProtectedRoute.tsx](frontend/src/components/ProtectedRoute.tsx) |
 | Dev server config | [.claude/launch.json](.claude/launch.json) |
 
 ## Current Environment Requirements
 
-Backend needs `MONGO_URI`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, optionally `FRONTEND_URL`, `PORT`, `NODE_ENV`. Frontend needs no env vars (all API calls are relative paths). No `.env.example` exists yet for either app. Full detail in [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
+Backend: `MONGO_URI`, `JWT_SECRET` (mandatory in production), `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, optionally `FRONTEND_URL`, `PORT`, `NODE_ENV`. Frontend: none. `backend/.env.example` now exists with placeholders. Full detail in [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
 
 ## Known Bugs
 
-1. **`studentId` collision risk** — generated as `AMIT_${Math.floor(Math.random()*10000)}` with no uniqueness check or DB constraint; two students can end up with the same ID.
-2. **Analytics never persisted** — `generateAIInsights()` mutates a Mongoose document's `aiInsights` in memory but never calls `.save()`; harmless today only because the real-data branch is unreachable (see Partially Completed Modules above), but will silently no-op once analytics data starts being written.
-3. **Potential NoSQL-injection-shaped query** in `GET /api/questions` — `req.query` fields are assigned directly into the Mongoose filter object without sanitization (see [`SECURITY.md`](SECURITY.md)).
-4. **Permissive CORS fallback** — if `FRONTEND_URL` is not set in production, CORS `origin` becomes `true` (reflects any origin) while `credentials: true` — broader than intended.
-5. **Dead models** — `ExamAttempt` and `Result` schemas exist with no route ever touching them; safe but misleading if not flagged.
+1. **`studentId` collision risk** — still generated as `AMIT_${Math.floor(Math.random()*10000)}` with no uniqueness check or unique index. Two students can collide. **Not fixed in Milestone 1.**
+2. **Analytics never persisted** — `generateAIInsights()` mutates `aiInsights` in memory and never saves. Harmless only because the real-data branch is unreachable; will silently no-op once analytics are written.
+3. **Dead models** — `ExamAttempt` and `Result` are defined but untouched by any route.
+4. **`/api/v1/auth/me` returns 503 when the database is down even for guests** — the DB gate runs before the cookie check, so a visitor with no session gets 503 instead of 401. The frontend treats any failure as "guest", so behaviour is correct, but the status code is broader than ideal.
+
+Fixed in Milestone 1: the insecure `JWT_SECRET` fallback, the permissive CORS fallback, missing security headers, missing rate limiting, and the unvalidated `req.query` filter construction.
 
 ## Technical Debt
 
-- Entire backend in one file; no `models/`/`routes/` separation.
-- No tests, no CI.
-- No `.env.example` for either app.
+- `ExamAttempt` / `Result` models still unused.
 - Hardcoded production backend URL inside `frontend/vercel.json` instead of an env-driven rewrite.
-- Mixed English/Hindi user-facing error strings in backend (`"Kuch gadbad ho gayi"`) — inconsistent tone, not itself a bug but worth a deliberate decision if the app is meant to be bilingual.
+- Mixed English/Hindi user-facing error strings in the backend (`"Kuch gadbad ho gayi"`) — carried over verbatim; worth a deliberate localisation decision.
+- No CI pipeline; the verification commands are run manually.
+- No integration tests against a real database (deliberate — see [`TESTING.md`](TESTING.md)).
+- The unversioned `/api/*` alias should eventually be removed once nothing depends on it.
+- Pre-existing high/moderate `npm audit` findings in `@vercel/node`'s build-time dependency tree; fixing requires a breaking `@vercel/node` v4 upgrade.
 
 ## Immediate Next Task
 
-Awaiting owner decision (see audit reply). No implementation should start until the owner picks a milestone from the "Recommended development order" list in the audit reply.
+Awaiting owner decision on Milestone 2. The highest-value candidates, in the order recommended after Phase 0:
+
+1. Wire the **leaderboard** to real data.
+2. Wire **exam submission** → `ExamAttempt` → real **results** (both models already exist, unused).
+3. Real **admin student management** (no list-students route exists at all).
+4. Populate **`StudentAnalytics`** so analytics stop being a demo fallback.
+
+Fixing the `studentId` collision risk should be folded into whichever of these first depends on `studentId` as a key.
 
 ## Recent Architectural Decisions
 
-See [`DECISIONS.md`](DECISIONS.md) for the full ADR log. Most recent: splitting frontend/backend into two independently deployed services (commit `9dbdf27`).
+See [`DECISIONS.md`](DECISIONS.md). Milestone 1 added four ADRs: the modular backend split, `/api/v1` versioning with a compatibility alias, the chosen foundation libraries, and the decision that backend tests do not require a real MongoDB.

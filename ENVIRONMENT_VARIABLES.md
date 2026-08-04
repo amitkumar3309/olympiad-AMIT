@@ -1,16 +1,24 @@
 # ENVIRONMENT_VARIABLES.md
 
-No real secrets are stored in this file or anywhere in the repo. `.env` files are gitignored. **No `.env.example` files exist yet** for either app — create them (placeholder values only) the next time these are touched, matching the tables below.
+No real secrets are stored in this file or anywhere in the repo. `.env` files are gitignored (verified with `git check-ignore`; `backend/.env` has never been committed).
+
+**`backend/.env.example` now exists** with placeholder values only — keep it in sync with the table below. The frontend still reads no environment variables, so it needs no `.env.example`.
+
+**How env vars are loaded (Milestone 1)**: `backend/src/config/env.ts` calls `dotenv.config()` and then validates everything through a zod schema, exporting a typed `env` object. `backend/src/config/index.ts` derives the app-wide typed `config` from it. **No other module reads `process.env` directly** — add new variables to the schema in `env.ts`, not as ad-hoc `process.env` reads.
+
+Two behaviours worth knowing:
+- `dotenv.config()` is **skipped when `NODE_ENV=test`** (vitest sets this automatically) so the test suite can never silently pick up your real Atlas URI or JWT secret.
+- Validation is **fail-closed in production for `JWT_SECRET`**: if it is unset when `NODE_ENV=production`, the process throws at startup instead of falling back to an insecure default. Locally it warns and uses a development-only default.
 
 ## Backend (`backend/`)
 
 | Variable | Required | Purpose | Where to obtain it | Example format | Dev usage | Prod usage |
 |---|---|---|---|---|---|---|
 | `MONGO_URI` | Recommended (has an insecure localhost default) | MongoDB connection string used by Mongoose. | MongoDB Atlas free-tier cluster connection string, or a local MongoDB install. | `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/amit-olympiad` | Defaults to `mongodb://localhost:27017/amit-olympiad` if unset — requires a local MongoDB running. | **Must** be set to an Atlas (or other hosted) connection string — a Vercel serverless function cannot reach `localhost`. |
-| `JWT_SECRET` | Strongly recommended (insecure default exists) | Signs/verifies session JWTs. | Generate yourself — any long random string (e.g. `openssl rand -hex 32`). | `9f2c6e...(64 hex chars)` | Falls back to `dev_insecure_secret_change_me` with a console warning if unset. | Must be set to a strong random value. If left unset, all sessions become forgeable (see [`SECURITY.md`](SECURITY.md)). |
+| `JWT_SECRET` | **Required in production** (server refuses to start without it) | Signs/verifies session JWTs. | Generate yourself — any long random string (e.g. `openssl rand -hex 32`). | `9f2c6e...(64 hex chars)` | Falls back to a development-only default with a logged warning if unset. | **Must** be set — startup throws if missing, by design, so a production deploy can never sign tokens with a public default (see [`SECURITY.md`](SECURITY.md)). |
 | `ADMIN_EMAIL` | Required for admin login to work at all | The single admin account's login email. | You choose it. | `admin@example.com` | Must be set for `/admin` to be usable locally. | Same. |
 | `ADMIN_PASSWORD_HASH` | Required for admin login to work at all | bcrypt hash (never plaintext) of the admin password. | Generate with a short script using `bcryptjs` (see Dev usage) — **never** put the plaintext password in an env var. | `$2a$10$examplehashexamplehashexamplehashexamplehas` | Generate locally: `node -e "console.log(require('bcryptjs').hashSync('yourPassword', 10))"` run from inside `backend/`, then copy the printed hash. | Set the generated hash as the Vercel env var; never the plaintext. |
-| `FRONTEND_URL` | Recommended in production | Adds the deployed frontend's origin to the CORS allow-list. | The frontend's Vercel production URL. | `https://amit-olympiad-frontend.vercel.app` | Optional locally (localhost:5173 is always allowed). | Should be set in production — see the CORS fail-open issue in [`SECURITY.md`](SECURITY.md) if omitted. |
+| `FRONTEND_URL` | Recommended in production | Adds the deployed frontend's origin to the CORS allow-list. | The frontend's Vercel production URL. | `https://amit-olympiad-frontend.vercel.app` | Optional locally (localhost:5173 is always allowed). | Should be set in production. If omitted, CORS allows only `localhost:5173`, which will block your real frontend — it no longer falls back to allowing any origin. A warning is logged at startup. |
 | `NODE_ENV` | Set automatically by Vercel | Controls `isProd` branching (cookie `secure`/`sameSite`, whether `app.listen` runs). | N/A — Vercel sets this to `production` automatically. | `production` | Usually unset locally (`tsx` runs without it, `isProd` is `false`). | Set to `production` automatically by Vercel. Do not set manually elsewhere. |
 | `PORT` | Optional | Local server port. | N/A | `8081` | Matches `.claude/launch.json` (`8081`). Not used in production (Vercel manages the port for serverless functions). | Unused. |
 
@@ -46,3 +54,16 @@ No environment variables are read anywhere in the frontend source (`src/api/clie
 2. Go to Settings → Environment Variables.
 3. Add each variable name/value from the tables above, one at a time, for the "Production" environment (and "Preview"/"Development" if you want preview deployments to work too).
 4. Redeploy after adding/changing env vars — Vercel does not apply new env vars to an already-running deployment.
+
+
+## Generating a JWT_SECRET
+
+Run this from inside `backend/` and paste the output as `JWT_SECRET`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## Keeping `.env.example` in sync
+
+`backend/.env.example` is the template a new contributor copies to `.env`. Whenever you add a variable to the zod schema in `backend/src/config/env.ts`, add it to **both** `.env.example` (placeholder value) and the table above in the same change.

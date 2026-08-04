@@ -17,7 +17,7 @@ export default function Report() {
   useEffect(() => {
     if (state.status !== 'student') return
     api
-      .get<{ data: AnalyticsData }>(`/api/analytics/${state.student.studentId}`)
+      .get<{ data: AnalyticsData }>(`/analytics/${state.student.studentId}`)
       .then((res) => setData(res.data))
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load report.'))
   }, [state])

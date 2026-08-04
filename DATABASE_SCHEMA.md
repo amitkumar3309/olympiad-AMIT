@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. All models are currently declared inline in [backend/src/server.ts](backend/src/server.ts) — there is no `models/` directory. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. As of Milestone 1 each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`), re-exported from `models/index.ts`. They were moved out of the old single-file `server.ts` **without any schema change** — every field, default, enum and constraint below is byte-for-byte what it was before. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 ## Status legend
 - `ACTIVE` — model is written to and/or read by at least one route.
@@ -28,7 +28,7 @@ No email field. No role field (role is inferred purely from which JWT was issued
 
 ## `Question` — ACTIVE
 
-Purpose: Olympiad question bank, populated only via the AI-generator admin route today.
+Purpose: Olympiad question bank, populated only via the AI-generator admin route today. Read queries against it are now validated by `listQuestionsQuerySchema` before a filter is built.
 
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
@@ -97,7 +97,7 @@ Purpose: per-student rolled-up performance metrics + AI-generated insight string
 | `aiInsights` | [String] | no | — | Overwritten in-memory by `generateAIInsights()` on every read, but that mutation is **never `.save()`d** — see known bug in [`PROJECT_STATE.md`](PROJECT_STATE.md). |
 | `lastUpdated` | Date | no | `Date.now` | Never actually updated by any write path, since nothing writes to this collection at all today. |
 
-`GET /api/analytics/:studentId` does `findOne` on this collection; if not found, returns a hardcoded mock payload instead of a 404 — meaning the API contract for "not found" is currently indistinguishable from "found, with demo data." Nothing in the codebase ever inserts a `StudentAnalytics` document, so this collection is likely empty in any real deployment.
+`GET /api/v1/analytics/:studentId` does `findOne` on this collection; if not found, returns a hardcoded mock payload instead of a 404 — meaning the API contract for "not found" is currently indistinguishable from "found, with demo data." Nothing in the codebase ever inserts a `StudentAnalytics` document, so this collection is likely empty in any real deployment.
 
 ---
 

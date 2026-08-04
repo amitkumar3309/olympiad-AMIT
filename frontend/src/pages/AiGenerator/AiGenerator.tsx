@@ -32,7 +32,7 @@ export default function AiGenerator() {
     setError('')
     setLoading(true)
     try {
-      const res = await api.post<{ data: GeneratedQuestion[] }>('/api/admin/generate-questions', {
+      const res = await api.post<{ data: GeneratedQuestion[] }>('/admin/generate-questions', {
         classLevel,
         subject,
         topic: topic.trim(),

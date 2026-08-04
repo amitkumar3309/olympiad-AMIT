@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     api
-      .get<{ role: 'student' | 'admin'; student?: Student; admin?: Admin }>('/api/auth/me')
+      .get<{ role: 'student' | 'admin'; student?: Student; admin?: Admin }>('/auth/me')
       .then((res) => {
         if (res.role === 'admin' && res.admin) setState({ status: 'admin', admin: res.admin })
         else if (res.role === 'student' && res.student) setState({ status: 'student', student: res.student })
@@ -33,25 +33,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback(async (fullName: string, mobile: string, password: string) => {
-    const res = await api.post<{ student: Student }>('/api/auth/register', { fullName, mobile, password })
+    const res = await api.post<{ student: Student }>('/auth/register', { fullName, mobile, password })
     setState({ status: 'student', student: res.student })
     return res.student
   }, [])
 
   const login = useCallback(async (mobile: string, password: string) => {
-    const res = await api.post<{ student: Student }>('/api/auth/login', { mobile, password })
+    const res = await api.post<{ student: Student }>('/auth/login', { mobile, password })
     setState({ status: 'student', student: res.student })
     return res.student
   }, [])
 
   const adminLogin = useCallback(async (email: string, password: string) => {
-    const res = await api.post<{ admin: Admin }>('/api/auth/admin/login', { email, password })
+    const res = await api.post<{ admin: Admin }>('/auth/admin/login', { email, password })
     setState({ status: 'admin', admin: res.admin })
     return res.admin
   }, [])
 
   const logout = useCallback(async () => {
-    await api.post('/api/auth/logout')
+    await api.post('/auth/logout')
     setState({ status: 'guest' })
   }, [])
 

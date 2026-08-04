@@ -28,7 +28,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 ## Technology Stack
 
 - **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind). Linter: `oxlint`.
-- **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. Single-file server today.
+- **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. Modular structure since Milestone 1 (`config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/`). Uses `zod` (validation), `pino` (logging), `helmet`, `express-rate-limit`. Linter: `eslint` + `typescript-eslint`. Tests: `vitest` + `supertest`.
 - **Database**: MongoDB via Mongoose.
 - **Auth**: JWT (`jsonwebtoken`) stored in an `httpOnly` cookie, passwords hashed with `bcryptjs`.
 - **Deployment target**: Vercel, two **separate projects** — `frontend/` and `backend/` each have their own `vercel.json`. There is no monorepo-level Vercel config.
@@ -47,9 +47,23 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   vite.config.ts            dev-only proxy of /api -> localhost:8081
 
 /backend
-  src/server.ts              ALL backend logic: DB connection, Mongoose models,
-                              auth, and every API route (~450 lines, single file)
-  api/index.ts                Vercel serverless entry point (re-exports the Express app)
+  src/app.ts                  builds the configured Express app (used by BOTH entries)
+  src/server.ts               local process bootstrap: connect, listen, graceful shutdown
+                              (NOT run on the Vercel serverless path)
+  src/config/env.ts           dotenv load + zod validation of process.env
+  src/config/index.ts         typed config (the ONLY place deriving app config from env)
+  src/db/connection.ts        cached connect/disconnect + connection-state helpers
+  src/lib/                    logger (pino), ApiError, apiResponse helpers
+  src/middleware/             auth, validate, errorHandler, rateLimiter,
+                              requestLogger, ensureDb
+  src/models/                 one Mongoose model per file + barrel index
+  src/routes/health.routes.ts /health (liveness), /ready (readiness)
+  src/routes/v1/              auth, analytics, questions, admin, misc + barrel index
+  src/validation/             zod schemas
+  tests/                      vitest + supertest suite
+  api/index.ts                Vercel serverless entry (imports src/app.ts)
+  tsconfig.json               BUILD config (src + api only; excludes tests)
+  tsconfig.test.json          TYPECHECK/LINT config (adds tests; noEmit)
   vercel.json                 rewrites everything to /api (the serverless function)
 
 .claude/launch.json          dev server definitions (backend :8081, frontend :5173)
@@ -61,7 +75,9 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 ## Architecture Rules
 
 - Keep the backend/frontend split. Do not merge them into one Vercel project unless [`DECISIONS.md`](DECISIONS.md) is updated first — this was a deliberate move (see the "Rebuild frontend in React, add real authentication, split into separate services" commit).
-- `backend/src/server.ts` currently holds everything. When it grows, split into `models/`, `routes/`, `middleware/` — but do this as a deliberate refactor recorded in `DECISIONS.md`, not silently mid-feature.
+- The backend is already split into `config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/` (Milestone 1, recorded in `DECISIONS.md`). Put new code in the matching folder; don't add logic back into `server.ts`, which is bootstrap-only.
+- `src/app.ts` must stay the single place the app is assembled, because both the local server and the Vercel serverless entry import it. Anything that must run in production has to be wired there or into a route/middleware — **not** into `server.ts`, which never executes on the serverless path.
+- New env vars go in the zod schema in `config/env.ts` and are consumed via the typed `config` object. Do not read `process.env` directly anywhere else.
 - Any new Mongoose model belongs in [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) before/with the code change.
 - Any new route belongs in [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) before/with the code change.
 
@@ -70,11 +86,11 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - TypeScript `strict: true` on the **backend** `tsconfig` (`backend/tsconfig.json`, along with `noUncheckedIndexedAccess: true`) — do not weaken this. The **frontend** does not currently set `strict` at all (`frontend/tsconfig.app.json`/`tsconfig.node.json` only enable `noUnusedLocals`, `noUnusedParameters`, `erasableSyntaxOnly`, `noFallthroughCasesInSwitch`) — don't assume frontend code is strict-checked; if you want frontend strict mode, that's a deliberate opt-in change to propose, not an existing rule to "not weaken."
 - Frontend: functional components, hooks, one folder per page containing `<Page>.tsx` + `<Page>.module.css`. Shared visuals go in `src/components/`.
 - Naming: `camelCase` for variables/functions, `PascalCase` for components/types, kebab-case is not used for filenames (existing files are PascalCase per component).
-- Backend: Express route handlers are `async (req, res) => { try {...} catch { res.status(...).json({success:false, error:...}) } }` — every existing route follows this `{ success, ...}` / `{ success:false, error }` envelope. New routes must match it so `frontend/src/api/client.ts`'s error handling keeps working.
+- Backend: Express route handlers are `async (req, res) => { try {...} catch { ... } }` and return the `{ success, ... }` / `{ success:false, error }` envelope via the `sendSuccess`/`sendError` helpers in `lib/apiResponse.ts`. New routes must match it so `frontend/src/api/client.ts`'s error handling keeps working. A global error handler exists as a safety net, but keep the explicit try/catch.
 
 ## TypeScript Rules
 
-- No `any` beyond what already exists (a few `any` usages exist in `server.ts` around query building and AI-insight generation — do not add more; tighten these when touched instead of copying the pattern).
+- No `any`. The `any` usages that previously existed around query building and AI-insight generation were removed in Milestone 1 — the codebase is now `any`-free in `src/`. Do not reintroduce it; add a zod schema or a model interface instead.
 - Do not disable `strict` or `noUncheckedIndexedAccess` on the backend `tsconfig` to make a change compile faster — fix the actual type issue.
 
 ## Frontend Conventions
@@ -91,12 +107,13 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Database Conventions
 
-- MongoDB via Mongoose, models declared inline in `server.ts` today (see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for the full list). `ExamAttempt` and `Result` models exist but are **not yet wired to any route** — do not assume they are populated.
+- MongoDB via Mongoose, one model per file in `src/models/` (see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md)). `ExamAttempt` and `Result` models exist but are **not yet wired to any route** — do not assume they are populated.
+- Any route that touches the database must have the `ensureDb` middleware applied **after** validation/auth. Without it the route will work locally but fail in production, because the serverless entry never runs the local bootstrap that connects at startup.
 - Student lookups use Mongo's own `_id` for the JWT `sub`, but the human-facing identifier is the app-generated `studentId` (`AMIT_<random 0-9999>`). This ID is **not guaranteed unique** — see [`SECURITY.md`](SECURITY.md) / [`PROJECT_STATE.md`](PROJECT_STATE.md) known bugs. Fix collision risk before relying on `studentId` as a primary key for anything new.
 
 ## API Conventions
 
-- REST-ish, prefixed `/api/...`. Auth-required routes call `requireAuth('student')`, `requireAuth('admin')`, or both.
+- REST-ish, prefixed **`/api/v1/...`** (canonical). The unversioned `/api/...` is a compatibility alias mounting the same router — add new routes to `routes/v1/` only, never to the alias separately. Auth-required routes call `requireAuth('student')`, `requireAuth('admin')`, or both.
 - See [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for the authoritative, currently-implemented list. Several routes exist on the backend but are **not called by the frontend at all** (`/api/daily-challenge`, `/api/leaderboard`, `/api/certificates/:studentId`) — don't assume a page is wired up just because a matching endpoint exists.
 
 ## Authentication Conventions
@@ -107,19 +124,21 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 ## Security Rules
 
 - Never hardcode secrets. `JWT_SECRET`, `MONGO_URI`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `FRONTEND_URL` are env-only (see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
-- Read [`SECURITY.md`](SECURITY.md) before touching auth, query building from `req.query`, or CORS config — there are known open issues (NoSQL-injection-shaped query construction, permissive CORS fallback) that must not be copied into new code.
+- Read [`SECURITY.md`](SECURITY.md) before touching auth, query building from `req.query`, or CORS config. The previously-documented issues (unvalidated query construction, permissive CORS fallback, insecure JWT default, missing headers/rate limiting) were **fixed in Milestone 1** — don't reintroduce those patterns. Still open: no CSRF tokens, no account lockout.
 - Do not commit `.env` files (already gitignored). Do not weaken the JWT default-secret warning into a silent success.
 
 ## Testing Requirements
 
-- There is currently **no test suite** on either app (no Jest/Vitest/Playwright config, no test files). See [`TESTING.md`](TESTING.md).
-- When adding tests for the first time, propose the framework choice in [`DECISIONS.md`](DECISIONS.md) before installing — don't add a testing dependency silently.
-- Until a real framework exists, at minimum manually verify new backend routes with the Postman workspace under `postman/` (currently empty scaffolding) or curl, and note the verification in the PR/commit description.
+- The **backend** has a test suite: `vitest` + `supertest`, run with `npm test --prefix backend`. The **frontend** still has none. See [`TESTING.md`](TESTING.md).
+- Backend tests deliberately run **without a database** (`NODE_ENV=test` skips `.env` loading so they can't pick up real secrets). Don't add a test that silently requires a live MongoDB; if you need one, propose `mongodb-memory-server` in [`DECISIONS.md`](DECISIONS.md) first.
+- **Security behaviour is currently not automatically tested, by owner instruction** — the code is active, the tests are deferred. Don't interpret the absence of security tests as absence of security.
+- Write assertions that name the status they forbid (`expect(res.status).not.toBe(500)`), not vague ones. A weak `not.toBe(400)` assertion hid a real 500 bug during Milestone 1.
+- Adding a frontend test framework requires a `DECISIONS.md` entry first.
 
 ## Environment Variable Rules
 
 - Every env var must be documented in [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md) with a fake example value — never a real secret.
-- `.env.example` files do not exist yet for either app — create them (with placeholder values only) the next time env vars are touched, and keep them in sync with `ENVIRONMENT_VARIABLES.md`.
+- `backend/.env.example` exists (placeholders only). When you add a variable, update the zod schema in `config/env.ts`, `.env.example`, **and** `ENVIRONMENT_VARIABLES.md` in the same change. The frontend reads no env vars, so it has no `.env.example`.
 
 ## Git Workflow
 
@@ -142,9 +161,9 @@ A task is complete only when, as applicable:
 - [ ] Auth/authorization applied where required (`requireAuth` with correct roles)
 - [ ] Error handling matches the existing `{ success, error }` envelope
 - [ ] Loading / error / empty states exist in any new frontend view
-- [ ] `tsc` passes in the affected app(s)
-- [ ] `npm run lint` (oxlint, frontend) passes
-- [ ] Relevant tests pass (once a test suite exists)
+- [ ] `npm run typecheck --prefix backend` passes / `tsc -b` passes for the frontend
+- [ ] `npm run lint` passes in the affected app(s) (`eslint` backend, `oxlint` frontend)
+- [ ] `npm test --prefix backend` passes (and `npm run build --prefix backend` still passes afterwards — these two have conflicted before)
 - [ ] Production build passes (`npm run build` in the affected app)
 - [ ] Docs updated: at minimum `PROJECT_STATE.md` + `FEATURE_STATUS.md`, plus any of the others this task touched
 

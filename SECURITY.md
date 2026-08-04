@@ -51,13 +51,9 @@ Not implemented anywhere. See Authentication Security above.
 
 ## NoSQL Injection Protection
 
-- **Issue — `GET /api/questions`**: the handler builds a Mongoose filter directly from `req.query`:
-  ```ts
-  const { classLevel, subject, difficulty } = req.query;
-  let query: any = {};
-  if (classLevel) query.classLevel = classLevel;
-  ```
-  Express's default query parser (`qs`) turns a request like `?classLevel[$ne]=null` into `classLevel = { $ne: 'null' }` — a plain object, which is then merged unsanitized into the Mongoose filter. Since `if (classLevel)` is truthy for an object too, this **could allow a client to inject Mongo query operators** (e.g., `$ne`, `$gt`, `$regex`) into the filter for a public unauthenticated GET route. The practical impact today is limited (only returns `Question` documents, no auth bypass), but the pattern is unsafe and must not be copied into a route that touches sensitive data. **Recommendation**: coerce query params to strings explicitly (`String(req.query.classLevel)`) or use a validation library before using `req.query` fields as Mongo filter values, on this route and any future one.
+- **Resolved in Milestone 1** — `GET /api/v1/questions` (formerly `GET /api/questions`) now validates `req.query` through a zod schema (`listQuestionsQuerySchema` in `backend/src/validation/questionSchemas.ts`) before the handler ever builds the Mongoose filter. Any query value that isn't a plain string — including an array from a repeated key like `?classLevel=a&classLevel=b` — is rejected with a `400` before reaching the database layer. Covered by `backend/tests/validation.test.ts`.
+- **Correction to the original finding**: this was previously written assuming Express's `qs`-based `'extended'` query parser, which turns `?classLevel[$ne]=null` into a nested object (`classLevel = { $ne: 'null' }`) that could be merged into a Mongo filter as an operator. **That assumption was wrong for this codebase.** Express 5 changed its default query parser to `'simple'` (Node's built-in `querystring`), which does **not** do bracket-notation nesting — `?classLevel[$ne]=null` arrives as a flat, literal key `"classLevel[$ne]"` with a string value, never as a nested object. This was verified empirically against the actual running app (`node -e` against a minimal Express 5 server) before correcting this document, rather than assumed. The classic `$ne`/`$gt`/`$regex`-via-query-string injection shape therefore was **never exploitable** on this route under this app's real configuration.
+- The type-confusion risk that *is* real (a repeated query key producing an array instead of a string) is now closed by the validation layer above — and that same validation continues to protect the route defensively even if the query parser is ever reconfigured to `'extended'` in the future (e.g. via `app.set('query parser', 'extended')`), which would reintroduce bracket-notation nesting.
 - No other route currently builds a dynamic Mongo filter from user input.
 
 ## Security Headers
@@ -83,11 +79,15 @@ Not applicable yet — no payment gateway is integrated. When one is added, webh
 
 Not implemented — no admin action is logged anywhere. Low priority until real admin CRUD operations (e.g., student management, question editing/deletion) exist, but should be added alongside those features rather than retrofitted later.
 
-## Priority fix order (if the owner wants a hardening pass before adding features)
+## Priority fix order
 
-1. Make `JWT_SECRET` mandatory-and-fail-closed in production.
-2. Fix the `GET /api/questions` query-injection shape.
-3. Fail closed (not open) on missing `FRONTEND_URL` in CORS.
-4. Add rate limiting to the three auth routes.
-5. Add `.env.example` files.
-6. Add `helmet`.
+Status as of Milestone 1 (backend foundation) — items 1–6 are now **done**; nothing below is currently outstanding for this list.
+
+1. ~~Make `JWT_SECRET` mandatory-and-fail-closed in production.~~ Done — `backend/src/config/index.ts` throws at startup if `JWT_SECRET` is unset in production.
+2. ~~Fix the `GET /api/questions` query-injection shape.~~ Done — see "NoSQL Injection Protection" above.
+3. ~~Fail closed (not open) on missing `FRONTEND_URL` in CORS.~~ Done — `backend/src/config/index.ts` never falls back to `origin: true`; CORS always uses an explicit origin allow-list and only warns (doesn't open up) if `FRONTEND_URL` is unset in production.
+4. ~~Add rate limiting to the three auth routes.~~ Done — `backend/src/middleware/rateLimiter.ts` (`authLimiter`), applied in `backend/src/routes/v1/auth.routes.ts`.
+5. ~~Add `.env.example` files.~~ Done for the backend (`backend/.env.example`). The frontend still doesn't need one (no env vars read anywhere in `frontend/src`).
+6. ~~Add `helmet`.~~ Done — applied in `backend/src/app.ts`.
+
+Remaining known gaps not covered by Milestone 1 (unchanged from before): no CSRF token mechanism, no account lockout, no password reset flow, the pre-existing `@vercel/node` build-time dependency vulnerabilities noted in `TROUBLESHOOTING.md`.

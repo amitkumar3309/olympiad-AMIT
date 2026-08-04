@@ -6,8 +6,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Single place that decides which API version the whole frontend talks to.
+ * Callers pass version-agnostic paths ('/auth/login'), never '/api/...'.
+ * In dev, Vite proxies /api -> localhost:8081; in production,
+ * frontend/vercel.json rewrites /api/* to the backend deployment. Both pass the
+ * rest of the path through unchanged, so the version segment survives.
+ */
+export const API_BASE = '/api/v1'
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,

@@ -13,6 +13,13 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
 
-    "sourceMap": true
-  }
+    "sourceMap": true,
+    "outDir": "./dist"
+  },
+  // Build config: emits ONLY shipped source. tests/ and vitest.config.mts are
+  // deliberately excluded — compiling them into dist/ made vitest pick up the
+  // emitted CommonJS copies as extra test files and crash (see TROUBLESHOOTING.md).
+  // Type-checking of tests happens via tsconfig.test.json.
+  "include": ["src", "api"],
+  "exclude": ["dist", "node_modules"]
 }
