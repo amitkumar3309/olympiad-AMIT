@@ -58,8 +58,11 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                               requestLogger, ensureDb
   src/models/                 one Mongoose model per file + barrel index
   src/routes/health.routes.ts /health (liveness), /ready (readiness)
-  src/routes/v1/              auth, analytics, questions, admin, misc + barrel index
+  src/routes/v1/              auth, analytics, questions, admin, users, misc
+                              + barrel index
   src/validation/             zod schemas
+  src/lib/permissions.ts      THE role -> permission table (start here for authz)
+  src/lib/audit.ts            recordAudit() — the administrative audit trail
   tests/                      vitest + supertest suite
   api/index.ts                Vercel serverless entry (imports src/app.ts)
   tsconfig.json               BUILD config (src + api only; excludes tests)
@@ -98,19 +101,22 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 - All API calls go through `api.get`/`api.post` in `src/api/client.ts` (adds `credentials: 'include'`, JSON headers, and throws `ApiError` on non-2xx). Do not call `fetch` directly in a page/component.
 - Auth state is read via `useAuth()` from `AuthContext` — never re-implement session state locally in a page.
-- Route guards: `ProtectedRoute` (student-only) and `AdminRoute` (admin-only) in `src/components/ProtectedRoute.tsx`. Wrap new authenticated pages in these rather than checking `state.status` ad hoc in the page body (existing pages do check `state.status` for conditional rendering, e.g. to show a preview vs. real data — that's fine; the *route-level* gate should still use the wrapper).
+- Route guards: `ProtectedRoute` (requires a student account) and `RequirePermission` (requires a capability) in `src/components/ProtectedRoute.tsx`. `AdminRoute` was **removed** in Milestone 3 — use `RequirePermission permission="..."`, which renders the `Unauthorized` component for a signed-in user rather than silently redirecting.
+- Read permissions with `can('...')` from `useAuth()`. The permission list arrives from the backend on every auth response; **never** reimplement the role → permission mapping on the frontend, and never branch on `state.status` to decide whether something administrative is allowed (`status` says which *kind* of account is signed in, not what it may do — a promoted admin has `status: 'student'`). Wrap new authenticated pages in these rather than checking `state.status` ad hoc in the page body (existing pages do check `state.status` for conditional rendering, e.g. to show a preview vs. real data — that's fine; the *route-level* gate should still use the wrapper).
 
 ## Backend Conventions
 
 - There are **two** auth cookies: `access_token` (short-lived JWT) and `refresh_token` (opaque, rotating). Both `httpOnly`, `secure` only in production, `sameSite: 'none'` in prod / `'lax'` in dev (prod frontend and backend are different Vercel domains, so cross-site cookies are required). Do not change these without understanding the split-domain implication — see [`SECURITY.md`](SECURITY.md).
-- `requireAuth(...roles)` middleware is the only auth gate — reuse it; do not hand-roll token verification in a new route. It is deliberately stateless (no DB read); if you need the full student record, load it in the handler.
+- **`requirePermission('...')` is the gate for new routes**, not a role check. The role → permission table in `src/lib/permissions.ts` is the *only* place a role may be mapped to a capability — **never** compare `req.user.role` to a literal in a handler or route (see [`DECISIONS.md`](DECISIONS.md)). Add a permission to that table if none fits. `requireAuth(...roles)` still exists but only for gates that genuinely concern identity rather than capability (e.g. `/auth/logout-all`). For a decision that depends on the data being addressed rather than the path, use `callerCan()` / `callerCanFresh()` — the latter re-reads the role from the database and is what you want before granting access to *someone else's* data.
+- Authentication is stateless (no DB read). **Authorization is not, for privileged permissions**: `requirePermission` re-reads `role`/`status`/`tokenVersion` from MongoDB so a demotion or suspension takes effect at once instead of surviving the access token's TTL. Do not "optimise" that read away. It also means privileged routes need a database connection in order to authorize, and answer 503 without one.
+- Any route that changes an account, a role, or the question bank must call `recordAudit(req, {...})` from `src/lib/audit.ts` with an action from `src/models/AuditLog.ts`. Audit writes are best-effort by design and must never fail the action they describe.
 - Never store a token in the database in plaintext. Use `hashToken()` from `lib/tokens.ts` (SHA-256) for refresh and email tokens; use `lib/password.ts` (bcrypt) for passwords. Never log a raw token outside the dev email transport.
 - Auth responses must not reveal whether an account exists. Login uses one message for unknown-account and wrong-password; `forgot-password` and `resend-verification` always return the same generic 200.
 - Every route returns JSON with a `success` boolean. Never return a bare array/object without it.
 
 ## Database Conventions
 
-- MongoDB via Mongoose, one model per file in `src/models/` — **7 models** (see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md)). `ExamAttempt` and `Result` exist but are **not wired to any route** — do not assume they are populated.
+- MongoDB via Mongoose, one model per file in `src/models/` — **8 models** (see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md)). `AuditLog` deliberately has **no** TTL index, unlike the two token collections. `ExamAttempt` and `Result` exist but are **not wired to any route** — do not assume they are populated.
 - `Student.passwordHash` is `select: false`. A query that needs it must opt in with `.select('+passwordHash')`; never remove that guard.
 - `Student.email` is required and unique, and was added in Milestone 2, so **documents created before it lack the field** and will fail validation on save. There is no migration script — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 - Any route that touches the database must have the `ensureDb` middleware applied **after** validation/auth. Without it the route will work locally but fail in production, because the serverless entry never runs the local bootstrap that connects at startup.
@@ -118,20 +124,23 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## API Conventions
 
-- REST-ish, prefixed **`/api/v1/...`** (canonical). The unversioned `/api/...` is a compatibility alias mounting the same router — add new routes to `routes/v1/` only, never to the alias separately. Auth-required routes call `requireAuth('student')`, `requireAuth('admin')`, or both.
+- REST-ish, prefixed **`/api/v1/...`** (canonical). The unversioned `/api/...` is a compatibility alias mounting the same router — add new routes to `routes/v1/` only, never to the alias separately. Remember the alias when reasoning about access control: a gate must hold on both prefixes (a test asserts it does).
+- Non-public routes call `requirePermission('...')`. Use `requireAuth(...)` only for an identity-based gate.
 - See [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) for the authoritative, currently-implemented list. Several routes exist on the backend but are **not called by the frontend at all** (`/api/daily-challenge`, `/api/leaderboard`, `/api/certificates/:studentId`) — don't assume a page is wired up just because a matching endpoint exists.
 
 ## Authentication Conventions
 
-- Two independent identities: `student` (registered via `/api/v1/auth/register` with fullName + mobile + **email** + password) and `admin` (single account from env vars, no registration flow — by design, see [`DECISIONS.md`](DECISIONS.md)).
+- **Three roles**: `student`, `admin`, `superadmin`. The env-configured account (`ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH`) is the **root `superadmin`** — the bootstrap identity, with no database document, signing in at `/api/v1/auth/admin/login`. An `admin` is an ordinary account promoted by a super admin (`PATCH /api/v1/admin/users/:studentId/role`); promoted admins sign in through the normal `/auth/login`. `superadmin` is deliberately **not** assignable through any API — do not add a way to create a second one.
+- A promoted admin is a `Student` document with `role: 'admin'`, so it keeps its student capabilities. Do not "fix" that by splitting staff into a separate collection without a `DECISIONS.md` entry first — the reuse is the point (see the Milestone 3 ADR).
+- Students register via `/api/v1/auth/register` with fullName + mobile + **email** + password. `role` submitted at registration is ignored; the schema default is the only way it is set.
 - Students log in with **either** their mobile number or their email (`identifier` field). Email verification is **real** and required before login; the old fake client-side OTP step has been deleted. Do not reintroduce any mock verification.
-- Admins get a longer-lived access token and **no** refresh token, because there is no `Student` record to anchor a token family to.
+- The **root** admin gets a longer-lived access token and **no** refresh token, because there is no `Student` record to anchor a token family to. A promoted admin is a normal account and does get a rotating refresh token.
 - Registration deliberately does **not** create a session. Don't "helpfully" log the student in on registration.
 
 ## Security Rules
 
 - Never hardcode secrets. `JWT_SECRET`, `MONGO_URI`, `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `FRONTEND_URL` are env-only (see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
-- Read [`SECURITY.md`](SECURITY.md) before touching auth, query building from `req.query`, or CORS config. The previously-documented issues (unvalidated query construction, permissive CORS fallback, insecure JWT default, missing headers/rate limiting) were **fixed in Milestone 1** — don't reintroduce those patterns. Still open: no CSRF tokens, no account lockout.
+- Read [`SECURITY.md`](SECURITY.md) before touching auth, query building from `req.query`, or CORS config. The previously-documented issues (unvalidated query construction, permissive CORS fallback, insecure JWT default, missing headers/rate limiting) were **fixed in Milestone 1** — don't reintroduce those patterns. Still open: **no CSRF tokens** (the top gap, and more pressing now that Milestone 3 added real state-mutating admin routes) and no two-factor auth. Account lockout arrived in Milestone 2; the authorization model was rebuilt in Milestone 3 — read the "Authorization" section of `SECURITY.md` for the role and permission tables before touching either.
 - Do not commit `.env` files (already gitignored). Do not weaken the JWT default-secret warning into a silent success.
 
 ## Testing Requirements

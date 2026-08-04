@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
-import { ProtectedRoute, AdminRoute } from './components/ProtectedRoute'
+import { ProtectedRoute, RequirePermission } from './components/ProtectedRoute'
 import Landing from './pages/Landing/Landing'
 import Admin from './pages/Admin/Admin'
+import AdminUsers from './pages/Admin/Users'
+import AdminAuditLog from './pages/Admin/AuditLog'
 import AiGenerator from './pages/AiGenerator/AiGenerator'
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
@@ -26,13 +28,31 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/result" element={<Result />} />
           <Route path="/certificate" element={<Certificate />} />
+          {/* The admin entry point doubles as the root-admin sign-in form, so it is
+              not permission-gated; it renders its own unauthorized state instead. */}
           <Route path="/admin" element={<Admin />} />
+          <Route
+            path="/admin/users"
+            element={
+              <RequirePermission permission="students:read">
+                <AdminUsers />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/audit-log"
+            element={
+              <RequirePermission permission="audit:read">
+                <AdminAuditLog />
+              </RequirePermission>
+            }
+          />
           <Route
             path="/ai-generator"
             element={
-              <AdminRoute>
+              <RequirePermission permission="questions:write">
                 <AiGenerator />
-              </AdminRoute>
+              </RequirePermission>
             }
           />
           <Route

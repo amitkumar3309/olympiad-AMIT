@@ -5,7 +5,7 @@ import logo from '../assets/logo.png'
 import styles from './Navbar.module.css'
 
 export default function Navbar() {
-  const { state, logout } = useAuth()
+  const { state, can, logout } = useAuth()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
 
@@ -41,20 +41,19 @@ export default function Navbar() {
               <Link to="/exam" onClick={() => setOpen(false)}>
                 Exam
               </Link>
-              <button className={styles.logoutBtn} onClick={handleLogout}>
-                Logout
-              </button>
             </>
           )}
-          {state.status === 'admin' && (
-            <>
-              <Link to="/admin" onClick={() => setOpen(false)}>
-                Admin
-              </Link>
-              <button className={styles.logoutBtn} onClick={handleLogout}>
-                Logout
-              </button>
-            </>
+          {/* Driven by permission, not by which kind of account is signed in: a
+              student promoted to admin keeps their student links and gains this one. */}
+          {can('students:read') && (
+            <Link to="/admin" onClick={() => setOpen(false)}>
+              Admin
+            </Link>
+          )}
+          {state.status !== 'guest' && state.status !== 'loading' && (
+            <button className={styles.logoutBtn} onClick={handleLogout}>
+              Logout
+            </button>
           )}
         </nav>
       </div>

@@ -1,27 +1,75 @@
-import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import Button from '../../components/Button'
 import StatTile from '../../components/StatTile'
 import ChartCard from '../../components/ChartCard'
 import Spinner from '../../components/Spinner'
+import Unauthorized from '../../components/Unauthorized'
 import { useAuth, ApiError } from '../../context/AuthContext'
+import { api } from '../../api/client'
+import type { ManagedAccount, Pagination } from '../../api/types'
+import AdminShell from './AdminShell'
 import styles from './Admin.module.css'
 
-const MOCK_STUDENTS = [
-  { id: 'AMIT_4821', name: 'Amit Kumar', class: '8', accuracy: '98%' },
-  { id: 'AMIT_7821', name: 'Aarav Mehta', class: '10', accuracy: '96%' },
-  { id: 'AMIT_2210', name: 'Sneha Kulkarni', class: '9', accuracy: '95%' },
-  { id: 'AMIT_9081', name: 'Priya Singh', class: '7', accuracy: '94%' },
-]
+interface StudentListResponse {
+  students: ManagedAccount[]
+  pagination: Pagination
+}
+
+interface Overview {
+  total: number
+  admins: number
+  suspended: number
+  recent: ManagedAccount[]
+}
 
 export default function Admin() {
-  const { state, adminLogin, logout } = useAuth()
-  const navigate = useNavigate()
+  const { state, can, adminLogin } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const canReadStudents = can('students:read')
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [loadingOverview, setLoadingOverview] = useState(false)
+  const [overviewError, setOverviewError] = useState('')
+
+  useEffect(() => {
+    if (!canReadStudents) return
+    let cancelled = false
+
+    async function loadOverview() {
+      setLoadingOverview(true)
+      setOverviewError('')
+      try {
+        // Three narrow queries rather than one wide one: each returns a real count
+        // from the database, so no figure on this page is invented.
+        const [all, admins, suspended] = await Promise.all([
+          api.get<StudentListResponse>('/admin/students?limit=5'),
+          api.get<StudentListResponse>('/admin/students?role=admin&limit=1'),
+          api.get<StudentListResponse>('/admin/students?status=suspended&limit=1'),
+        ])
+        if (cancelled) return
+        setOverview({
+          total: all.pagination.total,
+          admins: admins.pagination.total,
+          suspended: suspended.pagination.total,
+          recent: all.students,
+        })
+      } catch (err) {
+        if (cancelled) return
+        setOverviewError(err instanceof ApiError ? err.message : 'Could not load the overview.')
+      } finally {
+        if (!cancelled) setLoadingOverview(false)
+      }
+    }
+
+    void loadOverview()
+    return () => {
+      cancelled = true
+    }
+  }, [canReadStudents])
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault()
@@ -38,7 +86,7 @@ export default function Admin() {
 
   if (state.status === 'loading') return <Spinner label="Loading admin portal..." />
 
-  if (state.status !== 'admin') {
+  if (state.status === 'guest') {
     return (
       <div className={`theme-dark ${styles.loginWrap}`}>
         <form className={`card ${styles.loginCard}`} onSubmit={handleLogin}>
@@ -62,81 +110,84 @@ export default function Admin() {
           <Button type="submit" fullWidth disabled={submitting}>
             {submitting ? 'Signing in...' : 'Login'}
           </Button>
+          <p className={styles.loginHint}>
+            Administrators promoted from a student account sign in from the <Link to="/">home page</Link>.
+          </p>
         </form>
       </div>
     )
   }
 
-  async function handleLogout() {
-    await logout()
-    navigate('/')
+  // Signed in, but without administrative capability — a student who navigated here.
+  if (!canReadStudents) {
+    return (
+      <Unauthorized
+        title="This area is for administrators"
+        detail="You are signed in, but your account does not have administrative permissions. Head back to your dashboard to see your own progress."
+      />
+    )
   }
 
   return (
-    <div className={`theme-dark ${styles.shell}`}>
-      <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
-        <div className={styles.sidebarBrand}>A.M.I.T Admin</div>
-        <nav>
-          <span className={styles.menuItemActive}>
-            <i className="ph-bold ph-squares-four" /> Dashboard
-          </span>
-          <Link to="/ai-generator" className={styles.menuItem}>
-            <i className="ph-bold ph-sparkle" /> AI Question Generator
-          </Link>
-        </nav>
-        <button className={styles.logoutBtn} onClick={handleLogout}>
-          <i className="ph-bold ph-sign-out" /> Logout
-        </button>
-      </aside>
+    <AdminShell title="Dashboard Overview">
+      {overviewError && <p className="error-text">{overviewError}</p>}
 
-      <div className={styles.main}>
-        <header className={styles.topbar}>
-          <button className={styles.burger} onClick={() => setSidebarOpen((o) => !o)} aria-label="Toggle menu">
-            <i className="ph ph-list" />
-          </button>
-          <h2>Dashboard Overview</h2>
-        </header>
+      {loadingOverview ? (
+        <Spinner label="Loading account figures..." />
+      ) : (
+        overview && (
+          <>
+            <div className={styles.statRow}>
+              <StatTile icon="ph-users" value={String(overview.total)} label="Accounts Registered" />
+              <StatTile icon="ph-shield-check" value={String(overview.admins)} label="Administrator Accounts" />
+              <StatTile icon="ph-prohibit" value={String(overview.suspended)} label="Suspended Accounts" />
+            </div>
 
-        <div className={styles.statRow}>
-          <StatTile icon="ph-users" value="15,000+" label="Students Registered" />
-          <StatTile icon="ph-trophy" value="450+" label="Participating Schools" />
-          <StatTile icon="ph-lightning" value="1,280" label="Challenges Solved Today" />
-        </div>
+            <div className={`card ${styles.tableCard}`}>
+              <div className={styles.tableHead}>
+                <h3>Recently Registered</h3>
+                <Link to="/admin/users" className={styles.tableLink}>
+                  Manage all accounts →
+                </Link>
+              </div>
+              {overview.recent.length === 0 ? (
+                <p className={styles.emptyRow}>No accounts have registered yet.</p>
+              ) : (
+                <div className={styles.tableScroll}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Student ID</th>
+                        <th>Name</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {overview.recent.map((account) => (
+                        <tr key={account.id}>
+                          <td>{account.studentId}</td>
+                          <td>{account.fullName ?? '—'}</td>
+                          <td>{account.role}</td>
+                          <td>{account.status}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </>
+        )
+      )}
 
-        <ChartCard
-          title="Weekly Accuracy Trend"
-          type="line"
-          label="Accuracy %"
-          labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
-          data={[72, 78, 75, 82, 88, 90, 92]}
-        />
-
-        <div className={`card ${styles.tableCard}`}>
-          <h3>Students Data</h3>
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Student ID</th>
-                  <th>Name</th>
-                  <th>Class</th>
-                  <th>Accuracy</th>
-                </tr>
-              </thead>
-              <tbody>
-                {MOCK_STUDENTS.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.id}</td>
-                    <td>{s.name}</td>
-                    <td>{s.class}</td>
-                    <td>{s.accuracy}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
+      <ChartCard
+        title="Weekly Accuracy Trend (sample data — no exam results are recorded yet)"
+        type="line"
+        label="Accuracy %"
+        labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
+        data={[72, 78, 75, 82, 88, 90, 92]}
+      />
+    </AdminShell>
   )
 }

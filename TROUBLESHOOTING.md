@@ -217,3 +217,37 @@ If `dbName` says `test`, the URI is still missing its path. That field was added
 **Solution**: what fixed it.
 **Verification**: how we confirmed the fix worked.
 ```
+
+---
+
+## Auth integration tests time out after 60s in an offline environment
+
+**Problem**: `npm test --prefix backend` fails three test files (`auth.flows`, `auth.security`, `rbac`) with `Hook timed out in 60000ms` at `beforeAll(startTestDb)`, while the five database-free suites pass. Running the same tests from a different directory passes all 105.
+**Cause**: `mongodb-memory-server` resolves its cached MongoDB binary **relative to the working directory**, and `npm --prefix` changes where npm looks for `package.json` without making `backend/` the cache-resolution root. When the cache is not found it tries to download MongoDB, and in a network-restricted environment that hangs until the hook times out. Nothing is wrong with the code — the same commit passes from inside `backend/`.
+**Solution**: run the suite from inside the backend directory in offline environments:
+
+```bash
+cd backend && npm test
+```
+
+**Verification**: identical commit and identical `dist/`, `npm test --prefix backend` → 3 files failed; `cd backend && npm test` → 105 passed. If the machine has network access, either form works because the binary is downloaded on first use.
+**Note**: this is *not* the "`npm run build` and `npm test` could not both work" problem recorded above — that one was about `dist/` being discovered as test files and is genuinely fixed. Verify by checking whether the failure is a `beforeAll` timeout (this issue) or a "Vitest cannot be imported in a CommonJS module" error (that one).
+
+---
+
+## Root administrator gets 401 immediately after deploying Milestone 3
+
+**Problem**: after the RBAC deploy, an already-signed-in root administrator is signed out, and any request to an admin route returns `401 "Your session is no longer valid."` until they log in again.
+**Cause**: intended behaviour, not a bug. Access tokens issued before Milestone 3 carry `role: 'admin'` with no `sub` and no `root: true` flag. The authorization layer now re-reads the caller's role from the database for privileged requests, finds no document to read, and refuses. Refusing is the correct outcome — the alternative (treating a subject-less token as a match) would be a serious hole, and a test now asserts it stays refused.
+**Solution**: sign in again at `/admin`. The new token carries `role: 'superadmin'` and `root: true`.
+**Verification**: `GET /api/v1/auth/me` returns `role: 'superadmin'` with `users:role:write` in its `permissions` array.
+**Note**: student sessions are **not** affected — the cookie names did not change in this milestone (unlike Milestone 2).
+
+---
+
+## Cannot promote anyone to admin: "Only a verified, active account can be made an administrator"
+
+**Problem**: `PATCH /api/v1/admin/users/:studentId/role` returns `409` with that message, even though the account plainly exists.
+**Cause**: promotion deliberately requires the target to have a verified email address and `status: 'active'`, so administrative access is never handed to an account whose owner has not proven control of the mailbox. In production, **an unconfigured SMTP setup makes this unreachable**: verification links are only written to the server log, so nobody can verify, so nobody can be promoted.
+**Solution**: configure SMTP (see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)) and have the prospective admin complete the verification link. In local development the link is printed in the backend log and works as-is.
+**Verification**: `GET /api/v1/admin/students/AMIT_xxxx` shows `isEmailVerified: true` and `status: "active"`, after which the promotion returns `200` with `changed: true`.

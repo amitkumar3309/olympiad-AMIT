@@ -1,5 +1,5 @@
-import { Router } from 'express';
-import { requireAuth } from '../../middleware/auth';
+import { Router, type Request, type Response } from 'express';
+import { requirePermission, callerCanFresh } from '../../middleware/auth';
 import { StudentAnalytics, type StudentAnalyticsDocument, type TopicMetric } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { ensureDb } from '../../middleware/ensureDb';
@@ -55,28 +55,37 @@ const MOCK_ANALYTICS_FALLBACK = {
   ],
 };
 
-router.get('/analytics/:studentId', requireAuth('student', 'admin'), ensureDb, async (req, res) => {
-  try {
-    if (req.user!.role !== 'admin' && req.user!.studentId !== req.params.studentId) {
-      sendError(res, 403, 'You can only view your own analytics.');
-      return;
+router.get(
+  '/analytics/:studentId',
+  requirePermission('analytics:read:self'),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      // Reading someone else's record is a separate capability. The check is fresh
+      // (a database read) rather than token-based, so a demoted admin cannot keep
+      // browsing other students' data until their access token expires.
+      const isOwnRecord = req.user!.studentId === req.params.studentId;
+      if (!isOwnRecord && !(await callerCanFresh(req, 'analytics:read:any'))) {
+        sendError(res, 403, 'You can only view your own analytics.');
+        return;
+      }
+
+      const analytics = await StudentAnalytics.findOne({ studentId: req.params.studentId });
+
+      if (!analytics) {
+        // No StudentAnalytics document exists for this student yet — nothing in
+        // the codebase creates one today (see PROJECT_STATE.md known gap).
+        // Falling back to demo data keeps the page usable in the meantime.
+        sendSuccess(res, 200, { data: MOCK_ANALYTICS_FALLBACK });
+        return;
+      }
+
+      analytics.aiInsights = generateAIInsights(analytics);
+      sendSuccess(res, 200, { data: analytics });
+    } catch {
+      sendError(res, 500, 'Failed to fetch analytics');
     }
-
-    const analytics = await StudentAnalytics.findOne({ studentId: req.params.studentId });
-
-    if (!analytics) {
-      // No StudentAnalytics document exists for this student yet — nothing in
-      // the codebase creates one today (see PROJECT_STATE.md known gap).
-      // Falling back to demo data keeps the page usable in the meantime.
-      sendSuccess(res, 200, { data: MOCK_ANALYTICS_FALLBACK });
-      return;
-    }
-
-    analytics.aiInsights = generateAIInsights(analytics);
-    sendSuccess(res, 200, { data: analytics });
-  } catch {
-    sendError(res, 500, 'Failed to fetch analytics');
-  }
-});
+  },
+);
 
 export default router;

@@ -1,0 +1,75 @@
+import mongoose, { Schema, type Document, type Types } from 'mongoose';
+import { ROLES, type Role } from '../lib/permissions';
+
+/**
+ * Every administrative action worth answering "who did this, and when?" about.
+ * Kept as a closed list so the audit trail stays queryable — a free-text action
+ * string would drift into unsearchable variants.
+ */
+export const AUDIT_ACTIONS = [
+  /** A super admin granted or revoked the admin role. */
+  'user.role.changed',
+  /** An admin suspended, deactivated or reactivated an account. */
+  'student.status.changed',
+  /** Questions were written to the bank. */
+  'questions.generated',
+  /** An account holding an elevated role signed in. */
+  'admin.session.started',
+  /**
+   * An authenticated user was refused a privileged permission. Recorded because a
+   * burst of these is the signature of a privilege-escalation attempt.
+   */
+  'authz.denied',
+] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+export const AUDIT_TARGET_TYPES = ['student', 'question', 'route', 'system'] as const;
+export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number];
+
+export interface AuditLogDocument extends Document {
+  action: AuditAction;
+  /** Role the actor held at the time — not looked up later, so history stays true. */
+  actorRole: Role;
+  /** Mongo `_id` of the acting account; null for the env-configured root admin. */
+  actor?: Types.ObjectId | null;
+  /** Human-readable actor (email or `AMIT_xxxx`), denormalised so the log reads standalone. */
+  actorLabel: string;
+  targetType: AuditTargetType;
+  /** Human-facing identifier of the target (`AMIT_xxxx`, a route path, ...). */
+  targetId?: string | null;
+  targetLabel?: string | null;
+  outcome: 'success' | 'denied';
+  /** Action-specific detail, e.g. `{ from: 'student', to: 'admin' }`. */
+  metadata?: Record<string, unknown>;
+  ip?: string | null;
+  userAgent?: string | null;
+  createdAt: Date;
+}
+
+const auditLogSchema = new Schema<AuditLogDocument>({
+  action: { type: String, enum: AUDIT_ACTIONS, required: true },
+  actorRole: { type: String, enum: ROLES, required: true },
+  actor: { type: Schema.Types.ObjectId, ref: 'Student', default: null },
+  actorLabel: { type: String, required: true },
+  targetType: { type: String, enum: AUDIT_TARGET_TYPES, required: true },
+  targetId: { type: String, default: null },
+  targetLabel: { type: String, default: null },
+  outcome: { type: String, enum: ['success', 'denied'], default: 'success' },
+  metadata: { type: Schema.Types.Mixed, default: undefined },
+  ip: { type: String, default: null },
+  userAgent: { type: String, default: null },
+  createdAt: { type: Date, default: Date.now },
+});
+
+// Newest-first is the only listing order the admin UI offers, and the secondary
+// indexes back the action / actor filters on that same listing.
+auditLogSchema.index({ createdAt: -1 });
+auditLogSchema.index({ action: 1, createdAt: -1 });
+auditLogSchema.index({ actor: 1, createdAt: -1 });
+
+/**
+ * Deliberately **no TTL index**, unlike `RefreshToken` and `VerificationToken`:
+ * an audit trail that silently deletes itself is not an audit trail. If retention
+ * ever needs a bound, that is a policy decision for DECISIONS.md.
+ */
+export const AuditLog = mongoose.model<AuditLogDocument>('AuditLog', auditLogSchema);

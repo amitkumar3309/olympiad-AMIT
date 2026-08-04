@@ -23,9 +23,12 @@ import {
 } from '../../validation/authSchemas';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { hashPassword, verifyPassword } from '../../lib/password';
+import { permissionsFor, isPrivilegedRole } from '../../lib/permissions';
+import { recordAudit } from '../../lib/audit';
 import {
   signAccessToken,
   verifyAccessToken,
+  type AccessTokenClaims,
   issueRefreshToken,
   rotateRefreshToken,
   revokeRefreshToken,
@@ -51,22 +54,35 @@ function publicStudent(student: StudentDocument) {
     studentId: student.studentId,
     isEmailVerified: student.isEmailVerified,
     status: student.status,
+    role: student.role,
   };
+}
+
+/**
+ * Every authenticated response carries the caller's role *and* its effective
+ * permission list, so the frontend can drive guards and navigation from the
+ * server's own authorization table instead of re-implementing it and drifting.
+ */
+function sessionEnvelope(student: StudentDocument) {
+  return { role: student.role, permissions: permissionsFor(student.role), student: publicStudent(student) };
 }
 
 function studentObjectId(student: StudentDocument): mongoose.Types.ObjectId {
   return student._id as mongoose.Types.ObjectId;
 }
 
-function setAccessCookie(res: Response, student: StudentDocument): void {
-  const token = signAccessToken({
-    role: 'student',
+function studentClaims(student: StudentDocument): AccessTokenClaims {
+  return {
+    role: student.role,
     sub: String(student._id),
     studentId: student.studentId,
     email: student.email,
     tv: student.tokenVersion,
-  });
-  res.cookie(config.auth.accessCookieName, token, config.auth.accessCookieOptions);
+  };
+}
+
+function setAccessCookie(res: Response, student: StudentDocument): void {
+  res.cookie(config.auth.accessCookieName, signAccessToken(studentClaims(student)), config.auth.accessCookieOptions);
 }
 
 async function establishSession(res: Response, student: StudentDocument, req: Request): Promise<void> {
@@ -308,7 +324,20 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
     await student.save();
 
     await establishSession(res, student, req);
-    sendSuccess(res, 200, { student: publicStudent(student) });
+
+    // A sign-in by an account that holds administrative capability is itself worth
+    // recording — it is the event every later administrative action hangs off.
+    if (isPrivilegedRole(student.role)) {
+      req.user = studentClaims(student);
+      await recordAudit(req, {
+        action: 'admin.session.started',
+        targetType: 'system',
+        targetLabel: student.email,
+        metadata: { role: student.role, via: 'password' },
+      });
+    }
+
+    sendSuccess(res, 200, sessionEnvelope(student));
   } catch (err) {
     logger.error({ err }, 'Login failed');
     sendError(res, 500, 'Could not sign you in. Please try again.');
@@ -329,11 +358,28 @@ router.post('/auth/admin/login', loginLimiter, validate({ body: adminLoginSchema
       return;
     }
 
-    // The admin has no database record, so there is no per-account refresh-token
-    // family to rotate; it gets a single longer-lived access token. See DECISIONS.md.
-    const token = signAccessToken({ role: 'admin', email });
-    res.cookie(config.auth.accessCookieName, token, config.auth.accessCookieOptions);
-    sendSuccess(res, 200, { admin: { email } });
+    // The environment-configured account is the *root* administrator: it holds
+    // `superadmin`, the only role that can grant or revoke admin rights, and it is
+    // the bootstrap identity (nothing else can create the first admin). It has no
+    // database record, so no refresh-token family to rotate — it gets a single
+    // longer-lived access token, marked `root` so the authorization layer knows not
+    // to look for a document. See DECISIONS.md.
+    const claims: AccessTokenClaims = { role: 'superadmin', email, root: true };
+    res.cookie(config.auth.accessCookieName, signAccessToken(claims), config.auth.accessCookieOptions);
+
+    req.user = claims;
+    await recordAudit(req, {
+      action: 'admin.session.started',
+      targetType: 'system',
+      targetLabel: email,
+      metadata: { role: 'superadmin', via: 'root-credentials' },
+    });
+
+    sendSuccess(res, 200, {
+      role: 'superadmin',
+      permissions: permissionsFor('superadmin'),
+      admin: { email, role: 'superadmin' },
+    });
   } catch (err) {
     logger.error({ err }, 'Admin login failed');
     sendError(res, 500, 'Admin login failed.');
@@ -375,7 +421,10 @@ router.post('/auth/refresh', refreshLimiter, ensureDb, async (req, res) => {
 
     setAccessCookie(res, student);
     res.cookie(config.auth.refreshCookieName, outcome.next.token, config.auth.refreshCookieOptions);
-    sendSuccess(res, 200, { student: publicStudent(student) });
+    // Re-issuing from the database is what makes a role change reach the client:
+    // the new access token and the returned permission list both come from the
+    // account as it is now, not as it was when the session began.
+    sendSuccess(res, 200, sessionEnvelope(student));
   } catch (err) {
     logger.error({ err }, 'Token refresh failed');
     sendError(res, 500, 'Could not refresh your session. Please sign in again.');
@@ -398,9 +447,12 @@ router.post('/auth/logout', ensureDb, async (req, res) => {
  * Signs out everywhere: revokes all refresh tokens and bumps `tokenVersion`, so
  * previously issued access tokens are rejected by /auth/me and cannot be refreshed.
  */
-router.post('/auth/logout-all', requireAuth('student'), ensureDb, async (req, res) => {
+router.post('/auth/logout-all', requireAuth(), ensureDb, async (req, res) => {
   try {
-    const student = await Student.findById(req.user!.sub);
+    // Any signed-in account may end its own sessions — including a promoted admin,
+    // which is why this is not gated on the `student` role. The root admin has no
+    // `sub` (and no refresh-token family), so there is nothing to revoke but the cookies.
+    const student = req.user!.sub ? await Student.findById(req.user!.sub) : null;
     if (student) {
       await revokeAllRefreshTokens(studentObjectId(student));
       student.tokenVersion += 1;
@@ -426,10 +478,14 @@ router.get('/auth/me', async (req, res) => {
     return;
   }
 
-  // Admin identity lives entirely in the token — no database read needed, so
-  // this answers even when MongoDB is unreachable.
-  if (payload.role === 'admin') {
-    sendSuccess(res, 200, { role: 'admin', admin: { email: payload.email } });
+  // The root admin's identity lives entirely in the token — no database read
+  // needed, so this answers even when MongoDB is unreachable.
+  if (payload.root) {
+    sendSuccess(res, 200, {
+      role: payload.role,
+      permissions: permissionsFor(payload.role),
+      admin: { email: payload.email, role: payload.role },
+    });
     return;
   }
 
@@ -448,7 +504,9 @@ router.get('/auth/me', async (req, res) => {
       sendError(res, 403, 'This account is no longer active.');
       return;
     }
-    sendSuccess(res, 200, { role: 'student', student: publicStudent(student) });
+    // The role and permissions come from the account as it is now, so a promotion
+    // or demotion is reflected on the next page load without a re-login.
+    sendSuccess(res, 200, sessionEnvelope(student));
   } catch (err) {
     logger.error({ err }, 'Failed to load current user');
     sendError(res, 503, 'Could not load your session right now. Please try again.');

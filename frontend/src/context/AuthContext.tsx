@@ -1,12 +1,22 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../api/client'
-import type { Admin, Student } from '../api/types'
+import type { Admin, Permission, Role, SessionResponse, Student } from '../api/types'
 
+/**
+ * `status` says which *kind of account* is signed in — one backed by a student
+ * record, or the environment-configured root administrator, which has no record.
+ * It does **not** say what the user may do: that is `role` and `permissions`,
+ * which the backend sends with every auth response. A promoted admin is a normal
+ * student account, so it appears as `status: 'student'` with `role: 'admin'`.
+ *
+ * Always ask `can(...)` before showing or gating anything. Never branch on
+ * `status` to decide whether something administrative is allowed.
+ */
 type AuthState =
   | { status: 'loading' }
   | { status: 'guest' }
-  | { status: 'student'; student: Student }
-  | { status: 'admin'; admin: Admin }
+  | { status: 'student'; student: Student; role: Role; permissions: Permission[] }
+  | { status: 'admin'; admin: Admin; role: Role; permissions: Permission[] }
 
 export interface RegisterResult {
   message: string
@@ -16,6 +26,8 @@ export interface RegisterResult {
 
 interface AuthContextValue {
   state: AuthState
+  /** True when the signed-in user holds the permission, per the backend's own table. */
+  can: (permission: Permission) => boolean
   /** Creates an account and emails a verification link. Does NOT sign the student in. */
   register: (input: { fullName: string; mobile: string; email: string; password: string }) => Promise<RegisterResult>
   /** `identifier` is the mobile number OR the email address. */
@@ -31,15 +43,20 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
+/** Turns an auth response into state, keeping role/permissions together with the identity. */
+function toAuthState(res: SessionResponse): AuthState {
+  const permissions = res.permissions ?? []
+  if (res.student) return { status: 'student', student: res.student, role: res.role, permissions }
+  if (res.admin) return { status: 'admin', admin: res.admin, role: res.role, permissions }
+  return { status: 'guest' }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' })
 
   const loadSession = useCallback(async () => {
     try {
-      const res = await api.get<{ role: 'student' | 'admin'; student?: Student; admin?: Admin }>('/auth/me')
-      if (res.role === 'admin' && res.admin) setState({ status: 'admin', admin: res.admin })
-      else if (res.role === 'student' && res.student) setState({ status: 'student', student: res.student })
-      else setState({ status: 'guest' })
+      setState(toAuthState(await api.get<SessionResponse>('/auth/me')))
     } catch {
       setState({ status: 'guest' })
     }
@@ -58,11 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function restore() {
       try {
-        const res = await api.get<{ role: 'student' | 'admin'; student?: Student; admin?: Admin }>('/auth/me')
+        const res = await api.get<SessionResponse>('/auth/me')
         if (cancelled) return
-        if (res.role === 'admin' && res.admin) setState({ status: 'admin', admin: res.admin })
-        else if (res.role === 'student' && res.student) setState({ status: 'student', student: res.student })
-        else setState({ status: 'guest' })
+        setState(toAuthState(res))
       } catch {
         const refreshed = await api.tryRefresh()
         if (cancelled) return
@@ -86,15 +101,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (identifier: string, password: string) => {
-    const res = await api.post<{ student: Student }>('/auth/login', { identifier, password })
-    setState({ status: 'student', student: res.student })
-    return res.student
+    const res = await api.post<SessionResponse>('/auth/login', { identifier, password })
+    setState(toAuthState(res))
+    return res.student!
   }, [])
 
   const adminLogin = useCallback(async (email: string, password: string) => {
-    const res = await api.post<{ admin: Admin }>('/auth/admin/login', { email, password })
-    setState({ status: 'admin', admin: res.admin })
-    return res.admin
+    const res = await api.post<SessionResponse>('/auth/admin/login', { email, password })
+    setState(toAuthState(res))
+    return res.admin!
   }, [])
 
   const logout = useCallback(async () => {
@@ -135,10 +150,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.message
   }, [])
 
+  const can = useCallback(
+    (permission: Permission) =>
+      (state.status === 'student' || state.status === 'admin') && state.permissions.includes(permission),
+    [state],
+  )
+
   return (
     <AuthContext.Provider
       value={{
         state,
+        can,
         register,
         login,
         adminLogin,

@@ -1,22 +1,22 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-04 (Milestone 2 — Complete Authentication System, implemented)._
+_Last updated: 2026-08-05 (Milestone 3 — RBAC and User Management Foundation, implemented)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
 ## Current Development Phase
 
-**Milestone 2 — Complete Authentication System: implemented and verified end-to-end.** Registration, email verification, login (mobile *or* email), short-lived access tokens with rotating refresh tokens, password reset, session revocation, account status handling and lockout are all real, database-backed, and covered by integration tests against a real MongoDB.
+**Milestone 3 — RBAC and User Management Foundation: implemented and verified end-to-end.** Authorization is now permission-based with a single role → permission table, three roles exist (`student` / `admin` / `superadmin`), administrators can be created and managed from the app, account status finally has a UI, and every administrative action — plus every refused one — is written to a queryable audit trail. Privileged requests re-read the caller's role from the database, so revoking access takes effect immediately rather than at token expiry.
 
-No other product feature was touched. The exam, results, certificates, leaderboard and analytics pages are still mock — unchanged from Milestone 1.
+No other product feature was touched. The exam, results, certificates and leaderboard pages are still mock — unchanged since Milestone 1. The admin *dashboard* is no longer mock: its figures are real counts.
 
 ## Last Completed Milestone
 
-**Milestone 2 — Complete Authentication System.** Preceded by Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
+**Milestone 3 — RBAC and User Management Foundation.** Preceded by Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
 
 ## Current Milestone
 
-None in progress. Awaiting owner selection of Milestone 3.
+None in progress. Awaiting owner selection of Milestone 4.
 
 ## Completed Modules (real, end-to-end)
 
@@ -31,15 +31,22 @@ None in progress. Awaiting owner selection of Milestone 3.
   - Forgot password → single-use 30-minute reset token → reset, which also revokes every session. No account enumeration on either endpoint.
   - Current-user endpoint, and frontend session restoration across a browser reload (tries `/auth/me`, falls back to one refresh).
   - Per-endpoint rate limiting on every sensitive route.
-- **Route protection** — `requireAuth(...roles)` on the backend; `ProtectedRoute` / `AdminRoute` on the frontend.
-- **Admin login** — single env-configured account, 8-hour access token, no refresh token (by design).
+- **Authorization (Milestone 3)** — permission-based and centralized:
+  - Three roles (`student` / `admin` / `superadmin`) and nine named permissions, mapped in exactly one place (`backend/src/lib/permissions.ts`).
+  - Routes declare a permission via `requirePermission`; no handler compares a role to a literal. `requireAuth(...)` survives only for identity-only gates.
+  - Privileged requests re-read `role`, `status` and `tokenVersion` from MongoDB, so a demotion or suspension is effective at once instead of surviving the access token's 15 minutes. Student-level requests remain stateless.
+  - Frontend: `RequirePermission` route guard, a real `Unauthorized` state, and navigation filtered by the permission list the server sends (never a client-side copy of the rules).
+- **Admin accounts (Milestone 3)** — the env-configured **root** account holds `superadmin` and is the bootstrap identity (8-hour token, no refresh token, no database record, by design). It can promote any verified active account to `admin`, which revokes that account's sessions so the new role is picked up on a fresh sign-in. Promoted admins sign in through the normal student login and inherit lockout, rotation, verification and password reset. `superadmin` is not assignable through any API.
+- **Student & admin account management (Milestone 3)** — `/admin/users`: real paginated listing with literal (regex-escaped) search and status/role filters, suspend / deactivate / reactivate, and grant/revoke admin for a super admin only. Suspension ends live sessions immediately; reactivation clears the lockout counters. `status` is no longer settable only by a direct database edit.
+- **Audit trail (Milestone 3)** — `AuditLog` collection and `/admin/audit-log` page. Records role changes, status changes, question generation, administrative sign-ins, **and refused privileged requests** with the exact missing permission. No TTL. Writes are best-effort so a failed audit write never fails the action it describes.
 - **Question listing** — `GET /api/v1/questions` reads real documents with validated query params.
 - **AI Question Generator (partial)** — admin-only, really writes to MongoDB; the "AI" is a template-string generator, not a model call.
-- **Backend test suite** — 44 passing tests, including 32 auth integration tests against a real in-memory MongoDB.
+- **Backend test suite** — **105 passing tests** across 8 files, all against a real in-memory MongoDB where a database is needed: 61 RBAC / privilege-escalation tests (Milestone 3) and 32 auth integration tests (Milestone 2).
 
 ## Partially Completed Modules
 
-- **Student analytics** — real model + route, but falls back to hardcoded demo data because nothing ever creates a `StudentAnalytics` document. Every real student sees only the fallback.
+- **Student analytics** — real model + route, but falls back to hardcoded demo data because nothing ever creates a `StudentAnalytics` document. Every real student sees only the fallback. Its *authorization* is now real and tested (own record vs. anyone's record).
+- **Admin dashboard** — the account figures and recent-registration list are real; the weekly-accuracy chart is still sample data, now labelled as such in the UI because no exam results exist to chart.
 - **AI insights** — real rule-based logic (not ML), reachable only on the currently-unpopulated real-data path.
 
 ## Pending / Not Started Modules (UI exists, no real backend wiring)
@@ -53,12 +60,13 @@ Unchanged by Milestone 2:
 - **Daily challenge** — backend route exists (static mock), no frontend caller.
 - **Payments** — static QR image; no gateway, no verification, no transaction record. Registration still proceeds on a self-reported "I've paid" click.
 - **Mobile/SMS verification** — deliberately dropped. The fake client-side OTP step was **deleted**; email verification replaces it. No SMS provider is integrated.
-- **Admin student management** — hardcoded 4-row table; no list-students route.
-- **XP / Levels / Badges / Achievements / Journey map / Gallery / Hall of Fame / Notifications / Audit logs / Subscriptions** — not started.
+- **XP / Levels / Badges / Achievements / Journey map / Gallery / Hall of Fame / Notifications / Subscriptions** — not started.
+- **Student self-service profile editing** — still nothing. An admin can now view and manage any account, but no one can edit their own details.
+- **Account deletion** — deliberately not built; deactivation is the reversible equivalent.
 
 ## Current Frontend State
 
-React 19 SPA, 12 routes (3 new: `/verify-email`, `/forgot-password`, `/reset-password`). All API access flows through `frontend/src/api/client.ts`, which prefixes `API_BASE = '/api/v1'` and transparently refreshes an expired access token once before retrying, de-duplicating concurrent refreshes through a single shared promise. `AuthContext` exposes register / login / logout / logout-everywhere / verify / resend / forgot / reset and restores the session on load. Verified: `oxlint` passes (one pre-existing fast-refresh warning), `tsc -b && vite build` succeeds, and the full flow was driven through a real browser with no console errors.
+React 19 SPA, 14 routes (2 new in Milestone 3: `/admin/users`, `/admin/audit-log`). All API access flows through `frontend/src/api/client.ts`, which prefixes `API_BASE = '/api/v1'` and transparently refreshes an expired access token once before retrying, de-duplicating concurrent refreshes through a single shared promise. `AuthContext` exposes register / login / logout / logout-everywhere / verify / resend / forgot / reset, plus `role`, `permissions` and `can(permission)` — all supplied by the backend, so the UI keeps no copy of the authorization rules. `status` records only *which kind of account* is signed in (a student record, or the root admin); it must never be used to decide whether something administrative is allowed. Route guards are `ProtectedRoute` (student account) and `RequirePermission` (capability), the latter rendering an `Unauthorized` state for a signed-in user rather than silently redirecting. Administrative pages share an `AdminShell` whose sidebar is filtered by permission. Verified: `oxlint` passes (one pre-existing fast-refresh warning), `tsc -b && vite build` succeeds, and every flow was driven through a real browser with no console errors.
 
 ## Current Backend State
 
@@ -76,28 +84,34 @@ lib/apiResponse.ts        { success, ... } envelope helpers
 lib/password.ts           bcrypt hash/verify (cost 12; 4 under test for speed)
 lib/tokens.ts             access JWTs, refresh-token rotation, single-use tokens
 lib/email.ts              nodemailer SMTP + log/in-memory transports + templates
-middleware/               auth, validate, errorHandler, rateLimiter,
+lib/permissions.ts        THE role -> permission table (Milestone 3)
+lib/audit.ts              audit-trail recorder (Milestone 3)
+middleware/               auth (authenticate/requireAuth/requirePermission),
+                          validate, errorHandler, rateLimiter,
                           requestLogger, ensureDb
-models/                   7 models, one file each
+models/                   8 models, one file each
 routes/health.routes.ts   /health, /ready
-routes/v1/                auth (12 routes), analytics, questions, admin, misc
-validation/               zod schemas for auth + questions
-tests/                    7 suites, 44 tests (incl. real-DB auth integration)
+routes/v1/                auth (12 routes), analytics, questions, admin,
+                          users (5 admin/audit routes), misc
+validation/               zod schemas for auth + questions + users
+tests/                    8 suites, 105 tests (incl. real-DB auth + RBAC)
 ```
 
 `ExamAttempt` and `Result` remain defined but unused. Three routes (`daily-challenge`, `leaderboard`, `certificates/:studentId`) are still static mocks.
 
 ## Current Database State
 
-MongoDB via Mongoose, **7 models**: `Student` (extended), `Question`, `ExamAttempt`, `Result`, `StudentAnalytics`, plus new `RefreshToken` and `VerificationToken`. Both new collections store only SHA-256 hashes of their tokens and carry TTL indexes so expired rows are removed automatically. Unique indexes now exist on `Student.mobile`, `Student.email` and `Student.studentId`.
+MongoDB via Mongoose, **8 models**: `Student` (now with `role`), `Question`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, plus new **`AuditLog`**. The two token collections store only SHA-256 hashes and carry TTL indexes; `AuditLog` deliberately has **no** TTL. Unique indexes on `Student.mobile`, `Student.email` and `Student.studentId`, and a non-unique index on `Student.role`.
 
 **Atlas connectivity is still unverified from this development sandbox** (outbound raw DNS/TCP is blocked). Milestone 2 was instead verified against a real MongoDB run locally on port 27017, which exercised the same code paths, indexes and constraints. The owner must still confirm Atlas works from their machine — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
 ## Current Authentication State
 
-Complete for students; deliberately simpler for the single admin. Implemented: bcrypt password hashing, email verification, login by mobile or email, access/refresh token split with rotation and theft detection, revocation (per-device and everywhere), password reset that revokes all sessions, account status (`active`/`suspended`/`deactivated`), failed-login lockout, per-endpoint rate limiting, and no account enumeration on login, forgot-password or resend-verification.
+Complete for students; deliberately simpler for the root administrator. Implemented: bcrypt password hashing, email verification, login by mobile or email, access/refresh token split with rotation and theft detection, revocation (per-device and everywhere), password reset that revokes all sessions, account status (`active`/`suspended`/`deactivated`), failed-login lockout, per-endpoint rate limiting, and no account enumeration on login, forgot-password or resend-verification.
 
-Still missing: CSRF tokens (see [`SECURITY.md`](SECURITY.md)), two-factor auth, and any admin-facing tooling to change a student's status (the field exists; nothing but a direct database edit sets it).
+Milestone 3 added the authorization half: three roles, one permission table, `requirePermission` gates, database-fresh role checks on privileged requests, and immediate session revocation on role change or suspension. Admin accounts are now real database accounts and reuse everything above.
+
+Still missing: CSRF tokens (see [`SECURITY.md`](SECURITY.md)) and two-factor auth.
 
 ## Current Payment State
 
@@ -109,6 +123,10 @@ Two independent Vercel projects, unchanged in structure. `backend/api/index.ts` 
 
 **Deployment ordering matters**: deploy the backend before the frontend, since the frontend calls `/api/v1/*`. Milestone 2 adds a second requirement: **set the SMTP and `FRONTEND_URL` env vars before students register in production**, or verification emails will not be delivered (they will only be written to the server log) and their links will point at the wrong host.
 
+Milestone 3 adds no new environment variables and no new deploy step, but two things are worth knowing before deploying it:
+- **Student sessions keep working**, unlike the Milestone 2 deploy — the cookie names did not change. **The root administrator's session does not**: its old token carries `role: 'admin'` with no `sub` and no `root` flag, so it is refused with 401 and the root admin must sign in again. That refusal is deliberate and covered by a test (it must not degrade into matching an arbitrary account).
+- **The first admin can only be created by the root account.** Promotion requires the target account to be email-verified, so in production this depends on SMTP being configured first.
+
 ## Important File Locations
 
 | Concern | Location |
@@ -118,17 +136,26 @@ Two independent Vercel projects, unchanged in structure. `backend/api/index.ts` 
 | Token service | [backend/src/lib/tokens.ts](backend/src/lib/tokens.ts) |
 | Password hashing | [backend/src/lib/password.ts](backend/src/lib/password.ts) |
 | Email service + templates | [backend/src/lib/email.ts](backend/src/lib/email.ts) |
-| Auth middleware | [backend/src/middleware/auth.ts](backend/src/middleware/auth.ts) |
+| **Permission table (start here for authorization)** | [backend/src/lib/permissions.ts](backend/src/lib/permissions.ts) |
+| Authorization middleware | [backend/src/middleware/auth.ts](backend/src/middleware/auth.ts) |
+| Audit-trail recorder | [backend/src/lib/audit.ts](backend/src/lib/audit.ts) |
+| Admin user-management + audit routes | [backend/src/routes/v1/users.routes.ts](backend/src/routes/v1/users.routes.ts) |
 | Rate limiters | [backend/src/middleware/rateLimiter.ts](backend/src/middleware/rateLimiter.ts) |
 | Auth validation schemas | [backend/src/validation/authSchemas.ts](backend/src/validation/authSchemas.ts) |
-| Student / token models | [backend/src/models/](backend/src/models/) |
+| Student / token / audit models | [backend/src/models/](backend/src/models/) |
 | Auth integration tests | [backend/tests/auth.flows.test.ts](backend/tests/auth.flows.test.ts), [backend/tests/auth.security.test.ts](backend/tests/auth.security.test.ts) |
+| **Privilege-escalation tests** | [backend/tests/rbac.test.ts](backend/tests/rbac.test.ts) |
 | Frontend API client (auto-refresh) | [frontend/src/api/client.ts](frontend/src/api/client.ts) |
 | Session/auth state | [frontend/src/context/AuthContext.tsx](frontend/src/context/AuthContext.tsx) |
 | New auth pages | [frontend/src/pages/Auth/](frontend/src/pages/Auth/) |
+| Frontend route guards + unauthorized state | [frontend/src/components/ProtectedRoute.tsx](frontend/src/components/ProtectedRoute.tsx), [frontend/src/components/Unauthorized.tsx](frontend/src/components/Unauthorized.tsx) |
+| Admin shell + permission-aware nav | [frontend/src/pages/Admin/AdminShell.tsx](frontend/src/pages/Admin/AdminShell.tsx) |
+| Admin user management / audit pages | [frontend/src/pages/Admin/Users.tsx](frontend/src/pages/Admin/Users.tsx), [frontend/src/pages/Admin/AuditLog.tsx](frontend/src/pages/Admin/AuditLog.tsx) |
 | Dev server config | [.claude/launch.json](.claude/launch.json) |
 
 ## Current Environment Requirements
+
+Milestone 3 added **no new environment variables**. `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` keep their meaning but now define the **root `superadmin`** rather than "the admin".
 
 Backend: `MONGO_URI`, `JWT_SECRET` (mandatory in production), `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH`, `FRONTEND_URL` (now also the base for emailed links), and the SMTP group (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_SECURE`, `EMAIL_FROM`). Optional policy knobs: `ACCESS_TOKEN_TTL`, `REFRESH_TOKEN_TTL_DAYS`, `ADMIN_TOKEN_TTL`, `REQUIRE_EMAIL_VERIFICATION`, `MAX_FAILED_LOGINS`, `ACCOUNT_LOCK_MINUTES`. Frontend: none. Full detail in [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
 
@@ -136,23 +163,30 @@ Backend: `MONGO_URI`, `JWT_SECRET` (mandatory in production), `ADMIN_EMAIL`, `AD
 
 ## Known Bugs
 
+0. **Existing student documents predate `role`** — but harmlessly. Unlike the `email` problem below, `role` is optional with a schema default, so an old document simply reads as `role: 'student'` and needs no backfill. Worth knowing when reading a raw document that has no `role` field.
 1. **Existing student documents predate `email`.** `email` is now required and unique, so any `Student` created before Milestone 2 lacks it and will fail validation the next time it is saved. Reads still work. There is no migration script. If the Atlas database holds real students, they must be given addresses (or removed) before they can log in — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 2. **Analytics never persisted** — `generateAIInsights()` mutates `aiInsights` in memory and never saves. Harmless only because the real-data branch is unreachable.
 3. **Dead models** — `ExamAttempt` and `Result` are defined but untouched by any route.
-4. **`/api/v1/auth/me` returns 503 when the database is unreachable** for students (admins answer from the token alone). The frontend treats any failure as "guest", so behaviour is correct, but the status is broader than ideal.
-5. **No admin tooling for account status.** `status` is enforced on login and on every `/auth/me`, but only a direct database edit can set it.
+4. **`/api/v1/auth/me` returns 503 when the database is unreachable** for account-backed callers (the root admin answers from the token alone). The frontend treats any failure as "guest", so behaviour is correct, but the status is broader than ideal.
+5. **Privileged routes need the database to authorize.** Because the role is re-read per privileged request, an administrator sees **503** rather than 403 while MongoDB is down. This is deliberate (see [`DECISIONS.md`](DECISIONS.md)) — correctness over availability on admin endpoints — but it does mean the admin panel is unusable during a database outage.
+6. **The root `superadmin` cannot be managed from the app.** It has no document, so it cannot be suspended, demoted or listed under `/admin/users`; withdrawing it means changing the environment variables and redeploying.
+7. **No rate limit specific to the admin routes.** They sit behind the general `/api` limiter only.
+
+Fixed in Milestone 3: the absent admin tooling for account status, the inline role checks scattered across handlers, the analytics route's role comparison, the 15-minute window in which a demoted admin kept working, and `logout-all` being unusable by a non-student role.
 
 Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with retry-on-collision), the absent password reset, the absent email verification, and the inability to revoke a session.
 
 ## Technical Debt
 
+- **Staff accounts are `Student` documents.** A promoted admin lives in the `Student` collection with `role: 'admin'`, so the model name is now narrower than what it stores. Renaming it needs a migration and was out of scope — see [`DECISIONS.md`](DECISIONS.md).
 - `ExamAttempt` / `Result` models still unused.
 - No migration tooling — the `email` backfill above has to be done by hand.
 - Hardcoded production backend URL inside `frontend/vercel.json`.
 - Mixed English/Hindi error strings are now gone from the auth routes, but `PROJECT_STATE`-era Hinglish may remain elsewhere; no deliberate localisation decision has been made.
 - No CI pipeline; verification commands are run manually.
 - No CSRF token mechanism (production cookies are `sameSite: 'none'` because the apps are on different domains).
-- No frontend test suite at all.
+- No frontend test suite at all — so the route guards, permission-aware navigation and unauthorized states are verified only by hand in a browser.
+- The frontend mirrors the *names* of the permissions as a TypeScript union in `api/types.ts`. The mapping is not duplicated (it comes from the server), but adding a permission means adding its name in two places.
 - The unversioned `/api/*` alias should eventually be removed.
 - Pre-existing `npm audit` findings in `@vercel/node`'s build-time dependency tree.
 
@@ -160,9 +194,13 @@ Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with 
 
 Two things gate a real launch, in this order:
 
-1. **Owner action: configure SMTP** (see the instructions at the end of the Milestone 2 hand-off, and [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)). Until then, no student can receive a verification link in production.
-2. **Owner decision: Milestone 3.** Strongest candidates: wire exam submission → `ExamAttempt` → real results (both models exist, unused); real admin student management (would also give `status` a UI); or the payment gateway decision, which is the only thing standing between the current flow and collecting real money.
+1. **Owner action: configure SMTP** (see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)). Still outstanding, and unchanged by Milestone 3: until it is set, no student can receive a verification link in production, which also means no new account can be promoted to admin (promotion requires a verified account).
+2. **Owner decision: Milestone 4.** With authorization and account management done, the strongest candidate is now **exam submission → `ExamAttempt` → real results**: both models already exist and are unused, it is the only path that makes the analytics real branch reachable, it converts the four remaining mock surfaces (Exam, Results, Certificates, Leaderboard) in one dependency chain, and it needs no external account or spend. The alternative is the payment gateway, which is the only thing between the current flow and collecting real money but requires a provider decision and cost approval.
+
+Smaller follow-ups worth considering either way: CSRF tokens (now the top security gap, with real state-mutating admin routes to protect), a tighter rate limit on the admin routes, and a student self-service profile page.
 
 ## Recent Architectural Decisions
 
-See [`DECISIONS.md`](DECISIONS.md). Milestone 2 added six ADRs: the access/refresh token split, login by mobile-or-email, verification-before-login, SMTP via nodemailer with a log fallback, admins having no refresh token, and adopting a real in-memory MongoDB for integration tests (superseding the Milestone 1 decision against it).
+See [`DECISIONS.md`](DECISIONS.md). Milestone 3 added four ADRs: three roles with the env account as `superadmin` and admins promoted from existing accounts; permission-based authorization held in one table; privileged requests re-reading the role from the database; and an audit trail that records refusals and never expires.
+
+Milestone 2 added six: the access/refresh token split, login by mobile-or-email, verification-before-login, SMTP via nodemailer with a log fallback, admins having no refresh token, and adopting a real in-memory MongoDB for integration tests (superseding the Milestone 1 decision against it).

@@ -1,22 +1,28 @@
 # TESTING.md
 
-_Last updated: 2026-08-04 (Milestone 2 — Complete Authentication System)._
+_Last updated: 2026-08-05 (Milestone 3 — RBAC and User Management Foundation)._
 
 ## Current State
 
-The backend has a working test suite: **44 passing tests across 7 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **105 passing tests across 8 files** (`backend/tests/`). The frontend still has **no test suite**.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|
-| `backend/` | vitest + supertest (+ mongodb-memory-server) | 44 | Passing |
+| `backend/` | vitest + supertest (+ mongodb-memory-server) | 105 | Passing |
 | `frontend/` | none configured | 0 | Not started |
 
-**32 of those tests are auth integration tests that run against a real MongoDB** started in-process by `mongodb-memory-server`. That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
+**93 of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 61 RBAC/privilege-escalation tests (Milestone 3) and 32 auth integration tests (Milestone 2). That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
 
 ## Commands
 
 ```bash
 npm test --prefix backend
+```
+
+**In an offline environment, run it from inside `backend/` instead** — `mongodb-memory-server` resolves its cached MongoDB binary relative to the working directory, and `--prefix` changes that:
+
+```bash
+cd backend && npm test
 ```
 
 Other verification commands (all must pass before a milestone is considered done):
@@ -66,6 +72,21 @@ vitest + supertest, chosen in [`DECISIONS.md`](DECISIONS.md) (2026-08-04). vites
 - **Account status**: suspended and deactivated accounts cannot log in, and an existing session stops being honoured the moment the account is suspended; lockout after repeated failures, then recovery once the window passes.
 - **Validation and conflicts**: weak passwords, a password with no digit, a malformed email, duplicate email vs duplicate mobile (distinct messages), unique `studentId` allocation, and one shared message for unknown-account vs wrong-password.
 
+### RBAC and privilege escalation (real database)
+
+`tests/rbac.test.ts` — **61 tests**, the Milestone 3 suite. Its organising idea is that authorization must be attacked at the API, not through the UI, so every case issues raw HTTP requests with hand-built cookies.
+
+- **The permission surface**: a student's token grants only student permissions; the root account is `superadmin` and holds `users:role:write`; a promoted admin holds the administrative permissions but *not* `users:role:write`.
+- **A student cannot reach admin APIs**: every one of the six admin endpoints is asserted to return **403** for a student and **401** for a guest, via `it.each` so a newly added endpoint cannot quietly skip the check. Also asserted through the unversioned `/api` alias, so the compatibility mount is not a way around the gate, and asserted not to leak another account's email in the refusal body.
+- **Token manipulation**: a `superadmin` token signed with the wrong secret; an unknown role (`root`); no role claim at all; a genuinely-signed token whose `role` claim lies about a student account (refused **403**, because the database is the authority); a `superadmin` claim attached to a student account; and a Milestone 2 style admin token that has a role but no subject (refused **401** — it must not degrade into matching an arbitrary account).
+- **Self-assignment**: `role` submitted in the registration body is ignored; `superadmin` is rejected by the role endpoint's enum, so no API path creates a second root admin.
+- **Losing privileges immediately**: an admin demoted *directly in the database* — leaving `tokenVersion` untouched, so only the freshness check can catch it — is refused on the next request with a still-valid token. Likewise a suspended admin, and a deleted account. Role changes and suspensions are asserted to end the target's sessions.
+- **No lateral or upward movement**: an admin cannot promote anyone (including itself), cannot suspend a peer admin, and cannot change its own status; a super admin can suspend an admin; an unverified account cannot be promoted.
+- **Cross-account reads**: a student cannot read another student's analytics but can read their own; an admin can read anyone's; a demoted admin immediately cannot.
+- **The audit trail**: role changes, status changes, question generation and administrative sign-ins each write an entry with the expected actor, target and `from`/`to` metadata; a refused request writes `authz.denied` naming the missing permission; an admin can read the trail and a student cannot; filters work and an unknown action filter returns 400.
+- **Listing behaviour**: pagination totals; no password hash anywhere in a response; role and status filters; a `.*` search term matching nothing (proving the regex escape); malformed IDs and unknown statuses rejected with 400; 404 for a missing account; reactivation clearing the lockout; and an unchanged status writing no audit entry.
+- **A promoted admin keeps its student capabilities**: it can read its own analytics, refresh its session (getting `role: 'admin'` back), and sign out everywhere.
+
 ### Foundation suites (no database)
 
 These run against the app exported from `backend/src/app.ts` via supertest, with **no database required**.
@@ -87,9 +108,11 @@ Milestone 2 closed most of the previous gap — JWT tampering/expiry, token revo
 - **Real email delivery.** Tests use an in-memory transport, so SMTP configuration, provider auth and deliverability are unverified by automation. The token extracted from the captured email *is* the real one, so the flow logic is genuinely tested — only the transport is not.
 - **The production fail-closed check on a missing `JWT_SECRET`.** Asserting it needs a separate process, since it throws at module load.
 - **`ensureDb` middleware.** Verified manually (a clean 503 in 93ms with the database down), not by a test.
+- **The 503-on-privileged-routes path.** That a privileged route answers 503 rather than 403 when the database is unreachable is documented in [`DECISIONS.md`](DECISIONS.md) but not asserted.
+- **Audit-write failure.** That a failed audit write does not fail the action it describes is implemented and commented, but not exercised by a test.
 - **Graceful shutdown.** Signal handling is not exercised.
 - **CSRF.** No mechanism exists yet, so there is nothing to test — see [`SECURITY.md`](SECURITY.md).
-- **The entire frontend.** No component, hook, or routing tests exist. The auth UI was verified by driving a real browser, not by automation.
+- **The entire frontend.** No component, hook, or routing tests exist — so `RequirePermission`, the `Unauthorized` state, `can()` and the permission-filtered navigation are verified only by driving a real browser. Notably, the *backend* half of every one of those permissions **is** tested, so a frontend regression could show the wrong menu but could not grant real access.
 
 ## Test Environment Notes
 
@@ -99,7 +122,8 @@ Milestone 2 closed most of the previous gap — JWT tampering/expiry, token revo
 - bcrypt cost drops to **4** under test (12 otherwise). At cost 12 each hash takes ~250ms, and the auth suites hash dozens of times; this keeps the suite fast without changing the code path.
 - Rate limiters are skipped under test (see "Deliberately Untested").
 - `tests/helpers/db.ts` starts one `MongoMemoryServer` per test file, then explicitly builds indexes with `createIndexes()`. The models are compiled before the connection exists (they are imported with the app), and `Model.init()` also tries to auto-create collections, which races a freshly opened connection — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
-- `tests/helpers/auth.ts` provides `registerVerifyLogin()` plus cookie parsing, and pulls the real token out of the captured email.
+- `tests/helpers/auth.ts` provides `registerVerifyLogin()`, `loginRootAdmin()` and `createAdminSession()` (which registers, has the root admin promote, then signs in again — the only way an admin account comes to exist), plus cookie parsing and real-token extraction from the captured email.
+- `tests/setup.ts` also puts root-administrator credentials into `process.env` before any test file imports `src/config`, so the real `/auth/admin/login` path is exercised. The password hash is computed at runtime rather than committed, so no hash — even a throwaway one — lives in the repository.
 - `backend/tsconfig.json` (build) excludes `tests/`; `backend/tsconfig.test.json` includes them for type-checking and lint; `vitest.config.mts` excludes `dist/`. All three are needed together — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) for the failure mode when they disagree.
 
 ## Manual Verification
@@ -108,7 +132,7 @@ Milestone 1 was additionally verified by running both servers together and exerc
 
 ## Priority Gaps To Close Next
 
-1. **Frontend tests** — the largest remaining hole; the auth UI is verified only by manual browser walkthroughs. Propose a framework in `DECISIONS.md` before installing one.
+1. **Frontend tests** — the largest remaining hole; the auth and admin UI are verified only by manual browser walkthroughs. Now more valuable than before Milestone 3, since there are route guards and permission-filtered navigation whose *display* logic nothing asserts (their enforcement is covered server-side). Propose a framework in `DECISIONS.md` before installing one.
 2. **Rate-limit assertions** — would need a limiter that can be enabled per test rather than switched off wholesale.
 3. **CI** — nothing runs these commands automatically yet; they are manual.
 4. **Integration tests for future data features** (exam attempts, results) — the real-database harness now exists, so these are cheap to add.

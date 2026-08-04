@@ -61,7 +61,10 @@ src/
   lib/logger.ts           pino instance
   lib/ApiError.ts         operational error class with status code + factories
   lib/apiResponse.ts      sendSuccess / sendError (the { success, ... } envelope)
-  middleware/auth.ts          requireAuth(...roles)
+  lib/permissions.ts      THE role -> permission table (single source of truth)
+  lib/audit.ts            recordAudit() — writes the administrative audit trail
+  middleware/auth.ts          authenticate / requireAuth(...roles) /
+                              requirePermission(...) — the only authz gate
   middleware/validate.ts      zod validation for body/query/params
   middleware/errorHandler.ts  global error handler + 404 handler
   middleware/rateLimiter.ts   general + auth limiters
@@ -69,8 +72,10 @@ src/
   middleware/ensureDb.ts      per-request DB connection gate
   models/                 one Mongoose model per file + barrel index
   routes/health.routes.ts /health, /ready
-  routes/v1/              auth, analytics, questions, admin, misc + barrel index
-  validation/             zod schemas (authSchemas, questionSchemas)
+  routes/v1/              auth, analytics, questions, admin, users, misc
+                          + barrel index
+  validation/             zod schemas (authSchemas, questionSchemas,
+                          userSchemas)
 ```
 
 - **Middleware order in `app.ts`** (deliberate):
@@ -83,6 +88,7 @@ src/
   7. `/api/v1` routes, then the same router again at `/api` (compatibility alias)
   8. 404 handler, then the global error handler
 - **Per-route middleware order** for data routes: `rateLimit → validate → requireAuth → ensureDb → handler`. Validation runs *before* the DB gate so malformed input returns 400 even when the database is down.
+- **Privileged routes invert that order**: `requirePermission` expands to `authenticate → ensureDb → freshRoleCheck → permissionCheck`, which runs *before* `validate`. An unauthorized caller is refused before any input is parsed, and the role is re-read from the database rather than trusted from the token — see [`DECISIONS.md`](DECISIONS.md).
 - **Error handling**: routes retain their own `try/catch` returning the `{ success, error }` envelope; the global handler is the safety net for validation failures, 404s, thrown `ApiError`s, and anything an async handler rejects with (Express 5 forwards those automatically).
 
 ## Database Architecture — CURRENT
@@ -97,7 +103,7 @@ _Rewritten in Milestone 2. The previous design was a single 7-day JWT with no re
 
 **Two credentials, different jobs:**
 
-- **Access token** — a JWT signed with `JWT_SECRET` (mandatory in production), 15 minutes, `httpOnly` session cookie `access_token`. Claims: `role`, `sub`, `studentId`, `email`, `tv`. Verified statelessly by `requireAuth(...roles)` — signature, expiry and role only, no database read.
+- **Access token** — a JWT signed with `JWT_SECRET` (mandatory in production), 15 minutes (8 hours for the root administrator), `httpOnly` session cookie `access_token`. Claims: `role`, `sub`, `studentId`, `email`, `tv`, and `root` for the environment-configured administrator. Authentication is stateless — signature and expiry only, no database read — and a token whose `role` is not a recognised role is rejected outright. **Authorization is not stateless for privileged requests**: the `role` claim is treated as a hint and the current role is re-read from MongoDB, so revoking someone's access takes effect immediately rather than at the end of the token's lifetime.
 - **Refresh token** — 32 bytes of `crypto.randomBytes`, opaque, 30 days, `httpOnly` cookie `refresh_token`. Persisted in the `RefreshToken` collection as a **SHA-256 hash only**, rotated on every use, and grouped into a per-login "family".
 
 **Rotation and theft response**: each refresh mints a new token, revokes the old one, and links them. Replaying an already-rotated token revokes the entire family, since two holders of one token means theft or replay.
@@ -148,7 +154,7 @@ No payment gateway SDK/dependency in either `package.json`. The registration flo
 
 **Liveness / readiness probing**: `GET /health` returns 200 from the process with no DB involvement. `GET /ready` inspects the Mongoose connection state and returns 200 `{status:'ready'}` or 503 `{db:'disconnected'}`. Both are mounted before the rate limiter, so probes are never throttled.
 
-**Any DB-backed request**: rate limiter → zod validation → `requireAuth` (where applicable) → `ensureDb` (connect-or-503) → handler. A malformed request therefore returns 400 without ever touching the database, and an unreachable database returns a clean 503 rather than a 500 or a hang.
+**Any DB-backed request**: rate limiter → zod validation → `requireAuth` (where applicable) → `ensureDb` (connect-or-503) → handler. Privileged (`requirePermission`) routes authenticate and authorize first, so they can answer 401/403 before parsing and answer 503 when the database is down, because the role cannot then be verified. A malformed request therefore returns 400 without ever touching the database, and an unreachable database returns a clean 503 rather than a 500 or a hang.
 
 **Registration (Milestone 2)**: Landing form (details → payment placeholder) → `POST /api/v1/auth/register` → bcrypt hash (cost 12) → `Student` created unverified with a unique `studentId` (retrying on collision) → single-use token stored hashed → verification email → **no session issued**. The UI then says "check your email".
 
@@ -156,7 +162,9 @@ No payment gateway SDK/dependency in either `package.json`. The registration flo
 
 **Login**: `POST /api/v1/auth/login` with mobile *or* email → lockout check → bcrypt compare (incrementing the failure counter and locking after 5) → status check → verification check → access + refresh cookies issued, refresh row written hashed.
 
-**Authenticated request**: `access_token` cookie → stateless verification in `requireAuth` → handler. On a 401 the frontend client transparently calls `/auth/refresh` once (de-duplicated through a shared promise) and replays the request.
+**Authenticated request**: `access_token` cookie → stateless verification → handler for student-level permissions; for an administrative permission the chain additionally re-reads `role`/`status`/`tokenVersion` from the database and uses those values.
+
+**Administrative request**: `requirePermission('...')` consults the single role → permission table in `lib/permissions.ts`; on success the handler runs and calls `recordAudit()`; on refusal the caller gets 403 and an `authz.denied` row is written to `AuditLog`. Every authenticated response also carries the caller's effective permission list, which is what the frontend's guards and navigation are built from — the UI never keeps its own copy of the mapping. On a 401 the frontend client transparently calls `/auth/refresh` once (de-duplicated through a shared promise) and replays the request.
 
 **Refresh**: `refresh_token` cookie → hash lookup → reuse/expiry checks → new token minted, old one revoked and linked → both cookies re-set.
 

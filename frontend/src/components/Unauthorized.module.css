@@ -1,0 +1,45 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 60px 20px;
+}
+
+.card {
+  max-width: 520px;
+  text-align: center;
+  padding: 40px 32px;
+}
+
+.icon {
+  font-size: 48px;
+  color: var(--warning);
+  display: block;
+  margin-bottom: 16px;
+}
+
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+}
+
+.card p {
+  margin: 0 0 24px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.link {
+  display: inline-block;
+  padding: 10px 22px;
+  border-radius: var(--radius-sm);
+  background: var(--royal-blue);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link:hover {
+  background: var(--royal-blue-dark);
+}

@@ -1,6 +1,6 @@
 # SECURITY.md
 
-_Last updated: 2026-08-04 (Milestone 2 — Complete Authentication System)._
+_Last updated: 2026-08-05 (Milestone 3 — RBAC and User Management Foundation)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.
 
@@ -19,9 +19,49 @@ Reflects the actual state of the code. Fix items here before building new featur
 
 ## Authorization
 
-- `requireAuth(...roles)` checks the token's `role` claim against a per-route allow-list. It is the only auth gate; routes must not hand-roll verification.
-- `GET /api/v1/analytics/:studentId` restricts students to their own ID; admins may view any.
-- No route lets an admin list or mutate students, so there is no broader admin-authorization surface yet.
+Rewritten in Milestone 3 from role checks to a permission model. `backend/src/lib/permissions.ts` is the **only** place a role is mapped to what it may do; comparing `req.user.role` to a literal anywhere else is forbidden (see [`DECISIONS.md`](DECISIONS.md)).
+
+### Roles
+
+| Role | Held by | Notes |
+|---|---|---|
+| `student` | every registered account by default | |
+| `admin` | an account promoted by a super admin | A normal account with `role: 'admin'`, so it keeps student capabilities too. |
+| `superadmin` | the `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` account only | The bootstrap root. Has **no database document**, so it cannot be suspended or demoted from the UI — withdrawing it means changing the environment variables. Not assignable through any API. |
+
+### Permissions
+
+| Permission | student | admin | superadmin |
+|---|---|---|---|
+| `analytics:read:self` | yes | yes | yes |
+| `exam:take` | yes | yes | yes |
+| `questions:read` | yes | yes | yes |
+| `analytics:read:any` | — | yes | yes |
+| `students:read` | — | yes | yes |
+| `students:status:write` | — | yes | yes |
+| `questions:write` | — | yes | yes |
+| `audit:read` | — | yes | yes |
+| `users:role:write` | — | — | **yes** |
+
+`users:role:write` is confined to `superadmin` on purpose: an ordinary admin cannot create more admins, so one compromised admin session cannot widen itself.
+
+### How a request is authorized
+
+`requirePermission('...')` returns a chain: `authenticate → (ensureDb → freshRoleCheck) → permissionCheck`. The bracketed steps run only for a permission no `student` holds.
+
+- **The token's `role` claim is a hint, not the authority.** For any privileged request the caller's `role`, `status` and `tokenVersion` are re-read from MongoDB and the database value decides. A demotion or suspension therefore takes effect immediately rather than at the end of the 15-minute access-token lifetime — the moment it matters most.
+- Student-level requests stay stateless (no database read), so the common path is unchanged in cost.
+- `callerCanFresh()` applies the same guarantee to in-handler decisions, used by `GET /analytics/:studentId` for reading someone else's record.
+- Losing standing also revokes sessions: a role change or a suspension revokes every refresh token and bumps `tokenVersion`, so old access tokens are refused and cannot be refreshed.
+- `verifyAccessToken()` rejects any token whose `role` is not a recognised role, so an absent or unknown role can never reach a permission lookup.
+- **Lateral protection**: an ordinary admin cannot change the status of an account that holds a role (only a super admin can), and nobody can change their own role or their own status.
+- Roles cannot be self-assigned at registration: the handler picks fields explicitly, the zod schema strips unknown keys, and `role` defaults to `student` in the schema.
+
+Verified by `backend/tests/rbac.test.ts` (61 tests), which drives the escalation attempts directly rather than through the UI. See [`TESTING.md`](TESTING.md).
+
+### The frontend is not a security boundary
+
+Route guards, permission-aware navigation and the unauthorized state exist to make the UI honest, not to enforce anything. The permission array the client receives is a convenience; every permission is re-checked server-side on every request. Confirmed in a browser: cookies are `httpOnly` and invisible to JavaScript, no role or permission data is kept in `localStorage`/`sessionStorage`, and planting fake values there or sending forged headers changes nothing — the API still answers 403.
 
 ## Password Storage
 
@@ -82,6 +122,7 @@ All request bodies and query params are validated by zod schemas via `middleware
 ## NoSQL Injection Protection
 
 - Query filters are never built from raw user input. The login lookup uses `$or` over two explicitly-normalised strings (`identifier.toLowerCase()` and a digits-only mobile), and `GET /questions` validates every filter through a zod schema that rejects anything that isn't a plain string.
+- The Milestone 3 admin listing follows the same rule: `GET /admin/students` builds its filter field by field from zod-parsed values and never spreads `req.query`. Its free-text `search` is **regex-escaped** before becoming a `RegExp`, so a term like `.*` matches literally rather than matching every account (asserted by a test), and `:studentId` path params are constrained to `AMIT_` plus four digits so a path segment cannot become a filter.
 - **Correction retained from Milestone 1**: the classic `?field[$ne]=x` operator-injection shape was never exploitable here, because Express 5 defaults to the `'simple'` query parser, which does not do bracket-notation nesting. Verified empirically against Express 5.2.1. The real risk — a repeated key arriving as an array — is closed by the validation layer, which also keeps holding if the parser is ever switched to `'extended'`.
 
 ## Security Headers
@@ -111,13 +152,17 @@ Not applicable yet — no gateway is integrated. When one is added, webhook sign
 
 ## Audit Logging
 
-Not implemented as a queryable trail, but the structured logger records security-relevant events: refresh-token reuse (with the student and family id), account lockouts, and email delivery failures. A real `AdminAuditLog` collection should arrive with admin CRUD.
+Implemented in Milestone 3 as a queryable `AuditLog` collection, readable in-app by anyone with `audit:read` (`GET /api/v1/admin/audit-logs`, surfaced by `AuditLog.tsx`). It records role changes, account-status changes, question generation, administrative sign-ins, **and refused privileged requests** (`authz.denied`, with the permission that was missing).
+
+Recording refusals is the security-relevant part: a run of `authz.denied` rows against one account is the signature of a privilege-escalation attempt, and it would be invisible if only successes were stored. Only authenticated callers produce rows, so an unauthenticated flood cannot inflate the collection. There is no TTL — an audit trail that deletes itself is not an audit trail.
+
+The structured logger still records the events it did before (refresh-token reuse with student and family id, account lockouts, email delivery failures) and now also logs every authorization denial and every role change at `warn`.
 
 ## Remaining Gaps, in priority order
 
-1. **CSRF tokens** — required before any authenticated state-mutating route (payments, profile edits, admin actions).
-2. **Admin tooling for account status** — `status` is enforced everywhere but only a direct database edit can set it.
-3. **Shared-store rate limiting** — current limits are per-instance and weak on serverless.
-4. **Two-factor authentication** — not started.
-5. **`JWT_SECRET` rotation** — no mechanism; rotating it invalidates every session at once.
+1. **CSRF tokens** — now the clear top gap, and more pressing than before Milestone 3: there are real authenticated state-mutating routes to protect (role changes, account suspension), where previously there were almost none. Production cookies are `sameSite: 'none'` because the apps are on different domains, so `sameSite` is not doing this job.
+2. **Shared-store rate limiting** — current limits are per-instance and weak on serverless.
+3. **Two-factor authentication** — not started, and now more valuable: an admin account is worth more than it was.
+4. **`JWT_SECRET` rotation** — no mechanism; rotating it invalidates every session at once.
+5. **Rate limiting on the administrative routes** — they sit behind the general `/api` limiter only, with no tighter per-route limit of their own.
 6. **Pre-existing `npm audit` findings** in `@vercel/node`'s build-time dependency tree; fixing needs a breaking major upgrade.

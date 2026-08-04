@@ -11,6 +11,20 @@ export const validStudent = {
   password: 'CorrectHorse9',
 };
 
+/** A second, distinct account — for tests that need two students. */
+export const otherStudent = {
+  fullName: 'Other Student',
+  mobile: '9123456780',
+  email: 'other@example.com',
+  password: 'DifferentHorse8',
+};
+
+/** Matches the values `tests/setup.ts` puts into the environment. */
+export const rootAdmin = {
+  email: 'root-admin@amit.test',
+  password: 'RootAdminPass9',
+};
+
 /** Extracts the `token=` value from the most recent email of a given kind. */
 export function tokenFromLatestEmail(match: 'Verify' | 'Reset'): string {
   const inbox = getTestInbox();
@@ -47,10 +61,10 @@ export function cookieHeader(cookies: Record<string, string>): string {
 export async function registerVerifyLogin(
   app: Express,
   overrides: Partial<typeof validStudent> = {},
-): Promise<{ cookies: Record<string, string>; student: typeof validStudent }> {
+): Promise<{ cookies: Record<string, string>; student: typeof validStudent; studentId: string }> {
   const student = { ...validStudent, ...overrides };
 
-  await request(app).post(`${API}/auth/register`).send(student).expect(201);
+  const registration = await request(app).post(`${API}/auth/register`).send(student).expect(201);
 
   const token = tokenFromLatestEmail('Verify');
   await request(app).post(`${API}/auth/verify-email`).send({ token }).expect(200);
@@ -60,5 +74,38 @@ export async function registerVerifyLogin(
     .send({ identifier: student.email, password: student.password })
     .expect(200);
 
-  return { cookies: parseCookies(login), student };
+  return { cookies: parseCookies(login), student, studentId: registration.body.student.studentId };
+}
+
+/** Signs in as the environment-configured root administrator (`superadmin`). */
+export async function loginRootAdmin(app: Express): Promise<Record<string, string>> {
+  const res = await request(app).post(`${API}/auth/admin/login`).send(rootAdmin).expect(200);
+  return parseCookies(res);
+}
+
+/**
+ * Produces a signed-in administrator: registers a student, has the root admin
+ * promote it, then signs in again so the new session carries the admin role.
+ * This is the only way an admin account comes into existence (see DECISIONS.md).
+ */
+export async function createAdminSession(
+  app: Express,
+  overrides: Partial<typeof validStudent> = {},
+): Promise<{ cookies: Record<string, string>; studentId: string; account: typeof validStudent }> {
+  const { studentId, student } = await registerVerifyLogin(app, overrides);
+  const rootCookies = await loginRootAdmin(app);
+
+  await request(app)
+    .patch(`${API}/admin/users/${studentId}/role`)
+    .set('Cookie', cookieHeader(rootCookies))
+    .send({ role: 'admin' })
+    .expect(200);
+
+  // The promotion revoked the earlier session on purpose, so sign in afresh.
+  const login = await request(app)
+    .post(`${API}/auth/login`)
+    .send({ identifier: student.email, password: student.password })
+    .expect(200);
+
+  return { cookies: parseCookies(login), studentId, account: student };
 }

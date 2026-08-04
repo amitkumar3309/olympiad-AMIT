@@ -3,17 +3,25 @@ import jwt, { type SignOptions } from 'jsonwebtoken';
 import type { Types } from 'mongoose';
 import { config } from '../config';
 import { logger } from './logger';
+import { isRole, type Role } from './permissions';
 import { RefreshToken, VerificationToken, type VerificationTokenType } from '../models';
 
 /** Claims carried by an access token. Kept small — it travels on every request. */
 export interface AccessTokenClaims {
-  role: 'student' | 'admin';
-  /** Mongo `_id` of the student (absent for admin, which has no DB record). */
+  /**
+   * Role at issue time. Treated as a *hint*, not the final word: any privileged
+   * request re-reads the role from the database (see `middleware/authorize.ts`), so
+   * a demotion cannot be outlived by an already-issued token.
+   */
+  role: Role;
+  /** Mongo `_id` of the account (absent for the env root admin, which has no DB record). */
   sub?: string;
   studentId?: string;
   email?: string;
-  /** Student's `tokenVersion` at issue time; a mismatch means the token was revoked. */
+  /** Account's `tokenVersion` at issue time; a mismatch means the token was revoked. */
   tv?: number;
+  /** Marks the environment-configured root admin, which has no database document. */
+  root?: true;
 }
 
 /**
@@ -35,7 +43,11 @@ function randomToken(): string {
 // ---------------------------------------------------------------------------
 
 export function signAccessToken(claims: AccessTokenClaims): string {
-  const ttl = claims.role === 'admin' ? config.admin.tokenTtl : config.auth.accessTokenTtl;
+  // The env root admin has no refresh token to renew a short-lived access token
+  // with, so it gets the longer admin TTL. A *promoted* admin is a normal account
+  // with a refresh-token family, so it keeps the short student TTL — which also
+  // means its elevated privileges are re-derived from the database frequently.
+  const ttl = claims.root ? config.admin.tokenTtl : config.auth.accessTokenTtl;
   return jwt.sign(claims, config.jwtSecret, { expiresIn: ttl } as SignOptions);
 }
 
@@ -43,7 +55,14 @@ export function signAccessToken(claims: AccessTokenClaims): string {
 export function verifyAccessToken(token: string | undefined): AccessTokenClaims | null {
   if (!token) return null;
   try {
-    return jwt.verify(token, config.jwtSecret) as AccessTokenClaims;
+    const decoded = jwt.verify(token, config.jwtSecret);
+    // A valid signature is not enough: reject anything whose `role` is not one we
+    // recognise, so an unknown or missing role can never reach a permission lookup
+    // and be silently treated as authorized.
+    if (typeof decoded !== 'object' || decoded === null || !isRole((decoded as { role?: unknown }).role)) {
+      return null;
+    }
+    return decoded as AccessTokenClaims;
   } catch {
     return null;
   }

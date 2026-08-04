@@ -5,3 +5,4 @@ export * from './Result';
 export * from './StudentAnalytics';
 export * from './RefreshToken';
 export * from './VerificationToken';
+export * from './AuditLog';
