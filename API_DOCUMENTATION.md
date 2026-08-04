@@ -47,11 +47,23 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 
 ### `POST /api/v1/auth/register`
 - **Auth**: none. **Rate limit**: 10/hour per IP.
-- **Request**: `{ fullName, mobile, email, password }`
-- **Validation**: `fullName` 2–120 chars; `mobile` 10–15 digits (spaces/dashes stripped); `email` a valid address, lowercased; `password` ≥8 chars containing at least one letter and one number.
-- **Response 201**: `{ success, message, requiresEmailVerification, student }` — and **no session cookies**. The student must verify first.
-- **Errors**: `400` validation, `409` duplicate email *or* duplicate mobile (distinct messages), `429`, `503`, `500`.
-- **Side effect**: emails a single-use verification link valid for 24 hours.
+- **Request** (Milestone 4 — every field below is required except `middleName`):
+  ```
+  { firstName, middleName?, lastName, fatherName, motherName,
+    dateOfBirth, classLevel, schoolName, address,
+    mobile, email, password, photo }
+  ```
+- **Validation**:
+  - Names (`firstName`, `middleName`, `lastName`, `fatherName`, `motherName`) 2–60 chars, letters in **any script** plus spaces, apostrophes, hyphens and full stops — no digits. `middleName` may be omitted or empty, and stores as `null`.
+  - `dateOfBirth` — `YYYY-MM-DD`, a real date, not in the future, implying an age of 5–40.
+  - `classLevel` — one of the ten values in `backend/src/lib/classLevels.ts`: `Class 5`…`Class 11`, `Class 12 - Science`, `Class 12 - Commerce`, `Class 12 - Humanities`.
+  - `schoolName` 2–150 chars; `address` 10–500 chars.
+  - `mobile` 10–15 digits (spaces/dashes stripped); `email` a valid address, lowercased; `password` ≥8 chars containing at least one letter and one number.
+  - `photo` — a base64 data URL (`data:image/jpeg;base64,…`). JPEG, PNG or WebP; **2 MB maximum decoded**. The declared MIME type is checked against the file's actual magic bytes, so a non-image cannot be stored and later served back as one.
+- **Body limit**: this is the only route that accepts a large body (2.8 MB, to allow for base64 inflation). Every other endpoint keeps body-parser's 100 KB default.
+- **Response 201**: `{ success, message, requiresEmailVerification, student }` — and **no session cookies**. The student must verify first. `student` now includes the registration details (`dateOfBirth` as `YYYY-MM-DD`), but never the photo bytes.
+- **Errors**: `400` validation, `409` duplicate email *or* duplicate mobile (distinct messages), `413` body too large, `429`, `503`, `500`.
+- **Side effects**: writes a `StudentPhoto` document, and emails a single-use verification link valid for 24 hours. `fullName` is **derived** from the three name parts by the schema — do not send it. If the photo write fails, the just-created account is deleted again, so an account never exists without its mandatory photo.
 
 ### `POST /api/v1/auth/verify-email`
 - **Auth**: none (the token *is* the credential). **Rate limit**: 20/15 min.
@@ -149,7 +161,7 @@ All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `re
 - **Query**: `page` (≥1, default 1), `limit` (1–100, default 20), `search` (1–120 chars), `status` (`active`/`suspended`/`deactivated`), `role` (`student`/`admin`), `verified` (`true`/`false`). All parsed by zod before any filter is built.
 - **Response 200**: `{ success, students: ManagedAccount[], pagination: { page, limit, total, totalPages } }`
 - `search` matches `fullName`, `email`, `mobile` or `studentId`, **case-insensitively and literally** — the term is regex-escaped, so `.*` matches nothing rather than everything (asserted by a test).
-- `ManagedAccount` is an explicit allow-list: `id`, `studentId`, `fullName`, `email`, `mobile`, `role`, `status`, `isEmailVerified`, `registeredAt`, `lastLoginAt`, `lockedUntil`, `roleUpdatedAt`, `roleUpdatedBy`. A test asserts no password hash can appear in the response.
+- `ManagedAccount` is an explicit allow-list: `id`, `studentId`, `fullName`, `email`, `mobile`, `role`, `status`, `isEmailVerified`, `registeredAt`, `lastLoginAt`, `lockedUntil`, `roleUpdatedAt`, `roleUpdatedBy`, plus the Milestone 4 registration details (`firstName`, `middleName`, `lastName`, `fatherName`, `motherName`, `dateOfBirth`, `classLevel`, `schoolName`, `address`) — each `null` on an account created before Milestone 4. The photo is **not** included; fetch it from `GET /students/:studentId/photo`. A test asserts no password hash can appear in the response.
 - **Errors**: `400` bad query, `401`, `403`, `429`, `503`, `500`.
 - **Called by**: `Admin.tsx` (dashboard counts and recent list), `Users.tsx`.
 
@@ -173,6 +185,14 @@ All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `re
 - **Response 200**: `{ success, changed: boolean, student: ManagedAccount }`
 - **Side effects** when the role changes: sets `roleUpdatedAt`/`roleUpdatedBy`, revokes every refresh token and bumps `tokenVersion` — so the target **must sign in again**, and cannot keep an old token carrying the old role. Writes a `user.role.changed` audit entry with `{ from, to, reason }`.
 - **Errors**: `400` invalid role or malformed ID, `401`, `403` insufficient permission, `404`, `409` changing your own role, `409` promoting an account that is unverified or not active, `429`, `503`, `500`.
+
+### `GET /api/v1/students/:studentId/photo`
+- **Auth**: any signed-in account. **Added in Milestone 4.**
+- **Authorization**: a student may read **their own** photo. Reading anyone else's requires `students:read`, checked **freshly against the database** (`callerCanFresh`) rather than from the access token — this is someone else's personal data, so a demoted admin must not keep reading it for the rest of the token's life. This is an identity-plus-capability gate, which is why it uses `requireAuth()` rather than a single `requirePermission`.
+- **Params**: `studentId` must match `AMIT_` followed by exactly four digits.
+- **Response 200**: **raw image bytes** — not the `{ success, ... }` envelope. `Content-Type` is the stored type (`image/jpeg` / `image/png` / `image/webp`), plus `Content-Length` and `Cache-Control: private, max-age=300` (`private` because the bytes sit behind an authorization check and must never reach a shared cache).
+- **Errors**: `400` malformed ID, `401` not signed in, `403` another student's photo, `404` no such account **or** no photo on file (every account registered before Milestone 4), `429`, `503`, `500`.
+- **Called by**: `Users.tsx` (the admin table thumbnail), via a plain `<img src>` rather than `api.get` — the response is an image, not JSON. The request is same-origin in both environments because `frontend/vercel.json` rewrites `/api/*` to the backend, so the session cookie is sent normally.
 
 ### `GET /api/v1/admin/audit-logs`
 - **Permission**: `audit:read` (admin, super admin).

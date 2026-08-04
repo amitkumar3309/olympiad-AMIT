@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import type mongoose from 'mongoose';
 import { config } from '../../config';
-import { Student, type StudentDocument } from '../../models';
+import { Student, StudentPhoto, type StudentDocument } from '../../models';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { requireAuth } from '../../middleware/auth';
@@ -14,6 +14,7 @@ import {
 } from '../../middleware/rateLimiter';
 import {
   registerSchema,
+  type RegisterInput,
   loginSchema,
   adminLoginSchema,
   verifyEmailSchema,
@@ -49,6 +50,15 @@ const router = Router();
 function publicStudent(student: StudentDocument) {
   return {
     fullName: student.fullName,
+    firstName: student.firstName,
+    middleName: student.middleName ?? null,
+    lastName: student.lastName,
+    fatherName: student.fatherName,
+    motherName: student.motherName,
+    dateOfBirth: student.dateOfBirth ? student.dateOfBirth.toISOString().slice(0, 10) : null,
+    classLevel: student.classLevel,
+    schoolName: student.schoolName,
+    address: student.address,
     mobile: student.mobile,
     email: student.email,
     studentId: student.studentId,
@@ -135,12 +145,7 @@ async function sendVerificationLink(student: StudentDocument): Promise<void> {
  * account.
  */
 router.post('/auth/register', registerLimiter, validate({ body: registerSchema }), ensureDb, async (req, res) => {
-  const { fullName, mobile, email, password } = req.body as {
-    fullName: string;
-    mobile: string;
-    email: string;
-    password: string;
-  };
+  const { photo, password, ...details } = req.body as RegisterInput;
 
   try {
     const passwordHash = await hashPassword(password);
@@ -153,9 +158,8 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
     for (let attempt = 0; attempt < 5 && !student; attempt += 1) {
       try {
         student = await Student.create({
-          fullName,
-          mobile,
-          email,
+          // `fullName` is not passed: the schema derives it from the name parts.
+          ...details,
           passwordHash,
           studentId: generateStudentId(),
         });
@@ -180,6 +184,25 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
     if (!student) {
       logger.error({ err: lastError }, 'Could not allocate a unique studentId after several attempts');
       sendError(res, 500, 'Could not complete registration. Please try again.');
+      return;
+    }
+
+    // The photo is mandatory, so an account without one is not a valid account.
+    // There is no transaction available here (Atlas free tier aside, the local
+    // test database is a single node), so on failure the student document is
+    // removed again rather than left behind in a state registration can never
+    // reach — the student can simply register again.
+    try {
+      await StudentPhoto.create({
+        student: studentObjectId(student),
+        contentType: photo.contentType,
+        size: photo.data.length,
+        data: photo.data,
+      });
+    } catch (err) {
+      logger.error({ err, studentId: student.studentId }, 'Could not store the registration photo; rolling back the account');
+      await Student.deleteOne({ _id: student._id });
+      sendError(res, 500, 'Could not save your photo. Please try registering again.');
       return;
     }
 

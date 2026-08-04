@@ -1,17 +1,17 @@
 # TESTING.md
 
-_Last updated: 2026-08-05 (Milestone 3 — RBAC and User Management Foundation)._
+_Last updated: 2026-08-05 (registration details and photo storage)._
 
 ## Current State
 
-The backend has a working test suite: **106 passing tests across 8 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **147 passing tests across 9 files** (`backend/tests/`). The frontend still has **no test suite**.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|
-| `backend/` | vitest + supertest (+ mongodb-memory-server) | 106 | Passing |
+| `backend/` | vitest + supertest (+ mongodb-memory-server) | 147 | Passing |
 | `frontend/` | none configured | 0 | Not started |
 
-**94 of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 62 RBAC/privilege-escalation tests (Milestone 3) and 32 auth integration tests (Milestone 2). That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
+**134 of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 62 RBAC/privilege-escalation tests (Milestone 3), 40 registration-detail tests (Milestone 4) and 32 auth integration tests (Milestone 2). That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
 
 ## Commands
 
@@ -86,6 +86,19 @@ vitest + supertest, chosen in [`DECISIONS.md`](DECISIONS.md) (2026-08-04). vites
 - **The audit trail**: role changes, status changes, question generation and administrative sign-ins each write an entry with the expected actor, target and `from`/`to` metadata; a refused request writes `authz.denied` naming the missing permission; an admin can read the trail and a student cannot; filters work and an unknown action filter returns 400.
 - **Listing behaviour**: pagination totals; no password hash anywhere in a response; role and status filters; a `.*` search term matching nothing (proving the regex escape); malformed IDs and unknown statuses rejected with 400; 404 for a missing account; reactivation clearing the lockout; and an unchanged status writing no audit entry.
 - **A promoted admin keeps its student capabilities**: it can read its own analytics, refresh its session (getting `role: 'admin'` back), and sign out everywhere.
+
+### Registration details and photo (real database)
+
+`tests/registration.details.test.ts` — **40 tests**, the Milestone 4 suite. Its organising idea is that a field is only "saved" if it can be **read back out of MongoDB**, so the assertions query the collection rather than trusting the response body — the bug this milestone fixed was data being collected and not stored.
+
+- **Persistence**: every one of the nine new fields is read back from the `students` collection after a registration; `fullName` is derived as `First Middle Last`, and as `First Last` when there is no middle name.
+- **Required fields**: an `it.each`-style loop asserts that omitting any one of the eleven mandatory fields returns **400** and leaves the collection empty. `middleName` is asserted to be genuinely optional, and to normalise whitespace to `null`.
+- **Class**: all ten offered classes are registered successfully in one test; `Class 4` and a bare `Class 12` (no stream) are refused.
+- **Date of birth**: a future date, an implausible year and a non-date string are each refused.
+- **Names**: a Devanagari name is accepted — this caught a real bug, since Indic vowel signs are Unicode *marks* rather than letters and a `\p{L}`-only pattern rejected `अमित`. Digits and a one-character name are refused.
+- **Photo**: stored in `StudentPhoto` with the right content type and byte length, and asserted **not** to appear anywhere on the student document; over-2 MB, a non-image with an image MIME type (the magic-byte check), a disallowed image type, and a non-data-URL are each refused with no account created.
+- **Reading a photo back**: a student gets their own with `Content-Type: image/jpeg` and `Cache-Control: private`; a guest gets 401; **another student gets 403**; an admin gets 200; a missing account does not 500; and the gate is asserted on the unversioned `/api` alias too.
+- **Legacy accounts**: a pre-Milestone-4 document is inserted straight into the collection, bypassing the model, and an admin is asserted to still be able to suspend it — the regression that plain `required: true` would have caused.
 
 ### Foundation suites (no database)
 

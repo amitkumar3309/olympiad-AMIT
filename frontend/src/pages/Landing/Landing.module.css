@@ -113,8 +113,57 @@
   color: var(--success);
 }
 
+/*
+ * Two columns once there is room. Registration grew from 5 fields to 13 in
+ * Milestone 4, and a single column made the form an unreasonably long scroll on
+ * a desktop; `auto-fit` keeps it a single column on a phone with no media query.
+ */
 .formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0 20px;
   text-align: left;
+}
+
+.formSectionTitle {
+  margin: 28px 0 12px;
+  text-align: left;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.requiredLegend {
+  margin: 0 0 8px;
+  text-align: left;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.required {
+  color: var(--danger);
+  margin-left: 2px;
+  font-weight: 700;
+}
+
+.photoPreview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.photoPreview img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
 }
 
 .fieldHint {

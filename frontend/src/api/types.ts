@@ -19,8 +19,57 @@ export type Permission =
   | 'audit:read'
   | 'users:role:write'
 
+/**
+ * Mirrors `CLASS_LEVELS` in `backend/src/lib/classLevels.ts`. Like the permission
+ * names above this is only a *list* — the backend's zod schema is what actually
+ * enforces it, so a stale copy here can never widen what the API accepts.
+ */
+export const CLASS_LEVELS = [
+  'Class 5',
+  'Class 6',
+  'Class 7',
+  'Class 8',
+  'Class 9',
+  'Class 10',
+  'Class 11',
+  'Class 12 - Science',
+  'Class 12 - Commerce',
+  'Class 12 - Humanities',
+] as const
+
+export type ClassLevel = (typeof CLASS_LEVELS)[number]
+
+/** Everything registration collects, as the backend expects it. */
+export interface RegisterInput {
+  firstName: string
+  middleName?: string
+  lastName: string
+  fatherName: string
+  motherName: string
+  /** `YYYY-MM-DD`. */
+  dateOfBirth: string
+  classLevel: ClassLevel
+  schoolName: string
+  address: string
+  mobile: string
+  email: string
+  password: string
+  /** A base64 data URL, e.g. `data:image/jpeg;base64,...`. Max 2 MB decoded. */
+  photo: string
+}
+
 export interface Student {
   fullName: string
+  firstName: string
+  middleName: string | null
+  lastName: string
+  fatherName: string
+  motherName: string
+  /** `YYYY-MM-DD`, or null for an account created before Milestone 4. */
+  dateOfBirth: string | null
+  classLevel: ClassLevel | null
+  schoolName: string
+  address: string
   mobile: string
   email: string
   studentId: string
@@ -57,6 +106,16 @@ export interface ManagedAccount {
   lockedUntil: string | null
   roleUpdatedAt: string | null
   roleUpdatedBy: string | null
+  /** Milestone 4 registration details — null on accounts created before it. */
+  firstName: string | null
+  middleName: string | null
+  lastName: string | null
+  fatherName: string | null
+  motherName: string | null
+  dateOfBirth: string | null
+  classLevel: ClassLevel | null
+  schoolName: string | null
+  address: string | null
 }
 
 export interface Pagination {

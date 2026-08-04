@@ -8,6 +8,17 @@ import { generalLimiter } from './middleware/rateLimiter';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/health.routes';
 import v1Routes from './routes/v1';
+import { MAX_PHOTO_BYTES } from './models/StudentPhoto';
+
+/**
+ * Registration carries a photo as a base64 data URL, which inflates the binary
+ * by about a third, so that one route needs a much larger body than any other.
+ * The allowance is granted **only** to registration rather than by raising the
+ * global limit — every other endpoint keeps body-parser's 100 KB default, so a
+ * large-payload flood still has exactly one (rate-limited) door to knock on.
+ */
+const MAX_REGISTER_BODY_BYTES = Math.ceil(MAX_PHOTO_BYTES * 1.4);
+const REGISTER_PATHS = ['/api/v1/auth/register', '/api/auth/register'];
 
 export function createApp() {
   const app = express();
@@ -16,6 +27,9 @@ export function createApp() {
   app.use(helmet());
   app.use(requestLogger);
   app.use(cors({ origin: config.cors.origins, credentials: true }));
+  // Mounted first so it wins for these paths; body-parser marks the request as
+  // read, so the general parser below then skips it.
+  app.use(REGISTER_PATHS, express.json({ limit: MAX_REGISTER_BODY_BYTES }));
   app.use(express.json());
   app.use(cookieParser());
 

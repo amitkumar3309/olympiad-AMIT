@@ -1,27 +1,42 @@
 import { describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../src/app';
+import { validStudent } from './helpers/auth';
 
 // Functional coverage of the request-validation layer only. Security-specific
 // behaviour (rate limiting, injection shapes, CORS, headers) is deliberately
 // NOT tested at this milestone — see TESTING.md "Deliberately untested".
+//
+// These run with no database, so a payload that passes validation would reach
+// `ensureDb` and get a 503 — which is exactly why every case here is one that
+// validation must reject first.
 
 describe('POST /api/v1/auth/register validation', () => {
   it('rejects a short password with 400 before touching the database', async () => {
     const res = await request(app)
       .post('/api/v1/auth/register')
-      .send({ fullName: 'Test Student', mobile: '9999999999', password: '123' });
+      .send({ ...validStudent, password: '123' });
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toMatch(/password/i);
   });
 
-  it('rejects a missing fullName with 400', async () => {
-    const res = await request(app).post('/api/v1/auth/register').send({ mobile: '9999999999', password: 'longenough' });
+  it('rejects a missing last name with 400', async () => {
+    const { lastName, ...withoutLastName } = validStudent;
+    void lastName;
+    const res = await request(app).post('/api/v1/auth/register').send(withoutLastName);
 
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/last name/i);
+  });
+
+  it('rejects an empty body with 400 rather than a 500', async () => {
+    const res = await request(app).post('/api/v1/auth/register').send({});
+
+    expect(res.status).toBe(400);
+    expect(res.status).not.toBe(500);
   });
 });
 

@@ -2,6 +2,39 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-05 — Full registration details are collected and persisted
+
+Registration previously asked for four things (full name, mobile, email, password). It now collects the complete entrant record the owner specified, and every field is written to MongoDB as part of the same request. **No exam, results, certificate or leaderboard behaviour changed.**
+
+**New registration fields** — all required except the middle name:
+- First / middle / last name as three separate inputs. `fullName` is now **derived** from them by the schema, so every existing reader of `fullName` (admin list, its search, the session envelope, the certificate) is unchanged.
+- Father's name, mother's name, date of birth, class, current school name, full address.
+- A mandatory photo, up to 2 MB, as JPEG / PNG / WebP.
+
+**Class** is a fixed list of ten values: `Class 5` … `Class 11`, then `Class 12 - Science`, `Class 12 - Commerce` and `Class 12 - Humanities`. Held in `backend/src/lib/classLevels.ts` and mirrored by name only in `frontend/src/api/types.ts`.
+
+**Database changes**
+- `Student` gained `firstName`, `middleName`, `lastName`, `fatherName`, `motherName`, `dateOfBirth`, `classLevel`, `schoolName` and `address`. They are required **on creation only** (`required: () => this.isNew`), so an administrative `save()` on an account that predates this change — suspending it, changing its role — does not fail validation on data the admin never touched.
+- New **`StudentPhoto`** collection: one document per account (`student` is unique), holding `contentType`, `size` and the image `data` as a `Buffer`. Deliberately *not* a field on `Student`, so no student query drags a 2 MB binary along with it.
+
+**API changes**
+- Changed: `POST /auth/register` now requires the fields above plus `photo` (a base64 data URL). The registration and session payloads return the new details.
+- New: `GET /students/:studentId/photo` — serves the raw image. A student may read their own; `students:read` is required for anyone else's, checked **fresh** against the database.
+- `GET /admin/students` and `GET /admin/students/:studentId` include the new fields, `null` on pre-existing accounts.
+- Only the registration route accepts a large body (2.8 MB); every other endpoint keeps body-parser's 100 KB default.
+
+**Validation**
+- The photo's declared MIME type is checked against the file's actual **magic bytes**, so `data:image/png;base64,<anything>` is refused rather than stored and later served back as an image.
+- Names accept any script (`\p{L}` plus `\p{M}`, so Devanagari vowel signs work — `अमित` was rejected by a letters-only rule).
+- Date of birth must be a real past date implying an age of 5–40.
+
+**Frontend**
+- The registration form is regrouped into *Student details* / *Photo* / *Contact & sign-in*, every required field carries a red `*`, and the grid goes to two columns where there is room.
+- The chosen photo is previewed with its filename and size; oversized or wrong-type files are refused before submission with a specific message, as is each missing required field by name.
+- The admin user table gained photo, class and school columns. Accounts with no photo fall back to an initial.
+
+**Testing** — 40 new tests (`tests/registration.details.test.ts`), taking the suite from 106 to **147** (one more from tightening the older validation suite, whose `fullName` cases no longer described a real field). They read back from the database rather than trusting the response, and cover every required field, each of the ten classes, the photo's size/type/magic-byte rules, the authorization on photo reads (own / another student's / admin / anonymous / the `/api` alias), and that a pre-Milestone-4 account can still be administered.
+
 ## 2026-08-05 — Navbar: expose the Admin link to guests
 
 The navbar's **Admin** link previously rendered only for someone already holding `students:read`, so a logged-out visitor had no way to reach the admin sign-in form except by typing `/admin` by hand. It now also renders for guests. It stays hidden for a signed-in plain student, who would only reach the `Unauthorized` screen by following it. No authorization behaviour changed — the link is navigation only, and every admin route is still gated server-side.

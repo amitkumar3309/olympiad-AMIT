@@ -69,6 +69,28 @@
   white-space: nowrap;
 }
 
+.photo,
+.photoFallback {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+}
+
+.photo {
+  object-fit: cover;
+}
+
+/* Accounts registered before Milestone 4 have no photo. */
+.photoFallback {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
 .email {
   overflow-wrap: anywhere;
 }

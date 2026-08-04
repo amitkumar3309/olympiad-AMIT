@@ -4,16 +4,42 @@ import { getTestInbox, clearTestInbox } from '../../src/lib/email';
 
 export const API = '/api/v1';
 
+/**
+ * The smallest real JPEG that passes validation: a 1x1 pixel image. Used instead
+ * of a fabricated string because registration checks the file's magic bytes, not
+ * just the MIME type it claims (see `validation/authSchemas.ts`).
+ */
+export const TINY_JPEG_BASE64 =
+  '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
+
+export const validPhoto = `data:image/jpeg;base64,${TINY_JPEG_BASE64}`;
+
+/**
+ * Every field registration requires as of Milestone 4. Kept as one fixture so a
+ * future change to the required set is a single edit here rather than in every
+ * suite that needs an account.
+ */
 export const validStudent = {
-  fullName: 'Test Student',
+  firstName: 'Test',
+  middleName: 'Kumar',
+  lastName: 'Student',
+  fatherName: 'Father Student',
+  motherName: 'Mother Student',
+  dateOfBirth: '2010-04-15',
+  classLevel: 'Class 9',
+  schoolName: 'Springfield Public School',
+  address: '12 Example Road, Example City, 110001',
   mobile: '9876543210',
   email: 'student@example.com',
   password: 'CorrectHorse9',
+  photo: validPhoto,
 };
 
 /** A second, distinct account — for tests that need two students. */
 export const otherStudent = {
-  fullName: 'Other Student',
+  ...validStudent,
+  firstName: 'Other',
+  lastName: 'Student',
   mobile: '9123456780',
   email: 'other@example.com',
   password: 'DifferentHorse8',

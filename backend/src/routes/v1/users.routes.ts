@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from 'express';
-import { requirePermission, callerCan } from '../../middleware/auth';
+import { requireAuth, requirePermission, callerCan, callerCanFresh } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
-import { AuditLog, Student, type AccountStatus, type AuditAction, type StudentDocument } from '../../models';
+import { AuditLog, Student, StudentPhoto, type AccountStatus, type AuditAction, type StudentDocument } from '../../models';
 import type { AssignableRole } from '../../lib/permissions';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { recordAudit } from '../../lib/audit';
@@ -67,6 +67,17 @@ function adminAccountView(account: StudentDocument) {
     lockedUntil: account.lockedUntil ?? null,
     roleUpdatedAt: account.roleUpdatedAt ?? null,
     roleUpdatedBy: account.roleUpdatedBy ?? null,
+    // Milestone 4 registration details. Nullable throughout because accounts
+    // created before Milestone 4 do not have them (see DATABASE_SCHEMA.md).
+    firstName: account.firstName ?? null,
+    middleName: account.middleName ?? null,
+    lastName: account.lastName ?? null,
+    fatherName: account.fatherName ?? null,
+    motherName: account.motherName ?? null,
+    dateOfBirth: account.dateOfBirth ? account.dateOfBirth.toISOString().slice(0, 10) : null,
+    classLevel: account.classLevel ?? null,
+    schoolName: account.schoolName ?? null,
+    address: account.address ?? null,
   };
 }
 
@@ -293,6 +304,58 @@ router.patch(
     } catch (err) {
       logger.error({ err }, 'Failed to change account role');
       sendError(res, 500, 'Could not update that role. Please try again.');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Registration photo
+// ---------------------------------------------------------------------------
+
+/**
+ * Serves a student's registration photo as raw image bytes.
+ *
+ * The gate is identity-based rather than a single permission, because both
+ * answers are legitimate: a student may fetch their own photo, and a member of
+ * staff holding `students:read` may fetch anyone's. The staff half is checked
+ * *fresh* against the database — this is someone else's personal data, so a
+ * demoted admin must not keep reading it for the remainder of their access
+ * token's life (CLAUDE.md, "Backend Conventions").
+ */
+router.get(
+  '/students/:studentId/photo',
+  requireAuth(),
+  validate({ params: studentIdParamSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const isOwnRecord = req.user!.studentId === req.params.studentId;
+      if (!isOwnRecord && !(await callerCanFresh(req, 'students:read'))) {
+        sendError(res, 403, 'You can only view your own photo.');
+        return;
+      }
+
+      const account = await Student.findOne({ studentId: req.params.studentId }).select('_id');
+      if (!account) {
+        sendError(res, 404, 'No account exists with that student ID.');
+        return;
+      }
+
+      const photo = await StudentPhoto.findOne({ student: account._id });
+      if (!photo) {
+        sendError(res, 404, 'No photo has been uploaded for this account.');
+        return;
+      }
+
+      // `private` because this is personal data behind an authorization check:
+      // a shared cache must never hand one student's photo to another.
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      res.setHeader('Content-Type', photo.contentType);
+      res.setHeader('Content-Length', String(photo.size));
+      res.send(photo.data);
+    } catch (err) {
+      logger.error({ err }, 'Failed to load student photo');
+      sendError(res, 500, 'Could not load that photo. Please try again.');
     }
   },
 );

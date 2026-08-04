@@ -1,12 +1,14 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-05 (Milestone 3 — RBAC and User Management Foundation, implemented)._
+_Last updated: 2026-08-05 (registration now collects and persists the full entrant record, including a photo)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
 ## Current Development Phase
 
-**Milestone 3 — RBAC and User Management Foundation: implemented and verified end-to-end.** Authorization is now permission-based with a single role → permission table, three roles exist (`student` / `admin` / `superadmin`), administrators can be created and managed from the app, account status finally has a UI, and every administrative action — plus every refused one — is written to a queryable audit trail. Privileged requests re-read the caller's role from the database, so revoking access takes effect immediately rather than at token expiry.
+**Registration data capture: implemented and verified end-to-end.** Registration collects the full entrant record the owner specified — three name parts, both parents' names, date of birth, class, school, full address, mobile, email and a mandatory photo — and writes every field to MongoDB in the same request. Previously it stored only name/mobile/email/password. Photos live in a new `StudentPhoto` collection and are served by an authorization-checked endpoint.
+
+Before that, **Milestone 3 — RBAC and User Management Foundation: implemented and verified end-to-end.** Authorization is now permission-based with a single role → permission table, three roles exist (`student` / `admin` / `superadmin`), administrators can be created and managed from the app, account status finally has a UI, and every administrative action — plus every refused one — is written to a queryable audit trail. Privileged requests re-read the caller's role from the database, so revoking access takes effect immediately rather than at token expiry.
 
 No other product feature was touched. The exam, results, certificates and leaderboard pages are still mock — unchanged since Milestone 1. The admin *dashboard* is no longer mock: its figures are real counts.
 
@@ -16,7 +18,7 @@ No other product feature was touched. The exam, results, certificates and leader
 
 ## Current Milestone
 
-None in progress. Awaiting owner selection of Milestone 4.
+None formally in progress. The registration-data work above was an owner-requested fix rather than a numbered milestone; Milestone 4 is still to be chosen (see "Immediate Next Task").
 
 ## Completed Modules (real, end-to-end)
 
@@ -41,7 +43,8 @@ None in progress. Awaiting owner selection of Milestone 4.
 - **Audit trail (Milestone 3)** — `AuditLog` collection and `/admin/audit-log` page. Records role changes, status changes, question generation, administrative sign-ins, **and refused privileged requests** with the exact missing permission. No TTL. Writes are best-effort so a failed audit write never fails the action it describes.
 - **Question listing** — `GET /api/v1/questions` reads real documents with validated query params.
 - **AI Question Generator (partial)** — admin-only, really writes to MongoDB; the "AI" is a template-string generator, not a model call.
-- **Backend test suite** — **106 passing tests** across 8 files, all against a real in-memory MongoDB where a database is needed: 62 RBAC / privilege-escalation tests (Milestone 3) and 32 auth integration tests (Milestone 2).
+- **Registration data capture** — `POST /auth/register` collects and persists `firstName` / `middleName` / `lastName` (with `fullName` derived), `fatherName`, `motherName`, `dateOfBirth`, `classLevel` (ten fixed values, 5th–12th with the three 12th-class streams), `schoolName`, `address`, plus the existing mobile / email / password. A **mandatory photo** (≤2 MB, JPEG/PNG/WebP, magic-byte checked) is stored in the new `StudentPhoto` collection and served by `GET /students/:studentId/photo`, readable by the student themselves or by staff holding `students:read`. The admin table shows photo, class and school.
+- **Backend test suite** — **147 passing tests** across 9 files, all against a real in-memory MongoDB where a database is needed: 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2).
 
 ## Partially Completed Modules
 
@@ -61,12 +64,12 @@ Unchanged by Milestone 2:
 - **Payments** — static QR image; no gateway, no verification, no transaction record. Registration still proceeds on a self-reported "I've paid" click.
 - **Mobile/SMS verification** — deliberately dropped. The fake client-side OTP step was **deleted**; email verification replaces it. No SMS provider is integrated.
 - **XP / Levels / Badges / Achievements / Journey map / Gallery / Hall of Fame / Notifications / Subscriptions** — not started.
-- **Student self-service profile editing** — still nothing. An admin can now view and manage any account, but no one can edit their own details.
+- **Student self-service profile editing** — still nothing. Registration now captures a full record and an admin can view and manage any account, but **no one can edit their own details after registering**, and there is no way to replace a photo. That gap is wider than it was, now that there is more data to correct.
 - **Account deletion** — deliberately not built; deactivation is the reversible equivalent.
 
 ## Current Frontend State
 
-React 19 SPA, 14 routes (2 new in Milestone 3: `/admin/users`, `/admin/audit-log`). All API access flows through `frontend/src/api/client.ts`, which prefixes `API_BASE = '/api/v1'` and transparently refreshes an expired access token once before retrying, de-duplicating concurrent refreshes through a single shared promise. `AuthContext` exposes register / login / logout / logout-everywhere / verify / resend / forgot / reset, plus `role`, `permissions` and `can(permission)` — all supplied by the backend, so the UI keeps no copy of the authorization rules. `status` records only *which kind of account* is signed in (a student record, or the root admin); it must never be used to decide whether something administrative is allowed. Route guards are `ProtectedRoute` (student account) and `RequirePermission` (capability), the latter rendering an `Unauthorized` state for a signed-in user rather than silently redirecting. Administrative pages share an `AdminShell` whose sidebar is filtered by permission. Verified: `oxlint` passes (one pre-existing fast-refresh warning), `tsc -b && vite build` succeeds, and every flow was driven through a real browser with no console errors.
+React 19 SPA, 14 routes (2 added in Milestone 3: `/admin/users`, `/admin/audit-log`). The registration wizard on the landing page now collects 13 fields grouped into *Student details* / *Photo* / *Contact & sign-in*, marks every required one with a red `*`, previews the chosen photo, and refuses an oversized or wrong-type file — and each missing field by name — before submitting. All API access flows through `frontend/src/api/client.ts`, which prefixes `API_BASE = '/api/v1'` and transparently refreshes an expired access token once before retrying, de-duplicating concurrent refreshes through a single shared promise. `AuthContext` exposes register / login / logout / logout-everywhere / verify / resend / forgot / reset, plus `role`, `permissions` and `can(permission)` — all supplied by the backend, so the UI keeps no copy of the authorization rules. `status` records only *which kind of account* is signed in (a student record, or the root admin); it must never be used to decide whether something administrative is allowed. Route guards are `ProtectedRoute` (student account) and `RequirePermission` (capability), the latter rendering an `Unauthorized` state for a signed-in user rather than silently redirecting. Administrative pages share an `AdminShell` whose sidebar is filtered by permission. Verified: `oxlint` passes (one pre-existing fast-refresh warning), `tsc -b && vite build` succeeds, and every flow was driven through a real browser with no console errors.
 
 ## Current Backend State
 
@@ -85,23 +88,26 @@ lib/password.ts           bcrypt hash/verify (cost 12; 4 under test for speed)
 lib/tokens.ts             access JWTs, refresh-token rotation, single-use tokens
 lib/email.ts              nodemailer SMTP + log/in-memory transports + templates
 lib/permissions.ts        THE role -> permission table (Milestone 3)
+lib/classLevels.ts        the ten offered classes (5th-12th + 12th streams)
 lib/audit.ts              audit-trail recorder (Milestone 3)
 middleware/               auth (authenticate/requireAuth/requirePermission),
                           validate, errorHandler, rateLimiter,
                           requestLogger, ensureDb
-models/                   8 models, one file each
+models/                   9 models, one file each (+ StudentPhoto)
 routes/health.routes.ts   /health, /ready
 routes/v1/                auth (12 routes), analytics, questions, admin,
                           users (5 admin/audit routes), misc
 validation/               zod schemas for auth + questions + users
-tests/                    8 suites, 106 tests (incl. real-DB auth + RBAC)
+tests/                    9 suites, 147 tests (real-DB auth + RBAC + registration)
 ```
 
 `ExamAttempt` and `Result` remain defined but unused. Three routes (`daily-challenge`, `leaderboard`, `certificates/:studentId`) are still static mocks.
 
 ## Current Database State
 
-MongoDB via Mongoose, **8 models**: `Student` (now with `role`), `Question`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, plus new **`AuditLog`**. The two token collections store only SHA-256 hashes and carry TTL indexes; `AuditLog` deliberately has **no** TTL. Unique indexes on `Student.mobile`, `Student.email` and `Student.studentId`, and a non-unique index on `Student.role`.
+MongoDB via Mongoose, **9 models**: `Student` (now with `role` and the nine registration fields), `Question`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`, plus new **`StudentPhoto`**. The two token collections store only SHA-256 hashes and carry TTL indexes; `AuditLog` deliberately has **no** TTL. Unique indexes on `Student.mobile`, `Student.email`, `Student.studentId` and `StudentPhoto.student`, and a non-unique index on `Student.role`.
+
+**Photo storage is bounded by the database.** At 2 MB a photo, the Atlas free tier's 512 MB holds roughly **250 students** — enough for a first cohort, and the first thing that will force a paid tier or an image CDN.
 
 **Atlas connectivity is still unverified from this development sandbox** (outbound raw DNS/TCP is blocked). Milestone 2 was instead verified against a real MongoDB run locally on port 27017, which exercised the same code paths, indexes and constraints. The owner must still confirm Atlas works from their machine — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
@@ -171,6 +177,8 @@ Backend: `MONGO_URI`, `JWT_SECRET` (mandatory in production), `ADMIN_EMAIL`, `AD
 5. **Privileged routes need the database to authorize.** Because the role is re-read per privileged request, an administrator sees **503** rather than 403 while MongoDB is down. This is deliberate (see [`DECISIONS.md`](DECISIONS.md)) — correctness over availability on admin endpoints — but it does mean the admin panel is unusable during a database outage.
 6. **The root `superadmin` cannot be managed from the app.** It has no document, so it cannot be suspended, demoted or listed under `/admin/users`; withdrawing it means changing the environment variables and redeploying.
 7. **No rate limit specific to the admin routes.** They sit behind the general `/api` limiter only.
+8. **Registration photos are stored as uploaded** — not re-encoded and not stripped of metadata, so EXIF (including any GPS tags a phone wrote) is kept and served back to staff. Re-encoding through an image library would fix it; see [`SECURITY.md`](SECURITY.md).
+9. **A photo cannot be replaced or removed.** There is no upload route beyond registration, so a wrong photo currently needs a direct database edit.
 
 Fixed in Milestone 3: the absent admin tooling for account status, the inline role checks scattered across handlers, the analytics route's role comparison, the 15-minute window in which a demoted admin kept working, and `logout-all` being unusable by a non-student role.
 
@@ -197,7 +205,7 @@ Two things gate a real launch, in this order:
 1. **Owner action: configure SMTP** (see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)). Still outstanding, and unchanged by Milestone 3: until it is set, no student can receive a verification link in production, which also means no new account can be promoted to admin (promotion requires a verified account).
 2. **Owner decision: Milestone 4.** With authorization and account management done, the strongest candidate is now **exam submission → `ExamAttempt` → real results**: both models already exist and are unused, it is the only path that makes the analytics real branch reachable, it converts the four remaining mock surfaces (Exam, Results, Certificates, Leaderboard) in one dependency chain, and it needs no external account or spend. The alternative is the payment gateway, which is the only thing between the current flow and collecting real money but requires a provider decision and cost approval.
 
-Smaller follow-ups worth considering either way: CSRF tokens (now the top security gap, with real state-mutating admin routes to protect), a tighter rate limit on the admin routes, and a student self-service profile page.
+Smaller follow-ups worth considering either way: CSRF tokens (now the top security gap, with real state-mutating admin routes to protect), a tighter rate limit on the admin routes, and a student self-service profile page — the last of which grew more valuable now that registration captures nine more fields a student may need to correct, and a photo they cannot currently replace.
 
 ## Recent Architectural Decisions
 

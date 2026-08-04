@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../api/client'
-import type { Admin, Permission, Role, SessionResponse, Student } from '../api/types'
+import type { Admin, Permission, RegisterInput, Role, SessionResponse, Student } from '../api/types'
 
 /**
  * `status` says which *kind of account* is signed in — one backed by a student
@@ -29,7 +29,7 @@ interface AuthContextValue {
   /** True when the signed-in user holds the permission, per the backend's own table. */
   can: (permission: Permission) => boolean
   /** Creates an account and emails a verification link. Does NOT sign the student in. */
-  register: (input: { fullName: string; mobile: string; email: string; password: string }) => Promise<RegisterResult>
+  register: (input: RegisterInput) => Promise<RegisterResult>
   /** `identifier` is the mobile number OR the email address. */
   login: (identifier: string, password: string) => Promise<Student>
   adminLogin: (email: string, password: string) => Promise<Admin>
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [loadSession])
 
-  const register = useCallback(async (input: { fullName: string; mobile: string; email: string; password: string }) => {
+  const register = useCallback(async (input: RegisterInput) => {
     // No session is established here by design — the student verifies first.
     return api.post<RegisterResult>('/auth/register', input)
   }, [])

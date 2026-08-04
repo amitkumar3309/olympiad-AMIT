@@ -1,10 +1,25 @@
 import mongoose, { Schema, type Document } from 'mongoose';
 import { ASSIGNABLE_ROLES, type AssignableRole } from '../lib/permissions';
+import { CLASS_LEVELS, type ClassLevel } from '../lib/classLevels';
 
 export type AccountStatus = 'active' | 'suspended' | 'deactivated';
 
 export interface StudentDocument extends Document {
+  /**
+   * Kept as the display name and derived from the three name parts on every
+   * save, so the many places that already read `fullName` (the admin list, its
+   * search, the session envelope, the certificate) keep working unchanged.
+   */
   fullName?: string;
+  firstName: string;
+  middleName?: string | null;
+  lastName: string;
+  fatherName: string;
+  motherName: string;
+  dateOfBirth: Date;
+  classLevel: ClassLevel;
+  schoolName: string;
+  address: string;
   mobile: string;
   email: string;
   passwordHash: string;
@@ -33,8 +48,31 @@ export interface StudentDocument extends Document {
   registeredAt: Date;
 }
 
+/**
+ * The registration details added in Milestone 4 are mandatory for every *new*
+ * account, but must not be mandatory for an existing one: accounts created
+ * before this change do not have them, and marking the fields plainly `required`
+ * would make an ordinary administrative `save()` (suspending a legacy account,
+ * changing its role) fail validation on data the admin never touched. Scoping
+ * the requirement to `isNew` enforces it exactly where the data is actually
+ * collected — the registration route, the only path that creates a Student.
+ * See DATABASE_SCHEMA.md and the Milestone 4 ADR in DECISIONS.md.
+ */
+function requiredOnCreate(this: StudentDocument): boolean {
+  return this.isNew;
+}
+
 const studentSchema = new Schema<StudentDocument>({
   fullName: String,
+  firstName: { type: String, required: requiredOnCreate, trim: true },
+  middleName: { type: String, default: null, trim: true },
+  lastName: { type: String, required: requiredOnCreate, trim: true },
+  fatherName: { type: String, required: requiredOnCreate, trim: true },
+  motherName: { type: String, required: requiredOnCreate, trim: true },
+  dateOfBirth: { type: Date, required: requiredOnCreate },
+  classLevel: { type: String, enum: CLASS_LEVELS, required: requiredOnCreate },
+  schoolName: { type: String, required: requiredOnCreate, trim: true },
+  address: { type: String, required: requiredOnCreate, trim: true },
   mobile: { type: String, required: true, unique: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
@@ -53,6 +91,20 @@ const studentSchema = new Schema<StudentDocument>({
   lockedUntil: { type: Date, default: null },
   lastLoginAt: { type: Date, default: null },
   registeredAt: { type: Date, default: Date.now },
+});
+
+/**
+ * `fullName` is derived, never supplied. Keeping it in sync here rather than at
+ * each call site means there is exactly one definition of how the three name
+ * parts join, and the existing readers of `fullName` need no change.
+ */
+studentSchema.pre('validate', function () {
+  if (this.firstName || this.lastName) {
+    this.fullName = [this.firstName, this.middleName, this.lastName]
+      .filter((part): part is string => Boolean(part && part.trim()))
+      .map((part) => part.trim())
+      .join(' ');
+  }
 });
 
 /**

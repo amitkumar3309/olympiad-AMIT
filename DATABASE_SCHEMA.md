@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. **Eight models** as of Milestone 3 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were moved out of the old single-file `server.ts` **without any schema change** — every field, default, enum and constraint below is byte-for-byte what it was before. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Nine models** as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` and nine registration fields on `Student`). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 ## Status legend
 - `ACTIVE` — model is written to and/or read by at least one route.
@@ -14,7 +14,16 @@ Purpose: one document per registered student; the sole source of truth for stude
 
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `fullName` | String | no | — | |
+| `fullName` | String | no | — | **Derived, never supplied.** A `pre('validate')` hook joins `firstName`, `middleName` and `lastName`. Kept because the admin list, its search, the session envelope and the certificate all read it. |
+| `firstName` | String | **on create** | — | **Added in Milestone 4.** |
+| `middleName` | String \| null | no | `null` | **Milestone 4.** Empty or whitespace normalises to `null`. |
+| `lastName` | String | **on create** | — | **Milestone 4.** |
+| `fatherName` | String | **on create** | — | **Milestone 4.** |
+| `motherName` | String | **on create** | — | **Milestone 4.** |
+| `dateOfBirth` | Date | **on create** | — | **Milestone 4.** Submitted as `YYYY-MM-DD`; validated as a real past date implying an age of 5–40. |
+| `classLevel` | String enum | **on create** | — | **Milestone 4.** One of the ten values in `src/lib/classLevels.ts`: `Class 5`–`Class 11`, then `Class 12 - Science` / `- Commerce` / `- Humanities`. |
+| `schoolName` | String | **on create** | — | **Milestone 4.** |
+| `address` | String | **on create** | — | **Milestone 4.** Free text, 10–500 characters. |
 | `mobile` | String | **yes** | — | `unique`, trimmed. Usable as a login identifier. |
 | `email` | String | **yes** | — | `unique`, lowercased, trimmed. **Added in Milestone 2.** Usable as a login identifier, and the only channel for verification and password reset. |
 | `passwordHash` | String | **yes** | — | bcrypt, cost 12 (4 under test for speed). **Excluded from query results at the schema level** (`select: false`) so it cannot leak through a route that forgets to project it away; the login handler opts in with `.select('+passwordHash')`. |
@@ -32,11 +41,33 @@ Purpose: one document per registered student; the sole source of truth for stude
 
 Indexes: unique on `mobile`, `email`, and `studentId`; non-unique on `role` (the admin listing filters by it, and the authorization freshness check reads it on every privileged request).
 
-**Migration warning**: `email` is required and unique, so any `Student` document created before Milestone 2 has no email and will fail validation on its next save. Reads still work. There is no migration script — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+**"Required **on create**"** means `required: function () { return this.isNew }` — enforced when a document is created (registration, the only creation path, where zod has already rejected a missing field with a 400) but **not** when an existing one is saved. Without that scoping, an administrative `save()` on an account that predates Milestone 4 — suspending it, changing its role — would fail validation on nine fields the administrator never touched. Every API view of these fields is therefore explicitly nullable, and the admin table renders `—`. See the Milestone 4 ADR in [`DECISIONS.md`](DECISIONS.md).
+
+**Migration warning**: `email` is required and unique, so any `Student` document created before Milestone 2 has no email and will fail validation on its next save. Reads still work. There is no migration script — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md). The Milestone 4 fields deliberately avoid repeating this, per the note above.
 
 Relationships: `studentId` remains the informal, human-facing key used by `ExamAttempt`, `Result` and `StudentAnalytics`. It is now unique, but those are still plain strings rather than real `ObjectId` references. The new auth collections below correctly use an `ObjectId` ref to `Student`.
 
 **Role model (Milestone 3)**: an account's `role` on this document is the authority. The access token carries a `role` claim as well, but for any privileged request the middleware re-reads this field and uses the database value, so a demotion cannot be outlived by an already-issued token. The environment-configured root administrator holds `superadmin` and has **no document here** — see [`DECISIONS.md`](DECISIONS.md).
+
+## `StudentPhoto` — ACTIVE
+
+Purpose: the mandatory registration photo, one document per account. **Added in Milestone 4.**
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `student` | ObjectId → `Student` | **yes** | — | `unique` — one photo per account; re-uploading would replace the document rather than accumulate copies. A real `ObjectId` ref, not a `studentId` string. |
+| `contentType` | String enum | **yes** | — | One of `image/jpeg` / `image/png` / `image/webp`. Validated against the file's actual magic bytes, not just the client's claim. |
+| `size` | Number | **yes** | — | Bytes. Schema `max` is `MAX_PHOTO_BYTES` (2 MB). |
+| `data` | Buffer | **yes** | — | The image itself. |
+| `uploadedAt` | Date | no | `Date.now` | |
+
+Indexes: unique on `student`. **No TTL** — a photo lasts as long as the account.
+
+**Why a separate collection**: every `Student` query (the admin listing, the login lookup, the freshness read on each privileged request) would otherwise carry a 2 MB binary, and `select: false` would be one forgotten projection away from being very expensive. Keeping it separate also means a future move to object storage touches one collection instead of every account document.
+
+**Capacity**: at 2 MB a photo, the Atlas free tier's 512 MB holds roughly **250 students**. This is the first thing that will force a paid tier or an image CDN — see the Milestone 4 ADR in [`DECISIONS.md`](DECISIONS.md).
+
+Served by `GET /students/:studentId/photo` (see [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md)). Accounts registered before Milestone 4 have no row here, and that endpoint answers 404.
 
 ## `Question` — ACTIVE
 

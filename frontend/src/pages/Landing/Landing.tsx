@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 import Button from '../../components/Button'
 import { useAuth, ApiError } from '../../context/AuthContext'
+import { CLASS_LEVELS, type ClassLevel } from '../../api/types'
 import qrCode from '../../assets/my_qr.png'
 import styles from './Landing.module.css'
 
@@ -27,16 +28,77 @@ const FAQS = [
   { q: 'How will results be announced?', a: 'Results are published on your personal dashboard within 48 hours of your exam.' },
 ]
 
+const EMPTY_FORM = {
+  firstName: '',
+  middleName: '',
+  lastName: '',
+  fatherName: '',
+  motherName: '',
+  dateOfBirth: '',
+  classLevel: '',
+  schoolName: '',
+  address: '',
+  mobile: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+}
+
+type FormField = keyof typeof EMPTY_FORM
+
+interface SelectedPhoto {
+  dataUrl: string
+  name: string
+  size: number
+}
+
+/** Kept in step with the backend's `MAX_PHOTO_BYTES`. */
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024
+const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+/** Marks a field the student must fill in. */
+function Required() {
+  return (
+    <span className={styles.required} aria-hidden="true">
+      *
+    </span>
+  )
+}
+
+/** Reads a chosen file into the base64 data URL the API expects. */
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Could not read that file.'))
+    reader.readAsDataURL(file)
+  })
+}
+
+/**
+ * The labels the wizard shows for each required field, so a missing one can be
+ * named specifically instead of the old blanket "Please fill in every field."
+ */
+const REQUIRED_FIELDS: Array<[FormField, string]> = [
+  ['firstName', 'First name'],
+  ['lastName', 'Last name'],
+  ['fatherName', "Father's name"],
+  ['motherName', "Mother's name"],
+  ['mobile', 'Mobile number'],
+  ['email', 'Email address'],
+  ['dateOfBirth', 'Date of birth'],
+  ['classLevel', 'Class'],
+  ['schoolName', 'Current school name'],
+  ['address', 'Full address'],
+]
+
 export default function Landing() {
   const navigate = useNavigate()
   const { register, login, resendVerification } = useAuth()
 
   const [step, setStep] = useState<WizardStep>('details')
-  const [fullName, setFullName] = useState('')
-  const [mobile, setMobile] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [photo, setPhoto] = useState<SelectedPhoto | null>(null)
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [registeredId, setRegisteredId] = useState('')
@@ -49,22 +111,64 @@ export default function Landing() {
   const [needsVerification, setNeedsVerification] = useState(false)
   const [loginSubmitting, setLoginSubmitting] = useState(false)
 
+  const setField = (field: FormField) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setForm((current) => ({ ...current, [field]: e.target.value }))
+  }
+
+  /**
+   * Validated here as well as on the server so a mistake is caught before the
+   * student is sent to the payment step. The server's zod schema remains the
+   * authority — this is convenience, not a security boundary.
+   */
+  async function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
+    setFormError('')
+    const file = e.target.files?.[0]
+    if (!file) {
+      setPhoto(null)
+      return
+    }
+    if (!ACCEPTED_PHOTO_TYPES.includes(file.type)) {
+      setPhoto(null)
+      setFormError('The photo must be a JPEG, PNG or WebP image.')
+      e.target.value = ''
+      return
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setPhoto(null)
+      setFormError(`That photo is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Please choose one of 2 MB or less.`)
+      e.target.value = ''
+      return
+    }
+    try {
+      setPhoto({ dataUrl: await readAsDataUrl(file), name: file.name, size: file.size })
+    } catch {
+      setPhoto(null)
+      setFormError('Could not read that file. Please choose it again.')
+    }
+  }
+
   function handleDetailsSubmit(e: FormEvent) {
     e.preventDefault()
     setFormError('')
-    if (!fullName.trim() || !mobile.trim() || !email.trim() || !password || !confirmPassword) {
-      setFormError('Please fill in every field.')
+
+    const missing = REQUIRED_FIELDS.find(([field]) => !form[field].trim())
+    if (missing) {
+      setFormError(`${missing[1]} is required.`)
       return
     }
-    if (password.length < 8) {
+    if (!photo) {
+      setFormError('A photo is required. Please upload one of 2 MB or less.')
+      return
+    }
+    if (form.password.length < 8) {
       setFormError('Password must be at least 8 characters.')
       return
     }
-    if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+    if (!/[a-zA-Z]/.test(form.password) || !/\d/.test(form.password)) {
       setFormError('Password must contain at least one letter and one number.')
       return
     }
-    if (password !== confirmPassword) {
+    if (form.password !== form.confirmPassword) {
       setFormError('Passwords do not match.')
       return
     }
@@ -72,14 +176,28 @@ export default function Landing() {
   }
 
   async function handlePaymentConfirm() {
+    if (!photo) {
+      setFormError('A photo is required.')
+      setStep('details')
+      return
+    }
     setSubmitting(true)
     setFormError('')
     try {
       const result = await register({
-        fullName: fullName.trim(),
-        mobile: mobile.trim(),
-        email: email.trim(),
-        password,
+        firstName: form.firstName.trim(),
+        middleName: form.middleName.trim(),
+        lastName: form.lastName.trim(),
+        fatherName: form.fatherName.trim(),
+        motherName: form.motherName.trim(),
+        dateOfBirth: form.dateOfBirth,
+        classLevel: form.classLevel as ClassLevel,
+        schoolName: form.schoolName.trim(),
+        address: form.address.trim(),
+        mobile: form.mobile.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        photo: photo.dataUrl,
       })
       setRegisteredId(result.student.studentId)
       setStep('success')
@@ -94,7 +212,7 @@ export default function Landing() {
   async function handleResend() {
     setResendNotice('')
     try {
-      setResendNotice(await resendVerification(email.trim()))
+      setResendNotice(await resendVerification(form.email.trim()))
     } catch (err) {
       setResendNotice(err instanceof ApiError ? err.message : 'Could not send a new link.')
     }
@@ -174,49 +292,164 @@ export default function Landing() {
           {formError && <p className="error-text">{formError}</p>}
 
           {step === 'details' && (
-            <form onSubmit={handleDetailsSubmit}>
+            <form onSubmit={handleDetailsSubmit} noValidate>
               <h2>Start Your Olympiad Journey</h2>
+              <p className={styles.requiredLegend}>
+                Fields marked <Required /> are required.
+              </p>
+
+              <h3 className={styles.formSectionTitle}>Student details</h3>
               <div className={styles.formGrid}>
                 <div className="form-group">
-                  <label htmlFor="reg-name">Student Name (Full Name)</label>
-                  <input id="reg-name" className="form-control" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
+                  <label htmlFor="reg-first-name">
+                    First Name <Required />
+                  </label>
+                  <input id="reg-first-name" className="form-control" value={form.firstName} onChange={setField('firstName')} required />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="reg-mobile">Mobile Number (WhatsApp)</label>
-                  <input id="reg-mobile" className="form-control" value={mobile} onChange={(e) => setMobile(e.target.value)} required />
+                  <label htmlFor="reg-middle-name">Middle Name</label>
+                  <input id="reg-middle-name" className="form-control" value={form.middleName} onChange={setField('middleName')} />
+                  <p className={styles.fieldHint}>Leave blank if you don't have one.</p>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="reg-email">Email Address</label>
+                  <label htmlFor="reg-last-name">
+                    Last Name <Required />
+                  </label>
+                  <input id="reg-last-name" className="form-control" value={form.lastName} onChange={setField('lastName')} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-father-name">
+                    Father's Name <Required />
+                  </label>
+                  <input id="reg-father-name" className="form-control" value={form.fatherName} onChange={setField('fatherName')} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-mother-name">
+                    Mother's Name <Required />
+                  </label>
+                  <input id="reg-mother-name" className="form-control" value={form.motherName} onChange={setField('motherName')} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-dob">
+                    Date of Birth <Required />
+                  </label>
                   <input
-                    id="reg-email"
-                    type="email"
+                    id="reg-dob"
+                    type="date"
                     className="form-control"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={form.dateOfBirth}
+                    onChange={setField('dateOfBirth')}
+                    max={new Date().toISOString().slice(0, 10)}
                     required
                   />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-class">
+                    Class <Required />
+                  </label>
+                  <select id="reg-class" className="form-control" value={form.classLevel} onChange={setField('classLevel')} required>
+                    <option value="">Select your class</option>
+                    {CLASS_LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-school">
+                    Current School Name <Required />
+                  </label>
+                  <input id="reg-school" className="form-control" value={form.schoolName} onChange={setField('schoolName')} required />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="reg-address">
+                  Full Address <Required />
+                </label>
+                <textarea
+                  id="reg-address"
+                  className="form-control"
+                  rows={3}
+                  value={form.address}
+                  onChange={setField('address')}
+                  required
+                />
+                <p className={styles.fieldHint}>House / street, city, state and PIN code.</p>
+              </div>
+
+              <h3 className={styles.formSectionTitle}>Photo</h3>
+              <div className="form-group">
+                <label htmlFor="reg-photo">
+                  Passport-style Photo <Required />
+                </label>
+                <input
+                  id="reg-photo"
+                  type="file"
+                  className="form-control"
+                  accept={ACCEPTED_PHOTO_TYPES.join(',')}
+                  onChange={handlePhotoChange}
+                  required
+                />
+                <p className={styles.fieldHint}>JPEG, PNG or WebP, up to 2 MB.</p>
+                {photo && (
+                  <div className={styles.photoPreview}>
+                    <img src={photo.dataUrl} alt="Your uploaded photo" />
+                    <span>
+                      {photo.name} · {(photo.size / 1024).toFixed(0)} KB
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <h3 className={styles.formSectionTitle}>Contact &amp; sign-in</h3>
+              <div className={styles.formGrid}>
+                <div className="form-group">
+                  <label htmlFor="reg-mobile">
+                    Mobile Number (WhatsApp) <Required />
+                  </label>
+                  <input
+                    id="reg-mobile"
+                    type="tel"
+                    inputMode="numeric"
+                    className="form-control"
+                    value={form.mobile}
+                    onChange={setField('mobile')}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="reg-email">
+                    Email Address <Required />
+                  </label>
+                  <input id="reg-email" type="email" className="form-control" value={form.email} onChange={setField('email')} required />
                   <p className={styles.fieldHint}>We'll send a verification link here. You'll need it to sign in.</p>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="reg-password">Password</label>
+                  <label htmlFor="reg-password">
+                    Password <Required />
+                  </label>
                   <input
                     id="reg-password"
                     type="password"
                     className="form-control"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    value={form.password}
+                    onChange={setField('password')}
                     required
                   />
                   <p className={styles.fieldHint}>At least 8 characters, including a letter and a number.</p>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="reg-confirm">Confirm Password</label>
+                  <label htmlFor="reg-confirm">
+                    Confirm Password <Required />
+                  </label>
                   <input
                     id="reg-confirm"
                     type="password"
                     className="form-control"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    value={form.confirmPassword}
+                    onChange={setField('confirmPassword')}
                     required
                   />
                 </div>
@@ -245,10 +478,10 @@ export default function Landing() {
           {step === 'success' && (
             <div className={styles.center}>
               <span className={styles.successBadge}>📧</span>
-              <h2>Almost there, {fullName}!</h2>
+              <h2>Almost there, {form.firstName}!</h2>
               <p>
                 Your Student ID is <strong>{registeredId}</strong>. We've emailed a verification link to{' '}
-                <strong>{email}</strong> — click it to activate your account, then sign in.
+                <strong>{form.email}</strong> — click it to activate your account, then sign in.
               </p>
               {resendNotice && <p className={styles.resendNotice}>{resendNotice}</p>}
               <Button variant="outline" fullWidth onClick={handleResend}>

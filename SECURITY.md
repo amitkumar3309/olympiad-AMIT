@@ -137,7 +137,16 @@ All request bodies and query params are validated by zod schemas via `middleware
 
 ## File Upload Security
 
-Not applicable — no file upload feature exists.
+One upload exists as of Milestone 4: the mandatory registration photo on `POST /auth/register`. It is carried as a base64 data URL inside the JSON body (see [`DECISIONS.md`](DECISIONS.md)), not as multipart, so it goes through the same zod validation as every other field.
+
+Controls in place:
+
+- **Size** — 2 MB decoded, enforced in the zod schema and again as a `max` on the `StudentPhoto.size` path. Separately, `express.json` grants its larger 2.8 MB limit **only** to the registration path; every other endpoint keeps body-parser's 100 KB default, so a large-payload flood has one rate-limited door rather than the whole API.
+- **Type** — an allow-list of `image/jpeg`, `image/png`, `image/webp`. The client controls the MIME type in the data URL, so it is **not trusted**: the decoded bytes' magic bytes are checked against it. Without that, `data:image/png;base64,<any bytes at all>` would be stored and later served back under an image content type.
+- **Serving** — `GET /students/:studentId/photo` sets the stored `Content-Type` explicitly and the app sends `X-Content-Type-Options: nosniff` (helmet), so a browser will not re-interpret the bytes as something executable. `Cache-Control: private` keeps personal data out of shared caches.
+- **Access** — a student may read only their own photo; anyone else's needs `students:read`, re-read from the database per request rather than taken from the access token.
+
+Not done, and worth knowing: the image is **not** re-encoded or stripped of metadata, so EXIF (including any GPS tags a phone camera wrote) is stored and served as uploaded. Nor is it scanned for malware. Re-encoding through an image library would address both and is the obvious next step if photos are ever exposed beyond staff and the student themselves.
 
 ## Payment / Webhook Security
 

@@ -17,6 +17,36 @@ interface StudentListResponse {
   pagination: Pagination
 }
 
+/**
+ * The registration photo, fetched straight from the API as an image rather than
+ * through `api.get` — it is raw image bytes, not a JSON envelope. The request is
+ * same-origin in both environments (`frontend/vercel.json` rewrites `/api/*` to
+ * the backend), so the session cookie rides along and the endpoint's own
+ * authorization check applies. Accounts registered before Milestone 4 have no
+ * photo, so a 404 is expected and falls back to initials.
+ */
+function StudentPhoto({ studentId, name }: { studentId: string; name: string | null }) {
+  const [failed, setFailed] = useState(false)
+
+  if (failed) {
+    return (
+      <span className={styles.photoFallback} aria-label="No photo on file">
+        {(name ?? '?').trim().charAt(0).toUpperCase() || '?'}
+      </span>
+    )
+  }
+
+  return (
+    <img
+      className={styles.photo}
+      src={`/api/v1/students/${studentId}/photo`}
+      alt={name ? `Photo of ${name}` : 'Student photo'}
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 export default function Users() {
   const { can } = useAuth()
   const canWriteStatus = can('students:status:write')
@@ -169,8 +199,11 @@ export default function Users() {
             <table className={styles.table}>
               <thead>
                 <tr>
+                  <th>Photo</th>
                   <th>Student ID</th>
                   <th>Name</th>
+                  <th>Class</th>
+                  <th>School</th>
                   <th>Email</th>
                   <th>Role</th>
                   <th>Status</th>
@@ -181,11 +214,16 @@ export default function Users() {
               <tbody>
                 {accounts.map((account) => (
                   <tr key={account.id} className={busyId === account.studentId ? styles.busy : ''}>
+                    <td>
+                      <StudentPhoto studentId={account.studentId} name={account.fullName} />
+                    </td>
                     <td className={styles.mono}>{account.studentId}</td>
                     <td>
                       {account.fullName ?? '—'}
                       {!account.isEmailVerified && <span className={styles.unverified}>unverified</span>}
                     </td>
+                    <td className={styles.muted}>{account.classLevel ?? '—'}</td>
+                    <td className={styles.muted}>{account.schoolName ?? '—'}</td>
                     <td className={styles.email}>{account.email}</td>
                     <td>
                       <span className={account.role === 'admin' ? styles.roleAdmin : styles.roleStudent}>

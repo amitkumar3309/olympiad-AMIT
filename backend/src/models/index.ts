@@ -1,4 +1,5 @@
 export * from './Student';
+export * from './StudentPhoto';
 export * from './Question';
 export * from './ExamAttempt';
 export * from './Result';
