@@ -1,5 +1,5 @@
 import type { PipelineStage, Types } from 'mongoose';
-import { daysBetween, todayKey, type DayKey } from '../lib/competitionDay';
+import { daysBetween, shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
 import { levelProgressFor, type LevelProgress } from '../lib/xp';
 import { ExamAttempt, Student, StudentActivity, type ActivityType } from '../models';
 
@@ -289,6 +289,41 @@ export async function getStanding(student: Types.ObjectId, xp: number): Promise<
     xp,
     totalRanked: rankedRows[0]?.n ?? 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// XP over time
+// ---------------------------------------------------------------------------
+
+export interface XpDayPoint {
+  day: DayKey;
+  xp: number;
+}
+
+interface XpByDayRow {
+  _id: DayKey;
+  xp: number;
+}
+
+/**
+ * Real XP earned per competition day, oldest first, over the last `days` days.
+ *
+ * This exists so the analytics page has something true to plot. It replaced a
+ * hardcoded "learning curve" (`Jul 20: 70%` … `Jul 29: 88%`) that was shown to every
+ * student regardless of what they had done. Days with no activity are **omitted**
+ * rather than zero-filled: a flat line at zero would imply a measured zero, where
+ * the truth is that nothing was recorded.
+ */
+export async function getXpByDay(student: Types.ObjectId, days = 30, today: DayKey = todayKey()): Promise<XpDayPoint[]> {
+  const from = shiftDay(today, days - 1);
+
+  const rows = await StudentActivity.aggregate<XpByDayRow>([
+    { $match: { student, occurredOn: { $gte: from } } },
+    { $group: { _id: '$occurredOn', xp: { $sum: '$xpAwarded' } } },
+    { $sort: { _id: 1 } },
+  ]);
+
+  return rows.map((row) => ({ day: row._id, xp: row.xp }));
 }
 
 // ---------------------------------------------------------------------------

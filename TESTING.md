@@ -4,14 +4,14 @@ _Last updated: 2026-08-10 (Milestone 5 — Student Profile and Dashboard)._
 
 ## Current State
 
-The backend has a working test suite: **306 passing tests across 12 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **311 passing tests across 12 files** (`backend/tests/`). The frontend still has **no test suite**.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|
-| `backend/` | vitest + supertest (+ mongodb-memory-server) | 306 | Passing |
+| `backend/` | vitest + supertest (+ mongodb-memory-server) | 311 | Passing |
 | `frontend/` | none configured | 0 | Not started |
 
-**Most of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 55 dashboard/progress tests and 27 profile tests (Milestone 5), 77 question-bank tests (Milestone 4), 62 RBAC/privilege-escalation tests (Milestone 3), 40 registration-detail tests and 32 auth integration tests (Milestone 2). A subset of the Milestone 5 dashboard suite is pure-function testing of the day, level, streak and achievement rules and needs no database.
+**Most of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 60 dashboard/progress/analytics tests and 27 profile tests (Milestone 5), 77 question-bank tests (Milestone 4), 62 RBAC/privilege-escalation tests (Milestone 3), 40 registration-detail tests and 32 auth integration tests (Milestone 2). A subset of the Milestone 5 dashboard suite is pure-function testing of the day, level, streak and achievement rules and needs no database.
 
 **Test files run one at a time** (`fileParallelism: false` in `vitest.config.mts`). Seven suites now start their own `mongod`; run in parallel they contended for CPU and ports, and the failure that produced was not a clean error — it surfaced as unrelated duplicate-key 409s in whichever suite lost the race. The whole run takes about 40 seconds sequentially, which is a good trade for not chasing phantom failures. Relatedly, `clearTestDb()` now **throws** when there is no connection instead of silently doing nothing; the silent no-op is what turned a harness problem into a pile of confusing assertion failures. That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
 

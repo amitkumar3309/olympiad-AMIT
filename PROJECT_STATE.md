@@ -61,13 +61,13 @@ None in progress. Milestone 5 is complete; awaiting owner selection of Milestone
 - **Student dashboard (Milestone 5)** — one request (`GET /me/dashboard`) supplies progress, activity, test performance, achievements, leaderboard-with-own-rank and available practice. No constant remains on the page. Loading, error and per-panel empty states throughout.
 - **Real leaderboard and public figures (Milestone 5)** — `GET /leaderboard` aggregates actual XP with standard competition ranking, excludes accounts not in good standing, and leaves a zero-XP student genuinely unranked. Public by the owner's decision, so it publishes a first name plus a last initial only. `GET /public/stats` gives the landing page real counts. Both replaced hardcoded mocks.
 - **Real daily challenge (Milestone 5)** — a deterministic published question for the caller's class, answer-stripped through the shared `studentQuestionView`, and now authenticated where the mock was open.
-- **Backend test suite** — **306 passing tests** across 12 files, against a real in-memory MongoDB wherever a database is needed: 55 dashboard/progress and 27 profile tests (Milestone 5), 77 question-bank tests (Milestone 4), 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2). Test files run **sequentially** — see [`TESTING.md`](TESTING.md).
+- **Backend test suite** — **311 passing tests** across 12 files, against a real in-memory MongoDB wherever a database is needed: 60 dashboard/progress/analytics and 27 profile tests (Milestone 5), 77 question-bank tests (Milestone 4), 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2). Test files run **sequentially** — see [`TESTING.md`](TESTING.md).
 
 ## Partially Completed Modules
 
-- **Student analytics** — real model + route, but falls back to hardcoded demo data because nothing ever creates a `StudentAnalytics` document. Every real student sees only the fallback. Its *authorization* is now real and tested (own record vs. anyone's record).
-- **Admin dashboard** — the account figures and recent-registration list are real; the weekly-accuracy chart is still sample data, now labelled as such in the UI because no exam results exist to chart.
-- **AI insights** — real rule-based logic (not ML), reachable only on the currently-unpopulated real-data path.
+- **Student analytics** — **no longer fabricated.** The hardcoded fallback (88% accuracy, 450 questions, "top 5% of all national Olympiad participants") that every student used to see was deleted in the Milestone 5 follow-up. The route now returns the real `StudentAnalytics` document or `null` with `reason: 'no-exam-data'`, plus a genuinely real `xpByDay` series from the activity log. Still partial in the sense that the accuracy/topic half stays empty until exam results exist — but it is now honestly empty rather than filled in with invention. Authorization was already real and tested.
+- **Admin dashboard** — the account figures and recent-registration list are real; the weekly-accuracy chart is still sample data, now labelled as such in the UI because no exam results exist to chart. **This is the last remaining piece of sample data in the frontend**, and it is at least declared. Worth replacing with an empty state on the same principle as the student analytics page.
+- **AI insights** — real rule-based logic (not ML), reachable only on the currently-unpopulated real-data path. The page no longer presents anything as an AI insight when it has none, and is titled "Performance Analysis" rather than "AI Performance Analysis", since no AI is involved anywhere in it.
 
 ## Pending / Not Started Modules (UI exists, no real backend wiring)
 
@@ -128,7 +128,7 @@ validation/               zod schemas for auth + questions + taxonomy + users
                           + profile/settings (Milestone 5)
 scripts/                  dev-local, verify-email, migrate-questions,
                           backfill-activity (Milestone 5)
-tests/                    12 suites, 306 tests
+tests/                    12 suites, 311 tests
 ```
 
 `ExamAttempt` and `Result` remain defined and unwritten — but `ExamAttempt` is now **read** by the dashboard's test-performance panel, so it stops being dead the moment anything writes to it. Exactly **one** static mock is left in the backend: `GET /certificates/:studentId`, which nothing calls. `GET /questions` is real and authenticated but **still has no student-page caller** — the exam is a hardcoded quiz; the daily-challenge route is the first thing to serve a real question to a student.
@@ -241,6 +241,11 @@ Two caveats, since only the *send* was observed and not the delivery: nobody has
 16. **XP currently measures consistency, not ability.** With no exam data, the only repeatable source is the daily visit, so the top of the leaderboard is whoever shows up most. That is honest, but worth telling entrants before the competition runs — and it resolves itself when exam scoring lands.
 
 Fixed in Milestone 5: no way to edit your own details after registering; no way to replace a photo (bug #9's replacement half); the invented dashboard stat tiles and fake leaderboard; the invented landing-page figures and champions; the hardcoded `daily-challenge` and `leaderboard` mocks; and `optionalName` rejecting an explicit `null`, which made "remove my middle name" a 400.
+
+Fixed in the Milestone 5 follow-up (a gap audit against the original brief):
+- **The analytics endpoint fabricated every student's performance** — it returned 88% accuracy over 450 questions, a rising learning curve, four topic breakdowns and "top 5% of all national Olympiad participants" whenever no `StudentAnalytics` document existed, which is always. Deleted, and replaced with an honest null plus a real `xpByDay` series. This was the same defect Milestone 5 set out to remove, missed on the first pass because the page sits outside the dashboard route — a reminder that "no fake statistics" has to be audited across every student-facing page, not just the one being built.
+- **`GET /me/daily-challenge` had no frontend caller**, leaving "upcoming/available challenges" half delivered. Now surfaced on the dashboard as a read-only card, code-split so KaTeX stays out of the main bundle.
+- **`GET /me/activity` had no frontend caller**, capping the feed at 8 with no way to see earlier events. Now paged by a "Show earlier activity" control.
 
 Fixed in Milestone 4: `GET /questions` being **unauthenticated and returning the answer key**; `correctAnswer` stored as literal option text (so editing a typo invalidated recorded answers); `Question` having no `topic` field despite the generator asking for one; subjects and topics existing only as free-text strings; and the template generator being able to invent taxonomy nothing else knew about.
 

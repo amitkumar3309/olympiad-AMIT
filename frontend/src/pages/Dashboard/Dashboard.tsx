@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import { api, ApiError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
-import { ACTIVITY_LABELS, type DashboardData } from '../../api/types'
+import { ACTIVITY_LABELS, type ActivityEntry, type DashboardData, type Pagination } from '../../api/types'
 import styles from './Dashboard.module.css'
+
+/**
+ * Code-split because it renders question content through KaTeX (~300 KB). Every
+ * student opens this dashboard, so that cost is paid only when their class actually
+ * has a published challenge to show. See `DailyChallengeCard.tsx`.
+ */
+const DailyChallengeCard = lazy(() => import('./DailyChallengeCard'))
 
 /**
  * The student dashboard.
@@ -61,18 +68,59 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  /**
+   * Activity beyond the newest few the dashboard payload carries. Held separately so
+   * a reload of the dashboard does not silently discard what the student has paged
+   * through, and so the feed has one source of truth: `extraActivity` is appended to
+   * `data.activity`, never merged into it.
+   */
+  const [extraActivity, setExtraActivity] = useState<ActivityEntry[]>([])
+  const [activityPage, setActivityPage] = useState(1)
+  const [activityTotal, setActivityTotal] = useState<number | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const res = await api.get<DashboardResponse>('/me/dashboard')
       setData(res.dashboard)
+      // A fresh dashboard resets the feed, otherwise a newly recorded event would
+      // appear above rows the student had already paged past and read as a duplicate.
+      setExtraActivity([])
+      setActivityPage(1)
+      setActivityTotal(null)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load your dashboard.')
     } finally {
       setLoading(false)
     }
   }, [])
+
+  /**
+   * Pages the full feed from `GET /me/activity`. Asks for the page *after* what is
+   * already on screen, using the dashboard's own page size so the offsets line up.
+   */
+  const loadMoreActivity = useCallback(async () => {
+    if (!data) return
+    setLoadingMore(true)
+    try {
+      const limit = data.activity.length || 8
+      const next = activityPage + 1
+      const res = await api.get<{ entries: ActivityEntry[]; pagination: Pagination }>(
+        `/me/activity?page=${next}&limit=${limit}`,
+      )
+      setExtraActivity((current) => [...current, ...res.entries])
+      setActivityPage(next)
+      setActivityTotal(res.pagination.total)
+    } catch {
+      // A failed "load more" must not blank the feed already on screen, so the
+      // error is swallowed and the button simply stays available to retry.
+      setActivityTotal(null)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [data, activityPage])
 
   useEffect(() => {
     void load()
@@ -254,22 +302,43 @@ export default function Dashboard() {
                     <p>Nothing recorded yet. Your activity will appear here as you use the platform.</p>
                   </div>
                 ) : (
-                  <ul className={styles.feed}>
-                    {data.activity.map((entry) => {
-                      const meta = ACTIVITY_LABELS[entry.type]
-                      return (
-                        <li key={entry.id}>
-                          <i className={`ph-bold ${meta?.icon ?? 'ph-dot'}`} />
-                          <div className={styles.feedBody}>
-                            <span className={styles.feedLabel}>{meta?.label ?? entry.type}</span>
-                            {entry.detail && <span className={styles.feedDetail}>{entry.detail}</span>}
-                          </div>
-                          <span className={styles.feedDay}>{relativeDay(entry.occurredOn, data.today)}</span>
-                          {entry.xpAwarded > 0 && <span className={styles.feedXp}>+{entry.xpAwarded}</span>}
-                        </li>
-                      )
-                    })}
-                  </ul>
+                  <>
+                    <ul className={styles.feed}>
+                      {[...data.activity, ...extraActivity].map((entry) => {
+                        const meta = ACTIVITY_LABELS[entry.type]
+                        return (
+                          <li key={entry.id}>
+                            <i className={`ph-bold ${meta?.icon ?? 'ph-dot'}`} />
+                            <div className={styles.feedBody}>
+                              <span className={styles.feedLabel}>{meta?.label ?? entry.type}</span>
+                              {entry.detail && <span className={styles.feedDetail}>{entry.detail}</span>}
+                            </div>
+                            <span className={styles.feedDay}>{relativeDay(entry.occurredOn, data.today)}</span>
+                            {entry.xpAwarded > 0 && <span className={styles.feedXp}>+{entry.xpAwarded}</span>}
+                          </li>
+                        )
+                      })}
+                    </ul>
+
+                    {/* Offered whenever a full first page came back, since that is the
+                        only signal that more may exist before we have asked. Once the
+                        server has told us the total, that decides it. */}
+                    {(activityTotal === null
+                      ? data.activity.length >= 8
+                      : data.activity.length + extraActivity.length < activityTotal) && (
+                      <button
+                        type="button"
+                        className={styles.loadMore}
+                        onClick={() => void loadMoreActivity()}
+                        disabled={loadingMore}
+                      >
+                        {loadingMore ? 'Loading…' : 'Show earlier activity'}
+                      </button>
+                    )}
+                    {activityTotal !== null && data.activity.length + extraActivity.length >= activityTotal && (
+                      <p className={styles.feedEnd}>That’s your whole history — {activityTotal} events.</p>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -308,6 +377,20 @@ export default function Dashboard() {
                   </ul>
                 )}
               </div>
+
+              {/* ---------------------------------------------------------
+                  Today's challenge — a real question from the published bank
+              --------------------------------------------------------- */}
+              <Suspense
+                fallback={
+                  <div className="card">
+                    <h3>🎲 Today’s challenge</h3>
+                    <p className={styles.challengeLoading}>Loading…</p>
+                  </div>
+                }
+              >
+                <DailyChallengeCard />
+              </Suspense>
 
               {/* ---------------------------------------------------------
                   Achievements

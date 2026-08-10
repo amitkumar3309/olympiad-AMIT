@@ -177,6 +177,25 @@ export interface AnalyticsData {
   aiInsights: string[]
 }
 
+/** Real XP earned on one competition day. Days with no activity are omitted. */
+export interface XpDayPoint {
+  day: string
+  xp: number
+}
+
+/**
+ * What `GET /analytics/:studentId` returns.
+ *
+ * `data` is **null** until exam submission exists, because accuracy, speed and
+ * topic breakdowns are all functions of answered questions — the endpoint used to
+ * fill that gap with invented figures and no longer does. `xpByDay` is always real.
+ */
+export interface AnalyticsResponse {
+  data: AnalyticsData | null
+  reason?: 'no-exam-data'
+  xpByDay: XpDayPoint[]
+}
+
 // ---------------------------------------------------------------------------
 // Question bank (Milestone 4)
 // ---------------------------------------------------------------------------

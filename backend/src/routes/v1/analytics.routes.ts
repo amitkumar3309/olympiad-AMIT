@@ -1,8 +1,10 @@
 import { Router, type Request, type Response } from 'express';
+import type { Types } from 'mongoose';
 import { requirePermission, callerCanFresh } from '../../middleware/auth';
-import { StudentAnalytics, type StudentAnalyticsDocument, type TopicMetric } from '../../models';
+import { Student, StudentAnalytics, type StudentAnalyticsDocument, type TopicMetric } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { ensureDb } from '../../middleware/ensureDb';
+import { getXpByDay } from '../../services/progressService';
 
 const router = Router();
 
@@ -31,30 +33,28 @@ function generateAIInsights(analyticsData: Pick<StudentAnalyticsDocument, 'topic
   return insights;
 }
 
-const MOCK_ANALYTICS_FALLBACK = {
-  overallAccuracy: 88,
-  averageSpeedPerQuestion: 34,
-  totalQuestionsAttempted: 450,
-  topicMetrics: [
-    { topicName: 'Calculus & Limits', attempted: 120, correct: 110 },
-    { topicName: 'Algebraic Identities', attempted: 150, correct: 130 },
-    { topicName: 'Trigonometric Ratios', attempted: 100, correct: 80 },
-    { topicName: 'Coordinate Geometry', attempted: 80, correct: 70 },
-  ],
-  learningCurve: [
-    { date: 'Jul 20', accuracy: 70 },
-    { date: 'Jul 22', accuracy: 75 },
-    { date: 'Jul 24', accuracy: 82 },
-    { date: 'Jul 26', accuracy: 85 },
-    { date: 'Jul 29', accuracy: 88 },
-  ],
-  aiInsights: [
-    '🔥 Exceptional performance in Calculus limits! Your calculation speed improved by 14% this week.',
-    '💡 Focus more on Advanced Trigonometric Identities to cross the 95% accuracy threshold.',
-    '⭐ You are currently in the top 5% of all national Olympiad participants. Keep the streak alive!',
-  ],
-};
-
+/**
+ * Performance analytics for one student.
+ *
+ * **This endpoint used to lie.** When no `StudentAnalytics` document existed — which
+ * is *every* student, because nothing in the codebase writes one — it returned a
+ * hardcoded fallback claiming 88% accuracy over 450 questions, a rising five-point
+ * learning curve, four topic breakdowns, and the flourish "You are currently in the
+ * top 5% of all national Olympiad participants". Every one of those numbers was
+ * invented, and they were presented to the student as their own measured performance
+ * on a page reachable straight from their dashboard. It is deleted.
+ *
+ * What replaces it is a split between what can be measured and what cannot:
+ *  - `data` is the real `StudentAnalytics` document, or **null** with a `reason`. It
+ *    stays null until exam submission exists, because accuracy, speed and
+ *    topic-level breakdowns are all functions of answered questions.
+ *  - `xpByDay` is **real** — actual XP earned per competition day, from the activity
+ *    log — so the page has something true to plot rather than nothing at all.
+ *
+ * The frontend renders an explicit empty state for the null half. See
+ * DECISIONS.md; the rule this restores is "no fabricated statistic is ever shown as
+ * if it were the student's own".
+ */
 router.get(
   '/analytics/:studentId',
   requirePermission('analytics:read:self'),
@@ -70,18 +70,25 @@ router.get(
         return;
       }
 
+      const account = await Student.findOne({ studentId: req.params.studentId }).select('_id');
+      if (!account) {
+        sendError(res, 404, 'No account exists with that student ID.');
+        return;
+      }
+
+      const xpByDay = await getXpByDay(account._id as Types.ObjectId);
       const analytics = await StudentAnalytics.findOne({ studentId: req.params.studentId });
 
       if (!analytics) {
-        // No StudentAnalytics document exists for this student yet — nothing in
-        // the codebase creates one today (see PROJECT_STATE.md known gap).
-        // Falling back to demo data keeps the page usable in the meantime.
-        sendSuccess(res, 200, { data: MOCK_ANALYTICS_FALLBACK });
+        // Nothing writes a StudentAnalytics document yet, so this is the path every
+        // real student takes. Answering honestly — null, with a machine-readable
+        // reason — is what lets the page say "not measured yet" instead of guessing.
+        sendSuccess(res, 200, { data: null, reason: 'no-exam-data', xpByDay });
         return;
       }
 
       analytics.aiInsights = generateAIInsights(analytics);
-      sendSuccess(res, 200, { data: analytics });
+      sendSuccess(res, 200, { data: analytics, xpByDay });
     } catch {
       sendError(res, 500, 'Failed to fetch analytics');
     }

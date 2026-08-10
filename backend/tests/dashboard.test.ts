@@ -620,6 +620,80 @@ describe('GET /me/daily-challenge', () => {
 });
 
 // ===========================================================================
+// Analytics — the endpoint that used to fabricate a student's performance
+// ===========================================================================
+
+describe('GET /analytics/:studentId', () => {
+  /**
+   * The exact figures the deleted `MOCK_ANALYTICS_FALLBACK` served to every student,
+   * as their own measured performance, on a page linked from their dashboard.
+   */
+  const FABRICATED = ['Calculus & Limits', 'Algebraic Identities', 'Trigonometric Ratios', 'Coordinate Geometry', 'top 5%', '450'];
+
+  it('reports honestly that accuracy is not measured yet, instead of inventing it', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+
+    const res = await request(app).get(`${API}/analytics/${studentId}`).set('Cookie', cookieHeader(cookies)).expect(200);
+
+    expect(res.body.data).toBeNull();
+    expect(res.body.reason).toBe('no-exam-data');
+  });
+
+  it('contains none of the invented performance figures it used to return', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const res = await request(app).get(`${API}/analytics/${studentId}`).set('Cookie', cookieHeader(cookies)).expect(200);
+
+    const serialised = JSON.stringify(res.body);
+    for (const ghost of FABRICATED) {
+      expect(serialised, `analytics still mentions ${ghost}`).not.toContain(ghost);
+    }
+    // The specific claim that mattered most: an accuracy the student never earned.
+    expect(serialised).not.toContain('overallAccuracy');
+  });
+
+  it('returns real XP per day from the activity log', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const id = await objectIdOf(studentId);
+    const today = todayKey();
+    const yesterday = shiftDay(today, 1);
+
+    await recordActivity({ student: id, type: 'daily_visit', at: new Date(`${yesterday}T09:00:00.000Z`) });
+
+    const res = await request(app).get(`${API}/analytics/${studentId}`).set('Cookie', cookieHeader(cookies)).expect(200);
+
+    const byDay: Array<{ day: string; xp: number }> = res.body.xpByDay;
+    // Oldest first, and only days that actually have activity — a day the student
+    // did nothing is omitted rather than plotted as a measured zero.
+    expect(byDay.map((p) => p.day)).toEqual([yesterday, today]);
+    expect(byDay[0]!.xp).toBe(XP_AWARDS.daily_visit);
+    expect(byDay[1]!.xp).toBe(XP_AWARDS.account_created + XP_AWARDS.email_verified + XP_AWARDS.daily_visit);
+    // The series sums to exactly the XP the dashboard reports — one source of truth.
+    expect(byDay.reduce((sum, p) => sum + p.xp, 0)).toBe(NEW_ACCOUNT_XP + XP_AWARDS.daily_visit);
+  });
+
+  it('still refuses to show one student another student’s analytics', async () => {
+    const { cookies } = await registerVerifyLogin(app);
+    const other = await registerVerifyLogin(app, otherStudent);
+
+    const res = await request(app).get(`${API}/analytics/${other.studentId}`).set('Cookie', cookieHeader(cookies));
+    expect(res.status).toBe(403);
+  });
+
+  it('answers 404 for a student ID that does not exist', async () => {
+    const { cookies } = await createAdminSession(app, {
+      firstName: 'Staff',
+      lastName: 'Member',
+      mobile: '9000000001',
+      email: 'staff@example.com',
+    });
+
+    const res = await request(app).get(`${API}/analytics/AMIT_9999`).set('Cookie', cookieHeader(cookies));
+    expect(res.status).toBe(404);
+    expect(res.status).not.toBe(500);
+  });
+});
+
+// ===========================================================================
 // Activity feed
 // ===========================================================================
 

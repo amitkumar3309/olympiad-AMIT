@@ -2,6 +2,26 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-10 — Milestone 5 follow-up: three gaps closed
+
+A gap audit against the Milestone 5 brief found three things the first pass missed. All are now done.
+
+**The analytics endpoint was fabricating a student's performance.** `GET /analytics/:studentId` fell back to a hardcoded object whenever no `StudentAnalytics` document existed — which is *every* student, since nothing writes one. It claimed **88% accuracy over 450 questions**, a rising five-point learning curve, four topic breakdowns, and "You are currently in the top 5% of all national Olympiad participants" — presented as the student's own measured performance, on a page linked straight from the dashboard. This was the same class of defect Milestone 5 existed to remove, missed because the page sits outside the dashboard route.
+- The fallback is deleted. `data` is now the real document or **null** with `reason: 'no-exam-data'`.
+- Added a genuinely real series in its place: `xpByDay`, actual XP earned per competition day over the last 30 days, aggregated from the activity log. Days with no activity are **omitted** rather than zero-filled, because a flat line at zero would imply a measured zero.
+- The Analytics page now separates what is measured (XP earned, active days, best day, and a real per-day chart) from what is not (accuracy, speed, topic strengths), with an explicit empty state for the latter that says why and what will fill it.
+- The endpoint also now 404s for a non-existent student ID instead of returning data for nobody.
+
+**`GET /me/daily-challenge` had no caller**, so "upcoming/available challenges" was only half delivered — the dashboard showed practice *availability* but nothing served the actual challenge. Added a dashboard card rendering today's real question through `MathText`, with subject › topic › subtopic, difficulty and marks. Code-split into its own chunk so KaTeX (~260 KB) stays out of the main bundle, as with the admin question pages. It is deliberately **read-only**: answering needs somewhere to submit and something to score against, and checking answers client-side would mean shipping the answer key — the exact hole Milestone 4 closed. The card says so plainly.
+
+**`GET /me/activity` had no caller**, so the feed was capped at the newest 8 with no way to see more. Added a "Show earlier activity" control that pages the real endpoint, appends rather than merges (so a reload cannot duplicate rows), and finishes with "That's your whole history — N events."
+
+**Testing** — 5 new tests (**311** total), including one that asserts none of the six deleted fabricated strings can appear in an analytics response, and one that checks `xpByDay` sums to exactly the XP the dashboard reports.
+
+**Also corrected** — the guidance for neutralising email locally. `SMTP_HOST=` (empty) does not work: the zod schema correctly rejects an empty string. Use `REQUIRE_EMAIL_VERIFICATION=false` instead.
+
+---
+
 ## 2026-08-10 — Milestone 5: Student Profile and Dashboard
 
 Students can now see and change their own account, and the dashboard shows real progress instead of decoration. The governing constraint was **no fake statistics**: every figure on every page this milestone touched is derived from a database read, and where a student has no data the panel says so and explains why.

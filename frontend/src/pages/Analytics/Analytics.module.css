@@ -25,6 +25,43 @@
   margin-bottom: 8px;
 }
 
+/**
+ * The empty state for everything that needs answered questions. Styled to read as a
+ * deliberate "not measured yet" rather than as a loading state or an error.
+ */
+.pending {
+  text-align: center;
+  padding: 32px 24px;
+}
+
+.pending i {
+  font-size: 34px;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.pending h3 {
+  margin: 12px 0 8px;
+}
+
+.pending p {
+  margin: 0 auto;
+  max-width: 60ch;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.pendingNote {
+  margin-top: 10px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+/* A single chart should fill the row rather than leaving an empty column. */
+.chartRow > :only-child {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 900px) {
   .statRow {
     grid-template-columns: 1fr 1fr;

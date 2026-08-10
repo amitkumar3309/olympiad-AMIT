@@ -135,7 +135,16 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 
 ## Other implemented routes called by the frontend
 
-### `GET /api/v1/analytics/:studentId`
+### `GET /api/v1/analytics/:studentId` — no longer fabricates a result
+
+Returns `{ data, reason?, xpByDay }`.
+
+- `data` is the real `StudentAnalytics` document, or **`null`** with `reason: 'no-exam-data'`. It is null for every student today, because nothing writes that document.
+- `xpByDay` is **real**: actual XP earned per competition day over the last 30 days, from the activity log, oldest first. Days with no activity are **omitted** rather than zero-filled — a flat line at zero would imply a measured zero.
+
+**This endpoint used to lie.** When no document existed it returned a hardcoded object claiming 88% accuracy over 450 questions, a rising five-point learning curve, four topic breakdowns and "You are currently in the top 5% of all national Olympiad participants" — as the student's own measured performance. That fallback is deleted; a test asserts none of those strings can appear in a response.
+
+Authorization is unchanged: `analytics:read:self` for your own record, with a **fresh** database-backed `analytics:read:any` check for anyone else's. A non-existent student ID now returns 404.
 - **Auth**: `requirePermission('analytics:read:self')`. Fetching **someone else's** record additionally requires `analytics:read:any`, checked *freshly* against the database via `callerCanFresh()` — so a demoted admin stops being able to read other students' data immediately, not at token expiry. A student reading another ID gets **403**.
 - **Response 200**: `{ success, data: AnalyticsData }` — the real `StudentAnalytics` document if one exists, **otherwise a hardcoded demo payload**. Since nothing creates those documents, this currently always returns demo data.
 - **Errors**: `401`, `403`, `429`, `503`, `500`.
