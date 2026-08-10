@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../../components/Navbar'
-import Footer from '../../components/Footer'
+import StudentShell from '../../components/StudentShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import ChartCard from '../../components/ChartCard'
@@ -58,14 +57,9 @@ export default function Report() {
   }
 
   return (
-    <div>
-      <Navbar />
-      <div className={`container ${styles.wrap}`}>
+    <StudentShell title="Student Report" subtitle={`A summary of ${studentName}'s Olympiad journey so far.`}>
+      <div className={styles.wrap}>
         <div className={styles.header}>
-          <div>
-            <h1>Student Report</h1>
-            <p>A summary of {studentName}'s Olympiad journey so far.</p>
-          </div>
           <Button variant="outline" onClick={() => window.print()}>
             <i className="ph ph-printer" /> Download Report
           </Button>
@@ -166,7 +160,6 @@ export default function Report() {
           </div>
         )}
       </div>
-      <Footer />
-    </div>
+    </StudentShell>
   )
 }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../../components/Navbar'
-import Footer from '../../components/Footer'
+import StudentShell from '../../components/StudentShell'
 import Spinner from '../../components/Spinner'
 import StatTile from '../../components/StatTile'
 import ChartCard from '../../components/ChartCard'
@@ -47,10 +46,8 @@ export default function Analytics() {
   }
 
   return (
-    <div>
-      <Navbar />
-      <div className={`container ${styles.wrap}`}>
-        <h1>Performance Analysis</h1>
+    <StudentShell title="Performance Analysis" subtitle="What is measured, and what still needs a scored exam">
+      <div className={styles.wrap}>
         {error && <p className="error-text">{error}</p>}
         {!result && !error && <Spinner label="Loading your performance data..." />}
 
@@ -148,7 +145,6 @@ export default function Analytics() {
           </>
         )}
       </div>
-      <Footer />
-    </div>
+    </StudentShell>
   )
 }

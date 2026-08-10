@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../../components/Navbar'
-import Footer from '../../components/Footer'
+import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { api, ApiError } from '../../api/client'
@@ -242,53 +241,40 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <>
-        <Navbar />
-        <main className={`container ${styles.page}`}>
-          <div className={styles.centered}>
-            <Spinner />
-            <p>Loading your profile…</p>
-          </div>
-        </main>
-        <Footer />
-      </>
+      <StudentShell title="My profile">
+        <div className={styles.centered}>
+          <Spinner />
+          <p>Loading your profile…</p>
+        </div>
+      </StudentShell>
     )
   }
 
   if (loadError || !profile) {
     return (
-      <>
-        <Navbar />
-        <main className={`container ${styles.page}`}>
-          <div className={`card ${styles.centered}`}>
-            <h2>Could not load your profile</h2>
-            <p className="error-text">{loadError ?? 'Please try again.'}</p>
-            <Button onClick={() => void load()}>Try again</Button>
-          </div>
-        </main>
-        <Footer />
-      </>
+      <StudentShell title="My profile">
+        <div className={`card ${styles.centered}`}>
+          <h2>Could not load your profile</h2>
+          <p className="error-text">{loadError ?? 'Please try again.'}</p>
+          <Button onClick={() => void load()}>Try again</Button>
+        </div>
+      </StudentShell>
     )
   }
 
   const photoSrc = `/api/v1/students/${profile.studentId}/photo?v=${photoVersion}`
 
   return (
-    <>
-      <Navbar />
-      <main className={`container ${styles.page}`}>
-        <header className={styles.header}>
-          <div>
-            <h1>My profile</h1>
-            <p className={styles.sub}>
-              Student ID <span className={styles.mono}>{profile.studentId}</span> · Registered {formatDate(profile.registeredAt)}
-            </p>
-          </div>
-          <Link to="/dashboard" className={styles.backLink}>
-            <i className="ph-bold ph-arrow-left" /> Back to dashboard
-          </Link>
-        </header>
-
+    <StudentShell
+      title="My profile"
+      subtitle={
+        <>
+          Student ID <span className={styles.mono}>{profile.studentId}</span> · Registered{' '}
+          {formatDate(profile.registeredAt)}
+        </>
+      }
+    >
+      <div className={styles.page}>
         {savedMessage && <p className={styles.successText}>{savedMessage}</p>}
 
         <div className={styles.layout}>
@@ -561,8 +547,7 @@ export default function Profile() {
             <Link to="/admin">admin area</Link>.
           </p>
         )}
-      </main>
-      <Footer />
-    </>
+      </div>
+    </StudentShell>
   )
 }

@@ -1,0 +1,158 @@
+/**
+ * Chrome for the whole signed-in student area. Extracted from
+ * `Dashboard.module.css`, where it lived when the dashboard was the only page
+ * that had a sidebar.
+ */
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+  background: var(--bg);
+  color: var(--text-main);
+}
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.brand {
+  font-weight: 800;
+  font-size: 15px;
+  text-decoration: none;
+  color: var(--text-main);
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.menuItem,
+.menuItemActive {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.menuItemActive {
+  background: var(--royal-blue);
+  color: #fff;
+}
+
+.menuItem:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.sidebarFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 600;
+  font: inherit;
+  font-weight: 600;
+}
+
+.logoutBtn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.main {
+  flex: 1;
+  padding: 24px 32px;
+  min-width: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.topbar h1 {
+  margin: 0 0 4px;
+}
+
+.subtitle {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.burger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-main);
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/**
+ * Closes the mobile drawer when the backdrop is tapped. Rendered only while the
+ * drawer is open, and only below the breakpoint, so it can never swallow clicks
+ * on desktop.
+ */
+.backdrop {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .burger {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 60;
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    border: none;
+    z-index: 55;
+  }
+
+  .main {
+    padding: 16px;
+  }
+}

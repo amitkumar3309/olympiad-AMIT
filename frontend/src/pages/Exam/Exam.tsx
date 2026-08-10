@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import MathText from '../../components/MathText'
+import StudentShell from '../../components/StudentShell'
 import { api, ApiError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import type { StudentQuestion } from '../../api/types'
@@ -109,38 +110,38 @@ export default function Exam() {
 
   if (loadError) {
     return (
-      <div className={styles.wrap}>
+      <StudentShell title="Practice Paper">
         <div className={`card ${styles.summary}`}>
-          <h1>Could not load the paper</h1>
+          <h2>Could not load the paper</h2>
           <p className="error-text">{loadError}</p>
           <Button onClick={() => void load()}>Try again</Button>
         </div>
-      </div>
+      </StudentShell>
     )
   }
 
   if (!questions) {
     return (
-      <div className={styles.wrap}>
+      <StudentShell title="Practice Paper">
         <div className={`card ${styles.summary}`}>
           <Spinner label="Loading your practice paper..." />
         </div>
-      </div>
+      </StudentShell>
     )
   }
 
   if (questions.length === 0) {
     return (
-      <div className={styles.wrap}>
+      <StudentShell title="Practice Paper">
         <div className={`card ${styles.summary}`}>
-          <h1>No questions published yet</h1>
+          <h2>No questions published yet</h2>
           <p>
             There are no published questions for your class yet, so there is no paper to attempt. This page will fill in
             as soon as the question bank has content for you.
           </p>
           <Button onClick={() => navigate('/dashboard')}>Back to dashboard</Button>
         </div>
-      </div>
+      </StudentShell>
     )
   }
 
@@ -164,9 +165,9 @@ export default function Exam() {
 
   if (finished) {
     return (
-      <div className={styles.wrap}>
+      <StudentShell title="Practice Paper">
         <div className={`card ${styles.summary}`}>
-          <h1>Practice complete</h1>
+          <h2>Practice complete</h2>
           <p>
             You answered <strong>{answeredCount}</strong> of <strong>{questions.length}</strong> questions.
           </p>
@@ -195,12 +196,12 @@ export default function Exam() {
             </Link>
           </div>
         </div>
-      </div>
+      </StudentShell>
     )
   }
 
   return (
-    <div className={styles.wrap}>
+    <StudentShell title="Practice Paper" subtitle={`${answeredCount} of ${questions.length} answered`}>
       {showWarning && (
         <div className={styles.warningOverlay}>
           <h2>⚠️ Tab Switch Detected</h2>
@@ -210,7 +211,6 @@ export default function Exam() {
       )}
 
       <header className={styles.header}>
-        <h2>Practice Paper</h2>
         <div className={styles.timer}>
           {mins}:{secs}
         </div>
@@ -272,6 +272,6 @@ export default function Exam() {
           </Button>
         </aside>
       </div>
-    </div>
+    </StudentShell>
   )
 }

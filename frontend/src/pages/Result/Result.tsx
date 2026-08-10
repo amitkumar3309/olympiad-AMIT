@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../../components/Navbar'
-import Footer from '../../components/Footer'
+import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import { api, ApiError } from '../../api/client'
 import type { PublishedResult, ResultResponse } from '../../api/types'
@@ -60,11 +59,8 @@ export default function Result() {
   }
 
   return (
-    <div>
-      <Navbar />
-      <div className={`container ${styles.wrap}`}>
-        <h1>Result Portal</h1>
-        <p>Enter your Student ID to check your Olympiad result.</p>
+    <StudentShell title="Result Portal" subtitle="Enter your Student ID to check your Olympiad result.">
+      <div className={styles.wrap}>
 
         <form className={styles.searchRow} onSubmit={(e) => void fetchResult(e)}>
           <input
@@ -151,7 +147,6 @@ export default function Result() {
           </div>
         )}
       </div>
-      <Footer />
-    </div>
+    </StudentShell>
   )
 }

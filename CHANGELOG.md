@@ -2,6 +2,27 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-11 — The student sidebar now persists across every page it links to
+
+Reported: pressing any item in the left-hand `A.M.I.T Hub` menu made the menu itself disappear.
+
+**Cause.** The sidebar was built inside `Dashboard.tsx` and existed *only* there. Every link in it pointed at a page that rendered the public top-navbar layout instead — Profile, Practice Paper, Analytics, Report, Certificate — so navigating anywhere from the menu replaced the whole chrome and left no way back except the browser's back button.
+
+**Fix.** Extracted `components/StudentShell.tsx`, mirroring the existing `AdminShell`, and wrapped every destination in it:
+
+- The sidebar, topbar, theme toggle and sign-out are defined once and persist across `/dashboard`, `/profile`, `/exam`, `/analytics`, `/report`, `/result` and `/certificate`.
+- The current page is highlighted, with `aria-current="page"` — what makes a persistent sidebar useful rather than merely present.
+- The brand at the top is now a link home.
+- On mobile the drawer still closes when an item is chosen, and now also closes when the backdrop outside it is tapped, which previously required hunting for the burger again.
+- `/result` was added to the menu; it was reachable only from the public navbar before, which a signed-in student no longer sees.
+- "Live Exam" is relabelled **Practice Paper**, matching what that page now actually is.
+
+**Guests.** `/certificate` and `/result` are public routes, so `StudentShell` falls back to the ordinary `Navbar` + `Footer` for anyone not signed in as a student, rather than showing a sidebar full of links that would bounce them to a sign-in screen. Verified both ways.
+
+The duplicated shell rules were removed from `Dashboard.module.css`, which now holds only that page's own content styles.
+
+---
+
 ## 2026-08-11 — No placeholder data anywhere, and a real light/dark theme
 
 Two owner requests: eliminate **all** remaining fake data, strictly; and make the app one consistent theme, light by default, with a user toggle.

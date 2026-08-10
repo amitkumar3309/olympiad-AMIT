@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../../components/Navbar'
-import Footer from '../../components/Footer'
+import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { api, ApiError } from '../../api/client'
@@ -47,10 +46,8 @@ export default function Certificate() {
   }, [student])
 
   return (
-    <div>
-      <Navbar />
-      <div className={`container ${styles.wrap}`}>
-        <h1>Digital Certificate</h1>
+    <StudentShell title="Digital Certificate">
+      <div className={styles.wrap}>
 
         {/* A guest is told what a certificate requires, rather than being shown a
             filled-in specimen with a placeholder name on it. */}
@@ -126,7 +123,6 @@ export default function Certificate() {
           </div>
         ))}
       </div>
-      <Footer />
-    </div>
+    </StudentShell>
   )
 }

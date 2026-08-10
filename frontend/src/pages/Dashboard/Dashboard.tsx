@@ -1,10 +1,9 @@
 import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
-import ThemeToggle from '../../components/ThemeToggle'
+import StudentShell from '../../components/StudentShell'
 import { api, ApiError } from '../../api/client'
-import { useAuth } from '../../context/AuthContext'
 import { ACTIVITY_LABELS, type ActivityEntry, type DashboardData, type Pagination } from '../../api/types'
 import styles from './Dashboard.module.css'
 
@@ -34,15 +33,6 @@ interface DashboardResponse {
   dashboard: DashboardData
 }
 
-const NAV_ITEMS = [
-  { to: '/dashboard', icon: 'ph-squares-four', label: 'Dashboard' },
-  { to: '/profile', icon: 'ph-user-circle', label: 'My Profile' },
-  { to: '/exam', icon: 'ph-pencil-line', label: 'Live Exam' },
-  { to: '/analytics', icon: 'ph-chart-line-up', label: 'Analytics' },
-  { to: '/report', icon: 'ph-file-text', label: 'Report' },
-  { to: '/certificate', icon: 'ph-medal', label: 'Certificate' },
-]
-
 /** "today", "yesterday", or a short date — for the activity feed. */
 function relativeDay(occurredOn: string, today: string): string {
   if (occurredOn === today) return 'Today'
@@ -61,10 +51,6 @@ function formatDuration(seconds: number): string {
 }
 
 export default function Dashboard() {
-  const { logout } = useAuth()
-  const navigate = useNavigate()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -127,57 +113,23 @@ export default function Dashboard() {
     void load()
   }, [load])
 
-  async function handleLogout() {
-    await logout()
-    navigate('/')
-  }
-
   return (
-    // No `theme-dark` here any more: the theme is global (see ThemeContext), so this
-    // page follows the student's choice instead of forcing dark.
-    <div className={styles.shell}>
-      <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
-        <div className={styles.brand}>A.M.I.T Hub</div>
-        <nav>
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={item.to === '/dashboard' ? styles.menuItemActive : styles.menuItem}
-              onClick={() => setSidebarOpen(false)}
-            >
-              <i className={`ph-bold ${item.icon}`} /> {item.label}
-            </Link>
-          ))}
-        </nav>
-        <div className={styles.sidebarFooter}>
-          <ThemeToggle />
-          <button className={styles.logoutBtn} onClick={() => void handleLogout()}>
-            <i className="ph-bold ph-sign-out" /> Logout
-          </button>
-        </div>
-      </aside>
-
-      <div className={styles.main}>
-        <header className={styles.topbar}>
-          <button className={styles.burger} onClick={() => setSidebarOpen((o) => !o)} aria-label="Toggle menu">
-            <i className="ph ph-list" />
-          </button>
-          <div>
-            <h1>Welcome back, {data?.student.firstName ?? data?.student.fullName ?? 'Champion'} 👋</h1>
-            <p className={styles.studentId}>
-              {data ? (
-                <>
-                  Student ID: {data.student.studentId}
-                  {data.student.classLevel ? ` · ${data.student.classLevel}` : ''}
-                </>
-              ) : (
-                'Loading your details…'
-              )}
-            </p>
-          </div>
-        </header>
-
+    // The sidebar, topbar, theme toggle and sign-out all live in StudentShell now,
+    // so they persist across every student page instead of existing only here.
+    <StudentShell
+      title={<>Welcome back, {data?.student.firstName ?? data?.student.fullName ?? 'Champion'} 👋</>}
+      subtitle={
+        data ? (
+          <>
+            Student ID: {data.student.studentId}
+            {data.student.classLevel ? ` · ${data.student.classLevel}` : ''}
+          </>
+        ) : (
+          'Loading your details…'
+        )
+      }
+    >
+      <>
         {loading && (
           <div className={styles.centered}>
             <Spinner />
@@ -489,7 +441,7 @@ export default function Dashboard() {
                   </Link>
                   <Link to="/exam" className={styles.actionCard}>
                     <i className="ph-bold ph-pencil-line" />
-                    Take Live Exam
+                    Practice Paper
                   </Link>
                   <Link to="/analytics" className={styles.actionCard}>
                     <i className="ph-bold ph-chart-line-up" />
@@ -504,7 +456,7 @@ export default function Dashboard() {
             </div>
           </>
         )}
-      </div>
-    </div>
+      </>
+    </StudentShell>
   )
 }
