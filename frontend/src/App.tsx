@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute, RequirePermission } from './components/ProtectedRoute'
 import Spinner from './components/Spinner'
 import Landing from './pages/Landing/Landing'
@@ -33,6 +34,9 @@ import ResetPassword from './pages/Auth/ResetPassword'
 
 export default function App() {
   return (
+    // Theme sits outermost so it applies to every route, and to the auth-loading
+    // state before any page has rendered.
+    <ThemeProvider>
     <AuthProvider>
       <BrowserRouter>
         {/* One boundary around every route: only the lazily-loaded ones can suspend,
@@ -157,5 +161,6 @@ export default function App() {
         </Suspense>
       </BrowserRouter>
     </AuthProvider>
+    </ThemeProvider>
   )
 }

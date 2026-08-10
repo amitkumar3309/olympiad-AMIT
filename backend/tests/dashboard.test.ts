@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type mongoose from 'mongoose';
 import app from '../src/app';
-import { Student, StudentActivity } from '../src/models';
+import { ExamAttempt, Result, Student, StudentActivity } from '../src/models';
 import { dayKeyOf, daysBetween, isDayKey, shiftDay, todayKey } from '../src/lib/competitionDay';
 import { levelProgressFor, XP_AWARDS } from '../src/lib/xp';
 import { summariseAchievements } from '../src/lib/achievements';
@@ -690,6 +690,185 @@ describe('GET /analytics/:studentId', () => {
     const res = await request(app).get(`${API}/analytics/AMIT_9999`).set('Cookie', cookieHeader(cookies));
     expect(res.status).toBe(404);
     expect(res.status).not.toBe(500);
+  });
+});
+
+// ===========================================================================
+// Result portal — the page that used to invent a score from a hash
+// ===========================================================================
+
+describe('GET /results/:studentId', () => {
+  /** A published result plus the attempt carrying the marks, inserted directly. */
+  async function publishResultFor(studentId: string): Promise<void> {
+    await Result.create({
+      studentId,
+      examId: 'OLYMPIAD-2027-PRELIM',
+      nationalRank: 12,
+      stateRank: 3,
+      percentile: 97.5,
+      xpEarned: 250,
+      badges: ['Finalist'],
+      isPublished: true,
+    });
+    await ExamAttempt.create({
+      studentId,
+      status: 'Submitted',
+      totalScore: 46,
+      accuracy: 92,
+      timeTakenSeconds: 1800,
+      answers: Array.from({ length: 50 }, (_, i) => ({ questionId: `q${i}`, selectedOption: 'a', isCorrect: i < 46 })),
+      endTime: new Date(),
+    });
+  }
+
+  it('reports that nothing is published rather than inventing a score', async () => {
+    const { studentId } = await registerVerifyLogin(app);
+
+    const res = await request(app).get(`${API}/results/${studentId}`).expect(200);
+
+    expect(res.body.result).toBeNull();
+    expect(res.body.reason).toBe('not-published');
+  });
+
+  it('answers identically for a student ID that does not exist, so the portal cannot be used to enumerate accounts', async () => {
+    const { studentId } = await registerVerifyLogin(app);
+
+    const real = await request(app).get(`${API}/results/${studentId}`).expect(200);
+    const fake = await request(app).get(`${API}/results/AMIT_0001`).expect(200);
+
+    expect(fake.body).toEqual(real.body);
+  });
+
+  it('rejects a malformed student ID instead of searching for it', async () => {
+    const res = await request(app).get(`${API}/results/not-an-id`);
+    expect(res.status).toBe(400);
+    expect(res.status).not.toBe(500);
+  });
+
+  it('returns the real marks and ranks once a result is published', async () => {
+    const { studentId } = await registerVerifyLogin(app);
+    await publishResultFor(studentId);
+
+    const res = await request(app).get(`${API}/results/${studentId}`).expect(200);
+
+    expect(res.body.result.score).toBe(46);
+    expect(res.body.result.totalMarks).toBe(50);
+    expect(res.body.result.accuracy).toBe(92);
+    expect(res.body.result.nationalRank).toBe(12);
+    expect(res.body.result.percentile).toBe(97.5);
+    expect(res.body.result.badges).toEqual(['Finalist']);
+    expect(res.body.result.studentName).toBe('Test Kumar Student');
+  });
+
+  it('keeps an unpublished result invisible, so marks cannot be read before release', async () => {
+    const { studentId } = await registerVerifyLogin(app);
+    await Result.create({ studentId, examId: 'OLYMPIAD-2027-PRELIM', isPublished: false, xpEarned: 0, badges: [] });
+
+    const res = await request(app).get(`${API}/results/${studentId}`).expect(200);
+    expect(res.body.result).toBeNull();
+  });
+
+  it('never exposes contact details alongside a published result', async () => {
+    const { studentId } = await registerVerifyLogin(app);
+    await publishResultFor(studentId);
+
+    const res = await request(app).get(`${API}/results/${studentId}`).expect(200);
+    const serialised = JSON.stringify(res.body);
+    expect(serialised).not.toContain('student@example.com');
+    expect(serialised).not.toContain('9876543210');
+    expect(serialised).not.toContain('Example Road');
+  });
+});
+
+describe('GET /certificates/:studentId', () => {
+  it('issues nothing while no result is published, and no longer returns the old mock', async () => {
+    const { studentId } = await registerVerifyLogin(app);
+
+    const res = await request(app).get(`${API}/certificates/${studentId}`).expect(200);
+
+    expect(res.body.certificates).toEqual([]);
+    const serialised = JSON.stringify(res.body);
+    // The hardcoded pair this endpoint used to return for any id.
+    expect(serialised).not.toContain('National Math Olympiad Finalist');
+    expect(serialised).not.toContain('Advanced Calculus Masterclass');
+    expect(serialised).not.toContain('CERT-2026-01');
+  });
+
+  it('issues one once a result is published', async () => {
+    const { studentId } = await registerVerifyLogin(app);
+    await Result.create({
+      studentId,
+      examId: 'OLYMPIAD-2027-PRELIM',
+      percentile: 97.5,
+      isPublished: true,
+      xpEarned: 0,
+      badges: [],
+    });
+
+    const res = await request(app).get(`${API}/certificates/${studentId}`).expect(200);
+
+    expect(res.body.certificates).toHaveLength(1);
+    expect(res.body.certificates[0].studentName).toBe('Test Kumar Student');
+    expect(res.body.certificates[0].percentile).toBe(97.5);
+    // No invented issue date — the model does not store one.
+    expect(res.body.certificates[0].issuedAt).toBeNull();
+  });
+});
+
+// ===========================================================================
+// Admin statistics — replaced a hardcoded accuracy trend
+// ===========================================================================
+
+describe('GET /admin/stats', () => {
+  it('refuses a student and a guest', async () => {
+    const guest = await request(app).get(`${API}/admin/stats`);
+    expect(guest.status).toBe(401);
+
+    const { cookies } = await registerVerifyLogin(app);
+    const student = await request(app).get(`${API}/admin/stats`).set('Cookie', cookieHeader(cookies));
+    expect(student.status).toBe(403);
+  });
+
+  it('returns real registration and activity counts on a fixed 14-day axis', async () => {
+    const { cookies } = await createAdminSession(app, {
+      firstName: 'Staff',
+      lastName: 'Member',
+      mobile: '9000000001',
+      email: 'staff@example.com',
+    });
+    await registerVerifyLogin(app, { ...otherStudent, email: 'extra@example.com', mobile: '9000000002' });
+
+    const res = await request(app).get(`${API}/admin/stats`).set('Cookie', cookieHeader(cookies)).expect(200);
+    const { stats } = res.body;
+
+    expect(stats.registrationsByDay).toHaveLength(14);
+    expect(stats.activeStudentsByDay).toHaveLength(14);
+    // Oldest first, ending today.
+    expect(stats.registrationsByDay[13].day).toBe(todayKey());
+
+    // Both accounts registered today; both signed in, so both are active today.
+    expect(stats.registrationsByDay[13].count).toBe(2);
+    expect(stats.activeStudentsByDay[13].count).toBe(2);
+    expect(stats.totalStudents).toBe(2);
+    expect(stats.totalActiveToday).toBe(2);
+  });
+
+  it('contains none of the fabricated accuracy figures it replaced', async () => {
+    const { cookies } = await createAdminSession(app, {
+      firstName: 'Staff',
+      lastName: 'Member',
+      mobile: '9000000001',
+      email: 'staff@example.com',
+    });
+
+    const res = await request(app).get(`${API}/admin/stats`).set('Cookie', cookieHeader(cookies)).expect(200);
+    const serialised = JSON.stringify(res.body);
+    expect(serialised).not.toContain('accuracy');
+    for (const ghost of ['72', '78', '82', '88', '90', '92']) {
+      // The old series, as a complete set — a real count could legitimately be any
+      // single one of these, so the assertion is that they do not all appear together.
+      expect(serialised.includes(`"count":${ghost}`)).toBe(false);
+    }
   });
 });
 

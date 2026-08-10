@@ -7,13 +7,22 @@ import Spinner from '../../components/Spinner'
 import Unauthorized from '../../components/Unauthorized'
 import { useAuth, ApiError } from '../../context/AuthContext'
 import { api } from '../../api/client'
-import type { ManagedAccount, Pagination } from '../../api/types'
+import type { AdminStats, ManagedAccount, Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import styles from './Admin.module.css'
 
 interface StudentListResponse {
   students: ManagedAccount[]
   pagination: Pagination
+}
+
+/** `2026-08-10` → `10 Aug`, for a readable chart axis. */
+function shortDay(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  })
 }
 
 interface Overview {
@@ -34,6 +43,7 @@ export default function Admin() {
   const [overview, setOverview] = useState<Overview | null>(null)
   const [loadingOverview, setLoadingOverview] = useState(false)
   const [overviewError, setOverviewError] = useState('')
+  const [stats, setStats] = useState<AdminStats | null>(null)
 
   useEffect(() => {
     if (!canReadStudents) return
@@ -65,6 +75,17 @@ export default function Admin() {
       }
     }
 
+    // The charts are secondary to the figures above them, so a failure here leaves
+    // them simply absent rather than pushing an error banner over the whole page.
+    void api
+      .get<{ stats: AdminStats }>('/admin/stats')
+      .then((res) => {
+        if (!cancelled) setStats(res.stats)
+      })
+      .catch(() => {
+        if (!cancelled) setStats(null)
+      })
+
     void loadOverview()
     return () => {
       cancelled = true
@@ -88,7 +109,9 @@ export default function Admin() {
 
   if (state.status === 'guest') {
     return (
-      <div className={`theme-dark ${styles.loginWrap}`}>
+      // Follows the global theme rather than forcing dark, which used to make this
+      // form dark while the navbar above it stayed light.
+      <div className={styles.loginWrap}>
         <form className={`card ${styles.loginCard}`} onSubmit={handleLogin}>
           <h2>Enterprise Admin Portal</h2>
           <p>Sign in to manage students, questions, and analytics.</p>
@@ -181,13 +204,28 @@ export default function Admin() {
         )
       )}
 
-      <ChartCard
-        title="Weekly Accuracy Trend (sample data — no exam results are recorded yet)"
-        type="line"
-        label="Accuracy %"
-        labels={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
-        data={[72, 78, 75, 82, 88, 90, 92]}
-      />
+      {/* Replaced a hardcoded "Weekly Accuracy Trend" (72, 78, 75, 82, 88, 90, 92
+          against Mon–Sun). It was labelled as sample data, but a labelled invention is
+          still an invention — and an accuracy trend cannot exist while no answer has
+          ever been scored. These two series are things the platform genuinely knows. */}
+      {stats && (
+        <div className={styles.chartRow}>
+          <ChartCard
+            title="New registrations per day (last 14 days)"
+            type="bar"
+            label="Registrations"
+            labels={stats.registrationsByDay.map((point) => shortDay(point.day))}
+            data={stats.registrationsByDay.map((point) => point.count)}
+          />
+          <ChartCard
+            title="Active students per day (last 14 days)"
+            type="line"
+            label="Active students"
+            labels={stats.activeStudentsByDay.map((point) => shortDay(point.day))}
+            data={stats.activeStudentsByDay.map((point) => point.count)}
+          />
+        </div>
+      )}
     </AdminShell>
   )
 }

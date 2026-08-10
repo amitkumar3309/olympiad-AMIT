@@ -498,6 +498,58 @@ export interface DashboardData {
   today: string
 }
 
+/**
+ * A **published** exam result, from `GET /results/:studentId`.
+ *
+ * Nothing writes a `Result` yet, so the endpoint truthfully returns `null` for every
+ * student and the portal shows "not published". The page it feeds used to invent a
+ * score, national rank and percentile by hashing whatever ID was typed in.
+ */
+export interface PublishedResult {
+  studentId: string
+  studentName: string | null
+  examId: string
+  score: number
+  totalMarks: number
+  accuracy: number
+  nationalRank: number | null
+  statewiseRank: number | null
+  percentile: number | null
+  xpEarned: number
+  badges: string[]
+  submittedAt: string | null
+}
+
+export interface ResultResponse {
+  result: PublishedResult | null
+  reason?: 'not-published'
+}
+
+/** A certificate the student has actually earned — requires a published result. */
+export interface EarnedCertificate {
+  id: string
+  studentId: string
+  studentName: string | null
+  title: string
+  examId: string
+  issuedAt: string | null
+  percentile: number | null
+}
+
+/** One day's count in an admin statistics series. */
+export interface DayCount {
+  day: string
+  count: number
+}
+
+/** Real platform activity for the admin dashboard, replacing a sample chart. */
+export interface AdminStats {
+  registrationsByDay: DayCount[]
+  activeStudentsByDay: DayCount[]
+  totalStudents: number
+  totalActiveToday: number
+}
+
 /** Real participation counts for the public landing page. */
 export interface PublicStats {
   studentsRegistered: number

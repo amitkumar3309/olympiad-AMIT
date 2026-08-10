@@ -1,0 +1,40 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.toggle:hover {
+  border-color: var(--royal-blue);
+  color: var(--royal-blue);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--royal-blue);
+  outline-offset: 2px;
+}
+
+.toggle i {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/** Icon-only, for the tight sidebars. */
+.compact {
+  padding: 8px;
+  width: 34px;
+  height: 34px;
+  justify-content: center;
+}

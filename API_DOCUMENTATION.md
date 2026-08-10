@@ -377,12 +377,35 @@ Both were hardcoded mocks before Milestone 5 and are now real aggregations. Made
 
 ---
 
-## IMPLEMENTED — static mocks, no database, no frontend caller
+## Results, certificates and admin statistics (2026-08-11)
 
-### `GET /api/v1/certificates/:studentId`
-Returns the same hardcoded 2-item array regardless of `:studentId` (the parameter is accepted but unused). No frontend caller — `Certificate.tsx` renders from `AuthContext` state.
+### `GET /api/v1/results/:studentId` — public
+`{ result, reason? }`. Returns a **published** result from the real `Result` + `ExamAttempt` collections, or `{ result: null, reason: 'not-published' }`. Nothing writes a result yet, so that is today's answer for everyone.
 
-**Still a mock after Milestone 5, and left so deliberately.** Issuing a real certificate depends on exam results that do not exist yet, so there is nothing real to return; and removing a published endpoint is a decision for the project owner rather than a side effect of another milestone. It is the last fake response left in the backend — `daily-challenge` and `leaderboard`, which used to sit beside it here, are now real.
+**Replaced the worst fabrication in the product.** The result page used to hash whatever string was typed into its search box and derive a score, national rank and percentile from it — client-side, no server call — so any visitor could enter any ID and be shown an authoritative-looking result for a competition that has not been held.
+
+Deliberately unauthenticated, because a public result portal is the point (a parent or school should not need an account). Three properties keep that safe:
+- only `isPublished` results are visible, so marks cannot be read before release;
+- the response for "no such account" and "no published result" is **identical**, so the portal cannot be used to enumerate which student IDs exist (asserted by test);
+- marks and ranks only — no email, mobile, address or date of birth (asserted by test).
+
+A malformed id is a 400. "No result" is a **200**, not a 404, because it is the ordinary expected answer.
+
+### `GET /api/v1/certificates/:studentId` — now real
+`{ certificates: [...] }`, containing only certificates backed by a **published result**. Returns `[]` for everyone today.
+
+Was a hardcoded two-item array (`CERT-2026-01`, "National Math Olympiad Finalist") returned for any id including a non-existent one. The page it feeds used to print "For outstanding participation and achievement" for anyone signed in, dated today, with their student ID as the certificate number. `issuedAt` is `null` rather than today's date, because no issue date is stored — inventing one is what made the old certificate look genuine.
+
+### `GET /api/v1/admin/stats`
+Requires `students:read`. `{ stats: { registrationsByDay, activeStudentsByDay, totalStudents, totalActiveToday } }` — two real 14-day series bucketed by **IST** calendar day, so they line up with the streak and XP days used everywhere else.
+
+Replaced the admin dashboard's hardcoded "Weekly Accuracy Trend" (`72, 78, 75, 82, 88, 90, 92` against Mon–Sun). Days with no activity **are** zero-filled here, unlike the student XP chart: for a platform-wide operational chart "no registrations on Tuesday" is itself a real observation, whereas for one student a gap means only that nothing was recorded.
+
+---
+
+## No static mocks remain
+
+Every endpoint in `routes/v1/` now reads from the database. The three that were hardcoded — `daily-challenge`, `leaderboard` and `certificates/:studentId` — are all real, and the analytics fallback that invented a student's accuracy is deleted. Several endpoints return empty results because the collections behind them are empty, which is a different thing: they are live queries that will start returning data the moment exam submission writes any.
 
 ---
 

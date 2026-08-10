@@ -42,3 +42,12 @@
     display: none;
   }
 }
+
+/**
+ * Sections that need exam results before they can say anything. Left visibly blank
+ * on purpose — a printed report that estimates is worse than one that admits a gap.
+ */
+.pending p {
+  max-width: 62ch;
+  line-height: 1.6;
+}

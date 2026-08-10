@@ -2,6 +2,45 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-11 — No placeholder data anywhere, and a real light/dark theme
+
+Two owner requests: eliminate **all** remaining fake data, strictly; and make the app one consistent theme, light by default, with a user toggle.
+
+### Every remaining piece of fabricated data is gone
+
+A page-by-page audit found five more, plus one regression from the previous change.
+
+- **The result portal was inventing results.** `Result.tsx` hashed whatever string was typed into its search box and derived a score, a national rank and a percentile from it — client-side, with no server call. Any visitor could enter any ID, including one that did not exist, and be shown an authoritative "72/100 · National Rank #146 · 91.4th percentile" for a competition that has not been held. This was the worst fabrication in the product and it was publicly reachable. Replaced by a real `GET /results/:studentId`.
+- **The certificate page issued awards nobody earned.** It printed "For outstanding participation and achievement" for anyone signed in — or "Future Champion / AMIT_XXXX" for a guest — stamped with today's date and the student's own ID as the certificate number. A student could print it the minute they registered. Now driven by `GET /certificates/:studentId`, which requires a **published result**.
+- **`GET /certificates/:studentId` itself was a static two-item mock** returned for any id. Now a real query.
+- **The exam was five hardcoded questions that shipped their own answer key.** Each carried a `correct` field, so the answers for the whole paper were readable in the JavaScript bundle — a smaller version of the hole Milestone 4 closed on the questions API. It now loads **real published questions** for the student's class through the answer-stripped `/questions`, and therefore cannot mark anything and does not pretend to: no score screen, because a score would have to be invented.
+- **The admin dashboard's "Weekly Accuracy Trend"** was `[72, 78, 75, 82, 88, 90, 92]` against Mon–Sun. It was labelled as sample data, but a labelled invention is still an invention, and an accuracy trend cannot exist while no answer has ever been scored. Replaced with two real series from a new `GET /admin/stats`: registrations per day and active students per day.
+- **Regression fixed**: removing the fabricated analytics in the previous change left `Report.tsx` reading fields off a now-null object, so the page spun forever. It now handles the real response, reports the progress that is genuinely recorded, and states which sections need exam results.
+
+Every one of these is a **live query against the real collection** rather than a hardcoded empty, so each starts working by itself when exam submission lands. New `services/resultService.ts` holds the lookups.
+
+The result portal is public, and deliberately answers **identically** for "no such account" and "no published result", so it cannot be used to enumerate which student IDs exist. Only `isPublished` results are ever visible, so marks cannot be read before release.
+
+### Light and dark theme, light by default
+
+The app was previously half-and-half: public pages light, while the dashboard, admin area and exam each hardcoded `theme-dark` on their own shell. Signing in changed the colour scheme underneath you, and the admin sign-in form was dark while the navbar above it was light.
+
+- New `ThemeContext` applies the theme **once, to `document.documentElement`**, so every page inherits it and no page can disagree with another or forget to opt in.
+- **Light is the default**, by the owner's decision — deliberately not `prefers-color-scheme`, so the baseline is predictable.
+- The choice persists in `localStorage` and survives reloads. Storage access is wrapped, since it throws outright with site data blocked.
+- New `ThemeToggle` in all three shells: the public navbar, the dashboard sidebar and the admin sidebar.
+- The three hardcoded `theme-dark` shells are removed.
+- The themed background is now painted on `html`, `body` **and** `#root`. Relying on body's background propagating to the canvas is the fragile part — it only holds while `html` has no background of its own — and painting the app root means pages without a full-height wrapper cannot end up with dark cards on a light canvas.
+- Verified that every hardcoded `#fff` in the previously dark-only stylesheets sits on a saturated background (blue, green, purple, or a dark overlay), so all of them remain correct in light mode.
+
+**One verification caveat.** The theme is confirmed correct on page load in both modes, on every page. Live *switching* could not be visually confirmed in the preview browser: that engine does not invalidate `var()` substitutions when a custom property changes at runtime — a freshly created element picks the new value up correctly while existing ones keep the old one, and even an inline custom-property write on the root fails to update them. No shipping browser behaves that way (every dark-mode implementation on the web depends on it), and real Chrome was not reachable to compare, so the standards-correct implementation was kept rather than working around a preview-pane artifact. Worth a single click to confirm in a real browser.
+
+### Testing
+
+11 new tests (**322** total): the result portal's empty state, its non-enumeration property, a real published result read back, an unpublished result staying invisible, contact details never appearing beside a result, certificates before and after publication, and the admin stats series including that the old fabricated accuracy figures cannot appear.
+
+---
+
 ## 2026-08-10 — Milestone 5 follow-up: three gaps closed
 
 A gap audit against the Milestone 5 brief found three things the first pass missed. All are now done.

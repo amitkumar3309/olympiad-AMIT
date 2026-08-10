@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
+import ThemeToggle from '../../components/ThemeToggle'
 import { api, ApiError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { ACTIVITY_LABELS, type ActivityEntry, type DashboardData, type Pagination } from '../../api/types'
@@ -132,7 +133,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className={`theme-dark ${styles.shell}`}>
+    // No `theme-dark` here any more: the theme is global (see ThemeContext), so this
+    // page follows the student's choice instead of forcing dark.
+    <div className={styles.shell}>
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.brand}>A.M.I.T Hub</div>
         <nav>
@@ -147,9 +150,12 @@ export default function Dashboard() {
             </Link>
           ))}
         </nav>
-        <button className={styles.logoutBtn} onClick={() => void handleLogout()}>
-          <i className="ph-bold ph-sign-out" /> Logout
-        </button>
+        <div className={styles.sidebarFooter}>
+          <ThemeToggle />
+          <button className={styles.logoutBtn} onClick={() => void handleLogout()}>
+            <i className="ph-bold ph-sign-out" /> Logout
+          </button>
+        </div>
       </aside>
 
       <div className={styles.main}>

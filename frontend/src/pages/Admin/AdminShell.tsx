@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import ThemeToggle from '../../components/ThemeToggle'
 import type { Permission } from '../../api/types'
 import styles from './Admin.module.css'
 
@@ -39,7 +40,9 @@ export default function AdminShell({ title, children }: { title: string; childre
   }
 
   return (
-    <div className={`theme-dark ${styles.shell}`}>
+    // The theme is global (see ThemeContext) rather than forced dark here, so the
+    // admin area matches whatever the rest of the app is set to.
+    <div className={styles.shell}>
       <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.sidebarBrand}>A.M.I.T Admin</div>
         <nav>
@@ -60,9 +63,12 @@ export default function AdminShell({ title, children }: { title: string; childre
             <span className={styles.identityName}>{identity}</span>
           </div>
         )}
-        <button className={styles.logoutBtn} onClick={handleLogout}>
-          <i className="ph-bold ph-sign-out" /> Logout
-        </button>
+        <div className={styles.sidebarFooter}>
+          <ThemeToggle />
+          <button className={styles.logoutBtn} onClick={handleLogout}>
+            <i className="ph-bold ph-sign-out" /> Logout
+          </button>
+        </div>
       </aside>
 
       <div className={styles.main}>

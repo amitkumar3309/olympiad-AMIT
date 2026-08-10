@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import ThemeToggle from './ThemeToggle'
 import logo from '../assets/logo.png'
 import styles from './Navbar.module.css'
 
@@ -64,6 +65,9 @@ export default function Navbar() {
               Logout
             </button>
           )}
+          {/* Available to everyone, signed in or not — the theme is a display
+              preference, not an account setting. */}
+          <ThemeToggle compact />
         </nav>
       </div>
     </header>

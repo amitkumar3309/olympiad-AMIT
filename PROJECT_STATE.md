@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-10 (Milestone 5 — Student Profile and Dashboard, implemented and verified)._
+_Last updated: 2026-08-11 (Milestone 5 — Student Profile and Dashboard, plus follow-ups removing all placeholder data and adding a global light/dark theme)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
@@ -13,7 +13,7 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 - **Dashboard rewritten** — the three invented stat tiles and the three-name fake leaderboard are gone, replaced by XP/level with progress to the next, current and best streak, leaderboard rank, achievements with real progress toward the locked ones, a real activity feed, practice availability from the published bank for the student's own class, and test performance.
 - **Two mock endpoints became real** — `GET /leaderboard` aggregates actual XP, `GET /daily-challenge` returns a deterministic published question (and is now authenticated, where the mock was open), and a new `GET /public/stats` feeds the landing page. The landing page's invented "Today's Champions" and four headline figures are gone.
 
-**The exam, results and certificate pages are still mock** — this milestone deliberately did not touch them. The dashboard's test-performance panel is a *real query* against `ExamAttempt`, which nothing writes to, so it truthfully shows an empty state and will light up on its own when exam submission lands.
+**A follow-up pass on 2026-08-11 then removed every remaining piece of placeholder data in the product** — the result portal, certificate page, exam paper, student report and admin chart — and added a global light/dark theme, light by default. No endpoint or page returns fabricated data any more. Several return empty results, which is a different thing: they are live queries against collections that are genuinely empty until exam submission exists, so each starts working by itself when it lands.
 
 Before that, **Milestone 4 — Complete Question Bank System: implemented and verified end-to-end.** Questions are authored, reviewed and published through a real admin interface: a subject / topic / subtopic taxonomy, four question types with per-type answer shapes, marks and negative marks, an editorial workflow, tags, and search / filter / sort / pagination. Mathematics is written as LaTeX and rendered with KaTeX through a text/math split that keeps author content out of every HTML sink. It also closed a serious hole: `GET /questions` was **unauthenticated and returned the answer key**.
 
@@ -21,7 +21,7 @@ Before that, **registration data capture: implemented and verified end-to-end.**
 
 Before that, **Milestone 3 — RBAC and User Management Foundation: implemented and verified end-to-end.** Authorization is now permission-based with a single role → permission table, three roles exist (`student` / `admin` / `superadmin`), administrators can be created and managed from the app, account status finally has a UI, and every administrative action — plus every refused one — is written to a queryable audit trail. Privileged requests re-read the caller's role from the database, so revoking access takes effect immediately rather than at token expiry.
 
-No other product feature was touched. The exam, results, certificates and leaderboard pages are still mock — unchanged since Milestone 1. The admin *dashboard* is no longer mock: its figures are real counts.
+
 
 ## Last Completed Milestone
 
@@ -61,19 +61,21 @@ None in progress. Milestone 5 is complete; awaiting owner selection of Milestone
 - **Student dashboard (Milestone 5)** — one request (`GET /me/dashboard`) supplies progress, activity, test performance, achievements, leaderboard-with-own-rank and available practice. No constant remains on the page. Loading, error and per-panel empty states throughout.
 - **Real leaderboard and public figures (Milestone 5)** — `GET /leaderboard` aggregates actual XP with standard competition ranking, excludes accounts not in good standing, and leaves a zero-XP student genuinely unranked. Public by the owner's decision, so it publishes a first name plus a last initial only. `GET /public/stats` gives the landing page real counts. Both replaced hardcoded mocks.
 - **Real daily challenge (Milestone 5)** — a deterministic published question for the caller's class, answer-stripped through the shared `studentQuestionView`, and now authenticated where the mock was open.
-- **Backend test suite** — **311 passing tests** across 12 files, against a real in-memory MongoDB wherever a database is needed: 60 dashboard/progress/analytics and 27 profile tests (Milestone 5), 77 question-bank tests (Milestone 4), 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2). Test files run **sequentially** — see [`TESTING.md`](TESTING.md).
+- **Backend test suite** — **322 passing tests** across 12 files, against a real in-memory MongoDB wherever a database is needed: 71 dashboard/progress/analytics/results and 27 profile tests (Milestone 5 and its follow-ups), 77 question-bank tests (Milestone 4), 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2). Test files run **sequentially** — see [`TESTING.md`](TESTING.md).
 
 ## Partially Completed Modules
 
+- **No placeholder data remains anywhere (2026-08-11).** A page-by-page audit removed the last five pieces of invented data and one regression. The **result portal** no longer hashes a typed ID into a score, rank and percentile; the **certificate page** no longer prints an award for anyone signed in; the **exam** serves real published questions instead of five hardcoded ones (which also shipped their own answer key in the bundle); the **admin chart** shows real registrations and active students instead of a sample accuracy trend; the **student report** was fixed after the analytics change left it spinning forever. Each is a live query against the real collection, so each starts working by itself when exam submission lands. See [`CHANGELOG.md`](CHANGELOG.md).
+- **One theme, light by default (2026-08-11).** `ThemeContext` applies a single `theme-dark` class to `document.documentElement`, persisted in `localStorage`, with a `ThemeToggle` in the public navbar, the dashboard sidebar and the admin sidebar. The app used to be light on public pages and hardcoded dark on the dashboard, admin area and exam, so signing in changed the colour scheme underneath the user. Those three per-page classes are gone.
 - **Student analytics** — **no longer fabricated.** The hardcoded fallback (88% accuracy, 450 questions, "top 5% of all national Olympiad participants") that every student used to see was deleted in the Milestone 5 follow-up. The route now returns the real `StudentAnalytics` document or `null` with `reason: 'no-exam-data'`, plus a genuinely real `xpByDay` series from the activity log. Still partial in the sense that the accuracy/topic half stays empty until exam results exist — but it is now honestly empty rather than filled in with invention. Authorization was already real and tested.
-- **Admin dashboard** — the account figures and recent-registration list are real; the weekly-accuracy chart is still sample data, now labelled as such in the UI because no exam results exist to chart. **This is the last remaining piece of sample data in the frontend**, and it is at least declared. Worth replacing with an empty state on the same principle as the student analytics page.
+- **Admin dashboard** — fully real. The account figures and recent-registration list were already real counts; the sample weekly-accuracy chart was replaced on 2026-08-11 with two genuine 14-day series from `GET /admin/stats` (registrations per day, active students per day).
 - **AI insights** — real rule-based logic (not ML), reachable only on the currently-unpopulated real-data path. The page no longer presents anything as an AI insight when it has none, and is titled "Performance Analysis" rather than "AI Performance Analysis", since no AI is involved anywhere in it.
 
 ## Pending / Not Started Modules (UI exists, no real backend wiring)
 
-- **Exam / exam attempts** — still a client-side hardcoded 5-question quiz; nothing submitted. `ExamAttempt` model unused. **Both halves it needs now exist**: a published, filterable question bank to build a paper from (`GET /questions`, answer-stripped) and a dashboard panel already querying for its results. Wiring it up is the obvious next milestone. Note the model predates Milestone 4 and needs rewriting, not just wiring — see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md).
-- **Results** — fabricated client-side by hashing the entered Student ID. `Result` model unused, and also the wrong shape (a free-text `examId` with no exam entity behind it).
-- **Certificates** — rendered client-side from the logged-in student's name/ID. `GET /certificates/:studentId` is **the last static mock left in the backend**, and is called by nothing.
+- **Exam / exam attempts** — the paper is now **real** (published questions for the student's class, via the answer-stripped `/questions`), but it is a *practice* run: nothing is submitted, marked or recorded, and the page says so rather than showing a score it would have to invent. The old version was five hardcoded questions that shipped their own answer key to the browser. `ExamAttempt` is still unwritten. **Both halves it needs now exist**: a published, filterable question bank to build a paper from (`GET /questions`, answer-stripped) and a dashboard panel already querying for its results. Wiring it up is the obvious next milestone. Note the model predates Milestone 4 and needs rewriting, not just wiring — see [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md).
+- **Results** — the *page* is now real and honest (`GET /results/:studentId`, published-only, non-enumerable), but nothing publishes a result, so it always reports "not published yet". `Result` is still unwritten and also the wrong shape (a free-text `examId` with no exam entity behind it).
+- **Certificates** — the *page* and its endpoint are now real, requiring a published result, so nothing is issued to anyone yet. No `Certificate` model exists; a certificate is currently derived from a `Result`.
 - **Payments** — static QR image; no gateway, no verification, no transaction record. Registration still proceeds on a self-reported "I've paid" click.
 - **Mobile/SMS verification** — deliberately dropped. The fake client-side OTP step was **deleted**; email verification replaces it. No SMS provider is integrated.
 - **Practice zone / Mock tests / Journey map / Gallery / Notifications / Subscriptions** — not started. (XP, Levels, Badges-as-Achievements, Streaks and the Leaderboard left this list in Milestone 5.)
@@ -112,6 +114,7 @@ lib/achievements.ts       achievement catalogue, evaluated from real facts (M5)
 lib/competitionDay.ts     the IST day boundary streaks are measured in (M5)
 services/                 question + taxonomy rules (M4);
                           activity, progress + challenge derivation (M5);
+                          result (published results, certificates, admin stats);
                           questionView (the shared answer-stripped projection)
 lib/audit.ts              audit-trail recorder (Milestone 3)
 middleware/               auth (authenticate/requireAuth/requirePermission),
@@ -128,7 +131,7 @@ validation/               zod schemas for auth + questions + taxonomy + users
                           + profile/settings (Milestone 5)
 scripts/                  dev-local, verify-email, migrate-questions,
                           backfill-activity (Milestone 5)
-tests/                    12 suites, 311 tests
+tests/                    12 suites, 322 tests
 ```
 
 `ExamAttempt` and `Result` remain defined and unwritten — but `ExamAttempt` is now **read** by the dashboard's test-performance panel, so it stops being dead the moment anything writes to it. Exactly **one** static mock is left in the backend: `GET /certificates/:studentId`, which nothing calls. `GET /questions` is real and authenticated but **still has no student-page caller** — the exam is a hardcoded quiz; the daily-challenge route is the first thing to serve a real question to a student.

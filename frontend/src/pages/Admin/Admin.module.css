@@ -89,6 +89,12 @@
   overflow-wrap: anywhere;
 }
 
+.sidebarFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .logoutBtn {
   display: flex;
   align-items: center;
@@ -219,6 +225,20 @@
   }
 
   .statRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+/** The two real platform charts that replaced the sample accuracy trend. */
+.chartRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+@media (max-width: 900px) {
+  .chartRow {
     grid-template-columns: 1fr;
   }
 }
