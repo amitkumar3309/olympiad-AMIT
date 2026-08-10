@@ -1,5 +1,4 @@
-import { Router, type Request, type Response } from 'express';
-import type mongoose from 'mongoose';
+import { Router } from 'express';
 import { config } from '../../config';
 import { Student, StudentPhoto, type StudentDocument } from '../../models';
 import { validate } from '../../middleware/validate';
@@ -27,10 +26,16 @@ import { hashPassword, verifyPassword } from '../../lib/password';
 import { permissionsFor, isPrivilegedRole } from '../../lib/permissions';
 import { recordAudit } from '../../lib/audit';
 import {
+  studentObjectId,
+  studentClaims,
+  setAccessCookie,
+  establishSession,
+  clearSessionCookies,
+} from '../../lib/session';
+import {
   signAccessToken,
   verifyAccessToken,
   type AccessTokenClaims,
-  issueRefreshToken,
   rotateRefreshToken,
   revokeRefreshToken,
   revokeAllRefreshTokens,
@@ -39,6 +44,7 @@ import {
 } from '../../lib/tokens';
 import { sendEmail, buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email';
 import { logger } from '../../lib/logger';
+import { recordActivity, touchDailyVisit } from '../../services/activityService';
 
 const router = Router();
 
@@ -77,37 +83,12 @@ function sessionEnvelope(student: StudentDocument) {
   return { role: student.role, permissions: permissionsFor(student.role), student: publicStudent(student) };
 }
 
-function studentObjectId(student: StudentDocument): mongoose.Types.ObjectId {
-  return student._id as mongoose.Types.ObjectId;
-}
-
-function studentClaims(student: StudentDocument): AccessTokenClaims {
-  return {
-    role: student.role,
-    sub: String(student._id),
-    studentId: student.studentId,
-    email: student.email,
-    tv: student.tokenVersion,
-  };
-}
-
-function setAccessCookie(res: Response, student: StudentDocument): void {
-  res.cookie(config.auth.accessCookieName, signAccessToken(studentClaims(student)), config.auth.accessCookieOptions);
-}
-
-async function establishSession(res: Response, student: StudentDocument, req: Request): Promise<void> {
-  setAccessCookie(res, student);
-  const refresh = await issueRefreshToken(studentObjectId(student), {
-    userAgent: req.get('user-agent') ?? undefined,
-    ip: req.ip,
-  });
-  res.cookie(config.auth.refreshCookieName, refresh.token, config.auth.refreshCookieOptions);
-}
-
-function clearSessionCookies(res: Response): void {
-  res.clearCookie(config.auth.accessCookieName, config.auth.accessCookieOptions);
-  res.clearCookie(config.auth.refreshCookieName, config.auth.refreshCookieOptions);
-}
+/**
+ * `studentObjectId`, `studentClaims`, `setAccessCookie`, `establishSession` and
+ * `clearSessionCookies` now live in `lib/session.ts`, because the account-settings
+ * password change also has to issue a session. Imported above rather than
+ * re-declared here.
+ */
 
 /**
  * `AMIT_xxxx` is only 4 digits, so collisions matter once there are a few
@@ -206,6 +187,11 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
       return;
     }
 
+    // The first entry on the student's activity feed, and the first XP they hold.
+    // Best-effort by design (see services/activityService.ts): a failed log write
+    // must not undo a completed registration.
+    await recordActivity({ student: studentObjectId(student), type: 'account_created' });
+
     await sendVerificationLink(student);
 
     sendSuccess(res, 201, {
@@ -248,6 +234,9 @@ router.post('/auth/verify-email', tokenSubmitLimiter, validate({ body: verifyEma
     if (!student.isEmailVerified) {
       student.isEmailVerified = true;
       await student.save();
+      // Only on the transition, so re-reading a link cannot pay twice — though the
+      // once-per-account unique index would refuse it anyway.
+      await recordActivity({ student: studentObjectId(student), type: 'email_verified' });
     }
 
     sendSuccess(res, 200, { message: 'Email verified. You can now sign in.', student: publicStudent(student) });
@@ -347,6 +336,10 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
     await student.save();
 
     await establishSession(res, student, req);
+
+    // Counts toward the daily streak. Idempotent per competition day, so signing in
+    // from a second device does not earn a second visit.
+    await touchDailyVisit(studentObjectId(student));
 
     // A sign-in by an account that holds administrative capability is itself worth
     // recording — it is the event every later administrative action hangs off.
@@ -594,8 +587,17 @@ router.post('/auth/reset-password', tokenSubmitLimiter, validate({ body: resetPa
     student.failedLoginAttempts = 0;
     student.lockedUntil = null;
     // Completing a reset proves control of the mailbox, so treat it as verifying it.
+    const wasUnverified = !student.isEmailVerified;
     student.isEmailVerified = true;
     await student.save();
+
+    // The feed should show a password change however it happened, not only when it
+    // was done from account settings. Same reasoning for the verification: the reset
+    // link proved control of the mailbox just as the verification link would have.
+    await recordActivity({ student: studentObjectId(student), type: 'password_changed', detail: 'Via emailed reset link' });
+    if (wasUnverified) {
+      await recordActivity({ student: studentObjectId(student), type: 'email_verified' });
+    }
 
     await revokeAllRefreshTokens(studentObjectId(student));
     clearSessionCookies(res);

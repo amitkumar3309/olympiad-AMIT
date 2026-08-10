@@ -205,11 +205,38 @@ The storage boundary enforces the same rules independently (`backend/src/lib/mat
 
 Relying on one render-time flag for a stored-content guarantee is the kind of single point of failure that stops being true when someone adds MathJax or flips a default, which is why both halves exist. Verified in a real browser: a `<script>` tag in a question produces **zero** script elements in the DOM and displays as escaped text; unparseable LaTeX shows its own source flagged in red rather than a blank.
 
+## Self-service account changes (Milestone 5)
+
+Three routes now let a student change their own account, so each was given a gate of its own.
+
+**Profile editing** (`PATCH /me/profile`) accepts only the nine descriptive fields. `email`, `mobile`, `studentId`, `role`, `status`, `isEmailVerified` and `tokenVersion` are **absent from the zod schema**, not filtered out in the handler — `validate` replaces the body with the parse result, so extra keys in a request cannot reach the update. A test posts all of them alongside the legitimate fields and asserts none changes. The email address and mobile number are excluded deliberately: both are unique login identifiers and `email` anchors password reset, so a one-request change would be an account-takeover primitive (set the address, then use "forgot password"). Changing them safely needs a confirm-at-the-new-address flow, which is not built — see [`DECISIONS.md`](DECISIONS.md).
+
+**Password change** (`POST /me/change-password`) requires the **current** password even though the caller already holds a valid session. That is the point: without it, a borrowed or stolen session could lock the real owner out of their own account. On success every refresh token is revoked and `tokenVersion` is bumped, then the calling device is issued a fresh session — so other devices are evicted while the student is not signed out of the page they are standing on. A wrong current password returns 401 and deliberately **does not** touch the failed-login counter: letting a wrong guess lock the account would hand any borrowed session an easy denial of service against the owner. The audit entry records that a change happened and never the password; a test asserts neither value appears in the stored document.
+
+**Photo replacement** (`PUT /me/photo`) reuses registration's validation unchanged — ≤2 MB, with the declared MIME type checked against the file's **magic bytes** rather than trusted. It is now one of only two paths granted a body limit above body-parser's 100 KB default; both the `/api/v1/me/photo` and `/api/me/photo` forms are listed in `app.ts`, because a limit holding on only one prefix would be bypassed by using the other. Both it and the password route sit behind a dedicated `accountUpdateLimiter` (20/hour) rather than only the general `/api` limiter.
+
+Photos still are **not re-encoded**, so EXIF (including any GPS tags a phone wrote) survives a replacement exactly as it survives a registration upload — unchanged from Milestone 4, and still open.
+
+**The audit trail now records self-service changes** (`student.profile.updated`, `student.photo.updated`, `student.password.changed`). Metadata names the changed **field names only**: the trail is readable by anyone holding `audit:read`, so a student's home address and date of birth are not copied into it. A test asserts the address value is absent.
+
+## Public data exposure (Milestone 5)
+
+`GET /leaderboard` and `GET /public/stats` are readable **without authentication** — an explicit decision by the project owner, taken so the landing page shows a real standing rather than the invented one it carried. What bounds the exposure:
+
+- Names are published as a **first name plus a last initial** ("Ishaan V."), never in full. The entrants are children in classes 5–12 and the landing page is public and indexable, so a full legal name beside a school and a class would identify a minor to anyone on the internet. `displayNameFor()` in `progressService.ts` is the single place that decides this; widening it is a deliberate one-line change and the owner's call.
+- No email address, mobile number, home address, date of birth or parent name is in the payload. Tests assert the full name, email and mobile do not appear.
+- `limit` is validated and **capped at 50**, so the endpoint returns a leaderboard and cannot be walked to enumerate the roll.
+- Suspended and deactivated accounts are excluded, filtered before the limit is applied.
+- `studentId` **is** returned, so a client can identify its own row. It is a public-facing identifier by design (it appears on certificates) rather than a secret — but note it is the parameter for `GET /students/:studentId/photo`, which remains gated on being that student or holding `students:read`, re-checked against the database.
+
+`/public/stats` returns only aggregate counts, which cannot be resolved to an individual.
+
 ## Remaining Gaps, in priority order
 
-1. **CSRF tokens** — now the clear top gap, and more pressing than before Milestone 3: there are real authenticated state-mutating routes to protect (role changes, account suspension), where previously there were almost none. Production cookies are `sameSite: 'none'` because the apps are on different domains, so `sameSite` is not doing this job.
+1. **CSRF tokens** — the clear top gap, and more pressing again after Milestone 5: alongside the administrative state-mutating routes, there are now student-facing ones on every account (`PATCH /me/profile`, `PUT /me/photo`, `POST /me/change-password`). The password route is partly self-protecting, since an attacker would also need the current password; the profile and photo routes are not. Production cookies are `sameSite: 'none'` because the apps are on different domains, so `sameSite` is not doing this job.
 2. **Shared-store rate limiting** — current limits are per-instance and weak on serverless.
 3. **Two-factor authentication** — not started, and now more valuable: an admin account is worth more than it was.
 4. **`JWT_SECRET` rotation** — no mechanism; rotating it invalidates every session at once.
-5. **Rate limiting on the administrative routes** — they sit behind the general `/api` limiter only, with no tighter per-route limit of their own.
-6. **Pre-existing `npm audit` findings** in `@vercel/node`'s build-time dependency tree; fixing needs a breaking major upgrade.
+5. **Rate limiting on the administrative routes** — they sit behind the general `/api` limiter only, with no tighter per-route limit of their own. (The self-service account routes added in Milestone 5 do have one, `accountUpdateLimiter`; the admin routes still do not.)
+6. **Changing your own email address or mobile number** — not possible at all, because doing it safely needs a confirm-at-the-new-address flow. Recorded here rather than only as a missing feature, because the reason it is absent is a security one.
+7. **Pre-existing `npm audit` findings** in `@vercel/node`'s build-time dependency tree; fixing needs a breaking major upgrade.

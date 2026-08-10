@@ -11,14 +11,24 @@ import v1Routes from './routes/v1';
 import { MAX_PHOTO_BYTES } from './models/StudentPhoto';
 
 /**
- * Registration carries a photo as a base64 data URL, which inflates the binary
- * by about a third, so that one route needs a much larger body than any other.
- * The allowance is granted **only** to registration rather than by raising the
- * global limit — every other endpoint keeps body-parser's 100 KB default, so a
- * large-payload flood still has exactly one (rate-limited) door to knock on.
+ * Two routes carry a photo as a base64 data URL, which inflates the binary by about
+ * a third, so they need a much larger body than any other: registration, and the
+ * profile-photo replacement added in Milestone 5.
+ *
+ * The allowance is granted **only** to those paths rather than by raising the global
+ * limit — every other endpoint keeps body-parser's 100 KB default, so a large-payload
+ * flood still has exactly two doors to knock on, both of them rate-limited (see
+ * `middleware/rateLimiter.ts`). Both prefixes are listed because `/api/*` is a
+ * compatibility alias for the same router: a limit that held on only one of them
+ * would be trivially bypassed by using the other.
  */
-const MAX_REGISTER_BODY_BYTES = Math.ceil(MAX_PHOTO_BYTES * 1.4);
-const REGISTER_PATHS = ['/api/v1/auth/register', '/api/auth/register'];
+const MAX_PHOTO_BODY_BYTES = Math.ceil(MAX_PHOTO_BYTES * 1.4);
+const PHOTO_UPLOAD_PATHS = [
+  '/api/v1/auth/register',
+  '/api/auth/register',
+  '/api/v1/me/photo',
+  '/api/me/photo',
+];
 
 export function createApp() {
   const app = express();
@@ -29,7 +39,7 @@ export function createApp() {
   app.use(cors({ origin: config.cors.origins, credentials: true }));
   // Mounted first so it wins for these paths; body-parser marks the request as
   // read, so the general parser below then skips it.
-  app.use(REGISTER_PATHS, express.json({ limit: MAX_REGISTER_BODY_BYTES }));
+  app.use(PHOTO_UPLOAD_PATHS, express.json({ limit: MAX_PHOTO_BODY_BYTES }));
   app.use(express.json());
   app.use(cookieParser());
 

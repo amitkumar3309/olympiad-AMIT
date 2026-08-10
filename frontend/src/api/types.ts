@@ -130,6 +130,9 @@ export interface Pagination {
 export type AuditAction =
   | 'user.role.changed'
   | 'student.status.changed'
+  | 'student.profile.updated'
+  | 'student.photo.updated'
+  | 'student.password.changed'
   | 'questions.generated'
   | 'question.created'
   | 'question.updated'
@@ -307,3 +310,206 @@ export interface QuestionInput {
 
 export const QUESTION_SORT_KEYS = ['createdAt', 'updatedAt', 'marks', 'difficulty', 'classLevel'] as const
 export type QuestionSortKey = (typeof QUESTION_SORT_KEYS)[number]
+
+// ---------------------------------------------------------------------------
+// Profile, progress and dashboard (Milestone 5)
+// ---------------------------------------------------------------------------
+
+/** The student's own full profile, from `GET /me/profile`. */
+export interface OwnProfile {
+  studentId: string
+  fullName: string | null
+  firstName: string | null
+  middleName: string | null
+  lastName: string | null
+  fatherName: string | null
+  motherName: string | null
+  /** `YYYY-MM-DD`. */
+  dateOfBirth: string | null
+  classLevel: ClassLevel | null
+  schoolName: string | null
+  address: string | null
+  /** Identity fields — displayed, but not editable here. See profileSchemas.ts. */
+  mobile: string
+  email: string
+  isEmailVerified: boolean
+  status: AccountStatus
+  role: Role
+  registeredAt: string
+  lastLoginAt: string | null
+  hasPhoto: boolean
+}
+
+/** The editable subset, as `PATCH /me/profile` expects it. */
+export interface ProfileUpdateInput {
+  firstName: string
+  middleName: string | null
+  lastName: string
+  fatherName: string
+  motherName: string
+  dateOfBirth: string
+  classLevel: ClassLevel
+  schoolName: string
+  address: string
+}
+
+/** Mirrors `ACTIVITY_TYPES` in `backend/src/models/StudentActivity.ts`. */
+export const ACTIVITY_TYPES = [
+  'account_created',
+  'email_verified',
+  'daily_visit',
+  'profile_updated',
+  'photo_updated',
+  'password_changed',
+] as const
+export type ActivityType = (typeof ACTIVITY_TYPES)[number]
+
+/** How each recorded event is described to the student, with its icon. */
+export const ACTIVITY_LABELS: Record<ActivityType, { label: string; icon: string }> = {
+  account_created: { label: 'Joined the Olympiad', icon: 'ph-user-plus' },
+  email_verified: { label: 'Verified your email address', icon: 'ph-seal-check' },
+  daily_visit: { label: 'Showed up for the day', icon: 'ph-flame' },
+  profile_updated: { label: 'Updated your profile', icon: 'ph-pencil-simple' },
+  photo_updated: { label: 'Changed your photo', icon: 'ph-camera' },
+  password_changed: { label: 'Changed your password', icon: 'ph-lock-key' },
+}
+
+export interface ActivityEntry {
+  id: string
+  type: ActivityType
+  xpAwarded: number
+  detail: string | null
+  /** Competition-local `YYYY-MM-DD`. */
+  occurredOn: string
+  createdAt: string
+}
+
+export interface StreakSummary {
+  current: number
+  longest: number
+  activeDays: number
+  lastActiveOn: string | null
+  countedToday: boolean
+}
+
+export interface ProgressSummary {
+  xp: number
+  level: number
+  levelStartsAt: number
+  nextLevelAt: number
+  xpIntoLevel: number
+  xpForNextLevel: number
+  percentToNextLevel: number
+  streak: StreakSummary
+}
+
+export interface Achievement {
+  code: string
+  name: string
+  description: string
+  icon: string
+  earned: boolean
+  progress: number
+  target: number
+}
+
+export interface AchievementSummary {
+  earnedCount: number
+  total: number
+  earned: Achievement[]
+  next: Achievement[]
+}
+
+export interface LeaderboardRow {
+  rank: number
+  studentId: string
+  /** First name plus last initial — the backend never publishes a child's full name. */
+  displayName: string
+  classLevel: string | null
+  schoolName: string | null
+  xp: number
+}
+
+export interface LeaderboardStanding {
+  /** Null when the student has no XP yet, i.e. is genuinely not ranked. */
+  rank: number | null
+  xp: number
+  totalRanked: number
+}
+
+/**
+ * A submitted exam attempt. Always an empty list today, because nothing in the
+ * product writes an `ExamAttempt` yet — the dashboard renders its empty state
+ * rather than sample scores. The shape is here so the panel starts working when
+ * exam submission lands.
+ */
+export interface ExamPerformance {
+  id: string
+  submittedAt: string | null
+  totalScore: number
+  accuracy: number
+  timeTakenSeconds: number
+  questionCount: number
+}
+
+/** Real published-question availability for the student's class, per subject. */
+export interface SubjectChallenge {
+  subjectId: string
+  subjectName: string
+  questionCount: number
+  difficulties: string[]
+  totalMarks: number
+}
+
+export interface DashboardData {
+  student: {
+    studentId: string
+    fullName: string | null
+    firstName: string | null
+    classLevel: ClassLevel | null
+    schoolName: string | null
+  }
+  progress: ProgressSummary
+  activity: ActivityEntry[]
+  recentTests: ExamPerformance[]
+  achievements: AchievementSummary
+  leaderboard: { top: LeaderboardRow[]; me: LeaderboardStanding }
+  challenges: SubjectChallenge[]
+  /** The competition day the figures were computed for. */
+  today: string
+}
+
+/** Real participation counts for the public landing page. */
+export interface PublicStats {
+  studentsRegistered: number
+  registeredToday: number
+  schoolsRepresented: number
+  studentsActiveToday: number
+}
+
+/**
+ * The student-facing view of a question — no `isCorrect`, `solution`,
+ * `booleanAnswer`, `numericAnswer` or `tolerance`. Kept as its own interface rather
+ * than making those optional on `AdminQuestion`: optional answer fields are how an
+ * answer key eventually leaks into a student view.
+ */
+export interface StudentQuestion {
+  id: string
+  questionText: string
+  type: QuestionType
+  options: Array<{ key: string; text: string }>
+  subject: QuestionRef | null
+  topic: QuestionRef | null
+  subtopic: QuestionRef | null
+  classLevel: ClassLevel
+  difficulty: Difficulty
+  marks: number
+  negativeMarks: number
+  tags: string[]
+  revision: number
+}
+
+export interface DailyChallenge {
+  day: string
+  question: StudentQuestion
+}

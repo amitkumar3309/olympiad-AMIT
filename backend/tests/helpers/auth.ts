@@ -15,6 +15,17 @@ export const TINY_JPEG_BASE64 =
 export const validPhoto = `data:image/jpeg;base64,${TINY_JPEG_BASE64}`;
 
 /**
+ * A second, byte-wise different image, used to prove a photo was actually replaced
+ * rather than merely re-accepted. It is a 1x1 PNG; the leading bytes are the real
+ * PNG signature, which is the part validation checks (see `validation/authSchemas.ts`
+ * — the file is never decoded as an image, only its header and size are examined).
+ */
+export const TINY_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+export const validPngPhoto = `data:image/png;base64,${TINY_PNG_BASE64}`;
+
+/**
  * Every field registration requires as of Milestone 4. Kept as one fixture so a
  * future change to the required set is a single edit here rather than in every
  * suite that needs an account.

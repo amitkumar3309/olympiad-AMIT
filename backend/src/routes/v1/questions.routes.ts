@@ -4,8 +4,9 @@ import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { sendSuccess } from '../../lib/apiResponse';
 import { respondToServiceError } from '../../lib/serviceError';
-import { STUDENT_VISIBLE_STATUSES, type QuestionDocument } from '../../models';
+import { STUDENT_VISIBLE_STATUSES } from '../../models';
 import { listQuestions, findQuestionById } from '../../services/questionService';
+import { studentQuestionView } from '../../services/questionView';
 import {
   listQuestionsPublicQuerySchema,
   questionIdParamSchema,
@@ -16,58 +17,11 @@ import { ApiError } from '../../lib/ApiError';
 const router = Router();
 
 /**
- * A populated `subject` / `topic` ref, once `.populate('subject', 'name slug')` has
- * run. Mongoose types the field as the id, so this narrows it without `any`.
+ * The answer-stripped `studentQuestionView` this file used to define now lives in
+ * `services/questionView.ts`, because the daily challenge needs the same projection
+ * and a second hand-written stripper is how an answer key eventually leaks. It is
+ * still deliberately separate from the author view in `questionsAdmin.routes.ts`.
  */
-interface PopulatedRef {
-  _id: unknown;
-  name?: string;
-  slug?: string;
-}
-
-function refView(value: unknown): { id: string; name: string | null } | null {
-  if (!value) return null;
-  if (typeof value === 'object' && 'name' in (value as PopulatedRef)) {
-    const ref = value as PopulatedRef;
-    return { id: String(ref._id), name: ref.name ?? null };
-  }
-  return { id: String(value), name: null };
-}
-
-/**
- * The **student** view of a question.
- *
- * This is the security-critical function in this file. Before Milestone 4 the
- * questions endpoint had no authentication at all and returned raw documents, so
- * `correctAnswer` — the entire answer key — was readable by anyone on the internet.
- * It is now an explicit allow-list, and the three things that would give the answer
- * away are omitted by construction rather than deleted afterwards:
- *
- *  - `isCorrect` on each option (options keep only `key` and `text`),
- *  - `booleanAnswer` / `numericAnswer` / `tolerance`,
- *  - `solution`.
- *
- * Adding a field here is therefore a deliberate act. A test asserts none of these
- * names appears in the response body.
- */
-function studentQuestionView(question: QuestionDocument) {
-  return {
-    id: String(question._id),
-    questionText: question.questionText,
-    type: question.type,
-    // Only the key and the text — never `isCorrect`.
-    options: question.options.map((option) => ({ key: option.key, text: option.text })),
-    subject: refView(question.subject),
-    topic: refView(question.topic),
-    subtopic: refView(question.subtopic),
-    classLevel: question.classLevel,
-    difficulty: question.difficulty,
-    marks: question.marks,
-    negativeMarks: question.negativeMarks,
-    tags: question.tags,
-    revision: question.revision,
-  };
-}
 
 /**
  * Lists questions for a student.

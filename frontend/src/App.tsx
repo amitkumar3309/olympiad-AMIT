@@ -22,6 +22,7 @@ const AdminTaxonomy = lazy(() => import('./pages/Admin/Taxonomy'))
 const AiGenerator = lazy(() => import('./pages/AiGenerator/AiGenerator'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
+import Profile from './pages/Profile/Profile'
 import Exam from './pages/Exam/Exam'
 import Certificate from './pages/Certificate/Certificate'
 import Report from './pages/Report/Report'
@@ -117,6 +118,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             }
           />

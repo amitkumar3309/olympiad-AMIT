@@ -6,6 +6,7 @@ export * from './Question';
 export * from './ExamAttempt';
 export * from './Result';
 export * from './StudentAnalytics';
+export * from './StudentActivity';
 export * from './RefreshToken';
 export * from './VerificationToken';
 export * from './AuditLog';

@@ -292,3 +292,45 @@ cd backend && npm test
 **Cause**: promotion deliberately requires the target to have a verified email address and `status: 'active'`, so administrative access is never handed to an account whose owner has not proven control of the mailbox. In production, **an unconfigured SMTP setup makes this unreachable**: verification links are only written to the server log, so nobody can verify, so nobody can be promoted.
 **Solution**: configure SMTP (see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)) and have the prospective admin complete the verification link. In local development the link is printed in the backend log and works as-is.
 **Verification**: `GET /api/v1/admin/students/AMIT_xxxx` shows `isEmailVerified: true` and `status: "active"`, after which the promotion returns `200` with `changed: true`.
+
+## A student registered before Milestone 5 shows 0 XP and an empty activity feed
+
+**Problem**: an account that has existed for a while, and has plainly registered and verified its email, opens the dashboard and sees 0 XP, level 1, no streak and "Nothing recorded yet".
+**Cause**: Milestone 5 derives XP, levels, streaks and achievements entirely from the `StudentActivity` collection, which is written going forward. An account created before that milestone has no rows, so the honest derivation is zero. This is not data loss — nothing was ever stored to lose.
+**Solution**: run the backfill, which writes the enrolment rows from facts already on the `Student` document. It is **report-only by default**, so the first command changes nothing:
+
+```bash
+npx tsx scripts/backfill-activity.ts
+```
+
+Then, from the `backend/` directory, apply it:
+
+```bash
+npx tsx scripts/backfill-activity.ts --write
+```
+
+Notes:
+- It is **idempotent** — the partial unique index on the collection refuses a duplicate, so running it twice writes nothing the second time and reports `0`.
+- `account_created` is dated from the account's real `registeredAt`; `email_verified` is written **only** where `isEmailVerified` is genuinely true.
+- It deliberately does **not** invent `daily_visit` rows. A backfilled account therefore starts with a real XP total and a streak of **zero** until the next time the student actually shows up — because a streak it did not keep would be exactly the fabricated statistic this milestone exists to avoid.
+- It targets whatever `MONGO_URI` points at, which for `backend/.env` is **production**. Override it for a local run: `MONGO_URI=mongodb://127.0.0.1:27017/amit-olympiad-local npx tsx scripts/backfill-activity.ts --write`.
+
+**Verification**: the student's dashboard shows 100 XP (50 + 50) and an activity feed with "Joined the Olympiad" and "Verified your email address", both dated from the original registration.
+
+## The dashboard's "Recent test performance" panel is always empty
+
+**Problem**: the panel says "No results yet. Scored exams are not running yet."
+**Cause**: this is correct and expected. Nothing in the product writes an `ExamAttempt` — the exam page is still a client-side hardcoded quiz that submits nothing (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)). The dashboard runs a **real query** against the empty collection rather than returning a hardcoded `[]`, so the panel will start working on its own the moment exam submission exists.
+**Solution**: none needed. When implementing exam submission, note that `progressService.getRecentExamPerformance()` matches on the human-facing `AMIT_xxxx` id, because that is what `ExamAttempt.studentId` is typed as — see the note at the end of [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md).
+
+## A streak breaks even though the student visited "yesterday"
+
+**Problem**: a student who used the site late at night finds their streak reset.
+**Cause**: check whether the visit fell after **18:30 UTC**, which is midnight IST. The competition day is an IST calendar day (`lib/competitionDay.ts`), so a visit at 00:30 IST belongs to the new day — which is the *correct* behaviour and the reason the module exists. A genuine break means no `daily_visit` row exists for either today or yesterday; note that a streak stays alive while the last visit was yesterday, because today has not been lost yet.
+**Solution**: inspect the raw days with `db.studentactivities.distinct('occurredOn', { student: ObjectId('...') })` and compare against the IST date. If the keys disagree with the IST calendar date, that is a real bug in `dayKeyOf` — covered by tests in `tests/dashboard.test.ts`.
+
+## A photo change does not appear on the profile page
+
+**Problem**: `PUT /api/v1/me/photo` returns 200, but the picture on screen is the old one.
+**Cause**: `GET /students/:studentId/photo` sends `Cache-Control: private, max-age=300`, so the browser holds the previous image for five minutes.
+**Solution**: the profile page already appends a changing `?v=` query parameter after a successful upload, which is what makes the new photo appear immediately. If you are calling the endpoint yourself, do the same, or hard-reload. The stored document really has changed — check `db.studentphotos.findOne({...}).contentType` and `.size`.

@@ -1,0 +1,344 @@
+.page {
+  padding: 32px 0 64px;
+  min-height: 60vh;
+}
+
+.centered {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  margin: 0 0 4px;
+}
+
+.sub {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.backLink:hover {
+  color: var(--royal-blue);
+}
+
+.successText {
+  color: #16a34a;
+  font-weight: 600;
+  font-size: 14px;
+  margin: 0 0 12px;
+}
+
+/* ---------------------------------------------------------------------------
+   Layout: photo beside details, settings across the bottom
+--------------------------------------------------------------------------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.photoCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detailsCard,
+.settingsCard {
+  min-width: 0;
+}
+
+.settingsCard {
+  grid-column: 1 / -1;
+}
+
+.photoCard h2,
+.detailsCard h2,
+.settingsCard h2 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.settingsCard h3 {
+  margin: 0 0 10px;
+  font-size: 15px;
+}
+
+.photo,
+.photoEmpty,
+.preview {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.photoEmpty {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.photoEmpty i {
+  font-size: 40px;
+}
+
+.preview {
+  width: 56px;
+  height: 56px;
+  aspect-ratio: auto;
+}
+
+.fileLabel {
+  display: block;
+}
+
+.fileLabel input[type='file'] {
+  display: block;
+  width: 100%;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.fileLabel span {
+  display: none;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
+
+.pendingPhoto {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.pendingPhoto > :last-child {
+  grid-column: 1 / -1;
+}
+
+.fileName {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------------------
+   Read view
+--------------------------------------------------------------------------- */
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sectionHead h2 {
+  margin: 0;
+}
+
+.editBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  color: var(--text-main);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.editBtn:hover {
+  border-color: var(--royal-blue);
+  color: var(--royal-blue);
+}
+
+.readList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px 20px;
+  margin: 0;
+}
+
+.readList > div {
+  min-width: 0;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.readList dt {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.readList dd {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #16a34a;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.unverified {
+  color: #d97706;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   Forms
+--------------------------------------------------------------------------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+.form input,
+.form select,
+.form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-main);
+  font: inherit;
+  font-weight: 500;
+}
+
+.form input:focus,
+.form select:focus,
+.form textarea:focus {
+  outline: 2px solid var(--royal-blue);
+  outline-offset: 1px;
+}
+
+.form textarea {
+  resize: vertical;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.required {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.formActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.secondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.secondaryBtn:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 22px 0 18px;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsCard {
+    grid-column: auto;
+  }
+}

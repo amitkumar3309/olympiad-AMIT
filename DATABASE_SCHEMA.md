@@ -280,6 +280,41 @@ Indexes: `{ createdAt: -1 }`, `{ action: 1, createdAt: -1 }`, `{ actor: 1, creat
 
 ---
 
+## `StudentActivity` — ACTIVE (added in Milestone 5)
+
+Purpose: the append-only log of real student events. It is the **single source of truth for XP, levels, streaks and achievements** — none of those is stored anywhere else, and there is deliberately no progress-counter document (see [`DECISIONS.md`](DECISIONS.md)).
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `student` | ObjectId -> `Student` | **yes** | — | Indexed with `createdAt` and with `occurredOn`. |
+| `type` | String enum | **yes** | — | Closed list: `account_created`, `email_verified`, `daily_visit`, `profile_updated`, `photo_updated`, `password_changed`. Closed so nothing can quietly start awarding XP for an event nobody defined. |
+| `xpAwarded` | Number | **yes** | — | What the event was worth **at the time**, copied from `XP_AWARDS` in `lib/xp.ts` at write time rather than looked up on read, so re-pricing an event later cannot silently restate what students already earned — the same reasoning as `AuditLog.actorRole`. Min 0. |
+| `occurredOn` | String | **yes** | — | The competition-local calendar day, `YYYY-MM-DD`, from `lib/competitionDay.ts`. **IST, not UTC** — see the ADR. This is what the streak is computed from. |
+| `dedupeKey` | String \| *absent* | no | — | Uniqueness token: `'once'` for a once-per-account type, the day key for a once-per-day type, and **genuinely absent** for a repeatable type. Absent rather than `null`, because the unique index below is partial on its *existence* — a stored `null` would make every repeatable event collide with the previous one. |
+| `detail` | String \| null | no | `null` | Short human-readable detail for the feed, e.g. `Class 9 → Class 10`. |
+| `createdAt` | Date | no | `Date.now` | |
+
+Indexes:
+- `{ student: 1, createdAt: -1 }` — the feed, newest first.
+- `{ student: 1, occurredOn: -1 }` — backs the `distinct('occurredOn')` query the streak derives from.
+- `{ student: 1, type: 1, dedupeKey: 1 }` — **unique, partial** on `{ dedupeKey: { $exists: true } }`.
+
+That partial unique index is what makes "once per day" and "once per account" true rather than merely intended. `recordActivity()` inserts and treats a duplicate-key error as "already counted", which is race-free in a way a read-then-write check across two serverless invocations would not be. It must be *partial* rather than plain (a plain unique index would forbid a student from ever editing their profile twice) and cannot be `sparse` (sparse skips only documents missing *every* indexed field, and these always have `student` and `type`).
+
+**Deliberately no TTL index**, like `AuditLog` and unlike the two token collections: expiring a row would silently take XP away from a student who earned it.
+
+**Writes are best-effort.** `recordActivity()` never throws — a failed log write must not fail the registration or password change it describes. The trade-off is that a lost write costs that event's XP, and shows up as an `error`-level log line (see [`DECISIONS.md`](DECISIONS.md)).
+
+**Accounts created before Milestone 5 have no rows**, so they read as 0 XP with an empty feed. `backend/scripts/backfill-activity.ts` writes the `account_created` row — and, where `isEmailVerified` is genuinely true, `email_verified` — from facts already on the `Student` document, dated from its real `registeredAt`. It deliberately does **not** invent `daily_visit` rows, so nobody is handed a streak they did not keep. Idempotent; see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
+---
+
 ## Models Planned But Not Implemented
 
-None formally planned yet in code or docs prior to this audit. Based on the UI's implied needs (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)), future models will likely be needed for: `Exam` (definitions, distinct from attempts), `Leaderboard` (or derive it from `Result`), `Certificate` and `DailyChallenge`. (`AdminAuditLog` was on this list and is now implemented as `AuditLog`, above.) None of these should be added without a corresponding [`DECISIONS.md`](DECISIONS.md) entry and a matching [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) update.
+Based on the UI's implied needs (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)), future models will likely be needed for: `Exam` (definitions, distinct from attempts), `Certificate`, and possibly `DailyChallenge`. (`AdminAuditLog` was on this list and is now implemented as `AuditLog`; `Leaderboard` is on it no longer — Milestone 5 derives the standing by aggregating `StudentActivity` rather than storing it.) None of these should be added without a corresponding [`DECISIONS.md`](DECISIONS.md) entry and a matching [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) update.
+
+## Note for whoever implements exam submission
+
+`ExamAttempt` and `Result` are still **DEAD** (declared, unwritten), and they predate Milestone 4's `Question` rewrite: `ExamAttempt.studentId` is a `String`, its `answers[].selectedOption` a `String` rather than an option `key`, and `Result.examId` a free-text string with no exam entity behind it. They will need rewriting, not merely wiring.
+
+One coupling to know about now: `progressService.getRecentExamPerformance()` — which powers the dashboard's "recent test performance" panel, currently and truthfully empty — queries `ExamAttempt.find({ studentId, status: 'Submitted' })` using the **human-facing `AMIT_xxxx` id**, because that is what the field is typed as. Whoever implements submission must either write that same value or change that one query.

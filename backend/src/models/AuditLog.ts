@@ -11,6 +11,21 @@ export const AUDIT_ACTIONS = [
   'user.role.changed',
   /** An admin suspended, deactivated or reactivated an account. */
   'student.status.changed',
+  /**
+   * A student edited their own profile details. Recorded for the same reason an
+   * administrator's edit would be: this is a change to an account, and the trail
+   * has to be able to answer "who changed this school name, and when?" even when
+   * the answer is "the student did". Milestone 5.
+   */
+  'student.profile.updated',
+  /** A student replaced their own profile photo. */
+  'student.photo.updated',
+  /**
+   * A student changed their own password from account settings. The password itself
+   * is of course never recorded — only that the change happened, because an
+   * unexpected one is what a compromised account looks like.
+   */
+  'student.password.changed',
   /** Questions were written to the bank in bulk by the generator route. */
   'questions.generated',
   /** A single question was authored. */

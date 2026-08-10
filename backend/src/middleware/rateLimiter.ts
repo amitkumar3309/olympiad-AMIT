@@ -59,6 +59,21 @@ export const tokenSubmitLimiter = limiter({
   message: 'Too many attempts. Please request a new link.',
 });
 
+/**
+ * Self-service account changes: password change and photo replacement.
+ *
+ * Tighter than ordinary API traffic for two different reasons. The password route
+ * takes the *current* password, which makes it a second place an attacker with a
+ * stolen session could guess it; and the photo route is the only other endpoint
+ * allowed a multi-megabyte body, so it needs a limit of its own rather than sitting
+ * behind the general one.
+ */
+export const accountUpdateLimiter = limiter({
+  windowMs: HOUR,
+  limit: 20,
+  message: 'Too many account changes. Please wait a while before trying again.',
+});
+
 /** Refresh is called routinely by every active client, so this is generous. */
 export const refreshLimiter = limiter({
   windowMs: 15 * MINUTE,

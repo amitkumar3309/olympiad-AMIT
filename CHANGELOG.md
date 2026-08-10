@@ -2,6 +2,38 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-10 — Milestone 5: Student Profile and Dashboard
+
+Students can now see and change their own account, and the dashboard shows real progress instead of decoration. The governing constraint was **no fake statistics**: every figure on every page this milestone touched is derived from a database read, and where a student has no data the panel says so and explains why.
+
+**Self-service profile** — closes the gap recorded since Milestone 4 as "no one can edit their own details after registering", which until now needed a direct database edit.
+- New `/profile` page: view and edit the nine descriptive registration fields, with `fullName` re-derived server-side.
+- **Photo replacement** (`PUT /me/photo`), fixing known bug #9 ("a photo cannot be replaced or removed"). Same 2 MB / magic-byte validation as registration; upserts, so a legacy account without a photo also works. No delete — the photo is a required part of an entrant's record.
+- **Change password** from account settings, requiring the current password so a borrowed session cannot lock the owner out. Revokes every other session and re-issues one for the current device, so the student is not signed out of the page they are standing on.
+- `email` and `mobile` are deliberately **not** editable — they are the login identifiers and `email` anchors password reset, so changing one needs a confirm-at-the-new-address flow. They are absent from the zod schema rather than filtered in the handler, so extra keys in a request cannot reach the update.
+
+**Progress, derived not stored** — new `StudentActivity` collection, the single source of truth for XP, levels, streaks and achievements. There is no counter document: XP is a `$sum` over real events, the level is a pure function of it, the streak is computed from the distinct days present. A counter that drifts from the events behind it is exactly how "no fake statistics" gets broken.
+- XP comes only from events that really happen: account created (50), email verified (50), daily visit (10, once per competition day). Profile, photo and password changes appear on the feed but are worth **0** — they are repeatable at will, and paying for them would make XP a measure of pressing Save. No exam XP, because no exam attempt is recorded anywhere yet.
+- A day is an **IST** calendar day, not a UTC one (`lib/competitionDay.ts`). UTC would file a 00:30 IST visit under the previous day and break a streak the student had in fact kept.
+- "Once per day" and "once per account" are enforced by a **partial unique index**, not by a check, so two concurrent requests cannot both earn the same visit.
+- Achievements are evaluated from real facts on every read, with real progress toward the locked ones. No exam or accuracy achievement is listed: a permanently unearnable row with a bar that can never move is a fake statistic wearing a lock icon.
+
+**Dashboard rewritten** — the three hardcoded stat tiles ("1,280 challenges solved today", "8.91s fastest solve", "450+ participating schools") and the three-name invented leaderboard are gone. Now: XP and level with progress to the next, streak (current and best), leaderboard rank, achievements earned, a real activity feed, available practice derived from the published question bank for the student's own class, and recent test performance.
+- **Recent test performance** is a live query against `ExamAttempt`, which nothing writes to yet — so it is honestly empty and the panel says scored exams are not running yet. Written as a real query rather than a hardcoded `[]` so it starts working the moment exam submission lands.
+
+**Two mock endpoints became real.** `GET /leaderboard` now aggregates actual XP, and `GET /daily-challenge` returns a deterministic published question for the caller's class (now authenticated, where the mock was open, because it returns question content). New `GET /public/stats` gives the landing page real counts. The landing page's invented "Today's Champions" and four headline figures are replaced by both — the project owner's explicit choice.
+- The public leaderboard publishes a **first name and last initial** ("Ishaan V."), not a full name: the entrants are children in classes 5–12 and the page is public and indexable. `limit` is capped at 50 so it returns a leaderboard rather than an enumerable roll; suspended accounts are excluded before the limit; a student with no XP is genuinely unranked rather than listed last.
+
+**Audit trail** — three actions added (`student.profile.updated`, `student.photo.updated`, `student.password.changed`), because a change to an account belongs in the trail whoever made it, including its own owner. Metadata names the changed **field names, never their values**: the trail is readable by any admin, and a student's home address should not be copied into it.
+
+**Refactors** — session cookie handling moved out of `auth.routes.ts` into `lib/session.ts`, since the password change also has to issue a session; the answer-stripped `studentQuestionView` moved into `services/questionView.ts`, so the daily challenge reuses it instead of a second hand-written stripper (still deliberately separate from the author view). New `accountUpdateLimiter` (20/hour) on the password and photo routes.
+
+**Fixed along the way** — `optionalName` accepted `''` and `undefined` but not `null`, so "remove my middle name" was a 400 on a JSON PATCH. It now accepts all three.
+
+**Migration** — `backend/scripts/backfill-activity.ts` gives pre-Milestone-5 accounts the enrolment rows they have already earned, dated from their real `registeredAt`. Idempotent, and deliberately does **not** invent `daily_visit` rows, so nobody is handed a streak they did not keep. Report-only by default; `--write` applies.
+
+**Testing** — 82 new tests across `tests/profile.test.ts` (27) and `tests/dashboard.test.ts` (55), taking the suite from 224 to **306**. They pin the exact XP a new account holds (an explainable 110, not "some number"), cover the IST day boundary and leap years, the streak rules including a run kept alive by yesterday's visit, the level thresholds and their edges, the leaderboard's ranking, masking and exclusions, that a student cannot change their own role or status, that the audit entry omits the address value, and that the specific invented figures this milestone deleted no longer appear in any response.
+
 ## 2026-08-05 — Milestone 4: Complete Question Bank System
 
 The question bank became a real, authored system: a subject/topic/subtopic taxonomy, four question types with per-type answer shapes, marks and negative marks, an editorial workflow, tags, search/filter/sort/pagination, and an admin UI with a live maths preview. **No exam, results, certificate or leaderboard behaviour changed** — those surfaces are still mock; this milestone builds what they will eventually read from.

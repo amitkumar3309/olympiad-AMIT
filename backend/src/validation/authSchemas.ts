@@ -16,7 +16,7 @@ const email = z.string().trim().toLowerCase().pipe(z.string().email('Enter a val
  * classes: length is what actually resists guessing, and over-strict class rules
  * push people toward predictable substitutions.
  */
-const password = z
+export const password = z
   .string()
   .min(8, 'Password must be at least 8 characters')
   .max(200, 'Password must be at most 200 characters')
@@ -47,14 +47,22 @@ function nameShape(label: string) {
     );
 }
 
-function requiredName(label: string) {
+export function requiredName(label: string) {
   return nameShape(label).refine((v) => v.length >= 2, `${label} is required`);
 }
 
-/** Absent, empty or whitespace all normalise to `null` so the column has one "no value". */
-function optionalName(label: string) {
+/**
+ * Absent, `null`, empty or whitespace all normalise to `null`, so the column has
+ * exactly one representation of "no value".
+ *
+ * `nullish` rather than `optional`: a form omits a field it has no value for, but a
+ * JSON client *clearing* one sends an explicit `null`, and both mean the same thing
+ * here. Accepting only `undefined` made "remove my middle name" a 400 on the profile
+ * edit endpoint.
+ */
+export function optionalName(label: string) {
   return nameShape(label)
-    .optional()
+    .nullish()
     .transform((v) => (v && v.length > 0 ? v : null));
 }
 
@@ -63,7 +71,7 @@ function optionalName(label: string) {
  * bounds are deliberately loose — wide enough never to reject a real entrant for
  * classes 5–12, tight enough to catch a typo'd century or a future date.
  */
-const dateOfBirth = z
+export const dateOfBirth = z
   .string({ error: 'Date of birth is required' })
   .trim()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Enter the date of birth as YYYY-MM-DD')
@@ -96,7 +104,7 @@ const MAX_PHOTO_KB = Math.round(MAX_PHOTO_BYTES / 1024);
  * new dependency, and works with the existing `validate` middleware and the
  * `{ success, ... }` envelope. See the Milestone 4 ADR in DECISIONS.md.
  */
-const photo = z
+export const photo = z
   .string({ error: 'A photo is required' })
   .min(1, 'A photo is required')
   .superRefine((value, ctx) => {

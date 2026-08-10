@@ -1,10 +1,11 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 import Button from '../../components/Button'
 import { useAuth, ApiError } from '../../context/AuthContext'
-import { CLASS_LEVELS, type ClassLevel } from '../../api/types'
+import { api } from '../../api/client'
+import { CLASS_LEVELS, type ClassLevel, type LeaderboardRow, type PublicStats } from '../../api/types'
 import qrCode from '../../assets/my_qr.png'
 import styles from './Landing.module.css'
 
@@ -16,11 +17,14 @@ import styles from './Landing.module.css'
  */
 type WizardStep = 'details' | 'payment' | 'success'
 
-const CHAMPIONS = [
-  { rank: '🥇', name: 'Amit Kumar', school: 'SGS DAV, Hanumangarh, Rajasthan', meta: 'Class 8 · 8.91s', badge: 'Golden Crown (+50 XP)' },
-  { rank: '🥈', name: 'Aarav Mehta', school: 'DPS Delhi, New Delhi', meta: 'Class 10 · 9.12s', badge: 'Silver Crown (+30 XP)' },
-  { rank: '🥉', name: 'Sneha Kulkarni', school: "St. Xavier's, Mumbai", meta: 'Class 9 · 9.35s', badge: 'Bronze Crown (+20 XP)' },
-]
+/**
+ * The champions list and the four headline figures used to be hardcoded here —
+ * invented names, schools and solve times, plus "450+ participating schools". They
+ * are now fetched from `GET /leaderboard` and `GET /public/stats`, both of which
+ * return real counts. Where there is no data yet, the section says so rather than
+ * showing a number nobody can account for.
+ */
+const MEDALS = ['🥇', '🥈', '🥉']
 
 const FAQS = [
   { q: 'Who can participate?', a: 'Students from Class 5 to Class 12, across any school board, can register for the Olympiad.' },
@@ -104,12 +108,29 @@ export default function Landing() {
   const [registeredId, setRegisteredId] = useState('')
   const [resendNotice, setResendNotice] = useState('')
 
+  // Real public figures. Both are best-effort: the landing page must still render if
+  // the API is unreachable, so a failure leaves them empty rather than blocking the
+  // registration form behind an error screen.
+  const [stats, setStats] = useState<PublicStats | null>(null)
+  const [champions, setChampions] = useState<LeaderboardRow[] | null>(null)
+
   const [loginOpen, setLoginOpen] = useState(false)
   const [loginIdentifier, setLoginIdentifier] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [needsVerification, setNeedsVerification] = useState(false)
   const [loginSubmitting, setLoginSubmitting] = useState(false)
+
+  useEffect(() => {
+    void api
+      .get<{ stats: PublicStats }>('/public/stats')
+      .then((res) => setStats(res.stats))
+      .catch(() => setStats(null))
+    void api
+      .get<{ leaderboard: LeaderboardRow[] }>('/leaderboard?limit=3')
+      .then((res) => setChampions(res.leaderboard))
+      .catch(() => setChampions([]))
+  }, [])
 
   const setField = (field: FormField) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm((current) => ({ ...current, [field]: e.target.value }))
@@ -258,27 +279,56 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className={`container ${styles.stats}`}>
-        <div className="card"><div className={styles.statValue}>142</div><div className={styles.statLabel}>Today's Registrations</div></div>
-        <div className="card"><div className={styles.statValue}>1280</div><div className={styles.statLabel}>Challenges Solved Today</div></div>
-        <div className="card"><div className={styles.statValue}>8.91s</div><div className={styles.statLabel}>Current Fastest Time</div></div>
-        <div className="card"><div className={styles.statValue}>450+</div><div className={styles.statLabel}>Participating Schools</div></div>
-      </section>
+      {/* Real counts, or nothing at all — never a placeholder headline number. */}
+      {stats && (
+        <section className={`container ${styles.stats}`}>
+          <div className="card">
+            <div className={styles.statValue}>{stats.studentsRegistered.toLocaleString()}</div>
+            <div className={styles.statLabel}>Students Registered</div>
+          </div>
+          <div className="card">
+            <div className={styles.statValue}>{stats.registeredToday.toLocaleString()}</div>
+            <div className={styles.statLabel}>Registered Today</div>
+          </div>
+          <div className="card">
+            <div className={styles.statValue}>{stats.studentsActiveToday.toLocaleString()}</div>
+            <div className={styles.statLabel}>Active Today</div>
+          </div>
+          <div className="card">
+            <div className={styles.statValue}>{stats.schoolsRepresented.toLocaleString()}</div>
+            <div className={styles.statLabel}>Schools Represented</div>
+          </div>
+        </section>
+      )}
 
       <section className={`container ${styles.section}`}>
-        <h2>🏆 Today's Champions</h2>
-        <p>Publicly recognizing today's fastest problem-solving leaders</p>
-        <div className={styles.championGrid}>
-          {CHAMPIONS.map((c) => (
-            <div className="card" key={c.name}>
-              <div className={styles.championRank}>{c.rank}</div>
-              <h3>{c.name}</h3>
-              <p>{c.school}</p>
-              <p className={styles.championMeta}>{c.meta}</p>
-              <span className={styles.badge}>👑 {c.badge}</span>
-            </div>
-          ))}
-        </div>
+        <h2>🏆 Top Scholars</h2>
+        <p>The highest XP earned so far, straight from the leaderboard</p>
+        {champions === null ? (
+          <p className={styles.championMeta}>Loading the leaderboard…</p>
+        ) : champions.length === 0 ? (
+          <div className="card">
+            <p>
+              No one is on the leaderboard yet. Register below, and you could be the first name here.
+            </p>
+          </div>
+        ) : (
+          <div className={styles.championGrid}>
+            {champions.map((row, index) => (
+              <div className="card" key={row.studentId}>
+                <div className={styles.championRank}>{MEDALS[index] ?? `#${row.rank}`}</div>
+                {/* The API publishes a first name and a last initial only — these are
+                    schoolchildren and this page is public. */}
+                <h3>{row.displayName}</h3>
+                {row.schoolName && <p>{row.schoolName}</p>}
+                <p className={styles.championMeta}>
+                  {row.classLevel ? `${row.classLevel} · ` : ''}Rank #{row.rank}
+                </p>
+                <span className={styles.badge}>👑 {row.xp.toLocaleString()} XP</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section id="register" className={`container ${styles.section}`}>

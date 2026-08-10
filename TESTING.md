@@ -1,19 +1,19 @@
 # TESTING.md
 
-_Last updated: 2026-08-05 (Milestone 4 — Complete Question Bank System)._
+_Last updated: 2026-08-10 (Milestone 5 — Student Profile and Dashboard)._
 
 ## Current State
 
-The backend has a working test suite: **224 passing tests across 10 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **306 passing tests across 12 files** (`backend/tests/`). The frontend still has **no test suite**.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|
-| `backend/` | vitest + supertest (+ mongodb-memory-server) | 224 | Passing |
+| `backend/` | vitest + supertest (+ mongodb-memory-server) | 306 | Passing |
 | `frontend/` | none configured | 0 | Not started |
 
-**211 of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 77 question-bank tests (Milestone 4), 62 RBAC/privilege-escalation tests (Milestone 3), 40 registration-detail tests and 32 auth integration tests (Milestone 2).
+**Most of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 55 dashboard/progress tests and 27 profile tests (Milestone 5), 77 question-bank tests (Milestone 4), 62 RBAC/privilege-escalation tests (Milestone 3), 40 registration-detail tests and 32 auth integration tests (Milestone 2). A subset of the Milestone 5 dashboard suite is pure-function testing of the day, level, streak and achievement rules and needs no database.
 
-**Test files run one at a time** (`fileParallelism: false` in `vitest.config.mts`). Five suites now start their own `mongod`; run in parallel they contended for CPU and ports, and the failure that produced was not a clean error — it surfaced as unrelated duplicate-key 409s in whichever suite lost the race. The whole run takes about 40 seconds sequentially, which is a good trade for not chasing phantom failures. Relatedly, `clearTestDb()` now **throws** when there is no connection instead of silently doing nothing; the silent no-op is what turned a harness problem into a pile of confusing assertion failures. That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
+**Test files run one at a time** (`fileParallelism: false` in `vitest.config.mts`). Seven suites now start their own `mongod`; run in parallel they contended for CPU and ports, and the failure that produced was not a clean error — it surfaced as unrelated duplicate-key 409s in whichever suite lost the race. The whole run takes about 40 seconds sequentially, which is a good trade for not chasing phantom failures. Relatedly, `clearTestDb()` now **throws** when there is no connection instead of silently doing nothing; the silent no-op is what turned a harness problem into a pile of confusing assertion failures. That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
 
 ## Commands
 
@@ -117,6 +117,34 @@ ewcommand`, `\csname`) refused; `\href`/`\includegraphics`/`\input` refused; `<s
 - **Editorial workflow**: publishing without a solution refused; `draft → in_review → published` accepted; `archived → published` refused; a no-op transition refused; an unknown status rejected with 400.
 - **Search / filter / sort / paginate**: stable pagination with no question on two pages, a past-the-end page returning empty rather than erroring, filters combining as AND, a `.*` search term matching **nothing** (proving the regex escape), LaTeX source being searchable, sorting both directions, and an off-allow-list sort key or over-large page size rejected.
 - **Answer-key protection**: from a real student session, neither the listing nor a single read contains `isCorrect`, `solution`, `numericAnswer` or `booleanAnswer` — while the options themselves are still present, because a student has to answer. Drafts are invisible; a draft asked for by id returns **404, not 403**. Every admin endpoint is refused to a student (403) and a guest (401), including through the unversioned `/api` alias.
+
+### Own profile and account settings (real database)
+
+`tests/profile.test.ts` — **27 tests**, Milestone 5. Assertions read the saved documents back rather than trusting the response body: the milestone's point is that the data is genuinely persisted, so a test that only inspected the echo would prove nothing.
+
+- **Reading**: every stored registration field is returned; `passwordHash` appears nowhere in the body; unauthenticated is 401 on both `/api/v1` and the unversioned alias; the root admin (which has no `Student` document) gets a clean **404, not a 500**.
+- **Editing**: each changed field is read back out of MongoDB; `fullName` is re-derived from the edited parts; an identical submission reports `changed: false` and records no activity row.
+- **Privilege**: a request carrying `email`, `mobile`, `studentId`, `role: 'admin'`, `status: 'suspended'`, `isEmailVerified: false` and `tokenVersion: 999` alongside the legitimate fields changes **none** of them — the schema omits them, so they cannot reach the update.
+- **Validation**: an out-of-range class, a future date of birth, a name containing digits, a too-short address and a one-character school name are each 400 rather than 500.
+- **Photo replacement**: the stored document is replaced, not duplicated (count stays 1), the bytes and content type actually change, and the existing photo endpoint then serves the new type. A payload declaring PNG but containing text, a non-image content type, and an over-2 MB image are each refused.
+- **Password change**: the old password stops working and the new one starts; a wrong current password is 401 and leaves the old password working (a failed guess must not lock the owner out); a new password identical to the current one, or failing the policy, is 400. A second device is evicted while the device that made the change stays signed in.
+- **Recording**: the activity rows are written with 0 XP; the audit entries exist with `actorLabel` set to the student's own `AMIT_xxxx`; the profile entry's metadata names the changed **fields** and does **not** contain the address value; and neither password appears anywhere in the audit document.
+
+### Progress, dashboard and leaderboard
+
+`tests/dashboard.test.ts` — **55 tests**, Milestone 5. The rules (day boundary, levels, streaks, achievements, name masking) are tested as pure functions; the rest goes through the API against a real database.
+
+- **Competition day**: `2026-06-01T19:30:00Z` files under `2026-06-02` because that is 01:00 IST, while 12:30Z the same day does not; day arithmetic crosses month ends and a leap year (`2028-03-01` back one day is `2028-02-29`); `2026-02-30` and `01-06-2026` are rejected as keys.
+- **Levels**: a new account is level 1 at 0 XP; 99 is still level 1 and 100 is level 2 (the threshold is exact, not approximate); the position inside a level is coherent; levels continue past the end of the threshold table; negative input clamps rather than producing a negative level.
+- **Streaks**: zero for no activity; a run kept **alive when the last visit was yesterday**, because today is not yet lost; broken once a whole day is missed, while the historical run still counts as the longest; a longest run reported correctly when the current one is shorter; duplicate and unsorted input handled.
+- **XP, end to end**: a freshly registered, verified, signed-in account holds exactly **110** — asserted against the sum of the three award constants *and* against the literal, so a change to either has to be deliberate. Opening the dashboard three times does not change it. A replayed `email_verified` is refused by the unique index. Two genuine prior visits produce a 3-day streak and exactly 3 × the daily award.
+- **Honest empty states**: `recentTests` is `[]` and contains no `accuracy` or `score` key at all; the challenge list is empty when nothing is published for the student's class, when the published questions are for a *different* class, and when they exist but are still drafts.
+- **No fake data**: the dashboard response is asserted not to contain `Ananya Sharma`, `Rahul Verma`, `Priya Singh`, `Rapid Calculus Sprint`, `Aarav Gupta`, `8.91` or `450+` — the exact figures this milestone deleted.
+- **Achievements**: only what the facts support is earned; the verification badge follows the real flag; a locked achievement carries real progress (`2/3`), not an empty bar; progress is capped at the target so a bar cannot overfill; and **no achievement code contains `exam` or `accuracy`**, because none could be satisfied yet.
+- **Leaderboard**: ordered by real XP with correct ranks; readable unauthenticated but publishing only `Test S.` — the full name, email address and mobile number are asserted absent; a suspended account disappears from the board; a student with no XP does not appear; `limit=500` is rejected; an empty board is a 200 with `[]`, not an error.
+- **Public stats**: real counts for two students at two schools, and **all four figures zero** on an empty deployment rather than a headline number.
+- **Daily challenge**: no answer-key field (`isCorrect`, `solution`, `booleanAnswer`, `numericAnswer`, `tolerance`) appears; the same question is returned twice in a row, so it cannot be rerolled by reloading; `challenge: null` with a reason when nothing is published; and the legacy `/daily-challenge` path now requires a session and no longer mentions the mock it replaced.
+- **Activity feed**: paginated correctly; 401 unauthenticated; an over-range `limit` rejected rather than honoured.
 
 ### Foundation suites (no database)
 

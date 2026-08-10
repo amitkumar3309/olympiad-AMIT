@@ -8,6 +8,11 @@ import styles from './AuditLog.module.css'
 const ACTION_LABELS: Record<AuditAction, string> = {
   'user.role.changed': 'Role changed',
   'student.status.changed': 'Account status changed',
+  // A student editing their own account is still a change to an account, so it is
+  // in the trail alongside the administrative ones (Milestone 5).
+  'student.profile.updated': 'Profile edited by its owner',
+  'student.photo.updated': 'Photo replaced by its owner',
+  'student.password.changed': 'Password changed by its owner',
   'questions.generated': 'Template drafts generated',
   'question.created': 'Question created',
   'question.updated': 'Question edited',

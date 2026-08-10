@@ -300,24 +300,88 @@ All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `re
 
 ---
 
-## IMPLEMENTED — static mocks, no database, no frontend caller
+## Own profile, settings and dashboard (Milestone 5)
 
-These three pre-date Milestone 1 and were relocated unchanged into `routes/v1/misc.routes.ts`. They return hardcoded data and touch no database. They are **not** new fake APIs introduced by this milestone.
+All in `routes/v1/me.routes.ts`. Gated with `requireAuth()` rather than `requirePermission(...)`, because the requirement is an identity ("this is my own account") and not a capability — the same reasoning `/auth/logout-all` and the own-photo route use. **No route here takes a student id**: each resolves the caller's own document from the token's `sub`, so there is no path on which one student could address another's record.
 
-### `GET /api/v1/daily-challenge`
-Returns a hardcoded challenge object (`title`, `rewardXP`, `difficulty`, `estimatedTime`, `fastestTime`, `todayWinner`). No frontend caller.
+The environment-configured root administrator has no `Student` document, so every one of these answers **404** with an explanatory message rather than a 500.
+
+### `GET /api/v1/me/profile`
+The caller's full profile: the nine registration fields plus `mobile`, `email`, `isEmailVerified`, `status`, `role`, `registeredAt`, `lastLoginAt` and `hasPhoto`. Photo *existence* only — the bytes are served separately, so a profile load never drags a 2 MB image through the response. Never includes `passwordHash` (asserted by test).
+
+### `PATCH /api/v1/me/profile`
+Edits the caller's own details. Body: `firstName`, `middleName` (nullable), `lastName`, `fatherName`, `motherName`, `dateOfBirth` (`YYYY-MM-DD`), `classLevel`, `schoolName`, `address` — a full replacement of the editable set, so a missing field is a validation error rather than a silent no-change. `fullName` is re-derived by the schema, never submitted.
+
+**`email` and `mobile` cannot be changed here**, and are absent from the schema rather than filtered in the handler — see the ADR in [`DECISIONS.md`](DECISIONS.md). Nor can `studentId`, `role`, `status`, `isEmailVerified` or `tokenVersion`; sending them changes nothing (asserted by test).
+
+Returns `{ changed, profile }`. Records a `profile_updated` activity (0 XP) and a `student.profile.updated` audit entry naming the changed **field names, never their values**. Rate limited 20/hour.
+
+### `PUT /api/v1/me/photo`
+Replaces the caller's profile photo. Body `{ photo }` as a base64 data URL, same rules as registration — ≤2 MB, JPEG/PNG/WebP, checked against the file's **magic bytes** rather than its declared MIME type. Upserts, so it also works on a legacy account with no photo. There is deliberately **no delete**: the photo is a required part of an entrant's record, so "remove" would leave the account in a state registration cannot produce.
+
+This is one of only two routes granted a body limit above body-parser's 100 KB default (see `app.ts`); both `/api/v1/me/photo` and the `/api/me/photo` alias are listed, since a limit holding on only one prefix would be trivially bypassed. Records `photo_updated` and `student.photo.updated`. Rate limited 20/hour.
+
+### `POST /api/v1/me/change-password`
+Body `{ currentPassword, newPassword }`. The current password is required even though the caller already holds a valid session — that is what stops a borrowed or stolen session locking the real owner out. The new password must differ from the current one and meets the same policy as registration.
+
+On success **every** session is revoked (refresh tokens deleted, `tokenVersion` bumped) and then *this* device is issued a fresh session, so the caller stays signed in where they are while other devices are evicted. A wrong current password returns 401 and deliberately does **not** touch the lockout counter — letting a wrong guess lock the account would hand any borrowed session an easy denial of service against the owner. Records `password_changed` (0 XP) and `student.password.changed`. Rate limited 20/hour.
+
+### `GET /api/v1/me/dashboard`
+Everything the student dashboard shows, in one request. **Every figure is a real database read**; there is no sample data and no fallback.
+
+`{ dashboard: { student, progress, activity, recentTests, achievements, leaderboard: { top, me }, challenges, today } }` where:
+- `progress` — `xp`, `level`, `levelStartsAt`, `nextLevelAt`, `xpIntoLevel`, `xpForNextLevel`, `percentToNextLevel`, and `streak` (`current`, `longest`, `activeDays`, `lastActiveOn`, `countedToday`). All derived from `StudentActivity`; nothing is stored.
+- `activity` — the 8 newest real events.
+- `recentTests` — up to 5 submitted `ExamAttempt` records. **A live query against a collection nothing writes to yet**, so it is honestly `[]` today and the UI shows its empty state. Written as a query rather than a hardcoded `[]` so the panel starts working the moment exam submission exists.
+- `achievements` — `{ earnedCount, total, earned, next }`, each evaluated from real facts with real progress toward the locked ones. No exam or accuracy achievement is listed, because none could be satisfied yet.
+- `leaderboard.me` — `{ rank, xp, totalRanked }`; `rank` is `null` when the student has no XP, i.e. genuinely unranked rather than last.
+- `challenges` — published-question availability for the caller's own class, grouped by subject.
+
+**One deliberate side effect**: opening the dashboard records the day's `daily_visit`, which is what a streak is made of. Idempotent per competition day, enforced by a unique index rather than by a check, so a page refresh cannot inflate it.
+
+### `GET /api/v1/me/activity`
+The full activity feed, paginated (`page`, `limit` ≤ 100). The dashboard carries only the newest few.
+
+### `GET /api/v1/me/daily-challenge` (also `GET /api/v1/daily-challenge`)
+Today's challenge question for the caller's class, as a full **answer-stripped** question via the shared `studentQuestionView` — so it cannot expose an answer key even by accident. Deterministic: the same day and class always resolve to the same question, so a reload cannot be used to shop for an easier one.
+
+Answers `{ challenge: null, reason: 'none-published' | 'no-class' }` — a 200, not a 404, because "there is no challenge today" is a normal answer while the bank has nothing published for that class.
+
+**This replaced a static mock and is now authenticated where the mock was open**, because it returns question content. Both paths are served: the `/me/` form because the resource depends on who is asking, and the bare path because that is what was already published here.
+
+---
+
+## Public reads (Milestone 5) — no authentication
+
+Both were hardcoded mocks before Milestone 5 and are now real aggregations. Made public by an explicit decision of the project owner, so the landing page shows a real standing instead of an invented one — see [`DECISIONS.md`](DECISIONS.md).
+
+### `GET /api/v1/public/stats`
+`{ stats: { studentsRegistered, registeredToday, schoolsRepresented, studentsActiveToday } }`. Real counts of accounts in good standing, distinct school names among them, and students with any activity today. A fresh deployment truthfully answers zero for all four, and the landing page renders that.
 
 ### `GET /api/v1/leaderboard`
-Returns a hardcoded array of 5 fake students. No frontend caller — `Landing.tsx` and `Dashboard.tsx` render their own separate hardcoded arrays.
+`{ leaderboard: [{ rank, studentId, displayName, classLevel, schoolName, xp }] }`, ordered by real XP. Query: `limit` (1–50, default 10) — validated and **capped**, so this returns a leaderboard and cannot be walked to enumerate the roll.
+
+- `displayName` is a **first name plus a last initial** ("Ishaan V."). The entrants are schoolchildren and this endpoint is public and indexable, so a full legal name beside a school and a class is not published. Tests assert the full name, email address and mobile number are absent from the response.
+- Suspended and deactivated accounts are excluded, filtered *before* the limit so a suspended account cannot silently consume a place in the top ten.
+- Standard competition ranking: one plus the number of students strictly ahead, so a tie shares a rank.
+- A student with no XP does not appear at all.
+
+---
+
+## IMPLEMENTED — static mocks, no database, no frontend caller
 
 ### `GET /api/v1/certificates/:studentId`
 Returns the same hardcoded 2-item array regardless of `:studentId` (the parameter is accepted but unused). No frontend caller — `Certificate.tsx` renders from `AuthContext` state.
+
+**Still a mock after Milestone 5, and left so deliberately.** Issuing a real certificate depends on exam results that do not exist yet, so there is nothing real to return; and removing a published endpoint is a decision for the project owner rather than a side effect of another milestone. It is the last fake response left in the backend — `daily-challenge` and `leaderboard`, which used to sit beside it here, are now real.
 
 ---
 
 ## PLANNED (not implemented)
 
-No routes exist for: exam attempt submission, published results, real leaderboard computation, certificate issuance tied to a real result, payments/orders, XP/badges/levels, notifications, student self-service profile editing, or admin-initiated account deletion. Grep `backend/src/routes/v1/` before building against an assumed endpoint. (Password reset and email verification arrived in Milestone 2; student listing/management and audit logs in Milestone 3.)
+No routes exist for: exam attempt submission, published results, certificate issuance tied to a real result, payments/orders, notifications, practice/mock-test sessions, changing your own email address or mobile number, or admin-initiated account deletion. Grep `backend/src/routes/v1/` before building against an assumed endpoint.
+
+(Password reset and email verification arrived in Milestone 2; student listing/management and audit logs in Milestone 3; the question bank and taxonomy in Milestone 4; **self-service profile editing, photo replacement, password change, the dashboard, XP/levels/streaks/achievements, the real leaderboard and the real daily challenge in Milestone 5**.)
 
 ## Checklist for adding a route
 

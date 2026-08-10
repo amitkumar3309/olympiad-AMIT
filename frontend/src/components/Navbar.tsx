@@ -38,6 +38,9 @@ export default function Navbar() {
               <Link to="/dashboard" onClick={() => setOpen(false)}>
                 Dashboard
               </Link>
+              <Link to="/profile" onClick={() => setOpen(false)}>
+                Profile
+              </Link>
               <Link to="/exam" onClick={() => setOpen(false)}>
                 Exam
               </Link>
