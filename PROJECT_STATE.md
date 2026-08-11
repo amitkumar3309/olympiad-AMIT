@@ -151,6 +151,8 @@ MongoDB via Mongoose, **13 models**: `Student` (with `role` and the nine registr
 
 **No progress or leaderboard collection exists, on purpose.** XP, levels, streaks, achievements and the standing are all derived from `StudentActivity` on read — see the ADR in [`DECISIONS.md`](DECISIONS.md).
 
+**The Class 12 question bank is seeded by script, not by hand.** `backend/scripts/seed-class12.ts` publishes 208 validated questions (104 Mathematics, 104 Physics) for `Class 12 - Science` across 26 topics. It is report-only by default, idempotent, and validates every question through the API's own zod schema before writing. Not yet run against production.
+
 **Accounts created before Milestone 5 read as 0 XP with an empty feed**, because the activity log is written going forward. `backend/scripts/backfill-activity.ts` writes the enrolment rows they already earned; it is report-only by default and deliberately fabricates no streaks. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 
 **Photo storage is bounded by the database.** At 2 MB a photo, the Atlas free tier's 512 MB holds roughly **250 students** — enough for a first cohort, and the first thing that will force a paid tier or an image CDN.
@@ -296,7 +298,10 @@ Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with 
    - `npx tsx scripts/backfill-activity.ts --write` — gives pre-Milestone-5 accounts the enrolment XP they already earned. Optional; skipping it just means those students start from zero.
    Both are idempotent. Atlas is unreachable from this sandbox (outbound DNS blocked), so both were verified against a local MongoDB instead.
 3. **Decide whether the public leaderboard should show full names.** It currently publishes a first name and a last initial, because the entrants are minors and the landing page is indexable. A one-line change in `displayNameFor()` if a national competition should name its leaders in full — but it should be deliberate.
-4. **Populate the question bank.** The Practice Zone is now the main student-facing feature, and it is only as good as what has been published for each class. Nothing else gates it.
+4. **Publish the Class 12 question bank.** `scripts/seed-class12.ts` holds **208 ready-to-publish questions** (104 Mathematics, 104 Physics) for `Class 12 - Science`, validated and proved against a local database but **not yet in production**, because Atlas is unreachable from the development sandbox. Run from inside `backend/`:
+   - `npx tsx scripts/seed-class12.ts` — report only, writes nothing.
+   - `npx tsx scripts/seed-class12.ts --write` — publishes. Idempotent, so a re-run is safe.
+   Other classes still have nothing published, and the Practice Zone is only as good as the bank behind it.
 
 **Owner decision: Milestone 7.** The strongest candidate is now **the official exam: `ExamAttempt` → `Result` → certificates**.
 

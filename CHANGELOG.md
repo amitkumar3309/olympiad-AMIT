@@ -2,6 +2,32 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-11 — Class 12 question bank: 208 published questions
+
+Stocks the Practice Zone, which was otherwise only as useful as what had been published.
+
+**208 questions for `Class 12 - Science`** — 104 Mathematics and 104 Physics, eight per chapter across the thirteen CBSE chapters of each. Every one has a worked solution (the bank refuses to publish anything unexplainable), a real answer, and an honest difficulty label so the Practice Zone's difficulty filter means something: 88 Easy, 93 Medium, 27 Hard.
+
+Delivered as a committed, re-runnable script rather than a one-off insert:
+
+```
+cd backend && npx tsx scripts/seed-class12.ts            # report only
+cd backend && npx tsx scripts/seed-class12.ts --write    # publish
+```
+
+- **Report-only by default**, like the other two scripts here. A script that writes the moment it is invoked is one typo away from an accident.
+- **Idempotent** — a question is keyed on its text within its class, so a re-run skips what exists rather than duplicating it. Verified: the second run reported 208 already present and created nothing.
+- **Validated with the API's own rules.** Every question passes `createQuestionSchema` — the exact zod schema `POST /admin/questions` uses — plus `validateMathContent` on each field. This caught two real defects before anything was written: one question whose options differed only by letter case (`D` vs `d`), which the duplicate-option check rejects because it compares case-insensitively; and a stray `.replace()` left in an option string.
+- **Options are shuffled** deterministically from the question text. Authoring puts the correct answer first for readability, and writing them in that order would make every answer option `a` — worthless for practice. Verified spread across the 80 single-choice questions: a=19, b=13, c=24, d=24.
+
+Question types: 80 single-choice, 75 numeric, 52 true/false, 1 multiple-choice. True/false questions are worth 2 marks with **no** negative marking — with a 50% chance of a lucky guess, penalising them punishes the student who thought about it more than the one who flipped a coin.
+
+**Verified end to end** against a local MongoDB: a Class 12 – Science student sees Mathematics (104) and Physics (104) with all 26 topics and their real per-topic counts, and an eight-question Current Electricity session graded correctly with no answer key in the payload before submission.
+
+**Not published to production.** Atlas is unreachable from the development sandbox (outbound DNS blocked), so the owner must run the script themselves — which is why it is a committed script and not a manual insert.
+
+---
+
 ## 2026-08-11 — Milestone 6: Practice Zone
 
 Students can now practise for real: choose a subject, a topic and optionally a difficulty, answer published questions, navigate freely, submit, and get a marked review with explanations and a performance summary. Everything is persisted and every figure is computed server-side.

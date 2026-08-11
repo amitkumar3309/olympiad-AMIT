@@ -334,3 +334,35 @@ Notes:
 **Problem**: `PUT /api/v1/me/photo` returns 200, but the picture on screen is the old one.
 **Cause**: `GET /students/:studentId/photo` sends `Cache-Control: private, max-age=300`, so the browser holds the previous image for five minutes.
 **Solution**: the profile page already appends a changing `?v=` query parameter after a successful upload, which is what makes the new photo appear immediately. If you are calling the endpoint yourself, do the same, or hard-reload. The stored document really has changed — check `db.studentphotos.findOne({...}).contentType` and `.size`.
+
+---
+
+## The Practice Zone says "Nothing to practise yet"
+
+**Cause.** There are no *published* questions for that student's class. The Practice Zone counts only `status: 'published'` questions matching the student's own `classLevel` — drafts and questions published for another class are invisible to it, correctly.
+
+**Check** which classes actually have content, then either author questions through `/admin/questions` or run the Class 12 seed.
+
+## Seeding the Class 12 question bank
+
+208 validated questions (104 Mathematics, 104 Physics) for `Class 12 - Science`, across 26 topics.
+
+**Run it from inside `backend/`, not the repo root** — the path is relative to that directory, and running it from the root gives `ERR_MODULE_NOT_FOUND`.
+
+```bash
+cd backend && npx tsx scripts/seed-class12.ts
+```
+
+That reports what it *would* do and writes nothing. To publish:
+
+```bash
+cd backend && npx tsx scripts/seed-class12.ts --write
+```
+
+**It is idempotent.** A question is identified by its text within its class, so re-running skips what already exists rather than creating duplicates — safe to run again after an interruption.
+
+**It validates before writing.** Every question goes through the same zod schema and LaTeX checks as `POST /admin/questions`, and the script exits non-zero if any question is rejected. If you see `Rejected (invalid)` above zero, nothing about those questions was written and the message names the field.
+
+Two failure modes worth knowing:
+- *"Two options have the same text"* — the duplicate-option check compares case-insensitively, so two options differing only by letter case (`$D$` and `$d$`, common in physics) collide. Rename one of the symbols.
+- *Connection failure* — the script uses `MONGO_URI` from `backend/.env`, which is the **production** Atlas database. Override it for a local run: `MONGO_URI="mongodb://127.0.0.1:27017/amit-olympiad-local" npx tsx scripts/seed-class12.ts --write`.
