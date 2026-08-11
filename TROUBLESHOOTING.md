@@ -366,3 +366,45 @@ cd backend && npx tsx scripts/seed-class12.ts --write
 Two failure modes worth knowing:
 - *"Two options have the same text"* — the duplicate-option check compares case-insensitively, so two options differing only by letter case (`$D$` and `$d$`, common in physics) collide. Rename one of the symbols.
 - *Connection failure* — the script uses `MONGO_URI` from `backend/.env`, which is the **production** Atlas database. Override it for a local run: `MONGO_URI="mongodb://127.0.0.1:27017/amit-olympiad-local" npx tsx scripts/seed-class12.ts --write`.
+
+---
+
+## A script reported success but the data is not in Atlas
+
+**Symptom.** `seed-class12.ts` printed `Published: 208`, but the Atlas collection is empty and the live site shows no questions. The first line of the output said:
+
+```
+◇ injected env (0) from .env
+MONGO_URI: mongodb://localhost:27017/amit-olympiad
+```
+
+**Cause.** `injected env (0)` means **no environment variables were loaded**. `dotenv` used to resolve `.env` relative to the *current working directory*, so running a script from `backend/scripts/` instead of `backend/` found no `.env`, loaded nothing, and `MONGO_URI` fell through to its built-in `mongodb://localhost:27017/...` default. The script then wrote to a **local** database and correctly reported success — for that database. The accompanying `JWT_SECRET is not set` and `SMTP is not configured` warnings are the same cause: no `.env` was read.
+
+**Fixed in the code, two ways:**
+
+1. `config/env.ts` now resolves `.env` from **its own location** (`path.resolve(__dirname, '..', '..', '.env')`) rather than from `process.cwd()`, so the load no longer depends on where the process was started. Running from `backend/scripts/` now correctly reports `injected env (13) from ..\.env`.
+2. Every write script calls `assertConfiguredForWrites()` from `src/lib/envGuard.ts`, which prints the target database and **exits 2** rather than writing to a local database unless `--local` is passed. The mistake is now loud instead of silent.
+
+**If you hit the old behaviour, the data is on your own machine.** Point the diagnostic at the local database to confirm:
+
+```bash
+cd backend && MONGO_URI="mongodb://localhost:27017/amit-olympiad" npx tsx scripts/where-is-data.ts
+```
+
+Then re-run the seed against Atlas from the `backend` directory. It is idempotent, so nothing is duplicated:
+
+```bash
+cd backend && npx tsx scripts/seed-class12.ts --write
+```
+
+**The one number that matters** in the output is `Target database`. If it does not start `mongodb+srv://` and name your cluster, the run is not going to production.
+
+## Which database is the live site using?
+
+Visit `/ready` on the deployed backend. It reports the database the serverless function is actually connected to:
+
+```
+{"success":true,"status":"ready","db":"connected","dbName":"amit-olympiad"}
+```
+
+If `dbName` is not what you seeded, then Vercel's `MONGO_URI` environment variable differs from `backend/.env` — the two are configured independently, and Vercel does not read your local file.

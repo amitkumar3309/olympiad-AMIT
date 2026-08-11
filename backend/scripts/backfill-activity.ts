@@ -41,12 +41,15 @@
  */
 import mongoose from 'mongoose';
 import { config } from '../src/config';
+import { assertConfiguredForWrites } from '../src/lib/envGuard';
 import { Student, StudentActivity } from '../src/models';
 import { recordActivity } from '../src/services/activityService';
 
 const WRITE = process.argv.includes('--write');
 
 async function main(): Promise<void> {
+  // Stops the run if this would silently write to a local database. See lib/envGuard.ts.
+  assertConfiguredForWrites({ script: 'backfill-activity.ts', allowLocal: process.argv.includes('--local') });
   await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 10_000 });
   // The unique index is what makes this idempotent, so make sure it exists before
   // relying on it (a database that has never run the app will not have it yet).

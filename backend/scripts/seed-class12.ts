@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
-import { config } from '../src/config';
 import { connectDB, disconnectDB } from '../src/db/connection';
+import { assertConfiguredForWrites } from '../src/lib/envGuard';
 import { Question, Subject, Topic } from '../src/models';
 import { validateMathContent } from '../src/lib/mathContent';
 import { slugify } from '../src/lib/slug';
@@ -201,7 +201,10 @@ async function seedSubject(data: SeedSubject, counts: Counts): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log(`Seeding Class 12 questions into ${config.mongoUri.replace(/:\/\/[^@]*@/, '://***@')}`);
+  console.log('Seeding Class 12 questions.');
+  // Refuses to continue if this would silently write to a local database — the
+  // mistake that put 208 questions somewhere nobody was looking. See lib/envGuard.ts.
+  assertConfiguredForWrites({ script: 'seed-class12.ts', allowLocal: process.argv.includes('--local') });
   console.log(WRITE ? 'Mode: WRITE — questions will be published.\n' : 'Mode: report only. Re-run with --write to publish.\n');
 
   await connectDB();

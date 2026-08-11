@@ -1,16 +1,45 @@
+import path from 'node:path';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-// Load backend/.env before anything reads process.env. This module is imported
-// (transitively, via config/index.ts) by every other module, so doing it here
-// guarantees it happens first.
-//
-// Skipped under NODE_ENV=test (which vitest sets automatically) so the test
-// suite stays hermetic: tests must not silently pick up a developer's real
-// Atlas URI or JWT secret. In production, Vercel injects env vars directly and
-// there is no .env file to read — dotenv simply no-ops.
+/**
+ * Where `backend/.env` is, resolved from **this file's own location** rather than
+ * from `process.cwd()`.
+ *
+ * This matters more than it looks. `dotenv.config()` with no argument searches the
+ * current working directory, so running a script from `backend/scripts/` instead of
+ * `backend/` found no `.env`, loaded **zero** variables, and silently fell through to
+ * the `MONGO_URI` default below — `mongodb://localhost:27017/...`. The script then
+ * reported success while writing 208 questions into a local database nobody was
+ * looking at, and the production site stayed empty. Nothing warned, because every
+ * value has a plausible default.
+ *
+ * Resolving from this module's own directory makes the load independent of where the
+ * process was started: `src/config/env.ts` → up two levels → the backend package root.
+ *
+ * `__dirname` rather than `import.meta.url`, because this package compiles to
+ * CommonJS (`tsconfig.json`), where `import.meta` is a syntax error. `tsx` accepts
+ * both, so the failure would only have appeared at `npm run compile` — i.e. on the
+ * Vercel build, which is the worst place to find it.
+ */
+function backendEnvPath(): string {
+  return path.resolve(__dirname, '..', '..', '.env');
+}
+
+/**
+ * True when a `.env` file was actually read. Scripts that write to the database use
+ * this to refuse to run when they have clearly not been given real configuration —
+ * see `assertConfiguredForWrites()` in `lib/envGuard.ts`.
+ */
+export let envFileLoaded = false;
+
+// Skipped under NODE_ENV=test (which vitest sets automatically) so the test suite
+// stays hermetic: tests must not silently pick up a developer's real Atlas URI or
+// JWT secret. In production, Vercel injects env vars directly and there is no .env
+// file to read — dotenv simply reports none found, which is correct there.
 if (process.env.NODE_ENV !== 'test') {
-  dotenv.config();
+  const result = dotenv.config({ path: backendEnvPath() });
+  envFileLoaded = !result.error && Object.keys(result.parsed ?? {}).length > 0;
 }
 
 /**

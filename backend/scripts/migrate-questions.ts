@@ -36,10 +36,13 @@
  */
 import mongoose from 'mongoose';
 import { config } from '../src/config';
+import { assertConfiguredForWrites } from '../src/lib/envGuard';
 
 const DELETE = process.argv.includes('--delete');
 
 async function main(): Promise<void> {
+  // Stops the run if this would silently write to a local database. See lib/envGuard.ts.
+  assertConfiguredForWrites({ script: 'migrate-questions.ts', allowLocal: process.argv.includes('--local') });
   await mongoose.connect(config.mongoUri, { serverSelectionTimeoutMS: 10_000 });
   const db = mongoose.connection.db;
   if (!db) throw new Error('No database handle after connecting.');
