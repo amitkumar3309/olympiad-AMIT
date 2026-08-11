@@ -78,22 +78,37 @@ interface Counts {
   failed: number;
 }
 
-/** Finds or creates a subject by name, returning its id. */
-async function ensureSubject(name: string): Promise<mongoose.Types.ObjectId> {
+/**
+ * Finds or creates a subject by name, returning its id — or `null` in report-only
+ * mode when it does not exist yet.
+ *
+ * Report-only used to create the taxonomy anyway, which made "writes nothing" untrue:
+ * a dry run against production left two subjects and twenty-six topics behind. Harmless
+ * in itself, but a dry run that writes is a dry run nobody can trust.
+ */
+async function ensureSubject(name: string): Promise<mongoose.Types.ObjectId | null> {
   const slug = slugify(name);
   const existing = await Subject.findOne({ slug });
   if (existing) return existing._id as mongoose.Types.ObjectId;
+  if (!WRITE) {
+    console.log(`  (would create subject "${name}")`);
+    return null;
+  }
 
   const created = await Subject.create({ name, slug, status: 'active' });
   console.log(`  + subject "${name}"`);
   return created._id as mongoose.Types.ObjectId;
 }
 
-/** Finds or creates a top-level topic under a subject. */
-async function ensureTopic(subject: mongoose.Types.ObjectId, name: string): Promise<mongoose.Types.ObjectId> {
+/** Finds or creates a top-level topic; `null` in report-only mode if absent. */
+async function ensureTopic(
+  subject: mongoose.Types.ObjectId,
+  name: string,
+): Promise<mongoose.Types.ObjectId | null> {
   const slug = slugify(name);
   const existing = await Topic.findOne({ subject, slug, parent: null });
   if (existing) return existing._id as mongoose.Types.ObjectId;
+  if (!WRITE) return null;
 
   const created = await Topic.create({ subject, parent: null, depth: 0, name, slug, status: 'active' });
   console.log(`  + topic "${name}"`);
@@ -187,12 +202,35 @@ async function publishQuestion(
   counts.created += 1;
 }
 
+/**
+ * Runs the validation half only, for report-only mode when the taxonomy does not
+ * exist yet and there are no real ids to check against. Uses placeholder ids so the
+ * schema still exercises every content rule — which is the part of a dry run worth
+ * having.
+ */
+async function validateOnly(seed: SeedQuestion, counts: Counts): Promise<void> {
+  const placeholder = new mongoose.Types.ObjectId();
+  await publishQuestion(seed, placeholder, placeholder, counts);
+}
+
 async function seedSubject(data: SeedSubject, counts: Counts): Promise<void> {
   console.log(`\n${data.subject}`);
   const subjectId = await ensureSubject(data.subject);
 
   for (const topicSeed of data.topics) {
-    const topicId = await ensureTopic(subjectId, topicSeed.topic);
+    const topicId = subjectId ? await ensureTopic(subjectId, topicSeed.topic) : null;
+
+    if (!subjectId || !topicId) {
+      // Report-only, and the taxonomy is not there yet. The questions are still fully
+      // validated — the useful half of a dry run — they simply have no real ids to be
+      // attached to, and nothing is written.
+      for (const question of topicSeed.questions) {
+        await validateOnly(question, counts);
+      }
+      console.log(`  ${topicSeed.topic}: ${topicSeed.questions.length} question(s) validated`);
+      continue;
+    }
+
     for (const question of topicSeed.questions) {
       await publishQuestion(question, subjectId, topicId, counts);
     }

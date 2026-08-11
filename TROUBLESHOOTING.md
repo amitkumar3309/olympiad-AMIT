@@ -408,3 +408,27 @@ Visit `/ready` on the deployed backend. It reports the database the serverless f
 ```
 
 If `dbName` is not what you seeded, then Vercel's `MONGO_URI` environment variable differs from `backend/.env` — the two are configured independently, and Vercel does not read your local file.
+
+---
+
+## `querySrv ECONNREFUSED _mongodb._tcp.<cluster>`
+
+**This is a DNS failure, not a database or credentials problem.** Nothing reached Atlas. The `mongodb+srv://` scheme must resolve a DNS **SRV** record before it can connect, and a fair number of resolvers refuse SRV queries — several Indian ISPs, most corporate DNS, some VPNs, and ad-blocking resolvers.
+
+The two obvious guesses are both wrong here and both waste time: a bad password fails *later* with an authentication error, and a missing IP-allowlist entry fails *later* with a server-selection timeout. `connectDB()` now prints this distinction when it sees the error.
+
+**Fixes, easiest first:**
+
+1. **Change your DNS** to `1.1.1.1` or `8.8.8.8` and retry. Windows: Settings → Network → Adapter options → Properties → IPv4 → Use the following DNS servers.
+2. **Disconnect from any VPN**, or try another network — a phone hotspot is a fast test.
+3. **Use the direct, non-SRV connection string**, which needs no SRV lookup at all:
+
+```bash
+cd backend && npx tsx scripts/atlas-direct-uri.ts --with-credentials
+```
+
+That resolves the SRV record over **HTTPS** (bypassing the broken resolver) and prints an equivalent `mongodb://` URI listing the shard hosts explicitly. Paste it into `backend/.env` as `MONGO_URI`. Same hosts, same replica set, same TLS — the only trade-off is that it will not track a change to the cluster's topology, so re-run it if Atlas ever rescales the shards. Without `--with-credentials` it prints a redacted version, safe to paste into a chat.
+
+The same string is available from the Atlas UI: **Connect → Drivers → driver version "Node.js 2.2.12 or later"**.
+
+**Note that Vercel is unaffected.** It resolves SRV records fine, so production keeps working with the `mongodb+srv://` form even while your laptop cannot. Only change Vercel's `MONGO_URI` if the deployed backend is failing too.
