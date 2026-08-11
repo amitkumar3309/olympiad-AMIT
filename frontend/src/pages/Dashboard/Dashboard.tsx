@@ -439,9 +439,9 @@ export default function Dashboard() {
                     <i className="ph-bold ph-user-circle" />
                     My Profile
                   </Link>
-                  <Link to="/exam" className={styles.actionCard}>
-                    <i className="ph-bold ph-pencil-line" />
-                    Practice Paper
+                  <Link to="/practice" className={styles.actionCard}>
+                    <i className="ph-bold ph-target" />
+                    Practice Zone
                   </Link>
                   <Link to="/analytics" className={styles.actionCard}>
                     <i className="ph-bold ph-chart-line-up" />

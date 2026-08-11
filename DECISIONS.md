@@ -335,3 +335,39 @@ This is the first `DECISIONS.md` for the project (created during the 2026-08-04 
 **Reason**: the app was inconsistent — public pages light, interior pages hardcoded dark — so signing in changed the colour scheme underneath the user, and the admin sign-in form was dark beneath a light navbar. Applying the theme once, at the document root, is what makes that impossible to reintroduce: a new page inherits it and cannot forget to opt in, and no two pages can disagree. Light as the default was the owner's explicit choice.
 **Alternatives considered**: (a) Follow `prefers-color-scheme` — rejected on the owner's instruction, and it would mean two users seeing different colours with no shared baseline for screenshots or support. (b) A per-page or per-route theme — that is what was already there, and what caused the problem. (c) Storing the preference on the account — rejected: the theme is a per-device display preference, not account data, and it would then require a session to work at all on the public pages.
 **Consequences**: the background is painted on `html`, `body` **and** `#root` — belt and braces, because relying on body's background propagating to the canvas holds only while `html` has no background of its own, and pages without a full-height wrapper would otherwise show dark cards on a light canvas. All hardcoded `#fff` in the previously dark-only stylesheets were checked and sit on saturated backgrounds, so they stay correct in light mode. Live switching could not be visually confirmed in the preview browser, which does not invalidate `var()` substitutions on a runtime custom-property change — an engine artifact, not a CSS fault (a fresh element picks up the new value while existing ones do not, and even an inline write on the root fails); the load path is correct in both themes and the standards-correct implementation was kept rather than hacked around.
+
+---
+
+## 2026-08-11 — Practice is its own collection, not a reuse of `ExamAttempt`
+
+**Decision**: Milestone 6 introduced a new `PracticeSession` collection. `ExamAttempt` and `Result` are left alone for the official Olympiad.
+**Reason**: they describe different things. Practice is unlimited, self-selected by subject and topic, and must never influence a ranking; the official exam is one marked, ranked sitting that produces a published result and a certificate. Sharing a collection would mean every query about official performance had to remember to exclude practice rows — and the first one that forgot would award a national rank for a practice run. The dashboard's test-performance panel and the result portal both already query for official attempts, so the failure would have been silent and in production.
+**Alternatives considered**: (a) One collection with a `kind: 'practice' | 'official'` discriminator — rejected for the reason above: it makes correctness depend on every future caller remembering a filter. (b) Rewriting `ExamAttempt` now to serve both — rejected as scope: that model needs rewriting anyway (it stores a single `selectedOption` string, so it cannot represent a multiple-choice answer at all), and doing it as a side effect of the Practice Zone would have coupled two milestones.
+**Consequences**: two collections with a similar shape, which is real duplication. It buys the guarantee that no practice attempt can ever be mistaken for an official one. When the official exam lands it should be written against the current `Question` model rather than the pre-Milestone-4 shape `ExamAttempt` still has.
+
+---
+
+## 2026-08-11 — A practice session snapshots the answer key when it serves a question
+
+**Decision**: each question in a `PracticeSession` stores a copy of what counts as correct — the correct option keys, the boolean or numeric answer and its tolerance, plus the marks, negative marks and the question's `revision` — taken at the moment it was served. Grading uses the snapshot, not the live `Question`.
+**Reason**: an author can edit or archive a question while a session is open. Grading against the live document would mark a student against a question they were never shown, and if the edit changed the answer *shape* (say choice to numeric) grading would fail outright. Recording `revision` also lets the review tell the student the question has changed since they answered it, instead of silently showing different text above their old answer.
+**Alternatives considered**: (a) Re-read the `Question` at submit time — simpler and avoids duplicating the key, but wrong for the reason above. (b) Forbid editing a published question while any session references it — rejected: it would let one abandoned session block an urgently needed correction.
+**Consequences**: the answer key now exists in a second collection, so projection discipline matters more, not less. `practiceService.ts` therefore builds two explicit views and never returns a raw document, `sessionReviewView()` throws unless the session is submitted, and tests assert the forbidden field names are absent from whole in-progress response bodies rather than checking one field at a time.
+
+---
+
+## 2026-08-11 — Practice XP is once per day, not once per session
+
+**Decision**: submitting a practice session with at least one answered question records `practice_completed` (25 XP), deduplicated by competition day through the existing partial unique index. Further sessions the same day are stored in full but earn no more XP.
+**Reason**: XP feeds a public leaderboard, so it has to resist farming. Paying per session would be trivially farmable — start, submit empty, repeat. Paying per correct answer is the fairest measure but would need its own daily cap to resist the same attack, which means new machinery; keying on the day reuses the index that already makes `daily_visit` race-free across concurrent serverless invocations.
+**Alternatives considered**: (a) XP per correct answer with a daily ceiling — better signal, more moving parts; worth revisiting when official exam scoring lands and ability is measured properly there. (b) No XP for practice at all — rejected: practice is the first thing on this platform that involves actually answering questions, and it would have been odd for the one genuinely effortful action to be worth nothing.
+**Consequences**: XP still measures consistency more than ability, which remains recorded as a known limitation. A student who practises hard for one day and not again is not distinguished from one who practised lightly. Empty submissions earn nothing at all, which is asserted by test.
+
+---
+
+## 2026-08-11 — Unanswered practice questions are never penalised, and multiple choice needs the exact set
+
+**Decision**: a question with no response scores 0 and no negative marks. `multiple_choice` is correct only when the chosen set exactly equals the correct set — no partial credit. A wrong answer costs `negativeMarks`, so a session score may be negative and is reported unclamped.
+**Reason**: a blank is not a wrong answer; penalising it would push students to guess, which is the opposite of what practice is for. Partial credit sounds kinder but needs a second policy — how much to deduct for a partially-right answer under negative marking — and the question bank has no field to express it, so any rule would have been invented here rather than authored per question.
+**Alternatives considered**: clamping the displayed score at zero — rejected, because a negative total is the honest consequence of negative marking and hiding it would misrepresent the arithmetic the student is being taught.
+**Consequences**: accuracy is reported over *answered* questions rather than over the paper, so skipping is not punished twice; the unanswered count is shown next to it so the figure cannot flatter by omission. Adding partial credit later means adding a field to `Question` first.

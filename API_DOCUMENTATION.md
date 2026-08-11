@@ -424,3 +424,33 @@ No routes exist for: exam attempt submission, published results, certificate iss
 5. **Apply `ensureDb` if it touches the database**, after validation/auth. Forgetting this yields a route that works locally but fails in production. (`requirePermission` already includes it for privileged permissions; applying it again is harmless, since `connectDB()` caches.)
 5b. If it changes an account, a role, or the question bank, call `recordAudit(req, {...})` with a matching action from `backend/src/models/AuditLog.ts`.
 6. Document it here and update [`FEATURE_STATUS.md`](FEATURE_STATUS.md) in the same change.
+
+---
+
+## Practice Zone (Milestone 6)
+
+All six routes are gated on `requireAuth()` and resolve the caller's own account from the token's `sub`. **No route accepts a student id**, and every session lookup puts `student` in the query rather than checking ownership afterwards — so another student's session is indistinguishable from one that does not exist (404, never 403, asserted by test).
+
+### `GET /api/v1/practice/options`
+Real availability for the caller's class: subjects → topics with per-topic question counts and only the difficulties that actually exist. An empty bank returns `{ subjects: [] }`; an account with no class returns `reason: 'no-class'`. The picker is built from this, so a combination with nothing behind it can never be selected.
+
+### `POST /api/v1/practice/sessions`
+Body: optional `subjectId`, `topicId`, `difficulty`; `questionCount` (1–50, default 10). **`classLevel` is not accepted** — the paper is always drawn for the student's own class, so a Class 6 student cannot request the Class 12 paper (asserted by test).
+
+Draws with `$sample`, so repeating the same filters gives fresh questions — the opposite of the daily challenge, which is deterministic on purpose. Fewer questions than asked for is not an error. Returns **409** when nothing published matches, rather than opening an empty session. Rate limited (120/hour).
+
+Responds with the in-progress view: question text, options (`key` + `text` only), taxonomy, marks — and **no answer key**.
+
+### `GET /api/v1/practice/sessions/:sessionId`
+Answer-stripped while in progress, fully marked once submitted. One URL for both, so a student can resume an unfinished session or revisit a review.
+
+### `PUT /api/v1/practice/sessions/:sessionId/answers`
+Body: `questionId` plus whichever of `selectedOptionKeys` / `numericResponse` / `booleanResponse` fits. Only the field belonging to the question's own type is stored. An option key the question never offered is a **400**; more than one key on a `single_choice` question is a **400**; a question outside the session is a **404**; a submitted session is a **409**.
+
+Per-answer rather than one bulk save, so closing the browser mid-session loses nothing. The response deliberately carries **no correctness** — saying whether the answer was right would reveal the key before submission. Not rate limited, because a student working a 50-question paper legitimately saves dozens of answers.
+
+### `POST /api/v1/practice/sessions/:sessionId/submit`
+Grades server-side against the snapshot and returns the full review plus `xpAwarded`. A second submission is a **409**, so a score cannot be re-rolled after the answers have been revealed. Earns `practice_completed` (25 XP) **once per competition day**, and nothing at all for a paper with no answers.
+
+### `GET /api/v1/practice/sessions`
+The student's own history, newest first, paginated. Scores and accuracy, but **no per-question detail and no answers** — the review endpoint is the only route to those (asserted by test).

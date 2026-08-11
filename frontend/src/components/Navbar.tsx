@@ -42,8 +42,8 @@ export default function Navbar() {
               <Link to="/profile" onClick={() => setOpen(false)}>
                 Profile
               </Link>
-              <Link to="/exam" onClick={() => setOpen(false)}>
-                Exam
+              <Link to="/practice" onClick={() => setOpen(false)}>
+                Practice
               </Link>
             </>
           )}

@@ -1,12 +1,18 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-11 (Milestone 5 — Student Profile and Dashboard, plus follow-ups removing all placeholder data and adding a global light/dark theme)._
+_Last updated: 2026-08-11 (Milestone 6 — Practice Zone, implemented and verified end-to-end)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
 ## Current Development Phase
 
-**Milestone 5 — Student Profile and Dashboard: implemented and verified end-to-end.** A student can now see and change their own account, and the dashboard reports real progress. The governing requirement was **no fake statistics**, and it holds: every figure on every page this milestone touched is derived from a database read, and where a student has no data the panel says so and explains why.
+**Milestone 6 — Practice Zone: implemented and verified end-to-end.** A student chooses a subject, a topic and optionally a difficulty, is served real published questions for their own class, answers and navigates them freely, submits, and gets a server-marked review with correct answers, explanations and a performance summary. The session, every question served, every answer, its correctness, the score, the time taken and the completion status are all persisted in a new `PracticeSession` collection.
+
+**Answer integrity is the property the design is built around**: a correct answer leaves the server only after the session containing it has been submitted. The in-progress view composes the same answer-stripped projection the question endpoints use; the single function that reveals an answer throws unless the session is submitted; and grading is server-side, so the browser is never given anything to mark with. This is a real improvement on what it replaced — the old practice page marked answers in the client and therefore shipped the whole paper's answer key in its JavaScript bundle.
+
+Verified in a real browser end to end: a five-question paper across all four question types scored **5/17** (+4 correct, −1 wrong, −1 for a partially-correct multiple choice, +3 correct, 0 for a blank), 50% accuracy over answered, 4m 15s recorded, +25 XP, with correct answers and explanations revealed only after submission.
+
+Before that, **Milestone 5 — Student Profile and Dashboard: implemented and verified end-to-end.** A student can now see and change their own account, and the dashboard reports real progress. The governing requirement was **no fake statistics**, and it holds: every figure on every page this milestone touched is derived from a database read, and where a student has no data the panel says so and explains why.
 
 - **Profile and settings** — a new `/profile` page: edit the nine registration fields, replace the photo, change the password. This closes the two longest-standing gaps in the product ("no one can edit their own details after registering", and known bug #9 "a photo cannot be replaced or removed"), both of which previously needed a direct database edit.
 - **Progress, derived not stored** — a new `StudentActivity` collection is the single source of truth for XP, levels, streaks and achievements. There is deliberately no counter document: XP is a `$sum` over real events, the level a pure function of it, the streak computed from the distinct days present. XP accrues only from events that really happen (account created 50, email verified 50, daily visit 10), so a freshly verified account holds an explainable **110** rather than a flattering number.
@@ -25,11 +31,11 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Last Completed Milestone
 
-**Milestone 5 — Student Profile and Dashboard.** Preceded by Milestone 4 (complete question bank), Milestone 3 (RBAC and user management), Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
+**Milestone 6 — Practice Zone.** Preceded by Milestone 5 (student profile and dashboard), Milestone 4 (complete question bank), Milestone 3 (RBAC and user management), Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
 
 ## Current Milestone
 
-None in progress. Milestone 5 is complete; awaiting owner selection of Milestone 6 (see "Immediate Next Task").
+None in progress. Milestone 6 is complete; awaiting owner selection of Milestone 7 (see "Immediate Next Task").
 
 ## Completed Modules (real, end-to-end)
 
@@ -61,7 +67,8 @@ None in progress. Milestone 5 is complete; awaiting owner selection of Milestone
 - **Student dashboard (Milestone 5)** — one request (`GET /me/dashboard`) supplies progress, activity, test performance, achievements, leaderboard-with-own-rank and available practice. No constant remains on the page. Loading, error and per-panel empty states throughout.
 - **Real leaderboard and public figures (Milestone 5)** — `GET /leaderboard` aggregates actual XP with standard competition ranking, excludes accounts not in good standing, and leaves a zero-XP student genuinely unranked. Public by the owner's decision, so it publishes a first name plus a last initial only. `GET /public/stats` gives the landing page real counts. Both replaced hardcoded mocks.
 - **Real daily challenge (Milestone 5)** — a deterministic published question for the caller's class, answer-stripped through the shared `studentQuestionView`, and now authenticated where the mock was open.
-- **Backend test suite** — **322 passing tests** across 12 files, against a real in-memory MongoDB wherever a database is needed: 71 dashboard/progress/analytics/results and 27 profile tests (Milestone 5 and its follow-ups), 77 question-bank tests (Milestone 4), 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2). Test files run **sequentially** — see [`TESTING.md`](TESTING.md).
+- **Practice Zone (Milestone 6)** — real end-to-end. `PracticeSession` persists the session, the questions served (each with an answer-key snapshot taken at serve time plus the question's `revision`), every answer, its correctness, per-question awarded marks, the score, the time taken and the completion status. Six endpoints under `/practice/*`, all owner-scoped by query rather than by an after-the-fact check. Grading is server-side for all four question types: unanswered is never penalised, `multiple_choice` needs the exact set, `numeric` honours the question's tolerance. Availability, the pickers and the history are all real counts — a combination with no questions behind it cannot be selected. Submitting earns `practice_completed` (25 XP) once per competition day, so it cannot be farmed.
+- **Backend test suite** — **364 passing tests** across 13 files, against a real in-memory MongoDB wherever a database is needed: 42 Practice Zone tests (Milestone 6), 71 dashboard/progress/analytics/results and 27 profile tests (Milestone 5 and its follow-ups), 77 question-bank tests (Milestone 4), 62 RBAC / privilege-escalation tests (Milestone 3), 40 registration-detail tests, and 32 auth integration tests (Milestone 2). Test files run **sequentially** — see [`TESTING.md`](TESTING.md).
 
 ## Partially Completed Modules
 
@@ -79,7 +86,7 @@ None in progress. Milestone 5 is complete; awaiting owner selection of Milestone
 - **Certificates** — the *page* and its endpoint are now real, requiring a published result, so nothing is issued to anyone yet. No `Certificate` model exists; a certificate is currently derived from a `Result`.
 - **Payments** — static QR image; no gateway, no verification, no transaction record. Registration still proceeds on a self-reported "I've paid" click.
 - **Mobile/SMS verification** — deliberately dropped. The fake client-side OTP step was **deleted**; email verification replaces it. No SMS provider is integrated.
-- **Practice zone / Mock tests / Journey map / Gallery / Notifications / Subscriptions** — not started. (XP, Levels, Badges-as-Achievements, Streaks and the Leaderboard left this list in Milestone 5.)
+- **Mock tests / Journey map / Gallery / Notifications / Subscriptions** — not started. (The **Practice Zone** left this list in Milestone 6; XP, Levels, Badges-as-Achievements, Streaks and the Leaderboard left it in Milestone 5.)
 - **Changing your own email address or mobile number** — not possible. Everything else on a student's record is now editable by its owner; these two are excluded on purpose, because changing a login identifier safely needs a confirm-at-the-new-address flow (see [`DECISIONS.md`](DECISIONS.md)). The profile page says so rather than offering a field that would fail.
 - **A dedicated Hall of Fame page** — the Landing page's public standing is now real, but there is no page for a past competition's results, which needs results to exist first.
 - **Account deletion** — deliberately not built; deactivation is the reversible equivalent.
@@ -116,12 +123,13 @@ lib/competitionDay.ts     the IST day boundary streaks are measured in (M5)
 services/                 question + taxonomy rules (M4);
                           activity, progress + challenge derivation (M5);
                           result (published results, certificates, admin stats);
+                          practice (availability, grading, session views — M6);
                           questionView (the shared answer-stripped projection)
 lib/audit.ts              audit-trail recorder (Milestone 3)
 middleware/               auth (authenticate/requireAuth/requirePermission),
                           validate, errorHandler, rateLimiter,
                           requestLogger, ensureDb
-models/                   12 models, one file each (+ StudentActivity)
+models/                   13 models, one file each (+ PracticeSession)
 routes/health.routes.ts   /health, /ready
 routes/v1/                auth (12 routes), me (6 own-account routes, M5),
                           analytics, questions (student reads),
@@ -132,14 +140,14 @@ validation/               zod schemas for auth + questions + taxonomy + users
                           + profile/settings (Milestone 5)
 scripts/                  dev-local, verify-email, migrate-questions,
                           backfill-activity (Milestone 5)
-tests/                    12 suites, 322 tests
+tests/                    13 suites, 364 tests
 ```
 
-`ExamAttempt` and `Result` remain defined and unwritten — but `ExamAttempt` is now **read** by the dashboard's test-performance panel, so it stops being dead the moment anything writes to it. Exactly **one** static mock is left in the backend: `GET /certificates/:studentId`, which nothing calls. `GET /questions` is real and authenticated but **still has no student-page caller** — the exam is a hardcoded quiz; the daily-challenge route is the first thing to serve a real question to a student.
+`ExamAttempt` and `Result` remain defined and unwritten — but `ExamAttempt` is now **read** by the dashboard's test-performance panel, so it stops being dead the moment anything writes to it. **No static mock is left anywhere in the backend**: `GET /certificates/:studentId`, `GET /leaderboard` and `GET /daily-challenge` were all made real, and the analytics fallback that invented a student's accuracy was deleted. `GET /questions` is real, authenticated and answer-stripped, and **is** now called by a student page — the Practice Zone builds every session from it.
 
 ## Current Database State
 
-MongoDB via Mongoose, **12 models**: `Student` (with `role` and the nine registration fields), `StudentPhoto`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`, Milestone 4's **`Subject`**, **`Topic`** and a rewritten **`Question`**, plus Milestone 5's **`StudentActivity`**. The two token collections store only SHA-256 hashes and carry TTL indexes; `AuditLog` and `StudentActivity` deliberately have **no** TTL — expiring a row would take XP away from a student who earned it. Unique indexes on `Student.mobile`, `Student.email`, `Student.studentId` and `StudentPhoto.student`; a non-unique index on `Student.role`; and a **partial unique** index on `StudentActivity` `{student, type, dedupeKey}` (partial on `dedupeKey` existing), which is what makes "once per day" and "once per account" true rather than merely intended.
+MongoDB via Mongoose, **13 models**: `Student` (with `role` and the nine registration fields), `StudentPhoto`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`, Milestone 4's **`Subject`**, **`Topic`** and a rewritten **`Question`**, Milestone 5's **`StudentActivity`**, plus Milestone 6's **`PracticeSession`**. The two token collections store only SHA-256 hashes and carry TTL indexes; `AuditLog` and `StudentActivity` deliberately have **no** TTL — expiring a row would take XP away from a student who earned it. Unique indexes on `Student.mobile`, `Student.email`, `Student.studentId` and `StudentPhoto.student`; a non-unique index on `Student.role`; and a **partial unique** index on `StudentActivity` `{student, type, dedupeKey}` (partial on `dedupeKey` existing), which is what makes "once per day" and "once per account" true rather than merely intended.
 
 **No progress or leaderboard collection exists, on purpose.** XP, levels, streaks, achievements and the standing are all derived from `StudentActivity` on read — see the ADR in [`DECISIONS.md`](DECISIONS.md).
 
@@ -242,7 +250,10 @@ Two caveats, since only the *send* was observed and not the delivery: nobody has
 13. **Accounts created before Milestone 5 read as 0 XP with an empty activity feed**, because the activity log is written going forward. Not data loss — nothing was ever stored to lose. Fixed by running `npx tsx scripts/backfill-activity.ts --write`; see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 14. **A lost activity write silently costs XP.** `recordActivity()` never throws, by design, so a failed log write cannot fail the registration or password change it describes — but the student is quietly one event's XP short, visible only as an `error` log line. The alternative (failing the user's action because of a logging failure) is worse; the trade-off is recorded in [`DECISIONS.md`](DECISIONS.md).
 15. **The leaderboard aggregates the whole activity collection on every request.** Correct at the scale this product is designed for (a few hundred students; photo storage caps it near 250) and isolated in `leaderboardPipeline()`, but it is the first query that will need a cache if the field grows an order of magnitude.
-16. **XP currently measures consistency, not ability.** With no exam data, the only repeatable source is the daily visit, so the top of the leaderboard is whoever shows up most. That is honest, but worth telling entrants before the competition runs — and it resolves itself when exam scoring lands.
+16. **XP still measures consistency more than ability.** Milestone 6 improved this — `practice_completed` requires actually answering questions — but because it is capped at once per day, a student who practises hard is not distinguished from one who practises lightly. Official exam scoring is what will measure ability properly. Worth telling entrants before the competition runs.
+17. **A practice session holds a copy of the answer key.** Deliberate (see [`DECISIONS.md`](DECISIONS.md)): grading must not drift when an author edits a question mid-session. The consequence is that the key exists in a second collection, so projection discipline matters more, not less — `practiceService.ts` builds two explicit views, `sessionReviewView()` throws on an unsubmitted session, and tests assert the forbidden field names are absent from whole in-progress response bodies.
+18. **Abandoned practice sessions are never cleaned up.** `PracticeSession` has a third status, `abandoned`, that nothing currently sets: an unfinished session simply stays `in_progress` for ever and the Practice Zone offers to resume it. Harmless, but the collection grows with every session a student starts and does not finish.
+19. **No partial credit on multiple choice.** An answer with three of four correct options scores the same as a blank guess — in fact worse, since a wrong answer attracts negative marks. Adding partial credit needs a field on `Question` first (see [`DECISIONS.md`](DECISIONS.md)).
 
 Fixed in Milestone 5: no way to edit your own details after registering; no way to replace a photo (bug #9's replacement half); the invented dashboard stat tiles and fake leaderboard; the invented landing-page figures and champions; the hardcoded `daily-challenge` and `leaderboard` mocks; and `optionalName` rejecting an explicit `null`, which made "remove my middle name" a 400.
 
@@ -277,28 +288,32 @@ Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with 
 
 ## Immediate Next Task
 
-**Owner actions, in this order:**
+**Owner actions, unchanged and still outstanding — these are the only real blockers, and none of them can be done from the development sandbox:**
 
-1. **Confirm an email actually arrives.** SMTP is configured (see "Current Environment Requirements"), but delivery to a real inbox has never been observed — only that the backend reported sending. Run `npm run verify:email --prefix backend` and check the inbox. This gates everything else, because login requires verification and admin promotion requires a verified account.
-2. **Two deploy-time database steps**, both safe to run in report-only mode first:
-   - `npx tsx scripts/migrate-questions.ts --delete` — removes pre-Milestone-4 question documents, which the current model cannot read at all. Until then the admin question list errors on any of them.
-   - `npx tsx scripts/backfill-activity.ts --write` — gives accounts that predate Milestone 5 the enrolment XP they already earned, so their new dashboard is not blank. Both are idempotent; see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
-3. **Decide whether the public leaderboard should show full names.** It currently publishes a first name and a last initial, because the entrants are minors and the landing page is public. If a national competition is expected to name its leaders in full, that is a one-line change in `displayNameFor()` — but it should be a deliberate choice, not a default.
+1. **Confirm an email actually arrives.** SMTP is configured and the backend reports sending, but delivery to a real inbox has never been observed. Run `npm run verify:email --prefix backend` and check the inbox. This gates everything, because login requires verification and admin promotion requires a verified account.
+2. **Two database steps.** Run these from inside `backend/` (they are not repo-root scripts):
+   - `npx tsx scripts/migrate-questions.ts --delete` — removes pre-Milestone-4 question documents, which the current model **cannot read at all**. Until then the admin question list errors on any of them. Report-only without `--delete`.
+   - `npx tsx scripts/backfill-activity.ts --write` — gives pre-Milestone-5 accounts the enrolment XP they already earned. Optional; skipping it just means those students start from zero.
+   Both are idempotent. Atlas is unreachable from this sandbox (outbound DNS blocked), so both were verified against a local MongoDB instead.
+3. **Decide whether the public leaderboard should show full names.** It currently publishes a first name and a last initial, because the entrants are minors and the landing page is indexable. A one-line change in `displayNameFor()` if a national competition should name its leaders in full — but it should be deliberate.
+4. **Populate the question bank.** The Practice Zone is now the main student-facing feature, and it is only as good as what has been published for each class. Nothing else gates it.
 
-**Owner decision: Milestone 6.** The strongest candidate is unchanged and now more strongly supported: **exam submission → `ExamAttempt` → real results**.
+**Owner decision: Milestone 7.** The strongest candidate is now **the official exam: `ExamAttempt` → `Result` → certificates**.
 
-- Its supply side arrived in Milestone 4 (a published, class-and-topic-filtered bank behind an answer-stripping endpoint) and its *demand* side arrived in Milestone 5: the dashboard's test-performance panel, the analytics real-data branch, and the XP system are all already wired and waiting, so submission lights up three surfaces at once rather than needing new UI for each.
-- It is the only path that makes XP a measure of ability rather than attendance, which is the one substantive caveat left on the leaderboard.
-- It converts the three remaining mock surfaces (Exam, Results, Certificates) in one dependency chain, and needs no external account or spend.
-- Be aware it is a **rewrite** of `ExamAttempt` and `Result`, not a wiring job — both predate the Milestone 4 `Question` and neither references it correctly. Read the note at the end of [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) first.
+- Milestone 6 built and proved most of the machinery it needs: server-side grading for all four question types, an answer-key snapshot pattern, per-question outcome persistence, and a review UI. The official exam is largely that plus a scheduled window, one attempt per student, and rank computation.
+- It converts the last three empty surfaces (the dashboard's test-performance panel, the result portal and the certificate page) — all three of which are already live queries waiting for data.
+- It is what makes XP measure ability rather than consistency, which is the one substantive caveat left on the leaderboard.
+- Be aware `ExamAttempt` and `Result` are a **rewrite**, not a wiring job: `ExamAttempt.answers` stores a single `selectedOption` string, so it cannot represent a multiple-choice answer at all, and it keys on `studentId` as a string where every newer collection uses an ObjectId ref. Model the new one on `PracticeSession`, which already solved these problems.
 
 The alternative remains the payment gateway — the only thing between the current flow and collecting real money — but it needs a provider decision and cost approval, so it cannot start without the owner.
 
-Smaller follow-ups worth doing either way: **CSRF tokens** (still the top security gap, and now with student-facing state-mutating routes to protect as well as administrative ones), a tighter rate limit on the admin routes, a way to change your own email address or mobile number behind a confirm-at-the-new-address flow, and re-encoding uploaded photos to strip EXIF.
+Smaller follow-ups worth doing either way: **CSRF tokens** (note the exposure is narrower than `SECURITY.md` implies — only bodyless POSTs like `/auth/logout` are reachable cross-site, because the API parses JSON only and CORS uses a strict allow-list, so the practical risk is session nuisance rather than data modification); a tighter rate limit on the admin routes; letting a student change their own email or mobile behind a confirm-at-the-new-address flow; re-encoding uploaded photos to strip EXIF; and partial credit on multiple-choice questions, which needs a field on `Question` first.
 
 ## Recent Architectural Decisions
 
-See [`DECISIONS.md`](DECISIONS.md). Milestone 5 added six ADRs: XP/levels/streaks derived from an activity log rather than stored as counters; XP earned only from events that really happen, so the sources are deliberately few; the competition day defined as an IST calendar day; self-service editing excluding the email address and mobile number; the public leaderboard publishing a first name and last initial; and a student's own edit of their account being written to the administrative audit trail.
+See [`DECISIONS.md`](DECISIONS.md). Milestone 6 added four ADRs: practice being its own collection rather than a reuse of `ExamAttempt`; a session snapshotting the answer key when it serves a question; practice XP being once per day so it cannot be farmed; and the marking rules (unanswered never penalised, multiple choice requiring the exact set, negative totals reported unclamped).
+
+Milestone 5 added six: XP/levels/streaks derived from an activity log rather than stored as counters; XP earned only from events that really happen, so the sources are deliberately few; the competition day defined as an IST calendar day; self-service editing excluding the email address and mobile number; the public leaderboard publishing a first name and last initial; and a student's own edit of their account being written to the administrative audit trail.
 
 Milestone 3 added four: three roles with the env account as `superadmin` and admins promoted from existing accounts; permission-based authorization held in one table; privileged requests re-reading the role from the database; and an audit trail that records refusals and never expires.
 

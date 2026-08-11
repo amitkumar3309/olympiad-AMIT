@@ -7,11 +7,12 @@
  * There is no stored XP counter to drift out of step with the log, and no code
  * path that adds XP without writing the event that earned it.
  *
- * What currently earns XP is deliberately small, because only a few real student
- * events exist yet: creating an account, verifying the email address, and showing
- * up on a given day. Exam submission is the obvious next source and is absent
- * only because no exam is recorded anywhere yet (see PROJECT_STATE.md) — when it
- * lands, it earns XP by adding an activity type here, not by special-casing.
+ * What earns XP is deliberately small, and every entry is an event the platform
+ * genuinely records: creating an account, verifying the email address, showing up
+ * on a given day, and — since Milestone 6 — completing a graded practice session.
+ * Official exam submission is still absent because no official exam is recorded
+ * anywhere yet (see PROJECT_STATE.md); when it lands it earns XP by adding an
+ * activity type here, not by special-casing.
  */
 
 import type { ActivityType } from '../models/StudentActivity';
@@ -32,6 +33,13 @@ export const XP_AWARDS: Record<ActivityType, number> = {
   profile_updated: 0,
   photo_updated: 0,
   password_changed: 0,
+  /**
+   * Worth more than showing up, because it is the first event that requires a
+   * student to actually answer questions. Awarded **once per day** however many
+   * sessions they complete (see `ONCE_PER_DAY` and the ADR in DECISIONS.md): paying
+   * per session would be farmable by submitting empty ones in a loop.
+   */
+  practice_completed: 25,
 };
 
 export function xpFor(type: ActivityType): number {

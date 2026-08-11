@@ -8,10 +8,10 @@ import type { DayKey } from '../lib/competitionDay';
  * can quietly start awarding XP for an event nobody defined. Each type's XP value
  * lives in `lib/xp.ts`.
  *
- * Every one of these corresponds to something the student actually did — there is
- * deliberately no `exam_submitted` yet, because no exam is recorded anywhere in
- * this codebase (see PROJECT_STATE.md). Adding it is how Milestone 6 makes the
- * dashboard's test panel and its XP real.
+ * Every one of these corresponds to something the student actually did. There is
+ * still deliberately no `exam_submitted`, because no *official* exam is recorded
+ * anywhere in this codebase — `practice_completed` (Milestone 6) is a genuinely
+ * different event and must not be conflated with sitting the Olympiad.
  */
 export const ACTIVITY_TYPES = [
   /** The account was registered. Once per account, for the lifetime of the account. */
@@ -26,6 +26,15 @@ export const ACTIVITY_TYPES = [
   'photo_updated',
   /** The password was changed from the account settings. Repeatable. */
   'password_changed',
+  /**
+   * A practice session was submitted and graded (Milestone 6). **Once per day**,
+   * deliberately — see the ADR in DECISIONS.md. Paying per session would make XP
+   * farmable by starting and submitting empty sessions in a loop, and paying per
+   * correct answer would need a separate daily cap to achieve the same thing. Extra
+   * sessions on the same day are still recorded in full as `PracticeSession`
+   * documents; they simply do not multiply XP.
+   */
+  'practice_completed',
 ] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
@@ -36,7 +45,7 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
  * forget to perform.
  */
 export const ONCE_PER_ACCOUNT: readonly ActivityType[] = ['account_created', 'email_verified'];
-export const ONCE_PER_DAY: readonly ActivityType[] = ['daily_visit'];
+export const ONCE_PER_DAY: readonly ActivityType[] = ['daily_visit', 'practice_completed'];
 
 export interface StudentActivityDocument extends Document {
   student: Types.ObjectId;

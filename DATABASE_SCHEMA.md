@@ -318,3 +318,35 @@ Based on the UI's implied needs (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)), 
 `ExamAttempt` and `Result` are still **DEAD** (declared, unwritten), and they predate Milestone 4's `Question` rewrite: `ExamAttempt.studentId` is a `String`, its `answers[].selectedOption` a `String` rather than an option `key`, and `Result.examId` a free-text string with no exam entity behind it. They will need rewriting, not merely wiring.
 
 One coupling to know about now: `progressService.getRecentExamPerformance()` — which powers the dashboard's "recent test performance" panel, currently and truthfully empty — queries `ExamAttempt.find({ studentId, status: 'Submitted' })` using the **human-facing `AMIT_xxxx` id**, because that is what the field is typed as. Whoever implements submission must either write that same value or change that one query.
+
+---
+
+## `PracticeSession` (Milestone 6)
+
+Self-directed practice. **Deliberately not `ExamAttempt`** — see the ADR in [`DECISIONS.md`](DECISIONS.md): practice is unlimited and must never influence a ranking, and sharing a collection would mean every query about official performance had to remember to exclude it.
+
+| Field | Type | Notes |
+|---|---|---|
+| `student` | ObjectId → `Student` | Indexed with `startedAt` for the history listing. |
+| `status` | `in_progress` \| `submitted` \| `abandoned` | Only `submitted` may reveal answers. |
+| `filters.subject` / `.topic` | ObjectId, nullable | What the student chose; null means "all". |
+| `filters.difficulty` | `Easy` \| `Medium` \| `Hard`, nullable | Optional narrowing. |
+| `filters.classLevel` | ClassLevel | The student's **own** class at start time. Never client-supplied. |
+| `questions[]` | subdocument, `_id: false` | One per served question — see below. |
+| `totalQuestions` | Number, min 1 | A session with no questions is refused at creation. |
+| `maxMarks` | Number | Sum of the served questions' marks. |
+| `score` | Number | Sum of awarded marks. **May be negative** under negative marking. |
+| `correctCount` / `incorrectCount` / `unansweredCount` | Number | Written at submission. |
+| `accuracy` | Number | Correct as a percentage of **answered**, not of served. |
+| `startedAt` / `submittedAt` | Date | |
+| `timeTakenSeconds` | Number | Start to submission, computed server-side. |
+
+### `questions[]` — the answer-key snapshot
+
+Each entry holds `question` (ref), `revision`, `type`, `marks`, `negativeMarks`, then **a copy of the answer key as it was when served**: `correctOptionKeys`, `booleanAnswer`, `numericAnswer`, `tolerance`. Then the student's response (`selectedOptionKeys`, `numericResponse`, `booleanResponse`, `answeredAt`) and the grading outcome (`isCorrect`, `awardedMarks`).
+
+The snapshot exists because an author may edit or archive a question mid-session; grading against the live document would mark a student against a question they never saw, and a changed answer *shape* would fail outright. `revision` lets the review say "this question has been edited since you answered it".
+
+**Consequence to respect:** the answer key now lives in a second collection. Nothing may project these fields before submission — `services/practiceService.ts` builds two explicit views for exactly that reason, and `sessionReviewView()` throws on an unsubmitted session.
+
+No TTL, like `StudentActivity` and `AuditLog`: a practice history is a record of work the student did.

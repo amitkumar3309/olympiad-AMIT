@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute, RequirePermission } from './components/ProtectedRoute'
@@ -21,10 +21,12 @@ const AdminQuestions = lazy(() => import('./pages/Admin/Questions'))
 const AdminQuestionForm = lazy(() => import('./pages/Admin/QuestionForm'))
 const AdminTaxonomy = lazy(() => import('./pages/Admin/Taxonomy'))
 const AiGenerator = lazy(() => import('./pages/AiGenerator/AiGenerator'))
+/** Same reasoning: the session runner renders question content through KaTeX. */
+const PracticeSessionPage = lazy(() => import('./pages/Practice/PracticeSession'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Profile from './pages/Profile/Profile'
-import Exam from './pages/Exam/Exam'
+import Practice from './pages/Practice/Practice'
 import Certificate from './pages/Certificate/Certificate'
 import Report from './pages/Report/Report'
 import Result from './pages/Result/Result'
@@ -149,14 +151,31 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          {/* --- Practice Zone (Milestone 6) --- */}
           <Route
-            path="/exam"
+            path="/practice"
             element={
               <ProtectedRoute>
-                <Exam />
+                <Practice />
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/practice/:sessionId"
+            element={
+              <ProtectedRoute>
+                <PracticeSessionPage />
+              </ProtectedRoute>
+            }
+          />
+          {/**
+           * `/exam` was the old practice paper — real questions, but no marking, because
+           * nothing could grade them. The Practice Zone supersedes it entirely, so this
+           * redirects rather than dead-ending any bookmark or old link. The path stays
+           * free for the *official* exam, which is a different thing (see DECISIONS.md
+           * on why practice and `ExamAttempt` are deliberately separate).
+           */}
+          <Route path="/exam" element={<Navigate to="/practice" replace />} />
         </Routes>
         </Suspense>
       </BrowserRouter>

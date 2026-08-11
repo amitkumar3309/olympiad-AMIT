@@ -39,7 +39,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'ph-squares-four' },
   { to: '/profile', label: 'My Profile', icon: 'ph-user-circle' },
-  { to: '/exam', label: 'Practice Paper', icon: 'ph-pencil-line' },
+  { to: '/practice', label: 'Practice Zone', icon: 'ph-target' },
   { to: '/analytics', label: 'Analytics', icon: 'ph-chart-line-up' },
   { to: '/report', label: 'Report', icon: 'ph-file-text' },
   { to: '/result', label: 'Result', icon: 'ph-seal-check' },

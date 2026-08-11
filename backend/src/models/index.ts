@@ -4,6 +4,7 @@ export * from './Subject';
 export * from './Topic';
 export * from './Question';
 export * from './ExamAttempt';
+export * from './PracticeSession';
 export * from './Result';
 export * from './StudentAnalytics';
 export * from './StudentActivity';

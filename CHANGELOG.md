@@ -2,6 +2,57 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-11 — Milestone 6: Practice Zone
+
+Students can now practise for real: choose a subject, a topic and optionally a difficulty, answer published questions, navigate freely, submit, and get a marked review with explanations and a performance summary. Everything is persisted and every figure is computed server-side.
+
+### Answer integrity
+
+The rule the design is built around: **a correct answer leaves the server only after the session containing it has been submitted.** Three separate things enforce it.
+
+- `sessionInProgressView()` composes `studentQuestionView` — the same answer-stripped projection the question endpoints use — and adds only the student's own saved responses. No code path in it can read the answer key.
+- `sessionReviewView()`, the only function that reveals an answer, **throws** unless the session is `submitted`, so a caller cannot obtain a partially-revealed shape by forgetting to check first.
+- Grading is server-side. The browser is never given anything to mark with, which is a real improvement on what this replaced: the old practice page marked answers in the client and therefore shipped the whole paper's answer key in its JavaScript bundle.
+
+Verified in a real browser: the start payload contains no `isCorrect`, `solution`, `booleanAnswer`, `numericAnswer`, `tolerance` or `correctAnswer`. Tests assert the same by stringifying whole response bodies rather than checking one field, so adding a field to a projection without thinking will fail them.
+
+### What is persisted
+
+New `PracticeSession` collection: the session, every question served, the student's answer to each, its correctness, per-question marks awarded, the total score, the time taken and the completion status.
+
+Each served question carries a **snapshot of the answer key taken when it was served**, plus the question's `revision`. An author may edit or archive a question while a session is open; grading against the live document would then mark a student against a question they were never shown. The review tells the student when a question has been edited since they answered it rather than silently showing different text.
+
+### Grading rules, all deliberate
+
+- **Unanswered scores zero and is never penalised.** A blank is not a wrong answer, and penalising it would push students to guess.
+- `multiple_choice` requires the **exact** set — no partial credit, because with negative marking present part-marks would need a second policy for how much to deduct, and the bank has no field for it.
+- `numeric` compares within the question's own `tolerance`, defaulting to exact.
+- A wrong answer costs `negativeMarks`, so a score **can be negative**. The arithmetic is reported honestly rather than clamped.
+- Accuracy is over *answered* questions, with the unanswered count shown beside it so the figure is not flattering by omission.
+
+### XP
+
+Submitting a session with real work in it earns `practice_completed` (25 XP), **once per competition day** rather than once per session. Paying per session would be farmable by submitting empty papers in a loop; paying per correct answer would need a separate daily cap to achieve the same thing. Extra sessions the same day are still recorded in full — only the XP is capped. A paper with nothing answered earns nothing.
+
+### Separate from the official exam
+
+`PracticeSession` is a new collection, not a reuse of `ExamAttempt`. Practice is unlimited and self-selected and must never influence a ranking; the official exam is one marked, ranked sitting that produces a published result and a certificate. Sharing a collection would mean every query about official performance had to remember to exclude practice, and the first one that forgot would award a national rank for a practice run.
+
+### Frontend
+
+- `/practice` — the setup page. Subject, topic and difficulty pickers driven entirely by real per-topic counts, with only the difficulties that actually exist offered, so a combination with nothing behind it can never be chosen. Real practice history, and a prompt to resume an unfinished session.
+- `/practice/:sessionId` — the runner and the review, one route. The server decides which: in progress comes back answer-stripped, submitted comes back marked. `isReviewed()` narrows between them, so review-only fields are *unreachable* rather than merely unrendered while a session is open.
+- Answers save individually as they are given, so closing the browser mid-session loses nothing. Free navigation via a palette showing which questions are answered. Code-split, because it renders question content through KaTeX.
+- The old `/exam` practice paper is superseded and removed; the route redirects to `/practice` so no bookmark dead-ends, and the path stays free for the official exam.
+
+### Testing
+
+**42 new tests (364 total).** The marking rules are tested as pure functions *and* through the API: all four question types, negative marking on answered-wrong only, exact-set multiple choice, numeric tolerance including a null tolerance and a zero response, and `false` counting as a real true/false answer rather than an absent one. Plus the integrity properties — no leak on start, resume or save; review refused before submission; another student's session indistinguishable from one that does not exist; no double submission; XP once per day.
+
+One real bug was caught by these tests and fixed: `$match` inside an `aggregate()` pipeline does **not** cast a hex string to an `ObjectId` the way `find()` does, so filtering practice by topic silently matched nothing and then failed the model's `min: 1` validator as a 500.
+
+---
+
 ## 2026-08-11 — The student sidebar now persists across every page it links to
 
 Reported: pressing any item in the left-hand `A.M.I.T Hub` menu made the menu itself disappear.

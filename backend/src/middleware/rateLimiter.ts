@@ -74,6 +74,24 @@ export const accountUpdateLimiter = limiter({
   message: 'Too many account changes. Please wait a while before trying again.',
 });
 
+/**
+ * Starting and submitting a practice session.
+ *
+ * Both are the expensive end of the Practice Zone: starting runs an aggregation and
+ * writes a document holding up to 50 questions, and submitting grades all of them.
+ * Saving an individual answer is deliberately **not** behind this — a student working
+ * through a 50-question paper legitimately saves dozens of answers in a few minutes,
+ * and rate-limiting that would lose their work.
+ *
+ * Generous enough for genuine repeated practice (a session every ~30 seconds for an
+ * hour) while still bounding how fast the collection can be grown.
+ */
+export const practiceLimiter = limiter({
+  windowMs: HOUR,
+  limit: 120,
+  message: 'Too many practice sessions started. Please wait a little before starting another.',
+});
+
 /** Refresh is called routinely by every active client, so this is generous. */
 export const refreshLimiter = limiter({
   windowMs: 15 * MINUTE,

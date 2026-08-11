@@ -380,6 +380,7 @@ export const ACTIVITY_TYPES = [
   'profile_updated',
   'photo_updated',
   'password_changed',
+  'practice_completed',
 ] as const
 export type ActivityType = (typeof ACTIVITY_TYPES)[number]
 
@@ -391,6 +392,7 @@ export const ACTIVITY_LABELS: Record<ActivityType, { label: string; icon: string
   profile_updated: { label: 'Updated your profile', icon: 'ph-pencil-simple' },
   photo_updated: { label: 'Changed your photo', icon: 'ph-camera' },
   password_changed: { label: 'Changed your password', icon: 'ph-lock-key' },
+  practice_completed: { label: 'Completed a practice session', icon: 'ph-target' },
 }
 
 export interface ActivityEntry {
@@ -564,6 +566,129 @@ export interface PublicStats {
  * than making those optional on `AdminQuestion`: optional answer fields are how an
  * answer key eventually leaks into a student view.
  */
+/**
+ * Practice Zone (Milestone 6).
+ *
+ * The split between these two shapes is the client half of the answer-integrity rule:
+ * `PracticeQuestion` is what the browser is given **while working** and has no field
+ * that could reveal an answer, and `PracticeReviewQuestion` adds the reveal and only
+ * ever arrives from a submitted session. Keeping them as separate types rather than one
+ * with optional fields means a component cannot accidentally read `correctAnswer` on a
+ * question that is still in progress — it would not compile.
+ */
+export type PracticeStatus = 'in_progress' | 'submitted' | 'abandoned'
+
+export interface PracticeResponse {
+  selectedOptionKeys: string[]
+  numericResponse: number | null
+  booleanResponse: boolean | null
+  answered: boolean
+}
+
+export interface PracticeQuestion extends StudentQuestion {
+  order: number
+  response: PracticeResponse
+}
+
+export interface PracticeReviewQuestion extends PracticeQuestion {
+  outcome: {
+    isCorrect: boolean | null
+    awardedMarks: number
+    marks: number
+    negativeMarks: number
+  }
+  correctAnswer: {
+    optionKeys: string[]
+    booleanAnswer: boolean | null
+    numericAnswer: number | null
+    tolerance: number | null
+  }
+  explanation: string | null
+  /** The question has been edited since it was served. */
+  revisionChanged: boolean
+}
+
+export interface PracticeSessionFilters {
+  subject: QuestionRef | null
+  topic: QuestionRef | null
+  difficulty: Difficulty | null
+  classLevel: ClassLevel
+}
+
+interface PracticeSessionBase {
+  id: string
+  status: PracticeStatus
+  totalQuestions: number
+  maxMarks: number
+  answeredCount: number
+  startedAt: string
+  submittedAt: string | null
+  filters: PracticeSessionFilters
+}
+
+export interface PracticeSessionInProgress extends PracticeSessionBase {
+  status: 'in_progress' | 'abandoned'
+  questions: PracticeQuestion[]
+}
+
+export interface PracticeSessionReview extends PracticeSessionBase {
+  status: 'submitted'
+  score: number
+  correctCount: number
+  incorrectCount: number
+  unansweredCount: number
+  accuracy: number
+  timeTakenSeconds: number
+  questions: PracticeReviewQuestion[]
+}
+
+export type PracticeSessionView = PracticeSessionInProgress | PracticeSessionReview
+
+/** Narrows a session to its graded form. The one place the distinction is decided. */
+export function isReviewed(session: PracticeSessionView): session is PracticeSessionReview {
+  return session.status === 'submitted'
+}
+
+export interface PracticeTopicOption {
+  topicId: string
+  topicName: string
+  questionCount: number
+  difficulties: Difficulty[]
+}
+
+export interface PracticeSubjectOption {
+  subjectId: string
+  subjectName: string
+  questionCount: number
+  difficulties: Difficulty[]
+  topics: PracticeTopicOption[]
+}
+
+export interface PracticeOptionsResponse {
+  classLevel: ClassLevel | null
+  subjects: PracticeSubjectOption[]
+  reason?: 'no-class'
+}
+
+/** One row of practice history. Carries no answers and no per-question detail. */
+export interface PracticeHistoryEntry {
+  id: string
+  status: PracticeStatus
+  totalQuestions: number
+  maxMarks: number
+  score: number | null
+  accuracy: number | null
+  correctCount: number | null
+  timeTakenSeconds: number | null
+  startedAt: string
+  submittedAt: string | null
+  filters: {
+    subject: QuestionRef | null
+    topic: QuestionRef | null
+    difficulty: Difficulty | null
+  }
+}
+
 export interface StudentQuestion {
   id: string
   questionText: string
