@@ -2,6 +2,77 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-12 — Milestone 7: Complete Mock Test System
+
+Timed, staff-authored papers, sat under a clock the server owns. This is the first assessment in the product: practice is self-chosen and untimed, and the official Olympiad is still unbuilt, so a mock test is the first thing here that measures a student against a paper somebody else set.
+
+### Admin: authoring
+
+`/admin/mock-tests` (new, gated on a new `mocktests:write` permission).
+
+- **Create a test** with a title, description, pre-start instructions (LaTeX allowed, rendered through `MathText` like a question), class, duration, attempt limit and an optional availability window.
+- **Select questions** from the published bank, filtered to the test's own class and searchable by subject and text. The paper is ordered, reorderable, and each question is **priced for this test** — marks and negative marks default to the bank's values and can be overridden, because the same question is legitimately worth 2 marks on a quiz and 6 on a final.
+- **Publish / unpublish / archive.** Publishing is where the strict rules apply: at least one question, every question already published, and a closing time present if either disclosure setting is relative to one. Unpublishing withdraws the test from students and refuses new attempts but deliberately does **not** interrupt an attempt already under way.
+- **Two disclosure settings, independently.** When a student may see their **score** (`immediate` / `after_close` / `hidden`) and when they may see the **correct answers** (`immediate` / `after_close` / `never`). Releasing the key while the window is open lets the first student to finish hand the answers to everyone who has not, so a scheduled assessment usually wants the score at once and the answers later.
+- **Results per test** — cohort statistics, a ranked table naming each student, and per-question outcomes so an author can see which question the cohort fell over. Every figure is a real aggregate; a statistic with nothing behind it prints as "—" rather than 0, because an average of zero and no average at all are different facts.
+- **Audited.** Four new actions (`mocktest.created`, `mocktest.updated`, `mocktest.status.changed`, `mocktest.deleted`), so pulling a live paper has a name against it.
+
+### Student: sitting the test
+
+`/mock-tests` and `/mock-tests/attempts/:attemptId` (new).
+
+- **View available tests** for their own class, with duration, marks, attempts used and the window. A test that has not opened yet is listed with its opening time — and **no questions**: the paper only ever arrives inside an attempt, which cannot be created outside the window.
+- **Start, with a real clock.** The countdown comes from the server's `secondsRemaining` and re-syncs on every answer save.
+- **Free navigation** with a question palette showing which are answered, and **per-answer autosave**, so a closed browser or a flat battery costs at most the answer being typed.
+- **Submit**, or have it submitted automatically when the time runs out.
+- **Results and review according to the test's settings** — the full marked paper with explanations, or the score alone, or an honest "your answers are in, results are released after the test closes". A withheld score is absent from the payload, not merely hidden by the page.
+- **50 XP**, once per competition day, for a mock test with real work in it.
+
+### The four properties this milestone is really about
+
+**1. The backend enforces timing; the frontend timer is decoration.** `MockTestAttempt.expiresAt` is computed and stored when the attempt is created — `startedAt + duration`, clamped to the test's closing time — and never recomputed, so an author changing the duration mid-paper cannot move a finishing line somebody is already running at. An answer arriving after the deadline is refused with 409 and **not stored**. A submission arriving late is still graded, *as at the deadline*, and recorded as having run out of time rather than as handed in. Nothing in any mock-test request body carries a time; a test posts `expiresAt`, `secondsRemaining`, `durationMinutes`, `timeTakenSeconds` and `startedAt` alongside a legitimate answer and asserts the stored deadline does not move. An attempt cannot even be started with under 60 seconds of window left, because the alternative is handing a late arrival a 20-second paper that also consumes their only try.
+
+**2. Exactly one submission.** Grading closes the attempt with a write conditional on it still being open, so of two concurrent submissions exactly one transitions it; the other gets the stored result and `alreadySubmitted: true`. Tested both sequentially and with genuinely concurrent requests, asserting one lot of XP and an unmoved `submittedAt`. A unique index on `{test, student, attemptNumber}` does the same job for two requests racing to *start* — the loser resumes the winner's attempt rather than creating a second one. Resuming is also what makes a reload safe, and what stops "start again" from buying a fresh clock.
+
+**3. The answer key does not leak — now under a policy.** The in-progress view composes the same answer-stripped `studentQuestionView` the question endpoints use, and `attemptReviewView()` is the only function that reveals a correct answer: it refuses unless the attempt is submitted **and** the test's review policy currently permits it. Tests stringify whole response bodies and require the forbidden names and the literal correct values to be absent — including *after* submission when the policy is `never`, which no earlier surface in this codebase had to do.
+
+**4. Attempts and results are persisted, and marked against the paper as served.** Each served question carries a snapshot of the answer key and the marks taken at serve time, so editing or re-pricing a question afterwards cannot change a mark already awarded — proved by a test that moves the correct option to a different letter after the student has answered and still scores them correct, while telling them the question has since been edited.
+
+### Shared rather than copied
+
+The two things that would have been dangerous to duplicate were extracted instead:
+
+- **`models/attemptAnswer.ts`** — one definition of a served question with its answer-key snapshot, response and outcome, used by `PracticeSession` and `MockTestAttempt`. `PracticeQuestionEntry` is now an alias of it.
+- **`services/grading.ts`** — one implementation of the marking rules, used by both. `practiceService.ts` re-exports `gradeEntry` / `isAnswered`, so its callers and its 42 tests were untouched. Two graders would eventually have disagreed, and a grader that disagrees with the answer key is a wrong score.
+
+### What is new in the codebase
+
+- Models: `MockTest`, `MockTestAttempt`, `attemptAnswer` (shared) — **15 models**, none with a TTL.
+- Services: `mockTestService.ts`, `grading.ts` (extracted).
+- Routes: `mockTests.routes.ts` (7 student endpoints), `mockTestsAdmin.routes.ts` (7 admin endpoints).
+- Validation: `mockTestSchemas.ts`, including two cross-field rules — a closing time must follow the opening time, and a disclosure setting of `after_close` requires a closing time to exist rather than silently meaning "never".
+- Permission: `mocktests:write` (**12 permissions**), held by `admin` and `superadmin`. Students sit tests under the existing `exam:take`.
+- Activity type: `mock_test_completed` (50 XP, once per day).
+- Rate limiter: `mockTestLimiter` on starting and submitting. Saving an answer is deliberately *not* limited — a student saves an answer every few seconds under a clock that does not stop.
+- Frontend: `pages/MockTests/` (list + attempt runner/review), `pages/Admin/MockTests|MockTestForm|MockTestResults`, four admin routes and two student routes, and a nav item in each shell.
+- **54 new tests** (418 total, 14 files).
+
+### One bug found by self-review, and the test that now catches it
+
+Three surfaces sweep expired attempts as a side effect of being read — the test list, the attempt history and the single-test briefing. All three rendered the document they *passed in* to the sweep rather than the one it returned, and because grading is a conditional `findOneAndUpdate`, the copy in hand still read `in_progress` afterwards. The effect was small but exactly the sort of thing that erodes trust: a paper whose time had run out showed as unfinished in the very response that finished it, and corrected itself only on a reload. Fixed by rendering the returned document, and covered by a test that asserts all three surfaces report `submitted` in the same response — verified to fail against the previous code (`expected 'in_progress' to be 'submitted'`) rather than merely to pass against the new.
+
+### Verified end to end in a real browser
+
+Against a local MongoDB and the seeded Class 12 bank: the root admin created a **1-minute, 2-question, 8-mark Physics paper** from real published questions and published it; a newly registered Class 12 student saw it, started it, answered one question, and the paper was **submitted automatically when the countdown reached zero** — scoring 4/8, 1 correct, 1 unanswered, 100% accuracy of answered, 59s recorded, +50 XP, with the correct answers and explanations revealed only after submission. The attempt limit then reported "1/1 — you have used your attempt" with Start disabled, and the admin results page showed the ranked row (Meera Rao, AMIT_9313, 4/8, 100%, 1/0/1, 59s) with per-question outcomes of 100% on the answered question and "—" on the skipped one. No console errors from any mock-test request.
+
+### Also fixed here
+
+**`npm run dev:local` no longer emails real people.** `backend/.env` holds working SMTP credentials, and `dotenv` will not overwrite a variable that is already set, so registering a made-up address against the *local* database sent a real message through the owner's real provider — to whoever owns the address that was typed. The script now points SMTP at a dead local port and turns email verification off, both overridable, so a local registration is one step and nothing leaves the machine. This was a documented footgun in the very script whose purpose is to remove footguns; it is also what made the browser verification above possible.
+
+**Not deployed.** No new environment variables, and no new deploy step.
+
+---
+
 ## 2026-08-11 — Class 12 question bank: 208 published questions
 
 Stocks the Practice Zone, which was otherwise only as useful as what had been published.

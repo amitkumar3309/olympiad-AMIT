@@ -40,9 +40,36 @@ process.env.ADMIN_EMAIL = 'root@localhost';
 // bcrypt hash of: LocalDevAdmin9
 process.env.ADMIN_PASSWORD_HASH = '$2a$12$tZrnsB/i/wzGeIye8z9GzO0S2w/ez.hi7ezha/bZc5a7vo7mSq7ae';
 
+/**
+ * No outbound email, and no verification gate, for the same reason as the database
+ * override above: the safe local default should not depend on anyone remembering.
+ *
+ * `backend/.env` holds **working** SMTP credentials, and `dotenv` will not overwrite a
+ * variable that is already set — so without this, registering `someone@example.com`
+ * against the local database sent a real message through the owner's real mail
+ * provider, to whoever happens to own the address that was typed. Pointing SMTP at a
+ * dead local port means delivery fails, which `lib/email.ts` logs and swallows by
+ * design, so nothing leaves the machine and registration still completes.
+ *
+ * `REQUIRE_EMAIL_VERIFICATION=false` is then what makes that usable: with no email
+ * arriving there is no link to click, so login would otherwise be impossible against a
+ * fresh local database.
+ *
+ * Both are `??=`, so a developer who genuinely wants to test delivery can set
+ * `SMTP_HOST` / `REQUIRE_EMAIL_VERIFICATION` in the environment for that one run —
+ * or use `npm run verify:email`, which is a separate entry point and unaffected.
+ */
+process.env.SMTP_HOST = process.env.SMTP_HOST ?? '127.0.0.1';
+process.env.SMTP_PORT = process.env.SMTP_PORT ?? '1025';
+process.env.REQUIRE_EMAIL_VERIFICATION = process.env.REQUIRE_EMAIL_VERIFICATION ?? 'false';
+
 console.log(`[dev-local] MONGO_URI overridden to ${process.env.MONGO_URI}`);
 console.log('[dev-local] The production database in .env is NOT being used.');
 console.log(`[dev-local] Root admin: ${process.env.ADMIN_EMAIL} / LocalDevAdmin9`);
+console.log(
+  `[dev-local] SMTP points at ${process.env.SMTP_HOST}:${process.env.SMTP_PORT} (nothing listening), so no real email is sent.`,
+);
+console.log('[dev-local] Email verification is OFF, so a newly registered account can sign in immediately.');
 
 // Imported after the overrides above, because config/env.ts reads process.env once
 // at module load — a static import would be hoisted and read the file's values.

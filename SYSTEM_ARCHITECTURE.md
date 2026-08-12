@@ -1,6 +1,6 @@
 # SYSTEM_ARCHITECTURE.md
 
-_Last updated: 2026-08-11 (Milestone 6 — Practice Zone)._
+_Last updated: 2026-08-12 (Milestone 7 — Mock Tests)._
 
 Documents what **actually exists** in the repository today. Anything not literally in the code is marked `PLANNED`.
 
@@ -23,7 +23,7 @@ Two independently deployed Vercel projects, no shared build, no monorepo tool. T
 
 ## Frontend Architecture — CURRENT
 
-- **Framework**: React 19, `react-router-dom` v7 `BrowserRouter` with **21 routes**, all declared in [frontend/src/App.tsx](frontend/src/App.tsx). Five are code-split with `React.lazy` — the admin question pages and the practice runner — because they pull in KaTeX (~260 KB), which must not land in the entry bundle every student downloads.
+- **Framework**: React 19, `react-router-dom` v7 `BrowserRouter` with **27 routes**, all declared in [frontend/src/App.tsx](frontend/src/App.tsx). Nine are code-split with `React.lazy` — the admin question and mock-test pages, the practice runner and the mock-test attempt runner — because they pull in KaTeX (~260 KB), which must not land in the entry bundle every student downloads.
 - **Two shells**: `components/StudentShell.tsx` and `pages/Admin/AdminShell.tsx` hold the sidebar, topbar, theme toggle and sign-out for their halves of the app. Each is the single place its navigation is defined; the student one falls back to the public `Navbar`/`Footer` for a guest, because two of its routes are public.
 - **Theme**: `context/ThemeContext.tsx` applies a `theme-dark` class to `document.documentElement`, persisted in `localStorage`, **defaulting to light**. Applied once at the document root, so no page can disagree with another.
 - **State**: One global context, `AuthContext` (`frontend/src/context/AuthContext.tsx`), a discriminated union `{status: 'loading'|'guest'|'student'|'admin', ...}`. No Redux/Zustand/React Query — every page manages its own `useState`/`useEffect` data fetching.
@@ -86,15 +86,19 @@ src/
   lib/session.ts          session cookies + access-token claims
   services/               business rules, kept out of the route layer:
                           question, taxonomy, activity, progress, challenge,
-                          result, practice, and questionView (the shared
+                          result, practice, mockTest, grading (THE marking
+                          rules, shared by practice and mock tests), and
+                          questionView (the shared
                           answer-stripped projection)
   models/                 one Mongoose model per file + barrel index (13)
   routes/health.routes.ts /health, /ready
-  routes/v1/              auth, me, analytics, practice, questions,
+  routes/v1/              auth, me, analytics, practice, mockTests,
+                          mockTestsAdmin, questions,
                           questionsAdmin, taxonomy, admin, users, misc
                           + barrel index
   validation/             zod schemas (authSchemas, questionSchemas,
-                          userSchemas, profileSchemas, practiceSchemas)
+                          userSchemas, profileSchemas, practiceSchemas,
+                          mockTestSchemas)
 scripts/                  dev-local, verify-email, migrate-questions,
                           backfill-activity, seed-class12, where-is-data,
                           atlas-direct-uri
@@ -121,7 +125,7 @@ scripts/                  dev-local, verify-email, migrate-questions,
 
 **`.env` resolution is anchored to the package root**, not `process.cwd()`. `config/env.ts` resolves it from its own directory, because a script run from `backend/scripts/` previously found no `.env`, loaded zero variables, silently fell back to the `mongodb://localhost` default, and wrote to the wrong database while reporting success. Every write script additionally calls `assertConfiguredForWrites()` (`lib/envGuard.ts`), which prints the target database and refuses a local write without an explicit `--local`.
 
-See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. **13 models**: `Student`, `StudentPhoto`, `Question`, `Subject`, `Topic`, `StudentActivity`, `PracticeSession`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`. Of these, `Result` is unwritten and `ExamAttempt` is read but never written — both belong to the *official* exam, which is not built (see [`DECISIONS.md`](DECISIONS.md) on why practice is a separate collection). Real indexes throughout, including a **partial unique** index on `StudentActivity` that is what makes "once per day" true rather than merely intended. No migration tool; there are several ad-hoc scripts instead, which is the point at which a real runner starts to be worth it.
+See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. **15 models**: `Student`, `StudentPhoto`, `Question`, `Subject`, `Topic`, `StudentActivity`, `PracticeSession`, `MockTest`, `MockTestAttempt`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog` — plus `attemptAnswer.ts`, a subdocument shared by the two attempt collections rather than a model of its own. Of these, `Result` is unwritten and `ExamAttempt` is read but never written — both belong to the *official* exam, which is not built (see [`DECISIONS.md`](DECISIONS.md) on why practice is a separate collection). Real indexes throughout, including a **partial unique** index on `StudentActivity` that is what makes "once per day" true rather than merely intended, and a **unique** index on `MockTestAttempt` `{test, student, attemptNumber}` that does the same for "one attempt per sitting". No migration tool; there are several ad-hoc scripts instead, which is the point at which a real runner starts to be worth it.
 
 ## Authentication Architecture — CURRENT
 
@@ -203,6 +207,8 @@ No payment gateway SDK/dependency in either `package.json`. The registration flo
 **Analytics view**: `Analytics.tsx`/`Report.tsx` → `GET /api/v1/analytics/:studentId` → looks up `StudentAnalytics` → **always missing today**, so the response is `data: null` with `reason: 'no-exam-data'`, plus a genuinely real `xpByDay` series aggregated from `StudentActivity`. The page charts the real series and renders an explicit "not measured yet" state for the accuracy half. Until 2026-08-11 this endpoint returned hardcoded figures (88% accuracy over 450 questions) rendered as if real.
 
 **Practice session (Milestone 6)**: `/practice` → `GET /practice/options` (real per-topic counts for the student's own class) → `POST /practice/sessions` draws a paper with `$sample` and **snapshots the answer key** into the session document → each answer saved individually by `PUT …/answers` → `POST …/submit` grades server-side against the snapshot, writes per-question outcomes, and awards `practice_completed` XP once per competition day → the same response carries the review.
+
+**Mock test (Milestone 7)**: `/admin/mock-tests` → an author assembles a paper from **published** questions of one class, priced per test → `PATCH …/status` publishes it, which is where the strict rules apply (every question published; a closing time if either disclosure setting needs one) → the student's `/mock-tests` lists it with the window and attempts left, and **no questions** → `POST /mock-tests/:id/attempts` snapshots the paper and **writes `expiresAt`** (`startedAt + duration`, clamped to the closing time) → each answer saved individually by `PUT …/answers`, which **refuses anything after the deadline and stores nothing** → `POST …/submit`, or the same grading triggered lazily by any later read, closes the attempt with a write conditional on it still being open, so exactly one submission can grade it → what comes back is whichever of three shapes the test's `resultDisplay` / `reviewPolicy` permit → `GET /admin/mock-tests/:id/results` sweeps expired attempts, then aggregates cohort statistics, standard competition ranking and per-question outcomes.
 
 The answer key never leaves the server before submission: `sessionInProgressView()` composes the answer-stripped `studentQuestionView`, and `sessionReviewView()` — the only function that reveals an answer — throws unless the session is `submitted`. Grading is therefore not something the browser could tamper with, because the browser is never given the means.
 

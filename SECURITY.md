@@ -1,6 +1,6 @@
 # SECURITY.md
 
-_Last updated: 2026-08-11 (Milestone 6 — Practice Zone)._
+_Last updated: 2026-08-12 (Milestone 7 — Mock Tests)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.
 
@@ -42,10 +42,13 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `questions:write` | — | yes | yes |
 | `questions:delete` | — | yes | yes |
 | `taxonomy:write` | — | yes | yes |
+| `mocktests:write` | — | yes | yes |
 | `audit:read` | — | yes | yes |
 | `users:role:write` | — | — | **yes** |
 
 `users:role:write` is confined to `superadmin` on purpose: an ordinary admin cannot create more admins, so one compromised admin session cannot widen itself.
+
+`mocktests:write` (Milestone 7) is separate from `questions:write` for a reason worth stating: assembling and scheduling an assessment is a different job from authoring the questions in the bank, and — unlike authoring — it carries **the right to read every student's marks** for a test. Both sit with `admin` today, so splitting them buys nothing immediately; it means confining results-reading later is a one-line change to this table rather than a route audit. Students sit tests under the existing `exam:take`, which is a student-level permission and therefore stateless: the mock-test attempt routes do no extra database read to authorize, and ownership is enforced by putting `student` in every query.
 
 `questions:delete` (Milestone 4) is separate from `questions:write` because it is the only question-bank action that **destroys** data rather than changing it. Archiving — the normal removal path, and reversible — needs only `questions:write`. Both currently sit with `admin`, but splitting them now means restricting deletion later is a one-line change to this table rather than a route audit.
 
@@ -264,6 +267,28 @@ The Practice Zone marks work, so the correct answers are the thing an attacker m
 4. **Ownership is checked on every read and write.** A session belonging to another student is reported as **404, not 403** — a 403 would confirm the id exists, which is an enumeration oracle over session ids.
 
 Asserted by tests: no `isCorrect`, `solution`, `numericAnswer`, `booleanAnswer` or `tolerance` appears in the start, resume or save responses; review is refused before submission; another student's session is indistinguishable from one that does not exist; and a session cannot be submitted twice.
+
+## Answer integrity under a disclosure policy (Milestone 7)
+
+Mock tests keep all four properties above and add a fifth condition, because "submitted" is no longer sufficient authority to reveal an answer — **the test's own `reviewPolicy` decides**, and it may say `after_close` or `never`.
+
+- `disclosureFor()` is the only place either disclosure setting is interpreted. It refuses everything for an unsubmitted attempt first, as a floor, before consulting the policy at all.
+- `attemptReviewView()` is the only function that emits `correctAnswer` or `explanation` for a mock test, and it throws unless the attempt is submitted **and** the policy currently permits it. Three response shapes therefore exist — full review, score without answers, and submitted-with-nothing-released — rather than one shape with fields the page is trusted not to render.
+- A withheld score is `null` in the history view and **absent** from the attempt payload, not merely hidden by CSS or a conditional render.
+- The policy is read live rather than snapshotted onto the attempt, so an administrator can release results after the window closes or withdraw a review released too early.
+
+Tests stringify whole response bodies and require the forbidden names and the literal correct values to be absent — including *after* submission when the policy is `never`, and while the window is still open when it is `after_close`. That case is new: every earlier surface in this codebase could reveal an answer as soon as the work was graded.
+
+## Timing integrity (Milestone 7)
+
+A timed assessment has a second thing worth attacking: the clock. The rule is that **no client-supplied time is ever read**.
+
+- `MockTestAttempt.expiresAt` is computed server-side when the attempt is created and stored. Every timing decision compares it against the server's own `Date`.
+- An answer arriving after `expiresAt` is refused with 409 and **not stored** — not stored late, not stored and discarded at grading.
+- A submission arriving after `expiresAt` is still graded, but *as at the deadline*: `submittedAt` is clamped to it, so `timeTakenSeconds` can never exceed the duration the test allowed.
+- No request body on any mock-test route contains a time field. A test posts `expiresAt`, `secondsRemaining`, `durationMinutes`, `timeTakenSeconds` and `startedAt` alongside a legitimate answer and asserts the stored deadline, start time and duration are unchanged — the schema simply has no such fields, and `validate` replaces `req.body` with the parse result, so they cannot reach a handler.
+- The countdown in the browser is a display derived from `secondsRemaining`. Tampering with it, pausing the tab or running a wrong system clock changes nothing about the mark.
+- Exactly one submission is guaranteed by a conditional write (`status: 'in_progress'` in the update filter) rather than a read-then-write check, which on a serverless platform can straddle two invocations. A concurrent-submission test asserts one grading and one XP award.
 
 ## Handling of database credentials
 

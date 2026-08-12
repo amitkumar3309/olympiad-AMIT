@@ -1,6 +1,6 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-11 (Milestone 6 — Practice Zone)._
+_Last updated: 2026-08-12 (Milestone 7 — Mock Tests)._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
@@ -454,3 +454,79 @@ Grades server-side against the snapshot and returns the full review plus `xpAwar
 
 ### `GET /api/v1/practice/sessions`
 The student's own history, newest first, paginated. Scores and accuracy, but **no per-question detail and no answers** — the review endpoint is the only route to those (asserted by test).
+
+---
+
+## Mock tests (Milestone 7)
+
+Two groups of routes: **authoring**, gated on the new `mocktests:write` permission, and **sitting**, gated on the existing student permission `exam:take`.
+
+The student routes resolve the caller's own account from the token's `sub`. **No student route accepts a student id**, and every attempt lookup puts `student` in the query rather than checking ownership afterwards — so another student's attempt is indistinguishable from one that does not exist (404, never 403, asserted by test).
+
+**The clock is the server's.** No request body on any route here carries a time. `expiresAt` is computed and stored when the attempt is created (`startedAt + durationMinutes`, clamped to the test's `availableTo`) and every timing decision reads that stored value. A test posts `expiresAt`, `secondsRemaining`, `durationMinutes`, `timeTakenSeconds` and `startedAt` alongside a legitimate answer and asserts the stored deadline does not move.
+
+### Authoring
+
+#### `GET /api/v1/admin/mock-tests`
+Paginated list. Filters: `status`, `classLevel`, `search` (title, matched literally — the pattern is regex-escaped). Carries no question text; the list is a table of titles.
+
+#### `GET /api/v1/admin/mock-tests/:id`
+Full detail including the paper — each question's id, order, per-test marks, and its text, type, difficulty and bank status so the editor can identify it. Also returns **`attemptsCount`**, which is what tells the editor the paper is frozen (see below).
+
+#### `POST /api/v1/admin/mock-tests`
+Body: `title`, `classLevel`, `questions` (1–100 × `{ question, marks, negativeMarks }`), `durationMinutes` (1–600), and optionally `description`, `instructions`, `availableFrom`, `availableTo`, `maxAttempts` (1–10, default 1), `resultDisplay`, `reviewPolicy`.
+
+Created as a **draft**; `totalMarks` is computed by the server and is not accepted from a client. Refusals: a question that does not exist or belongs to another class is a **400**; `negativeMarks` above `marks` is a **400**; the same question twice is a **400**; `availableTo` not after `availableFrom` is a **400**; a disclosure setting of `after_close` with no closing time is a **400** (it would otherwise silently mean "never").
+
+#### `PUT /api/v1/admin/mock-tests/:id`
+Sends the whole test, like a question edit. **Once the test has attempts, the question list, any question's marks and `durationMinutes` are frozen** and a change to them is a **409** — results already recorded would otherwise stop being comparable. Everything else stays editable for the life of the test: title, description, instructions, window, attempt limit and both disclosure settings.
+
+#### `PATCH /api/v1/admin/mock-tests/:id/status`
+Body: `status` (`draft` / `published` / `archived`), optional `reason` recorded in the audit trail.
+
+Publishing requires at least one question, **every** question already published (**409** naming how many are not), and a closing time if either disclosure setting is `after_close`. Unpublishing to `draft` withdraws the test and refuses new attempts but deliberately does not interrupt an attempt under way.
+
+#### `DELETE /api/v1/admin/mock-tests/:id`
+Hard delete, permitted only for a test that has **never been published** and that nobody has attempted — a **409** otherwise, naming which. Archiving is the removal path for everything else, exactly as in the question bank.
+
+#### `GET /api/v1/admin/mock-tests/:id/results`
+Cohort statistics, a ranked row per attempt, and per-question outcomes.
+
+Ranking is standard competition ranking (ties share a rank). Statistics with no attempts behind them are **`null`**, not 0. `questionStats[].correctPercent` is of the students who *answered* that question, and `null` when nobody did.
+
+Staff see real marks whatever the test's `resultDisplay` says — that setting governs what a *student* is told, not whether the person who set the test may read their cohort's results.
+
+**Reading this endpoint finalises expired attempts** for that test before aggregating, so a paper whose clock ran out is reported as the graded thing it is rather than as "in progress" indefinitely. There is no scheduler on the free tier to do it in the background (see [`DECISIONS.md`](DECISIONS.md)).
+
+### Sitting a test
+
+#### `GET /api/v1/mock-tests`
+Published tests for the caller's own class, with their own attempt state on each: attempts used and left, `resumeAttemptId`, availability and the reason when unavailable. **No questions.** An account with no class returns `reason: 'no-class'`.
+
+#### `GET /api/v1/mock-tests/:id`
+The pre-start briefing — instructions, duration, marks, window, attempts left, and the disclosure settings so the student knows in advance whether they will see their score. Still **no questions**. A draft, archived or other-class test is a **404**, so the endpoint cannot enumerate unpublished tests.
+
+#### `POST /api/v1/mock-tests/:id/attempts`
+Starts the test, or **resumes** an attempt already open — returned with its original deadline, which is what makes a reload safe and stops "start again" buying a fresh clock. `201` for a new attempt, `200` with `resumed: true` for a resumption.
+
+Refusals: outside the window is a **409** (`not opened yet` / `closed`); under 60 seconds of window left is a **409**; the attempt limit is a **409**; another class's test is a **403**; a test whose paper references a missing question is a **409** rather than a short paper, because everyone sitting a test must sit the same one. Rate limited (60/hour).
+
+Responds with the answer-stripped paper plus `expiresAt` and `secondsRemaining` — the first and only point at which the questions are served.
+
+#### `GET /api/v1/mock-tests/attempts/:attemptId`
+Serves whichever of four shapes the attempt and the test's settings permit: the open paper with remaining time; the full marked review; the score and summary without the answers; or the bare fact that it was submitted, with a `disclosure.reason`. **An open attempt whose deadline has passed is graded on the way in**, so a student who closed their laptop returns to their marked paper.
+
+#### `PUT /api/v1/mock-tests/attempts/:attemptId/answers`
+Body: `questionId` plus whichever of `selectedOptionKeys` / `numericResponse` / `booleanResponse` fits. Only the field belonging to the question's own type is stored. An option key never served is a **400**; a second key on a `single_choice` question is a **400**; a question outside the attempt is a **404**.
+
+**After the deadline it is a 409 and the answer is not stored**, and the attempt is graded in the same request. The response carries **no correctness** — that would reveal the key one question at a time — but does carry `secondsRemaining`, which is how a drifted client resynchronises. Deliberately **not** rate limited: a student under a clock that does not stop saves an answer every few seconds.
+
+#### `POST /api/v1/mock-tests/attempts/:attemptId/submit`
+Grades server-side against the snapshot taken when the paper was served. Returns whichever disclosure shape applies, plus `xpAwarded` and `alreadySubmitted`.
+
+A second submission is **200, not 409**: from the student's point of view the paper *is* submitted, and an error would invite them to press again. It returns the stored result with `alreadySubmitted: true` and cannot re-grade, re-roll the score or award XP twice — the closing write is conditional on the attempt still being open. Arriving after the deadline still grades, *as at the deadline*, recorded as `time_expired`.
+
+Earns `mock_test_completed` (50 XP) **once per competition day**, and nothing at all for a paper with no answers. Rate limited (60/hour).
+
+#### `GET /api/v1/mock-tests/attempts`
+The student's own attempts across every test, newest first, paginated. Honours each test's result policy: a score the student may not yet see is `null` here too. No per-question detail and no answers.

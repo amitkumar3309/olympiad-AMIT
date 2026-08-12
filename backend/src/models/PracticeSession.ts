@@ -1,6 +1,7 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
 import { CLASS_LEVELS, type ClassLevel } from '../lib/classLevels';
-import { DIFFICULTIES, QUESTION_TYPES, type Difficulty, type QuestionType } from './Question';
+import { DIFFICULTIES, type Difficulty } from './Question';
+import { attemptAnswerSchema, type AttemptAnswerEntry } from './attemptAnswer';
 
 /**
  * A student's self-directed practice attempt.
@@ -36,34 +37,16 @@ import { DIFFICULTIES, QUESTION_TYPES, type Difficulty, type QuestionType } from
 export const PRACTICE_STATUSES = ['in_progress', 'submitted', 'abandoned'] as const;
 export type PracticeStatus = (typeof PRACTICE_STATUSES)[number];
 
-export interface PracticeQuestionEntry {
-  question: Types.ObjectId;
-  /** Which revision of the question was served, so a later edit is detectable. */
-  revision: number;
-  type: QuestionType;
-  /** Snapshot of the marks on offer, so re-pricing a question cannot rewrite a grade. */
-  marks: number
-  negativeMarks: number;
-
-  // --- Answer key, snapshotted at serve time. Never projected before reveal. ---
-  /** Correct option keys for the two choice types; empty for the others. */
-  correctOptionKeys: string[];
-  booleanAnswer?: boolean | null;
-  numericAnswer?: number | null;
-  tolerance?: number | null;
-
-  // --- The student's response. ---
-  /** Chosen option keys. Always an array, so `multiple_choice` needs no special case. */
-  selectedOptionKeys: string[];
-  numericResponse?: number | null;
-  booleanResponse?: boolean | null;
-  answeredAt?: Date | null;
-
-  // --- Grading outcome, written once at submission. ---
-  isCorrect?: boolean | null;
-  /** Marks actually awarded: `+marks`, `-negativeMarks`, or 0 if unanswered. */
-  awardedMarks?: number | null;
-}
+/**
+ * One served question in a practice session.
+ *
+ * The shape moved to `models/attemptAnswer.ts` in Milestone 7, when mock-test
+ * attempts needed exactly the same thing — one definition, so the shared grader in
+ * `services/grading.ts` cannot disagree with either collection's answer key. This
+ * alias is kept because "a practice question entry" is what the practice code calls
+ * it, and renaming it would churn a working, tested module for nothing.
+ */
+export type PracticeQuestionEntry = AttemptAnswerEntry;
 
 export interface PracticeSessionDocument extends Document {
   student: Types.ObjectId;
@@ -96,30 +79,6 @@ export interface PracticeSessionDocument extends Document {
   timeTakenSeconds: number;
 }
 
-const practiceQuestionSchema = new Schema<PracticeQuestionEntry>(
-  {
-    question: { type: Schema.Types.ObjectId, ref: 'Question', required: true },
-    revision: { type: Number, required: true, min: 1 },
-    type: { type: String, enum: QUESTION_TYPES, required: true },
-    marks: { type: Number, required: true, min: 0 },
-    negativeMarks: { type: Number, required: true, min: 0, default: 0 },
-
-    correctOptionKeys: { type: [String], default: [] },
-    booleanAnswer: { type: Boolean, default: null },
-    numericAnswer: { type: Number, default: null },
-    tolerance: { type: Number, default: null, min: 0 },
-
-    selectedOptionKeys: { type: [String], default: [] },
-    numericResponse: { type: Number, default: null },
-    booleanResponse: { type: Boolean, default: null },
-    answeredAt: { type: Date, default: null },
-
-    isCorrect: { type: Boolean, default: null },
-    awardedMarks: { type: Number, default: null },
-  },
-  { _id: false },
-);
-
 const practiceSessionSchema = new Schema<PracticeSessionDocument>({
   student: { type: Schema.Types.ObjectId, ref: 'Student', required: true },
   status: { type: String, enum: PRACTICE_STATUSES, default: 'in_progress', index: true },
@@ -129,7 +88,7 @@ const practiceSessionSchema = new Schema<PracticeSessionDocument>({
     difficulty: { type: String, enum: DIFFICULTIES, default: null },
     classLevel: { type: String, enum: CLASS_LEVELS, required: true },
   },
-  questions: { type: [practiceQuestionSchema], default: [] },
+  questions: { type: [attemptAnswerSchema], default: [] },
   totalQuestions: { type: Number, required: true, min: 1 },
   maxMarks: { type: Number, required: true, min: 0 },
 

@@ -89,7 +89,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 | Variable | Required | Purpose | Example | Notes |
 |---|---|---|---|---|
-| `REQUIRE_EMAIL_VERIFICATION` | optional (default `true`) | Whether students must click the emailed link before they can sign in. | `true` | **Escape hatch**: set to `false` only if mail delivery breaks and you need a way in. Accepts `true`/`false`/`1`/`0`. |
+| `REQUIRE_EMAIL_VERIFICATION` | optional (default `true`) | Whether students must click the emailed link before they can sign in. | `true` | **Escape hatch**: set to `false` only if mail delivery breaks and you need a way in. Accepts `true`/`false`/`1`/`0`. **`npm run dev:local` forces this to `false`** (Milestone 7) and points SMTP at a dead local port, so local work neither waits for a link nor emails a real person — see [`DECISIONS.md`](DECISIONS.md). Set it explicitly in the environment to override for one run. |
 | `MAX_FAILED_LOGINS` | optional (default `5`) | Failed attempts before an account locks. | `5` | |
 | `ACCOUNT_LOCK_MINUTES` | optional (default `15`) | How long the lock lasts. | `15` | |
 

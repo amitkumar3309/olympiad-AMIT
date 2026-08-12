@@ -18,6 +18,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'question.updated': 'Question edited',
   'question.status.changed': 'Question status changed',
   'question.deleted': 'Question deleted',
+  'mocktest.created': 'Mock test created',
+  'mocktest.updated': 'Mock test edited',
+  'mocktest.status.changed': 'Mock test published/unpublished',
+  'mocktest.deleted': 'Mock test deleted',
   'subject.changed': 'Subject changed',
   'topic.changed': 'Topic changed',
   'admin.session.started': 'Admin signed in',
@@ -35,7 +39,13 @@ function describe(entry: AuditEntry): string {
   if (!meta) return '—'
   const parts: string[] = []
   if (typeof meta.from === 'string' && typeof meta.to === 'string') parts.push(`${meta.from} → ${meta.to}`)
+  // A status change that names only the destination — a question or mock test moving
+  // through its workflow, where the previous status is not recorded.
+  else if (typeof meta.to === 'string') parts.push(`→ ${meta.to}`)
   if (typeof meta.count === 'number') parts.push(`${meta.count} question(s)`)
+  if (typeof meta.questions === 'number') parts.push(`${meta.questions} question(s)`)
+  if (typeof meta.totalMarks === 'number') parts.push(`${meta.totalMarks} marks`)
+  if (typeof meta.durationMinutes === 'number') parts.push(`${meta.durationMinutes} min`)
   if (Array.isArray(meta.missing) && meta.missing.length > 0) parts.push(`needed ${meta.missing.join(', ')}`)
   if (typeof meta.method === 'string') parts.push(String(meta.method))
   if (typeof meta.reason === 'string' && meta.reason) parts.push(`“${meta.reason}”`)

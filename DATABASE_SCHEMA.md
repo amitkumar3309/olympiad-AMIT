@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. **Thirteen models** as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Fifteen models** as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 **That default is a trap worth knowing about.** Because it exists, a script or process with no `.env` loaded connects to a *local* database and works perfectly, writing to somewhere nobody is looking. This happened: a seed run from the wrong directory published 208 questions to localhost while production stayed empty. `config/env.ts` now anchors the `.env` lookup to the package root, and every write script calls `assertConfiguredForWrites()`. Use `npx tsx scripts/where-is-data.ts` to see which database is actually connected and what every collection really holds.
 
@@ -352,3 +352,71 @@ The snapshot exists because an author may edit or archive a question mid-session
 **Consequence to respect:** the answer key now lives in a second collection. Nothing may project these fields before submission — `services/practiceService.ts` builds two explicit views for exactly that reason, and `sessionReviewView()` throws on an unsubmitted session.
 
 No TTL, like `StudentActivity` and `AuditLog`: a practice history is a record of work the student did.
+
+---
+
+## `MockTest` (Milestone 7) — ACTIVE
+
+A staff-authored, timed paper. **Deliberately neither a `PracticeSession` nor an `ExamAttempt`** — see the ADR in [`DECISIONS.md`](DECISIONS.md): practice is self-chosen and untimed, the official Olympiad is one ranked national sitting, and a mock test is an authored paper sat a fixed number of times.
+
+| Field | Type | Notes |
+|---|---|---|
+| `title` | String, ≤200 | |
+| `description` | String, ≤2000, nullable | One line, shown in the student's list. |
+| `instructions` | String, ≤5000, nullable | Shown before starting. Plain text with LaTeX islands, rendered through `MathText` like a question. |
+| `classLevel` | ClassLevel, indexed | A student may only sit their own class's tests. |
+| `questions[]` | subdocument, `_id: false` | `{ question → Question, order, marks, negativeMarks }`. **The marks are the test's, not the bank's** — the same question may be worth 2 on a quiz and 6 on a final. `order` is stored explicitly so a reorder is data rather than array position. |
+| `durationMinutes` | Number, 1–600 | |
+| `totalMarks` | Number | **Computed by the service** on every save, never accepted from a client. Stored rather than derived on read only because the student's list prints it for many tests at once. |
+| `availableFrom` / `availableTo` | Date, nullable | Null means "as soon as published" / "open indefinitely". |
+| `maxAttempts` | Number, 1–10, default 1 | |
+| `resultDisplay` | `immediate` \| `after_close` \| `hidden` | When the **score** may be shown. |
+| `reviewPolicy` | `immediate` \| `after_close` \| `never` | When the **answers** may be shown. Separate from the above on purpose. |
+| `status` | `draft` \| `published` \| `archived`, indexed | `published` is the only status a student may sit; `STUDENT_VISIBLE_TEST_STATUSES` is the single place that is written down. |
+| `createdBy` / `createdByLabel` / `updatedBy` / `updatedByLabel` | | As on `Question`. |
+| `publishedAt` / `archivedAt` | Date, nullable | `publishedAt` is historical and deliberately retained after unpublishing — it is what the hard-delete guard tests. |
+
+Indexes: `{status, classLevel, availableFrom}` for the student listing, `{status, createdAt}` for the admin one.
+
+**Editing rules** live in `services/mockTestService.ts`, not in the schema: once the test has attempts, the question list, the per-question marks and `durationMinutes` are frozen (409), because results already recorded against the test would otherwise stop being comparable. Everything else stays editable for the life of the test.
+
+---
+
+## `MockTestAttempt` (Milestone 7) — ACTIVE
+
+One student's sitting of one `MockTest`. Modelled on `PracticeSession` and adds the three things an assessment needs.
+
+| Field | Type | Notes |
+|---|---|---|
+| `test` | ObjectId → `MockTest` | |
+| `student` | ObjectId → `Student` | Ownership is always part of the query, never an after-the-fact check. |
+| `attemptNumber` | Number, min 1 | Bounded by the test's `maxAttempts`. |
+| `status` | `in_progress` \| `submitted` | **No `expired` status** — an attempt whose time ran out is graded exactly like a submitted one. It is finished, not void. |
+| `questions[]` | shared `attemptAnswerSchema` | The same subdocument `PracticeSession` uses — see below. |
+| `totalQuestions` / `maxMarks` | Number | |
+| `durationMinutes` | Number | The duration in force when the attempt began, for the record. |
+| `score` | Number | Sum of awarded marks. **May be negative.** |
+| `correctCount` / `incorrectCount` / `unansweredCount` / `accuracy` | Number | Written at submission. Accuracy is over **answered**, not served. |
+| `startedAt` | Date | |
+| **`expiresAt`** | Date, required | **The authoritative deadline.** `startedAt + durationMinutes`, clamped to the test's `availableTo`. Written once at creation and never recomputed — an author changing the duration mid-paper must not move a finishing line somebody is already running at. |
+| `submittedAt` | Date, nullable | Clamped to `expiresAt`: nothing can have happened after the deadline. |
+| `timeTakenSeconds` | Number | Start to submission, server-computed. |
+| `submissionReason` | `manual` \| `time_expired`, nullable | Why it closed. |
+
+**Unique index on `{test, student, attemptNumber}`** — this is what makes "one attempt per sitting" true in the database rather than intended by the handler that counts them. Two requests racing to start cannot both create one; the loser resumes the winner's attempt. Plus `{student, startedAt}` for the history and `{test, status, score}` for the results table and the expiry sweep.
+
+No TTL, for the same reason as `PracticeSession`: this is the record of an assessment a student actually sat.
+
+**Disclosure is not snapshotted here.** The attempt records what happened; whether the student may *see* it is read from the test's `resultDisplay` / `reviewPolicy` at request time, so an administrator can release results after the window closes or withdraw a review released too early.
+
+---
+
+## `attemptAnswer` — a shared subdocument, not a model
+
+`models/attemptAnswer.ts` holds `AttemptAnswerEntry` and `attemptAnswerSchema`: one served question, with the answer-key snapshot taken at serve time, the student's response, and the grade it earned. It is embedded by **both** `PracticeSession.questions` and `MockTestAttempt.questions`, and `PracticeQuestionEntry` is now an alias of it.
+
+Fields: `question` (ref), `revision`, `type`, `marks`, `negativeMarks` — then the snapshot (`correctOptionKeys`, `booleanAnswer`, `numericAnswer`, `tolerance`), the response (`selectedOptionKeys`, `numericResponse`, `booleanResponse`, `answeredAt`), and the outcome (`isCorrect`, `awardedMarks`).
+
+Shared because the alternative is two definitions of what counts as correct and, sooner or later, two graders that disagree — and a grader that disagrees with the answer key is a wrong score on a student's report. For the same reason there is exactly one implementation of the marking rules, in `services/grading.ts`, used by both collections.
+
+**Consequence to respect, twice over:** the answer key now lives in *two* collections beyond `Question`. Nothing may project these fields before the attempt is finished and disclosure is permitted. `practiceService.ts` and `mockTestService.ts` each build explicit views and never return a raw document; `sessionReviewView()` throws on an unsubmitted session, and `attemptReviewView()` throws unless the attempt is submitted **and** the test's review policy currently allows it.

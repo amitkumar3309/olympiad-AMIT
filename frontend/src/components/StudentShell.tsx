@@ -40,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'ph-squares-four' },
   { to: '/profile', label: 'My Profile', icon: 'ph-user-circle' },
   { to: '/practice', label: 'Practice Zone', icon: 'ph-target' },
+  { to: '/mock-tests', label: 'Mock Tests', icon: 'ph-exam' },
   { to: '/analytics', label: 'Analytics', icon: 'ph-chart-line-up' },
   { to: '/report', label: 'Report', icon: 'ph-file-text' },
   { to: '/result', label: 'Result', icon: 'ph-seal-check' },

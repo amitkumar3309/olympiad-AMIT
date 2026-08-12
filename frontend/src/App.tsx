@@ -23,10 +23,19 @@ const AdminTaxonomy = lazy(() => import('./pages/Admin/Taxonomy'))
 const AiGenerator = lazy(() => import('./pages/AiGenerator/AiGenerator'))
 /** Same reasoning: the session runner renders question content through KaTeX. */
 const PracticeSessionPage = lazy(() => import('./pages/Practice/PracticeSession'))
+/**
+ * Mock tests (Milestone 7). The attempt runner and the two administrative pages that
+ * show question text all render maths, so they are split out for the same reason.
+ */
+const MockTestAttemptPage = lazy(() => import('./pages/MockTests/MockTestAttempt'))
+const AdminMockTests = lazy(() => import('./pages/Admin/MockTests'))
+const AdminMockTestForm = lazy(() => import('./pages/Admin/MockTestForm'))
+const AdminMockTestResults = lazy(() => import('./pages/Admin/MockTestResults'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Profile from './pages/Profile/Profile'
 import Practice from './pages/Practice/Practice'
+import MockTests from './pages/MockTests/MockTests'
 import Certificate from './pages/Certificate/Certificate'
 import Report from './pages/Report/Report'
 import Result from './pages/Result/Result'
@@ -111,6 +120,41 @@ export default function App() {
               </RequirePermission>
             }
           />
+          {/* Mock tests. `mocktests:write` covers authoring *and* reading every
+              student's marks for a test, which is why it is its own permission and not
+              a corner of `questions:write`. */}
+          <Route
+            path="/admin/mock-tests"
+            element={
+              <RequirePermission permission="mocktests:write">
+                <AdminMockTests />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/mock-tests/new"
+            element={
+              <RequirePermission permission="mocktests:write">
+                <AdminMockTestForm />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/mock-tests/:id/edit"
+            element={
+              <RequirePermission permission="mocktests:write">
+                <AdminMockTestForm />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/mock-tests/:id/results"
+            element={
+              <RequirePermission permission="mocktests:write">
+                <AdminMockTestResults />
+              </RequirePermission>
+            }
+          />
           <Route
             path="/ai-generator"
             element={
@@ -165,6 +209,23 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <PracticeSessionPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* --- Mock tests (Milestone 7) --- */}
+          <Route
+            path="/mock-tests"
+            element={
+              <ProtectedRoute>
+                <MockTests />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mock-tests/attempts/:attemptId"
+            element={
+              <ProtectedRoute>
+                <MockTestAttemptPage />
               </ProtectedRoute>
             }
           />

@@ -248,6 +248,26 @@ It prints the URI it is using, and sets a known root-admin credential (`root@loc
 
 This cannot affect any deployed environment: Vercel runs `api/index.ts`, never this script.
 
+**Since Milestone 7 it also stops local work from sending real email** — see the next entry.
+
+---
+
+## Registering a test student locally emails a real stranger
+
+**Problem**: registering `someone@example.com` (or any made-up address) against the **local** database sent a genuine verification email through the owner's real mail provider — to whoever actually owns that address. It also consumed the provider's free-tier quota, and against a plausible-looking address it meant mailing a real person about an account they never created.
+
+**Cause**: `backend/.env` holds working SMTP credentials, and `dotenv` does not overwrite a variable that is already set — so `dev:local` could override `MONGO_URI` (which it did) but the SMTP group was still loaded from the file. `lib/email.ts` only falls back to its log transport when `SMTP_HOST` is *absent*, and there is no way to make an environment variable absent before dotenv reads the file. The documented workaround was "remember to set `REQUIRE_EMAIL_VERIFICATION=false`, or clear `SMTP_HOST` for that run" — the second half of which the env schema correctly rejects, since it requires a non-empty string when present.
+
+**Solution**: `scripts/dev-local.ts` now also sets `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` and `REQUIRE_EMAIL_VERIFICATION=false`, each only if not already set. Nothing is listening on that port, so delivery fails — and `lib/email.ts` logs and swallows delivery failures by design, precisely so a dead mail provider cannot turn an auth route into a 500. Registration therefore completes normally while nothing leaves the machine, and with verification off the new account can sign in at once.
+
+To test delivery deliberately, either set `SMTP_HOST` in the environment for that run, or use the script that exists for it:
+
+```bash
+npm run verify:email --prefix backend
+```
+
+**Verification**: the start-up banner now reads `SMTP points at 127.0.0.1:1025 (nothing listening), so no real email is sent.` A registration against the local database during Milestone 7 verification returned 201 with `requiresEmailVerification: false`, the account signed in immediately, and the server log recorded `Email delivery failed` rather than `Email sent`.
+
 ## Template for new entries
 
 ```

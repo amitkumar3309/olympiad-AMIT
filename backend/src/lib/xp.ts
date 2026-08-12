@@ -40,6 +40,14 @@ export const XP_AWARDS: Record<ActivityType, number> = {
    * per session would be farmable by submitting empty ones in a loop.
    */
   practice_completed: 25,
+  /**
+   * Worth more than practice because it is a harder thing to do: a timed paper the
+   * student did not choose the questions for, sat under a server-enforced clock.
+   * Awarded **once per day** on the same reasoning — a student who sits three mock
+   * tests in a day is not three times as good as one who sits one, and paying per
+   * attempt would reward starting papers rather than doing them.
+   */
+  mock_test_completed: 50,
 };
 
 export function xpFor(type: ActivityType): number {

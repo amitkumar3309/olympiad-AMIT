@@ -35,6 +35,14 @@ export const ACTIVITY_TYPES = [
    * documents; they simply do not multiply XP.
    */
   'practice_completed',
+  /**
+   * A mock test was submitted and graded (Milestone 7). **Once per day**, for the
+   * same anti-farming reason as `practice_completed`, and worth more because a mock
+   * test is a timed assessment on an author-set paper rather than a self-chosen
+   * warm-up. Still not `exam_submitted`: the official Olympiad is a different event
+   * and must not be conflated with a mock (see DECISIONS.md).
+   */
+  'mock_test_completed',
 ] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
@@ -45,7 +53,7 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
  * forget to perform.
  */
 export const ONCE_PER_ACCOUNT: readonly ActivityType[] = ['account_created', 'email_verified'];
-export const ONCE_PER_DAY: readonly ActivityType[] = ['daily_visit', 'practice_completed'];
+export const ONCE_PER_DAY: readonly ActivityType[] = ['daily_visit', 'practice_completed', 'mock_test_completed'];
 
 export interface StudentActivityDocument extends Document {
   student: Types.ObjectId;

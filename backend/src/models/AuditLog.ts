@@ -36,6 +36,19 @@ export const AUDIT_ACTIONS = [
   'question.status.changed',
   /** A never-published question was hard-deleted. */
   'question.deleted',
+  /** A mock test was authored. */
+  'mocktest.created',
+  /** A mock test's content, timing or disclosure settings were edited. */
+  'mocktest.updated',
+  /**
+   * A mock test was published, unpublished or archived. Recorded separately from an
+   * edit because publishing is the moment a paper becomes sittable, and unpublishing
+   * one that students are part-way through is the kind of act that needs a name
+   * against it.
+   */
+  'mocktest.status.changed',
+  /** A mock test that had never been published was hard-deleted. */
+  'mocktest.deleted',
   /** A subject was created or edited. */
   'subject.changed',
   /** A topic or subtopic was created or edited. */
@@ -50,7 +63,7 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const AUDIT_TARGET_TYPES = ['student', 'question', 'subject', 'topic', 'route', 'system'] as const;
+export const AUDIT_TARGET_TYPES = ['student', 'question', 'mocktest', 'subject', 'topic', 'route', 'system'] as const;
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number];
 
 export interface AuditLogDocument extends Document {

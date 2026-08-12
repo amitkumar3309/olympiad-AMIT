@@ -46,6 +46,14 @@ export const PERMISSIONS = [
   'questions:delete',
   /** Create, edit and archive subjects, topics and subtopics. */
   'taxonomy:write',
+  /**
+   * Author mock tests, publish and unpublish them, and read every student's
+   * attempts and results for them. Distinct from `questions:write` because
+   * assembling and scheduling an assessment is a different job from writing the
+   * questions in the bank, and because it carries the right to read other
+   * students' scores — which authoring a question does not.
+   */
+  'mocktests:write',
   /** Read the administrative audit trail. */
   'audit:read',
 
@@ -75,6 +83,7 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'questions:write',
   'questions:delete',
   'taxonomy:write',
+  'mocktests:write',
   'audit:read',
 ];
 

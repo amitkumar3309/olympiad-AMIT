@@ -92,6 +92,25 @@ export const practiceLimiter = limiter({
   message: 'Too many practice sessions started. Please wait a little before starting another.',
 });
 
+/**
+ * Starting and submitting a mock-test attempt.
+ *
+ * Starting snapshots a paper of up to 100 questions; submitting grades all of them.
+ * Saving an individual answer is deliberately **not** behind this, for the same reason
+ * as practice and more so here: a student working through a timed paper saves an answer
+ * every few seconds, and throttling that would cost them work they cannot get back
+ * because the clock does not stop.
+ *
+ * Tighter than the practice limiter because a mock test is a bounded thing — a handful
+ * of tests exist, each allowing a small number of attempts — so nobody legitimately
+ * starts dozens in an hour.
+ */
+export const mockTestLimiter = limiter({
+  windowMs: HOUR,
+  limit: 60,
+  message: 'Too many test attempts. Please wait a little before trying again.',
+});
+
 /** Refresh is called routinely by every active client, so this is generous. */
 export const refreshLimiter = limiter({
   windowMs: 15 * MINUTE,

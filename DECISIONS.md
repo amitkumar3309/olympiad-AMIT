@@ -387,3 +387,99 @@ This is the first `DECISIONS.md` for the project (created during the 2026-08-04 
 - *(d) Make the guard a warning rather than a hard stop.* Rejected — the original failure was precisely a warning nobody noticed (`injected env (0)` was right there in the output, as were `JWT_SECRET is not set` and `SMTP is not configured`). A warning in a wall of log lines is not a control.
 
 **Consequences**: `__dirname` is used rather than `import.meta.url`, because this package compiles to CommonJS where `import.meta` is a syntax error — `tsx` tolerates both, so that mistake would have surfaced only at `npm run compile`, i.e. on the Vercel build. Scripts now print `Target database` and `Loaded .env` before doing anything, which is the line to read first when a run goes wrong. Local development against a local database now needs `--local` on the write scripts, which is mild friction accepted deliberately in exchange for the production case being safe by default. `config/env.ts` also exports `envFileLoaded`, the first thing outside `config/` to depend on *how* configuration was obtained rather than just its values.
+
+---
+
+## 2026-08-12 — Mock tests are a third collection, not a variant of practice or of the official exam
+
+**Decision**: Milestone 7 introduced `MockTest` (the paper an author assembles) and `MockTestAttempt` (one student's sitting of it). `PracticeSession` is untouched, and `ExamAttempt` / `Result` remain reserved for the official Olympiad.
+
+**Reason**: three genuinely different things. Practice is unlimited, self-selected by subject and topic, untimed, and must never influence a ranking. A mock test is authored — the *staff* choose the questions, the marks, the clock and the window — sat a fixed number of times, and identical for everyone who sits it. The official Olympiad is one national sitting that produces a published result, a rank and a certificate. Expressing a mock test as a practice session would mean `filters` describing a choice the student never made, and `PracticeSession` acquiring `expiresAt`, `attemptNumber` and a disclosure policy that mean nothing for practice; expressing it as an `ExamAttempt` would put unofficial marks in the collection the result portal and the dashboard's official panel read.
+
+**Alternatives considered**: (a) One attempt collection with a `kind` discriminator — rejected for the reason the Milestone 6 ADR gives about practice: correctness would depend on every future query remembering a filter, and the first one that forgot would show a mock score as an Olympiad result. (b) A `timed: boolean` plus a nullable `test` reference on `PracticeSession` — rejected: half its fields would then be meaningful in only one mode, which is the shape that invites a reader to use the wrong one.
+
+**Consequences**: three collections with a family resemblance. What is deliberately **not** duplicated is the part where duplication would be dangerous: the served-question shape lives once in `models/attemptAnswer.ts` and the marking rules once in `services/grading.ts`, both shared by practice and mock tests, so there is exactly one definition of what counts as correct. `PracticeQuestionEntry` is now an alias of the shared `AttemptAnswerEntry`, and `practiceService.ts` re-exports `gradeEntry` / `isAnswered` so its own callers and tests were unchanged.
+
+---
+
+## 2026-08-12 — The attempt deadline is computed and stored by the server, and clamped to the closing time
+
+**Decision**: `MockTestAttempt.expiresAt` is written once, when the attempt is created, as `startedAt + durationMinutes`, lowered to `availableTo` when the window shuts first. Every later decision — whether an answer may be saved, when the paper is graded, what time is recorded — reads that stored value against the server's own clock. No request body anywhere in the mock-test API carries a time, and an attempt cannot be started with under 60 seconds of window left.
+
+**Reason**: "never trust the frontend timer" only means something if there is a server-side deadline to compare against. Storing it rather than recomputing it per request also protects the student: an author may lengthen or shorten `durationMinutes` while somebody is mid-paper, and recomputing would move the finishing line of an attempt already under way, in either direction. Clamping to the closing time is what stops a paper started five minutes before the window shuts from running an hour past the end of it; the 60-second floor exists because the alternative is handing a late arrival a 20-second attempt that also consumes their only try.
+
+**Alternatives considered**: (a) Recompute `startedAt + duration` on every request — rejected for the mid-paper-edit problem above. (b) Accept a client-reported elapsed time and validate it loosely — rejected: that is the defect being avoided, and a loose bound is still a bound the client chooses. (c) Let a clamped attempt run its full duration past the closing time — rejected: the window is the point of a window.
+
+**Consequences**: the client is *told* `secondsRemaining` and counts down from it, which is a display only — it re-syncs from every answer-save response, and derives its deadline as *now + secondsRemaining* rather than from the absolute `expiresAt`, so a wrong system clock still shows the right remaining time. When the countdown reaches zero the page submits, purely so the student sees their result without reloading; the server would grade the paper at its deadline regardless. A late answer is refused with 409 and **not stored** — not stored late, not stored and ignored at grading.
+
+---
+
+## 2026-08-12 — An expired attempt is finalised lazily, on the next touch, not by a scheduler
+
+**Decision**: an attempt whose deadline has passed is graded the next time anything looks at it — the student returning to it, the student listing their attempts, or an administrator opening the results table, which sweeps that test's attempts before it aggregates. There is no background job.
+
+**Reason**: the deployment target is Vercel's free tier, where there is no always-on process and no cron within the ₹0 constraint. Laziness costs nothing that matters **because grading uses `expiresAt`, not the moment of discovery**: an attempt finalised a week late is marked exactly as it would have been the second the clock ran out, with the same `submittedAt` and the same `timeTakenSeconds`. What had to be avoided is an expired attempt staying unmarked until somebody presses something, and sweeping on read achieves that for both audiences who could notice.
+
+**Alternatives considered**: (a) A Vercel cron job — rejected: anything frequent needs a paid plan, and the free tier's daily schedule would leave a student's result unavailable for up to a day. (b) A sweep on server start-up — rejected: the serverless entry has no reliable start-up hook, which is the same reason `ensureDb` exists. (c) Grading at the moment of discovery rather than at the deadline — rejected: it would record a time taken longer than the test allowed.
+
+**Consequences**: an attempt abandoned by a student who never returns stays `in_progress` in the database until somebody reads it. Nothing user-facing is wrong while it sits there — the student sees "unfinished" and staff see "in progress", both true — but a count of submitted attempts is only accurate after a read, which is why `testResults()` sweeps first rather than last.
+
+---
+
+## 2026-08-12 — Exactly one submission per attempt, enforced by a conditional write
+
+**Decision**: `finalizeAttempt()` grades in memory and then closes the attempt with an update conditional on `status: 'in_progress'`, returning whether that write won (`graded`). A second submission — a double-clicked button, a retry, the countdown firing at the same moment as the button — receives the stored result with `alreadySubmitted: true`. Separately, a unique index on `{test, student, attemptNumber}` stops two requests racing to *start* an attempt from both creating one.
+
+**Reason**: a read-then-write check ("is it still in progress? then grade it") is two round trips with a gap, and on a serverless platform the two halves can be in different invocations. Making the guard part of the write removes the gap. Reporting which call won is what lets the route award XP and write an audit entry only for the submission that actually did something — otherwise a retry would pay twice.
+
+**Alternatives considered**: (a) A `submitted` boolean checked in the handler — rejected: that is the gap above. (b) A MongoDB transaction — rejected as heavier than needed; a single-document conditional update is atomic on its own, and transactions need a replica set that the local development database does not have. (c) Answering the loser with a 409 — rejected: from the student's point of view their paper *is* submitted, and an error would invite them to press again.
+
+**Consequences**: submitting twice is idempotent rather than an error, so the client needs no guard of its own beyond a disabled button. The in-memory grades computed by the losing call are discarded and the stored document is re-read, because the copy in hand was produced by a call that did not win. Two tests cover this: sequential submissions, and genuinely concurrent ones through `Promise.all`, asserting one lot of XP.
+
+---
+
+## 2026-08-12 — When a student sees a score and when they see the answers are separate settings
+
+**Decision**: `MockTest` carries `resultDisplay` (`immediate` / `after_close` / `hidden`) and `reviewPolicy` (`immediate` / `after_close` / `never`) independently. `disclosureFor()` is the only place either is interpreted, and `attemptReviewView()` — the only function that reveals a correct answer — refuses unless it says so. Both are read at request time and deliberately **not** snapshotted onto the attempt.
+
+**Reason**: showing a mark and showing the answer key are different sizes of disclosure, and a real assessment commonly wants the first at once and the second only once nobody can still be sitting the paper — releasing the key while the window is open lets the first student to finish hand the answers to everyone who has not. Reading the policy live rather than snapshotting it is what lets an administrator release results after the window closes, or withdraw a review released too early; a snapshot would freeze that decision at the moment of submission, which is the one moment the author is not present for.
+
+**Alternatives considered**: (a) A single `showResults` enum covering both — rejected: it cannot express "your mark now, the answers later", which is the most common real configuration. (b) Snapshotting the policy for auditability — rejected for the reason above; the audit trail records the author's changes instead. (c) Defaulting `reviewPolicy` to `after_close` because it is the safer policy — rejected as a *default* only: it requires a closing time to be relative to, so an otherwise complete request would fail on a field the author never sent. The default is `immediate`, and the form's help text recommends `after_close`.
+
+**Consequences**: three shapes exist for a finished attempt — full review, score without answers, and submitted-with-nothing-released — so the API returns whichever the policy allows and the frontend has a three-member discriminated union. A withheld score is `null` in the history view too, not merely hidden by the page rendering it. Staff always see real marks on the admin results page: `resultDisplay` governs what a *student* is told, not whether the person who set the test may read their own cohort's results.
+
+---
+
+## 2026-08-12 — A paper and its clock freeze once anybody has sat it
+
+**Decision**: `updateMockTest()` refuses a change to the question list, to any question's marks, or to `durationMinutes` once the test has attempts. Everything else — title, description, instructions, availability window, attempt limit, both disclosure settings — stays editable for the life of the test.
+
+**Reason**: existing attempts snapshot their own paper, so their *marks* would stay correct — but the test's `totalMarks` and the meaning of "this test" would change underneath results already recorded against it, and two students' scores would stop being comparable while still sitting in the same results table and the same ranking. The editable half is exactly the set an administrator legitimately needs after publishing: extend a window, release results, fix a typo in the instructions.
+
+**Alternatives considered**: (a) Allow the edit and re-grade existing attempts against the new paper — rejected: it would mark students on questions they were never shown. (b) Allow the edit and leave old attempts alone — rejected: that is the silent incomparability above. (c) Freeze everything once published — rejected: it would make releasing results after the fact impossible, which is a setting the product deliberately offers.
+
+**Consequences**: changing a live paper means publishing a new test, which is the honest answer and leaves the old results intact. The admin detail endpoint reports `attemptsCount` so the editor can disable the frozen fields and explain why, rather than letting an author rearrange a paper and discover at Save that it was never going to be accepted. Unpublishing is deliberately *not* blocked, and does not disturb an attempt already under way — a student half-way through a paper an administrator pulls still finishes and is marked.
+
+---
+
+## 2026-08-12 — Mock-test XP is 50, once per competition day
+
+**Decision**: submitting a graded mock test with at least one answered question earns `mock_test_completed`, worth 50 XP, at most once per IST calendar day.
+
+**Reason**: the same anti-farming reasoning as `practice_completed` (25 XP, once per day), and worth more because it is a harder thing to do — a timed paper the student did not choose the questions for. Paying per attempt would reward starting papers rather than doing them, and most tests allow only one attempt anyway, so a per-attempt award would also make XP depend on how many tests staff happened to publish that week.
+
+**Alternatives considered**: (a) XP proportional to the score — rejected for now: it is the right idea, and it is what the *official* exam should do, but doing it here would make a mock test worth more XP than the Olympiad it rehearses. (b) Once per test rather than once per day — rejected: it grows with the number of published tests, which is a staff decision rather than a student achievement.
+
+**Consequences**: known bug #16 ("XP measures consistency more than ability") is narrowed again but not closed — a student who scores 40/40 earns the same 50 XP as one who scores 4/40. Official exam scoring is still what will measure ability properly. Extra mock tests on the same day are recorded in full as attempts; they simply do not multiply XP.
+
+---
+
+## 2026-08-12 — `npm run dev:local` sends no email and requires no verification
+
+**Decision**: `scripts/dev-local.ts` now also points SMTP at a dead local port (`127.0.0.1:1025`) and sets `REQUIRE_EMAIL_VERIFICATION=false`, both with `??` so either can be overridden for a run that genuinely wants to exercise delivery.
+
+**Reason**: the same reason the script already overrides `MONGO_URI` — the safe local default should not depend on anyone remembering. `backend/.env` holds **working** SMTP credentials and `dotenv` will not overwrite a variable that is already set, so registering a made-up address against the local database sent a real message through the owner's real provider, to whoever owns the address that was typed. `lib/email.ts` logs and swallows delivery failures by design, so a refused connection leaves registration working while nothing leaves the machine. Verification then has to be off, because with no email arriving there is no link to click and no way to sign in to a fresh local database.
+
+**Alternatives considered**: (a) Document it and rely on the developer setting the variables — that *was* the state, and it is what produced the risk. (b) Make `SMTP_HOST` absent so the log transport prints the link instead — not achievable: the value comes from `.env`, and there is no way to make a variable *absent* from the environment before dotenv reads the file. (c) Add a local mail-catcher dependency — rejected against the ₹0 and no-new-dependency constraints; `npm run verify:email` already exists for testing delivery deliberately.
+
+**Consequences**: a local registration is now a single step, which is what made the Milestone 7 browser verification possible without emailing a stranger. The trade-off is that delivery cannot be observed through `dev:local` at all — that is what `npm run verify:email` is for, and the start-up banner now says so in as many words.

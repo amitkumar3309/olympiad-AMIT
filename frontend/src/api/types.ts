@@ -18,6 +18,7 @@ export type Permission =
   | 'questions:write'
   | 'questions:delete'
   | 'taxonomy:write'
+  | 'mocktests:write'
   | 'audit:read'
   | 'users:role:write'
 
@@ -138,6 +139,10 @@ export type AuditAction =
   | 'question.updated'
   | 'question.status.changed'
   | 'question.deleted'
+  | 'mocktest.created'
+  | 'mocktest.updated'
+  | 'mocktest.status.changed'
+  | 'mocktest.deleted'
   | 'subject.changed'
   | 'topic.changed'
   | 'admin.session.started'
@@ -148,7 +153,7 @@ export interface AuditEntry {
   action: AuditAction
   actorRole: Role
   actorLabel: string
-  targetType: 'student' | 'question' | 'subject' | 'topic' | 'route' | 'system'
+  targetType: 'student' | 'question' | 'mocktest' | 'subject' | 'topic' | 'route' | 'system'
   targetId: string | null
   targetLabel: string | null
   outcome: 'success' | 'denied'
@@ -381,6 +386,7 @@ export const ACTIVITY_TYPES = [
   'photo_updated',
   'password_changed',
   'practice_completed',
+  'mock_test_completed',
 ] as const
 export type ActivityType = (typeof ACTIVITY_TYPES)[number]
 
@@ -393,6 +399,7 @@ export const ACTIVITY_LABELS: Record<ActivityType, { label: string; icon: string
   photo_updated: { label: 'Changed your photo', icon: 'ph-camera' },
   password_changed: { label: 'Changed your password', icon: 'ph-lock-key' },
   practice_completed: { label: 'Completed a practice session', icon: 'ph-target' },
+  mock_test_completed: { label: 'Completed a mock test', icon: 'ph-exam' },
 }
 
 export interface ActivityEntry {
@@ -708,4 +715,278 @@ export interface StudentQuestion {
 export interface DailyChallenge {
   day: string
   question: StudentQuestion
+}
+
+/**
+ * Mock tests (Milestone 7).
+ *
+ * The type split here is the client half of two server-side rules, and both are
+ * expressed as separate interfaces rather than optional fields — so a component that
+ * would read something it is not entitled to does not compile.
+ *
+ * **The answer key.** `MockAttemptQuestion` is what the browser is given while the
+ * paper is open and has no field that could reveal an answer. `MockReviewQuestion`
+ * adds the reveal and only ever arrives on an attempt the server has both graded *and*
+ * decided may be disclosed.
+ *
+ * **Disclosure.** There are three shapes a finished attempt can arrive as, because the
+ * test author has three positions available: the full review, the score without the
+ * answers, and the bare fact that it was submitted. `MockAttemptView` is the union, and
+ * the two narrowing helpers below are the only place the distinction is decided.
+ */
+export type MockTestStatus = 'draft' | 'published' | 'archived'
+export type MockAttemptStatus = 'in_progress' | 'submitted'
+export type ResultDisplayMode = 'immediate' | 'after_close' | 'hidden'
+export type ReviewPolicy = 'immediate' | 'after_close' | 'never'
+export type MockUnavailableReason = 'not-published' | 'not-open-yet' | 'closed' | 'attempts-used' | 'wrong-class'
+
+export interface MockDisclosure {
+  showResult: boolean
+  showReview: boolean
+  reason: 'in-progress' | 'awaiting-close' | 'withheld' | null
+}
+
+/** One row in the student's attempt history. Carries no per-question detail. */
+export interface MockAttemptSummary {
+  id: string
+  testId: string
+  testTitle: string | null
+  attemptNumber: number
+  status: MockAttemptStatus
+  totalQuestions: number
+  maxMarks: number
+  startedAt: string
+  expiresAt: string
+  submittedAt: string | null
+  autoSubmitted: boolean
+  resultAvailable: boolean
+  reviewAvailable: boolean
+  disclosureReason: MockDisclosure['reason']
+  /** Null when the test withholds results, not merely when there is no score. */
+  score: number | null
+  accuracy: number | null
+  correctCount: number | null
+  timeTakenSeconds: number | null
+}
+
+/** A test as it appears in the student's list, with their own attempt state. */
+export interface MockTestSummary {
+  id: string
+  title: string
+  description: string | null
+  classLevel: ClassLevel
+  totalQuestions: number
+  totalMarks: number
+  durationMinutes: number
+  opensAt: string | null
+  closesAt: string | null
+  available: boolean
+  unavailableReason: MockUnavailableReason | null
+  maxAttempts: number
+  attemptsUsed: number
+  attemptsLeft: number
+  resumeAttemptId: string | null
+  attempts: MockAttemptSummary[]
+}
+
+/** The pre-start briefing. Still carries no questions. */
+export interface MockTestDetail extends MockTestSummary {
+  instructions: string | null
+  resultDisplay: ResultDisplayMode
+  reviewPolicy: ReviewPolicy
+}
+
+export interface MockTestListResponse {
+  classLevel: ClassLevel | null
+  tests: MockTestSummary[]
+  reason?: 'no-class'
+}
+
+export interface MockAttemptResponse {
+  selectedOptionKeys: string[]
+  numericResponse: number | null
+  booleanResponse: boolean | null
+  answered: boolean
+}
+
+export interface MockAttemptQuestion extends StudentQuestion {
+  order: number
+  response: MockAttemptResponse
+}
+
+export interface MockReviewQuestion extends MockAttemptQuestion {
+  outcome: {
+    isCorrect: boolean | null
+    awardedMarks: number
+    marks: number
+    negativeMarks: number
+  }
+  correctAnswer: {
+    optionKeys: string[]
+    booleanAnswer: boolean | null
+    numericAnswer: number | null
+    tolerance: number | null
+  }
+  explanation: string | null
+  /** The question has been edited since it was served. */
+  revisionChanged: boolean
+}
+
+interface MockAttemptBase {
+  id: string
+  testId: string
+  testTitle: string | null
+  attemptNumber: number
+  status: MockAttemptStatus
+  totalQuestions: number
+  maxMarks: number
+  startedAt: string
+  submittedAt: string | null
+}
+
+export interface MockAttemptInProgress extends MockAttemptBase {
+  status: 'in_progress'
+  answeredCount: number
+  durationMinutes: number
+  expiresAt: string
+  /** The server's remaining time. The countdown on screen is derived from this. */
+  secondsRemaining: number
+  questions: MockAttemptQuestion[]
+}
+
+/** Submitted, and the score released — but not necessarily the answers. */
+export interface MockAttemptResult extends MockAttemptBase {
+  status: 'submitted'
+  score: number
+  correctCount: number
+  incorrectCount: number
+  unansweredCount: number
+  accuracy: number
+  timeTakenSeconds: number
+  autoSubmitted: boolean
+}
+
+/** Submitted, and the answers released too. */
+export interface MockAttemptReview extends MockAttemptResult {
+  questions: MockReviewQuestion[]
+}
+
+/** Submitted, and nothing released. All the student is told is that it is done. */
+export interface MockAttemptWithheld extends MockAttemptBase {
+  status: 'submitted'
+  autoSubmitted: boolean
+}
+
+export type MockAttemptView = MockAttemptInProgress | MockAttemptResult | MockAttemptReview | MockAttemptWithheld
+
+export function isMockAttemptOpen(attempt: MockAttemptView): attempt is MockAttemptInProgress {
+  return attempt.status === 'in_progress'
+}
+
+/**
+ * Narrows to the graded-and-revealed shape.
+ *
+ * Checks for the `questions` array rather than trusting the disclosure flag alongside
+ * it: the array is the thing being consumed, and this way the type cannot claim a
+ * review that the payload does not actually contain.
+ */
+export function isMockAttemptReviewed(attempt: MockAttemptView): attempt is MockAttemptReview {
+  return attempt.status === 'submitted' && Array.isArray((attempt as MockAttemptReview).questions)
+}
+
+export function isMockAttemptScored(attempt: MockAttemptView): attempt is MockAttemptResult {
+  return attempt.status === 'submitted' && typeof (attempt as MockAttemptResult).score === 'number'
+}
+
+// --- Admin ---
+
+export interface AdminMockTestQuestion {
+  id: string
+  order: number
+  marks: number
+  negativeMarks: number
+  questionText: string | null
+  type: QuestionType | null
+  difficulty: Difficulty | null
+  status: QuestionStatus | null
+  subject: QuestionRef | null
+  topic: QuestionRef | null
+}
+
+export interface AdminMockTest {
+  id: string
+  title: string
+  description: string | null
+  instructions: string | null
+  classLevel: ClassLevel
+  durationMinutes: number
+  totalMarks: number
+  totalQuestions: number
+  availableFrom: string | null
+  availableTo: string | null
+  maxAttempts: number
+  resultDisplay: ResultDisplayMode
+  reviewPolicy: ReviewPolicy
+  status: MockTestStatus
+  questions: AdminMockTestQuestion[]
+  createdByLabel: string | null
+  updatedByLabel: string | null
+  publishedAt: string | null
+  archivedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MockTestResultRow {
+  id: string
+  student: { id: string; studentId: string | null; fullName: string | null; schoolName: string | null }
+  attemptNumber: number
+  status: MockAttemptStatus
+  score: number | null
+  maxMarks: number
+  accuracy: number | null
+  correctCount: number
+  incorrectCount: number
+  unansweredCount: number
+  timeTakenSeconds: number | null
+  autoSubmitted: boolean
+  rank: number | null
+  startedAt: string
+  submittedAt: string | null
+}
+
+export interface MockTestResults {
+  test: {
+    id: string
+    title: string
+    classLevel: ClassLevel
+    totalMarks: number
+    totalQuestions: number
+    durationMinutes: number
+    status: MockTestStatus
+    availableFrom: string | null
+    availableTo: string | null
+  }
+  stats: {
+    attemptsStarted: number
+    attemptsSubmitted: number
+    attemptsInProgress: number
+    autoSubmittedCount: number
+    distinctStudents: number
+    averageScore: number | null
+    highestScore: number | null
+    lowestScore: number | null
+    averageAccuracy: number | null
+    averageTimeSeconds: number | null
+  }
+  rows: MockTestResultRow[]
+  questionStats: Array<{
+    id: string
+    order: number
+    questionText: string | null
+    served: number
+    answered: number
+    correct: number
+    correctPercent: number | null
+  }>
 }

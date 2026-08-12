@@ -12,6 +12,15 @@ import {
   type QuestionStatus,
 } from '../models';
 import { refView, studentQuestionView } from './questionView';
+import { gradeEntries, gradeEntry, isAnswered, type GradeOutcome } from './grading';
+
+/**
+ * The marking rules moved to `services/grading.ts` in Milestone 7, when mock tests
+ * needed the same ones. Re-exported here because this module is where practice code
+ * (and the practice suite) already reaches for them, and because there must remain
+ * exactly one implementation — not a second copy that could disagree.
+ */
+export { gradeEntry, isAnswered, type GradeOutcome };
 
 /**
  * The Practice Zone: everything about choosing, serving, grading and reviewing a
@@ -273,19 +282,6 @@ export interface AnswerInput {
   booleanResponse?: boolean | null;
 }
 
-/** True when the student has actually given a response of the right shape. */
-export function isAnswered(entry: PracticeQuestionEntry): boolean {
-  switch (entry.type) {
-    case 'single_choice':
-    case 'multiple_choice':
-      return entry.selectedOptionKeys.length > 0;
-    case 'true_false':
-      return entry.booleanResponse !== null && entry.booleanResponse !== undefined;
-    case 'numeric':
-      return entry.numericResponse !== null && entry.numericResponse !== undefined;
-  }
-}
-
 /**
  * Writes one response into an open session.
  *
@@ -337,66 +333,6 @@ export function applyAnswer(
 // Grading
 // ---------------------------------------------------------------------------
 
-export interface GradeOutcome {
-  answered: boolean;
-  isCorrect: boolean;
-  awardedMarks: number;
-}
-
-/**
- * Marks one answer. Pure, so the rules are testable without a database.
- *
- * The rules, all deliberate:
- *  - **Unanswered scores zero and is never penalised.** A blank is not a wrong
- *    answer, and penalising it would push students to guess.
- *  - `multiple_choice` requires the **exact** set. No partial credit: with negative
- *    marking present, part-marks would need a second policy for how much to deduct
- *    for a partially-right answer, and the question bank has no field for it.
- *  - `numeric` compares within the question's own `tolerance`, defaulting to exact.
- *  - A wrong answer costs `negativeMarks`, which is 0 unless the author set it.
- */
-export function gradeEntry(entry: PracticeQuestionEntry): GradeOutcome {
-  if (!isAnswered(entry)) {
-    return { answered: false, isCorrect: false, awardedMarks: 0 };
-  }
-
-  let isCorrect = false;
-
-  switch (entry.type) {
-    case 'single_choice': {
-      const [chosen] = entry.selectedOptionKeys;
-      isCorrect = chosen !== undefined && entry.correctOptionKeys.includes(chosen);
-      break;
-    }
-    case 'multiple_choice': {
-      const chosen = new Set(entry.selectedOptionKeys);
-      const correct = new Set(entry.correctOptionKeys);
-      isCorrect = chosen.size === correct.size && [...correct].every((key) => chosen.has(key));
-      break;
-    }
-    case 'true_false': {
-      isCorrect = entry.booleanResponse === entry.booleanAnswer;
-      break;
-    }
-    case 'numeric': {
-      const expected = entry.numericAnswer;
-      const given = entry.numericResponse;
-      if (expected === null || expected === undefined || given === null || given === undefined) {
-        isCorrect = false;
-      } else {
-        isCorrect = Math.abs(given - expected) <= (entry.tolerance ?? 0);
-      }
-      break;
-    }
-  }
-
-  return {
-    answered: true,
-    isCorrect,
-    awardedMarks: isCorrect ? entry.marks : -entry.negativeMarks,
-  };
-}
-
 /**
  * Grades and closes a session.
  *
@@ -409,32 +345,13 @@ export function gradeSession(session: PracticeSessionDocument, at = new Date()):
     throw new ApiError(409, 'This practice session has already been submitted.');
   }
 
-  let score = 0;
-  let correctCount = 0;
-  let incorrectCount = 0;
-  let unansweredCount = 0;
+  const totals = gradeEntries(session.questions);
 
-  for (const entry of session.questions) {
-    const outcome = gradeEntry(entry);
-    entry.isCorrect = outcome.answered ? outcome.isCorrect : null;
-    entry.awardedMarks = outcome.awardedMarks;
-    score += outcome.awardedMarks;
-
-    if (!outcome.answered) unansweredCount += 1;
-    else if (outcome.isCorrect) correctCount += 1;
-    else incorrectCount += 1;
-  }
-
-  const answered = correctCount + incorrectCount;
-
-  session.score = score;
-  session.correctCount = correctCount;
-  session.incorrectCount = incorrectCount;
-  session.unansweredCount = unansweredCount;
-  // Accuracy over *answered* questions: skipping ten and getting two of two right is
-  // 100% accurate on what was attempted, which is the number a student can act on.
-  // The unanswered count sits beside it so the picture is not flattering by omission.
-  session.accuracy = answered === 0 ? 0 : Math.round((correctCount / answered) * 100);
+  session.score = totals.score;
+  session.correctCount = totals.correctCount;
+  session.incorrectCount = totals.incorrectCount;
+  session.unansweredCount = totals.unansweredCount;
+  session.accuracy = totals.accuracy;
   session.status = 'submitted';
   session.submittedAt = at;
   session.timeTakenSeconds = Math.max(0, Math.round((at.getTime() - session.startedAt.getTime()) / 1000));
