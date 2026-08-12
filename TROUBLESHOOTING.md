@@ -320,7 +320,7 @@ Notes:
 ## The dashboard's "Recent test performance" panel is always empty
 
 **Problem**: the panel says "No results yet. Scored exams are not running yet."
-**Cause**: this is correct and expected. Nothing in the product writes an `ExamAttempt` — the exam page is still a client-side hardcoded quiz that submits nothing (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)). The dashboard runs a **real query** against the empty collection rather than returning a hardcoded `[]`, so the panel will start working on its own the moment exam submission exists.
+**Cause**: this is correct and expected. Nothing writes an `ExamAttempt`, because the *official* exam is not built. Note this is **not** the Practice Zone, which is real, persisted and separate by design — practice sessions live in `PracticeSession` and deliberately do not become official results (see [`DECISIONS.md`](DECISIONS.md)). The dashboard runs a **real query** against the empty collection rather than returning a hardcoded `[]`, so the panel starts working on its own the moment official exam submission exists.
 **Solution**: none needed. When implementing exam submission, note that `progressService.getRecentExamPerformance()` matches on the human-facing `AMIT_xxxx` id, because that is what `ExamAttempt.studentId` is typed as — see the note at the end of [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md).
 
 ## A streak breaks even though the student visited "yesterday"

@@ -1,5 +1,7 @@
 # DEPLOYMENT_GUIDE.md
 
+_Last updated: 2026-08-11 (Milestone 6 — Practice Zone)._
+
 Target: **₹0 cost**. Everything below uses free tiers. Do not introduce a paid service without discussing it with the owner first (per [`CLAUDE.md`](CLAUDE.md)).
 
 ## Local Development
@@ -62,3 +64,54 @@ Two **separate** Vercel projects — this is intentional (see [`DECISIONS.md`](D
 2. Try registering a test student — confirms frontend → backend → MongoDB write path end-to-end.
 3. Log out, log back in — confirms the JWT cookie round-trips correctly across the frontend/backend domain split (this is the step most likely to break if `sameSite`/`secure`/CORS env vars are misconfigured — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md)).
 4. Visit `/admin` and log in with the admin credentials you configured.
+
+---
+
+## Post-deploy data steps
+
+Vercel deploys **code**. Nothing below is data Vercel can put in place for you, and the app looks broken — or merely empty — until these are run. All are run from the **`backend` directory**, and all read `MONGO_URI` from `backend/.env`, which is the production Atlas database.
+
+Every one is report-only by default. Run it without a flag first, read the output, then add the flag.
+
+**1. Remove pre-Milestone-4 question documents.** The current `Question` model cannot read them at all (`subject` changed from `String` to `ObjectId`, which is a cast error rather than a tolerable missing field), so the admin question list errors on any of them.
+
+```bash
+cd backend && npx tsx scripts/migrate-questions.ts --delete
+```
+
+**2. Publish the Class 12 question bank** — 208 validated questions across Mathematics and Physics. Without this the Practice Zone correctly reports "nothing to practise yet", because it only ever offers *published* questions matching the student's own class.
+
+```bash
+cd backend && npx tsx scripts/seed-class12.ts --write
+```
+
+**3. Backfill activity for pre-Milestone-5 accounts** (optional). Gives them the enrolment XP they already earned instead of a blank dashboard. Skipping it is safe — they simply start from zero.
+
+```bash
+cd backend && npx tsx scripts/backfill-activity.ts --write
+```
+
+**4. Confirm email delivery.** Login is blocked until a student verifies their address, and admin promotion requires a verified account, so this gates real use more than anything else here.
+
+```bash
+npm run verify:email --prefix backend -- you@example.com
+```
+
+### Checking it worked
+
+```bash
+cd backend && npx tsx scripts/where-is-data.ts
+```
+
+Read-only. Prints the database actually connected to, every collection's real name, and a document count for each. Two things to check:
+
+- `Connected to database` must name the `amit-olympiad` database on your Atlas cluster. If it says `localhost`, the run never reached production — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+- Visit `/ready` on the **deployed** backend and compare its `dbName`. Vercel's `MONGO_URI` and your local `backend/.env` are configured independently, so if they disagree your machine and your live site are working on different databases.
+
+### If Atlas is unreachable from your machine
+
+`querySrv ECONNREFUSED` means the `mongodb+srv://` DNS lookup was refused by your resolver — **not** an Atlas, password or IP-allowlist problem, because nothing ever reached Atlas. Switch DNS to `1.1.1.1`, disconnect any VPN, or generate a non-SRV connection string that needs no SRV lookup:
+
+```bash
+cd backend && npx tsx scripts/atlas-direct-uri.ts
+```

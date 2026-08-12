@@ -371,3 +371,19 @@ This is the first `DECISIONS.md` for the project (created during the 2026-08-04 
 **Reason**: a blank is not a wrong answer; penalising it would push students to guess, which is the opposite of what practice is for. Partial credit sounds kinder but needs a second policy — how much to deduct for a partially-right answer under negative marking — and the question bank has no field to express it, so any rule would have been invented here rather than authored per question.
 **Alternatives considered**: clamping the displayed score at zero — rejected, because a negative total is the honest consequence of negative marking and hiding it would misrepresent the arithmetic the student is being taught.
 **Consequences**: accuracy is reported over *answered* questions rather than over the paper, so skipping is not punished twice; the unanswered count is shown next to it so the figure cannot flatter by omission. Adding partial credit later means adding a field to `Question` first.
+
+---
+
+## 2026-08-11 — Resolve `.env` from the package root, and make write scripts refuse an unintended database
+
+**Decision**: `config/env.ts` resolves `backend/.env` from its own directory (`path.resolve(__dirname, '..', '..', '.env')`) rather than calling a bare `dotenv.config()`. Separately, every script that writes to the database calls `assertConfiguredForWrites()` (`lib/envGuard.ts`) as its first statement, which prints the target database and exits non-zero rather than writing to a local one without an explicit `--local`.
+
+**Reason**: a seed run reported "Published: 208" while writing to a local database, leaving production empty. `dotenv.config()` searches `process.cwd()`, so running the script from `backend/scripts/` instead of `backend/` found no `.env`, loaded **zero** variables, and every setting fell back to its default — including `MONGO_URI`, which defaults to `mongodb://localhost:27017/...`. The script then behaved perfectly, for the wrong database, and said nothing. The root cause is that sensible defaults, which make `npm test` and first-run local development pleasant, also make a misconfigured script silently successful.
+
+**Alternatives considered**:
+- *(a) Remove the `MONGO_URI` default so it must always be set.* Rejected: it would break the zero-configuration local start that `dev:local` and the test suite depend on, and it addresses only this one variable — `JWT_SECRET` and the SMTP group have the same shape of problem.
+- *(b) Only fix the path resolution.* Rejected as insufficient. It fixes the reported case but not a mistyped URI, a genuinely absent `.env`, or a deliberate override pointing somewhere unintended. The guard is cheap and covers all of them.
+- *(c) Require an interactive "type the database name to confirm" prompt.* Rejected: these scripts need to be runnable non-interactively, and a prompt that is always answered the same way stops being read.
+- *(d) Make the guard a warning rather than a hard stop.* Rejected — the original failure was precisely a warning nobody noticed (`injected env (0)` was right there in the output, as were `JWT_SECRET is not set` and `SMTP is not configured`). A warning in a wall of log lines is not a control.
+
+**Consequences**: `__dirname` is used rather than `import.meta.url`, because this package compiles to CommonJS where `import.meta` is a syntax error — `tsx` tolerates both, so that mistake would have surfaced only at `npm run compile`, i.e. on the Vercel build. Scripts now print `Target database` and `Loaded .env` before doing anything, which is the line to read first when a run goes wrong. Local development against a local database now needs `--local` on the write scripts, which is mild friction accepted deliberately in exchange for the production case being safe by default. `config/env.ts` also exports `envFileLoaded`, the first thing outside `config/` to depend on *how* configuration was obtained rather than just its values.

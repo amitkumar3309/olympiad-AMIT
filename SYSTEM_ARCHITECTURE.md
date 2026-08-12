@@ -1,5 +1,7 @@
 # SYSTEM_ARCHITECTURE.md
 
+_Last updated: 2026-08-11 (Milestone 6 — Practice Zone)._
+
 Documents what **actually exists** in the repository today. Anything not literally in the code is marked `PLANNED`.
 
 ## High-Level Topology — CURRENT
@@ -8,7 +10,7 @@ Documents what **actually exists** in the repository today. Anything not literal
 ┌─────────────────────┐        HTTPS (fetch, credentials:'include')        ┌──────────────────────────┐
 │   frontend/ (SPA)    │ ───────────────────────────────────────────────▶ │  backend/ (Express app)  │
 │  React 19 + Vite     │ ◀─────────────────────────────────────────────── │  single serverless fn    │
-│  Deployed: Vercel #1 │        JSON, httpOnly JWT cookie (name: "token")  │  Deployed: Vercel #2      │
+│  Deployed: Vercel #1 │        JSON, httpOnly access_token + refresh_token  │  Deployed: Vercel #2      │
 └─────────────────────┘                                                   └──────────────┬───────────┘
                                                                                            │ mongoose
                                                                                            ▼
@@ -21,7 +23,9 @@ Two independently deployed Vercel projects, no shared build, no monorepo tool. T
 
 ## Frontend Architecture — CURRENT
 
-- **Framework**: React 19, `react-router-dom` v7 `BrowserRouter` with 9 top-level routes, all declared in [frontend/src/App.tsx](frontend/src/App.tsx).
+- **Framework**: React 19, `react-router-dom` v7 `BrowserRouter` with **21 routes**, all declared in [frontend/src/App.tsx](frontend/src/App.tsx). Five are code-split with `React.lazy` — the admin question pages and the practice runner — because they pull in KaTeX (~260 KB), which must not land in the entry bundle every student downloads.
+- **Two shells**: `components/StudentShell.tsx` and `pages/Admin/AdminShell.tsx` hold the sidebar, topbar, theme toggle and sign-out for their halves of the app. Each is the single place its navigation is defined; the student one falls back to the public `Navbar`/`Footer` for a guest, because two of its routes are public.
+- **Theme**: `context/ThemeContext.tsx` applies a `theme-dark` class to `document.documentElement`, persisted in `localStorage`, **defaulting to light**. Applied once at the document root, so no page can disagree with another.
 - **State**: One global context, `AuthContext` (`frontend/src/context/AuthContext.tsx`), a discriminated union `{status: 'loading'|'guest'|'student'|'admin', ...}`. No Redux/Zustand/React Query — every page manages its own `useState`/`useEffect` data fetching.
 - **Data fetching**: `frontend/src/api/client.ts` — a thin `fetch` wrapper (`api.get`/`api.post`) that always sends `credentials: 'include'` and throws a typed `ApiError` on non-2xx. Pages call this directly in `useEffect`; there is no caching layer, so every page re-fetches on mount. It also owns `API_BASE = '/api/v1'` and prefixes every request, so callers pass version-agnostic paths (`/auth/login`, not `/api/auth/login`) and the API version changes in exactly one place.
 - **Styling**: CSS Modules per page/component (`*.module.css`) plus a small global stylesheet `src/styles/theme.css` and global utility classes (`container`, `card`, `form-group`, `form-control`, `error-text`) referenced by className string rather than imported — these are assumed to live in `theme.css`.
@@ -31,15 +35,19 @@ Two independently deployed Vercel projects, no shared build, no monorepo tool. T
 
 ### Frontend data-flow reality check
 
-Several pages **do not** call the backend even though a matching endpoint exists:
-- `Dashboard.tsx` and `Landing.tsx` leaderboards → hardcoded arrays, never call `GET /api/leaderboard`.
-- `Certificate.tsx` → never calls `GET /api/certificates/:studentId`.
-- No page calls `GET /api/daily-challenge` at all.
-- `Result.tsx` → pure client-side hash-based fake lookup, no network call.
-- `Exam.tsx` → no network call at submit time; score is computed and shown locally, then discarded on navigation.
-- `Admin.tsx` student table/chart → hardcoded, no "list students" endpoint exists to call even if it wanted to.
+**Every page now round-trips to the backend.** This section used to list pages that displayed hardcoded arrays while a matching endpoint sat unused. That list is empty as of 2026-08-11. For the record, what it contained and where each went:
 
-Pages that **do** genuinely round-trip to the backend: `Landing` (register/login), `Admin` (admin login), `AiGenerator` (generate-questions), `Analytics` and `Report` (fetch analytics, same endpoint for both).
+| Was | Now |
+|---|---|
+| `Dashboard.tsx` / `Landing.tsx` hardcoded leaderboards | `GET /leaderboard` (real XP aggregation) and `GET /public/stats` |
+| `Certificate.tsx` rendered client-side for anyone signed in | `GET /certificates/:studentId`, requiring a published `Result` |
+| `GET /daily-challenge` had no caller | a dashboard card, via `GET /me/daily-challenge` |
+| `Result.tsx` hashed the typed ID into a fake score | `GET /results/:studentId`, published results only |
+| `Exam.tsx` marked five hardcoded questions in the browser | replaced by the Practice Zone; grading is server-side |
+| `Admin.tsx` hardcoded student table and sample chart | `GET /admin/students` and `GET /admin/stats` |
+| `Analytics.tsx` showed an invented 88% accuracy | `GET /analytics/:id` returns null with a reason, plus a real `xpByDay` |
+
+The two surfaces that still look empty — the dashboard's test-performance panel and the result portal — are **live queries against collections nothing writes yet**, deliberately rather than hardcoded empties, so they begin working the moment official exam submission exists.
 
 ## Backend Architecture — CURRENT
 
@@ -70,13 +78,29 @@ src/
   middleware/rateLimiter.ts   general + auth limiters
   middleware/requestLogger.ts pino-http
   middleware/ensureDb.ts      per-request DB connection gate
-  models/                 one Mongoose model per file + barrel index
+  lib/envGuard.ts         refuses a script write to an unintended database
+  lib/mathContent.ts      LaTeX grammar + dangerous-command rejection
+  lib/xp.ts               XP award table + level function
+  lib/achievements.ts     achievement catalogue, evaluated from real facts
+  lib/competitionDay.ts   the IST day boundary streaks are measured in
+  lib/session.ts          session cookies + access-token claims
+  services/               business rules, kept out of the route layer:
+                          question, taxonomy, activity, progress, challenge,
+                          result, practice, and questionView (the shared
+                          answer-stripped projection)
+  models/                 one Mongoose model per file + barrel index (13)
   routes/health.routes.ts /health, /ready
-  routes/v1/              auth, analytics, questions, admin, users, misc
+  routes/v1/              auth, me, analytics, practice, questions,
+                          questionsAdmin, taxonomy, admin, users, misc
                           + barrel index
   validation/             zod schemas (authSchemas, questionSchemas,
-                          userSchemas)
+                          userSchemas, profileSchemas, practiceSchemas)
+scripts/                  dev-local, verify-email, migrate-questions,
+                          backfill-activity, seed-class12, where-is-data,
+                          atlas-direct-uri
 ```
+
+- **Routes do HTTP; services own the rules.** A route validates, authorises, calls a service and formats the envelope. Business rules live in `services/` and signal violations by throwing `ApiError`, which `lib/serviceError.ts` maps to a status code — so each rule is stated once, at the point it is enforced.
 
 - **Middleware order in `app.ts`** (deliberate):
   1. `helmet` + `x-powered-by` disabled
@@ -95,7 +119,9 @@ src/
 
 **Connection strategy (Milestone 1)**: `db/connection.ts` owns a single cached connection. `connectDB()` returns immediately if already connected and de-duplicates concurrent calls via a shared in-flight promise, so it is safe to call per request. It is invoked from two places: eagerly by `server.ts` at local boot (non-fatally — a failure logs and the server still starts, with `/ready` reporting 503), and lazily by the `ensureDb` middleware on every DB-backed route. The lazy path is what makes production work at all: the Vercel serverless entry imports `app.ts` directly and never runs `server.ts`, so without `ensureDb` no connection would ever be opened. `serverSelectionTimeoutMS` is set explicitly (8s normally, 300ms under test) rather than relying on Mongoose's 30s default, which exceeds a serverless function's own timeout.
 
-See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. Five collections declared: `Student`, `Question`, `ExamAttempt`, `Result`, `StudentAnalytics`. Of these, `ExamAttempt` and `Result` are declared but never referenced by any route (dead code today). No indexes beyond the implicit unique index on `Student.mobile`. No migration tool, no seed script.
+**`.env` resolution is anchored to the package root**, not `process.cwd()`. `config/env.ts` resolves it from its own directory, because a script run from `backend/scripts/` previously found no `.env`, loaded zero variables, silently fell back to the `mongodb://localhost` default, and wrote to the wrong database while reporting success. Every write script additionally calls `assertConfiguredForWrites()` (`lib/envGuard.ts`), which prints the target database and refuses a local write without an explicit `--local`.
+
+See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. **13 models**: `Student`, `StudentPhoto`, `Question`, `Subject`, `Topic`, `StudentActivity`, `PracticeSession`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`. Of these, `Result` is unwritten and `ExamAttempt` is read but never written — both belong to the *official* exam, which is not built (see [`DECISIONS.md`](DECISIONS.md) on why practice is a separate collection). Real indexes throughout, including a **partial unique** index on `StudentActivity` that is what makes "once per day" true rather than merely intended. No migration tool; there are several ad-hoc scripts instead, which is the point at which a real runner starts to be worth it.
 
 ## Authentication Architecture — CURRENT
 
@@ -136,7 +162,7 @@ _Implemented in Milestone 2. The fake client-side "OTP" step was deleted._
   - **SMTP unset** → written to the structured log, including the working link, so local development works before any provider exists.
 - Two templates: email verification and password reset. Link bases come from `FRONTEND_URL`.
 - Delivery failures are logged and swallowed, never surfaced, so a dead provider cannot become a 500 or leak whether an address exists.
-- **Not yet configured** — until the owner sets `SMTP_*`, production would only log emails. See [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
+- **Appears to be configured** — a local registration sent a real message through the values in `backend/.env` rather than the log fallback. Delivery to an inbox has still never been *observed*, so treat that as unconfirmed until `npm run verify:email` is run. Note that `dev:local` does **not** suppress outgoing mail. See [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
 
 ## Payment Architecture — PLANNED (not started)
 
@@ -172,14 +198,12 @@ No payment gateway SDK/dependency in either `package.json`. The registration flo
 
 **Session restoration after reload**: `AuthContext` calls `/auth/me`; if that fails it attempts one `/auth/refresh` and retries before concluding the visitor is a guest. This is what keeps a signed-in student signed in across a browser refresh, given the access cookie is a session cookie.
 
-**Legacy registration flow (removed)**: Landing form (details → fake OTP → fake payment) → `POST /api/v1/auth/register` → bcrypt hash → `Student.save()` → JWT cookie issued → frontend sets `AuthContext` state → redirect to `/dashboard`.
-
-**Student login**: Landing modal → `POST /api/v1/auth/login` → bcrypt compare → JWT cookie → `AuthContext` updated.
-
-**Session restore**: On every SPA load, `AuthContext` calls `GET /api/v1/auth/me` once; cookie absent/invalid → `guest` state.
-
 **Admin question generation**: `AiGenerator.tsx` form → `POST /api/v1/admin/generate-questions` (admin-only) → template-generates N question objects → `Question.insertMany()` → returned and rendered; these are real DB writes, but the "questions" are not written by an AI model.
 
-**Analytics view**: `Analytics.tsx`/`Report.tsx` → `GET /api/v1/analytics/:studentId` → looks up `StudentAnalytics` by `studentId` → **always missing today** → hardcoded mock JSON returned instead → rendered as if real.
+**Analytics view**: `Analytics.tsx`/`Report.tsx` → `GET /api/v1/analytics/:studentId` → looks up `StudentAnalytics` → **always missing today**, so the response is `data: null` with `reason: 'no-exam-data'`, plus a genuinely real `xpByDay` series aggregated from `StudentActivity`. The page charts the real series and renders an explicit "not measured yet" state for the accuracy half. Until 2026-08-11 this endpoint returned hardcoded figures (88% accuracy over 450 questions) rendered as if real.
 
-**Exam / Results / Certificates / Leaderboard / Daily challenge**: each is either a closed client-side loop with no network call, or a backend endpoint with no frontend caller. No data flows between them today.
+**Practice session (Milestone 6)**: `/practice` → `GET /practice/options` (real per-topic counts for the student's own class) → `POST /practice/sessions` draws a paper with `$sample` and **snapshots the answer key** into the session document → each answer saved individually by `PUT …/answers` → `POST …/submit` grades server-side against the snapshot, writes per-question outcomes, and awards `practice_completed` XP once per competition day → the same response carries the review.
+
+The answer key never leaves the server before submission: `sessionInProgressView()` composes the answer-stripped `studentQuestionView`, and `sessionReviewView()` — the only function that reveals an answer — throws unless the session is `submitted`. Grading is therefore not something the browser could tamper with, because the browser is never given the means.
+
+**Official exam / Results / Certificates**: still no data flow. The endpoints and pages are real and wired, but nothing writes an `ExamAttempt` or a `Result`, so each renders an honest empty state. That is the next milestone.

@@ -1,6 +1,6 @@
 # SECURITY.md
 
-_Last updated: 2026-08-05 (Milestone 3 — RBAC and User Management Foundation)._
+_Last updated: 2026-08-11 (Milestone 6 — Practice Zone)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.
 
@@ -100,7 +100,18 @@ Route guards, permission-aware navigation and the unauthorized state exist to ma
 
 ## CSRF
 
-**Still open — the most significant remaining gap.** There is no CSRF token mechanism. In production, cookies are `sameSite: 'none'`, so a browser *will* attach them to a cross-site request. CORS does not help against a fire-and-forget POST (e.g. a hidden auto-submitting form), because the attacker does not need to read the response.
+**Still open, but narrower than this document previously claimed.** There is no CSRF token mechanism, and in production cookies are `sameSite: 'none'`, so a browser *will* attach them to a cross-site request.
+
+The practical exposure was re-examined on 2026-08-11 and is **smaller** than the earlier wording implied, because of two incidental defences:
+
+- **Only `express.json()` is mounted** — there is no `urlencoded` parser. A cross-site HTML form can only send `application/x-www-form-urlencoded`, `multipart/form-data` or `text/plain`, none of which `express.json()` parses, so the body arrives empty and validation returns 400.
+- **CORS uses an explicit origin allow-list.** A cross-origin `fetch` carrying `Content-Type: application/json` is not a simple request, so it is preflighted, and the preflight fails.
+
+Together those mean every route needing a JSON body — the profile edit, the password change, the role and status changes, practice submission — is effectively protected today. `PATCH`, `PUT` and `DELETE` are additionally never simple methods, so they are always preflighted regardless of body.
+
+**What remains genuinely exposed** is the set of `POST` routes that need no body: `/auth/logout`, `/auth/logout-all` and `/auth/refresh`. A hidden auto-submitting form can trigger those cross-site. The consequence is session nuisance — someone can sign you out — not data modification or account takeover.
+
+This is still worth fixing, and it is **not** the emergency the previous wording implied. Note that the defences above are incidental rather than designed: adding a `urlencoded` parser, or loosening the CORS allow-list, would silently remove them. A double-submit cookie or header-based token remains the correct fix.
 
 Practical exposure today: `logout`, `logout-all`, and `refresh` could be triggered cross-site (nuisance rather than data loss), and registration/login/reset all require knowledge the attacker does not have. It becomes serious the moment an authenticated, state-mutating route exists — payments, profile edits, or admin actions. **A double-submit cookie or a header-based CSRF token should be added before any of those ship.**
 
@@ -240,3 +251,23 @@ Photos still are **not re-encoded**, so EXIF (including any GPS tags a phone wro
 5. **Rate limiting on the administrative routes** — they sit behind the general `/api` limiter only, with no tighter per-route limit of their own. (The self-service account routes added in Milestone 5 do have one, `accountUpdateLimiter`; the admin routes still do not.)
 6. **Changing your own email address or mobile number** — not possible at all, because doing it safely needs a confirm-at-the-new-address flow. Recorded here rather than only as a missing feature, because the reason it is absent is a security one.
 7. **Pre-existing `npm audit` findings** in `@vercel/node`'s build-time dependency tree; fixing needs a breaking major upgrade.
+
+---
+
+## Answer integrity (Milestone 6)
+
+The Practice Zone marks work, so the correct answers are the thing an attacker most wants and the thing a student most benefits from not having. Four properties, each enforced in exactly one place:
+
+1. **Two views, never one with a flag.** `sessionInProgressView()` composes the shared answer-stripped `studentQuestionView`; `sessionReviewView()` is the *only* function anywhere that emits `correctAnswer` or `explanation`, and it **throws** unless the session status is `submitted`. An `includeAnswers` boolean was deliberately rejected, for the same reason the two question views were kept separate in Milestone 4: one call site passing the wrong value becomes a silent leak, whereas a function that refuses cannot.
+2. **Grading is server-side.** The browser is never given the answer key, so it cannot mark its own work even dishonestly. Every response is scored from the session document by `gradeSession()`.
+3. **The key is snapshotted at draw time.** The session stores the correct options, boolean and numeric answers, marks and negative marks as they were when the paper was drawn. Editing or archiving a question afterwards cannot retroactively change a graded paper, nor make an in-progress one ungradeable.
+4. **Ownership is checked on every read and write.** A session belonging to another student is reported as **404, not 403** — a 403 would confirm the id exists, which is an enumeration oracle over session ids.
+
+Asserted by tests: no `isCorrect`, `solution`, `numericAnswer`, `booleanAnswer` or `tolerance` appears in the start, resume or save responses; review is refused before submission; another student's session is indistinguishable from one that does not exist; and a session cannot be submitted twice.
+
+## Handling of database credentials
+
+`backend/.env` holds the production Atlas URI, including its password. Two operational points that are security-relevant rather than merely awkward:
+
+- **Never paste a connection string into a chat, an issue or a screenshot.** It grants full read/write access to production data. If one is exposed, rotate it immediately: Atlas → Database Access → Edit → Edit Password → Autogenerate, then update `backend/.env` **and** the Vercel environment variable, which are configured independently of each other.
+- **Scripts print a redacted URI.** `redactUri()` in `lib/envGuard.ts` strips credentials before any script logs its target, so script output can be shared safely. `where-is-data.ts` and the three write scripts all use it.

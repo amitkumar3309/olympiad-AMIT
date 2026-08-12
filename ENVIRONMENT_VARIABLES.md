@@ -4,7 +4,11 @@ No real secrets are stored in this file or anywhere in the repo. `.env` files ar
 
 **`backend/.env.example` now exists** with placeholder values only — keep it in sync with the table below. The frontend still reads no environment variables, so it needs no `.env.example`.
 
-**How env vars are loaded (Milestone 1)**: `backend/src/config/env.ts` calls `dotenv.config()` and then validates everything through a zod schema, exporting a typed `env` object. `backend/src/config/index.ts` derives the app-wide typed `config` from it. **No other module reads `process.env` directly** — add new variables to the schema in `env.ts`, not as ad-hoc `process.env` reads.
+**How env vars are loaded**: `backend/src/config/env.ts` loads `backend/.env` and validates everything through a zod schema, exporting a typed `env` object. `backend/src/config/index.ts` derives the app-wide typed `config` from it. **No other module reads `process.env` directly** — add new variables to the schema in `env.ts`, not as ad-hoc `process.env` reads.
+
+**The `.env` path is anchored to the backend package root** (`path.resolve(__dirname, '..', '..', '.env')`), not to `process.cwd()`. This matters more than it sounds: `dotenv.config()` with no argument searches the *current directory*, so running a script from `backend/scripts/` found no `.env`, loaded **zero** variables, and every value silently fell back to its default — including `MONGO_URI`, which defaults to localhost. A seed script then published 208 questions to a local database and reported success while production stayed empty. The tell-tale sign was `injected env (0)` in the first line of output, alongside `JWT_SECRET is not set` and `SMTP is not configured` warnings.
+
+If you ever see `injected env (0)`, **stop** — nothing you configured is in effect.
 
 Two behaviours worth knowing:
 - `dotenv.config()` is **skipped when `NODE_ENV=test`** (vitest sets this automatically) so the test suite can never silently pick up your real Atlas URI or JWT secret.
