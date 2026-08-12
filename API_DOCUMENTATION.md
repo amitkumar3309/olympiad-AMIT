@@ -1,6 +1,6 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-12 (Milestone 7 — Mock Tests)._
+_Last updated: 2026-08-12 (Milestone 8 — Daily Challenge)._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
@@ -351,7 +351,11 @@ Everything the student dashboard shows, in one request. **Every figure is a real
 ### `GET /api/v1/me/activity`
 The full activity feed, paginated (`page`, `limit` ≤ 100). The dashboard carries only the newest few.
 
-### `GET /api/v1/me/daily-challenge` (also `GET /api/v1/daily-challenge`)
+### `GET /api/v1/me/daily-challenge` — **superseded by Milestone 8**
+
+See "Daily challenge (Milestone 8)" at the end of this file: the endpoint now also reports the caller's own attempt, the streak and the reward, and the challenge is a pinned document rather than a value recomputed per request. The description below is kept for the shape it had in Milestone 5.
+
+#### Milestone 5 behaviour
 Today's challenge question for the caller's class, as a full **answer-stripped** question via the shared `studentQuestionView` — so it cannot expose an answer key even by accident. Deterministic: the same day and class always resolve to the same question, so a reload cannot be used to shop for an easier one.
 
 Answers `{ challenge: null, reason: 'none-published' | 'no-class' }` — a 200, not a 404, because "there is no challenge today" is a normal answer while the bank has nothing published for that class.
@@ -530,3 +534,57 @@ Earns `mock_test_completed` (50 XP) **once per competition day**, and nothing at
 
 #### `GET /api/v1/mock-tests/attempts`
 The student's own attempts across every test, newest first, paginated. Honours each test's result policy: a score the student may not yet see is `null` here too. No per-question detail and no answers.
+
+---
+
+## Daily challenge (Milestone 8)
+
+One question a day per class. Student routes gate on `requireAuth()` (identity, like the rest of `/me`); scheduling gates on the new `challenges:write` permission.
+
+**No student route accepts a day.** Which day it is comes from `lib/competitionDay.ts` — an IST calendar day — so a student cannot claim yesterday's reward by naming yesterday, and a browser in another timezone cannot disagree about which challenge is today's. No student route accepts anything about the outcome either: grading is server-side, and the reward is awarded by `recordActivity()`.
+
+**A day's challenge is a stored document.** The first request for a `{day, classLevel}` with nothing scheduled pins the deterministic pick and writes it; everything after that reads the same row. Publishing more questions therefore cannot change what today's challenge is — which the previous, recompute-on-read implementation could not promise.
+
+### Sitting today's challenge
+
+#### `GET /api/v1/me/daily-challenge` (also `GET /api/v1/daily-challenge`)
+Today's challenge for the caller's class, and their own attempt at it.
+
+- **Not answered yet** → `challenge` (answer-stripped) and `attempt: null`. Nothing in the payload can reveal the answer; a test stringifies the whole body and forbids the field names and the literal correct values.
+- **Answered** → the same question plus `attempt`: what they chose, whether it was right, the correct answer and the author's explanation.
+
+Also carries `streak` (current and longest), `completedCount`, `reward: { xp, claimed }` and the server's `today`. Answers `challenge: null` with `reason: 'none-published'` (nothing published for that class) or `reason: 'no-class'` (an account predating the class field) — both **200**, because neither is an error.
+
+The reveal is safe here in a way it would not be for a mock test: an attempt document only exists once the student has answered, so there is no path that discloses anything to someone who has not. A daily challenge has **no disclosure policy** on purpose — its point is to teach one question a day, and withholding the explanation would defeat that.
+
+#### `POST /api/v1/me/daily-challenge/answer`
+Body: whichever of `selectedOptionKeys` / `numericResponse` / `booleanResponse` fits the question's type. Grades server-side against a snapshot taken at submission, using the shared grader.
+
+Refusals: an option key never offered is **400**; a second key on a `single_choice` question is **400**; a **blank** submission is **400** (a challenge is one question — a blank is either a mis-click or an attempt to claim the day for nothing); no class on the account is **409**; no challenge for the class today is **409**.
+
+**A repeat submission is 200, not 409.** The student really has answered today, and an error would invite them to press again. It returns the stored attempt with `alreadyAnswered: true` and **`xpAwarded: 0`** — the top-level figure is what *this* request awarded, not the attempt's stored total, so a client cannot show "+15 XP" twice. Nothing is re-graded: the first answer is the one that stands.
+
+Earns `daily_challenge_completed` (15 XP) once per competition day, for **answering rather than for being right**. Negative marking is forced to 0, so a wrong answer scores 0 and is never a penalty. Rate limited (30/hour).
+
+#### `GET /api/v1/me/daily-challenge/history`
+The caller's own past challenges, newest day first, paginated, with `streak` and `completedCount`. Each row names the question the **attempt** snapshotted, not whatever its challenge points at now — a future day can be re-pointed, and a history row must describe what the student actually answered.
+
+### Scheduling
+
+#### `GET /api/v1/admin/daily-challenges`
+Scheduled and already-served days, newest first. Filters: `classLevel`, `from`, `to` (day keys — `YYYY-MM-DD` sorts chronologically, so the range is a plain string range). Each row carries `source` (`scheduled` / `automatic`), how many students answered, how many were right, and `correctPercent` — of those who *answered*, and `null` when nobody did.
+
+Also returns `today` and `upcoming` (14 days). Both come from the server because a competition day is an IST day: a browser computing it locally could schedule against the wrong one.
+
+#### `POST /api/v1/admin/daily-challenges`
+Body: `day`, `classLevel`, `questionId`.
+
+Refusals: a day in the past is **400** (a past day is the record of what a class was set, not a plan); a malformed or impossible date such as `2026-02-30` is **400**; a question for another class is **400**; an unpublished question is **409** (it would show unreviewed content to a whole class); a day that class already has is **409**, enforced by the unique index rather than by looking first.
+
+#### `PUT /api/v1/admin/daily-challenges/:id`
+Body: `questionId` — only the question may change. Moving a challenge to another day or class is deliberately not expressible: it is indistinguishable from deleting one and adding another, and the two-step version is safe because of the unique index.
+
+Refused with **409** once anybody has answered it, and for a past day. A future day can be re-pointed freely, which is the point of scheduling ahead. Re-pointing an automatically-filled day marks it `scheduled`, because it has become a staff decision.
+
+#### `DELETE /api/v1/admin/daily-challenges/:id`
+Clears a scheduled day. **409** once anybody has answered it — their attempt refers to it, and it is part of their record.

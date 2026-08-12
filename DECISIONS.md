@@ -483,3 +483,51 @@ This is the first `DECISIONS.md` for the project (created during the 2026-08-04 
 **Alternatives considered**: (a) Document it and rely on the developer setting the variables — that *was* the state, and it is what produced the risk. (b) Make `SMTP_HOST` absent so the log transport prints the link instead — not achievable: the value comes from `.env`, and there is no way to make a variable *absent* from the environment before dotenv reads the file. (c) Add a local mail-catcher dependency — rejected against the ₹0 and no-new-dependency constraints; `npm run verify:email` already exists for testing delivery deliberately.
 
 **Consequences**: a local registration is now a single step, which is what made the Milestone 7 browser verification possible without emailing a stranger. The trade-off is that delivery cannot be observed through `dev:local` at all — that is what `npm run verify:email` is for, and the start-up banner now says so in as many words.
+
+---
+
+## 2026-08-12 — A day's challenge is pinned to a document, not recomputed on every request
+
+**Decision**: `DailyChallenge` is a real collection with one document per `{day, classLevel}`. A day nobody scheduled is **materialised on first request** — the deterministic pick is computed once, written, and served from then on. Every later read, and every attempt, refers to that document.
+
+**Reason**: the previous implementation took `hash(day) % countOfPublishedQuestions` and `skip`ped that far into the bank on every request. That is stable only while the bank is, and the bank is not: **publishing a single question changed which question "today" was, mid-day, for every student in the class.** It also made a past day unrecoverable — "what was Tuesday's challenge?" could only be answered by re-running the hash against a bank that had since moved, which is to say it could not be answered. Once students can *answer* the challenge, both problems stop being cosmetic: an attempt has to refer to something fixed.
+
+**Alternatives considered**: (a) Keep it computed and store only the question id on each attempt — fixes the attempt but not the "today changed under me" case, and still cannot say what a day was for a student who did not answer. (b) Require staff to schedule every day — rejected: the realistic outcome is a day nobody remembered, and a challenge feature that silently has no challenge on a Sunday. (c) Materialise a year ahead by cron — no scheduler on the free tier, and it would freeze the bank's future picks against today's contents.
+
+**Consequences**: two students arriving in the same instant both compute the same question and both try to insert it, so the unique index on `{day, classLevel}` arbitrates and the loser re-reads the winner's row — which is *why* the automatic pick has to stay deterministic even though it is now persisted. The collection grows by one document per class per day (a few hundred rows a year) and never expires, because an attempt points at it. `source` records whether a day was chosen by staff or filled in, so the admin list can tell the two apart honestly.
+
+---
+
+## 2026-08-12 — The daily reward is guarded twice, by two different unique indexes
+
+**Decision**: a student may hold at most one `DailyChallengeAttempt` per `{student, day}` (unique index), and `recordActivity()` independently caps `daily_challenge_completed` at once per competition day (the partial unique index on `StudentActivity`). A second submission returns the stored attempt with `alreadyAnswered: true` and **200, not 409**.
+
+**Reason**: this is the one feature in the product whose entire purpose is a repeatable daily reward, so "claim it twice" is the obvious thing to try and must be impossible rather than discouraged. The two guards are independent — different collections, different keys, written at different moments — so a bug in either one is not a paid exploit. The 200 is deliberate: from the student's point of view they *have* answered today, and an error would read as "try again".
+
+**Alternatives considered**: (a) The unique index alone, with the XP awarded unconditionally after it — one mechanism, and the XP path is the one that pays. (b) A read-then-write check ("has this student answered today?") — on the serverless path two concurrent requests can both pass it. (c) Answering the duplicate with 409 — rejected as above; the *effect* is what matters, and it is already correct.
+
+**Consequences**: the response's top-level `xpAwarded` is what **this request** awarded and is 0 on a repeat, while the attempt's own `xpAwarded` stays as the record of what the first submission earned. That distinction was not academic: returning the attempt's figure let the UI show "+15 XP" every time the button was pressed, which is the half of a double claim a student would actually notice, and it is now covered by a test.
+
+---
+
+## 2026-08-12 — The daily challenge reveals immediately, and pays for answering rather than for being right
+
+**Decision**: submitting reveals the correct answer and the author's explanation at once — there is no disclosure policy, unlike a mock test. The reward is `daily_challenge_completed`, 15 XP, once per competition day, awarded for a **graded submission regardless of correctness**. A blank submission is refused rather than stored. Negative marking is forced to 0 whatever the question carries.
+
+**Reason**: the challenge is a teaching mechanic, not an assessment — one question a day, worth explaining while the student still remembers thinking about it. Withholding the explanation until some later window would defeat the only thing it is for. Paying for correctness on a single question would reward looking the answer up rather than working it out, and would make a student who thought hard and got it wrong worse off than one who did not try; measuring ability is the official exam's job (see the Milestone 6 and 7 ADRs). Refusing a blank keeps that honest without a special case in the reward path: there is no way to claim the day by pressing Submit on nothing.
+
+**Alternatives considered**: (a) A second activity type for a correct answer, worth a bonus — workable and unfarmable, but it puts two rows in the feed for one event and starts making XP a partial measure of ability, which the exam should own. (b) XP proportional to the marks — breaks the invariant that `lib/xp.ts` is the only place an event's worth is stated. (c) Revealing only at end of day, like a newspaper puzzle — rejected: it would mean a student cannot learn from the question on the day they engaged with it, and the answer is already in their hands the moment they submit.
+
+**Consequences**: correctness is recorded on the attempt, shown immediately, aggregated for staff, and counted by the challenge achievements — it simply is not what the XP is for. A wrong answer scores 0 rather than a negative, so the result screen never punishes taking part.
+
+---
+
+## 2026-08-12 — Challenges reach XP and achievements only through service seams
+
+**Decision**: `dailyChallengeService` never writes a `StudentActivity` row and never states what an event is worth — the route calls `recordActivity()`. The achievement catalogue never reads the database — it declares two facts (`challengesCompleted`, `longestChallengeStreak`) on `ProgressFacts`, and `getChallengeFacts()` supplies them.
+
+**Reason**: this is the same rule the codebase already applies to XP (`activityService` is the only writer, `lib/xp.ts` the only pricer) extended to a second direction. Without the seam, the natural implementation is a challenge service that inserts its own activity row with its own number and a catalogue that queries attempts directly — at which point "what is a challenge worth?" has two answers and the achievement rules can no longer be reviewed by reading one file.
+
+**Alternatives considered**: (a) Let the challenge service award its own XP — one fewer indirection, and the exact drift `activityService` exists to prevent. (b) Let `lib/achievements.ts` query the attempt collection — it would turn a pure, synchronously testable rule set into an async one with a database dependency, and every achievement test would need a database.
+
+**Consequences**: adding a challenge-based achievement means adding a fact to `ProgressFacts` and supplying it at the two call sites that build it — mildly repetitive, and the repetition is what keeps the catalogue pure. `NO_CHALLENGE_FACTS` exists for the callers that cannot read the history (no class, no database), so an achievement row shows an honest `0 / 1` rather than vanishing.

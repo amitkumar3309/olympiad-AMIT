@@ -49,6 +49,12 @@ export const AUDIT_ACTIONS = [
   'mocktest.status.changed',
   /** A mock test that had never been published was hard-deleted. */
   'mocktest.deleted',
+  /** A daily challenge was scheduled for a class on a given day. */
+  'dailychallenge.scheduled',
+  /** A scheduled daily challenge's question was changed before anyone attempted it. */
+  'dailychallenge.updated',
+  /** A scheduled daily challenge was removed before anyone attempted it. */
+  'dailychallenge.deleted',
   /** A subject was created or edited. */
   'subject.changed',
   /** A topic or subtopic was created or edited. */
@@ -63,7 +69,16 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
-export const AUDIT_TARGET_TYPES = ['student', 'question', 'mocktest', 'subject', 'topic', 'route', 'system'] as const;
+export const AUDIT_TARGET_TYPES = [
+  'student',
+  'question',
+  'mocktest',
+  'dailychallenge',
+  'subject',
+  'topic',
+  'route',
+  'system',
+] as const;
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number];
 
 export interface AuditLogDocument extends Document {

@@ -43,6 +43,14 @@ export const ACTIVITY_TYPES = [
    * and must not be conflated with a mock (see DECISIONS.md).
    */
   'mock_test_completed',
+  /**
+   * The day's challenge was answered and graded (Milestone 8). **Once per day** — and
+   * here that is not merely anti-farming policy but the definition of the feature: a
+   * daily challenge that could be answered twice for twice the reward would not be a
+   * daily challenge. Guarded twice over, by this dedupe key and by the unique index on
+   * `DailyChallengeAttempt {student, day}`.
+   */
+  'daily_challenge_completed',
 ] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
@@ -53,7 +61,12 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
  * forget to perform.
  */
 export const ONCE_PER_ACCOUNT: readonly ActivityType[] = ['account_created', 'email_verified'];
-export const ONCE_PER_DAY: readonly ActivityType[] = ['daily_visit', 'practice_completed', 'mock_test_completed'];
+export const ONCE_PER_DAY: readonly ActivityType[] = [
+  'daily_visit',
+  'practice_completed',
+  'mock_test_completed',
+  'daily_challenge_completed',
+];
 
 export interface StudentActivityDocument extends Document {
   student: Types.ObjectId;

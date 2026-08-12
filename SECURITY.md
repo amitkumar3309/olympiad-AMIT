@@ -1,6 +1,6 @@
 # SECURITY.md
 
-_Last updated: 2026-08-12 (Milestone 7 — Mock Tests)._
+_Last updated: 2026-08-12 (Milestone 8 — Daily Challenge)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.
 
@@ -43,6 +43,7 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `questions:delete` | — | yes | yes |
 | `taxonomy:write` | — | yes | yes |
 | `mocktests:write` | — | yes | yes |
+| `challenges:write` | — | yes | yes |
 | `audit:read` | — | yes | yes |
 | `users:role:write` | — | — | **yes** |
 
@@ -289,6 +290,19 @@ A timed assessment has a second thing worth attacking: the clock. The rule is th
 - No request body on any mock-test route contains a time field. A test posts `expiresAt`, `secondsRemaining`, `durationMinutes`, `timeTakenSeconds` and `startedAt` alongside a legitimate answer and asserts the stored deadline, start time and duration are unchanged — the schema simply has no such fields, and `validate` replaces `req.body` with the parse result, so they cannot reach a handler.
 - The countdown in the browser is a display derived from `secondsRemaining`. Tampering with it, pausing the tab or running a wrong system clock changes nothing about the mark.
 - Exactly one submission is guaranteed by a conditional write (`status: 'in_progress'` in the update filter) rather than a read-then-write check, which on a serverless platform can straddle two invocations. A concurrent-submission test asserts one grading and one XP award.
+
+## Reward integrity (Milestone 8)
+
+The daily challenge is the one feature whose purpose is a **repeatable daily reward**, which makes "claim it twice" the obvious thing to try. It is guarded twice over, by two independent unique indexes in two different collections:
+
+- `DailyChallengeAttempt {student, day}` — a second attempt for the same competition day cannot be inserted at all.
+- `StudentActivity {student, type, dedupeKey}` — `recordActivity()` caps `daily_challenge_completed` at once per day, independently of whether an attempt exists.
+
+Neither is a check the code performs; both are constraints the database enforces, so two concurrent submissions cannot both pass. The API answers a repeat with **200 and `alreadyAnswered: true`** rather than an error — the student really has answered today — and reports `xpAwarded: 0`, because the figure a client displays must be what *this* request awarded rather than what the stored attempt is worth. (Reporting the latter was a real defect caught by a test: the ledger stayed correct while the page could show "+15 XP" on every press.)
+
+**The day is never client-supplied.** No daily-challenge route accepts a day, so a student cannot name yesterday to claim a missed reward, and a browser in another timezone cannot disagree about which challenge is today's. The day comes from `lib/competitionDay.ts`, an IST calendar day, and it is what both guards key on.
+
+**A blank submission is refused**, not stored — otherwise pressing Submit on nothing would claim the day.
 
 ## Handling of database credentials
 

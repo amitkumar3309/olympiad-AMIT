@@ -111,6 +111,20 @@ export const mockTestLimiter = limiter({
   message: 'Too many test attempts. Please wait a little before trying again.',
 });
 
+/**
+ * Answering the daily challenge.
+ *
+ * One submission per student per day is all that can *succeed*, so this is not really
+ * abuse protection for the reward — the unique index is that. It bounds how fast a
+ * client can hammer the grading path, which reads a question and writes an attempt.
+ * Generous enough that a student retrying after a dropped connection never notices.
+ */
+export const challengeLimiter = limiter({
+  windowMs: HOUR,
+  limit: 30,
+  message: 'Too many attempts at today’s challenge. Please wait a little before trying again.',
+});
+
 /** Refresh is called routinely by every active client, so this is generous. */
 export const refreshLimiter = limiter({
   windowMs: 15 * MINUTE,

@@ -8,6 +8,8 @@ export * from './attemptAnswer';
 export * from './PracticeSession';
 export * from './MockTest';
 export * from './MockTestAttempt';
+export * from './DailyChallenge';
+export * from './DailyChallengeAttempt';
 export * from './Result';
 export * from './StudentAnalytics';
 export * from './StudentActivity';

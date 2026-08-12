@@ -1,7 +1,6 @@
 import type { PipelineStage, Types } from 'mongoose';
 import type { ClassLevel } from '../lib/classLevels';
-import { todayKey, type DayKey } from '../lib/competitionDay';
-import { Question, STUDENT_VISIBLE_STATUSES, type QuestionDocument } from '../models';
+import { Question, STUDENT_VISIBLE_STATUSES } from '../models';
 
 /**
  * What a student can actually practise, derived from the published question bank.
@@ -72,42 +71,13 @@ export async function getAvailableChallenges(classLevel: ClassLevel): Promise<Su
 }
 
 /**
- * A tiny deterministic hash of the day key.
+ * The daily-challenge *question picker* used to live here, and moved to
+ * `services/dailyChallengeService.ts` in Milestone 8 when the challenge stopped being
+ * recomputed on every request and started being pinned to a document.
  *
- * Used only to choose which published question is "today's", so it needs to be
- * stable and well spread, not cryptographic: every student in a class sees the same
- * question all day, and a different one tomorrow, with no state stored anywhere.
+ * The move fixed a real defect rather than merely relocating code: the old version took
+ * a hash of the day modulo the *current* number of published questions, so publishing
+ * anything changed which question "today" resolved to — mid-day, for every student —
+ * and made a past day's challenge unrecoverable. What is left in this file is the
+ * dashboard's "what can I practise" availability, which is a different question.
  */
-function daySeed(day: DayKey): number {
-  let hash = 2166136261;
-  for (let i = 0; i < day.length; i += 1) {
-    hash ^= day.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-/**
- * Today's challenge question for a class, or null when the bank has none published
- * for it.
- *
- * Deterministic rather than random: the same day and class always resolve to the
- * same question, so two devices show one challenge and a page reload cannot be used
- * to shop for an easier one. Sorted by `_id` so the ordering the index is applied
- * to is total and stable, which is what makes `skip` reproducible.
- */
-export async function getDailyChallengeQuestion(
-  classLevel: ClassLevel,
-  day: DayKey = todayKey(),
-): Promise<QuestionDocument | null> {
-  const filter = { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } };
-  const available = await Question.countDocuments(filter);
-  if (available === 0) return null;
-
-  return Question.findOne(filter)
-    .sort({ _id: 1 })
-    .skip(daySeed(day) % available)
-    .populate('subject', 'name slug')
-    .populate('topic', 'name slug')
-    .populate('subtopic', 'name slug');
-}

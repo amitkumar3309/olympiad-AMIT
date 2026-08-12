@@ -31,6 +31,9 @@ const MockTestAttemptPage = lazy(() => import('./pages/MockTests/MockTestAttempt
 const AdminMockTests = lazy(() => import('./pages/Admin/MockTests'))
 const AdminMockTestForm = lazy(() => import('./pages/Admin/MockTestForm'))
 const AdminMockTestResults = lazy(() => import('./pages/Admin/MockTestResults'))
+/** The daily challenge renders a question, so it carries KaTeX too (Milestone 8). */
+const DailyChallengePage = lazy(() => import('./pages/DailyChallenge/DailyChallenge'))
+const AdminDailyChallenges = lazy(() => import('./pages/Admin/DailyChallenges'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Profile from './pages/Profile/Profile'
@@ -155,6 +158,16 @@ export default function App() {
               </RequirePermission>
             }
           />
+          {/* Scheduling the daily challenge. Optional by design — an unscheduled day
+              is filled automatically — so this page is a curation tool, not a chore. */}
+          <Route
+            path="/admin/daily-challenges"
+            element={
+              <RequirePermission permission="challenges:write">
+                <AdminDailyChallenges />
+              </RequirePermission>
+            }
+          />
           <Route
             path="/ai-generator"
             element={
@@ -226,6 +239,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MockTestAttemptPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* --- Daily challenge (Milestone 8) --- */}
+          <Route
+            path="/daily-challenge"
+            element={
+              <ProtectedRoute>
+                <DailyChallengePage />
               </ProtectedRoute>
             }
           />

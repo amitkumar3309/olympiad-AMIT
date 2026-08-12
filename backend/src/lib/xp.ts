@@ -48,6 +48,20 @@ export const XP_AWARDS: Record<ActivityType, number> = {
    * attempt would reward starting papers rather than doing them.
    */
   mock_test_completed: 50,
+  /**
+   * A single question, so worth less than a practice session (25) and much less than
+   * a timed mock test (50) — but more than merely showing up (10), because it takes
+   * actually answering something.
+   *
+   * Paid for **answering, not for being right**, and once per competition day. That
+   * choice is deliberate and matches `practice_completed`: paying for correctness on
+   * a one-question challenge would reward looking the answer up rather than thinking
+   * about it, and measuring ability is the official exam's job (see DECISIONS.md).
+   * Whether the answer was right is recorded on the attempt, shown to the student
+   * immediately, and counts toward the challenge achievements — it just is not what
+   * the XP is for.
+   */
+  daily_challenge_completed: 15,
 };
 
 export function xpFor(type: ActivityType): number {

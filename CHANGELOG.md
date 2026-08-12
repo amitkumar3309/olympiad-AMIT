@@ -2,6 +2,64 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-12 — Milestone 8: Daily Challenge
+
+One question a day, per class, answered once, marked by the server and rewarded once. The daily challenge existed before this as a *read-only* card that said "answering here, with marking and XP, arrives with scored exams" — this is that, built.
+
+### Student
+
+`/daily-challenge` (new page) and the dashboard card.
+
+- **View today's** — a real published question for the student's own class, the same one for everybody in it all day, answer-stripped.
+- **Answer it** — all four question types, one submission a day.
+- **Get the result immediately** — right or wrong, the correct answer, and the author's worked explanation. There is deliberately no disclosure policy here, unlike a mock test: the point of one question a day is to learn from it while you still remember thinking about it.
+- **Earn 15 XP**, once per competition day, for answering — not for being right.
+- **Keep a streak**, with the current and longest runs derived from the days actually answered, plus a history of past challenges.
+
+### Admin / system
+
+`/admin/daily-challenges` (new page, new `challenges:write` permission).
+
+- **Schedule a day** for a class from the published bank, up to two weeks ahead, with the day strip supplied by the server.
+- **Re-point or clear** a scheduled day — until somebody answers it, after which it is a record rather than a plan.
+- **See how each day landed** — how many answered and what share were right, with `—` rather than 0% for a day nobody tried.
+- **Scheduling is optional and the page says so.** A day nobody scheduled is filled automatically and marked as such, so a missed day is not an outage.
+
+### The four properties this milestone is about
+
+**1. A day's challenge is pinned, not recomputed.** This fixed a real defect rather than adding a feature: the old picker was `hash(day) % countOfPublishedQuestions`, so **publishing any question changed which question "today" was, mid-day, for every student in the class** — and a past day's challenge could not be recovered at all, because the bank it was derived from had moved. A challenge is now a document, written once (by staff in advance, or automatically on first request) and referred to thereafter. A test publishes ten more questions after a day has been served and asserts the day's question does not budge.
+
+**2. One reward per competition day, guarded twice.** A unique index on `DailyChallengeAttempt {student, day}` makes a second attempt impossible; `recordActivity()` independently caps the XP at once per day through its own partial unique index. Different collections, different keys, written at different moments — a bug in either is not a paid exploit. Tested with sequential *and* concurrent submissions, counting both the attempts and the activity rows.
+
+**3. The day is an IST calendar day, and only the server decides it.** No route accepts a day from a client: a student cannot claim yesterday by naming it, and a browser in another timezone cannot disagree about which challenge is today's. Tested as arithmetic at the boundary (18:35 UTC is already the next IST day) and through the API, by turning the day over and showing that a second answer is then legitimately allowed and continues the streak.
+
+**4. XP and achievements are reached only through their own services.** The challenge service never writes an activity row and never says what an event is worth; the achievement catalogue never reads the database. The whole interface is two counts on `ProgressFacts`, supplied by `getChallengeFacts()`. Two new achievements — **Challenger** (answer one) and **Five days sharp** (answer on five consecutive days) — are the first in the catalogue that require actually answering a question, and they satisfy its "nothing unearnable is advertised" rule only because attempts are now recorded.
+
+### Two defects found by the tests, before anyone else could find them
+
+- **The shared grader returned `-0`** for a wrong answer whenever negative marking was off. It serialises to `0` over JSON, so no client ever saw it, but it was stored as `-0` and `Object.is(-0, 0)` is false — quietly breaking any exact comparison. Fixed in `services/grading.ts`, which practice and mock tests share.
+- **A repeat submission reported the first one's XP.** The ledger was never at risk — the second submission awarded nothing — but the response's top-level `xpAwarded` echoed the *attempt's* stored figure, so the page could show "+15 XP" every time the button was pressed. That is the half of a double claim a student would actually notice. It now reports what this request awarded: 0.
+
+### What is new in the codebase
+
+- Models: `DailyChallenge`, `DailyChallengeAttempt` — **17 models**, neither with a TTL. The attempt embeds the shared `attemptAnswer` subdocument, so the one grader marks it too.
+- Service: `dailyChallengeService.ts` (pinning, scheduling rules, grading, streaks, staff figures).
+- Routes: `dailyChallenge.routes.ts` (3 student endpoints, including the existing `/me/daily-challenge`, which moved here from `me.routes.ts`) and `dailyChallengesAdmin.routes.ts` (4 scheduling endpoints).
+- Validation: `dailyChallengeSchemas.ts`. No student-facing schema mentions a day or an outcome — the absence is the enforcement.
+- Permission: `challenges:write` (**13 permissions**), held by `admin` and `superadmin`.
+- Activity type: `daily_challenge_completed` (15 XP, once per day). Achievements: `challenge_first`, `challenge_streak_5`.
+- Audit actions: `dailychallenge.scheduled` / `.updated` / `.deleted`.
+- Dead code removed: `getDailyChallengeQuestion()` in `challengeService.ts`, the recompute-on-read picker this replaced.
+- **37 new tests** (455 total, 15 files).
+
+### Verified end to end in a real browser
+
+Against a local MongoDB and the seeded Class 12 bank: a student opened `/daily-challenge`, was pinned a real Probability question ("two fair coins… give your answer as a decimal"), answered `0.25`, and was marked **correct, 3/3, +15 XP** with the tolerance (± 0.001) and the worked explanation shown. The dashboard then read **125 XP** — 110 plus exactly one award — with "Answered the daily challenge · Correct · +15" in the feed, the **Challenger** achievement earned, and the card switched to "See your answer · Answered — correct, 3/3". On the admin side the day appeared as **Automatic · 1 answered · 100% correct** with no Clear button (it has attempts), and scheduling tomorrow for the same class produced a **Scheduled · 0 answered · —** row that could still be cleared. Every daily-challenge request returned 2xx; no console errors.
+
+**Not deployed.** No new environment variables and no new deploy step.
+
+---
+
 ## 2026-08-12 — Milestone 7: Complete Mock Test System
 
 Timed, staff-authored papers, sat under a clock the server owns. This is the first assessment in the product: practice is self-chosen and untimed, and the official Olympiad is still unbuilt, so a mock test is the first thing here that measures a student against a paper somebody else set.

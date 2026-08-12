@@ -88,10 +88,19 @@ export function gradeEntry(entry: AttemptAnswerEntry): GradeOutcome {
     }
   }
 
+  /**
+   * Spelled out rather than `-entry.negativeMarks`, which yields **negative zero** when
+   * negative marking is off. `-0` serialises to `0` over JSON, so no client ever saw it
+   * — but it is stored as `-0` in the attempt, and `Object.is(-0, 0)` is false, so it
+   * quietly breaks any exact comparison against a wrong-but-unpenalised answer
+   * (including in tests, which is where it surfaced).
+   */
+  const penalty = entry.negativeMarks === 0 ? 0 : -entry.negativeMarks;
+
   return {
     answered: true,
     isCorrect,
-    awardedMarks: isCorrect ? entry.marks : -entry.negativeMarks,
+    awardedMarks: isCorrect ? entry.marks : penalty,
   };
 }
 

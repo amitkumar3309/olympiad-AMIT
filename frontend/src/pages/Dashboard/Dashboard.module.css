@@ -419,12 +419,21 @@
   font-weight: 800;
 }
 
+/* The card's footer: the call to action, and one line of status beside it. */
+.challengeActions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
 .challengeNote {
-  margin: 14px 0 0;
   font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
   font-style: italic;
+  max-width: 34ch;
 }
 
 .challengeLoading {

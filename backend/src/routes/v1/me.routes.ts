@@ -22,8 +22,8 @@ import {
   getTopLeaderboard,
   getRecentExamPerformance,
 } from '../../services/progressService';
-import { getAvailableChallenges, getDailyChallengeQuestion } from '../../services/challengeService';
-import { studentQuestionView } from '../../services/questionView';
+import { getAvailableChallenges } from '../../services/challengeService';
+import { getChallengeFacts } from '../../services/dailyChallengeService';
 import {
   updateProfileSchema,
   updatePhotoSchema,
@@ -384,7 +384,7 @@ router.get('/me/dashboard', requireAuth(), ensureDb, async (req: Request, res: R
     await touchDailyVisit(id);
 
     const progress = await getProgress(id, today);
-    const [activity, exams, leaderboard, standing, challenges] = await Promise.all([
+    const [activity, exams, leaderboard, standing, challenges, challengeFacts] = await Promise.all([
       getRecentActivity(id, DASHBOARD_ACTIVITY_LIMIT),
       getRecentExamPerformance(student.studentId, DASHBOARD_EXAM_LIMIT),
       getTopLeaderboard(DASHBOARD_LEADERBOARD_LIMIT),
@@ -393,6 +393,10 @@ router.get('/me/dashboard', requireAuth(), ensureDb, async (req: Request, res: R
       // field, so they get an empty list and an explanatory empty state rather than
       // questions for a class they are not in.
       isClassLevel(student.classLevel) ? getAvailableChallenges(student.classLevel) : Promise.resolve([]),
+      // The two counts the challenge achievements need, from the challenge service —
+      // the only interface between the two. `lib/achievements.ts` reads no database,
+      // and the challenge service knows nothing about which achievements exist.
+      getChallengeFacts(id, today),
     ]);
 
     const achievements = summariseAchievements({
@@ -404,6 +408,8 @@ router.get('/me/dashboard', requireAuth(), ensureDb, async (req: Request, res: R
       activeDays: progress.streak.activeDays,
       isEmailVerified: student.isEmailVerified,
       examsCompleted: exams.length,
+      challengesCompleted: challengeFacts.challengesCompleted,
+      longestChallengeStreak: challengeFacts.longestChallengeStreak,
     });
 
     sendSuccess(res, 200, {
@@ -456,42 +462,11 @@ router.get(
 );
 
 /**
- * Today's challenge for the caller's class, as a full (answer-stripped) question.
- *
- * Replaces the hardcoded "Rapid Calculus Sprint #42 / today's winner Aarav Gupta"
- * mock that used to answer `/daily-challenge`. Both paths are served: `/me/...`
- * because the resource genuinely depends on who is asking (it is chosen for the
- * caller's class), and the bare path because that is the one already published in
- * API_DOCUMENTATION.md.
- *
- * Now **authenticated**, where the mock was open, because it returns question
- * content — the thing Milestone 4 stopped serving anonymously. It renders through
- * the shared `studentQuestionView`, so it cannot expose an answer key even by
- * accident.
+ * `GET /me/daily-challenge` moved to `routes/v1/dailyChallenge.routes.ts` in
+ * Milestone 8, when it stopped being a read-only view and became a thing a student
+ * answers — with an attempt to persist, a reward to award once, and a scheduled
+ * counterpart on the admin side. Both the `/me/...` and bare `/daily-challenge` paths
+ * are still served there.
  */
-router.get(['/me/daily-challenge', '/daily-challenge'], requireAuth(), ensureDb, async (req: Request, res: Response) => {
-  try {
-    const student = await loadSelf(req, res);
-    if (!student) return;
-
-    if (!isClassLevel(student.classLevel)) {
-      sendSuccess(res, 200, { challenge: null, reason: 'no-class' });
-      return;
-    }
-
-    const question = await getDailyChallengeQuestion(student.classLevel);
-    if (!question) {
-      // Not a 404: "there is no challenge today" is a normal, expected answer while
-      // the bank has nothing published for this class.
-      sendSuccess(res, 200, { challenge: null, reason: 'none-published' });
-      return;
-    }
-
-    sendSuccess(res, 200, { challenge: { day: todayKey(), question: studentQuestionView(question) } });
-  } catch (err) {
-    logger.error({ err }, 'Failed to load the daily challenge');
-    sendError(res, 500, 'Could not load today’s challenge. Please try again.');
-  }
-});
 
 export default router;

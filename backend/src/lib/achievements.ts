@@ -37,6 +37,14 @@ export interface ProgressFacts {
   isEmailVerified: boolean;
   /** Submitted exam attempts. Always 0 until the exam milestone exists. */
   examsCompleted: number;
+  /**
+   * Daily challenges answered, and the longest run of consecutive days on which one
+   * was answered (Milestone 8). Both are counts of real `DailyChallengeAttempt`
+   * documents, supplied by `dailyChallengeService.getChallengeFacts()` — this file
+   * stays a rule set and reads nothing from the database itself.
+   */
+  challengesCompleted: number;
+  longestChallengeStreak: number;
 }
 
 export interface AchievementDefinition {
@@ -128,6 +136,27 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
     description: 'Reached level 5.',
     icon: 'ph-trend-up',
     measure: (f) => reach(f.level, 5),
+  },
+  /**
+   * The two challenge achievements (Milestone 8). These are the first ones in the
+   * catalogue that require the student to have *answered a question* rather than
+   * merely turned up — and they satisfy rule 2 above only because the daily challenge
+   * now records attempts. Before Milestone 8 they would have been exactly the
+   * permanently-locked rows this file refuses to advertise.
+   */
+  {
+    code: 'challenge_first',
+    name: 'Challenger',
+    description: 'Answered your first daily challenge.',
+    icon: 'ph-dice-five',
+    measure: (f) => reach(f.challengesCompleted, 1),
+  },
+  {
+    code: 'challenge_streak_5',
+    name: 'Five days sharp',
+    description: 'Answered the daily challenge on 5 consecutive days.',
+    icon: 'ph-lightning',
+    measure: (f) => reach(f.longestChallengeStreak, 5),
   },
 ];
 

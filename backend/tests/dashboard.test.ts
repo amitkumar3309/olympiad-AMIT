@@ -176,6 +176,10 @@ describe('achievements', () => {
     activeDays: 0,
     isEmailVerified: false,
     examsCompleted: 0,
+    // Milestone 8. Zero here, so this fixture still means "a student who has done
+    // nothing" and the assertions below keep testing what they were written to test.
+    challengesCompleted: 0,
+    longestChallengeStreak: 0,
   };
 
   it('earns only what the facts support', () => {

@@ -1,45 +1,38 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import MathText from '../../components/MathText'
+import Button from '../../components/Button'
 import { api, ApiError } from '../../api/client'
-import type { DailyChallenge } from '../../api/types'
+import type { DailyChallengeToday } from '../../api/types'
 import styles from './Dashboard.module.css'
 
 /**
- * Today's challenge question.
+ * Today's challenge, as a dashboard card.
  *
  * **Lazy-loaded on purpose.** It renders question content through `MathText`, which
- * pulls in KaTeX (~300 KB of JS and CSS). The dashboard is a page every student
- * opens, so importing that statically would put a maths typesetter in the main
- * bundle for everyone — the same reason the admin question pages are code-split
- * (see `App.tsx`). Keeping this in its own module means the cost is paid only by a
- * student whose class actually has a published challenge.
+ * pulls in KaTeX (~300 KB of JS and CSS). The dashboard is a page every student opens,
+ * so importing that statically would put a maths typesetter in the main bundle for
+ * everyone — the same reason the admin question pages are code-split (see `App.tsx`).
  *
- * It is deliberately **read-only**. Answering needs somewhere to submit to and
- * something to score against, neither of which exists yet, and the alternative —
- * checking the answer in the browser — would mean shipping the answer key to the
- * client, which is exactly the hole Milestone 4 closed. So the card shows the
- * question and says plainly that answering arrives with scored exams.
+ * It used to be read-only, and said so: "answering here, with marking and XP, arrives
+ * with scored exams". Milestone 8 built that, so the card now shows the question, says
+ * whether today's is still open, and hands the student to `/daily-challenge` to answer
+ * it. Answering happens on that page rather than inline for one reason worth stating:
+ * the result is a marked answer with a worked explanation, which is more than fits
+ * usefully in a dashboard tile.
  */
 
-interface ChallengeResponse {
-  challenge: DailyChallenge | null
-  reason?: 'none-published' | 'no-class'
-}
-
 export default function DailyChallengeCard() {
-  const [challenge, setChallenge] = useState<DailyChallenge | null>(null)
-  const [reason, setReason] = useState<string | null>(null)
+  const [state, setState] = useState<DailyChallengeToday | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     api
-      .get<ChallengeResponse>('/me/daily-challenge')
+      .get<DailyChallengeToday>('/me/daily-challenge')
       .then((res) => {
-        if (cancelled) return
-        setChallenge(res.challenge)
-        setReason(res.reason ?? null)
+        if (!cancelled) setState(res)
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load today’s challenge.')
@@ -73,15 +66,15 @@ export default function DailyChallengeCard() {
     )
   }
 
-  if (!challenge) {
+  if (!state?.challenge) {
     return (
       <div className="card">
         <h3>🎲 Today’s challenge</h3>
         <div className={styles.empty}>
           <i className="ph-bold ph-dice-five" />
           <p>
-            {reason === 'no-class'
-              ? 'Add your class to your profile and a daily challenge will be picked for it.'
+            {state?.reason === 'no-class'
+              ? 'Add your class to your profile and a daily challenge will be set for it.'
               : 'No challenge today — nothing has been published for your class yet. Check back soon.'}
           </p>
         </div>
@@ -89,7 +82,8 @@ export default function DailyChallengeCard() {
     )
   }
 
-  const { question } = challenge
+  const { question } = state.challenge
+  const answered = state.attempt !== null
 
   return (
     <div className="card">
@@ -108,7 +102,10 @@ export default function DailyChallengeCard() {
         <MathText>{question.questionText}</MathText>
       </div>
 
-      {question.options.length > 0 && (
+      {/* Options are shown unanswered as a preview of the question, and suppressed once
+          it has been answered — the marked version with the explanation lives on the
+          challenge page, and repeating it here would just be a second, worse copy. */}
+      {!answered && question.options.length > 0 && (
         <ol className={styles.challengeOptions}>
           {question.options.map((option) => (
             <li key={option.key}>
@@ -119,9 +116,22 @@ export default function DailyChallengeCard() {
         </ol>
       )}
 
-      <p className={styles.challengeNote}>
-        Have a go on paper — answering here, with marking and XP, arrives with scored exams.
-      </p>
+      <div className={styles.challengeActions}>
+        <Link to="/daily-challenge">
+          <Button variant={answered ? 'outline' : 'primary'}>
+            {answered ? 'See your answer' : 'Answer today’s challenge'}
+          </Button>
+        </Link>
+        <span className={styles.challengeNote}>
+          {answered
+            ? state.attempt?.isCorrect
+              ? `Answered — correct, ${state.attempt.awardedMarks}/${state.attempt.marks}.`
+              : 'Answered — have a look at the explanation.'
+            : `Worth ${state.reward?.xp ?? 0} XP, once a day.${
+                (state.streak?.current ?? 0) > 0 ? ` ${state.streak?.current}-day streak going.` : ''
+              }`}
+        </span>
+      </div>
     </div>
   )
 }

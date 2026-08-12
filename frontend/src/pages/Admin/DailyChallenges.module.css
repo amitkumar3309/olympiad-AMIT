@@ -1,0 +1,289 @@
+/* The daily-challenge scheduling page: a form on the left, the calendar of days on the right. */
+
+.intro {
+  margin: 0 0 16px;
+  max-width: 90ch;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.help {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.warn {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid var(--warning);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.notice {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.1);
+  border-left: 3px solid var(--success);
+  font-size: 13px;
+}
+
+.centered {
+  display: grid;
+  place-items: center;
+  padding: 30px 20px;
+}
+
+.empty {
+  text-align: center;
+  padding: 28px 20px;
+}
+
+.empty i {
+  font-size: 30px;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.empty p {
+  margin: 10px auto 0;
+  max-width: 52ch;
+  line-height: 1.6;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+/* --- The question picker --- */
+
+.pickerHead {
+  margin: 22px 0 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.pickerFilters {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.bankList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.bankList li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.bankList li:last-child {
+  border-bottom: none;
+}
+
+.bankChosen {
+  background: rgba(37, 99, 235, 0.08);
+  outline: 1px solid var(--royal-blue);
+}
+
+.bankStem {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.bankMeta {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.formActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.linkButton,
+.dangerButton {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.linkButton:hover {
+  border-color: var(--royal-blue);
+  color: var(--royal-blue);
+}
+
+.dangerButton {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.dangerButton:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.linkButton:disabled,
+.dangerButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* --- The list of days --- */
+
+.listHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.listHead h3 {
+  margin: 0;
+}
+
+.listHead select {
+  max-width: 200px;
+}
+
+.dayList {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 620px;
+  overflow-y: auto;
+}
+
+.dayList li {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.busy {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.dayHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dayLabel {
+  font-weight: 700;
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.todayTag,
+.classTag,
+.sourceTag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.todayTag {
+  background: var(--royal-blue);
+  color: #fff;
+}
+
+.classTag {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-muted);
+}
+
+.sourceScheduled {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+.sourceAutomatic {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-muted);
+}
+
+.dayQuestion {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.dayFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.dayStat {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .pickerFilters {
+    grid-template-columns: 1fr;
+  }
+}

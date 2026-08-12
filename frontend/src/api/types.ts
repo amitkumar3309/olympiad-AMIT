@@ -19,6 +19,7 @@ export type Permission =
   | 'questions:delete'
   | 'taxonomy:write'
   | 'mocktests:write'
+  | 'challenges:write'
   | 'audit:read'
   | 'users:role:write'
 
@@ -143,6 +144,9 @@ export type AuditAction =
   | 'mocktest.updated'
   | 'mocktest.status.changed'
   | 'mocktest.deleted'
+  | 'dailychallenge.scheduled'
+  | 'dailychallenge.updated'
+  | 'dailychallenge.deleted'
   | 'subject.changed'
   | 'topic.changed'
   | 'admin.session.started'
@@ -153,7 +157,7 @@ export interface AuditEntry {
   action: AuditAction
   actorRole: Role
   actorLabel: string
-  targetType: 'student' | 'question' | 'mocktest' | 'subject' | 'topic' | 'route' | 'system'
+  targetType: 'student' | 'question' | 'mocktest' | 'dailychallenge' | 'subject' | 'topic' | 'route' | 'system'
   targetId: string | null
   targetLabel: string | null
   outcome: 'success' | 'denied'
@@ -387,6 +391,7 @@ export const ACTIVITY_TYPES = [
   'password_changed',
   'practice_completed',
   'mock_test_completed',
+  'daily_challenge_completed',
 ] as const
 export type ActivityType = (typeof ACTIVITY_TYPES)[number]
 
@@ -400,6 +405,7 @@ export const ACTIVITY_LABELS: Record<ActivityType, { label: string; icon: string
   password_changed: { label: 'Changed your password', icon: 'ph-lock-key' },
   practice_completed: { label: 'Completed a practice session', icon: 'ph-target' },
   mock_test_completed: { label: 'Completed a mock test', icon: 'ph-exam' },
+  daily_challenge_completed: { label: 'Answered the daily challenge', icon: 'ph-dice-five' },
 }
 
 export interface ActivityEntry {
@@ -712,9 +718,125 @@ export interface StudentQuestion {
   revision: number
 }
 
+/**
+ * The daily challenge (Milestone 8).
+ *
+ * `DailyChallengeToday` splits into two states the same way the mock-test types do, and
+ * for the same reason: `attempt` is `null` until the student has answered, and the
+ * answer key lives only on `DailyChallengeResult`. A component handed the unanswered
+ * shape cannot read a correct answer out of it — there is no field to read.
+ */
 export interface DailyChallenge {
   day: string
+  challengeId: string
+  classLevel: ClassLevel
   question: StudentQuestion
+}
+
+export interface DailyChallengeResult {
+  id: string
+  day: string
+  submittedAt: string
+  xpAwarded: number
+  isCorrect: boolean
+  awardedMarks: number
+  marks: number
+  response: {
+    selectedOptionKeys: string[]
+    numericResponse: number | null
+    booleanResponse: boolean | null
+  }
+  correctAnswer: {
+    optionKeys: string[]
+    booleanAnswer: boolean | null
+    numericAnswer: number | null
+    tolerance: number | null
+  }
+  explanation: string | null
+  /** The question has been edited since it was answered. */
+  revisionChanged: boolean
+}
+
+export interface ChallengeStreak {
+  current: number
+  longest: number
+}
+
+export interface DailyChallengeToday {
+  challenge: DailyChallenge | null
+  /** Null until answered. Its presence is what makes the reveal reachable. */
+  attempt: DailyChallengeResult | null
+  streak?: ChallengeStreak
+  completedCount?: number
+  reward?: { xp: number; claimed: boolean }
+  today: string
+  reason?: 'none-published' | 'no-class'
+}
+
+export interface DailyChallengeAnswerResponse {
+  attempt: DailyChallengeResult
+  /** True when today's answer was already in — nothing was re-graded or re-paid. */
+  alreadyAnswered: boolean
+  /** What *this* request awarded: 0 on a repeat submission. */
+  xpAwarded: number
+  streak: ChallengeStreak
+  completedCount: number
+}
+
+/** One row of the student's own challenge history. */
+export interface DailyChallengeHistoryEntry {
+  id: string
+  day: string
+  submittedAt: string
+  isCorrect: boolean
+  awardedMarks: number
+  marks: number
+  xpAwarded: number
+  questionText: string | null
+  subject: QuestionRef | null
+  topic: QuestionRef | null
+}
+
+export interface DailyChallengeHistoryResponse {
+  attempts: DailyChallengeHistoryEntry[]
+  streak: ChallengeStreak
+  completedCount: number
+  pagination: Pagination
+}
+
+// --- Admin ---
+
+export type ChallengeSource = 'scheduled' | 'automatic'
+
+export interface AdminDailyChallenge {
+  id: string
+  day: string
+  classLevel: ClassLevel
+  source: ChallengeSource
+  marks: number
+  question: {
+    id: string
+    questionText: string | null
+    type: QuestionType | null
+    difficulty: Difficulty | null
+    status: QuestionStatus | null
+    subject: QuestionRef | null
+    topic: QuestionRef | null
+  }
+  attempts: number
+  correct: number
+  /** Of those who answered; null when nobody did. */
+  correctPercent: number | null
+  createdByLabel: string | null
+  createdAt: string
+}
+
+export interface AdminDailyChallengeListResponse {
+  challenges: AdminDailyChallenge[]
+  /** The server's competition day — never computed in the browser. */
+  today: string
+  upcoming: string[]
+  pagination: Pagination
 }
 
 /**

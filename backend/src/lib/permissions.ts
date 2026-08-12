@@ -54,6 +54,14 @@ export const PERMISSIONS = [
    * students' scores — which authoring a question does not.
    */
   'mocktests:write',
+  /**
+   * Schedule the daily challenge — choose which published question a given class
+   * gets on a given day — and read how each day's challenge landed. Separate from
+   * `questions:write` for the same reason as `mocktests:write`: deciding what a
+   * cohort is set today is a scheduling job, not an authoring one, and it carries
+   * the right to see how many students got it right.
+   */
+  'challenges:write',
   /** Read the administrative audit trail. */
   'audit:read',
 
@@ -84,6 +92,7 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'questions:delete',
   'taxonomy:write',
   'mocktests:write',
+  'challenges:write',
   'audit:read',
 ];
 

@@ -1,0 +1,394 @@
+/*
+  The daily challenge page: today's question, its result, and the run of past days.
+
+  The answering controls deliberately match the Practice Zone and the mock-test runner
+  class for class — a student should not have to learn a third way to choose an option.
+  What is specific here is the streak strip and the result block, because a challenge is
+  the only surface that marks a single question and reveals it immediately.
+*/
+
+.centered {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.empty {
+  text-align: center;
+  padding: 28px 20px;
+}
+
+.empty i {
+  font-size: 32px;
+  color: var(--text-muted);
+  opacity: 0.55;
+}
+
+.empty h3 {
+  margin: 10px 0 8px;
+}
+
+.empty p {
+  margin: 0 auto 14px;
+  max-width: 54ch;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* --- The streak strip --- */
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.statRow .card {
+  padding: 16px;
+  text-align: center;
+}
+
+.statValue {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.statValue span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.statLabel {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* --- The question --- */
+
+.questionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.taxonomy {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.questionText {
+  font-size: 16px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 10px 0 0;
+  font-style: italic;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0 0;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-main);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.option:hover {
+  border-color: var(--royal-blue);
+}
+
+.optionChosen {
+  border-color: var(--royal-blue);
+  background: rgba(37, 99, 235, 0.1);
+  font-weight: 600;
+}
+
+.optionKey {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.2);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.numericRow {
+  margin-top: 16px;
+  max-width: 260px;
+}
+
+.numericRow label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+}
+
+.submitRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.submitNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-width: 46ch;
+  line-height: 1.5;
+}
+
+/* --- The result --- */
+
+.result {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 15px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+}
+
+.verdict i {
+  font-size: 20px;
+}
+
+.verdictCorrect {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+}
+
+.verdictWrong {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--warning);
+}
+
+.verdictMarks {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.xpNote {
+  font-size: 13px;
+  margin: 12px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.reviewOptions {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reviewOptions li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.optCorrect {
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.optWrong {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.optIcon {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.answerPair {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin: 16px 0 0;
+}
+
+.answerPair dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.answerPair dd {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.explanation {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.explanation h5 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.revisionNote {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.tomorrow {
+  margin: 18px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- History --- */
+
+.history {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.history li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.history li:last-child {
+  border-bottom: none;
+}
+
+.verdictDot {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 12px;
+}
+
+.dotCorrect {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+}
+
+.dotWrong {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.historyMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.historyDay {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.historyText {
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+
+.historyMarks {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------- */
+
+@media (max-width: 700px) {
+  .statRow {
+    grid-template-columns: 1fr 1fr;
+  }
+}
