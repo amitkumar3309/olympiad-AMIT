@@ -1,0 +1,444 @@
+/*
+  The rewards page: XP and level, the counts underneath them, the journey map, the
+  badge grid and the achievement list.
+
+  The three catalogues are styled differently on purpose, because they answer different
+  questions and should not read as one long list: the journey is a vertical path with a
+  connecting line, badges are a grid of tiered cards, achievements are a plain list.
+*/
+
+.centered {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+/* --- Level ---------------------------------------------------------------- */
+
+.levelCard {
+  margin-bottom: 16px;
+}
+
+.levelHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.levelBadge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--royal-blue);
+  color: #fff;
+}
+
+.xpTotal {
+  font-family: var(--font-mono);
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-top: 8px;
+}
+
+.xpTotal span {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.levelRight {
+  text-align: right;
+}
+
+.toNext {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.levelBar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.25);
+  overflow: hidden;
+  margin: 16px 0 10px;
+}
+
+.levelBar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--royal-blue), var(--gold));
+}
+
+.levelFoot {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 76ch;
+}
+
+/* --- The counts ----------------------------------------------------------- */
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.statRow .card {
+  padding: 14px;
+  text-align: center;
+}
+
+.statValue {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.statLabel {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* --- Section headings ----------------------------------------------------- */
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sectionHead h3 {
+  margin: 0;
+}
+
+.sectionMeta {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.sectionIntro {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  max-width: 80ch;
+}
+
+/* --- Journey -------------------------------------------------------------- */
+
+.journey {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0 0;
+  position: relative;
+}
+
+/* The connecting line that makes it a path rather than a list. */
+.journey::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  background: var(--border);
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 10px 0;
+}
+
+.stageMarker {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.done .stageMarker {
+  border-color: var(--success);
+  background: var(--success);
+  color: #fff;
+}
+
+.current .stageMarker {
+  border-color: var(--royal-blue);
+  color: var(--royal-blue);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.stageMain {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 4px;
+}
+
+.stageTitle {
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ahead .stageTitle {
+  color: var(--text-muted);
+}
+
+.nextTag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--royal-blue);
+  color: #fff;
+}
+
+.stageDescription {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  max-width: 70ch;
+}
+
+.stageProgress {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--royal-blue);
+  font-weight: 700;
+}
+
+/* --- Badges --------------------------------------------------------------- */
+
+.badgeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 18px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+}
+
+.badgeIcon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 24px;
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--text-muted);
+}
+
+/* An unheld family is visibly flat — no colour, no shine — so a held one reads as
+   something gained rather than as the default state. */
+.tier_none {
+  opacity: 0.75;
+}
+
+.tier_bronze .badgeIcon {
+  background: rgba(180, 120, 70, 0.18);
+  color: #b47846;
+}
+
+.tier_bronze {
+  border-color: rgba(180, 120, 70, 0.45);
+}
+
+.tier_silver .badgeIcon {
+  background: rgba(148, 163, 184, 0.3);
+  color: #8794a7;
+}
+
+.tier_silver {
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+.tier_gold .badgeIcon {
+  background: rgba(255, 215, 0, 0.2);
+  color: #c9a227;
+}
+
+.tier_gold {
+  border-color: rgba(255, 215, 0, 0.6);
+}
+
+.badgeName {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.badgeTier {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.badgeDescription {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  min-height: 2.2em;
+}
+
+.badgeBar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.25);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.badgeBar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--royal-blue);
+}
+
+.badgeProgress {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* --- Achievements --------------------------------------------------------- */
+
+.achievementList {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0 0;
+}
+
+.achievementList li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.achievementList li:last-child {
+  border-bottom: none;
+}
+
+.achievementList i {
+  font-size: 20px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.earned i {
+  color: var(--success);
+}
+
+.locked {
+  opacity: 0.72;
+}
+
+.locked i {
+  color: var(--text-muted);
+}
+
+.achievementMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.achievementName {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.achievementDescription {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.achievementProgress {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tickMark {
+  color: var(--success);
+  font-size: 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+/* --------------------------------------------------------------------------- */
+
+@media (max-width: 1000px) {
+  .statRow {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .statRow {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .xpTotal {
+    font-size: 28px;
+  }
+}

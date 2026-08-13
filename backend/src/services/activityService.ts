@@ -9,9 +9,16 @@ import { ONCE_PER_ACCOUNT, ONCE_PER_DAY, StudentActivity, type ActivityType } fr
  * streaks and achievements.
  *
  * Nothing else in the backend may insert a `StudentActivity`: routing every write
- * through here is what guarantees an event's XP comes from `XP_AWARDS` and its
- * uniqueness token from the type's declared cardinality, so "50 XP for verifying,
- * once" cannot be restated differently by a second call site.
+ * through here is what guarantees an event's uniqueness token comes from the type's
+ * declared cardinality, so "50 XP for verifying, once" cannot be restated differently
+ * by a second call site.
+ *
+ * **Since Milestone 9 this is the layer *below* the reward engine, not the public
+ * one.** Routes call `services/rewardService.ts` → `grantReward()`, which decides
+ * whether an event is eligible, resolves what it is worth (applying any administrator
+ * override), and then calls this. Two callers still come here directly and both are
+ * deliberate: the engine itself, and `scripts/backfill-activity.ts`, which writes
+ * historical rows at their historical prices.
  */
 
 /** How a type's uniqueness token is formed. Absent means freely repeatable. */
@@ -32,6 +39,17 @@ export interface RecordActivityInput {
   detail?: string | null;
   /** Overrides "now". Only used by tests and the backfill script. */
   at?: Date;
+  /**
+   * What this event is worth, resolved by the reward engine from the code award table
+   * plus any administrator override.
+   *
+   * **Only `services/rewardService.ts` may pass this.** Absent means "use the code
+   * default", which is what the backfill script and any direct test call want. It
+   * exists so the *configurable* price has one resolver rather than this module
+   * growing a dependency on the settings collection — but it is also the one way a
+   * caller could invent a number, so the rule is stated here rather than assumed.
+   */
+  xpOverride?: number;
 }
 
 export interface RecordActivityResult {
@@ -57,9 +75,12 @@ export interface RecordActivityResult {
  * student that event's XP; it is recorded in DECISIONS.md.
  */
 export async function recordActivity(input: RecordActivityInput): Promise<RecordActivityResult> {
-  const { student, type, detail = null, at = new Date() } = input;
+  const { student, type, detail = null, at = new Date(), xpOverride } = input;
   const occurredOn = dayKeyOf(at);
-  const xpAwarded = xpFor(type);
+  // Written into the row and never looked up again: a student's total is the sum of
+  // these recorded values, so re-pricing an event later cannot restate what anybody has
+  // already earned. That snapshot is what makes the administrator-tunable table safe.
+  const xpAwarded = typeof xpOverride === 'number' ? xpOverride : xpFor(type);
 
   try {
     await StudentActivity.create({
@@ -83,14 +104,8 @@ export async function recordActivity(input: RecordActivityInput): Promise<Record
 }
 
 /**
- * Marks the student as present today, which is what a streak actually measures.
- *
- * Called both when a student signs in and when they open their dashboard. The
- * dashboard is the important one: a session cookie outlives a sign-in by up to 30
- * days, so keying the streak on logins alone would miss every day a returning
- * student was already signed in. Calling it from both is free, because the day's
- * visit can only be recorded once.
+ * `touchDailyVisit()` moved to `services/rewardService.ts` as `grantDailyVisit()` in
+ * Milestone 9, along with every other reward decision. Nothing else changed about it:
+ * it is still called from both sign-in and the dashboard, and is still free to call
+ * twice because the day's visit can only be recorded once.
  */
-export async function touchDailyVisit(student: Types.ObjectId, at = new Date()): Promise<RecordActivityResult> {
-  return recordActivity({ student, type: 'daily_visit', at });
-}

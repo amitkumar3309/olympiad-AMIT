@@ -20,6 +20,7 @@ export type Permission =
   | 'taxonomy:write'
   | 'mocktests:write'
   | 'challenges:write'
+  | 'rewards:write'
   | 'audit:read'
   | 'users:role:write'
 
@@ -147,6 +148,7 @@ export type AuditAction =
   | 'dailychallenge.scheduled'
   | 'dailychallenge.updated'
   | 'dailychallenge.deleted'
+  | 'reward.settings.updated'
   | 'subject.changed'
   | 'topic.changed'
   | 'admin.session.started'
@@ -426,7 +428,14 @@ export interface StreakSummary {
   countedToday: boolean
 }
 
-export interface ProgressSummary {
+/**
+ * A level and the position inside it, exactly as `lib/xp.ts` computes it.
+ *
+ * Split out in Milestone 9 because the rewards endpoint returns it as its own object
+ * while the dashboard flattens it alongside the streak. Both are the same figures from
+ * the same function — the shapes differ, the numbers cannot.
+ */
+export interface LevelProgress {
   xp: number
   level: number
   levelStartsAt: number
@@ -434,6 +443,9 @@ export interface ProgressSummary {
   xpIntoLevel: number
   xpForNextLevel: number
   percentToNextLevel: number
+}
+
+export interface ProgressSummary extends LevelProgress {
   streak: StreakSummary
 }
 
@@ -1111,4 +1123,102 @@ export interface MockTestResults {
     correct: number
     correctPercent: number | null
   }>
+}
+
+
+// ---------------------------------------------------------------------------
+// Gamification (Milestone 9)
+// ---------------------------------------------------------------------------
+
+/**
+ * The three catalogues, as the server evaluates them.
+ *
+ * All of it is **derived** server-side from recorded events — there is no stored
+ * progress document anywhere in this product — so these types describe a computed
+ * answer, not a row. The frontend renders them and never recomputes a tier, a stage or
+ * an XP total for itself; doing so is how two screens start disagreeing.
+ */
+export type BadgeTier = 'bronze' | 'silver' | 'gold'
+
+export interface EvaluatedBadge {
+  code: string
+  name: string
+  description: string
+  icon: string
+  /** What the family counts, in the student's words — e.g. "practice sessions". */
+  unit: string
+  /** The highest tier reached, or null when the family is not yet held. */
+  tier: BadgeTier | null
+  value: number
+  /** The next tier to reach, or null once gold is held. */
+  nextTier: BadgeTier | null
+  progress: number
+  target: number
+  thresholds: [number, number, number]
+}
+
+export interface BadgeSummary {
+  heldCount: number
+  total: number
+  badges: EvaluatedBadge[]
+}
+
+export interface JourneyStage {
+  id: string
+  title: string
+  description: string
+  icon: string
+  complete: boolean
+  /** Exactly one stage is current: the first incomplete one, i.e. what to do next. */
+  current: boolean
+  progress: number
+  target: number
+}
+
+export interface JourneySummary {
+  stages: JourneyStage[]
+  completedCount: number
+  total: number
+  percent: number
+  currentStageId: string | null
+}
+
+export interface RewardsResponse {
+  rewards: {
+    xp: number
+    level: LevelProgress
+    streak: StreakSummary
+    challengeStreak: { current: number; longest: number }
+    badges: BadgeSummary
+    achievements: AchievementSummary
+    journey: JourneySummary
+    /** The real counts the catalogues were evaluated from. */
+    totals: {
+      practiceSessions: number
+      mockTests: number
+      dailyChallenges: number
+      activeDays: number
+    }
+  }
+  today: string
+}
+
+// --- Admin ---
+
+export interface RewardTableRow {
+  event: ActivityType
+  /** What the code ships with. */
+  defaultXp: number
+  /** What an administrator set, or null when the default applies. */
+  overrideXp: number | null
+  /** What a grant would actually pay right now. */
+  effectiveXp: number
+}
+
+export interface RewardConfigResponse {
+  config: {
+    table: RewardTableRow[]
+    updatedByLabel: string | null
+    updatedAt: string | null
+  }
 }

@@ -9,7 +9,7 @@ import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
 import { isClassLevel } from '../../lib/classLevels';
 import { respondToServiceError } from '../../lib/serviceError';
-import { recordActivity } from '../../services/activityService';
+import { grantReward } from '../../services/rewardService';
 import {
   applyAnswer,
   findOwnSession,
@@ -287,16 +287,16 @@ router.post(
       gradeSession(session);
       await session.save();
 
-      // Only a session with real work in it earns anything.
-      let xpAwarded = 0;
-      if (session.correctCount + session.incorrectCount > 0) {
-        const outcome = await recordActivity({
-          student: studentId(student),
-          type: 'practice_completed',
-          detail: `${session.correctCount}/${session.totalQuestions} correct`,
-        });
-        xpAwarded = outcome.xpAwarded;
-      }
+      // The route says what happened; the engine decides whether that is worth
+      // anything and how much. "Only a session with real work in it earns" used to be
+      // an `if` here — it is now the `answeredCount` rule in `rewardService`, so a
+      // future surface cannot forget it or state it differently.
+      const { xpAwarded } = await grantReward({
+        student: studentId(student),
+        event: 'practice_completed',
+        detail: `${session.correctCount}/${session.totalQuestions} correct`,
+        context: { answeredCount: session.correctCount + session.incorrectCount },
+      });
 
       const questions = await loadSessionQuestions(session);
       sendSuccess(res, 200, { session: sessionReviewView(session, questions), xpAwarded });

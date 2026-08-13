@@ -25,6 +25,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'dailychallenge.scheduled': 'Daily challenge scheduled',
   'dailychallenge.updated': 'Daily challenge changed',
   'dailychallenge.deleted': 'Daily challenge cleared',
+  'reward.settings.updated': 'XP award table changed',
   'subject.changed': 'Subject changed',
   'topic.changed': 'Topic changed',
   'admin.session.started': 'Admin signed in',

@@ -180,6 +180,10 @@ describe('achievements', () => {
     // nothing" and the assertions below keep testing what they were written to test.
     challengesCompleted: 0,
     longestChallengeStreak: 0,
+    // Milestone 9, same reasoning. `RewardFacts` is now shared by the achievement,
+    // badge and journey catalogues, so a new fact lands here too.
+    practiceSessionsCompleted: 0,
+    mockTestsCompleted: 0,
   };
 
   it('earns only what the facts support', () => {

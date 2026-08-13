@@ -62,6 +62,14 @@ export const PERMISSIONS = [
    * the right to see how many students got it right.
    */
   'challenges:write',
+  /**
+   * Tune the XP award table. Deliberately narrow: it configures **amounts**, never
+   * rules — which events exist, how often each may be earned and where the level
+   * boundaries fall all stay in code. Separate from the other authoring permissions
+   * because it is the one setting that changes the meaning of every student's future
+   * progress at once, which is worth being able to withhold on its own.
+   */
+  'rewards:write',
   /** Read the administrative audit trail. */
   'audit:read',
 
@@ -93,6 +101,7 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'taxonomy:write',
   'mocktests:write',
   'challenges:write',
+  'rewards:write',
   'audit:read',
 ];
 

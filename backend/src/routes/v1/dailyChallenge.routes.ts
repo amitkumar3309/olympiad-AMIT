@@ -9,9 +9,8 @@ import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
 import { isClassLevel } from '../../lib/classLevels';
 import { todayKey } from '../../lib/competitionDay';
-import { xpFor } from '../../lib/xp';
 import { respondToServiceError } from '../../lib/serviceError';
-import { recordActivity } from '../../services/activityService';
+import { grantReward, resolveXpFor } from '../../services/rewardService';
 import {
   attemptHistoryView,
   attemptResultView,
@@ -44,10 +43,11 @@ import {
  * reward by naming yesterday, and a browser in another timezone cannot disagree about
  * which challenge is today's.
  *
- * **The reward.** The XP is looked up from the award table by `recordActivity()`, which
- * is the only thing in this backend allowed to write a `StudentActivity` row and caps
- * `daily_challenge_completed` at once per competition day. Combined with the unique
- * index on `{student, day}`, claiming twice takes two independent guarantees failing.
+ * **The reward.** `grantReward()` (the Milestone 9 engine) decides it: it resolves what
+ * the event is worth from the award table plus any administrator override, and writes it
+ * through `recordActivity()`, which caps `daily_challenge_completed` at once per
+ * competition day. Combined with the unique index on `{student, day}`, claiming twice
+ * takes two independent guarantees failing.
  *
  * **The outcome.** Grading is server-side against the snapshot the attempt stores.
  * Nothing in a request body describes correctness, and the unanswered view carries no
@@ -78,9 +78,14 @@ function studentId(student: StudentDocument): Types.ObjectId {
   return student._id as Types.ObjectId;
 }
 
-/** What answering today is worth, so the page can say so before it is claimed. */
-function rewardXp(): number {
-  return xpFor('daily_challenge_completed');
+/**
+ * What answering today is worth, so the page can promise the right number before it is
+ * claimed. Resolved through the reward engine rather than read from the code table, so
+ * an administrator's override shows here too — a page advertising 15 XP while the engine
+ * pays 25 would be a small lie told very often.
+ */
+async function rewardXp(): Promise<number> {
+  return resolveXpFor('daily_challenge_completed');
 }
 
 // ---------------------------------------------------------------------------
@@ -150,7 +155,7 @@ router.get(
         attempt: attempt ? attemptResultView(attempt, question) : null,
         streak: { current: facts.currentChallengeStreak, longest: facts.longestChallengeStreak },
         completedCount: facts.challengesCompleted,
-        reward: { xp: rewardXp(), claimed: attempt !== null },
+        reward: { xp: await rewardXp(), claimed: attempt !== null },
         today,
       });
     } catch (err) {
@@ -175,7 +180,7 @@ router.get(
  *
  * The order of writes matters and is deliberate: the attempt is created first, so the
  * unique index has already decided whether this is today's one submission before any
- * reward is considered. `recordActivity()` then says what was actually awarded, and
+ * reward is considered. `grantReward()` then says what was actually awarded, and
  * only that figure is written back onto the attempt — so a failed award leaves an
  * honest `xpAwarded: 0` rather than a claim the student was never paid.
  */
@@ -220,13 +225,14 @@ router.post(
         },
       });
 
-      // The reward, and the only place this milestone touches XP. `recordActivity` owns
-      // both what the event is worth and the once-per-day rule; this route neither
-      // knows nor decides either.
+      // The reward. `grantReward` owns both what the event is worth and the
+      // once-per-day rule; this route neither knows nor decides either. All it
+      // contributes is `created` — whether this request was the one that produced the
+      // attempt, which is the one fact the engine cannot see for itself.
       if (created) {
-        const outcome = await recordActivity({
+        const outcome = await grantReward({
           student: studentId(student),
-          type: 'daily_challenge_completed',
+          event: 'daily_challenge_completed',
           detail: attempt.answer.isCorrect ? 'Correct' : 'Answered',
         });
         if (outcome.xpAwarded > 0) {

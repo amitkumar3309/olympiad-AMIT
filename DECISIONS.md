@@ -531,3 +531,55 @@ This is the first `DECISIONS.md` for the project (created during the 2026-08-04 
 **Alternatives considered**: (a) Let the challenge service award its own XP — one fewer indirection, and the exact drift `activityService` exists to prevent. (b) Let `lib/achievements.ts` query the attempt collection — it would turn a pure, synchronously testable rule set into an async one with a database dependency, and every achievement test would need a database.
 
 **Consequences**: adding a challenge-based achievement means adding a fact to `ProgressFacts` and supplying it at the two call sites that build it — mildly repetitive, and the repetition is what keeps the catalogue pure. `NO_CHALLENGE_FACTS` exists for the callers that cannot read the history (no class, no database), so an achievement row shows an honest `0 / 1` rather than vanishing.
+
+---
+
+## 2026-08-13 — One reward engine: `grantReward()` is the only way anything earns XP
+
+**Decision**: `services/rewardService.ts` is the single public entry point for granting a reward. Routes call it and nothing else; `recordActivity()` becomes the layer beneath it (still the only writer of a `StudentActivity` row) and is called by the engine and the backfill script only. Eligibility rules — "practice pays only if something was answered" — move out of the routes into a table in the engine. Callers supply *facts* about what happened (`context: { answeredCount }`), not decisions.
+
+**Reason**: by Milestone 8 the pieces were right and the shape was wrong. Pricing was already centralised in `lib/xp.ts` and writing in `activityService`, but **five routes each decided for themselves whether an event deserved paying for**, with the rule inline next to the HTTP handling. Nothing was broken; a sixth surface would have written a sixth rule, and the answer to "when does practice pay?" would have lived in a route. The milestone brief said it plainly — do not calculate XP independently across controllers — and the honest reading of that is not just "don't compute amounts" but "don't decide entitlement either".
+
+**Alternatives considered**: (a) Leave the eligibility `if`s in the routes and only centralise pricing — that was the status quo, and it is what a sixth surface would have copied. (b) Have the engine infer eligibility by reading the attempt collections itself — rejected: it would couple the reward engine to three attempt schemas, and the route already has the document in hand. (c) Pass a boolean `eligible` from the route — rejected as centralisation theatre: the decision would still be the route's, just spelled differently.
+
+**Consequences**: `recordActivity` gained an optional `xpOverride`, passed only by the engine, which is the one loophole through which a caller could invent a number — so the rule is stated in the parameter's own doc comment rather than assumed. `touchDailyVisit()` moved to `grantDailyVisit()`. Twelve call sites changed and the full suite passed unchanged, which is the useful evidence that the refactor was behaviour-preserving. Idempotency deliberately stayed *below* the engine, in the partial unique index: a check inside `grantReward` would be a read-then-write across two serverless invocations, which is exactly the race the index exists to lose safely.
+
+---
+
+## 2026-08-13 — Badges are tiered families; achievements are one-off goals
+
+**Decision**: badges become a distinct concept from achievements. A **badge** is a family held at a tier (bronze / silver / gold) that keeps levelling as the student does more of the same thing; an **achievement** is a one-off goal that is earned once and stops changing. Five badge families, ten achievements, both derived from the same facts.
+
+**Reason**: `FEATURE_STATUS.md` recorded badges as "delivered as Achievements", which was honest but meant the product listed one idea under two names. Milestone 9 asked for both, and two names for one list is not two features. Making them genuinely different gives each a job: achievements answer *what have I done*, badges answer *how far along am I*. A student with ten practice sessions has one achievement and a silver Practitioner badge — those say different things, and the second keeps saying something new at 50.
+
+**Alternatives considered**: (a) Keep one list and rename half of it — rejected; the split has to be real or it is a relabelling exercise. (b) Make badges awardable by staff — rejected: everything else in this product's progress system is derived from recorded events precisely so it cannot be granted by a bug or a favour, and a hand-awarded badge would be the one figure on the page nobody could explain. (c) Store held tiers on the student — rejected for the same reason XP is not stored: a counter that can disagree with the events behind it eventually does.
+
+**Consequences**: a third catalogue, so `ProgressFacts` moved to `lib/rewardFacts.ts` as `RewardFacts` and is now shared by achievements, badges and the journey. All three stay pure functions of it, testable without a database — the boundary cases (a value *equal* to a threshold holds that tier; a value past gold does not overfill the bar) are unit tests over a plain object. Two new facts were needed, `practiceSessionsCompleted` and `mockTestsCompleted`, and adding a fact remains a deliberate two-step act.
+
+---
+
+## 2026-08-13 — The journey map is ordered, gated in presentation, and measured on cumulative facts
+
+**Decision**: nine stages in a fixed order, exactly one marked `current` (the first incomplete one), each a pure predicate over `RewardFacts`. Stages measure **cumulative** facts — `longestStreak`, not `currentStreak`.
+
+**Reason**: achievements and badges both answer questions about the past. Neither answers the one a new student actually has — *what should I do next?* — and that question has a right answer, because the product has an intended order: verify, practise where nothing is at stake, meet the daily habit, then sit a timed paper. Ordering the stages and highlighting exactly one is what turns a list into a route.
+
+The cumulative-facts rule is the one real trap here and is worth stating: measuring "three days running" on the *current* streak would un-complete the stage the day a student missed. The map would walk backwards, which is not what a journey does and would read as the site taking something away.
+
+**Alternatives considered**: (a) Hide stages ahead of the current one — rejected: seeing what is coming is most of the value, and the sequence is not a secret. (b) Hard-gate later stages so they cannot complete early — rejected: a student who sits a mock test before their first practice has genuinely done it, and telling them otherwise would be a lie in service of a diagram.
+
+**Consequences**: `currentStageId` is null for a student who has finished the path, and the page says so rather than highlighting nothing. The stage list is code, so extending the journey when the official exam lands is a diff rather than a migration.
+
+---
+
+## 2026-08-13 — XP amounts are administrator-tunable; the rules are not
+
+**Decision**: a single-document `RewardSettings` collection holds per-event XP overrides, editable at `/admin/reward-settings` under a new `rewards:write` permission, bounded to 0–500 per event. Which events exist, how often each may be earned, what makes one eligible and where the level thresholds fall all stay in code.
+
+**Reason**: this is safe **only because of a decision made at Milestone 5** — `StudentActivity.xpAwarded` is a snapshot written at grant time, and a student's total is the sum of those recorded values. Re-pricing therefore cannot restate what anybody has already earned; it changes what the next event pays and nothing else. That property is what turns "let staff tune XP" from a way to silently rewrite history into an ordinary setting. It has its own test, and the admin page states it in a panel rather than a footnote, because an administrator who does not know it will either avoid the feature or misuse it.
+
+The amounts/rules split is the other half. An amount is a balancing decision somebody might reasonably want to make on a Tuesday afternoon; a rule is something that should be reviewed in a diff. Making cardinality or eligibility configurable would put "can this be farmed?" behind a form.
+
+**Alternatives considered**: (a) Configure the level thresholds too — rejected: they interact with every badge and achievement target, so a slider there silently moves a dozen other things. (b) Store the whole award table rather than overrides — rejected: adding a new activity type would then require editing the document before the event could ever pay, and forgetting would look like a bug in the new feature. (c) Cache the settings in-process — rejected: grants are rare, the read is one indexed document, and on serverless a per-container cache would buy nothing while making "why is it still paying the old amount?" a real question.
+
+**Consequences**: one extra document read per grant, accepted deliberately. A settings read that fails falls back to the code table and logs, because a configuration outage must not stop a student being paid for work they did. An override is removed by clearing the box — the endpoint takes the whole set, so an absent key means "use the default", and there is no separate reset action to forget about.

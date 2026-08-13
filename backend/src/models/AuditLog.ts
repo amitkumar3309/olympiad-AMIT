@@ -55,6 +55,12 @@ export const AUDIT_ACTIONS = [
   'dailychallenge.updated',
   /** A scheduled daily challenge was removed before anyone attempted it. */
   'dailychallenge.deleted',
+  /**
+   * The XP award table was changed. Recorded because it alters what every future
+   * event is worth for every student — and because the thing it cannot do (re-price
+   * history) is worth being able to demonstrate from the trail.
+   */
+  'reward.settings.updated',
   /** A subject was created or edited. */
   'subject.changed',
   /** A topic or subtopic was created or edited. */

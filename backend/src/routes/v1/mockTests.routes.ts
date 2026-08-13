@@ -9,7 +9,7 @@ import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
 import { isClassLevel } from '../../lib/classLevels';
 import { respondToServiceError } from '../../lib/serviceError';
-import { recordActivity } from '../../services/activityService';
+import { grantReward } from '../../services/rewardService';
 import {
   applyAttemptAnswer,
   attemptHistoryView,
@@ -420,12 +420,16 @@ router.post(
         expired ? found.expiresAt : new Date(),
       );
 
+      // `graded` is the route's to know — it is whether *this* request closed the
+      // attempt — and the "real work" rule is the engine's. Splitting them that way is
+      // what keeps the eligibility rule in one place across all three attempt surfaces.
       let xpAwarded = 0;
-      if (graded && attempt.correctCount + attempt.incorrectCount > 0) {
-        const outcome = await recordActivity({
+      if (graded) {
+        const outcome = await grantReward({
           student: studentId(student),
-          type: 'mock_test_completed',
+          event: 'mock_test_completed',
           detail: `${test.title}: ${attempt.correctCount}/${attempt.totalQuestions} correct`,
+          context: { answeredCount: attempt.correctCount + attempt.incorrectCount },
         });
         xpAwarded = outcome.xpAwarded;
       }

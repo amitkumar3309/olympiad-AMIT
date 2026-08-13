@@ -13,9 +13,8 @@ import { establishSession, studentObjectId } from '../../lib/session';
 import { summariseAchievements } from '../../lib/achievements';
 import { todayKey } from '../../lib/competitionDay';
 import { isClassLevel } from '../../lib/classLevels';
-import { recordActivity, touchDailyVisit } from '../../services/activityService';
+import { buildRewardFacts, grantDailyVisit, grantReward } from '../../services/rewardService';
 import {
-  getProgress,
   getRecentActivity,
   listActivity,
   getStanding,
@@ -23,7 +22,6 @@ import {
   getRecentExamPerformance,
 } from '../../services/progressService';
 import { getAvailableChallenges } from '../../services/challengeService';
-import { getChallengeFacts } from '../../services/dailyChallengeService';
 import {
   updateProfileSchema,
   updatePhotoSchema,
@@ -200,7 +198,7 @@ router.patch(
           ? `${before.classLevel} → ${update.classLevel}`
           : `Updated ${changed.length} field${changed.length === 1 ? '' : 's'}`;
 
-      await recordActivity({ student: studentObjectId(student), type: 'profile_updated', detail });
+      await grantReward({ student: studentObjectId(student), event: 'profile_updated', detail });
       // A change to an account belongs in the trail whoever made it — here, the
       // account's own owner. The changed field *names* are recorded, never the
       // values: this log is readable by any admin, and a student's home address is
@@ -257,7 +255,7 @@ router.put(
         { upsert: true, returnDocument: 'after', runValidators: true },
       );
 
-      await recordActivity({ student: studentObjectId(student), type: 'photo_updated' });
+      await grantReward({ student: studentObjectId(student), event: 'photo_updated' });
       await recordAudit(req, {
         action: 'student.photo.updated',
         targetType: 'student',
@@ -329,7 +327,7 @@ router.post(
       // access token carries the bumped `tokenVersion` and is not itself invalidated.
       await establishSession(res, student, req);
 
-      await recordActivity({ student: studentObjectId(student), type: 'password_changed', detail: 'From account settings' });
+      await grantReward({ student: studentObjectId(student), event: 'password_changed', detail: 'From account settings' });
       await recordAudit(req, {
         action: 'student.password.changed',
         targetType: 'student',
@@ -381,36 +379,27 @@ router.get('/me/dashboard', requireAuth(), ensureDb, async (req: Request, res: R
 
     // Recorded before the progress is read, so today's visit is included in the
     // streak the student is about to be shown rather than appearing a load later.
-    await touchDailyVisit(id);
+    await grantDailyVisit(id);
 
-    const progress = await getProgress(id, today);
-    const [activity, exams, leaderboard, standing, challenges, challengeFacts] = await Promise.all([
+    // One facts object from the reward engine, which is the only place these figures
+    // are queried (Milestone 9). The dashboard's achievement panel and the rewards page
+    // therefore cannot disagree — they are literally the same function of the same
+    // facts. Assembling them here by hand is what this replaced.
+    const { facts, level, streak } = await buildRewardFacts(student, today);
+    const progress = { level, streak };
+
+    const [activity, exams, leaderboard, standing, challenges] = await Promise.all([
       getRecentActivity(id, DASHBOARD_ACTIVITY_LIMIT),
       getRecentExamPerformance(student.studentId, DASHBOARD_EXAM_LIMIT),
       getTopLeaderboard(DASHBOARD_LEADERBOARD_LIMIT),
-      getStanding(id, progress.level.xp),
+      getStanding(id, level.xp),
       // A class is needed to know what is on offer. Legacy accounts predate the
       // field, so they get an empty list and an explanatory empty state rather than
       // questions for a class they are not in.
       isClassLevel(student.classLevel) ? getAvailableChallenges(student.classLevel) : Promise.resolve([]),
-      // The two counts the challenge achievements need, from the challenge service —
-      // the only interface between the two. `lib/achievements.ts` reads no database,
-      // and the challenge service knows nothing about which achievements exist.
-      getChallengeFacts(id, today),
     ]);
 
-    const achievements = summariseAchievements({
-      registered: true,
-      xp: progress.level.xp,
-      level: progress.level.level,
-      currentStreak: progress.streak.current,
-      longestStreak: progress.streak.longest,
-      activeDays: progress.streak.activeDays,
-      isEmailVerified: student.isEmailVerified,
-      examsCompleted: exams.length,
-      challengesCompleted: challengeFacts.challengesCompleted,
-      longestChallengeStreak: challengeFacts.longestChallengeStreak,
-    });
+    const achievements = summariseAchievements(facts);
 
     sendSuccess(res, 200, {
       dashboard: {

@@ -1,6 +1,6 @@
 # SYSTEM_ARCHITECTURE.md
 
-_Last updated: 2026-08-12 (Milestone 8 — Daily Challenge)._
+_Last updated: 2026-08-13 (Milestone 9 — Gamification Engine)._
 
 Documents what **actually exists** in the repository today. Anything not literally in the code is marked `PLANNED`.
 
@@ -23,7 +23,7 @@ Two independently deployed Vercel projects, no shared build, no monorepo tool. T
 
 ## Frontend Architecture — CURRENT
 
-- **Framework**: React 19, `react-router-dom` v7 `BrowserRouter` with **29 routes**, all declared in [frontend/src/App.tsx](frontend/src/App.tsx). Eleven are code-split with `React.lazy` — the admin question, mock-test and daily-challenge pages, the practice runner, the mock-test attempt runner and the daily challenge — because they pull in KaTeX (~260 KB), which must not land in the entry bundle every student downloads.
+- **Framework**: React 19, `react-router-dom` v7 `BrowserRouter` with **31 routes**, all declared in [frontend/src/App.tsx](frontend/src/App.tsx). Eleven are code-split with `React.lazy` — the admin question, mock-test and daily-challenge pages, the practice runner, the mock-test attempt runner and the daily challenge — because they pull in KaTeX (~260 KB), which must not land in the entry bundle every student downloads.
 - **Two shells**: `components/StudentShell.tsx` and `pages/Admin/AdminShell.tsx` hold the sidebar, topbar, theme toggle and sign-out for their halves of the app. Each is the single place its navigation is defined; the student one falls back to the public `Navbar`/`Footer` for a guest, because two of its routes are public.
 - **Theme**: `context/ThemeContext.tsx` applies a `theme-dark` class to `document.documentElement`, persisted in `localStorage`, **defaulting to light**. Applied once at the document root, so no page can disagree with another.
 - **State**: One global context, `AuthContext` (`frontend/src/context/AuthContext.tsx`), a discriminated union `{status: 'loading'|'guest'|'student'|'admin', ...}`. No Redux/Zustand/React Query — every page manages its own `useState`/`useEffect` data fetching.
@@ -87,20 +87,22 @@ src/
   services/               business rules, kept out of the route layer:
                           question, taxonomy, activity, progress, challenge,
                           result, practice, mockTest, dailyChallenge,
-                          grading (THE marking rules, shared by all three
-                          attempt surfaces), and
+                          reward (THE gamification engine: the only way
+                          anything earns XP), grading (THE marking rules,
+                          shared by all three attempt surfaces), and
                           questionView (the shared
                           answer-stripped projection)
   models/                 one Mongoose model per file + barrel index (13)
   routes/health.routes.ts /health, /ready
   routes/v1/              auth, me, analytics, practice, mockTests,
                           mockTestsAdmin, dailyChallenge,
-                          dailyChallengesAdmin, questions,
+                          dailyChallengesAdmin, rewards, questions,
                           questionsAdmin, taxonomy, admin, users, misc
                           + barrel index
   validation/             zod schemas (authSchemas, questionSchemas,
                           userSchemas, profileSchemas, practiceSchemas,
-                          mockTestSchemas, dailyChallengeSchemas)
+                          mockTestSchemas, dailyChallengeSchemas,
+                          rewardSchemas)
 scripts/                  dev-local, verify-email, migrate-questions,
                           backfill-activity, seed-class12, where-is-data,
                           atlas-direct-uri
@@ -127,7 +129,7 @@ scripts/                  dev-local, verify-email, migrate-questions,
 
 **`.env` resolution is anchored to the package root**, not `process.cwd()`. `config/env.ts` resolves it from its own directory, because a script run from `backend/scripts/` previously found no `.env`, loaded zero variables, silently fell back to the `mongodb://localhost` default, and wrote to the wrong database while reporting success. Every write script additionally calls `assertConfiguredForWrites()` (`lib/envGuard.ts`), which prints the target database and refuses a local write without an explicit `--local`.
 
-See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. **17 models**: `Student`, `StudentPhoto`, `Question`, `Subject`, `Topic`, `StudentActivity`, `PracticeSession`, `MockTest`, `MockTestAttempt`, `DailyChallenge`, `DailyChallengeAttempt`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog` — plus `attemptAnswer.ts`, a subdocument shared by the two attempt collections rather than a model of its own. Of these, `Result` is unwritten and `ExamAttempt` is read but never written — both belong to the *official* exam, which is not built (see [`DECISIONS.md`](DECISIONS.md) on why practice is a separate collection). Real indexes throughout, including a **partial unique** index on `StudentActivity` that is what makes "once per day" true rather than merely intended, a **unique** index on `MockTestAttempt` `{test, student, attemptNumber}` that does the same for "one attempt per sitting", and a **unique** index on `DailyChallengeAttempt` `{student, day}` that does it for "one daily reward per day". No migration tool; there are several ad-hoc scripts instead, which is the point at which a real runner starts to be worth it.
+See [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md) for full field-level detail. **18 models**: `Student`, `StudentPhoto`, `Question`, `Subject`, `Topic`, `StudentActivity`, `PracticeSession`, `MockTest`, `MockTestAttempt`, `DailyChallenge`, `DailyChallengeAttempt`, `RewardSettings`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog` — plus `attemptAnswer.ts`, a subdocument shared by the two attempt collections rather than a model of its own. Of these, `Result` is unwritten and `ExamAttempt` is read but never written — both belong to the *official* exam, which is not built (see [`DECISIONS.md`](DECISIONS.md) on why practice is a separate collection). Real indexes throughout, including a **partial unique** index on `StudentActivity` that is what makes "once per day" true rather than merely intended, a **unique** index on `MockTestAttempt` `{test, student, attemptNumber}` that does the same for "one attempt per sitting", and a **unique** index on `DailyChallengeAttempt` `{student, day}` that does it for "one daily reward per day". No migration tool; there are several ad-hoc scripts instead, which is the point at which a real runner starts to be worth it.
 
 ## Authentication Architecture — CURRENT
 

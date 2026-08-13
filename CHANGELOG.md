@@ -2,6 +2,71 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-13 — Milestone 9: Gamification Engine
+
+XP, levels, streaks and achievements were already real and derived (Milestones 5–8). This milestone did the four things that were genuinely missing: **one place where a reward is decided**, **badges as a distinct concept**, **the journey map**, and **an administrator-tunable award table** — plus a page where a student can see all of it at once.
+
+### Centralised reward logic
+
+`services/rewardService.ts` is now the only way anything in this backend earns XP.
+
+- **`grantReward()` is the single entry point.** All twelve call sites across five routes now go through it. `recordActivity()` remains the only writer of an activity row but is the layer *beneath* the engine, called by it and by the backfill script alone.
+- **Eligibility rules moved out of the routes.** "Practice pays only if something was answered" was an `if` written inline in `practice.routes.ts` and again in `mockTests.routes.ts`. It is now one rule in the engine, and callers supply *facts* (`context: { answeredCount }`) rather than decisions. Pricing was already centralised; entitlement was not, and the brief's "do not calculate XP independently across random controllers" reads on both.
+- **Idempotency deliberately stayed one layer down**, in the partial unique index on `StudentActivity`. A check inside `grantReward` would be a read-then-write across two serverless invocations — exactly the race the index exists to lose safely. The engine reports what the database decided rather than predicting it.
+
+The refactor was behaviour-preserving: all 455 existing tests passed unchanged immediately after rewiring, which is the useful evidence.
+
+### Badges — now a different thing from achievements
+
+`FEATURE_STATUS.md` recorded badges as "delivered as Achievements", which was honest but meant one idea listed under two names.
+
+- An **achievement** is a one-off goal: earned once, then it stops changing. Ten of them.
+- A **badge** is a family held at a **tier** — bronze, silver, gold — that keeps levelling as the student does more of the same thing. Five families: Scholar (XP), Regular (streak), Practitioner (practice sessions), Test Taker (mock tests), Daily Solver (challenges).
+
+A student with ten practice sessions has one achievement and a silver Practitioner badge. Those say different things, and the second keeps saying something new at fifty.
+
+### Journey map
+
+Nine ordered stages from *Enrolled* to *Olympiad ready*, with exactly one marked **next** — the first incomplete one. It answers the question neither of the other two catalogues does: *what should I do now?*
+
+Stages measure **cumulative** facts (`longestStreak`, not `currentStreak`) so the map cannot walk backwards. Measuring the current streak would un-complete "three days running" the day a student missed one, which is not what a journey does and would read as the site taking something away.
+
+### Administrator configuration
+
+`/admin/reward-settings`, under a new `rewards:write` permission: what each event is worth, bounded to 0–500.
+
+**It cannot re-price anybody's history, and that is a property of the data model rather than a promise.** `StudentActivity.xpAwarded` has been a snapshot since Milestone 5 — a student's total is the sum of what their events were worth *at the time* — so a change here decides what the next event pays and nothing else. That is what makes the setting safe to offer at all, it has its own test, and the page states it in a panel rather than a footnote.
+
+Only **amounts** are configurable. Which events exist, how often each may be earned, what makes one eligible and where the level thresholds fall stay in code, because a rule should be reviewed in a diff and an amount is something to tune on a Tuesday.
+
+### The student's view
+
+`/rewards`: XP and level with progress to the next, the real counts underneath (active days, practice sessions, mock tests, challenges), the journey map, the badge grid and the full achievement list. Nothing on the page computes anything — every figure arrives already decided, from one facts object, so the dashboard and this page cannot disagree.
+
+### One facts object, three pure catalogues
+
+`lib/rewardFacts.ts` holds `RewardFacts`; `lib/achievements.ts`, `lib/badges.ts` and `lib/journey.ts` are pure functions of it. None reads a database. **If a fact is not on that interface, no badge can be awarded for it** — which is the friction that stopped an "exam accuracy" achievement being written before anything recorded an exam. `buildRewardFacts()` in the engine is the only place those figures are queried.
+
+### What is new in the codebase
+
+- Model: `RewardSettings` (a singleton, pinned by a unique index on a constant key) — **18 models**.
+- Libraries: `rewardFacts.ts`, `badges.ts`, `journey.ts`. `ProgressFacts` is now an alias of `RewardFacts`.
+- Service: `rewardService.ts` — granting, pricing, facts, the three summaries, and the config.
+- Routes: `rewards.routes.ts` — `GET /me/rewards`, `GET`/`PUT /admin/reward-settings`.
+- Permission: `rewards:write` (**14 permissions**). Audit action: `reward.settings.updated`.
+- Frontend: `/rewards` and `/admin/reward-settings`, both code-split, plus a nav item in each shell.
+- **31 new tests** (486 total, 16 files), concentrated on the edge cases: duplicate grants sequential and concurrent, ineligible events leaving no row, tier boundaries, journey ordering, and the no-re-pricing property.
+
+### Verified end to end in a real browser
+
+A student's `/rewards` page showed **Level 2 · 135 XP** with 35 of 150 XP through the level; real counts (2-day streak, 2 active days, 0 practice sessions, 1 mock test, 1 daily challenge); the journey at **3 of 9** with *Email verified* correctly flagged **next** (that account registered with verification off, so the stage is genuinely incomplete); badges **3 of 5 held** — Scholar, Test Taker and Daily Solver at bronze, Regular showing 2/3 to bronze; and achievements 3 of 10 with real progress on the locked ones.
+
+Then the property that matters most, live: an administrator changed `daily_visit` from 10 to 40 XP. The student's total **stayed at 135** and their existing rows stayed at 10 apiece. After clearing that day's visit and signing in again, the **new** grant paid **40** while yesterday's row remained **10** — future re-priced, history untouched.
+
+**Not deployed.** No new environment variables and no new deploy step.
+
+---
+
 ## 2026-08-12 — Milestone 8: Daily Challenge
 
 One question a day, per class, answered once, marked by the server and rewarded once. The daily challenge existed before this as a *read-only* card that said "answering here, with marking and XP, arrives with scored exams" — this is that, built.

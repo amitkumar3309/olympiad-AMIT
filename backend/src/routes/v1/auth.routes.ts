@@ -44,7 +44,7 @@ import {
 } from '../../lib/tokens';
 import { sendEmail, buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email';
 import { logger } from '../../lib/logger';
-import { recordActivity, touchDailyVisit } from '../../services/activityService';
+import { grantDailyVisit, grantReward } from '../../services/rewardService';
 
 const router = Router();
 
@@ -190,7 +190,7 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
     // The first entry on the student's activity feed, and the first XP they hold.
     // Best-effort by design (see services/activityService.ts): a failed log write
     // must not undo a completed registration.
-    await recordActivity({ student: studentObjectId(student), type: 'account_created' });
+    await grantReward({ student: studentObjectId(student), event: 'account_created' });
 
     await sendVerificationLink(student);
 
@@ -236,7 +236,7 @@ router.post('/auth/verify-email', tokenSubmitLimiter, validate({ body: verifyEma
       await student.save();
       // Only on the transition, so re-reading a link cannot pay twice — though the
       // once-per-account unique index would refuse it anyway.
-      await recordActivity({ student: studentObjectId(student), type: 'email_verified' });
+      await grantReward({ student: studentObjectId(student), event: 'email_verified' });
     }
 
     sendSuccess(res, 200, { message: 'Email verified. You can now sign in.', student: publicStudent(student) });
@@ -339,7 +339,7 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
 
     // Counts toward the daily streak. Idempotent per competition day, so signing in
     // from a second device does not earn a second visit.
-    await touchDailyVisit(studentObjectId(student));
+    await grantDailyVisit(studentObjectId(student));
 
     // A sign-in by an account that holds administrative capability is itself worth
     // recording — it is the event every later administrative action hangs off.
@@ -594,9 +594,9 @@ router.post('/auth/reset-password', tokenSubmitLimiter, validate({ body: resetPa
     // The feed should show a password change however it happened, not only when it
     // was done from account settings. Same reasoning for the verification: the reset
     // link proved control of the mailbox just as the verification link would have.
-    await recordActivity({ student: studentObjectId(student), type: 'password_changed', detail: 'Via emailed reset link' });
+    await grantReward({ student: studentObjectId(student), event: 'password_changed', detail: 'Via emailed reset link' });
     if (wasUnverified) {
-      await recordActivity({ student: studentObjectId(student), type: 'email_verified' });
+      await grantReward({ student: studentObjectId(student), event: 'email_verified' });
     }
 
     await revokeAllRefreshTokens(studentObjectId(student));

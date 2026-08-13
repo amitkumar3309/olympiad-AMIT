@@ -22,6 +22,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; icon: string; permission?: P
   { to: '/admin/taxonomy', label: 'Subjects & Topics', icon: 'ph-tree-structure', permission: 'taxonomy:write' },
   { to: '/admin/mock-tests', label: 'Mock Tests', icon: 'ph-exam', permission: 'mocktests:write' },
   { to: '/admin/daily-challenges', label: 'Daily Challenge', icon: 'ph-dice-five', permission: 'challenges:write' },
+  { to: '/admin/reward-settings', label: 'Reward Settings', icon: 'ph-trophy', permission: 'rewards:write' },
   { to: '/admin/audit-log', label: 'Audit Log', icon: 'ph-scroll', permission: 'audit:read' },
   { to: '/ai-generator', label: 'AI Question Generator', icon: 'ph-sparkle', permission: 'questions:write' },
 ]

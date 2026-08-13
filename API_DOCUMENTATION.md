@@ -1,6 +1,6 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-12 (Milestone 8 — Daily Challenge)._
+_Last updated: 2026-08-13 (Milestone 9 — Gamification Engine)._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
@@ -588,3 +588,42 @@ Refused with **409** once anybody has answered it, and for a past day. A future 
 
 #### `DELETE /api/v1/admin/daily-challenges/:id`
 Clears a scheduled day. **409** once anybody has answered it — their attempt refers to it, and it is part of their record.
+
+---
+
+## Gamification (Milestone 9)
+
+Two surfaces: a student's whole standing, and the administrator's award table.
+
+**Every XP grant in this backend goes through one function** (`services/rewardService.ts` → `grantReward()`), so there is no endpoint here that "awards" anything — rewards are a side effect of the action that earned them, on the practice, mock-test, daily-challenge and auth routes. What these endpoints do is *report* and *configure*.
+
+### `GET /api/v1/me/rewards`
+
+Gated on `requireAuth()`, like the rest of `/me`. The caller's own standing, in one response:
+
+- `xp` and `level` — the level, the XP into it, and what the next one costs. A pure function of the total, never stored.
+- `streak` and `challengeStreak` — current and longest, derived from the distinct days in the activity log.
+- `badges` — five tiered families, each with the tier held (`bronze` / `silver` / `gold` / `null`), the real count behind it, the next tier and progress toward it.
+- `achievements` — the **whole** catalogue, not the dashboard's top three: this is where a student comes to see everything, including what is a long way off.
+- `journey` — nine ordered stages with exactly one `current`, plus `completedCount` and `percent`.
+- `totals` — the real counts the catalogues were evaluated from (practice sessions, mock tests, daily challenges, active days), so the page can print the number beside the badge that measures it.
+
+**Nothing here is stored.** All of it is derived from `StudentActivity` and the attempt collections on every read, through one facts object. The dashboard's achievement panel and this endpoint call the same function, so they cannot disagree.
+
+The root administrator has no student record and therefore no standing: **404**, not an empty shape.
+
+### `GET /api/v1/admin/reward-settings`
+
+Gated on `rewards:write` (elevated, so the role is re-read from the database). Returns one row per activity type with three figures: `defaultXp` (what the code ships with), `overrideXp` (what an administrator set, or `null`), and `effectiveXp` (what a grant would pay right now). All three, deliberately — "someone changed this" and "this is how it ships" are different facts.
+
+### `PUT /api/v1/admin/reward-settings`
+
+Body: `{ xpOverrides: { <activityType>: number } }`, each 0–500 and a whole number.
+
+Sends the **whole** override set. An event absent from the payload reverts to its code default, which is the only way back to it — a partial patch would make "remove this override" and "leave it alone" the same request.
+
+Refusals: an unknown event name is **400**; a negative, fractional or out-of-range amount is **400**. Nothing is written when any entry is rejected.
+
+**This cannot re-price history.** `StudentActivity.xpAwarded` is a snapshot written when the event happened and a student's total is the sum of those recorded values, so a change here decides what the *next* event pays and nothing else. It is a property of the data model rather than a promise made by this endpoint, and it has its own test. Audited as `reward.settings.updated`.
+
+Only **amounts** are configurable. Which events exist, how often each may be earned (`ONCE_PER_DAY` / `ONCE_PER_ACCOUNT`), what makes one eligible, and where the level thresholds fall all stay in code.

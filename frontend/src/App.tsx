@@ -34,6 +34,11 @@ const AdminMockTestResults = lazy(() => import('./pages/Admin/MockTestResults'))
 /** The daily challenge renders a question, so it carries KaTeX too (Milestone 8). */
 const DailyChallengePage = lazy(() => import('./pages/DailyChallenge/DailyChallenge'))
 const AdminDailyChallenges = lazy(() => import('./pages/Admin/DailyChallenges'))
+/** Gamification (Milestone 9). Neither page renders maths, but both are secondary
+ *  destinations, so they are split out to keep the entry bundle for the pages every
+ *  student opens on arrival. */
+const Rewards = lazy(() => import('./pages/Rewards/Rewards'))
+const AdminRewardSettings = lazy(() => import('./pages/Admin/RewardSettings'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Profile from './pages/Profile/Profile'
@@ -168,6 +173,16 @@ export default function App() {
               </RequirePermission>
             }
           />
+          {/* The XP award table. Its own permission because it is the one setting that
+              changes what every future event is worth for everybody at once. */}
+          <Route
+            path="/admin/reward-settings"
+            element={
+              <RequirePermission permission="rewards:write">
+                <AdminRewardSettings />
+              </RequirePermission>
+            }
+          />
           <Route
             path="/ai-generator"
             element={
@@ -239,6 +254,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MockTestAttemptPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* --- Gamification (Milestone 9) --- */}
+          <Route
+            path="/rewards"
+            element={
+              <ProtectedRoute>
+                <Rewards />
               </ProtectedRoute>
             }
           />

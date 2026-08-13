@@ -1,3 +1,5 @@
+import { reach, type RewardFacts } from './rewardFacts';
+
 /**
  * The achievement catalogue.
  *
@@ -20,32 +22,15 @@
  * somewhere reviewable and diffable.
  */
 
-/** Everything an achievement predicate is allowed to look at — all of it real. */
-export interface ProgressFacts {
-  /**
-   * The caller holds a real registered account. Always true in practice, and
-   * stated as a fact anyway so the "Enrolled" predicate below reads as the thing
-   * it actually asserts instead of inferring enrolment from a side effect.
-   */
-  registered: boolean;
-  xp: number;
-  level: number;
-  currentStreak: number;
-  longestStreak: number;
-  /** Distinct competition days on which this student did anything at all. */
-  activeDays: number;
-  isEmailVerified: boolean;
-  /** Submitted exam attempts. Always 0 until the exam milestone exists. */
-  examsCompleted: number;
-  /**
-   * Daily challenges answered, and the longest run of consecutive days on which one
-   * was answered (Milestone 8). Both are counts of real `DailyChallengeAttempt`
-   * documents, supplied by `dailyChallengeService.getChallengeFacts()` — this file
-   * stays a rule set and reads nothing from the database itself.
-   */
-  challengesCompleted: number;
-  longestChallengeStreak: number;
-}
+/**
+ * Everything an achievement predicate is allowed to look at — all of it real.
+ *
+ * Moved to `lib/rewardFacts.ts` in Milestone 9, when badges and the journey map needed
+ * exactly the same inputs. One facts object, three pure catalogues: whatever is not on
+ * it cannot be awarded for. The alias is kept because "progress facts" is what the
+ * achievement code has always called it.
+ */
+export type ProgressFacts = RewardFacts;
 
 export interface AchievementDefinition {
   code: string;
@@ -71,10 +56,6 @@ export interface EvaluatedAchievement {
   target: number;
 }
 
-/** Progress toward a simple "reach N" achievement, never overstated past the target. */
-function reach(value: number, target: number): { progress: number; target: number } {
-  return { progress: Math.min(value, target), target };
-}
 
 export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   {

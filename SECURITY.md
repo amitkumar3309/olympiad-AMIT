@@ -1,6 +1,6 @@
 # SECURITY.md
 
-_Last updated: 2026-08-12 (Milestone 8 — Daily Challenge)._
+_Last updated: 2026-08-13 (Milestone 9 — Gamification Engine)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.
 
@@ -44,6 +44,7 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `taxonomy:write` | — | yes | yes |
 | `mocktests:write` | — | yes | yes |
 | `challenges:write` | — | yes | yes |
+| `rewards:write` | — | yes | yes |
 | `audit:read` | — | yes | yes |
 | `users:role:write` | — | — | **yes** |
 
@@ -303,6 +304,17 @@ Neither is a check the code performs; both are constraints the database enforces
 **The day is never client-supplied.** No daily-challenge route accepts a day, so a student cannot name yesterday to claim a missed reward, and a browser in another timezone cannot disagree about which challenge is today's. The day comes from `lib/competitionDay.ts`, an IST calendar day, and it is what both guards key on.
 
 **A blank submission is refused**, not stored — otherwise pressing Submit on nothing would claim the day.
+
+## Reward integrity (Milestone 9)
+
+Every XP grant in this backend goes through one function, `grantReward()`, and that is a security property as much as an architectural one: a reward path that can be reached by five different routes each applying their own rule is a path where one of them is eventually wrong, and a wrong reward is invisible until a student notices their total does not add up.
+
+- **One entry point.** Routes cannot write an activity row; `recordActivity()` is reachable only from the engine and the backfill script. A route supplies facts about what happened and never an amount.
+- **One pricer.** `lib/xp.ts` plus any administrator override, resolved in one place. `recordActivity` accepts an `xpOverride` and the engine is the only caller permitted to pass it — the one loophole through which an amount could be invented, so the rule is stated on the parameter itself.
+- **Duplicate grants are refused by the database, not by a check.** The partial unique index on `StudentActivity {student, type, dedupeKey}` decides; the engine reports the outcome. Tested with concurrent grants, because a read-then-write check would pass a sequential test and fail a real one.
+- **Ineligible events leave no trace.** An attempt with nothing answered is refused before any write, so there is no row to suggest a reward was earned.
+
+**Configuration cannot rewrite history.** `RewardSettings` tunes what future events pay. It cannot alter a single point anybody already holds, because `StudentActivity.xpAwarded` is a snapshot taken at grant time and a total is the sum of those recorded values. This is worth stating in a security document rather than only a design one: it means the `rewards:write` permission is a *balancing* capability, not a way to inflate or erase a student's standing. `rewards:write` is nevertheless kept separate from the other authoring permissions precisely because it changes what every future event is worth for everybody at once.
 
 ## Handling of database credentials
 
