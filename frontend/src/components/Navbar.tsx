@@ -36,6 +36,9 @@ export default function Navbar() {
           <Link to="/hall-of-fame" onClick={() => setOpen(false)}>
             Hall of Fame
           </Link>
+          <Link to="/gallery" onClick={() => setOpen(false)}>
+            Gallery
+          </Link>
           <Link to="/result" onClick={() => setOpen(false)}>
             Result
           </Link>

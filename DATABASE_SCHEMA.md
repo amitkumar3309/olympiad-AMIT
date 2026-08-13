@@ -317,9 +317,72 @@ That partial unique index is what makes "once per day" and "once per account" tr
 
 ---
 
+## `GalleryItem` (Milestone 12) — ACTIVE
+
+Photographs of real olympiad events, shown on the **public** gallery page.
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `title` | String | yes | — | ≤ 150 chars. |
+| `caption` | String \| null | no | `null` | ≤ 500 chars. |
+| `eventDate` | Date \| null | no | `null` | When the event happened, not when the row was created. Nullable — not every photo has a known date. |
+| `contentType` | String | yes | — | `image/jpeg`, `image/png` or `image/webp`. |
+| `size` | Number | yes | — | Decoded byte length. |
+| `data` | Buffer | yes | — | **`select: false`.** The admin listing pages twelve at a time; without the exclusion every page load would drag twelve megabytes of image bytes into memory to render a table of titles. One dedicated route opts back in with `+data`. |
+| `status` | String enum | no | `'published'` | `published` / `archived`, indexed. Archiving stops the **bytes** being served too, not just the listing — otherwise anybody holding the URL would still see a taken-down photo. |
+| `displayOrder` | Number | no | `0` | Ascending. Staff decide what leads, because "most recently uploaded" is not "best photo of the event". |
+| `uploadedBy` | ObjectId \| null | no | `null` | → `Student`. |
+| `uploadedByLabel` | String \| null | no | `null` | Denormalised, so the row still reads if the uploader's account is later removed. |
+| `createdAt` / `updatedAt` | Date | — | now / `null` | |
+
+Index: `{ status, displayOrder, createdAt: -1 }` — exactly the public page's query.
+
+**Storage budget, because it is real and countable.** Images are capped at **1 MB** each (a quarter of a registration photo's 2 MB) and validated by magic bytes through the shared `imageDataUrl()` validator. Atlas's free tier is **512 MB in total**; registration photos already cap the roll near 250 students, and gallery images are bounded by nothing but staff enthusiasm — a hundred of them is ~100 MB, a fifth of the tier. This is the **second** thing that will force a paid tier or an image CDN. See the Milestone 12 ADR.
+
+---
+
+## `Notification` (Milestone 12) — ACTIVE
+
+An in-app announcement written by staff. **In-app only** — nothing is emailed.
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `title` | String | yes | — | ≤ 150 chars. |
+| `body` | String | yes | — | ≤ 2000 chars. |
+| `kind` | String enum | no | `'announcement'` | `announcement` / `alert`. |
+| `audience` | String enum | no | `'all'` | `all` / `class`, indexed. |
+| `classLevel` | String enum \| null | no | `null` | Set only when `audience` is `class`; validation refuses `class` without one. |
+| `isPublished` | Boolean | no | `false` | Indexed. Unpublished is a **draft** — invisible to students, editable by staff. |
+| `publishedAt` | Date \| null | no | `null` | Stamped at **publication**, not creation, so a draft written last week and published today sorts as today's news. |
+| `createdBy` / `createdByLabel` | ObjectId \| String \| null | no | `null` | |
+
+Index: `{ isPublished, publishedAt: -1 }` — a student's inbox is "published, addressed to me, newest first".
+
+**Nothing is fanned out.** A notification is **one document** carrying an audience *rule*, and each student's inbox is that rule evaluated at read time by `inboxFilter()`. Publishing to the whole roll writes one document rather than thousands, and a student who registers tomorrow sees the announcement written today — which is what a notice board does, and what a publish-time fan-out would silently get wrong. See the Milestone 12 ADR.
+
+---
+
+## `NotificationRead` (Milestone 12) — ACTIVE
+
+That one student has read one notification.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `notification` | ObjectId | yes | → `Notification`. |
+| `student` | ObjectId | yes | → `Student`. |
+| `readAt` | Date | no (default now) | |
+
+**Unique index on `{ student, notification }`.** This is what makes "mark as read" idempotent: a double-tapped button, a replayed request or two open tabs cannot create two rows. A separate collection rather than an array on the notification, because an announcement to every student would grow an unbounded `readBy` inside a single 16 MB document and marking one read would rewrite the whole thing.
+
+Deliberately **no TTL** — unlike the two token collections. Expiring a row would make a notification the student has already read reappear as unread, which reads as a bug rather than as tidying.
+
+"Unread" is therefore an **anti-join** (`_id: { $nin: readIds }`), not a filter — which is why the inbox and the unread count share one `inboxFilter()`, so the number on the bell cannot disagree with the list.
+
+---
+
 ## Models Planned But Not Implemented
 
-Based on the UI's implied needs (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)), future models will likely be needed for: `Exam` (definitions, distinct from attempts), `Certificate`, and possibly `DailyChallenge`. (`AdminAuditLog` was on this list and is now implemented as `AuditLog`; `Leaderboard` is on it no longer — Milestone 5 derives the standing by aggregating `StudentActivity` rather than storing it.) None of these should be added without a corresponding [`DECISIONS.md`](DECISIONS.md) entry and a matching [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) update.
+Based on the UI's implied needs (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)), future models will likely be needed for: `Exam` (definitions, distinct from attempts) and `Certificate` — both belong to the **official exam**, which Milestone 12 deliberately left unbuilt rather than building an admin console over collections nothing writes (see the Milestone 12 ADR). (`AdminAuditLog` was on this list and is now implemented as `AuditLog`; `Leaderboard` is on it no longer — Milestone 5 derives the standing by aggregating `StudentActivity` rather than storing it.) None of these should be added without a corresponding [`DECISIONS.md`](DECISIONS.md) entry and a matching [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) update.
 
 ## Note for whoever implements exam submission
 

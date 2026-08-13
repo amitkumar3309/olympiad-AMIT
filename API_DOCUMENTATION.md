@@ -333,6 +333,108 @@ All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `re
 
 ---
 
+## Event gallery — Milestone 12
+
+The only content in this product **published to the open internet**, which is why it has its own permission and why every mutation is audited. Image bytes are never in a listing (`GalleryItem.data` is `select: false`); one route serves them.
+
+### `GET /api/v1/gallery`
+- **Auth**: none — public, like the leaderboard and Hall of Fame. Carries no personal data.
+- **Query**: `page`, `limit` (1–100, default 20).
+- **Response 200**: `{ success, gallery: GalleryItem[], pagination }` — **published items only**, in the `displayOrder` staff chose (newest first within an order), each with an `imageUrl`.
+- **Errors**: `400`, `429`, `503`, `500`.
+
+### `GET /api/v1/gallery/:id/image`
+- **Auth**: none, but only for a **published** item — an archived photo has been taken down, and continuing to serve its bytes to anyone holding the URL would make archiving a UI change rather than a removal (asserted by a test).
+- **Response 200**: raw image bytes, `Cache-Control: public, max-age=3600`. Public with no authorization behind it, so a shared cache is safe — unlike a student photo, which is `private`.
+- **Errors**: `400` malformed id, `404` unknown **or archived**, `503`, `500`.
+
+### `GET /api/v1/admin/gallery`
+- **Permission**: `gallery:write` (admin, super admin).
+- **Query**: `page`, `limit`, `status` (`published`/`archived`), `search` (literal, regex-escaped, over title and caption).
+- **Response 200**: `{ success, gallery: GalleryItem[], pagination }` — all statuses.
+
+### `POST /api/v1/admin/gallery`
+- **Permission**: `gallery:write`. **Request**: `{ title, caption?, eventDate?, displayOrder?, status?, image }`.
+- `image` is a base64 data URL — JPEG/PNG/WebP, **≤ 1 MB**, validated by **magic bytes** via the shared `imageDataUrl()` validator, so a file that merely claims to be a PNG is refused (asserted by a test). The 1 MB cap is a quarter of a registration photo's: photos are bounded by the number of entrants, gallery images by nothing, and both share a 512 MB free tier.
+- **Response 201**: `{ success, item: GalleryItem }`. Writes a `gallery.changed` audit entry.
+- **Errors**: `400` (validation, bad image, oversize), `401`, `403`, `429`, `503`, `500`.
+
+### `PATCH /api/v1/admin/gallery/:id`
+- **Permission**: `gallery:write`. **Request**: any of `title`, `caption`, `eventDate`, `displayOrder`, `status`.
+- **Deliberately does not accept a new image**: replacing the bytes under an existing id would leave a cached public URL pointing at a different photograph. Upload a new item and archive the old one.
+- **Errors**: `400`, `401`, `403`, `404`, `429`, `503`, `500`.
+
+### `DELETE /api/v1/admin/gallery/:id`
+- **Permission**: `gallery:write` — **not** reserved for a super admin, unlike account deletion: this is staff-authored content with no student history hanging off it, the same reasoning that lets an admin hard-delete a never-published question. Archiving remains the reversible option and is what the UI leads with.
+- **Response 200**: `{ success, deleted: true, item: { id, title, size } }`. Audited.
+
+---
+
+## In-app notifications — Milestone 12
+
+Staff write **one** document carrying an audience *rule*; each student's inbox is that rule evaluated at read time. Nothing is fanned out per recipient and nothing is emailed. See the Milestone 12 ADR.
+
+### `GET /api/v1/me/notifications`
+- **Auth**: `requireAuth()` — an identity gate, like the rest of `/me`: an inbox is yours because it is yours, not because of a capability.
+- **Query**: `page`, `limit`, `unreadOnly` (`true`/`false`).
+- **Response 200**: `{ success, notifications: InboxNotification[], unread, pagination }` — published announcements addressed to `all` or to the caller's own class, newest first, each with real `read`/`readAt`.
+- A student with no `classLevel` (a legacy account, or the bootstrap super admin) sees `all` announcements only.
+
+### `GET /api/v1/me/notifications/unread-count`
+- **Auth**: `requireAuth()`. **Response 200**: `{ success, unread }`. Shares `inboxFilter()` with the list above, so the number on the bell cannot disagree with what the inbox shows.
+
+### `POST /api/v1/me/notifications/:id/read` · `POST /api/v1/me/notifications/read-all`
+- **Auth**: `requireAuth()`. **Response 200**: `{ success, read: true, unread }` / `{ success, marked, unread }`.
+- **Idempotent**: an upsert against the unique index on `{student, notification}`, so a double-tapped button, a replayed request or two open tabs cannot create two rows or return an error the user did nothing to cause.
+- **`404` for an announcement the caller cannot see** — including one addressed to another class. Not `403`: the route must not confirm that an id it will not show nevertheless exists (asserted by a test).
+
+### `GET /api/v1/admin/notifications`
+- **Permission**: `notifications:write` (admin, super admin).
+- **Query**: `page`, `limit`, `audience` (`all`/`class`), `classLevel`, `published` (`true`/`false`), `search` (literal, over title and body).
+- **Response 200**: `{ success, notifications: AdminNotification[], pagination }`. Each carries **`readCount`** — how many students actually opened it, from one grouped aggregation for the whole page. The only honest reach figure.
+
+### `POST /api/v1/admin/notifications`
+- **Permission**: `notifications:write`. **Request**: `{ title, body, kind?, audience?, classLevel?, isPublished? }`.
+- `audience: 'class'` **requires** `classLevel` (`400` otherwise) — a class-targeted announcement with no class would reach nobody and look sent.
+- Unpublished is a **draft**: invisible to students, editable by staff. `publishedAt` is stamped at publication, not creation, so a draft written last week and published today sorts as today's news.
+- **Response 201**: `{ success, notification: AdminNotification }`. Writes `notification.changed` with `operation: 'published' | 'drafted'`.
+
+### `PATCH /api/v1/admin/notifications/:id`
+- **Permission**: `notifications:write`. Any field, plus `isPublished` to publish or withdraw.
+- Switching `audience` back to `all` clears `classLevel`, so the two cannot disagree. Withdrawing and republishing keeps the original `publishedAt` — it is the same announcement. The audit `operation` distinguishes `published` / `withdrawn` / `updated`.
+
+### `DELETE /api/v1/admin/notifications/:id`
+- **Permission**: `notifications:write`. Deletes the announcement **and every read receipt for it** — a receipt pointing at nothing would skew the anti-join the unread count relies on, making the count wrong for everybody who had read it.
+
+---
+
+## Administrative insight — Milestone 12
+
+Three read-only surfaces. **Every figure is counted from a collection**; nothing is estimated or projected.
+
+### `GET /api/v1/admin/analytics`
+- **Permission**: `analytics:read:any` — this is precisely "read analytics that are not your own", so no new permission was invented.
+- **Query**: `days` (7–90, default 30). Outside that range is `400`, not silently clamped.
+- **Response 200**: `{ success, analytics: PlatformAnalytics }` — account counts by verification and status, engagement (ever / 7-day / 30-day active, plus daily registration and activity series bucketed by **IST** day so the axis lines up with streaks and XP), content counts, assessment counts, XP totals, and a per-class breakdown.
+- **Entrants only**: the bootstrap super admin is excluded from every student count — it never registered for anything. Active-student counts join to `students`, so a deleted account's leftover activity rows cannot make the platform look busier than it is (this really happened: 12 active against 11 registered).
+- **`null`, not `0`, for an average that does not exist yet.** `mockAveragePercent` is `null` until a paper has been sat, because 0% would read as "everybody scored nothing".
+- **Nothing here reads `Result` or `ExamAttempt`** — see the Milestone 12 ADR. Assessment figures come from mock tests, practice sessions and daily challenges, which are real.
+- Every offered class appears in `byClass`, including empty ones: an absent row reads as missing data, a zero is a fact about the cohort.
+
+### `GET /api/v1/admin/leaderboard`
+- **Permission**: `students:read`.
+- **Query**: `page`, `limit`, `classLevel`, `period` (`all`/`month`/`week`/`today`). An unknown class or period is `400`.
+- **Response 200**: `{ success, leaderboard: AdminLeaderboardRow[], period, classLevel, pagination }` — **full names, student IDs, emails and account status**, which the public board deliberately masks because the entrants are children and that page is indexable. That difference is the whole reason this endpoint exists rather than a flag on the public one.
+- Reuses `periodWindow()` from `leaderboardService`, so staff and students get the same "this week". Ranks are positions in the **full ordering**, not in the page. The super admin never appears — it earns no XP.
+
+### `GET /api/v1/admin/rewards/overview`
+- **Permission**: `rewards:write` — this is the evidence needed *before* re-pricing the award table, so it belongs to the same job.
+- **Response 200**: `{ success, overview: RewardsOverview }` — students per level (from the same thresholds a student's own page uses), XP earners, and holders per achievement.
+- **`holders: null` where a count would be a lie.** Streak achievements ("visited on 3 consecutive days") cannot be answered by aggregation — "answered five challenges" and "answered on five consecutive days" are different facts — so those report `null` and the UI says "not counted" rather than showing a plausible wrong number. Asserted by a test.
+- `neverEarned` is normally `0`, because registration itself grants XP. A non-zero value means accounts predating the activity log, which `scripts/backfill-activity.ts` repairs.
+
+---
+
 ## IMPLEMENTED — but not called by the frontend
 
 `GET /api/v1/questions` and `GET /api/v1/questions/:id` are documented under "Question bank (Milestone 4)" above. They are real, authenticated and answer-stripped, but **no student-facing page calls them yet** — `Exam.tsx` is still a hardcoded five-question quiz. Wiring the exam to them is the next milestone's work.

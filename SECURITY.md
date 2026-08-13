@@ -48,8 +48,16 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `audit:read` | — | yes | yes |
 | `users:password:reset` | — | yes | yes |
 | `users:sessions:revoke` | — | yes | yes |
+| `gallery:write` | — | yes | yes |
+| `notifications:write` | — | yes | yes |
 | `users:role:write` | — | — | **yes** |
 | `users:delete` | — | — | **yes** |
+
+**The gallery is the only surface published to the open internet** (Milestone 12), which is why it holds its own permission rather than riding on `questions:write`: a mistake there is visible to anybody, not just to a signed-in cohort. Uploads are validated by **magic bytes** through the shared `imageDataUrl()` validator, so a file that merely *claims* to be a PNG is refused — a browser or a script controls the MIME type in a data URL, and trusting it would mean storing arbitrary bytes and serving them back with an image content type. Archiving stops the bytes being served, not just the listing, so a taken-down photo is genuinely gone for anyone holding the URL.
+
+**`notifications:write` is narrow because it reaches everybody at once.** An announcement is visible to every matching student the moment it is published, and withdrawing one afterwards does not unsee it — so publication is audited as its own operation, distinct from an edit.
+
+**A notification a student may not see returns `404`, not `403`.** Marking one read, or reading one addressed to another class, must not confirm that an id exists — otherwise the route becomes a way to probe the collection. The same reasoning as the answer-key rules elsewhere in this file.
 
 **The super administrator cannot use the student login.** `POST /auth/login` refuses `role: 'superadmin'` with a `403` pointing at the administrator portal. The refusal is applied **after** the password is verified, and that ordering is load-bearing: refusing earlier would answer differently for the administrator's address than for any other, which is an account-enumeration oracle aimed at the most privileged account in the system. A caller who does not already know the password gets the same generic failure as for any other wrong guess, and no session is established either way.
 

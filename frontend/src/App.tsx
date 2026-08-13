@@ -47,6 +47,17 @@ const AdminRewardSettings = lazy(() => import('./pages/Admin/RewardSettings'))
  * still being reachable without signing in.
  */
 const Leaderboard = lazy(() => import('./pages/Leaderboard/Leaderboard'))
+/**
+ * Milestone 12. The public gallery is a marketing surface reachable without an
+ * account; the rest are administrative or the student's own inbox. All secondary
+ * destinations, so all split out of the entry bundle.
+ */
+const PublicGallery = lazy(() => import('./pages/Gallery/Gallery'))
+const StudentNotifications = lazy(() => import('./pages/Notifications/Notifications'))
+const AdminGallery = lazy(() => import('./pages/Admin/Gallery'))
+const AdminNotifications = lazy(() => import('./pages/Admin/Notifications'))
+const AdminAnalytics = lazy(() => import('./pages/Admin/Analytics'))
+const AdminStandings = lazy(() => import('./pages/Admin/Standings'))
 const HallOfFame = lazy(() => import('./pages/HallOfFame/HallOfFame'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
@@ -121,6 +132,38 @@ export default function App() {
             element={
               <RequirePermission permission="audit:read">
                 <AdminAuditLog />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/gallery"
+            element={
+              <RequirePermission permission="gallery:write">
+                <AdminGallery />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/notifications"
+            element={
+              <RequirePermission permission="notifications:write">
+                <AdminNotifications />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/analytics"
+            element={
+              <RequirePermission permission="analytics:read:any">
+                <AdminAnalytics />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/standings"
+            element={
+              <RequirePermission permission="students:read">
+                <AdminStandings />
               </RequirePermission>
             }
           />
@@ -312,6 +355,16 @@ export default function App() {
            * free for the *official* exam, which is a different thing (see DECISIONS.md
            * on why practice and `ExamAttempt` are deliberately separate).
            */}
+          {/* Public marketing surface, like the leaderboard and Hall of Fame. */}
+          <Route path="/gallery" element={<PublicGallery />} />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute>
+                <StudentNotifications />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/exam" element={<Navigate to="/practice" replace />} />
         </Routes>
         </Suspense>

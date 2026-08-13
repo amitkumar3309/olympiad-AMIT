@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CLASS_LEVELS } from '../lib/classLevels';
-import { MAX_PHOTO_BYTES, PHOTO_CONTENT_TYPES, type PhotoContentType } from '../models/StudentPhoto';
+import { MAX_PHOTO_BYTES } from '../models/StudentPhoto';
+import { imageDataUrl } from './imageSchemas';
 
 /** Indian-style 10-digit mobile, tolerant of spaces/dashes which we strip. */
 const mobile = z
@@ -84,63 +85,13 @@ export const dateOfBirth = z
   }, 'Date of birth must correspond to an age between 5 and 40');
 
 /**
- * The leading bytes every accepted format starts with. A browser (or a script
- * posting directly) controls the MIME type in the data URL, so it is checked
- * against the actual file signature rather than trusted — otherwise
- * `data:image/png;base64,<anything at all>` would be stored and later served
- * back with an image content type.
+ * The registration photo: a base64 data URL, ≤ 2 MB, validated by magic bytes.
+ *
+ * The implementation moved to `imageSchemas.ts` in Milestone 12, when the event
+ * gallery became a second upload surface. Two copies of a signature check is how
+ * one of them ends up trusting a declared MIME type — see that file.
  */
-const MAGIC_BYTES: Record<PhotoContentType, (buf: Buffer) => boolean> = {
-  'image/jpeg': (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
-  'image/png': (b) => b.length > 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
-  'image/webp': (b) => b.length > 12 && b.subarray(0, 4).toString('ascii') === 'RIFF' && b.subarray(8, 12).toString('ascii') === 'WEBP',
-};
-
-const MAX_PHOTO_KB = Math.round(MAX_PHOTO_BYTES / 1024);
-
-/**
- * The photo is carried as a base64 data URL inside the JSON body rather than as
- * a multipart upload: it keeps registration a single atomic request, needs no
- * new dependency, and works with the existing `validate` middleware and the
- * `{ success, ... }` envelope. See the Milestone 4 ADR in DECISIONS.md.
- */
-export const photo = z
-  .string({ error: 'A photo is required' })
-  .min(1, 'A photo is required')
-  .superRefine((value, ctx) => {
-    const match = /^data:([a-z]+\/[a-z0-9+.-]+);base64,(.+)$/i.exec(value);
-    if (!match?.[1] || !match[2]) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The photo must be a base64-encoded image' });
-      return;
-    }
-
-    const [, declaredType, encoded] = match;
-    if (!(PHOTO_CONTENT_TYPES as readonly string[]).includes(declaredType.toLowerCase())) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The photo must be a JPEG, PNG or WebP image' });
-      return;
-    }
-
-    const data = Buffer.from(encoded, 'base64');
-    if (data.length === 0) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'The photo could not be read. Please choose the file again.' });
-      return;
-    }
-    if (data.length > MAX_PHOTO_BYTES) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: `The photo must be ${MAX_PHOTO_KB} KB or smaller` });
-      return;
-    }
-    if (!MAGIC_BYTES[declaredType.toLowerCase() as PhotoContentType](data)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'That file is not a valid JPEG, PNG or WebP image' });
-    }
-  })
-  .transform((value) => {
-    // Safe to assert: superRefine above has already rejected anything else.
-    const match = /^data:([a-z]+\/[a-z0-9+.-]+);base64,(.+)$/i.exec(value)!;
-    return {
-      contentType: match[1]!.toLowerCase() as PhotoContentType,
-      data: Buffer.from(match[2]!, 'base64'),
-    };
-  });
+export const photo = imageDataUrl(MAX_PHOTO_BYTES, 'photo');
 
 export const registerSchema = z.object({
   firstName: requiredName('First name'),

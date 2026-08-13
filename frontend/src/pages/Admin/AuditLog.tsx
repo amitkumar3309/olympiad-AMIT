@@ -8,6 +8,13 @@ import styles from './AuditLog.module.css'
 const ACTION_LABELS: Record<AuditAction, string> = {
   'user.role.changed': 'Role changed',
   'student.status.changed': 'Account status changed',
+  // Milestone 11 — staff acting on somebody else's account.
+  'user.password.reset': 'Password reset by staff',
+  'user.sessions.revoked': 'Signed out everywhere by staff',
+  'user.deleted': 'Account deleted',
+  // Milestone 12 — the two publishing surfaces.
+  'gallery.changed': 'Gallery photo changed',
+  'notification.changed': 'Announcement changed',
   // A student editing their own account is still a change to an account, so it is
   // in the trail alongside the administrative ones (Milestone 5).
   'student.profile.updated': 'Profile edited by its owner',

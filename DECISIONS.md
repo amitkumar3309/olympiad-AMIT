@@ -675,3 +675,45 @@ The line itself is drawn at **reversibility**. Everything an admin may do can be
 **Alternatives considered**: (a) A numeric privilege level per role — rejected: it implies a total order that does not exist (a student is not "one below" an admin at everything) and it re-introduces role comparisons in handlers, which `lib/permissions.ts` exists to eliminate. (b) Letting admins delete unverified accounts too — rejected: deletion is the one act with no undo, and an abandoned registration is not urgent enough to widen who can destroy data. (c) Emailing a reset link instead of a temporary password — considered seriously and rejected by the owner: the entrants are schoolchildren who often cannot reach the address they registered with, which is exactly when they need help most.
 
 **Consequences**: the temporary password is returned **once**, in the reset response, and never stored in readable form or written to the audit trail — the trail records that a reset happened and who did it. `mustChangePassword` then holds the account on a forced-change screen, and clears in exactly one place (the change-password route), so it cannot be dismissed by anything except actually changing the password. That screen is a *user-interface* gate, not a security boundary: the API remains reachable with the temporary password, as it is with any working credential. What it guarantees is that the ordinary way through the product ends in a password only the student knows.
+
+---
+
+## 2026-08-13 — Results and certificates stay unbuilt until an official exam exists
+
+**Decision**: Milestone 12 completes twelve of the fourteen requested admin areas and deliberately **excludes results and certificates**. No admin console is built over `Result` or `ExamAttempt`, and `getPlatformAnalytics()` does not read either collection. The assessment figures on the analytics page come from `MockTestAttempt`, `PracticeSession` and `DailyChallengeAttempt` instead, and the page states in plain words why there are no official results on it.
+
+**Reason**: both collections are **read by the product and written by nothing**. They belong to the official sitting, which has never been built. An administrative results console over them would be permanently empty at best, and at worst would invite exactly the failure this repository has already paid for once: the Milestone 5 follow-up pass existed to delete a result portal that hashed a typed student ID into a score, and a certificate page that printed "For outstanding participation and achievement" for anybody signed in, dated today. Nobody had earned anything.
+
+Building a *second* surface over the same empty collections would re-create the conditions for that, with an administrator's authority behind it. The owner chose this explicitly when asked.
+
+**Alternatives considered**: (a) Issue certificates against mock-test performance — genuinely real and available today, and the strongest of the three; rejected by the owner in favour of waiting for the official exam, so that a certificate means the thing its wording claims. (b) Let staff issue certificates manually with a free-text reason — real, but it makes a certificate an administrative artefact rather than an earned one, with no criteria to check it against. (c) Build the console now and let it render empty — rejected: an empty console is indistinguishable from a broken one, and it creates pressure to fill it.
+
+**Consequences**: two of the fourteen areas remain openly unbuilt, and `FEATURE_STATUS.md` records them as such rather than as done. When the official exam lands, results and certificates are its natural first consumers, and `platformAnalyticsService.ts` carries a marked note where they belong. Until then the honest answer to "where are the results?" is that no exam has been sat.
+
+---
+
+## 2026-08-13 — A notification is one document with an audience rule, not a fan-out
+
+**Decision**: `Notification` stores an audience *rule* (`all`, or a single `classLevel`) and is never expanded into per-recipient rows. A student's inbox is that rule evaluated at read time by `inboxFilter()`. Read state lives in a separate `NotificationRead` collection with a unique index on `{student, notification}`. Delivery is **in-app only** — nothing is emailed.
+
+**Reason**: fanning out at publish time writes one document per student for a single announcement, and then silently misses everybody who registers afterwards — a notice board only the people already in the room can read. Evaluating the rule on read costs one indexed query and means a new student sees the announcement written yesterday, which is what a notice board does. Changing a student's class correctly changes what they see.
+
+Read state cannot then live on the notification, because there is no per-recipient row to mark, and an array would be worse: an announcement to the whole roll would grow an unbounded `readBy` inside one 16 MB document, and marking one read would rewrite the entire thing. A row per pair is bounded, indexable, and exists only for notifications somebody actually opened. The unique index is what makes "mark as read" idempotent against a double-tapped button or two open tabs.
+
+**Alternatives considered**: (a) Fan out to per-recipient rows at publish — rejected above. (b) `readBy: [ObjectId]` on the notification — rejected above. (c) Email as well as in-app — rejected by the owner: broadcasting to the whole roll is a deliverability and provider-limit problem on a free tier, and the addresses often belong to parents rather than the entrant. If email is added later it belongs *behind* this model, not as a second way of saying the same thing.
+
+**Consequences**: "unread" is an **anti-join** (`_id: { $nin: readIds }`), not a filter, which is why `listInbox()` and `unreadCount()` share `inboxFilter()` — two definitions of unread would eventually disagree with the number on the bell. Deleting an announcement also deletes its receipts, because a receipt pointing at nothing would skew that anti-join for everybody who had read it.
+
+---
+
+## 2026-08-13 — The gallery stores image bytes in MongoDB, with a stated ceiling
+
+**Decision**: `GalleryItem` holds the image as a `Buffer` in MongoDB, capped at **1 MB** per photo and validated by magic bytes through the shared `imageDataUrl()` validator. `data` is `select: false`, and one dedicated route serves bytes. Archiving stops the bytes being served, not merely the listing.
+
+**Reason**: there is no object store, and adding one means a paid service against a ₹0 budget. `StudentPhoto` already established the pattern, so this is consistency rather than a new bet.
+
+The ceiling is written down because it is real and countable rather than theoretical. Atlas's free tier is **512 MB in total**; registration photos are the biggest tenant at up to 2 MB each, which caps the roll near 250 students. Gallery images are bounded by nothing except staff enthusiasm, so at 1 MB each a hundred photos is ~100 MB — a fifth of the entire tier spent on decoration. `PROJECT_STATE.md` now records the gallery as the **second** thing that will force a paid tier or an image CDN.
+
+**Alternatives considered**: (a) External image URLs pasted by staff — zero storage cost, rejected by the owner: it depends on links elsewhere staying alive, and a broken gallery looks worse than none. (b) A curated toppers wall built from leaderboard data with no uploads — real and free, but a different feature, not a gallery. (c) 2 MB to match registration photos — rejected: photos have a natural bound (one per entrant) and gallery images do not.
+
+**Consequences**: `imageDataUrl()` was extracted from `authSchemas.ts` so registration and the gallery share one signature check. That mattered more than the deduplication: a second copy is how one of them ends up trusting the declared MIME type, which is exactly the hole magic-byte checking exists to close. The gallery image route sets `Cache-Control: public`, unlike a student photo's `private` — this content has no authorization behind it, so a shared cache is safe and wanted.

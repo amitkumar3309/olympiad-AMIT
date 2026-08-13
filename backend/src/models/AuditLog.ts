@@ -76,6 +76,15 @@ export const AUDIT_ACTIONS = [
    * history) is worth being able to demonstrate from the trail.
    */
   'reward.settings.updated',
+  /** A gallery photo was uploaded, edited or removed. Recorded because this is the
+   *  one authoring surface whose output is published to the open internet. */
+  'gallery.changed',
+  /**
+   * An announcement was written, published, edited or withdrawn. Publishing is the
+   * act worth a name against it: it reaches every student at once, and withdrawing
+   * one afterwards does not unsee it.
+   */
+  'notification.changed',
   /** A subject was created or edited. */
   'subject.changed',
   /** A topic or subtopic was created or edited. */
@@ -97,6 +106,8 @@ export const AUDIT_TARGET_TYPES = [
   'dailychallenge',
   'subject',
   'topic',
+  'gallery',
+  'notification',
   'route',
   'system',
 ] as const;

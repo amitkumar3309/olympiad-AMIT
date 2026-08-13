@@ -27,6 +27,8 @@ export type Permission =
   | 'challenges:write'
   | 'rewards:write'
   | 'audit:read'
+  | 'gallery:write'
+  | 'notifications:write'
   | 'users:password:reset'
   | 'users:sessions:revoke'
   | 'users:role:write'
@@ -150,6 +152,11 @@ export interface Pagination {
 export type AuditAction =
   | 'user.role.changed'
   | 'student.status.changed'
+  | 'user.password.reset'
+  | 'user.sessions.revoked'
+  | 'user.deleted'
+  | 'gallery.changed'
+  | 'notification.changed'
   | 'student.profile.updated'
   | 'student.photo.updated'
   | 'student.password.changed'
@@ -176,7 +183,17 @@ export interface AuditEntry {
   action: AuditAction
   actorRole: Role
   actorLabel: string
-  targetType: 'student' | 'question' | 'mocktest' | 'dailychallenge' | 'subject' | 'topic' | 'route' | 'system'
+  targetType:
+    | 'student'
+    | 'question'
+    | 'mocktest'
+    | 'dailychallenge'
+    | 'subject'
+    | 'topic'
+    | 'gallery'
+    | 'notification'
+    | 'route'
+    | 'system'
   targetId: string | null
   targetLabel: string | null
   outcome: 'success' | 'denied'
@@ -1334,4 +1351,146 @@ export interface RewardConfigResponse {
     updatedByLabel: string | null
     updatedAt: string | null
   }
+}
+
+// ---------------------------------------------------------------------------
+// Milestone 12 — the admin platform
+// ---------------------------------------------------------------------------
+
+export type GalleryStatus = 'published' | 'archived'
+
+export interface GalleryItem {
+  id: string
+  title: string
+  caption: string | null
+  eventDate: string | null
+  status: GalleryStatus
+  displayOrder: number
+  contentType: string
+  size: number
+  uploadedByLabel: string | null
+  createdAt: string
+  updatedAt: string | null
+  /** Where to fetch the bytes. Same path for staff and the public. */
+  imageUrl: string
+}
+
+export type NotificationAudience = 'all' | 'class'
+export type NotificationKind = 'announcement' | 'alert'
+
+/** An announcement as staff see it, including how many students opened it. */
+export interface AdminNotification {
+  id: string
+  title: string
+  body: string
+  kind: NotificationKind
+  audience: NotificationAudience
+  classLevel: ClassLevel | null
+  isPublished: boolean
+  publishedAt: string | null
+  createdByLabel: string | null
+  createdAt: string
+  updatedAt: string | null
+  readCount: number
+}
+
+/** An announcement as its recipient sees it. */
+export interface InboxNotification {
+  id: string
+  title: string
+  body: string
+  kind: NotificationKind
+  audience: NotificationAudience
+  classLevel: ClassLevel | null
+  publishedAt: string | null
+  read: boolean
+  readAt: string | null
+}
+
+export interface DayCount {
+  day: string
+  count: number
+}
+
+export interface ClassBreakdownRow {
+  classLevel: ClassLevel
+  students: number
+  activeStudents: number
+  xp: number
+}
+
+/**
+ * Every field here is counted from a collection. Where there is no data the
+ * backend sends 0 — or `null` for an average, because "nothing has been sat" and
+ * "everybody scored zero" are different facts.
+ */
+export interface PlatformAnalytics {
+  generatedAt: string
+  accounts: {
+    total: number
+    verified: number
+    unverified: number
+    active: number
+    suspended: number
+    blocked: number
+    deactivated: number
+    admins: number
+  }
+  engagement: {
+    everActive: number
+    activeLast7: number
+    activeLast30: number
+    registrationsByDay: DayCount[]
+    activeStudentsByDay: DayCount[]
+  }
+  content: {
+    questionsTotal: number
+    questionsPublished: number
+    questionsDraft: number
+    mockTestsTotal: number
+    mockTestsPublished: number
+    galleryPublished: number
+    announcementsPublished: number
+  }
+  assessment: {
+    practiceSessionsSubmitted: number
+    mockAttemptsSubmitted: number
+    mockAveragePercent: number | null
+    dailyChallengeAttempts: number
+    dailyChallengeCorrect: number
+  }
+  xp: {
+    awardedTotal: number
+    earners: number
+    averagePerEarner: number | null
+  }
+  byClass: ClassBreakdownRow[]
+}
+
+/** The leaderboard as staff see it — unmasked, unlike the public board. */
+export interface AdminLeaderboardRow {
+  rank: number
+  studentId: string
+  fullName: string | null
+  email: string | null
+  classLevel: ClassLevel | null
+  schoolName: string | null
+  status: AccountStatus | null
+  xp: number
+  level: number
+}
+
+export interface RewardsOverview {
+  totalStudents: number
+  earners: number
+  neverEarned: number
+  levels: Array<{ level: number; students: number }>
+  achievements: Array<{
+    code: string
+    name: string
+    description: string
+    /** `null` means the condition is a consecutive-day streak, which cannot be
+     *  counted by aggregation — not that nobody holds it. */
+    holders: number | null
+  }>
 }

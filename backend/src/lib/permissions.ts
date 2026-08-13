@@ -91,6 +91,20 @@ export const PERMISSIONS = [
    * account as being in any kind of trouble.
    */
   'users:sessions:revoke',
+  /**
+   * Upload, edit and remove the public event gallery. Separate from
+   * `questions:write` because it is the one authoring permission whose output is
+   * **published to the open internet** rather than served to a signed-in student —
+   * a mistake here is visible to anybody, which is worth being able to withhold on
+   * its own even though both currently sit with `admin`.
+   */
+  'gallery:write',
+  /**
+   * Compose and withdraw in-app announcements. Narrow on purpose: it reaches every
+   * student at once, so it carries a different kind of blast radius from editing a
+   * question that one cohort will eventually see.
+   */
+  'notifications:write',
 
   // --- Super-admin capabilities ---
   /** Grant or revoke the admin role on an account. */
@@ -129,6 +143,8 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'students:status:write',
   'users:password:reset',
   'users:sessions:revoke',
+  'gallery:write',
+  'notifications:write',
   'questions:write',
   'questions:delete',
   'taxonomy:write',

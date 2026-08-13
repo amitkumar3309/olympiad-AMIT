@@ -2,6 +2,63 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-13 — Milestone 12: Complete Admin Platform
+
+An audit first, because the brief asked for fourteen areas and **eight already existed**. Rebuilding them would have produced duplicate routes and a second set of pages to keep in step. So the audit is the first deliverable, and it is recorded in `FEATURE_STATUS.md`: the dashboard, student management, question bank, daily challenge, mock tests, audit log, taxonomy and reward settings were already real and were left alone.
+
+### What was actually missing
+
+| Area | Before | Now |
+|---|---|---|
+| Gallery | did not exist anywhere | public page + admin CRUD, images in MongoDB |
+| Notifications | did not exist anywhere | staff composer + student inbox with read state |
+| Analytics | per-student only | platform-wide, every figure counted |
+| Leaderboards | public only, names masked | admin board with real names and status |
+| Badges/achievements | student-facing only | holder counts per achievement |
+| Results, certificates | empty by design | **still empty, deliberately** — see below |
+
+Two new permissions, `gallery:write` and `notifications:write`, taking the table to **19** (3 student / 17 admin / 19 super admin). Three new models: `GalleryItem`, `Notification`, `NotificationRead`.
+
+### Results and certificates are still unbuilt, on purpose
+
+`Result` and `ExamAttempt` are read by the product and written by **nothing** — they belong to the official sitting, which has never been built. An administrative console over them would be permanently empty at best, and at worst would recreate the failure this repository has already paid for once: the Milestone 5 follow-up pass existed to delete a result portal that hashed a typed student ID into a score, and a certificate page that printed "For outstanding participation and achievement" for anybody signed in, dated today.
+
+Issuing certificates against real mock-test performance was offered and was the strongest alternative. The owner chose to wait for the official exam, so that a certificate means what its wording claims. The analytics page says all of this in plain words rather than showing an empty panel, and draws its assessment figures from mock tests, practice sessions and daily challenges — which are real.
+
+### Every figure is counted, and where it cannot be, it says so
+
+`platformAnalyticsService.ts` is the one place platform figures are assembled, and it has no estimates, no projections and no "engagement score". Two details carry the rule:
+
+- **`null`, not `0`, for an average that does not exist yet.** `mockAveragePercent` is `null` until a paper has been sat, because 0% would read as "everybody scored nothing".
+- **`holders: null` where a count would be a lie.** The rewards overview counts achievement holders exactly for "did X", "earned N XP", "reached level N" and "active on N days" — but a *consecutive-day streak* cannot be answered by an aggregation, because "answered five challenges" and "answered on five consecutive days" are different facts. Those report `null` and the page shows "not counted" rather than a plausible wrong number.
+
+### Two bugs found by running the page, not by a test
+
+Both are now pinned by regression tests, and both were invisible to a suite that only asserted a number was present:
+
+- **`shiftDay(key, n)` returns the key `n` days *before* `key`** — a negative value moves forward. The 7- and 30-day active windows had been computed with the sign inverted, producing a future cut-off that matched nothing, so both read **zero** however busy the platform was.
+- **`distinct('student')` over the activity log reported 12 active students against 11 registered.** The log outlives the accounts it points at, so a deleted account's rows still counted as somebody. Active counts now join to `students` and filter to entrants like every other figure on the page — which is what makes the numbers a consistent set rather than several unrelated counts.
+
+### Notifications: one document, an audience rule, no fan-out
+
+A notification is **one document** carrying a rule (`all`, or a single class); each student's inbox is that rule evaluated at read time. Publishing to the whole roll writes one document rather than thousands, and a student who registers tomorrow sees the announcement written today — which a publish-time fan-out would silently get wrong.
+
+Read state is therefore its own collection with a unique index on `{student, notification}`, which is what makes "mark as read" idempotent against a double-tapped button or two open tabs. "Unread" is an **anti-join**, and `listInbox()` and `unreadCount()` share one `inboxFilter()` so the number on the bell cannot disagree with the list. Deleting an announcement deletes its receipts too — a receipt pointing at nothing would skew that anti-join for everybody who had read it.
+
+A notification a student may not see returns **404, not 403**: the route must not confirm that an id it will not show nevertheless exists.
+
+### Gallery: the only thing published to the open internet
+
+Which is why it holds its own permission rather than riding on `questions:write` — a mistake there is visible to anybody. Uploads reuse a **shared** `imageDataUrl()` validator, extracted from `authSchemas.ts` so registration and the gallery have exactly one magic-byte check between them. That mattered more than the deduplication: a second copy is how one of them ends up trusting a declared MIME type, which is the hole the check exists to close.
+
+Images live in MongoDB at up to **1 MB** each, `select: false` so a listing never drags bytes into memory, and archiving stops the **bytes** being served rather than merely hiding the row. The storage ceiling is written down rather than discovered: this is the second tenant of a 512 MB free tier after registration photos, and a hundred photos is a fifth of it.
+
+### Also
+
+- **43 new tests** (611 total, 19 files). Every new route's authorization is asserted for a guest *and* a student, on **both** the `/api/v1` and `/api` prefixes — a gate that holds on one and not the other is not a gate.
+- Pagination and literal, regex-escaped filtering on every new listing.
+- The frontend `AuditAction` union was missing the three Milestone 11 actions, so the audit page rendered raw codes for them. Fixed, along with the two new ones.
+
 ## 2026-08-13 — Milestone 11: Account administration, and a real super-admin account
 
 Two things at once: a set of powers the competition desk actually needs, and the reversal of a decision that had been quietly costing the product everything an account normally gets.

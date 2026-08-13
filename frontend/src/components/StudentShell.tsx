@@ -43,6 +43,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/mock-tests', label: 'Mock Tests', icon: 'ph-exam' },
   { to: '/daily-challenge', label: 'Daily Challenge', icon: 'ph-dice-five' },
   { to: '/rewards', label: 'Rewards', icon: 'ph-trophy' },
+  { to: '/notifications', label: 'Notifications', icon: 'ph-bell' },
   { to: '/leaderboard', label: 'Leaderboard', icon: 'ph-ranking' },
   { to: '/hall-of-fame', label: 'Hall of Fame', icon: 'ph-crown' },
   { to: '/analytics', label: 'Analytics', icon: 'ph-chart-line-up' },
