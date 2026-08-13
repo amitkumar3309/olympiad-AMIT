@@ -68,7 +68,6 @@ const envSchema = z.object({
   /** Refresh-token lifetime in days. */
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().max(365).default(30),
   /** Admin access-token lifetime (admins have no refresh token — see DECISIONS.md). */
-  ADMIN_TOKEN_TTL: z.string().min(1).default('8h'),
 
   // --- Auth policy ---
   REQUIRE_EMAIL_VERIFICATION: booleanish(true),

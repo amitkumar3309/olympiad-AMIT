@@ -162,8 +162,19 @@ export async function getAdminStats(days = 14, today: DayKey = todayKey()): Prom
   const since = new Date(`${firstDay}T00:00:00.000Z`);
   since.setUTCMinutes(since.getUTCMinutes() - (5 * 60 + 30));
 
+  /**
+   * Entrants only. The bootstrap super administrator is a `Student` document
+   * because that is where accounts live, but it never registered for anything —
+   * it has no class, no school and no photo, and counting it would report one
+   * more competitor than exists on a figure the owner reads as a headline.
+   *
+   * A *promoted* admin is deliberately still counted: it really did register as a
+   * student and can still sit a paper (see the Milestone 3 ADR).
+   */
+  const entrantsOnly = { role: { $ne: 'superadmin' as const } };
+
   const registrationPipeline: PipelineStage[] = [
-    { $match: { status: 'active', registeredAt: { $gte: since } } },
+    { $match: { ...entrantsOnly, status: 'active', registeredAt: { $gte: since } } },
     {
       $group: {
         // Bucket by IST calendar day, matching `lib/competitionDay.ts`, so this
@@ -185,7 +196,7 @@ export async function getAdminStats(days = 14, today: DayKey = todayKey()): Prom
   const [registrationRows, activityRows, totalStudents] = await Promise.all([
     Student.aggregate<DayCountRow>(registrationPipeline),
     StudentActivity.aggregate<DayCountRow>(activityPipeline),
-    Student.countDocuments({ status: 'active' }),
+    Student.countDocuments({ ...entrantsOnly, status: 'active' }),
   ]);
 
   const axis: DayKey[] = Array.from({ length: days }, (_, i) => shiftDay(today, days - 1 - i));

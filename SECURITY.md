@@ -27,7 +27,7 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 |---|---|---|
 | `student` | every registered account by default | |
 | `admin` | an account promoted by a super admin | A normal account with `role: 'admin'`, so it keeps student capabilities too. |
-| `superadmin` | the `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` account only | The bootstrap root. Has **no database document**, so it cannot be suspended or demoted from the UI — withdrawing it means changing the environment variables. Not assignable through any API. |
+| `superadmin` | the bootstrap root account only | **Changed in Milestone 11**: it now *has* a database document, auto-provisioned from `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` on first sign-in, so it holds a rotating refresh token and a revocable `tokenVersion` like any account. Still **not assignable** through any API, and still not manageable through one: `refuseIfProtected()` blocks suspending, demoting, password-resetting or deleting it, by anybody including itself. Withdrawing it means changing the environment and redeploying. |
 
 ### Permissions
 
@@ -46,9 +46,29 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `challenges:write` | — | yes | yes |
 | `rewards:write` | — | yes | yes |
 | `audit:read` | — | yes | yes |
+| `users:password:reset` | — | yes | yes |
+| `users:sessions:revoke` | — | yes | yes |
 | `users:role:write` | — | — | **yes** |
+| `users:delete` | — | — | **yes** |
 
-`users:role:write` is confined to `superadmin` on purpose: an ordinary admin cannot create more admins, so one compromised admin session cannot widen itself.
+**The line between `admin` and `superadmin` is reversibility.** Everything an admin may do can be undone — a suspension lifted, a status restored, a password reset again. The two withheld capabilities cannot be: `users:role:write` can mint another administrator, and `users:delete` destroys data. Confining escalation to the super admin is what stops a compromised admin session widening itself; confining deletion is what stops it erasing the evidence of having tried.
+
+That relationship is **structural, not conventional**. `SUPERADMIN_PERMISSIONS` is defined as `[...ADMIN_PERMISSIONS, ...SUPERADMIN_ONLY_PERMISSIONS]`, so there is no second list to forget to update, and a test asserts the subset relation by reading the table rather than a copy of it.
+
+### Acting on a *particular* account
+
+A permission answers "may you do this action", not "may you do it to **this** account". `refuseIfProtected()` in `users.routes.ts` is the single place that answers the second question, and every account-management route calls it before doing anything:
+
+1. **Nobody may manage the `superadmin` account** — not suspend, demote, password-reset or delete it. It is the account that can restore all the others, so a mistake here is the one with no way back.
+2. **An ordinary `admin` may only act on plain `student` accounts.** Without this, an admin holding `users:password:reset` could issue themselves a working credential for a peer administrator — a lateral move against exactly the people who could stop a misbehaving admin.
+
+### Staff-issued temporary passwords (Milestone 11)
+
+`POST /admin/users/:studentId/reset-password` generates a 16-character password from `crypto.randomInt` and returns it **once**. It is never stored in readable form and is deliberately **absent from the audit entry** — the trail records that a reset happened and who did it, which is what matters afterwards; a test asserts the password does not appear in it. The alphabet omits `0`/`O` and `1`/`l`/`I`, because a password that is misread when dictated over the phone gets replaced by a shared one.
+
+Every session for the account is revoked first: a reset exists because control of the account is in doubt, so leaving the current holder signed in would defeat it. `mustChangePassword` then holds the account on a forced-change screen that clears in exactly one place, the change-password route.
+
+**That screen is a user-interface gate, not a security boundary.** The API remains reachable with the temporary password, exactly as with any working credential — what the flow guarantees is that the ordinary way through the product ends with a password only the student knows. The residual risk is deliberate and was the owner's call: the entrants are schoolchildren who frequently cannot reach the address they registered with, which is precisely when they need help. The mitigations are that the credential is short-lived in practice, single-purpose, fully audited, and cannot be issued for any account that holds a role.
 
 `mocktests:write` (Milestone 7) is separate from `questions:write` for a reason worth stating: assembling and scheduling an assessment is a different job from authoring the questions in the bank, and — unlike authoring — it carries **the right to read every student's marks** for a test. Both sit with `admin` today, so splitting them buys nothing immediately; it means confining results-reading later is a one-line change to this table rather than a route audit. Students sit tests under the existing `exam:take`, which is a student-level permission and therefore stateless: the mock-test attempt routes do no extra database read to authorize, and ownership is enforced by putting `student` in every query.
 

@@ -314,11 +314,21 @@ describe('GET /me/dashboard', () => {
     expect(res.status).toBe(401);
   });
 
-  it('answers 404 for the root admin, which has no student record', async () => {
+  it('serves the root administrator its own dashboard, now that it has a record', async () => {
+    // Reversed in Milestone 11. This used to be a 404, because the root admin was
+    // an environment identity with nothing to look up. It now has an account, so
+    // every `/me` route resolves for it like anybody else — and a route that
+    // cannot 404 for the most privileged caller is one fewer special case.
     const cookies = await loginRootAdmin(app);
     const res = await request(app).get(`${API}/me/dashboard`).set('Cookie', cookieHeader(cookies));
-    expect(res.status).toBe(404);
+
+    expect(res.status).toBe(200);
     expect(res.status).not.toBe(500);
+    expect(res.body.dashboard.student.studentId).toMatch(/^AMIT_\d{4}$/);
+    // Zero, and deliberately so: the super admin earns no XP, because every
+    // leaderboard is an aggregation over the same activity log and a staff account
+    // has no business ranking above the children who entered.
+    expect(res.body.dashboard.progress.xp).toBe(0);
   });
 
   it('returns the signed-in student’s own identity, never another account’s', async () => {

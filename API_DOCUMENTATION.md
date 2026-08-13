@@ -40,8 +40,10 @@ All auth routes live in `backend/src/routes/v1/auth.routes.ts`. Two cookies are 
 
 | Cookie | Contents | Lifetime | Notes |
 |---|---|---|---|
-| `access_token` | JWT (`role`, `sub`, `studentId`, `email`, `tv`, `root?`) | 15 min (`ACCESS_TOKEN_TTL`); 8 h for the root admin (`ADMIN_TOKEN_TTL`) | Session cookie — no `maxAge`; the `exp` claim is the authority. The `role` claim is a hint only: privileged requests re-read the role from the database. `root: true` marks the env-configured administrator, which has no document. |
-| `refresh_token` | 32 random bytes, opaque | 30 days (`REFRESH_TOKEN_TTL_DAYS`) | Stored SHA-256-hashed; rotated on every use. |
+| `access_token` | JWT (`role`, `sub`, `studentId`, `email`, `tv`) | 15 min (`ACCESS_TOKEN_TTL`) for **every** account | Session cookie — no `maxAge`; the `exp` claim is the authority. The `role` claim is a hint only: privileged requests re-read the role from the database, now with **no exemption**. |
+| `refresh_token` | 32 random bytes, opaque | 30 days (`REFRESH_TOKEN_TTL_DAYS`) | Stored SHA-256-hashed; rotated on every use. Issued to **every** account, the super admin included. |
+
+**Changed in Milestone 11.** The `root: true` claim and `ADMIN_TOKEN_TTL` are gone: the super administrator now has a database account, so it gets the ordinary TTL and a rotating refresh token like everybody else. A token issued before that change carries no `sub`, resolves to no account, and is refused — sign in again.
 
 Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in production (the apps are on different domains). `tv` is the student's `tokenVersion`; a mismatch means the session was revoked.
 
@@ -91,12 +93,14 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
   - `429`, `503`, `500`.
 
 ### `POST /api/v1/auth/admin/login`
-- **Auth**: none. **Rate limit**: 10/15 min. Requires `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH`.
-- This is the **root administrator**: it holds the `superadmin` role (the only role that can grant or revoke admin rights) and is the bootstrap identity, since nothing else can create the first admin.
-- **Response 200**: `{ success, role: 'superadmin', permissions, admin: { email, role } }` + an 8-hour `access_token` marked `root`. **No refresh token** — see [`DECISIONS.md`](DECISIONS.md).
-- **Side effect**: writes an `admin.session.started` audit entry (skipped with a warning if the database is unreachable, since this route deliberately works without one).
-- **Errors**: `400`, `401` invalid credentials, `500` admin not configured.
-- Administrators *promoted* from a student account do **not** use this route — they sign in through `POST /auth/login` like any other account.
+- **Auth**: none. **Rate limit**: 10/15 min. Requires `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH`. **Now requires a database connection** (`ensureDb`).
+- This is the **root administrator**: it holds `superadmin`, the only role that can grant or revoke admin rights, and is the bootstrap identity since nothing else can create the first admin.
+- **Rewritten in Milestone 11.** On the first successful sign-in it **provisions a `Student` document** with `role: 'superadmin'`, seeded from the two environment variables. From then on those variables are ignored and authentication runs against the document — through `authenticateAccount()`, the same single password check the ordinary login uses, so lockout, status and verification all apply.
+- **Response 200**: `{ success, role: 'superadmin', permissions, student, mustChangePassword }` + the ordinary 15-minute `access_token` **and a rotating refresh token**.
+- **Side effect**: writes an `admin.session.started` audit entry, with `via: 'root-bootstrap'` on the provisioning sign-in and `via: 'root-credentials'` thereafter.
+- **Errors**: `400`, `401` these are not the bootstrap credentials, `403` barred status, `423` locked out, `500` admin not configured, `500` the configured address belongs to another account (see below), `503` no database.
+- **It will not adopt an account that does not already hold `superadmin`.** If `ADMIN_EMAIL` names an ordinary account, the route refuses with `500` and logs loudly rather than granting the role — otherwise anyone who learned the address could register it first and then authenticate with their own password. Registration refuses that address for the same reason.
+- Administrators *promoted* from a student account do **not** need this route — they sign in through `POST /auth/login`. The `/admin` portal tries this endpoint first and falls back to `/auth/login` on a `401`, so one form serves both.
 
 ### `POST /api/v1/auth/refresh`
 - **Auth**: the `refresh_token` cookie. **Rate limit**: 60/15 min.
@@ -273,7 +277,7 @@ All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `re
 
 ### `PATCH /api/v1/admin/students/:studentId/status`
 - **Permission**: `students:status:write` (admin, super admin).
-- **Request**: `{ status: 'active' | 'suspended' | 'deactivated', reason?: string }` — `reason` is 3–500 chars and is stored in the audit entry.
+- **Request**: `{ status: 'active' | 'suspended' | 'blocked' | 'deactivated', reason?: string }` — `reason` is 3–500 chars and is stored in the audit entry. **`blocked` was added in Milestone 11**: `suspended` is a temporary hold, `blocked` is a permanent bar (a ban), `deactivated` is a closed account rather than one in trouble. All three bar sign-in; they are distinct so the audit trail can say *which* a year later.
 - **Response 200**: `{ success, changed: boolean, student: ManagedAccount }`. `changed: false` when the status already matched, in which case nothing is written and no audit entry is made.
 - **Side effects** when the status changes: suspending or deactivating revokes every refresh token and bumps `tokenVersion`, so live sessions end at once; reactivating also clears `failedLoginAttempts` and `lockedUntil`, otherwise the account would return still locked out. Always writes a `student.status.changed` audit entry.
 - **Errors**: `400` unknown status or malformed ID, `401`, `403` (also when an ordinary admin targets an account that holds a role — only a super admin may act on an administrator), `404`, `409` acting on your own account, `429`, `503`, `500`.
@@ -284,7 +288,30 @@ All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `re
 - **Request**: `{ role: 'student' | 'admin', reason?: string }`. `superadmin` is **not** in the enum: there is deliberately no API path to a second root administrator (asserted by a test).
 - **Response 200**: `{ success, changed: boolean, student: ManagedAccount }`
 - **Side effects** when the role changes: sets `roleUpdatedAt`/`roleUpdatedBy`, revokes every refresh token and bumps `tokenVersion` — so the target **must sign in again**, and cannot keep an old token carrying the old role. Writes a `user.role.changed` audit entry with `{ from, to, reason }`.
-- **Errors**: `400` invalid role or malformed ID, `401`, `403` insufficient permission, `404`, `409` changing your own role, `409` promoting an account that is unverified or not active, `429`, `503`, `500`.
+- **Errors**: `400` invalid role or malformed ID, `401`, `403` insufficient permission, `403` targeting the super administrator, `404`, `409` changing your own role, `409` promoting an account that is unverified or not active, `429`, `503`, `500`.
+
+### `POST /api/v1/admin/users/:studentId/reset-password` — **Milestone 11**
+- **Permission**: `users:password:reset` (admin **and** super admin). Password recovery is routine competition-desk work, so it is not withheld from admins — but see the data-level guard below.
+- **Request**: `{ reason?: string }`
+- **Response 200**: `{ success, temporaryPassword: string, student: ManagedAccount, message: string }`
+- **The temporary password is returned once and never again.** It is not stored in readable form and is deliberately **absent from the audit entry** — the trail records that a reset happened and who did it, which is the part that matters afterwards. A test asserts the password does not appear in the entry.
+- **Side effects**: replaces the password hash, sets `mustChangePassword: true`, clears `failedLoginAttempts`/`lockedUntil` (being locked out of a password you were just handed is the most confusing possible outcome of asking for help), revokes every refresh token and bumps `tokenVersion`. Writes a `user.password.reset` audit entry.
+- **The holder is then held on a forced change screen** until they choose their own password. `mustChangePassword` clears in exactly one place — `POST /me/change-password` — so it cannot be dismissed any other way. Note this is a *UI* gate: the API is still reachable with the temporary password, as with any working credential.
+- **Errors**: `400` malformed ID, `401`, `403` an ordinary admin targeting an account that holds a role, `403` targeting the super administrator, `404`, `409` targeting your own account (use account settings), `429`, `503`, `500`.
+
+### `POST /api/v1/admin/users/:studentId/revoke-sessions` — **Milestone 11**
+- **Permission**: `users:sessions:revoke` (admin and super admin).
+- **Request**: `{ reason?: string }` → **Response 200**: `{ success, student: ManagedAccount }`
+- Ends every live session and nothing else — the account stays active, verified and on the same password. The mild remedy ("left signed in on a school computer"), kept separate from suspension precisely so it does **not** mark the account as being in any trouble. Writes a `user.sessions.revoked` audit entry.
+- **Errors**: `400`, `401`, `403` (admin targeting a role-holder, or anyone targeting the super admin), `404`, `429`, `503`, `500`.
+
+### `DELETE /api/v1/admin/users/:studentId` — **Milestone 11**
+- **Permission**: `users:delete` — **super admin only**. Withheld from admins deliberately: every other administrative act in this product is reversible and this one is not.
+- **Request**: `{ confirmStudentId: string, reason?: string }` — the caller must retype the account's own `AMIT_xxxx`. This is not authorization (the permission gate already happened); it is a guard against acting on the wrong row, which is why the confirmation has to be something only someone looking at the right account can supply.
+- **Response 200**: `{ success, deleted: true, student: { studentId, email, fullName, registeredAt } }`
+- **Only an unverified account can be deleted.** Login is gated on verification, so an unverified account cannot have sat a paper, earned XP or appeared on a board — what this destroys is an abandoned registration, not a competitor's history. A verified account returns `409` pointing at deactivation instead, which is reversible and keeps the results of everyone that account competed against intact.
+- **Side effects**: removes the `Student` and its `StudentPhoto`, revokes its refresh tokens, and writes a `user.deleted` audit entry with the identifiers **denormalised into the entry** — afterwards there is no document left to join against.
+- **Errors**: `400` confirmation does not match, `401`, `403` not a super admin / targeting the super admin, `404`, `409` account is verified, `409` deleting your own account, `429`, `503`, `500`.
 
 ### `GET /api/v1/students/:studentId/photo`
 - **Auth**: any signed-in account. **Added in Milestone 4.**

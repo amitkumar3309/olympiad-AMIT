@@ -15,8 +15,8 @@ import type { Admin, Permission, RegisterInput, Role, SessionResponse, Student }
 type AuthState =
   | { status: 'loading' }
   | { status: 'guest' }
-  | { status: 'student'; student: Student; role: Role; permissions: Permission[] }
-  | { status: 'admin'; admin: Admin; role: Role; permissions: Permission[] }
+  | { status: 'student'; student: Student; role: Role; permissions: Permission[]; mustChangePassword: boolean }
+  | { status: 'admin'; admin: Admin; role: Role; permissions: Permission[]; mustChangePassword: boolean }
 
 export interface RegisterResult {
   message: string
@@ -32,9 +32,20 @@ interface AuthContextValue {
   register: (input: RegisterInput) => Promise<RegisterResult>
   /** `identifier` is the mobile number OR the email address. */
   login: (identifier: string, password: string) => Promise<Student>
-  adminLogin: (email: string, password: string) => Promise<Admin>
+  /**
+   * Signs in at the admin portal as either the root super admin or a promoted
+   * admin. Resolves once the session is established; read `state`/`can()` for who
+   * it turned out to be, since the two identities differ in shape.
+   */
+  adminLogin: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   logoutEverywhere: () => Promise<void>
+  /**
+   * Re-reads `/auth/me` into state. Used after an action that changes what the
+   * session says about itself — clearing `mustChangePassword` is the case that
+   * needs it, since the forced-change screen must step aside once it lifts.
+   */
+  refreshSession: () => Promise<void>
   verifyEmail: (token: string) => Promise<string>
   resendVerification: (email: string) => Promise<string>
   forgotPassword: (email: string) => Promise<string>
@@ -46,8 +57,9 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 /** Turns an auth response into state, keeping role/permissions together with the identity. */
 function toAuthState(res: SessionResponse): AuthState {
   const permissions = res.permissions ?? []
-  if (res.student) return { status: 'student', student: res.student, role: res.role, permissions }
-  if (res.admin) return { status: 'admin', admin: res.admin, role: res.role, permissions }
+  const mustChangePassword = res.mustChangePassword === true
+  if (res.student) return { status: 'student', student: res.student, role: res.role, permissions, mustChangePassword }
+  if (res.admin) return { status: 'admin', admin: res.admin, role: res.role, permissions, mustChangePassword }
   return { status: 'guest' }
 }
 
@@ -106,10 +118,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.student!
   }, [])
 
+  /**
+   * Signs in at the administrator portal.
+   *
+   * Two different identities legitimately sign in there, and they authenticate
+   * against different endpoints:
+   *
+   * - the **root** super admin, which exists only in the environment
+   *   (`ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH`), has no database record, and posts to
+   *   `/auth/admin/login`;
+   * - a **promoted** admin, which is an ordinary student account carrying
+   *   `role: 'admin'`, and posts to the normal `/auth/login`.
+   *
+   * Requiring the promoted admin to know that distinction was a trap: the portal
+   * answered their perfectly correct credentials with "Invalid admin credentials",
+   * which reads as a broken account rather than as the wrong door. So we try the
+   * root endpoint first — it is stateless and touches no account — and fall back to
+   * the ordinary login when it reports that these are not the root credentials.
+   *
+   * The fallback reveals nothing: `/auth/login` returns the same generic failure for
+   * an unknown account as for a wrong password, and an account that turns out to
+   * hold no administrative permission simply lands on the portal's "this area is for
+   * administrators" state.
+   */
   const adminLogin = useCallback(async (email: string, password: string) => {
-    const res = await api.post<SessionResponse>('/auth/admin/login', { email, password })
-    setState(toAuthState(res))
-    return res.admin!
+    try {
+      setState(toAuthState(await api.post<SessionResponse>('/auth/admin/login', { email, password })))
+      return
+    } catch (err) {
+      // Only "those are not the root credentials" is worth a second attempt. A 500
+      // from an unconfigured root account, or a network failure, is the real answer.
+      if (!(err instanceof ApiError) || err.status !== 401) throw err
+    }
+    // `identifier` accepts an email or a mobile number, so a promoted admin can use
+    // whichever they sign in with everywhere else.
+    setState(toAuthState(await api.post<SessionResponse>('/auth/login', { identifier: email, password })))
   }, [])
 
   const logout = useCallback(async () => {
@@ -166,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         adminLogin,
         logout,
         logoutEverywhere,
+        refreshSession: loadSession,
         verifyEmail,
         resendVerification,
         forgotPassword,

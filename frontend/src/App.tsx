@@ -1,8 +1,9 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './context/AuthContext'
+import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute, RequirePermission } from './components/ProtectedRoute'
+import ForcePasswordChange from './components/ForcePasswordChange'
 import Spinner from './components/Spinner'
 import Landing from './pages/Landing/Landing'
 import Admin from './pages/Admin/Admin'
@@ -59,12 +60,27 @@ import VerifyEmail from './pages/Auth/VerifyEmail'
 import ForgotPassword from './pages/Auth/ForgotPassword'
 import ResetPassword from './pages/Auth/ResetPassword'
 
+/**
+ * Holds the entire application on the forced password-change screen while a
+ * staff-issued temporary password is still outstanding.
+ *
+ * Placed *outside* the router deliberately: as a route it would be one URL among
+ * many, and anything the student typed into the address bar would step around it.
+ * Here there is simply nothing else rendered until the password is changed.
+ */
+function SessionGate({ children }: { children: ReactNode }) {
+  const { state } = useAuth()
+  const mustChange = (state.status === 'student' || state.status === 'admin') && state.mustChangePassword
+  return mustChange ? <ForcePasswordChange /> : <>{children}</>
+}
+
 export default function App() {
   return (
     // Theme sits outermost so it applies to every route, and to the auth-loading
     // state before any page has rendered.
     <ThemeProvider>
     <AuthProvider>
+      <SessionGate>
       <BrowserRouter>
         {/* One boundary around every route: only the lazily-loaded ones can suspend,
             and a single fallback is simpler than wrapping each of them. */}
@@ -300,6 +316,7 @@ export default function App() {
         </Routes>
         </Suspense>
       </BrowserRouter>
+      </SessionGate>
     </AuthProvider>
     </ThemeProvider>
   )

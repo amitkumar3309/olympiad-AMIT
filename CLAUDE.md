@@ -58,6 +58,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   src/services/               question + taxonomy business rules (Milestone 4);
                               practice (M6), mockTest (M7), dailyChallenge (M8);
                               rewardService.ts — THE gamification engine (M9);
+                              rootAdminService.ts — THE super-admin bootstrap (M11);
                               leaderboardService.ts — THE ranking (M10);
                               hallOfFameService.ts — the honours boards (M10);
                               grading.ts — THE marking rules, shared by all;
@@ -165,11 +166,15 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Authentication Conventions
 
-- **Three roles**: `student`, `admin`, `superadmin`. The env-configured account (`ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH`) is the **root `superadmin`** — the bootstrap identity, with no database document, signing in at `/api/v1/auth/admin/login`. An `admin` is an ordinary account promoted by a super admin (`PATCH /api/v1/admin/users/:studentId/role`); promoted admins sign in through the normal `/auth/login`. `superadmin` is deliberately **not** assignable through any API — do not add a way to create a second one.
+- **Three roles**: `student`, `admin`, `superadmin`. **Every one of them is a `Student` document** since Milestone 11 — including the root `superadmin`, which is auto-provisioned from `ADMIN_EMAIL`/`ADMIN_PASSWORD_HASH` the first time anyone signs in at `/api/v1/auth/admin/login`. Those two variables are the **bootstrap seed, not the ongoing source of truth**: once the document exists, authentication runs against it. An `admin` is an ordinary account promoted by a super admin (`PATCH /api/v1/admin/users/:studentId/role`).
+- **`superadmin` is storable but not assignable.** `ASSIGNABLE_ROLES` omits it, so no API call can mint a second one; the only writer is the bootstrap in `services/rootAdminService.ts`. Do not add an API path to it.
+- **Never let `resolveRootSuperadmin()` upgrade an existing account.** It adopts a document only if it *already* holds `superadmin`, and registration refuses `ADMIN_EMAIL` outright. Both halves are needed: without them, anyone who learned the configured address could register it before the first admin sign-in and then authenticate with their own password to be handed the role. This is the escalation the whole bootstrap is shaped around.
+- **There is exactly one password check: `authenticateAccount()` in `auth.routes.ts`.** Both sign-in routes go through it, so lockout, account status, email verification and the failure counter are defined once. Do not write a bespoke check for a privileged account — that is precisely where a missing status check goes unnoticed.
 - A promoted admin is a `Student` document with `role: 'admin'`, so it keeps its student capabilities. Do not "fix" that by splitting staff into a separate collection without a `DECISIONS.md` entry first — the reuse is the point (see the Milestone 3 ADR).
 - Students register via `/api/v1/auth/register` with fullName + mobile + **email** + password. `role` submitted at registration is ignored; the schema default is the only way it is set.
 - Students log in with **either** their mobile number or their email (`identifier` field). Email verification is **real** and required before login; the old fake client-side OTP step has been deleted. Do not reintroduce any mock verification.
-- The **root** admin gets a longer-lived access token and **no** refresh token, because there is no `Student` record to anchor a token family to. A promoted admin is a normal account and does get a rotating refresh token.
+- **Every account gets a rotating refresh token**, the super admin included. There is no longer a longer-lived admin token and no `ADMIN_TOKEN_TTL`; the `root: true` claim is gone, and `resolveCurrentRole()` has **no exemption** — every privileged request re-reads the role from the database. Do not reintroduce a document-less identity (see the Milestone 11 ADR for the five things the old design could not do).
+- **The bootstrap super admin earns no XP.** `grantReward()` refuses it, because every leaderboard aggregates `StudentActivity` and a staff account must never rank above the children who competed. A *promoted* admin does earn — it genuinely registered.
 - Registration deliberately does **not** create a session. Don't "helpfully" log the student in on registration.
 
 ## Security Rules
@@ -180,7 +185,7 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Testing Requirements
 
-- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **535 tests across 17 files**. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** still has none. See [`TESTING.md`](TESTING.md).
+- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **566 tests across 18 files**. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** still has none. See [`TESTING.md`](TESTING.md).
 - `NODE_ENV=test` skips `.env` loading, so tests can never pick up real secrets, and also lowers bcrypt cost and disables rate limiters for speed/determinism. Don't "fix" any of that.
 - Use `tests/helpers/db.ts` (real in-memory MongoDB) and `tests/helpers/auth.ts` (`registerVerifyLogin`, cookie parsing, real token extraction from the captured email) rather than writing new harnesses.
 - **Rate limiting, security headers and CORS are implemented but not asserted by tests.** Absence of a test is not absence of the protection.

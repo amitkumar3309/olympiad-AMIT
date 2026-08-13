@@ -18,8 +18,20 @@ export class ApiError extends Error {
  */
 export const API_BASE = '/api/v1'
 
-/** Endpoints that must never trigger the refresh-and-retry cycle. */
-const NO_REFRESH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/me']
+/**
+ * Endpoints that must never trigger the refresh-and-retry cycle. A 401 from any of
+ * these means "those credentials are wrong", not "your token aged out" — refreshing
+ * cannot help, and replaying the request would spend a second login attempt against
+ * the rate limiter and the account's failed-login counter.
+ */
+const NO_REFRESH_PATHS = [
+  '/auth/login',
+  '/auth/admin/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/me',
+]
 
 /**
  * Access tokens are short-lived, so any authenticated request can fail with a
@@ -83,7 +95,14 @@ export const api = {
   /** Full replacement. Used for a question edit, which sends the whole content. */
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
-  del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  /**
+   * `body` is optional and rarely wanted, but account deletion asks the caller to
+   * retype the account's own student ID — a confirmation that must travel in the
+   * body rather than the query string, because a URL is logged, cached and kept in
+   * browser history, and this one names a specific child's account.
+   */
+  del: <T>(path: string, body?: unknown) =>
+    request<T>(path, { method: 'DELETE', body: body !== undefined ? JSON.stringify(body) : undefined }),
   /** Attempts a session refresh directly; used on app start to restore a session. */
   tryRefresh: refreshSession,
 }

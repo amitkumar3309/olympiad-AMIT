@@ -9,8 +9,23 @@ import { ROLES, type Role } from '../lib/permissions';
 export const AUDIT_ACTIONS = [
   /** A super admin granted or revoked the admin role. */
   'user.role.changed',
-  /** An admin suspended, deactivated or reactivated an account. */
+  /** An admin suspended, blocked, deactivated or reactivated an account. */
   'student.status.changed',
+  /**
+   * Staff issued a temporary password for someone else's account. The password is
+   * of course not recorded — only that a member of staff took control of another
+   * person's credential, which is the single administrative act most worth being
+   * able to point at afterwards.
+   */
+  'user.password.reset',
+  /** Staff ended every live session for an account, without changing anything else. */
+  'user.sessions.revoked',
+  /**
+   * A super admin permanently deleted an unverified account. Recorded with the
+   * deleted account's identifiers denormalised into the entry, because after this
+   * action there is no document left to join against.
+   */
+  'user.deleted',
   /**
    * A student edited their own profile details. Recorded for the same reason an
    * administrator's edit would be: this is a change to an account, and the trail

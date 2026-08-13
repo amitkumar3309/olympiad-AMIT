@@ -83,7 +83,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 |---|---|---|---|---|
 | `ACCESS_TOKEN_TTL` | optional (default `15m`) | Lifetime of the short access-token JWT. | `15m` | Also the maximum time a revoked session can linger — see [`SECURITY.md`](SECURITY.md). Shorter is safer but means more refresh traffic. |
 | `REFRESH_TOKEN_TTL_DAYS` | optional (default `30`) | How long a student stays signed in without re-entering a password. | `30` | Rotated on every use. |
-| `ADMIN_TOKEN_TTL` | optional (default `8h`) | Admin access-token lifetime. | `8h` | Admins get no refresh token, so this is how often they re-authenticate. |
+| ~~`ADMIN_TOKEN_TTL`~~ | **removed in Milestone 11** | — | — | The super admin now has a database account and a rotating refresh token like everybody else, so it uses `ACCESS_TOKEN_TTL`. Harmless if still set anywhere — it is ignored. |
 
 ### Auth policy (all optional)
 

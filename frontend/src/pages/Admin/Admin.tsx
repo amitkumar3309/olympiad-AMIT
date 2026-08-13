@@ -117,7 +117,7 @@ export default function Admin() {
           <p>Sign in to manage students, questions, and analytics.</p>
           {error && <p className="error-text">{error}</p>}
           <div className="form-group">
-            <label>Admin Email</label>
+            <label>Email or mobile number</label>
             <input className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
           <div className="form-group">
@@ -134,7 +134,8 @@ export default function Admin() {
             {submitting ? 'Signing in...' : 'Login'}
           </Button>
           <p className={styles.loginHint}>
-            Administrators promoted from a student account sign in from the <Link to="/">home page</Link>.
+            Use your normal account details. Administrators promoted from a student account sign in here with the
+            same email or mobile number and password they use on the <Link to="/">home page</Link>.
           </p>
         </form>
       </div>

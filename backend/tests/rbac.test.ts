@@ -451,7 +451,12 @@ describe('administrative audit trail', () => {
     const entry = await AuditLog.findOne({ action: 'user.role.changed' });
     expect(entry).not.toBeNull();
     expect(entry!.actorRole).toBe('superadmin');
-    expect(entry!.actorLabel).toBe(rootAdmin.email);
+    // Since Milestone 11 the super admin is labelled by its student ID like every
+    // other actor, because it now has one. That is the point of giving it a record:
+    // its entries carry a resolvable `actor`, so "everything this account ever did"
+    // is finally a query rather than a string match on an email.
+    expect(entry!.actorLabel).toMatch(/^AMIT_\d{4}$/);
+    expect(entry!.actor).not.toBeNull();
     expect(entry!.targetId).toBe(studentId);
     expect(entry!.outcome).toBe('success');
     expect(entry!.metadata).toMatchObject({ from: 'student', to: 'admin', reason: 'Appointed as regional coordinator' });
@@ -565,7 +570,11 @@ describe('admin listing and lookup', () => {
     const res = await request(app).get(`${API}/admin/students?limit=1`).set('Cookie', cookieHeader(cookies)).expect(200);
 
     expect(res.body.students).toHaveLength(1);
-    expect(res.body.pagination).toMatchObject({ page: 1, limit: 1, total: 2, totalPages: 2 });
+    // Three accounts, not two: the two students plus the super administrator,
+    // which `createAdminSession` provisions on its way through the root sign-in.
+    // Since Milestone 11 it is a real document, so it is listed like any other —
+    // that visibility is a large part of why it was given one.
+    expect(res.body.pagination).toMatchObject({ page: 1, limit: 1, total: 3, totalPages: 3 });
   });
 
   it('never includes a password hash in the listing', async () => {
@@ -586,11 +595,21 @@ describe('admin listing and lookup', () => {
       .expect(200);
     expect(admins.body.pagination.total).toBe(1);
 
+    // The super admin holds its own role, so it is not in the `admin` bucket —
+    // and it is filterable in its own right, which is what lets somebody auditing
+    // the system actually find the most privileged account in it.
+    const superadmins = await request(app)
+      .get(`${API}/admin/students?role=superadmin`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+    expect(superadmins.body.pagination.total).toBe(1);
+
     const active = await request(app)
       .get(`${API}/admin/students?status=active`)
       .set('Cookie', cookieHeader(cookies))
       .expect(200);
-    expect(active.body.pagination.total).toBe(2);
+    // Two students plus the provisioned super administrator.
+    expect(active.body.pagination.total).toBe(3);
   });
 
   it('treats a search term as literal text, not as a pattern', async () => {
@@ -691,5 +710,71 @@ describe('a promoted admin keeps its own student capabilities', () => {
 
     expect(rotated.access_token).toBe('');
     await request(app).get(`${API}/admin/students`).set('Cookie', cookieHeader(cookies)).expect(401);
+  });
+});
+
+/**
+ * The admin portal accepts both administrative identities in one form, by posting to
+ * `/auth/admin/login` first and falling back to `/auth/login` when that reports these
+ * are not the root credentials (`frontend/src/context/AuthContext.tsx`).
+ *
+ * These tests pin the contract that fallback reads. Before it existed, a promoted
+ * admin who typed their correct password into the portal was told "Invalid admin
+ * credentials", which reads as a broken account rather than as the wrong door.
+ */
+describe('the admin portal accepts both administrative identities', () => {
+  it('rejects a promoted admin at the root-only endpoint, with the 401 the fallback keys on', async () => {
+    const { account } = await createAdminSession(app);
+
+    const res = await request(app)
+      .post(`${API}/auth/admin/login`)
+      .send({ email: account.email, password: account.password });
+
+    // The status matters as much as the refusal: the portal falls back only on 401.
+    // Were this to become 403, a promoted admin could never sign in there again.
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('signs the same promoted admin in through the ordinary login, with admin permissions', async () => {
+    const { account } = await createAdminSession(app);
+
+    const res = await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: account.email, password: account.password })
+      .expect(200);
+
+    expect(res.body.role).toBe('admin');
+    expect(res.body.permissions).toContain('students:read');
+    expect(res.body.permissions).toContain('questions:write');
+    expect(res.body.permissions).toContain('challenges:write');
+    // Still not a super admin: only the root account may hand out roles.
+    expect(res.body.permissions).not.toContain('users:role:write');
+
+    // And the session that login produced really does open the admin routes that
+    // refused it before.
+    const cookies = parseCookies(res);
+    await request(app).get(`${API}/admin/students`).set('Cookie', cookieHeader(cookies)).expect(200);
+  });
+
+  it('still lets the root super admin in at the root endpoint', async () => {
+    const res = await request(app).post(`${API}/auth/admin/login`).send(rootAdmin).expect(200);
+
+    expect(res.body.role).toBe('superadmin');
+    expect(res.body.permissions).toContain('users:role:write');
+  });
+
+  it('refuses a wrong password at both endpoints, so the fallback cannot become a bypass', async () => {
+    const { account } = await createAdminSession(app);
+
+    await request(app)
+      .post(`${API}/auth/admin/login`)
+      .send({ email: account.email, password: 'NotTheRightPassword1' })
+      .expect(401);
+
+    await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: account.email, password: 'NotTheRightPassword1' })
+      .expect(401);
   });
 });

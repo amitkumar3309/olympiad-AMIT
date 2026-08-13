@@ -1,8 +1,22 @@
 import mongoose, { Schema, type Document } from 'mongoose';
-import { ASSIGNABLE_ROLES, type AssignableRole } from '../lib/permissions';
+import { ROLES, type Role } from '../lib/permissions';
 import { CLASS_LEVELS, type ClassLevel } from '../lib/classLevels';
 
-export type AccountStatus = 'active' | 'suspended' | 'deactivated';
+/**
+ * Four states, three of which bar sign-in. They are kept distinct because the
+ * audit trail has to be able to say *why* an account stopped working, and because
+ * only one of them is meant to be undone as a matter of course:
+ *
+ * - `active`      — normal.
+ * - `suspended`   — a temporary hold by staff, expected to be lifted.
+ * - `blocked`     — a permanent bar by staff. A ban.
+ * - `deactivated` — the account is closed rather than in trouble.
+ *
+ * Collapsing `blocked` into `suspended` would make a ban and a routine hold
+ * indistinguishable in the trail a year later, which is exactly when someone asks.
+ */
+export const ACCOUNT_STATUSES = ['active', 'suspended', 'blocked', 'deactivated'] as const;
+export type AccountStatus = (typeof ACCOUNT_STATUSES)[number];
 
 export interface StudentDocument extends Document {
   /**
@@ -28,11 +42,23 @@ export interface StudentDocument extends Document {
   status: AccountStatus;
   /**
    * Authorization role for this account. Every account starts as `student`; a
-   * super admin promotes one to `admin` (see routes/v1/users.routes.ts). Only the
-   * environment-configured root account holds `superadmin`, and it has no document
-   * here at all — so `superadmin` is deliberately not an assignable value.
+   * super admin promotes one to `admin` (see routes/v1/users.routes.ts).
+   *
+   * `superadmin` **is** storable here, because the root account now has a document
+   * (auto-provisioned from `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` on first sign-in,
+   * so it can hold a refresh-token family like any other account). It remains
+   * un-*assignable*: `ASSIGNABLE_ROLES` omits it, so no API call can mint a second
+   * one — the only writer is the bootstrap in `auth.routes.ts`.
    */
-  role: AssignableRole;
+  role: Role;
+  /**
+   * Set when staff issue a temporary password. The holder keeps a working session
+   * but must replace the password before the account is useful again.
+   */
+  mustChangePassword: boolean;
+  /** Who issued the temporary password, and when. Never the password itself. */
+  passwordResetAt?: Date | null;
+  passwordResetBy?: string | null;
   /** Audit convenience: when the role last changed, and who changed it. */
   roleUpdatedAt?: Date | null;
   roleUpdatedBy?: string | null;
@@ -57,9 +83,15 @@ export interface StudentDocument extends Document {
  * the requirement to `isNew` enforces it exactly where the data is actually
  * collected — the registration route, the only path that creates a Student.
  * See DATABASE_SCHEMA.md and the Milestone 4 ADR in DECISIONS.md.
+ *
+ * It is additionally scoped to `student`, because these are the details of an
+ * *entrant* — a date of birth, a class, a school. The bootstrap super admin is
+ * staff, has none of them, and is the only account created by anything other than
+ * the registration route. Since that route can only ever produce a `student`, the
+ * requirement still bites in exactly the place the data is collected.
  */
 function requiredOnCreate(this: StudentDocument): boolean {
-  return this.isNew;
+  return this.isNew && this.role === 'student';
 }
 
 const studentSchema = new Schema<StudentDocument>({
@@ -73,19 +105,29 @@ const studentSchema = new Schema<StudentDocument>({
   classLevel: { type: String, enum: CLASS_LEVELS, required: requiredOnCreate },
   schoolName: { type: String, required: requiredOnCreate, trim: true },
   address: { type: String, required: requiredOnCreate, trim: true },
-  mobile: { type: String, required: true, unique: true, trim: true },
+  // `required` is scoped like the registration details above, so the bootstrap
+  // super admin (which has no mobile number) can be created. The index options are
+  // deliberately untouched: `required` is application-level validation, so this
+  // change cannot conflict with the `unique` index already built in production.
+  // Only one account may ever lack a mobile, which a unique index permits.
+  mobile: { type: String, required: requiredOnCreate, unique: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
   // Unique so the AMIT_xxxx generator can no longer silently collide; the
   // registration handler retries on a duplicate-key error.
   studentId: { type: String, required: true, unique: true },
   isEmailVerified: { type: Boolean, default: false },
-  status: { type: String, enum: ['active', 'suspended', 'deactivated'], default: 'active' },
+  status: { type: String, enum: ACCOUNT_STATUSES, default: 'active' },
   // Indexed because the admin student list filters by role, and because the
   // authorization freshness check reads it on every privileged request.
-  role: { type: String, enum: ASSIGNABLE_ROLES, default: 'student', index: true },
+  // The enum is the full `ROLES`, not `ASSIGNABLE_ROLES`: the bootstrap super
+  // admin is stored here, while remaining unassignable through the API.
+  role: { type: String, enum: ROLES, default: 'student', index: true },
   roleUpdatedAt: { type: Date, default: null },
   roleUpdatedBy: { type: String, default: null },
+  mustChangePassword: { type: Boolean, default: false },
+  passwordResetAt: { type: Date, default: null },
+  passwordResetBy: { type: String, default: null },
   tokenVersion: { type: Number, default: 0 },
   failedLoginAttempts: { type: Number, default: 0 },
   lockedUntil: { type: Date, default: null },

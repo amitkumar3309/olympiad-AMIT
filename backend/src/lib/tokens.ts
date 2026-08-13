@@ -14,14 +14,17 @@ export interface AccessTokenClaims {
    * a demotion cannot be outlived by an already-issued token.
    */
   role: Role;
-  /** Mongo `_id` of the account (absent for the env root admin, which has no DB record). */
+  /**
+   * Mongo `_id` of the account. Optional only because tokens issued before
+   * Milestone 11 (when the root administrator had no document) lack it — such a
+   * token now resolves to no account and is refused, which is the intended
+   * migration path rather than an oversight.
+   */
   sub?: string;
   studentId?: string;
   email?: string;
   /** Account's `tokenVersion` at issue time; a mismatch means the token was revoked. */
   tv?: number;
-  /** Marks the environment-configured root admin, which has no database document. */
-  root?: true;
 }
 
 /**
@@ -43,12 +46,11 @@ function randomToken(): string {
 // ---------------------------------------------------------------------------
 
 export function signAccessToken(claims: AccessTokenClaims): string {
-  // The env root admin has no refresh token to renew a short-lived access token
-  // with, so it gets the longer admin TTL. A *promoted* admin is a normal account
-  // with a refresh-token family, so it keeps the short student TTL — which also
-  // means its elevated privileges are re-derived from the database frequently.
-  const ttl = claims.root ? config.admin.tokenTtl : config.auth.accessTokenTtl;
-  return jwt.sign(claims, config.jwtSecret, { expiresIn: ttl } as SignOptions);
+  // One TTL for everybody since Milestone 11. The root administrator used to get a
+  // longer one because it had no refresh token to renew a short access token with;
+  // now that it has an account, it renews like anything else — and its elevated
+  // privileges are re-derived from the database that much more often as a result.
+  return jwt.sign(claims, config.jwtSecret, { expiresIn: config.auth.accessTokenTtl } as SignOptions);
 }
 
 /** Returns the claims, or null if the token is missing, malformed, tampered with, or expired. */

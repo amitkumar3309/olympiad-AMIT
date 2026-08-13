@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { config } from '../../config';
-import { Student, StudentPhoto, type StudentDocument } from '../../models';
+import { Student, StudentPhoto, type AccountStatus, type StudentDocument } from '../../models';
+import { resolveRootSuperadmin, isRootAdminEmail } from '../../services/rootAdminService';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { requireAuth } from '../../middleware/auth';
@@ -33,9 +34,7 @@ import {
   clearSessionCookies,
 } from '../../lib/session';
 import {
-  signAccessToken,
   verifyAccessToken,
-  type AccessTokenClaims,
   rotateRefreshToken,
   revokeRefreshToken,
   revokeAllRefreshTokens,
@@ -80,7 +79,17 @@ function publicStudent(student: StudentDocument) {
  * server's own authorization table instead of re-implementing it and drifting.
  */
 function sessionEnvelope(student: StudentDocument) {
-  return { role: student.role, permissions: permissionsFor(student.role), student: publicStudent(student) };
+  return {
+    role: student.role,
+    permissions: permissionsFor(student.role),
+    student: publicStudent(student),
+    /**
+     * Set when staff have issued a temporary password. The frontend holds the
+     * session on a forced change screen until it clears; the flag travels on every
+     * auth response so a reload cannot step around it.
+     */
+    mustChangePassword: student.mustChangePassword === true,
+  };
 }
 
 /**
@@ -129,6 +138,18 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
   const { photo, password, ...details } = req.body as RegisterInput;
 
   try {
+    // The bootstrap super-admin address is not registrable. Without this, anyone
+    // who learned `ADMIN_EMAIL` could claim it as an ordinary account *before* the
+    // first administrative sign-in provisioned it — and then authenticate against
+    // their own password at the admin portal. `resolveRootSuperadmin()` refuses to
+    // adopt a non-superadmin document for exactly that reason; this closes the
+    // window from the other side. The message is the ordinary "already registered"
+    // one, so this does not disclose which address is the administrator's.
+    if (isRootAdminEmail(details.email)) {
+      sendError(res, 409, 'This email address is already registered.');
+      return;
+    }
+
     const passwordHash = await hashPassword(password);
 
     let student: StudentDocument | null = null;
@@ -275,6 +296,95 @@ router.post(
 // Login
 // ---------------------------------------------------------------------------
 
+type AuthFailure = { ok: false; status: number; message: string; code?: string };
+type AuthOutcome = { ok: true } | AuthFailure;
+
+/** Why an account that exists is nevertheless barred from signing in. */
+function barredMessage(status: AccountStatus): string {
+  switch (status) {
+    case 'suspended':
+      return 'This account has been suspended. Contact support for help.';
+    case 'blocked':
+      return 'This account has been blocked. Contact support if you believe this is a mistake.';
+    default:
+      return 'This account has been deactivated.';
+  }
+}
+
+/**
+ * The **only** password check in this backend.
+ *
+ * Both sign-in routes run through here — the ordinary one and the root super
+ * admin's — so lockout, account status, email verification, the failure counter and
+ * session establishment are defined exactly once. A second copy for the most
+ * privileged account is precisely where a missing status check would go unnoticed
+ * for a year, which is why the super admin now authenticates through the same path
+ * as a Class 9 student rather than through a bespoke branch.
+ *
+ * The caller supplies the account (already loaded with `+passwordHash`) and the
+ * message to use for a bad password, because "check your mobile number or email"
+ * makes no sense at the admin portal. Everything else is shared.
+ *
+ * On success the session cookies are already set when this returns.
+ */
+async function authenticateAccount(
+  student: StudentDocument,
+  password: string,
+  req: Request,
+  res: Response,
+  invalidCredentialsMessage: string,
+): Promise<AuthOutcome> {
+  if (student.lockedUntil && student.lockedUntil.getTime() > Date.now()) {
+    const minutes = Math.max(1, Math.ceil((student.lockedUntil.getTime() - Date.now()) / 60000));
+    return {
+      ok: false,
+      status: 423,
+      message: `Account temporarily locked after too many failed attempts. Try again in ${minutes} minute(s).`,
+    };
+  }
+
+  if (!(await verifyPassword(password, student.passwordHash))) {
+    student.failedLoginAttempts += 1;
+    if (student.failedLoginAttempts >= config.auth.maxFailedLogins) {
+      student.lockedUntil = new Date(Date.now() + config.auth.accountLockMinutes * 60 * 1000);
+      student.failedLoginAttempts = 0;
+      logger.warn({ studentId: student.studentId }, 'Account locked after repeated failed logins');
+    }
+    await student.save();
+    return { ok: false, status: 401, message: invalidCredentialsMessage };
+  }
+
+  if (student.status !== 'active') {
+    return { ok: false, status: 403, message: barredMessage(student.status) };
+  }
+
+  if (config.auth.requireEmailVerification && !student.isEmailVerified) {
+    return {
+      ok: false,
+      status: 403,
+      message: 'Please verify your email address before signing in. Check your inbox for the link.',
+      code: 'EMAIL_NOT_VERIFIED',
+    };
+  }
+
+  // A successful login clears the failure counter and any expired lock.
+  student.failedLoginAttempts = 0;
+  student.lockedUntil = null;
+  student.lastLoginAt = new Date();
+  await student.save();
+
+  await establishSession(res, student, req);
+
+  // Counts toward the daily streak. Idempotent per competition day, so signing in
+  // from a second device does not earn a second visit. The engine decides who is
+  // eligible — the bootstrap super admin earns nothing, and this call does not need
+  // to know that.
+  await grantDailyVisit(studentObjectId(student));
+
+  req.user = studentClaims(student);
+  return { ok: true };
+}
+
 router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensureDb, async (req, res) => {
   try {
     const { identifier, password } = req.body as { identifier: string; password: string };
@@ -294,57 +404,15 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
       return;
     }
 
-    if (student.lockedUntil && student.lockedUntil.getTime() > Date.now()) {
-      const minutes = Math.max(1, Math.ceil((student.lockedUntil.getTime() - Date.now()) / 60000));
-      sendError(res, 423, `Account temporarily locked after too many failed attempts. Try again in ${minutes} minute(s).`);
+    const outcome = await authenticateAccount(student, password, req, res, invalidCredentials);
+    if (!outcome.ok) {
+      sendError(res, outcome.status, outcome.message, outcome.code ? { code: outcome.code } : undefined);
       return;
     }
-
-    const passwordOk = await verifyPassword(password, student.passwordHash);
-    if (!passwordOk) {
-      student.failedLoginAttempts += 1;
-      if (student.failedLoginAttempts >= config.auth.maxFailedLogins) {
-        student.lockedUntil = new Date(Date.now() + config.auth.accountLockMinutes * 60 * 1000);
-        student.failedLoginAttempts = 0;
-        logger.warn({ studentId: student.studentId }, 'Account locked after repeated failed logins');
-      }
-      await student.save();
-      sendError(res, 401, invalidCredentials);
-      return;
-    }
-
-    if (student.status !== 'active') {
-      const message =
-        student.status === 'suspended'
-          ? 'This account has been suspended. Contact support for help.'
-          : 'This account has been deactivated.';
-      sendError(res, 403, message);
-      return;
-    }
-
-    if (config.auth.requireEmailVerification && !student.isEmailVerified) {
-      sendError(res, 403, 'Please verify your email address before signing in. Check your inbox for the link.', {
-        code: 'EMAIL_NOT_VERIFIED',
-      });
-      return;
-    }
-
-    // A successful login clears the failure counter and any expired lock.
-    student.failedLoginAttempts = 0;
-    student.lockedUntil = null;
-    student.lastLoginAt = new Date();
-    await student.save();
-
-    await establishSession(res, student, req);
-
-    // Counts toward the daily streak. Idempotent per competition day, so signing in
-    // from a second device does not earn a second visit.
-    await grantDailyVisit(studentObjectId(student));
 
     // A sign-in by an account that holds administrative capability is itself worth
     // recording — it is the event every later administrative action hangs off.
     if (isPrivilegedRole(student.role)) {
-      req.user = studentClaims(student);
       await recordAudit(req, {
         action: 'admin.session.started',
         targetType: 'system',
@@ -360,42 +428,64 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
   }
 });
 
-router.post('/auth/admin/login', loginLimiter, validate({ body: adminLoginSchema }), async (req, res) => {
+/**
+ * Signs in the **root super administrator**, provisioning its account on first use.
+ *
+ * Since Milestone 11 this identity has a real `Student` document, so it holds a
+ * rotating refresh token, a `tokenVersion`, and a row in the account listing like
+ * everybody else — see `services/rootAdminService.ts` for why that was worth
+ * reversing. `ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` remain the bootstrap seed.
+ *
+ * Once the document exists, authentication runs through the **same** path as an
+ * ordinary sign-in — lockout, status, verification and session establishment — via
+ * `authenticateAccount()`. There is no second password check anywhere in this
+ * backend, which is the point: a bespoke one for the most privileged account is
+ * exactly where a missing lockout or status check would never be noticed.
+ *
+ * `ensureDb` is now required, where the old environment-only version answered
+ * without a database. That is a real consequence and a deliberate one: every other
+ * privileged request already needs the database in order to authorize (see
+ * DECISIONS.md), so an admin session that could be *created* without one only ever
+ * bought a session that could do nothing.
+ */
+router.post('/auth/admin/login', loginLimiter, validate({ body: adminLoginSchema }), ensureDb, async (req, res) => {
   try {
     const { email, password } = req.body as { email: string; password: string };
-    const { email: adminEmail, passwordHash: adminPasswordHash } = config.admin;
+    const resolution = await resolveRootSuperadmin(email);
 
-    if (!adminEmail || !adminPasswordHash) {
-      sendError(res, 500, 'Admin account is not configured.');
-      return;
-    }
-    if (email !== adminEmail || !(await verifyPassword(password, adminPasswordHash))) {
+    if (!resolution.ok) {
+      if (resolution.reason === 'not-configured') {
+        sendError(res, 500, 'Admin account is not configured.');
+        return;
+      }
+      if (resolution.reason === 'email-taken') {
+        sendError(res, 500, 'The configured administrator address belongs to another account. Contact the operator.');
+        return;
+      }
+      // 'not-root' — this is not the bootstrap address. The frontend portal reads
+      // this 401 as its cue to retry against the ordinary login, which is how a
+      // *promoted* admin signs in at the same form.
       sendError(res, 401, 'Invalid admin credentials.');
       return;
     }
 
-    // The environment-configured account is the *root* administrator: it holds
-    // `superadmin`, the only role that can grant or revoke admin rights, and it is
-    // the bootstrap identity (nothing else can create the first admin). It has no
-    // database record, so no refresh-token family to rotate — it gets a single
-    // longer-lived access token, marked `root` so the authorization layer knows not
-    // to look for a document. See DECISIONS.md.
-    const claims: AccessTokenClaims = { role: 'superadmin', email, root: true };
-    res.cookie(config.auth.accessCookieName, signAccessToken(claims), config.auth.accessCookieOptions);
+    const outcome = await authenticateAccount(resolution.account, password, req, res, 'Invalid admin credentials.');
+    if (!outcome.ok) {
+      sendError(res, outcome.status, outcome.message, outcome.code ? { code: outcome.code } : undefined);
+      return;
+    }
 
-    req.user = claims;
     await recordAudit(req, {
       action: 'admin.session.started',
       targetType: 'system',
-      targetLabel: email,
-      metadata: { role: 'superadmin', via: 'root-credentials' },
+      targetLabel: resolution.account.email,
+      metadata: {
+        role: resolution.account.role,
+        via: resolution.provisioned ? 'root-bootstrap' : 'root-credentials',
+      },
     });
 
-    sendSuccess(res, 200, {
-      role: 'superadmin',
-      permissions: permissionsFor('superadmin'),
-      admin: { email, role: 'superadmin' },
-    });
+    sendSuccess(res, 200, sessionEnvelope(resolution.account));
   } catch (err) {
     logger.error({ err }, 'Admin login failed');
     sendError(res, 500, 'Admin login failed.');
@@ -494,17 +584,9 @@ router.get('/auth/me', async (req, res) => {
     return;
   }
 
-  // The root admin's identity lives entirely in the token — no database read
-  // needed, so this answers even when MongoDB is unreachable.
-  if (payload.root) {
-    sendSuccess(res, 200, {
-      role: payload.role,
-      permissions: permissionsFor(payload.role),
-      admin: { email: payload.email, role: payload.role },
-    });
-    return;
-  }
-
+  // Since Milestone 11 there is no document-less identity: the root super admin has
+  // an account like everybody else, so this route no longer has a special case, and
+  // every caller is resolved the same way.
   try {
     const student = await Student.findById(payload.sub);
     if (!student) {
@@ -586,6 +668,9 @@ router.post('/auth/reset-password', tokenSubmitLimiter, validate({ body: resetPa
     student.tokenVersion += 1;
     student.failedLoginAttempts = 0;
     student.lockedUntil = null;
+    // Also clears a staff-issued temporary password: the holder has just chosen a
+    // password of their own, which is exactly what the flag was waiting for.
+    student.mustChangePassword = false;
     // Completing a reset proves control of the mailbox, so treat it as verifying it.
     const wasUnverified = !student.isEmailVerified;
     student.isEmailVerified = true;

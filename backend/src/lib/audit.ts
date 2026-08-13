@@ -17,16 +17,20 @@ export interface AuditEntry {
 /**
  * How an actor is identified in the trail: `AMIT_xxxx` for any account-backed
  * actor, so it matches the `targetId` of entries about that same account and can be
- * pasted straight into the admin search. The root admin has no student ID, so it is
- * identified by the email it signs in with.
+ * pasted straight into the admin search.
+ *
+ * Since Milestone 11 that includes the super administrator, which now has an
+ * account and therefore a student ID. The email fallback below is retained for
+ * tokens issued before that change; nothing current produces one.
  */
 function actorLabel(claims: AccessTokenClaims): string {
   return claims.studentId ?? claims.email ?? `${claims.role} (unidentified)`;
 }
 
 function actorObjectId(claims: AccessTokenClaims): Types.ObjectId | null {
-  // The environment-configured root admin has no database document, so there is
-  // no ObjectId to reference — only the label identifies it.
+  // Every current identity has a document, including the super administrator, so
+  // this resolves for all of them. It still tolerates a missing `sub`, which is
+  // what a pre-Milestone-11 token carries.
   if (!claims.sub || !Types.ObjectId.isValid(claims.sub)) return null;
   return new Types.ObjectId(claims.sub);
 }

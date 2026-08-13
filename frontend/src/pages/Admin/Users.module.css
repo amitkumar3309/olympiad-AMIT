@@ -141,9 +141,26 @@
   font-weight: 600;
 }
 
-.status_deactivated {
+.status_blocked {
   color: var(--danger);
+  font-weight: 700;
+}
+
+.status_deactivated {
+  color: var(--text-muted);
   font-weight: 600;
+}
+
+/* A temporary password is outstanding on this account. */
+.pendingReset {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--royal-blue);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .actions {
@@ -176,6 +193,129 @@
 .roleBtn:hover:not(:disabled) {
   border-color: var(--royal-blue);
   color: var(--royal-blue);
+}
+
+.actionBtn {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.actionBtn:hover:not(:disabled) {
+  border-color: var(--royal-blue);
+  color: var(--royal-blue);
+}
+
+/* Destructive actions read as destructive before they are clicked, not after. */
+.dangerBtn {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger);
+  background: none;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dangerBtn:hover:not(:disabled) {
+  background: var(--danger);
+  color: #fff;
+}
+
+.dangerBtn:disabled,
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelBtn {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-main);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --- Dialogs ------------------------------------------------------------ */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.modal {
+  width: 100%;
+  max-width: 460px;
+  padding: 1.75rem;
+}
+
+.modal h3 {
+  margin: 0 0 0.6rem;
+}
+
+.modalLead {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  font-size: 14px;
+}
+
+.modalWarn {
+  margin: 0 0 1.25rem;
+  color: var(--warning);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.tempPassword {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-alt, rgba(148, 163, 184, 0.08));
+}
+
+.tempPassword code {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  overflow-wrap: anywhere;
+}
+
+.tempPassword button {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .pager {

@@ -452,3 +452,24 @@ That resolves the SRV record over **HTTPS** (bypassing the broken resolver) and 
 The same string is available from the Atlas UI: **Connect → Drivers → driver version "Node.js 2.2.12 or later"**.
 
 **Note that Vercel is unaffected.** It resolves SRV records fine, so production keeps working with the `mongodb+srv://` form even while your laptop cannot. Only change Vercel's `MONGO_URI` if the deployed backend is failing too.
+
+---
+
+## A promoted admin is told "Invalid admin credentials" at `/admin`
+
+**Problem**: A super admin promotes a student to `admin` — the `/admin/users` row correctly shows the **Admin** badge and **Active** — but when that person signs in at the admin portal they get `Invalid admin credentials.` Their password is right, and it still works on the home-page login.
+
+**Cause**: The two administrative identities authenticate against **different endpoints**, and the portal only ever posted to the first:
+
+- the **root** super admin lives in the environment (`ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH`), has no database record, and signs in at `POST /auth/admin/login`;
+- a **promoted** admin is an ordinary `Student` document carrying `role: 'admin'`, and signs in at the normal `POST /auth/login`.
+
+`POST /auth/admin/login` compares the submitted email against `config.admin.email` and nothing else, so *any* promoted admin is refused there by design — correctly, but with a message that reads as a broken account rather than as the wrong door. The only signpost was a line of hint text under the form.
+
+**Solution**: `adminLogin()` in `frontend/src/context/AuthContext.tsx` now tries `/auth/admin/login` first and, **on a 401 specifically**, falls back to `/auth/login` with the typed value as `identifier` (which accepts an email or a mobile number). One form now serves both identities. The backend was not changed — there is still exactly one authentication path per identity, and the root endpoint still accepts nothing but the environment credentials.
+
+`/auth/admin/login` was also added to `NO_REFRESH_PATHS` in `frontend/src/api/client.ts`. A 401 there means "wrong credentials", not "token expired", so the refresh-and-replay cycle could not help and only spent a second login attempt against the rate limiter and the account's failed-login counter.
+
+**Verification**: Four tests in `backend/tests/rbac.test.ts` (`the admin portal accepts both administrative identities`) pin the contract — including that the refusal is a **401**, since changing it to 403 would silently strand every promoted admin. Confirmed live against a local database: the portal's network trace shows `POST /auth/admin/login → 401` followed immediately by `POST /auth/login → 200`, and the promoted admin lands on the admin dashboard.
+
+**Related trap worth knowing**: both identities use the same `access_token` cookie name. Signing in as a student in another tab overwrites an open super-admin session, after which the admin UI keeps rendering (its permission list is still in React memory) while every request 403s. If admin pages start refusing you for no clear reason, check `GET /api/v1/auth/me` — it reports the role the server actually sees.

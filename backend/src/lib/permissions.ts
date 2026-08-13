@@ -72,10 +72,37 @@ export const PERMISSIONS = [
   'rewards:write',
   /** Read the administrative audit trail. */
   'audit:read',
+  /**
+   * Reset another account's password, issuing a one-time temporary password that
+   * the holder must replace at their next sign-in.
+   *
+   * Held by `admin` as well as `superadmin` because password recovery is routine
+   * competition-desk work — a schoolchild who cannot reach their email should not
+   * need the owner of the platform. It is nevertheless the single most dangerous
+   * routine capability in the product: it hands over a working credential, so the
+   * data-level guard in `users.routes.ts` confines an `admin` to acting on plain
+   * student accounts and refuses everyone on a `superadmin`.
+   */
+  'users:password:reset',
+  /**
+   * End every live session for an account without changing the password. The mild
+   * remedy for "they left themselves signed in on a school computer", and the
+   * reason it is separate from suspension: it interrupts access without marking the
+   * account as being in any kind of trouble.
+   */
+  'users:sessions:revoke',
 
   // --- Super-admin capabilities ---
   /** Grant or revoke the admin role on an account. */
   'users:role:write',
+  /**
+   * Permanently delete an account. Withheld from `admin` deliberately, and the
+   * sharpest line between the two roles: every other administrative act in this
+   * product is reversible, and this one is not. The route additionally refuses any
+   * account that has verified its email, so what it can destroy is an abandoned
+   * registration rather than a competitor's history.
+   */
+  'users:delete',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -86,16 +113,22 @@ const STUDENT_PERMISSIONS: readonly Permission[] = [
 ];
 
 /**
- * An admin runs the competition day to day: they can see every account and put a
- * misbehaving one on hold, but they cannot change who is an admin. Confining
- * privilege *escalation* to the super admin is the whole point of the third role
- * — otherwise any compromised admin session could mint more admins.
+ * An admin runs the competition day to day: they can see every account, put a
+ * misbehaving one on hold, and get a locked-out child back into their account —
+ * but they cannot change who is an admin, and they cannot destroy an account.
+ *
+ * Those two exclusions are the whole point of the third role. Withholding role
+ * assignment means a compromised admin session cannot mint more admins or promote
+ * itself; withholding deletion means it cannot erase the evidence of having tried.
+ * Everything an admin *can* do is reversible, and that is the line.
  */
 const ADMIN_PERMISSIONS: readonly Permission[] = [
   ...STUDENT_PERMISSIONS,
   'analytics:read:any',
   'students:read',
   'students:status:write',
+  'users:password:reset',
+  'users:sessions:revoke',
   'questions:write',
   'questions:delete',
   'taxonomy:write',
@@ -105,7 +138,18 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'audit:read',
 ];
 
-const SUPERADMIN_PERMISSIONS: readonly Permission[] = [...ADMIN_PERMISSIONS, 'users:role:write'];
+/**
+ * The super admin is an admin plus the two irreversible capabilities. Expressed as
+ * a superset rather than its own list so the guarantee "an admin can never do more
+ * than a super admin" is structural — it cannot drift as permissions are added,
+ * because there is no second place to add one.
+ */
+const SUPERADMIN_ONLY_PERMISSIONS: readonly Permission[] = ['users:role:write', 'users:delete'];
+
+const SUPERADMIN_PERMISSIONS: readonly Permission[] = [
+  ...ADMIN_PERMISSIONS,
+  ...SUPERADMIN_ONLY_PERMISSIONS,
+];
 
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   student: STUDENT_PERMISSIONS,
@@ -120,6 +164,15 @@ export function permissionsFor(role: Role): Permission[] {
 
 export function can(role: Role, permission: Permission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission);
+}
+
+/**
+ * True for a capability the super admin holds alone. Exported so the guarantee
+ * "an `admin` is strictly weaker than a `superadmin`" can be asserted from a test
+ * against this table rather than against a hand-copied list that could drift.
+ */
+export function isSuperadminOnly(permission: Permission): boolean {
+  return (SUPERADMIN_ONLY_PERMISSIONS as readonly string[]).includes(permission);
 }
 
 export function isRole(value: unknown): value is Role {

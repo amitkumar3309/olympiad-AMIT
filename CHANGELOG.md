@@ -2,6 +2,58 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-13 — Milestone 11: Account administration, and a real super-admin account
+
+Two things at once: a set of powers the competition desk actually needs, and the reversal of a decision that had been quietly costing the product everything an account normally gets.
+
+### The super administrator is now an account
+
+Until now the root administrator was a pure environment identity with **no database document**. That kept the bootstrap simple and paid for it five times over. With no document there was no refresh token, so the session could not rotate, could not be revoked, and simply died after eight hours with nothing to renew it — which is what the owner reported as "my superadmin privileges are not working". There was no `tokenVersion`, so a leaked root token was good until expiry and could only be withdrawn by editing an environment variable and redeploying. Its audit entries carried no `actor` id, so "everything the super admin ever did" was a string match on an email. It could not appear in `/admin/users`, so the most privileged identity in the product was the only one nobody could see. And it had no password of its own, so rotating the credential meant a redeploy.
+
+Every one of those was the same missing row. It now has one.
+
+`ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH` remain the bootstrap **seed, not the ongoing source of truth**: the first sign-in provisions a `Student` document with `role: 'superadmin'`, and from then on authentication runs against that document — through `authenticateAccount()`, the same single password check the ordinary login uses, so lockout, status and verification apply to it like anybody else. It gets the ordinary 15-minute access token and a rotating refresh token. `ADMIN_TOKEN_TTL`, the `root: true` claim, and the role-check exemption in `resolveCurrentRole()` are all gone: **every** caller's role is now re-read from the database on a privileged request.
+
+Provisioning is where the danger was, and it is closed in two places. `resolveRootSuperadmin()` adopts an existing document **only** if it already holds `superadmin` — it never upgrades a student who happens to hold the address — and registration refuses `ADMIN_EMAIL` outright. Without both halves, anyone who learned the configured address could register it before the first administrative sign-in and then authenticate with their own password to be handed the role.
+
+Two consequences worth stating because they are not obvious. The super admin **earns no XP**: `grantReward()` refuses it, because XP is derived from `StudentActivity` and every leaderboard aggregates that same log, so one daily-visit row would place a staff account on a *public* board above the children who competed. And `getAdminStats()` excludes it from student counts — it never registered for anything, and "accounts registered" is a headline figure.
+
+### What each role can now do
+
+| | admin | super admin |
+|---|---|---|
+| Read and search every account | yes | yes |
+| Activate / suspend / **block** / deactivate | students only | anyone |
+| Reset a password (temporary, one-time) | students only | anyone |
+| Force sign-out on every device | students only | anyone |
+| Grant or revoke `admin` | — | **yes** |
+| Delete an account | — | **yes** (unverified only) |
+
+`SUPERADMIN_PERMISSIONS` is now defined as `[...ADMIN_PERMISSIONS, ...SUPERADMIN_ONLY_PERMISSIONS]`, so "an admin can never do more than a super admin" is structural rather than a convention two lists have to keep agreeing on. **17 permissions**: 3 for a student, 15 for an admin, all 17 for a super admin.
+
+The line is drawn at **reversibility**. Everything an admin may do can be undone; the two withheld capabilities cannot. A role assignment can mint another administrator, and a deletion is final.
+
+A permission gate answers "may you do this action", not "may you do it to *this* account", so `refuseIfProtected()` answers the second question in one place: nobody may manage the super admin, and an ordinary admin may only act on plain student accounts. Without the second rule, an admin holding `users:password:reset` could issue themselves a working credential for a peer.
+
+### `blocked`, as its own status
+
+`ACCOUNT_STATUSES` is now `active` / `suspended` / `blocked` / `deactivated`. All three non-active values bar sign-in — every gate in the codebase is written `!== 'active'`, so adding one barred it everywhere at once — and they stay distinct because the audit trail has to be able to say *which*, a year later, when somebody asks. A suspension is a temporary hold, a block is a ban, a deactivation is a closed account rather than one in trouble. The picker in the admin UI spells the difference out where the choice is made, rather than in documentation nobody has open.
+
+### Password reset by temporary password
+
+Staff click **Reset password** and are shown a 16-character generated password **once**. It is never stored in readable form and is deliberately absent from the audit entry — the trail records that a reset happened and who did it, which is the part that matters afterwards, and a test asserts the password itself does not appear. The alphabet omits `0`/`O` and `1`/`l`/`I`, because a password misread over the phone gets replaced by a shared one.
+
+Every session for the account is revoked first: a reset exists because control is in doubt. `mustChangePassword` then holds the whole application on a forced-change screen — placed outside the router deliberately, since as a route it would be one URL among many that anything typed into the address bar could step around. The flag clears in exactly one place, the change-password route, so it cannot be dismissed by anything except actually changing the password.
+
+An emailed reset link was the alternative and was considered seriously. The owner chose the temporary password because the entrants are schoolchildren who often cannot reach the address they registered with, which is exactly when they need help most. The trade is recorded in `SECURITY.md`: the forced-change screen is a *user-interface* gate, not a security boundary.
+
+### Also
+
+- **Force sign-out** (`POST /admin/users/:studentId/revoke-sessions`) — ends every session and nothing else. Separate from suspension precisely so it does not mark the account as being in any trouble.
+- **Deletion refuses a verified account** (409, pointing at deactivation). Login is gated on verification, so an unverified account cannot have sat a paper, earned XP or appeared on a board: what this destroys is an abandoned registration, not a competitor's history. It also asks the caller to retype the account's own `AMIT_xxxx` — not authorization, which already happened, but a guard against acting on the wrong row.
+- Three new audit actions: `user.password.reset`, `user.sessions.revoked`, `user.deleted`. The last denormalises the account's identifiers into the entry, because afterwards there is no document left to join against.
+- **27 new tests** (`accountManagement.test.ts`), taking the suite to **566**. Eight existing tests changed to assert the new behaviour — the super admin now has a dashboard, a profile, a standing of zero, and can change its own password, all of which used to be 404s.
+
 ## 2026-08-13 — Fix: a promoted admin could not sign in at the admin portal
 
 Reported from production: a super admin promoted a student to `admin` — the badge and status were right in `/admin/users` — but that person was then told **"Invalid admin credentials"** at `/admin`, with a password that still worked on the home page.

@@ -1,4 +1,9 @@
-export type AccountStatus = 'active' | 'suspended' | 'deactivated'
+/**
+ * Mirrors `ACCOUNT_STATUSES` in `backend/src/models/Student.ts`. Three of the four
+ * bar sign-in, and they are distinct on purpose: `suspended` is a temporary hold,
+ * `blocked` is a ban, `deactivated` is a closed account.
+ */
+export type AccountStatus = 'active' | 'suspended' | 'blocked' | 'deactivated'
 
 export type Role = 'student' | 'admin' | 'superadmin'
 
@@ -22,7 +27,10 @@ export type Permission =
   | 'challenges:write'
   | 'rewards:write'
   | 'audit:read'
+  | 'users:password:reset'
+  | 'users:sessions:revoke'
   | 'users:role:write'
+  | 'users:delete'
 
 /**
  * Mirrors `CLASS_LEVELS` in `backend/src/lib/classLevels.ts`. Like the permission
@@ -94,6 +102,11 @@ export interface SessionResponse {
   permissions: Permission[]
   student?: Student
   admin?: Admin
+  /**
+   * Set when staff have issued a temporary password. The app holds the session on
+   * a forced change screen until it clears — see `ForcePasswordChange`.
+   */
+  mustChangePassword?: boolean
 }
 
 /** An account as an administrator sees it — wider than a student's own view. */
@@ -103,7 +116,7 @@ export interface ManagedAccount {
   fullName: string | null
   email: string
   mobile: string
-  role: 'student' | 'admin'
+  role: Role
   status: AccountStatus
   isEmailVerified: boolean
   registeredAt: string
@@ -111,6 +124,10 @@ export interface ManagedAccount {
   lockedUntil: string | null
   roleUpdatedAt: string | null
   roleUpdatedBy: string | null
+  /** True while a staff-issued temporary password is still outstanding. */
+  mustChangePassword: boolean
+  passwordResetAt: string | null
+  passwordResetBy: string | null
   /** Milestone 4 registration details — null on accounts created before it. */
   firstName: string | null
   middleName: string | null

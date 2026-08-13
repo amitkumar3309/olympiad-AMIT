@@ -3,13 +3,28 @@ import { api, ApiError } from '../../api/client'
 import type { AccountStatus, ManagedAccount, Pagination } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
+import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import styles from './Users.module.css'
 
 const STATUS_LABELS: Record<AccountStatus, string> = {
   active: 'Active',
   suspended: 'Suspended',
+  blocked: 'Blocked',
   deactivated: 'Deactivated',
+}
+
+/**
+ * What each status actually means, shown in the picker. Staff pick these under
+ * time pressure and the words alone do not distinguish them — "suspended" and
+ * "blocked" both read as "off" — so the difference is spelled out where the choice
+ * is made rather than in documentation nobody has open.
+ */
+const STATUS_HELP: Record<AccountStatus, string> = {
+  active: 'Can sign in normally.',
+  suspended: 'A temporary hold. Sign-in is barred until you lift it.',
+  blocked: 'A permanent bar. Use for genuine abuse — it reads as a ban in the audit trail.',
+  deactivated: 'The account is closed rather than in trouble. Reversible, and keeps all exam history.',
 }
 
 interface StudentListResponse {
@@ -47,10 +62,116 @@ function StudentPhoto({ studentId, name }: { studentId: string; name: string | n
   )
 }
 
+/**
+ * The temporary password, shown once and never retrievable again.
+ *
+ * Deliberately a blocking dialog rather than a toast: this is the only moment the
+ * value exists in readable form anywhere, so a message that could scroll away or
+ * time out would lose it, and the only recovery is to reset again.
+ */
+function TemporaryPasswordDialog({
+  account,
+  password,
+  onClose,
+}: {
+  account: ManagedAccount
+  password: string
+  onClose: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+
+  return (
+    <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="temp-pw-title">
+      <div className={`card ${styles.modal}`}>
+        <h3 id="temp-pw-title">Temporary password for {account.studentId}</h3>
+        <p className={styles.modalLead}>
+          Give this to {account.fullName ?? 'the account holder'} ({account.email}). They will be asked to choose their
+          own password the moment they sign in.
+        </p>
+        <div className={styles.tempPassword}>
+          <code>{password}</code>
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard?.writeText(password).then(
+                () => setCopied(true),
+                () => setCopied(false),
+              )
+            }}
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+        <p className={styles.modalWarn}>
+          This is shown only once. If you close this without noting it down, you will have to reset again.
+        </p>
+        <Button fullWidth onClick={onClose}>
+          I have noted it down
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** Confirmation for the one administrative action that cannot be undone. */
+function DeleteAccountDialog({
+  account,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  account: ManagedAccount
+  busy: boolean
+  onCancel: () => void
+  onConfirm: (confirmStudentId: string) => void
+}) {
+  const [typed, setTyped] = useState('')
+
+  return (
+    <div className={styles.modalBackdrop} role="dialog" aria-modal="true" aria-labelledby="delete-title">
+      <div className={`card ${styles.modal}`}>
+        <h3 id="delete-title">Delete {account.studentId} permanently?</h3>
+        <p className={styles.modalLead}>
+          This removes the account and its registration photo for good. It cannot be undone. Only unverified accounts
+          can be deleted — a verified one should be deactivated instead, which is reversible and keeps its history.
+        </p>
+        <div className="form-group">
+          <label htmlFor="delete-confirm">
+            Type <strong>{account.studentId}</strong> to confirm
+          </label>
+          <input
+            id="delete-confirm"
+            className="form-control"
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
+        <div className={styles.modalActions}>
+          <button type="button" className={styles.cancelBtn} onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={styles.dangerBtn}
+            disabled={busy || typed.trim() !== account.studentId}
+            onClick={() => onConfirm(typed.trim())}
+          >
+            {busy ? 'Deleting...' : 'Delete permanently'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Users() {
   const { can } = useAuth()
   const canWriteStatus = can('students:status:write')
   const canWriteRole = can('users:role:write')
+  const canResetPassword = can('users:password:reset')
+  const canRevokeSessions = can('users:sessions:revoke')
+  const canDelete = can('users:delete')
 
   const [accounts, setAccounts] = useState<ManagedAccount[]>([])
   const [pagination, setPagination] = useState<Pagination | null>(null)
@@ -58,6 +179,9 @@ export default function Users() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busyId, setBusyId] = useState('')
+  /** The one-time temporary password, held until the dialog is dismissed. */
+  const [issued, setIssued] = useState<{ account: ManagedAccount; password: string } | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<ManagedAccount | null>(null)
 
   const [search, setSearch] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
@@ -135,6 +259,56 @@ export default function Users() {
     }
   }
 
+  async function resetPassword(account: ManagedAccount) {
+    setBusyId(account.studentId)
+    setError('')
+    setNotice('')
+    try {
+      const res = await api.post<{ temporaryPassword: string; student: ManagedAccount }>(
+        `/admin/users/${account.studentId}/reset-password`,
+        {},
+      )
+      setAccounts((list) => list.map((a) => (a.studentId === account.studentId ? res.student : a)))
+      // Held in state rather than announced, because it must survive until the
+      // dialog is dismissed — see `TemporaryPasswordDialog`.
+      setIssued({ account: res.student, password: res.temporaryPassword })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not reset that password.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  async function revokeSessions(account: ManagedAccount) {
+    setBusyId(account.studentId)
+    setError('')
+    setNotice('')
+    try {
+      await api.post(`/admin/users/${account.studentId}/revoke-sessions`, {})
+      setNotice(`${account.studentId} has been signed out on every device. They can sign back in as normal.`)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not sign that account out.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  async function deleteAccount(account: ManagedAccount, confirmStudentId: string) {
+    setBusyId(account.studentId)
+    setError('')
+    setNotice('')
+    try {
+      await api.del(`/admin/users/${account.studentId}`, { confirmStudentId })
+      setPendingDelete(null)
+      setNotice(`${account.studentId} (${account.email}) has been permanently deleted.`)
+      await load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not delete that account.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
   function applySearch(e: React.FormEvent) {
     e.preventDefault()
     setPage(1)
@@ -143,6 +317,24 @@ export default function Users() {
 
   return (
     <AdminShell title="User Management">
+      {issued && (
+        <TemporaryPasswordDialog
+          account={issued.account}
+          password={issued.password}
+          onClose={() => {
+            setIssued(null)
+            setNotice(`A temporary password was issued for ${issued.account.studentId}. All their sessions were ended.`)
+          }}
+        />
+      )}
+      {pendingDelete && (
+        <DeleteAccountDialog
+          account={pendingDelete}
+          busy={busyId === pendingDelete.studentId}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={(confirmStudentId) => void deleteAccount(pendingDelete, confirmStudentId)}
+        />
+      )}
       <div className={`card ${styles.panel}`}>
         <form className={styles.filters} onSubmit={applySearch}>
           <input
@@ -162,9 +354,11 @@ export default function Users() {
             aria-label="Filter by status"
           >
             <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="suspended">Suspended</option>
-            <option value="deactivated">Deactivated</option>
+            {(Object.keys(STATUS_LABELS) as AccountStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {STATUS_LABELS[status]}
+              </option>
+            ))}
           </select>
           <select
             className="form-control"
@@ -178,6 +372,7 @@ export default function Users() {
             <option value="">All roles</option>
             <option value="student">Students</option>
             <option value="admin">Admins</option>
+            <option value="superadmin">Super admin</option>
           </select>
           <button type="submit" className={styles.searchBtn}>
             Search
@@ -221,13 +416,18 @@ export default function Users() {
                     <td>
                       {account.fullName ?? '—'}
                       {!account.isEmailVerified && <span className={styles.unverified}>unverified</span>}
+                      {account.mustChangePassword && (
+                        <span className={styles.pendingReset} title="A temporary password is outstanding">
+                          reset pending
+                        </span>
+                      )}
                     </td>
                     <td className={styles.muted}>{account.classLevel ?? '—'}</td>
                     <td className={styles.muted}>{account.schoolName ?? '—'}</td>
                     <td className={styles.email}>{account.email}</td>
                     <td>
-                      <span className={account.role === 'admin' ? styles.roleAdmin : styles.roleStudent}>
-                        {account.role}
+                      <span className={account.role === 'student' ? styles.roleStudent : styles.roleAdmin}>
+                        {account.role === 'superadmin' ? 'super admin' : account.role}
                       </span>
                     </td>
                     <td>
@@ -237,6 +437,14 @@ export default function Users() {
                       {account.lastLoginAt ? new Date(account.lastLoginAt).toLocaleDateString() : 'Never'}
                     </td>
                     <td>
+                      {/* The super administrator is not manageable through the API at
+                          all — the backend refuses every one of these. Offering the
+                          buttons anyway would just be a row of guaranteed errors. */}
+                      {account.role === 'superadmin' ? (
+                        <span className={styles.muted} title="Managed through the deployment environment, not the app">
+                          Protected
+                        </span>
+                      ) : (
                       <div className={styles.actions}>
                         {canWriteStatus && (
                           <select
@@ -245,10 +453,13 @@ export default function Users() {
                             disabled={busyId === account.studentId}
                             onChange={(e) => void changeStatus(account, e.target.value as AccountStatus)}
                             aria-label={`Change status for ${account.studentId}`}
+                            title={STATUS_HELP[account.status]}
                           >
-                            <option value="active">Active</option>
-                            <option value="suspended">Suspended</option>
-                            <option value="deactivated">Deactivated</option>
+                            {(Object.keys(STATUS_LABELS) as AccountStatus[]).map((status) => (
+                              <option key={status} value={status} title={STATUS_HELP[status]}>
+                                {STATUS_LABELS[status]}
+                              </option>
+                            ))}
                           </select>
                         )}
                         {/* Only rendered for a super admin — and the backend refuses it
@@ -262,8 +473,44 @@ export default function Users() {
                             {account.role === 'admin' ? 'Revoke admin' : 'Make admin'}
                           </button>
                         )}
-                        {!canWriteStatus && !canWriteRole && <span className={styles.muted}>View only</span>}
+                        {canResetPassword && (
+                          <button
+                            className={styles.actionBtn}
+                            disabled={busyId === account.studentId}
+                            onClick={() => void resetPassword(account)}
+                            title="Issues a one-time password and signs the account out everywhere"
+                          >
+                            Reset password
+                          </button>
+                        )}
+                        {canRevokeSessions && (
+                          <button
+                            className={styles.actionBtn}
+                            disabled={busyId === account.studentId}
+                            onClick={() => void revokeSessions(account)}
+                            title="Ends every active session without changing anything else"
+                          >
+                            Sign out
+                          </button>
+                        )}
+                        {/* Deletion is offered only where it can actually succeed: a
+                            verified account is refused by the backend, so showing the
+                            button would be an invitation to a 409. */}
+                        {canDelete && !account.isEmailVerified && (
+                          <button
+                            className={styles.dangerBtn}
+                            disabled={busyId === account.studentId}
+                            onClick={() => setPendingDelete(account)}
+                            title="Permanently deletes this unverified account"
+                          >
+                            Delete
+                          </button>
+                        )}
+                        {!canWriteStatus && !canWriteRole && !canResetPassword && !canRevokeSessions && (
+                          <span className={styles.muted}>View only</span>
+                        )}
                       </div>
+                      )}
                     </td>
                   </tr>
                 ))}

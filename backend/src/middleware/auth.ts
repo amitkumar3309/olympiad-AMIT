@@ -103,12 +103,15 @@ type RoleResolution = { ok: true; role: Role } | { ok: false; error: ApiError };
  * spend one indexed read to get the current truth — cheap, because administrative
  * traffic is a rounding error next to student traffic.
  *
- * The environment-configured root admin has no document to read, so it is exempt;
- * its privileges can only be withdrawn by changing the environment variables.
+ * Since Milestone 11 there is **no exemption**. The root super administrator used
+ * to be checked against its token alone, having no document; it now has one, so
+ * every caller — including the most privileged — is re-derived from the database.
+ * That removes the last identity whose privileges could not be revoked without a
+ * redeploy. An access token issued before that change carries no `sub`, so it
+ * resolves to no account and is refused, which is the intended migration: sign in
+ * again.
  */
 async function resolveCurrentRole(claims: AccessTokenClaims): Promise<RoleResolution> {
-  if (claims.root) return { ok: true, role: claims.role };
-
   try {
     const account = await Student.findById(claims.sub).select('role status tokenVersion');
 

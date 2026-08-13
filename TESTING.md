@@ -4,7 +4,7 @@ _Last updated: 2026-08-13 (Milestone 10 — Leaderboards and Hall of Fame)._
 
 ## Current State
 
-The backend has a working test suite: **535 passing tests across 17 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **566 passing tests across 18 files** (`backend/tests/`). The frontend still has **no test suite**.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|

@@ -10,6 +10,7 @@ import {
   loginRootAdmin,
   parseCookies,
   registerVerifyLogin,
+  rootAdmin,
   validPhoto,
   validPngPhoto,
   TINY_JPEG_BASE64,
@@ -95,13 +96,15 @@ describe('GET /me/profile', () => {
     expect(res.status).toBe(401);
   });
 
-  it('answers 404 rather than crashing for the root admin, which has no student record', async () => {
+  it('serves the root administrator a profile, now that it has a record', async () => {
+    // Reversed in Milestone 11 — see the dashboard test of the same shape.
     const cookies = await loginRootAdmin(app);
     const res = await request(app).get(`${API}/me/profile`).set('Cookie', cookieHeader(cookies));
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
     expect(res.status).not.toBe(500);
-    expect(res.body.success).toBe(false);
+    expect(res.body.success).toBe(true);
+    expect(res.body.profile.role).toBe('superadmin');
   });
 });
 
@@ -440,14 +443,25 @@ describe('POST /me/change-password', () => {
     expect(serialised).not.toContain(currentPassword);
   });
 
-  it('tells the root admin its password is not managed here', async () => {
+  it('lets the root administrator change its own password', async () => {
+    // Reversed in Milestone 11, and a genuine gain rather than a side effect: the
+    // super admin's password used to live only in `ADMIN_PASSWORD_HASH`, so
+    // rotating it meant editing an environment variable and redeploying. It is now
+    // an ordinary credential on an ordinary account, and the environment value is
+    // only ever the seed for the very first sign-in.
     const cookies = await loginRootAdmin(app);
     const res = await request(app)
       .post(`${API}/me/change-password`)
       .set('Cookie', cookieHeader(cookies))
-      .send({ currentPassword: 'RootAdminPass9', newPassword });
+      .send({ currentPassword: rootAdmin.password, newPassword });
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
     expect(res.status).not.toBe(500);
+
+    // The new password is what works afterwards, through the ordinary login.
+    await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: rootAdmin.email, password: newPassword })
+      .expect(200);
   });
 });

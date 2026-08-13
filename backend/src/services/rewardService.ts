@@ -14,6 +14,7 @@ import {
   PracticeSession,
   REWARD_SETTINGS_KEY,
   RewardSettings,
+  Student,
   type ActivityType,
   type RewardSettingsDocument,
   type StudentDocument,
@@ -139,6 +140,42 @@ export async function resolveXpFor(event: ActivityType): Promise<number> {
 // ---------------------------------------------------------------------------
 
 /**
+ * Whether this account competes at all.
+ *
+ * The bootstrap super administrator is a `Student` document because that is where
+ * accounts live, but it never entered anything: it has no class, no school and no
+ * photo. It must therefore never earn XP — and the reason is not tidiness. XP is
+ * derived from `StudentActivity`, and **every leaderboard is an aggregation over
+ * that same log**, so a single daily-visit row would place a staff account on a
+ * *public* board above children who actually competed. With no rows at all it has
+ * no standing to rank, so it cannot appear.
+ *
+ * Checked here, inside the engine, rather than at the call sites. There are already
+ * two places that mark a daily visit, and the next surface to grant a reward would
+ * have had to remember a rule it has no reason to know about — which is precisely
+ * the failure mode the single-engine rule in CLAUDE.md exists to prevent. One
+ * indexed read on a path that is about to write a document is a cheap way to make
+ * the rule impossible to forget.
+ *
+ * A *promoted* admin is an entrant and keeps earning: it registered as a student,
+ * has a class, and can still sit a paper (Milestone 3 ADR).
+ */
+async function isEntrant(student: Types.ObjectId): Promise<boolean> {
+  try {
+    const account = await Student.findById(student).select('role');
+    // A missing account cannot earn either — but that is `recordActivity`'s problem
+    // to log, not a reason to fail here.
+    return account?.role !== 'superadmin';
+  } catch (err) {
+    // A reward must never fail the action that earned it. If the role cannot be
+    // read, fall through to granting: under-paying a real student is the worse of
+    // the two mistakes, and the super admin's grants are capped at one a day anyway.
+    logger.error({ err, student: String(student) }, 'Could not check entrant status; granting anyway');
+    return true;
+  }
+}
+
+/**
  * Grants the reward for one real event. **The only way anything in this backend earns
  * XP.**
  *
@@ -152,6 +189,10 @@ export async function grantReward(input: GrantRewardInput): Promise<RewardOutcom
   const { student, event, detail = null, context, at } = input;
 
   if (!isEligible(event, context)) {
+    return { granted: false, xpAwarded: 0, reason: 'not-eligible' };
+  }
+
+  if (!(await isEntrant(student))) {
     return { granted: false, xpAwarded: 0, reason: 'not-eligible' };
   }
 

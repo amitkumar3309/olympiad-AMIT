@@ -74,7 +74,6 @@ export const config = {
   admin: {
     email: env.ADMIN_EMAIL,
     passwordHash: env.ADMIN_PASSWORD_HASH,
-    tokenTtl: env.ADMIN_TOKEN_TTL,
   },
   cors: {
     origins: corsOrigins,

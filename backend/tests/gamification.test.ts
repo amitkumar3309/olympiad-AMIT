@@ -499,7 +499,7 @@ describe('GET /me/rewards', () => {
     expect(before.body.rewards.journey.currentStageId).toBe('first_practice');
   });
 
-  it('refuses an anonymous caller and the root administrator', async () => {
+  it('refuses an anonymous caller, and serves the root administrator its own standing', async () => {
     expect((await request(app).get(`${API}/me/rewards`)).status).toBe(401);
 
     const rootRes = await request(app)
@@ -516,8 +516,12 @@ describe('GET /me/rewards', () => {
       ),
     );
 
-    // No student record, so no standing — a clear 404 rather than a null dereference.
+    // Since Milestone 11 the root administrator has a record, so it has a standing
+    // like anybody else — and at zero, because provisioning an account is not an
+    // event the reward engine pays for. The engine grants only from things that
+    // genuinely happened, and being created by a bootstrap is not one of them.
     const res = await request(app).get(`${API}/me/rewards`).set('Cookie', rootCookies);
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(res.body.rewards.xp).toBe(0);
   });
 });

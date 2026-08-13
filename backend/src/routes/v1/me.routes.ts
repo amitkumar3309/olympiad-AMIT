@@ -315,6 +315,10 @@ router.post(
 
       student.passwordHash = await hashPassword(newPassword);
       student.tokenVersion += 1;
+      // Clears a staff-issued temporary password. This is the only route that
+      // lowers the flag, which is what makes the forced-change screen escapable
+      // exactly one way: by actually changing the password.
+      student.mustChangePassword = false;
       await student.save();
 
       await revokeAllRefreshTokens(studentObjectId(student));
