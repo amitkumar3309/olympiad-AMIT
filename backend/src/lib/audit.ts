@@ -15,9 +15,9 @@ export interface AuditEntry {
 }
 
 /**
- * How an actor is identified in the trail: `AMIT_xxxx` for any account-backed
- * actor, so it matches the `targetId` of entries about that same account and can be
- * pasted straight into the admin search.
+ * How an actor is identified in the trail: the account's own id — `AMIT_xxxx` for
+ * an entrant, `ADMIN_xxxx` for a staff account — so it matches the `targetId` of
+ * entries about that same account and can be pasted straight into the admin search.
  *
  * Since Milestone 11 that includes the super administrator, which now has an
  * account and therefore a student ID. The email fallback below is retained for

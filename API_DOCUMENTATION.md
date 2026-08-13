@@ -92,6 +92,8 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
   - `423` account temporarily locked (after `MAX_FAILED_LOGINS`, for `ACCOUNT_LOCK_MINUTES`). The message includes the remaining minutes.
   - `429`, `503`, `500`.
 
+> **Account identifiers.** `:studentId` path params accept `AMIT_0000`–`AMIT_9999` (entrants) and `ADMIN_0000`–`ADMIN_9999` (the bootstrap staff account). `ADMIN_` is accepted deliberately even though that account can never be acted on: rejecting it at the schema would answer "must look like AMIT_0000", a format complaint about a well-formed id, instead of the true "this account is not managed through the API".
+
 ### `POST /api/v1/auth/admin/login`
 - **Auth**: none. **Rate limit**: 10/15 min. Requires `ADMIN_EMAIL` + `ADMIN_PASSWORD_HASH`. **Now requires a database connection** (`ensureDb`).
 - This is the **root administrator**: it holds `superadmin`, the only role that can grant or revoke admin rights, and is the bootstrap identity since nothing else can create the first admin.
@@ -101,6 +103,7 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 - **Errors**: `400`, `401` these are not the bootstrap credentials, `403` barred status, `423` locked out, `500` admin not configured, `500` the configured address belongs to another account (see below), `503` no database.
 - **It will not adopt an account that does not already hold `superadmin`.** If `ADMIN_EMAIL` names an ordinary account, the route refuses with `500` and logs loudly rather than granting the role — otherwise anyone who learned the address could register it first and then authenticate with their own password. Registration refuses that address for the same reason.
 - Administrators *promoted* from a student account do **not** need this route — they sign in through `POST /auth/login`. The `/admin` portal tries this endpoint first and falls back to `/auth/login` on a `401`, so one form serves both.
+- **This is the only door the super administrator may use.** `POST /auth/login` refuses it with `403` — see that route for why the refusal happens *after* the password check.
 
 ### `POST /api/v1/auth/refresh`
 - **Auth**: the `refresh_token` cookie. **Rate limit**: 60/15 min.

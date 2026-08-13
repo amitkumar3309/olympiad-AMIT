@@ -108,10 +108,10 @@ export interface AuditLogDocument extends Document {
   actorRole: Role;
   /** Mongo `_id` of the acting account; null for the env-configured root admin. */
   actor?: Types.ObjectId | null;
-  /** Human-readable actor (email or `AMIT_xxxx`), denormalised so the log reads standalone. */
+  /** Human-readable actor (`AMIT_xxxx` / `ADMIN_xxxx`), denormalised so the log reads standalone. */
   actorLabel: string;
   targetType: AuditTargetType;
-  /** Human-facing identifier of the target (`AMIT_xxxx`, a route path, ...). */
+  /** Human-facing identifier of the target (`AMIT_xxxx` / `ADMIN_xxxx`, a route path, ...). */
   targetId?: string | null;
   targetLabel?: string | null;
   outcome: 'success' | 'denied';

@@ -36,8 +36,22 @@ export type RootAdminResolution =
   | { ok: true; account: StudentDocument; provisioned: boolean }
   | { ok: false; reason: 'not-configured' | 'not-root' | 'invalid-credentials' | 'email-taken' };
 
-function generateStudentId(): string {
-  return `AMIT_${Math.floor(Math.random() * 10000)
+/**
+ * Staff get their **own** identifier space: `ADMIN_0000`–`ADMIN_9999`.
+ *
+ * `AMIT_xxxx` is the competitor numbering — the number a child writes on an exam
+ * paper, quoted in their registration email, and typed into the public result
+ * portal. Giving it to a member of staff would be wrong twice over: it consumes
+ * one of only ten thousand of them, and it makes the account read as an entrant
+ * everywhere an ID is displayed or searched.
+ *
+ * The field is still `Student.studentId`, because that is the column the whole
+ * product addresses an account by and splitting it would mean a second lookup path
+ * everywhere. Only the *namespace* differs, which is enough to tell the two kinds
+ * of account apart at a glance and in the audit trail.
+ */
+function generateStaffId(): string {
+  return `ADMIN_${Math.floor(Math.random() * 10000)
     .toString()
     .padStart(4, '0')}`;
 }
@@ -85,7 +99,7 @@ export async function resolveRootSuperadmin(email: string): Promise<RootAdminRes
 }
 
 /**
- * Creates the document. Retries on a `studentId` collision for the same reason
+ * Creates the document. Retries on an id collision for the same reason
  * registration does — the identifier is only four digits and is uniquely indexed.
  */
 async function createRootSuperadmin(email: string, passwordHash: string): Promise<StudentDocument> {
@@ -107,7 +121,7 @@ async function createRootSuperadmin(email: string, passwordHash: string): Promis
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       return await Student.create({
-        studentId: generateStudentId(),
+        studentId: generateStaffId(),
         email,
         passwordHash,
         role: 'superadmin',

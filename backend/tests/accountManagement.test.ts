@@ -98,7 +98,7 @@ describe('the super administrator has a real account', () => {
     expect(account).not.toBeNull();
     expect(account!.role).toBe('superadmin');
     expect(account!.isEmailVerified).toBe(true);
-    expect(account!.studentId).toMatch(/^AMIT_\d{4}$/);
+    expect(account!.studentId).toMatch(/^ADMIN_\d{4}$/);
   });
 
   it('can actually refresh that session', async () => {
@@ -120,14 +120,43 @@ describe('the super administrator has a real account', () => {
     expect(await Student.countDocuments({ role: 'superadmin' })).toBe(1);
   });
 
-  it('can then sign in through the ordinary login too', async () => {
+  it('is turned away from the student login, even with the right password', async () => {
     await loginRootAdmin(app);
 
     const res = await request(app)
       .post(`${API}/auth/login`)
-      .send({ identifier: rootAdmin.email, password: rootAdmin.password })
-      .expect(200);
-    expect(res.body.role).toBe('superadmin');
+      .send({ identifier: rootAdmin.email, password: rootAdmin.password });
+
+    // Staff, not an entrant: it has no class or school, and the public login form
+    // is not where the most privileged account should be reachable.
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/administrator portal/i);
+    // Refused *without* a session — the 403 is not a cosmetic redirect.
+    expect(res.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('does not leak which address is the administrator’s', async () => {
+    await loginRootAdmin(app);
+
+    // A wrong password gets the ordinary generic failure, identical to any other
+    // account's. The "use the portal" answer only appears once the caller has
+    // already proved they know the password, so this is not an enumeration oracle.
+    const res = await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: rootAdmin.email, password: 'NotTheRootPassword1' });
+
+    expect(res.status).toBe(401);
+    expect(res.body.error).not.toMatch(/administrator portal/i);
+  });
+
+  it('holds a staff id, not a competitor one', async () => {
+    await loginRootAdmin(app);
+    const account = await Student.findOne({ role: 'superadmin' });
+
+    // `AMIT_xxxx` is the number a child writes on an exam paper, and there are only
+    // ten thousand of them. Staff get their own namespace rather than spending one.
+    expect(account!.studentId).toMatch(/^ADMIN_\d{4}$/);
+    expect(account!.studentId).not.toMatch(/^AMIT_/);
   });
 
   it('earns no XP, so it can never appear on a public leaderboard', async () => {

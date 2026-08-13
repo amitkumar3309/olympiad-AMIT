@@ -455,7 +455,7 @@ describe('administrative audit trail', () => {
     // other actor, because it now has one. That is the point of giving it a record:
     // its entries carry a resolvable `actor`, so "everything this account ever did"
     // is finally a query rather than a string match on an email.
-    expect(entry!.actorLabel).toMatch(/^AMIT_\d{4}$/);
+    expect(entry!.actorLabel).toMatch(/^ADMIN_\d{4}$/);
     expect(entry!.actor).not.toBeNull();
     expect(entry!.targetId).toBe(studentId);
     expect(entry!.outcome).toBe('success');

@@ -324,7 +324,7 @@ describe('GET /me/dashboard', () => {
 
     expect(res.status).toBe(200);
     expect(res.status).not.toBe(500);
-    expect(res.body.dashboard.student.studentId).toMatch(/^AMIT_\d{4}$/);
+    expect(res.body.dashboard.student.studentId).toMatch(/^ADMIN_\d{4}$/);
     // Zero, and deliberately so: the super admin earns no XP, because every
     // leaderboard is an aggregation over the same activity log and a staff account
     // has no business ranking above the children who entered.

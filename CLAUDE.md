@@ -154,7 +154,7 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - `Student.passwordHash` is `select: false`. A query that needs it must opt in with `.select('+passwordHash')`; never remove that guard.
 - `Student.email` is required and unique, and was added in Milestone 2, so **documents created before it lack the field** and will fail validation on save. There is no migration script — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 - Any route that touches the database must have the `ensureDb` middleware applied **after** validation/auth. Without it the route will work locally but fail in production, because the serverless entry never runs the local bootstrap that connects at startup.
-- Student lookups use Mongo's own `_id` for the token `sub`; the human-facing identifier is `studentId` (`AMIT_0000`–`AMIT_9999`). It is now **uniquely indexed**, with registration retrying on collision, so it is safe to rely on — but it is still a plain string, not an `ObjectId` reference.
+- Student lookups use Mongo's own `_id` for the token `sub`; the human-facing identifier is `studentId`, which has **two namespaces**: `AMIT_0000`–`AMIT_9999` for entrants and `ADMIN_0000`–`ADMIN_9999` for the bootstrap staff account. `AMIT_xxxx` is the competitor numbering — the number a child writes on an exam paper — and there are only ten thousand of them, so staff must never be given one. It is now **uniquely indexed**, with registration retrying on collision, so it is safe to rely on — but it is still a plain string, not an `ObjectId` reference.
 
 ## API Conventions
 
@@ -174,6 +174,7 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - Students register via `/api/v1/auth/register` with fullName + mobile + **email** + password. `role` submitted at registration is ignored; the schema default is the only way it is set.
 - Students log in with **either** their mobile number or their email (`identifier` field). Email verification is **real** and required before login; the old fake client-side OTP step has been deleted. Do not reintroduce any mock verification.
 - **Every account gets a rotating refresh token**, the super admin included. There is no longer a longer-lived admin token and no `ADMIN_TOKEN_TTL`; the `root: true` claim is gone, and `resolveCurrentRole()` has **no exemption** — every privileged request re-reads the role from the database. Do not reintroduce a document-less identity (see the Milestone 11 ADR for the five things the old design could not do).
+- **The bootstrap super admin signs in only at `/auth/admin/login`.** `/auth/login` refuses it — *after* verifying the password, so the refusal is not an enumeration oracle pointing at the most privileged account. It is staff: no class, no school, no photo, and the public login form is the most-attacked surface in the product. A *promoted* admin is unaffected and uses `/auth/login` normally.
 - **The bootstrap super admin earns no XP.** `grantReward()` refuses it, because every leaderboard aggregates `StudentActivity` and a staff account must never rank above the children who competed. A *promoted* admin does earn — it genuinely registered.
 - Registration deliberately does **not** create a session. Don't "helpfully" log the student in on registration.
 

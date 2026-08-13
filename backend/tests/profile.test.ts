@@ -458,10 +458,11 @@ describe('POST /me/change-password', () => {
     expect(res.status).toBe(200);
     expect(res.status).not.toBe(500);
 
-    // The new password is what works afterwards, through the ordinary login.
+    // The new password is what works afterwards — at the administrator portal,
+    // which is the only door this account may use.
     await request(app)
-      .post(`${API}/auth/login`)
-      .send({ identifier: rootAdmin.email, password: newPassword })
+      .post(`${API}/auth/admin/login`)
+      .send({ email: rootAdmin.email, password: newPassword })
       .expect(200);
   });
 });

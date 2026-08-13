@@ -18,6 +18,14 @@ Provisioning is where the danger was, and it is closed in two places. `resolveRo
 
 Two consequences worth stating because they are not obvious. The super admin **earns no XP**: `grantReward()` refuses it, because XP is derived from `StudentActivity` and every leaderboard aggregates that same log, so one daily-visit row would place a staff account on a *public* board above the children who competed. And `getAdminStats()` excludes it from student counts — it never registered for anything, and "accounts registered" is a headline figure.
 
+### Staff are not entrants, in two concrete ways
+
+**The bootstrap account holds a staff identifier**, `ADMIN_xxxx`, not `AMIT_xxxx`. The competitor numbering is only four digits — ten thousand of them — and it is the number a child writes on an exam paper, quotes from their registration email and types into the public result portal. Spending one on a member of staff would be wrong twice: it consumes a scarce entrant number, and it makes the account read as a competitor everywhere an ID is shown or searched. Path params accept both namespaces on purpose, so addressing the super admin reaches the guard and gets the true answer ("not managed through the API") rather than a format complaint about a perfectly well-formed id.
+
+**It cannot sign in at the student login.** `POST /auth/login` refuses `role: 'superadmin'` with a 403 pointing at the administrator portal. It has no class, no school and no photo, so a student session would drop it into a dashboard built for a competitor — and the public login form is the most-attacked surface in the product, which is not where the most privileged account should be reachable. A *promoted* admin is unaffected: it genuinely is a student who was given extra capability, and `/auth/login` is its normal way in.
+
+The refusal is applied **after** the password is verified, and that ordering is load-bearing. Refusing earlier would answer differently for the administrator's address than for any other — an account-enumeration oracle aimed straight at the most privileged account. Someone who does not already know the password gets the same generic failure as for any other wrong guess, and no session is established either way.
+
 ### What each role can now do
 
 | | admin | super admin |

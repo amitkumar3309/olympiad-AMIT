@@ -325,6 +325,15 @@ function barredMessage(status: AccountStatus): string {
  * message to use for a bad password, because "check your mobile number or email"
  * makes no sense at the admin portal. Everything else is shared.
  *
+ * `refuseAfterPassword` lets a route reject an account that is not meant to sign in
+ * *there* — currently only the student login turning the super administrator away.
+ * It is deliberately applied **after** the password is verified, and that ordering
+ * is the whole point: refusing earlier would answer differently for the
+ * administrator's address than for any other, which is an account-enumeration
+ * oracle pointing straight at the most privileged account in the system. A caller
+ * who does not already know the password still gets the same generic failure as
+ * for any other wrong guess.
+ *
  * On success the session cookies are already set when this returns.
  */
 async function authenticateAccount(
@@ -333,6 +342,7 @@ async function authenticateAccount(
   req: Request,
   res: Response,
   invalidCredentialsMessage: string,
+  refuseAfterPassword: AuthFailure | null = null,
 ): Promise<AuthOutcome> {
   if (student.lockedUntil && student.lockedUntil.getTime() > Date.now()) {
     const minutes = Math.max(1, Math.ceil((student.lockedUntil.getTime() - Date.now()) / 60000));
@@ -353,6 +363,10 @@ async function authenticateAccount(
     await student.save();
     return { ok: false, status: 401, message: invalidCredentialsMessage };
   }
+
+  // The password was right, so answering specifically here reveals nothing an
+  // attacker did not already have. No session is established.
+  if (refuseAfterPassword) return refuseAfterPassword;
 
   if (student.status !== 'active') {
     return { ok: false, status: 403, message: barredMessage(student.status) };
@@ -404,7 +418,27 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
       return;
     }
 
-    const outcome = await authenticateAccount(student, password, req, res, invalidCredentials);
+    /**
+     * The bootstrap super administrator is **staff, not an entrant**, and signs in
+     * only at the administrator portal. It has no class, no school and no photo, so
+     * a student session would drop it into a dashboard built for a competitor — and
+     * the public login form is the most-attacked surface in the product, which is
+     * not where the most privileged account in the system should be reachable.
+     *
+     * A *promoted* admin is unaffected: it really is a student who was given extra
+     * capability, and this is its normal way in (the `/admin` portal falls back to
+     * this route for exactly that reason).
+     */
+    const staffOnly: AuthFailure | null =
+      student.role === 'superadmin'
+        ? {
+            ok: false,
+            status: 403,
+            message: 'Administrator accounts sign in from the administrator portal at /admin.',
+          }
+        : null;
+
+    const outcome = await authenticateAccount(student, password, req, res, invalidCredentials, staffOnly);
     if (!outcome.ok) {
       sendError(res, outcome.status, outcome.message, outcome.code ? { code: outcome.code } : undefined);
       return;

@@ -26,12 +26,23 @@ export const listStudentsQuerySchema = z.object({
 });
 export type ListStudentsQuery = z.infer<typeof listStudentsQuerySchema>;
 
-/** `AMIT_0000`–`AMIT_9999`. Pinning the shape keeps a path param from becoming a filter. */
+/**
+ * Two namespaces, both four digits: `AMIT_xxxx` for entrants and `ADMIN_xxxx` for
+ * staff accounts created by the bootstrap. Pinning the shape keeps a path param
+ * from becoming a filter.
+ *
+ * `ADMIN_` is accepted here deliberately, even though the super administrator can
+ * never be acted on: refusing it at the schema would answer "must look like
+ * AMIT_0000", which is a format complaint about a perfectly well-formed id and
+ * sends the caller looking for the wrong problem. Letting it through means the
+ * request reaches `refuseIfProtected()` and gets the true answer — that this
+ * account is not managed through the API — and it keeps that guard exercised by
+ * real requests rather than sitting unreachable behind a regex.
+ */
+const ACCOUNT_ID_PATTERN = /^(?:AMIT|ADMIN)_\d{4}$/;
+
 export const studentIdParamSchema = z.object({
-  studentId: z
-    .string()
-    .trim()
-    .regex(/^AMIT_\d{4}$/, 'studentId must look like AMIT_0000'),
+  studentId: z.string().trim().regex(ACCOUNT_ID_PATTERN, 'studentId must look like AMIT_0000'),
 });
 
 export const updateStatusSchema = z.object({
@@ -59,10 +70,7 @@ export type AccountActionInput = z.infer<typeof accountActionSchema>;
  * right account can supply.
  */
 export const deleteAccountSchema = accountActionSchema.extend({
-  confirmStudentId: z
-    .string()
-    .trim()
-    .regex(/^AMIT_\d{4}$/, 'Type the account’s student ID to confirm'),
+  confirmStudentId: z.string().trim().regex(ACCOUNT_ID_PATTERN, 'Type the account’s student ID to confirm'),
 });
 export type DeleteAccountInput = z.infer<typeof deleteAccountSchema>;
 

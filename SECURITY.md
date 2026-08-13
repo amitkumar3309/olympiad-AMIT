@@ -51,6 +51,10 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `users:role:write` | — | — | **yes** |
 | `users:delete` | — | — | **yes** |
 
+**The super administrator cannot use the student login.** `POST /auth/login` refuses `role: 'superadmin'` with a `403` pointing at the administrator portal. The refusal is applied **after** the password is verified, and that ordering is load-bearing: refusing earlier would answer differently for the administrator's address than for any other, which is an account-enumeration oracle aimed at the most privileged account in the system. A caller who does not already know the password gets the same generic failure as for any other wrong guess, and no session is established either way.
+
+**Staff do not hold competitor identifiers.** The bootstrap account's `studentId` is `ADMIN_xxxx`, not `AMIT_xxxx`. There are only ten thousand `AMIT_` numbers and they are what a child writes on an exam paper, so staff are not given one — and the namespace makes a staff actor obvious at a glance in the audit trail.
+
 **The line between `admin` and `superadmin` is reversibility.** Everything an admin may do can be undone — a suspension lifted, a status restored, a password reset again. The two withheld capabilities cannot be: `users:role:write` can mint another administrator, and `users:delete` destroys data. Confining escalation to the super admin is what stops a compromised admin session widening itself; confining deletion is what stops it erasing the evidence of having tried.
 
 That relationship is **structural, not conventional**. `SUPERADMIN_PERMISSIONS` is defined as `[...ADMIN_PERMISSIONS, ...SUPERADMIN_ONLY_PERMISSIONS]`, so there is no second list to forget to update, and a test asserts the subset relation by reading the table rather than a copy of it.

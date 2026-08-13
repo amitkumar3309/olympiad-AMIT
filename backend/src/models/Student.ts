@@ -113,8 +113,10 @@ const studentSchema = new Schema<StudentDocument>({
   mobile: { type: String, required: requiredOnCreate, unique: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true },
-  // Unique so the AMIT_xxxx generator can no longer silently collide; the
-  // registration handler retries on a duplicate-key error.
+  // Unique so the id generator can no longer silently collide; the registration
+  // handler retries on a duplicate-key error. Two namespaces share this column:
+  // `AMIT_xxxx` for entrants, `ADMIN_xxxx` for the bootstrap staff account — the
+  // competitor numbering is not spent on people who never entered.
   studentId: { type: String, required: true, unique: true },
   isEmailVerified: { type: Boolean, default: false },
   status: { type: String, enum: ACCOUNT_STATUSES, default: 'active' },
