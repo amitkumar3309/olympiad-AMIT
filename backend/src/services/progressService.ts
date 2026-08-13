@@ -1,4 +1,4 @@
-import type { PipelineStage, Types } from 'mongoose';
+import type { Types } from 'mongoose';
 import { daysBetween, shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
 import { levelProgressFor, type LevelProgress } from '../lib/xp';
 import { ExamAttempt, Student, StudentActivity, type ActivityType } from '../models';
@@ -163,133 +163,13 @@ export async function listActivity(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Leaderboard
-// ---------------------------------------------------------------------------
-
 /**
- * How a student is named on a leaderboard other people can see.
- *
- * First name plus last initial. The entrants are schoolchildren, and the
- * leaderboard is readable without signing in, so publishing a full legal name
- * next to a school and a class would identify a minor to anyone on the internet.
- * This keeps the ranking real and recognisable to the student themselves while not
- * being a directory of children. Widening it is a one-line change here and a
- * decision for the project owner, not a side effect of some other feature.
+ * The leaderboard used to live here. It moved to `services/leaderboardService.ts`
+ * in Milestone 10, when scopes (overall / per class), periods and pagination arrived
+ * and ranking became a subject of its own rather than a corner of "the dashboard's
+ * figures". Nothing about how a standing is derived changed in the move: it is still
+ * an aggregation over this same activity log, with no stored standing anywhere.
  */
-export function displayNameFor(account: {
-  firstName?: string | null;
-  lastName?: string | null;
-  fullName?: string | null;
-}): string {
-  const first = account.firstName?.trim();
-  const last = account.lastName?.trim();
-  if (first) return last ? `${first} ${last.charAt(0).toUpperCase()}.` : first;
-
-  // Accounts created before the name parts existed only have `fullName`.
-  const parts = (account.fullName ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return 'AMIT student';
-  const firstPart = parts[0]!;
-  const lastPart = parts.length > 1 ? parts[parts.length - 1]! : null;
-  return lastPart ? `${firstPart} ${lastPart.charAt(0).toUpperCase()}.` : firstPart;
-}
-
-export interface LeaderboardRow {
-  rank: number;
-  studentId: string;
-  displayName: string;
-  classLevel: string | null;
-  schoolName: string | null;
-  xp: number;
-}
-
-interface LeaderboardAggregateRow {
-  _id: Types.ObjectId;
-  xp: number;
-  studentId: string;
-  firstName?: string;
-  lastName?: string;
-  fullName?: string;
-  classLevel?: string;
-  schoolName?: string;
-}
-
-/**
- * Only accounts in good standing appear. The `$lookup` runs before the `$limit`
- * on purpose: filtering afterwards would let a suspended account consume a place
- * in the top ten and silently shorten the list.
- *
- * Scale note — this groups the whole activity collection on every call. That is
- * appropriate for a first cohort of a few hundred students (the photo storage
- * ceiling caps it at roughly 250 anyway, see DATABASE_SCHEMA.md). If the field
- * grows by an order of magnitude, this is the query to put behind a cached
- * materialised standing, and the reason it is isolated in one function.
- */
-function leaderboardPipeline(): PipelineStage[] {
-  return [
-    { $group: { _id: '$student', xp: { $sum: '$xpAwarded' } } },
-    // A student with no XP is not ranked at all, rather than being shown as last.
-    { $match: { xp: { $gt: 0 } } },
-    { $sort: { xp: -1, _id: 1 } },
-    { $lookup: { from: 'students', localField: '_id', foreignField: '_id', as: 'account' } },
-    { $unwind: '$account' },
-    { $match: { 'account.status': 'active' } },
-  ];
-}
-
-export async function getTopLeaderboard(limit: number): Promise<LeaderboardRow[]> {
-  const rows = await StudentActivity.aggregate<LeaderboardAggregateRow>([
-    ...leaderboardPipeline(),
-    { $limit: limit },
-    {
-      $project: {
-        xp: 1,
-        studentId: '$account.studentId',
-        firstName: '$account.firstName',
-        lastName: '$account.lastName',
-        fullName: '$account.fullName',
-        classLevel: '$account.classLevel',
-        schoolName: '$account.schoolName',
-      },
-    },
-  ]);
-
-  return rows.map((row, index) => ({
-    rank: index + 1,
-    studentId: row.studentId,
-    displayName: displayNameFor(row),
-    classLevel: row.classLevel ?? null,
-    schoolName: row.schoolName ?? null,
-    xp: row.xp,
-  }));
-}
-
-export interface LeaderboardStanding {
-  /** Null when the student has no XP yet, i.e. is genuinely not ranked. */
-  rank: number | null;
-  xp: number;
-  /** How many students are ranked at all, so a rank can be shown as "3 of 40". */
-  totalRanked: number;
-}
-
-/**
- * Standard competition ranking: one plus the number of students strictly ahead, so
- * a tie shares a rank instead of being ordered arbitrarily.
- */
-export async function getStanding(student: Types.ObjectId, xp: number): Promise<LeaderboardStanding> {
-  const [aheadRows, rankedRows] = await Promise.all([
-    xp > 0
-      ? StudentActivity.aggregate<{ n: number }>([...leaderboardPipeline(), { $match: { xp: { $gt: xp } } }, { $count: 'n' }])
-      : Promise.resolve([]),
-    StudentActivity.aggregate<{ n: number }>([...leaderboardPipeline(), { $count: 'n' }]),
-  ]);
-
-  return {
-    rank: xp > 0 ? (aheadRows[0]?.n ?? 0) + 1 : null,
-    xp,
-    totalRanked: rankedRows[0]?.n ?? 0,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // XP over time

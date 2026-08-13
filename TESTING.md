@@ -1,19 +1,23 @@
 # TESTING.md
 
-_Last updated: 2026-08-13 (Milestone 9 — Gamification Engine)._
+_Last updated: 2026-08-13 (Milestone 10 — Leaderboards and Hall of Fame)._
 
 ## Current State
 
-The backend has a working test suite: **486 passing tests across 16 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **535 passing tests across 17 files** (`backend/tests/`). The frontend still has **no test suite**.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|
-| `backend/` | vitest + supertest (+ mongodb-memory-server) | 486 | Passing |
+| `backend/` | vitest + supertest (+ mongodb-memory-server) | 535 | Passing |
 | `frontend/` | none configured | 0 | Not started |
 
-**Most of those run against a real MongoDB** started in-process by `mongodb-memory-server` — 31 gamification tests (Milestone 9), 37 daily-challenge tests (Milestone 8), 54 mock-test tests (Milestone 7), 42 Practice Zone tests (Milestone 6), 71 dashboard/progress/analytics/results tests and 27 profile tests (Milestone 5 and its follow-ups), 77 question-bank tests (Milestone 4), 62 RBAC/privilege-escalation tests (Milestone 3), 40 registration-detail tests and 32 auth integration tests (Milestone 2). A subset of the Milestone 5 dashboard suite is pure-function testing of the day, level, streak and achievement rules and needs no database.
+Per file, as measured by the JSON reporter rather than estimated: `questionBank` 76, `dashboard` 71, `rbac` 62, `mockTests` 54, **`leaderboard` 49** (Milestone 10), `practice` 42, `registration.details` 40, `dailyChallenge` 37, `gamification` 31, `auth.security` 27, `profile` 27, `validation` 8, `auth.flows` 5, `errorHandling` 3, and one each for `health`, `ready` and `ready-down`.
 
-**Test files run one at a time** (`fileParallelism: false` in `vitest.config.mts`). Ten suites now start their own `mongod`; run in parallel they contended for CPU and ports, and the failure that produced was not a clean error — it surfaced as unrelated duplicate-key 409s in whichever suite lost the race. The whole run takes about 90 seconds sequentially, which is a good trade for not chasing phantom failures. Relatedly, `clearTestDb()` now **throws** when there is no connection instead of silently doing nothing; the silent no-op is what turned a harness problem into a pile of confusing assertion failures. That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
+**Most of those run against a real MongoDB** started in-process by `mongodb-memory-server`. A subset of the Milestone 5 dashboard suite is pure-function testing of the day, level, streak and achievement rules and needs no database.
+
+**What the Milestone 10 suite is for.** Ranking is the one feature whose output a student will compare against another student's screen, so `leaderboard.test.ts` is weighted toward the ways a rank goes quietly wrong rather than toward the happy path: a tie sharing a rank *and* the next rank being skipped (1, 2, 2, 4 — not 1, 2, 3, 4 and not 1, 2, 2, 3); the same query returning the identical order twice when six students are indistinguishable but for the final tie-break; a tie **split across a page boundary**, which is the case a naive `skip + index + 1` gets wrong; three pages read separately equalling the whole board read at once; the inclusive edge of a period window (day 7 back is in, day 8 is out); a suspended account not consuming a place; and `?xp=999999&rank=1` changing nothing. Most fixtures write activity rows directly, because the suite is about ranking a set of totals — the reward rules that produce them already have their own suite.
+
+**Test files run one at a time** (`fileParallelism: false` in `vitest.config.mts`). Eleven suites now start their own `mongod`; run in parallel they contended for CPU and ports, and the failure that produced was not a clean error — it surfaced as unrelated duplicate-key 409s in whichever suite lost the race. The whole run takes about 90 seconds sequentially, which is a good trade for not chasing phantom failures. Relatedly, `clearTestDb()` now **throws** when there is no connection instead of silently doing nothing; the silent no-op is what turned a harness problem into a pile of confusing assertion failures. That matters: the auth flows are defined by database behaviour — unique indexes, atomic single-use token consumption, rotation bookkeeping — none of which a mock would exercise. This supersedes the Milestone 1 decision to avoid a real database in tests; see [`DECISIONS.md`](DECISIONS.md).
 
 ## Commands
 

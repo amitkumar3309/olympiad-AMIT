@@ -4,9 +4,8 @@ import { ensureDb } from '../../middleware/ensureDb';
 import { requirePermission } from '../../middleware/auth';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
-import { getPublicStats, getTopLeaderboard } from '../../services/progressService';
+import { getPublicStats } from '../../services/progressService';
 import { findEarnedCertificates, findPublishedResult, getAdminStats } from '../../services/resultService';
-import { leaderboardQuerySchema, type LeaderboardQuery } from '../../validation/profileSchemas';
 import { studentIdParamSchema } from '../../validation/userSchemas';
 
 /**
@@ -39,22 +38,10 @@ router.get('/public/stats', ensureDb, async (_req: Request, res: Response) => {
 });
 
 /**
- * Readable **without signing in**, which is the deliberate trade the project owner
- * accepted so the landing page shows a real standing. Names are shortened to a first
- * name and a last initial by `displayNameFor` (the entrants are schoolchildren and
- * this page is indexable), and `limit` is capped, so this returns a leaderboard and
- * cannot be walked to enumerate the roll. See SECURITY.md.
+ * `GET /leaderboard` moved to `leaderboard.routes.ts` in Milestone 10, alongside
+ * `GET /hall-of-fame`, when it gained scopes, periods and pagination. Its response still
+ * carries the same `leaderboard` array, so the landing page did not change.
  */
-router.get('/leaderboard', validate({ query: leaderboardQuerySchema }), ensureDb, async (req: Request, res: Response) => {
-  try {
-    const { limit } = req.query as unknown as LeaderboardQuery;
-    // An empty leaderboard is a correct answer, not an error: nobody has XP yet.
-    sendSuccess(res, 200, { leaderboard: await getTopLeaderboard(limit) });
-  } catch (err) {
-    logger.error({ err }, 'Failed to load the leaderboard');
-    sendError(res, 500, 'Could not load the leaderboard right now.');
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Result portal

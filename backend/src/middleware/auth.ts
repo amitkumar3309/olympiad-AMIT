@@ -46,6 +46,27 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
 }
 
 /**
+ * Attaches the caller's claims **if** a valid session cookie is present, and does
+ * nothing at all if it is not. Never rejects, and never reads the database.
+ *
+ * This is not a gate and must never be used as one — it grants nothing. It exists for a
+ * genuinely public route whose *content* legitimately differs for a signed-in caller:
+ * the leaderboard is readable by anybody, but a signed-in student also gets their own
+ * standing in the same response and may page deeper into the list than an anonymous
+ * visitor (see `leaderboard.routes.ts`). The alternative — a second, authenticated copy
+ * of the same endpoint — would be two ranking surfaces that could disagree.
+ *
+ * Anything a route decides on the strength of `req.user` here is a *presentation*
+ * decision. A capability decision still goes through `requirePermission`, which does
+ * reject, and does re-read the role from the database when it matters.
+ */
+export function attachUserIfPresent(req: Request, _res: Response, next: NextFunction): void {
+  const claims = verifyAccessToken(req.cookies?.[config.auth.accessCookieName]);
+  if (claims) req.user = claims;
+  next();
+}
+
+/**
  * Role-level gate, retained for routes whose requirement genuinely *is* an
  * identity rather than a capability (`/auth/logout-all` only makes sense for the
  * account that owns the session). For anything a role is merely a proxy for, use

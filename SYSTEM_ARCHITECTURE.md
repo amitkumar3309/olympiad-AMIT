@@ -88,15 +88,19 @@ src/
                           question, taxonomy, activity, progress, challenge,
                           result, practice, mockTest, dailyChallenge,
                           reward (THE gamification engine: the only way
-                          anything earns XP), grading (THE marking rules,
+                          anything earns XP), leaderboard (THE ranking:
+                          the only way anything decides a rank),
+                          hallOfFame (the five honours boards),
+                          grading (THE marking rules,
                           shared by all three attempt surfaces), and
                           questionView (the shared
                           answer-stripped projection)
-  models/                 one Mongoose model per file + barrel index (13)
+  models/                 one Mongoose model per file + barrel index (18)
   routes/health.routes.ts /health, /ready
   routes/v1/              auth, me, analytics, practice, mockTests,
                           mockTestsAdmin, dailyChallenge,
-                          dailyChallengesAdmin, rewards, questions,
+                          dailyChallengesAdmin, rewards, leaderboard,
+                          questions,
                           questionsAdmin, taxonomy, admin, users, misc
                           + barrel index
   validation/             zod schemas (authSchemas, questionSchemas,
@@ -109,6 +113,8 @@ scripts/                  dev-local, verify-email, migrate-questions,
 ```
 
 - **Routes do HTTP; services own the rules.** A route validates, authorises, calls a service and formats the envelope. Business rules live in `services/` and signal violations by throwing `ApiError`, which `lib/serviceError.ts` maps to a status code — so each rule is stated once, at the point it is enforced.
+
+- **Four "there is exactly one of these" services.** `grading.ts` marks every answer, `rewardService.ts` grants every point of XP, `leaderboardService.ts` decides every rank, and `questionView.ts` builds every answer-stripped projection. Each is singular for the same reason: a second implementation would eventually disagree with the first, and in each case the disagreement is visible to a student as a wrong score, a wrong XP total, a rank that differs between two pages, or a leaked answer. When a new surface needs one of these things, call the existing one — including from another service (the Hall of Fame's XP board calls `getLeaderboardPage()` rather than writing its own aggregation).
 
 - **Middleware order in `app.ts`** (deliberate):
   1. `helmet` + `x-powered-by` disabled

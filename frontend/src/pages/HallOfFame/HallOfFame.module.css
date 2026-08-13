@@ -1,0 +1,172 @@
+/*
+  The Hall of Fame: platform totals, then five honours boards.
+
+  Boards are cards in a responsive grid rather than one long list, because they measure
+  five different things and reading them as a single ranking would be wrong.
+*/
+
+.centered {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+/* --- Totals --------------------------------------------------------------- */
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.totalValue {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.totalLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* --- The "nothing won yet" note ------------------------------------------- */
+
+.openNote {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  border-left: 4px solid var(--gold);
+}
+
+.openNote i {
+  font-size: 26px;
+  color: var(--gold);
+}
+
+.openNote p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 70ch;
+}
+
+/* --- Boards --------------------------------------------------------------- */
+
+.boards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.boardHead {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.boardHead h3 {
+  margin: 0;
+}
+
+.boardIcon {
+  font-size: 22px;
+  color: var(--royal-blue);
+  margin-top: 2px;
+}
+
+.boardDescription {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.emptyReason {
+  margin: 0;
+  padding: 14px;
+  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.1);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+}
+
+.entry:nth-child(odd) {
+  background: rgba(148, 163, 184, 0.07);
+}
+
+.rank {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.meta,
+.context {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.footNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin: 16px 0 0;
+  max-width: 80ch;
+}
+
+@media (max-width: 600px) {
+  .entry {
+    grid-template-columns: 38px 1fr;
+  }
+
+  .value {
+    grid-column: 2;
+  }
+}

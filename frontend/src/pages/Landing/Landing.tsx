@@ -329,6 +329,11 @@ export default function Landing() {
             ))}
           </div>
         )}
+        {/* The top three are a taste of the standing; the full board is public too, and
+            can be filtered by class and by period. */}
+        <p className={styles.championMeta}>
+          <Link to="/leaderboard">See the full leaderboard</Link> · <Link to="/hall-of-fame">Hall of Fame</Link>
+        </p>
       </section>
 
       <section id="register" className={`container ${styles.section}`}>

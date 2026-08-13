@@ -1,0 +1,261 @@
+/*
+  The leaderboard page: scope and period controls, the caller's own standing, the ranked
+  list and its pager.
+
+  The student's own row is highlighted rather than pinned to the top — a leaderboard
+  that moved you out of your real position would be lying about the one thing it exists
+  to say. Their standing is repeated in a card above instead, for when it is off-page.
+*/
+
+.centered {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  padding: 36px 20px;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 30px;
+  color: var(--text-muted);
+}
+
+.emptyNote {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 42ch;
+}
+
+/* --- Controls ------------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.controlGroup {
+  display: grid;
+  gap: 6px;
+}
+
+.controlLabel {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tab,
+.tabActive {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-main);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab:hover {
+  border-color: var(--royal-blue);
+}
+
+.tabActive {
+  background: var(--royal-blue);
+  border-color: var(--royal-blue);
+  color: #fff;
+}
+
+.select {
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-main);
+}
+
+/* --- Your own standing ---------------------------------------------------- */
+
+.meCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  border-left: 4px solid var(--royal-blue);
+}
+
+.meRank {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.meLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.meXp {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.meXp span {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+/* --- The board ------------------------------------------------------------ */
+
+.boardHead {
+  margin-bottom: 12px;
+}
+
+.boardHead h3 {
+  margin: 0;
+}
+
+.windowNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 4px 0 0;
+}
+
+.board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.row,
+.rowMine {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.row:nth-child(odd) {
+  background: rgba(148, 163, 184, 0.07);
+}
+
+.rowMine {
+  background: rgba(37, 99, 235, 0.12);
+  outline: 1px solid var(--royal-blue);
+}
+
+.rank {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.youTag {
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--royal-blue);
+  color: #fff;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xp {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* --- Pager ---------------------------------------------------------------- */
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.pagerLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.depthNote,
+.footNote {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.depthNote {
+  margin: 12px 0 0;
+}
+
+.footNote {
+  margin: 16px 0 0;
+  max-width: 80ch;
+}
+
+@media (max-width: 600px) {
+  .row,
+  .rowMine {
+    grid-template-columns: 44px 1fr;
+  }
+
+  .xp {
+    grid-column: 2;
+    font-size: 13px;
+  }
+}

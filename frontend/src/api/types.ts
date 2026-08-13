@@ -477,10 +477,106 @@ export interface LeaderboardRow {
 }
 
 export interface LeaderboardStanding {
-  /** Null when the student has no XP yet, i.e. is genuinely not ranked. */
+  /**
+   * Null when the student is genuinely not on this board — no XP in the window, an
+   * account not in good standing, or a class board that is not theirs. The `xp` is
+   * still real in every one of those cases; what is missing is the position.
+   */
   rank: number | null
   xp: number
   totalRanked: number
+}
+
+// ---------------------------------------------------------------------------
+// Leaderboards and Hall of Fame (Milestone 10)
+// ---------------------------------------------------------------------------
+
+/**
+ * Mirrors `LEADERBOARD_SCOPES` / `LEADERBOARD_PERIODS` in
+ * `backend/src/services/leaderboardService.ts`.
+ *
+ * As with the permission names and the class list, this is only a *list*: the ranking
+ * itself — which rows are summed, how ties are broken, what rank a student holds — is
+ * decided entirely by the backend. **Nothing in the frontend computes or re-sorts a
+ * rank.** A page that re-sorted rows it was given would be a second ranking
+ * implementation, and two of those eventually disagree on somebody's screen.
+ */
+export const LEADERBOARD_SCOPES = ['overall', 'class'] as const
+export type LeaderboardScope = (typeof LEADERBOARD_SCOPES)[number]
+
+export const LEADERBOARD_PERIODS = ['all_time', 'monthly', 'weekly', 'daily'] as const
+export type LeaderboardPeriod = (typeof LEADERBOARD_PERIODS)[number]
+
+export const LEADERBOARD_PERIOD_LABELS: Record<LeaderboardPeriod, string> = {
+  all_time: 'All time',
+  monthly: 'Last 30 days',
+  weekly: 'Last 7 days',
+  daily: 'Today',
+}
+
+/** The competition days a board's XP was summed over. `from` is null for all time. */
+export interface LeaderboardWindow {
+  from: string | null
+  to: string
+}
+
+export interface LeaderboardResponse {
+  leaderboard: LeaderboardRow[]
+  scope: LeaderboardScope
+  classLevel: ClassLevel | null
+  period: LeaderboardPeriod
+  window: LeaderboardWindow
+  pagination: Pagination
+  /** The caller's own standing on this board. Null when signed out. */
+  me: LeaderboardStanding | null
+  /** How far a signed-out visitor may page. Null when the caller may see it all. */
+  maxRankedDepth: number | null
+  today: string
+}
+
+export type HallOfFameBoardCode =
+  | 'xp_champions'
+  | 'mock_masters'
+  | 'streak_legends'
+  | 'challenge_champions'
+  | 'practice_devotees'
+
+export interface HallOfFameEntry {
+  rank: number
+  studentId: string
+  displayName: string
+  classLevel: string | null
+  schoolName: string | null
+  /** The measured number the board ranks on. Always derived server-side. */
+  value: number
+  /** How to read that number, e.g. `92% · 46/50`. Composed by the backend. */
+  valueLabel: string
+  achievedOn: string | null
+  detail: string | null
+}
+
+export interface HallOfFameBoard {
+  code: HallOfFameBoardCode
+  title: string
+  description: string
+  icon: string
+  entries: HallOfFameEntry[]
+  /** Shown in place of the board when it is empty. Never a placeholder entry. */
+  emptyReason: string
+}
+
+export interface HallOfFameResponse {
+  hallOfFame: {
+    boards: HallOfFameBoard[]
+    totals: {
+      studentsRanked: number
+      xpAwarded: number
+      mockTestsGraded: number
+      challengesAnswered: number
+      practiceSessionsCompleted: number
+    }
+    generatedFor: string
+  }
 }
 
 /**

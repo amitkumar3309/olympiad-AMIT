@@ -364,20 +364,64 @@ Answers `{ challenge: null, reason: 'none-published' | 'no-class' }` — a 200, 
 
 ---
 
-## Public reads (Milestone 5) — no authentication
+## Public reads — no authentication
 
-Both were hardcoded mocks before Milestone 5 and are now real aggregations. Made public by an explicit decision of the project owner, so the landing page shows a real standing instead of an invented one — see [`DECISIONS.md`](DECISIONS.md).
+Real aggregations, all of them. `public/stats` and `leaderboard` were hardcoded mocks before Milestone 5; `hall-of-fame` arrived real in Milestone 10. Made public by an explicit decision of the project owner, so the landing page shows a real standing instead of an invented one — see [`DECISIONS.md`](DECISIONS.md).
+
+`GET /leaderboard` and `GET /hall-of-fame` live in `routes/v1/leaderboard.routes.ts` (the leaderboard moved there from `misc.routes.ts` in Milestone 10). The leaderboard applies `attachUserIfPresent`, which attaches session claims when a cookie is present and **never rejects** — it grants nothing and is not a gate, it exists so one public endpoint can differ in *content* for a signed-in caller rather than being duplicated as a second ranking surface.
 
 ### `GET /api/v1/public/stats`
 `{ stats: { studentsRegistered, registeredToday, schoolsRepresented, studentsActiveToday } }`. Real counts of accounts in good standing, distinct school names among them, and students with any activity today. A fresh deployment truthfully answers zero for all four, and the landing page renders that.
 
 ### `GET /api/v1/leaderboard`
-`{ leaderboard: [{ rank, studentId, displayName, classLevel, schoolName, xp }] }`, ordered by real XP. Query: `limit` (1–50, default 10) — validated and **capped**, so this returns a leaderboard and cannot be walked to enumerate the roll.
+**Extended in Milestone 10** with scopes, periods, pagination and the caller's own standing. The response still carries the same `leaderboard` array it always did, so existing callers (the landing page, the dashboard) were unaffected — everything else is an addition alongside it.
 
-- `displayName` is a **first name plus a last initial** ("Ishaan V."). The entrants are schoolchildren and this endpoint is public and indexable, so a full legal name beside a school and a class is not published. Tests assert the full name, email address and mobile number are absent from the response.
-- Suspended and deactivated accounts are excluded, filtered *before* the limit so a suspended account cannot silently consume a place in the top ten.
-- Standard competition ranking: one plus the number of students strictly ahead, so a tie shares a rank.
-- A student with no XP does not appear at all.
+```
+{ leaderboard: [{ rank, studentId, displayName, classLevel, schoolName, xp }],
+  scope, classLevel, period,
+  window: { from, to },
+  pagination: { page, limit, total, totalPages },
+  me: { rank, xp, totalRanked } | null,
+  maxRankedDepth: number | null,
+  today }
+```
+
+Query parameters — **and this is the entire input surface**:
+
+| Param | Values | Default |
+|---|---|---|
+| `scope` | `overall`, `class` | `overall` |
+| `classLevel` | one of the ten offered classes | — (**required** when `scope=class`; 400 otherwise) |
+| `period` | `all_time`, `monthly`, `weekly`, `daily` | `all_time` |
+| `page` | ≥ 1 | 1 |
+| `limit` | 1–50 | 10 |
+
+- **No request may state an XP total, a score or a rank.** Those fields are not filtered out by the handler — they are absent from the zod schema, and `validate()` replaces the query with the parse result, so an extra key cannot reach the service. Every number is a `$sum` over rows this backend wrote. A test sends `?xp=999999&rank=1&displayName=Hacker` and asserts nothing changes; there is no write method on this resource.
+- `displayName` is a **first name plus a last initial** ("Ishaan V."). The entrants are schoolchildren and this endpoint is public and indexable, so a full legal name beside a school and a class is not published. Tests assert the full name, email address, mobile number and address are absent from the whole response body.
+- **Scope.** A class board ranks *within* the class — the Class 9 leader is #1 there even if they are #6 overall.
+- **Period.** A period board sums XP earned inside a window of **competition days** (IST), so everyone's week begins at the same instant. `window` states the days summed, so a page never has to guess. `from` is `null` for all time.
+- **Ties share a rank** (standard competition ranking: 1, 2, 2, 4). The order *within* a tie is deterministic: XP descending, then whoever reached the total first, then the account id. See [`DECISIONS.md`](DECISIONS.md).
+- Suspended and deactivated accounts are excluded, filtered *before* the limit so one cannot silently consume a place. A student with no XP in the window does not appear.
+- `me` is the caller's own standing on **this** board, present only when signed in. `rank` is `null` for three real situations — no XP in the window, an account not in good standing, and a class board that is not theirs — while `xp` stays honest.
+- `maxRankedDepth` is `100` for a signed-out caller and `null` for a signed-in one. Paging past it returns **403**: pagination would otherwise let the public endpoint be walked to enumerate the roll, which the old 50-row cap prevented on its own.
+
+### `GET /api/v1/hall-of-fame`
+**New in Milestone 10.** Public. `{ hallOfFame: { boards, totals, generatedFor } }`.
+
+Five fixed boards, each `{ code, title, description, icon, entries, emptyReason }`, with entries `{ rank, studentId, displayName, classLevel, schoolName, value, valueLabel, achievedOn, detail }`. Query: `limit` (1–20, default 5) — the board size. Unpaginated by design: an honours list is short, because being on it should mean something.
+
+| Board | Measures | Notes |
+|---|---|---|
+| `xp_champions` | Lifetime XP | The leaderboard's own first page, reused so the two cannot disagree |
+| `mock_masters` | Best mock test, as a **percentage** of the paper | Each student's best only; papers scoring 0 or below are excluded |
+| `streak_legends` | **Longest** run of consecutive days | Never `current`, so a broken streak withdraws nothing; minimum 2 days |
+| `challenge_champions` | Daily challenges answered **correctly** | Correct only — the XP is paid for answering, so "answered" is a participation count |
+| `practice_devotees` | Practice sessions **submitted** | Not started, so the board cannot be filled by abandoning papers |
+
+- **A board with nothing behind it comes back empty with an `emptyReason`** naming what would fill it. Nothing is ever padded with a placeholder entry.
+- **There is deliberately no official-exam board.** `ExamAttempt` and `Result` are written by nothing, so it would be permanently empty at best and fabricated at worst.
+- `totals` — `studentsRanked`, `xpAwarded`, `mockTestsGraded`, `challengesAnswered`, `practiceSessionsCompleted`. All live counts.
+- Same name masking and same exclusion of accounts not in good standing as the leaderboard, through the same `displayNameFor()`.
 
 ---
 
@@ -417,7 +461,7 @@ Every endpoint in `routes/v1/` now reads from the database. The three that were 
 
 No routes exist for: exam attempt submission, published results, certificate issuance tied to a real result, payments/orders, notifications, practice/mock-test sessions, changing your own email address or mobile number, or admin-initiated account deletion. Grep `backend/src/routes/v1/` before building against an assumed endpoint.
 
-(Password reset and email verification arrived in Milestone 2; student listing/management and audit logs in Milestone 3; the question bank and taxonomy in Milestone 4; **self-service profile editing, photo replacement, password change, the dashboard, XP/levels/streaks/achievements, the real leaderboard and the real daily challenge in Milestone 5**.)
+(Password reset and email verification arrived in Milestone 2; student listing/management and audit logs in Milestone 3; the question bank and taxonomy in Milestone 4; self-service profile editing, photo replacement, password change, the dashboard, XP/levels/streaks/achievements, the real leaderboard and the real daily challenge in Milestone 5; the Practice Zone in Milestone 6; mock tests in Milestone 7; the daily challenge in Milestone 8; the gamification engine in Milestone 9; **scoped, periodised, paginated leaderboards and the Hall of Fame in Milestone 10**.)
 
 ## Checklist for adding a route
 

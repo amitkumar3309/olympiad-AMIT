@@ -39,6 +39,14 @@ const AdminDailyChallenges = lazy(() => import('./pages/Admin/DailyChallenges'))
  *  student opens on arrival. */
 const Rewards = lazy(() => import('./pages/Rewards/Rewards'))
 const AdminRewardSettings = lazy(() => import('./pages/Admin/RewardSettings'))
+/**
+ * Leaderboards and the Hall of Fame (Milestone 10). Both are **public** — a visitor
+ * can see the standing without an account, which is the whole reason the backend masks
+ * names — so they are split out to keep them off the landing page's critical path while
+ * still being reachable without signing in.
+ */
+const Leaderboard = lazy(() => import('./pages/Leaderboard/Leaderboard'))
+const HallOfFame = lazy(() => import('./pages/HallOfFame/HallOfFame'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Profile from './pages/Profile/Profile'
@@ -75,6 +83,12 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/result" element={<Result />} />
           <Route path="/certificate" element={<Certificate />} />
+          {/* Public standing. Deliberately not behind `ProtectedRoute`: the backend
+              already decides what a signed-out visitor may see (masked names, and only
+              the top of the board), and gating the page would hide the competition from
+              exactly the people it is meant to attract. */}
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/hall-of-fame" element={<HallOfFame />} />
           {/* The admin entry point doubles as the root-admin sign-in form, so it is
               not permission-gated; it renders its own unauthorized state instead. */}
           <Route path="/admin" element={<Admin />} />

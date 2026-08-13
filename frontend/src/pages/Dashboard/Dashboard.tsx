@@ -427,6 +427,12 @@ export default function Dashboard() {
                     {data.leaderboard.me.xp.toLocaleString()} XP.
                   </p>
                 )}
+                {/* This card is the overall, all-time top five. The full board adds the
+                    class and period views — and is the same ranking, from the same
+                    service, so the two cannot disagree. */}
+                <p className={styles.subhead}>
+                  <Link to="/leaderboard">Full leaderboard</Link> · <Link to="/hall-of-fame">Hall of Fame</Link>
+                </p>
               </div>
 
               {/* ---------------------------------------------------------

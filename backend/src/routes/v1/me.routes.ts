@@ -14,13 +14,8 @@ import { summariseAchievements } from '../../lib/achievements';
 import { todayKey } from '../../lib/competitionDay';
 import { isClassLevel } from '../../lib/classLevels';
 import { buildRewardFacts, grantDailyVisit, grantReward } from '../../services/rewardService';
-import {
-  getRecentActivity,
-  listActivity,
-  getStanding,
-  getTopLeaderboard,
-  getRecentExamPerformance,
-} from '../../services/progressService';
+import { getRecentActivity, listActivity, getRecentExamPerformance } from '../../services/progressService';
+import { getStanding, getTopLeaderboard } from '../../services/leaderboardService';
 import { getAvailableChallenges } from '../../services/challengeService';
 import {
   updateProfileSchema,

@@ -2,6 +2,120 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-13 — Fix: a promoted admin could not sign in at the admin portal
+
+Reported from production: a super admin promoted a student to `admin` — the badge and status were right in `/admin/users` — but that person was then told **"Invalid admin credentials"** at `/admin`, with a password that still worked on the home page.
+
+Nothing was wrong with the account, the promotion, or the permission table. The two administrative identities authenticate against **different endpoints**, and the portal only posted to one of them:
+
+- the **root** super admin exists only in the environment, has no database record, and signs in at `POST /auth/admin/login`;
+- a **promoted** admin is an ordinary `Student` carrying `role: 'admin'`, and signs in at the normal `POST /auth/login`.
+
+`/auth/admin/login` compares the submitted address against `ADMIN_EMAIL` and nothing else, so it refuses every promoted admin — correctly, but with a message that reads as a broken account rather than as the wrong door. The only signpost was a line of hint text under the form, and hint text is not a mechanism.
+
+`adminLogin()` in `AuthContext` now tries the root endpoint and, **on a 401 specifically**, falls back to the ordinary login with the typed value as `identifier` — which accepts an email or a mobile number, so a promoted admin can use whichever they use elsewhere. One form serves both identities.
+
+**The backend did not change.** There is still exactly one authentication path per identity: the root endpoint still accepts nothing but the environment credentials, and the fallback reuses `/auth/login` exactly as it is, inheriting lockout, verification, rotation and the account's failed-login counter. Folding student authentication into the admin endpoint would have meant a second copy of all of that, and two authentication paths eventually disagree.
+
+The fallback cannot become a bypass. `/auth/login` answers a wrong password the same way for an administrator as for anybody else, and returns the same generic failure for an unknown account as for a wrong one — so trying the root address first leaks nothing about whether it exists. An account that turns out to hold no administrative permission simply lands on the portal's existing "this area is for administrators" state.
+
+Also fixed alongside it: `/auth/admin/login` was missing from `NO_REFRESH_PATHS` in `api/client.ts`. A 401 there means "wrong credentials", not "your token aged out", so the refresh-and-replay cycle could never help — it just fired a pointless `/auth/refresh` and spent a second login attempt against the rate limiter. That stray refresh was visible in the reported console log.
+
+Four tests in `rbac.test.ts` pin the contract the fallback reads, the most important being that the refusal is a **401** — were it to become a 403, every promoted admin would be silently stranded again. Verified live against a local database: `POST /auth/admin/login → 401` followed immediately by `POST /auth/login → 200`, landing on the admin dashboard with `students:read`, `questions:write` and `challenges:write`, and still correctly without `users:role:write`.
+
+## 2026-08-13 — Milestone 10: Leaderboards and Hall of Fame
+
+The leaderboard has been real since Milestone 5 — one board, overall, all-time, top ten. This milestone turned a figure on the dashboard into a **feature**: boards that can be scoped to a class and to a period, paginated, with a stated tie-breaking rule, plus a Hall of Fame built from genuine achievement rather than a second copy of the XP ranking.
+
+### One ranking service
+
+`services/leaderboardService.ts` is now the only place a rank is decided. The ranking code moved out of `progressService.ts`, which had grown it as a corner of "the dashboard's figures".
+
+Every standing in the product — the landing page's champions, the dashboard's rank tile, the `/leaderboard` page's class and period boards, and the Hall of Fame's XP board — comes from the same pipeline with the same ordering. Two ranking implementations would eventually disagree, and a rank that disagrees with itself on two pages is worse than no rank.
+
+Still **nothing is stored**. This extends the Milestone 5 decision rather than revisiting it: there is no `Leaderboard` collection and no materialised standing. A board is an aggregation over `StudentActivity` — the same log XP, levels and streaks come from — so a leaderboard cannot drift from the totals it claims to rank, because it *is* those totals. Scopes and periods are filters on that one pipeline, not stored variants.
+
+### Scopes and periods
+
+- **Overall** and **per class** (the ten offered classes). A class board ranks *within* the class: the Class 9 leader is #1 there even if they are #6 overall.
+- **All time**, **last 30 days**, **last 7 days** and **today**. A period board ranks on XP earned *inside* the window, so a student with 5,000 lifetime XP and a quiet week does not sit above someone who earned 300 this morning.
+- Periods are **competition days** (`lib/competitionDay.ts`), not rolling 24-hour windows, so everybody's week begins and ends at the same instant regardless of where their browser thinks it is — and a window becomes a `$gte` on the day key an activity row already carries.
+
+### Deterministic tie-breaking, stated rather than assumed
+
+Two students on the same XP hold the **same rank** — standard competition ranking, so a board reads 1, 2, 2, 4. Sharing is the honest answer: they earned the same amount, and inventing a winner between them would be a fabricated distinction.
+
+Listing them still needs an order, and it is now a **total** one:
+
+1. XP, descending.
+2. **Who reached the total first**, ascending. Of two students on 300 XP, the one who got there yesterday is listed above the one who got there this morning — the only tie-break with a defensible meaning. Sorting by name would advantage the alphabet.
+3. The account id, ascending — unique, so the same query always returns the same sequence.
+
+The third key is not decoration: without a final unique key, pagination can show a row on two pages or on none.
+
+### Pagination, and the ranks that survive it
+
+Rank is *position in the full ordering*, not position in the page, and equal XP shares a rank. Both survive paging without loading the whole board:
+
+- The **first** row's rank is one plus the number of students strictly ahead on XP. It is the only row whose rank cannot be derived from the page, precisely because a tie may straddle the boundary — the row above it might hold the same XP and share its rank, which counting-ahead gets right where `skip + 1` does not.
+- Every **later** row either has less XP than the row above (rank = absolute position) or the same (rank inherited).
+
+Three aggregations per page and no `$setWindowFields`, which would tie the correctness of a student's rank to the MongoDB server version underneath it. A test asserts a tie split across a page boundary keeps its shared rank, and that three pages read separately equal the whole board read at once.
+
+### The value ranked is the server's
+
+No request may state an XP total, a score or a rank. The entire input surface is a scope, a class, a period and a page — those fields are not filtered out by the handler, they are **absent from the zod schema**, and `validate()` replaces the query with the parse result. A test sends `?xp=999999&rank=1&displayName=Hacker` and asserts the row still reports what the activity log holds, and that the endpoint has no write surface at all.
+
+### The public depth cap
+
+Before pagination, "cannot be walked to enumerate the roll" was guaranteed by the 50-row cap on a single request. Pagination removes that guarantee by itself — fifty rows at a time, repeatedly, is the whole list — so the property is restored explicitly: a **signed-out** visitor may reach the top 100, and a **signed-in** student may page the whole board, which is a list they are already part of and need in order to find themselves. The entrants are minors and the page is indexable; that asymmetry is the point.
+
+This needed `attachUserIfPresent`, a middleware that attaches claims when a session is present and never rejects. It grants nothing and is not a gate — it exists so one public endpoint can differ in *content* for a signed-in caller rather than being duplicated as a second, authenticated ranking surface.
+
+### Hall of Fame — genuine achievement, not a second XP board
+
+`services/hallOfFameService.ts`, five boards measuring five different things. XP measures participation more than ability (known bugs #16, #23, #29), so a hall of fame that only re-ranked XP would be the leaderboard with a nicer heading. Three of the five are about how *well* somebody did:
+
+- **XP champions** — the leaderboard's own first page, reused rather than re-derived so the two cannot disagree.
+- **Best papers** — the highest-scoring mock test anybody has sat, as a **percentage** of the paper. Percentage rather than raw score because 40/40 on a quiz and 40/80 on a final are not the same feat. Only papers scoring above zero appear: negative marking makes 0% reachable, and "0% of the paper" is not an achievement.
+- **Streak legends** — the longest run of consecutive days, `longest` and never `current`, so a broken streak cannot withdraw something a student really did. Computed by the same `summariseStreak()` the dashboard uses, so the honoured number and the student's own page cannot disagree. A single day is not a streak; two is the minimum.
+- **Challenge champions** — most daily challenges answered **correctly**. Correct only, deliberately: the XP for a challenge is paid for answering rather than for being right, which is the correct rule for a daily habit but makes "answered" another participation count.
+- **Practice devotees** — practice sessions **submitted**, not started, so the board cannot be filled by opening papers and walking away.
+
+**A board with nothing behind it is returned empty with a reason** that says what would fill it — never a seeded champion or a placeholder row. There is deliberately **no official-exam board**: that competition has not been run, so it would be permanently empty at best and fabricated at worst.
+
+### What is new in the codebase
+
+- Services: `leaderboardService.ts` (the ranking module), `hallOfFameService.ts`. **No new models** — both are aggregations over collections that already exist.
+- Routes: `leaderboard.routes.ts` — `GET /leaderboard` (moved from `misc.routes.ts`, gaining scope, period, pagination and the caller's own standing) and `GET /hall-of-fame`.
+- Middleware: `attachUserIfPresent` in `middleware/auth.ts`.
+- Validation: `validation/leaderboardSchemas.ts` (the leaderboard query moved out of `profileSchemas.ts`).
+- Index: `StudentActivity {occurredOn: -1}`, which the period boards narrow on before grouping.
+- Frontend: `/leaderboard` and `/hall-of-fame`, both **public** and code-split, in the public navbar and the student sidebar, linked from the landing page and the dashboard's leaderboard card.
+- **49 new tests** (535 total, 17 files), concentrated on ranking correctness: tie sharing and rank skipping, tie order determinism across repeated requests, page-boundary ties, three pages equalling the whole board, period window edges, suspended accounts not consuming a place, and query-string injection changing nothing.
+
+### Response compatibility
+
+`GET /leaderboard` still returns the same `leaderboard` array, so the landing page and the dashboard needed no change to keep working — the scope, window, pagination and `me` standing are additions alongside it.
+
+### Verified end to end in a real browser
+
+Against the local database, with eleven ranked students created through the real registration and reward paths:
+
+- **Guest view** — ranks 1, 2, 3, then **two students sharing #4**, then six sharing **#6** with rank 5 correctly skipped. "11 ranked."
+- **Class board** — the three Class 9 students, ranked **1, 1, 1** within their class rather than 6, 6, 6 as they stand overall.
+- **Period board** — "Today" reported its window explicitly: *counting XP earned from 2026-08-13 to 2026-08-13*.
+- **Signed in** — signing in earned that student the day's visit (+10 XP), which moved them into a **three-way tie at rank 4**, live. Their standing card read "#4 · Your position of 11 ranked · 60 XP" and matched the row marked **YOU** in the list; the next distinct XP resumed at **#7**.
+- **Depth cap** — anonymous page 2 of 50 → **200**; page 3 → **403** "Sign in to see past the top 100". The same request signed in → 200.
+- **Injection** — `?xp=999999&rank=1` returned the true totals unchanged.
+- **Hall of Fame** — all five boards populated from data earlier milestones' real usage had left behind: *Best papers* showed **50% · 4/8** on "Physics Sprint — 1 minute" (the Milestone 7 verification attempt), *Challenge champions* **1 correct** (Milestone 8), *Streak legends* 3 days and 2 days, *Practice devotees* 2 sessions. Totals read 11 ranked, 930 XP awarded, 1 mock test graded, 1 challenge answered, 2 practice sessions.
+
+No console errors beyond the ordinary guest session-restore 401s (`/auth/me` then one `/auth/refresh`), which predate this milestone.
+
+**Not deployed.** No new environment variables and no new deploy step.
+
+---
+
 ## 2026-08-13 — Milestone 9: Gamification Engine
 
 XP, levels, streaks and achievements were already real and derived (Milestones 5–8). This milestone did the four things that were genuinely missing: **one place where a reward is decided**, **badges as a distinct concept**, **the journey map**, and **an administrator-tunable award table** — plus a page where a student can see all of it at once.

@@ -28,6 +28,14 @@ export default function Navbar() {
         </button>
 
         <nav className={`${styles.links} ${open ? styles.open : ''}`}>
+          {/* Public, like Result and Certificate — the standing is readable without an
+              account, so it belongs in the navigation a guest sees. */}
+          <Link to="/leaderboard" onClick={() => setOpen(false)}>
+            Leaderboard
+          </Link>
+          <Link to="/hall-of-fame" onClick={() => setOpen(false)}>
+            Hall of Fame
+          </Link>
           <Link to="/result" onClick={() => setOpen(false)}>
             Result
           </Link>

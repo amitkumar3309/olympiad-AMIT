@@ -235,14 +235,17 @@ Photos still are **not re-encoded**, so EXIF (including any GPS tags a phone wro
 
 **The audit trail now records self-service changes** (`student.profile.updated`, `student.photo.updated`, `student.password.changed`). Metadata names the changed **field names only**: the trail is readable by anyone holding `audit:read`, so a student's home address and date of birth are not copied into it. A test asserts the address value is absent.
 
-## Public data exposure (Milestone 5)
+## Public data exposure (Milestone 5, extended in Milestone 10)
 
-`GET /leaderboard` and `GET /public/stats` are readable **without authentication** — an explicit decision by the project owner, taken so the landing page shows a real standing rather than the invented one it carried. What bounds the exposure:
+`GET /leaderboard`, `GET /hall-of-fame` and `GET /public/stats` are readable **without authentication** — an explicit decision by the project owner, taken so the landing page shows a real standing rather than the invented one it carried. What bounds the exposure:
 
-- Names are published as a **first name plus a last initial** ("Ishaan V."), never in full. The entrants are children in classes 5–12 and the landing page is public and indexable, so a full legal name beside a school and a class would identify a minor to anyone on the internet. `displayNameFor()` in `progressService.ts` is the single place that decides this; widening it is a deliberate one-line change and the owner's call.
-- No email address, mobile number, home address, date of birth or parent name is in the payload. Tests assert the full name, email and mobile do not appear.
-- `limit` is validated and **capped at 50**, so the endpoint returns a leaderboard and cannot be walked to enumerate the roll.
-- Suspended and deactivated accounts are excluded, filtered before the limit is applied.
+- Names are published as a **first name plus a last initial** ("Ishaan V."), never in full. The entrants are children in classes 5–12 and the landing page is public and indexable, so a full legal name beside a school and a class would identify a minor to anyone on the internet. `displayNameFor()` in `services/leaderboardService.ts` is the single place that decides this — the Hall of Fame publishes through the same function, so Milestone 10's four new boards did not add a second answer to "how much of a child's name does this product publish?". Widening it is a deliberate one-line change and the owner's call.
+- No email address, mobile number, home address, date of birth or parent name is in the payload. Tests stringify the **whole** response body and assert the surname, email address, mobile number and address are absent — not just that the fields the page reads are clean.
+- `limit` is validated and **capped at 50**.
+- **Depth is capped for an anonymous caller at the first 100 rows** (403 beyond), which is what keeps a *paginated* leaderboard from being walked to enumerate the roll. Milestone 5's page-size cap achieved that on its own; pagination removed the guarantee, so it was restored explicitly rather than lost as a side effect. A signed-in student may page the whole board — they are already part of this list and need to find themselves in it. See the ADR in [`DECISIONS.md`](DECISIONS.md).
+- **No request may supply a ranked value.** XP, score and rank are absent from the leaderboard query schema rather than filtered out by the handler, and `validate()` replaces `req.query` with the parse result, so an injected key cannot reach the service. There is no write method on either resource. Tested.
+- The leaderboard uses `attachUserIfPresent`, which attaches session claims when a cookie is present and **never rejects**. It grants nothing and must not be used as a gate: what it enables is a *presentation* difference (own standing, depth cap) on one public endpoint, rather than a second authenticated ranking surface that could disagree with the first.
+- Suspended and deactivated accounts are excluded, filtered before the limit is applied, on every board.
 - `studentId` **is** returned, so a client can identify its own row. It is a public-facing identifier by design (it appears on certificates) rather than a secret — but note it is the parameter for `GET /students/:studentId/photo`, which remains gated on being that student or holding `students:read`, re-checked against the database.
 
 `/public/stats` returns only aggregate counts, which cannot be resolved to an individual.

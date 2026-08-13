@@ -72,8 +72,8 @@ const pagination = {
 export const listActivityQuerySchema = z.object({ ...pagination });
 export type ListActivityQuery = z.infer<typeof listActivityQuerySchema>;
 
-/** Public leaderboard sizing. Capped so the endpoint cannot be used to dump the roll. */
-export const leaderboardQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(50).default(10),
-});
-export type LeaderboardQuery = z.infer<typeof leaderboardQuerySchema>;
+/**
+ * The leaderboard query moved to `validation/leaderboardSchemas.ts` in Milestone 10,
+ * when it gained a scope, a period and a page and stopped being "how many rows does the
+ * landing page want".
+ */

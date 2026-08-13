@@ -299,6 +299,7 @@ Purpose: the append-only log of real student events. It is the **single source o
 Indexes:
 - `{ student: 1, createdAt: -1 }` — the feed, newest first.
 - `{ student: 1, occurredOn: -1 }` — backs the `distinct('occurredOn')` query the streak derives from.
+- `{ occurredOn: -1 }` — **added in Milestone 10** for the period leaderboards, which narrow the whole collection to a window of competition days before grouping. The compound index above cannot serve them, because those queries have no `student` in the filter at all.
 - `{ student: 1, type: 1, dedupeKey: 1 }` — **unique, partial** on `{ dedupeKey: { $exists: true } }`.
 
 That partial unique index is what makes "once per day" and "once per account" true rather than merely intended. `recordActivity()` inserts and treats a duplicate-key error as "already counted", which is race-free in a way a read-then-write check across two serverless invocations would not be. It must be *partial* rather than plain (a plain unique index would forbid a student from ever editing their profile twice) and cannot be `sparse` (sparse skips only documents missing *every* indexed field, and these always have `student` and `type`).
@@ -306,6 +307,8 @@ That partial unique index is what makes "once per day" and "once per account" tr
 **Deliberately no TTL index**, like `AuditLog` and unlike the two token collections: expiring a row would silently take XP away from a student who earned it.
 
 **Writes are best-effort.** `recordActivity()` never throws — a failed log write must not fail the registration or password change it describes. The trade-off is that a lost write costs that event's XP, and shows up as an `error`-level log line (see [`DECISIONS.md`](DECISIONS.md)).
+
+**This collection also backs every leaderboard.** Milestone 10 added scoped and periodised boards and a Hall of Fame **without adding a model**: a board is an aggregation over these rows joined to `Student`, so a standing cannot drift from the XP totals it claims to rank — it *is* those totals. There is still no `Leaderboard` collection, deliberately (see [`DECISIONS.md`](DECISIONS.md)). One consequence worth knowing when reading a board: the tie-break that orders equal-XP students is `$max` of `createdAt` over the rows counted in the window, so it means "when this student's counted total stopped changing", not "when they registered".
 
 **Accounts created before Milestone 5 have no rows**, so they read as 0 XP with an empty feed. `backend/scripts/backfill-activity.ts` writes the `account_created` row — and, where `isEmailVerified` is genuinely true, `email_verified` — from facts already on the `Student` document, dated from its real `registeredAt`. It deliberately does **not** invent `daily_visit` rows, so nobody is handed a streak they did not keep. Idempotent; see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 

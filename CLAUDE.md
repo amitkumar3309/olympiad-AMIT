@@ -58,6 +58,8 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   src/services/               question + taxonomy business rules (Milestone 4);
                               practice (M6), mockTest (M7), dailyChallenge (M8);
                               rewardService.ts — THE gamification engine (M9);
+                              leaderboardService.ts — THE ranking (M10);
+                              hallOfFameService.ts — the honours boards (M10);
                               grading.ts — THE marking rules, shared by all;
                               routes do HTTP, services own the rules
   src/middleware/             auth, validate, errorHandler, rateLimiter,
@@ -66,7 +68,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   src/routes/health.routes.ts /health (liveness), /ready (readiness)
   src/routes/v1/              auth, me, analytics, practice, mockTests,
                               mockTestsAdmin, dailyChallenge,
-                              dailyChallengesAdmin, rewards,
+                              dailyChallengesAdmin, rewards, leaderboard,
                               questions (student reads),
                               questionsAdmin, taxonomy, admin, users, misc
                               + barrel index
@@ -130,6 +132,9 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - **There is exactly one reward engine: `services/rewardService.ts`.** Call `grantReward()` — never `recordActivity()` directly (only the engine and `scripts/backfill-activity.ts` may), and never compute an XP amount in a route. A caller supplies *facts* about what happened (`context: { answeredCount }`); the engine decides eligibility and price. Adding a reward to a new surface means one call, not a new rule.
 - **Never query a database from `lib/achievements.ts`, `lib/badges.ts` or `lib/journey.ts`.** All three are pure functions of `RewardFacts` (`lib/rewardFacts.ts`), assembled once by `buildRewardFacts()`. To award for something new, add a fact there and supply it in the engine — that two-step friction is deliberate, and it is what has kept unearnable rows off the dashboard.
 - **XP amounts are administrator-tunable; the rules are not.** `RewardSettings` overrides amounts only. Cardinality (`ONCE_PER_DAY`), eligibility and the level thresholds stay in code. Re-pricing must never affect history: `StudentActivity.xpAwarded` is a snapshot, and a total is the sum of those recorded values — do not "optimise" that into a lookup against the current table.
+- **There is exactly one ranking service: `services/leaderboardService.ts`.** Every standing the product shows goes through it — the landing page, the dashboard's rank tile, the `/leaderboard` page and the Hall of Fame's XP board — so a rank cannot disagree with itself on two screens. Do not write a second aggregation that orders students; add a scope or a period to the one pipeline. Three rules travel with it: **nothing is stored** (there is no `Leaderboard` collection; a board is a `$sum` over `StudentActivity`, so it cannot drift from the XP it ranks); **equal XP shares a rank**, with the listing order fixed by a *total* order (XP → who reached it first → account id, the last key being what makes pagination safe); and **no request may supply a ranked value** — XP, score and rank are absent from the query schema rather than filtered by the handler. The frontend renders rows in the order it receives them and never re-sorts.
+- **`attachUserIfPresent` is not a gate.** It attaches session claims when a cookie is present and never rejects, and exists so one public endpoint (the leaderboard) can differ in *content* for a signed-in caller. Anything decided on it is a presentation decision; a capability decision still goes through `requirePermission`, which rejects and re-reads the role from the database. Do not reach for it to make a route "optionally authenticated" when what you mean is authorised.
+- **A public list must stay a list, not a roll.** The leaderboard publishes children's names (masked to a first name and last initial by `displayNameFor()`, the only function allowed to decide that) and caps an anonymous caller at the top 100. If you add pagination or a new public board, re-check that cap — Milestone 5's page-size limit stopped protecting anything the moment pages arrived, and the property had to be restored deliberately. See [`SECURITY.md`](SECURITY.md).
 - **`requirePermission('...')` is the gate for new routes**, not a role check. The role → permission table in `src/lib/permissions.ts` is the *only* place a role may be mapped to a capability — **never** compare `req.user.role` to a literal in a handler or route (see [`DECISIONS.md`](DECISIONS.md)). Add a permission to that table if none fits. `requireAuth(...roles)` still exists but only for gates that genuinely concern identity rather than capability (e.g. `/auth/logout-all`). For a decision that depends on the data being addressed rather than the path, use `callerCan()` / `callerCanFresh()` — the latter re-reads the role from the database and is what you want before granting access to *someone else's* data.
 - Authentication is stateless (no DB read). **Authorization is not, for privileged permissions**: `requirePermission` re-reads `role`/`status`/`tokenVersion` from MongoDB so a demotion or suspension takes effect at once instead of surviving the access token's TTL. Do not "optimise" that read away. It also means privileged routes need a database connection in order to authorize, and answer 503 without one.
 - Any route that changes an account, a role, or the question bank must call `recordAudit(req, {...})` from `src/lib/audit.ts` with an action from `src/models/AuditLog.ts`. Audit writes are best-effort by design and must never fail the action they describe.
@@ -175,7 +180,7 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 
 ## Testing Requirements
 
-- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **486 tests across 16 files**. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** still has none. See [`TESTING.md`](TESTING.md).
+- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **535 tests across 17 files**. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** still has none. See [`TESTING.md`](TESTING.md).
 - `NODE_ENV=test` skips `.env` loading, so tests can never pick up real secrets, and also lowers bcrypt cost and disables rate limiters for speed/determinism. Don't "fix" any of that.
 - Use `tests/helpers/db.ts` (real in-memory MongoDB) and `tests/helpers/auth.ts` (`registerVerifyLogin`, cookie parsing, real token extraction from the captured email) rather than writing new harnesses.
 - **Rate limiting, security headers and CORS are implemented but not asserted by tests.** Absence of a test is not absence of the protection.

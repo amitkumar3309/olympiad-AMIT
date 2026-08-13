@@ -583,3 +583,61 @@ The amounts/rules split is the other half. An amount is a balancing decision som
 **Alternatives considered**: (a) Configure the level thresholds too — rejected: they interact with every badge and achievement target, so a slider there silently moves a dozen other things. (b) Store the whole award table rather than overrides — rejected: adding a new activity type would then require editing the document before the event could ever pay, and forgetting would look like a bug in the new feature. (c) Cache the settings in-process — rejected: grants are rare, the read is one indexed document, and on serverless a per-container cache would buy nothing while making "why is it still paying the old amount?" a real question.
 
 **Consequences**: one extra document read per grant, accepted deliberately. A settings read that fails falls back to the code table and logs, because a configuration outage must not stop a student being paid for work they did. An override is removed by clearing the box — the endpoint takes the whole set, so an absent key means "use the default", and there is no separate reset action to forget about.
+
+---
+
+## 2026-08-13 — Leaderboards stay derived; scope and period are filters, not variants
+
+**Decision**: leaderboards remain an aggregation over `StudentActivity` with no stored standing, and the new scopes (overall / per class) and periods (all time / 30 / 7 / 1 competition days) are `$match` stages on that one pipeline. `services/leaderboardService.ts` is the only place a rank is decided; the ranking code moved out of `progressService.ts`.
+
+**Reason**: this extends the Milestone 5 ADR ("no progress or leaderboard collection") rather than revisiting it. The temptation with class and period boards is to materialise them — five classes times four periods is twenty boards, and each looks like a candidate for a cached document. But a stored standing is a number that can disagree with the events behind it, and the whole requirement of this product is that no displayed figure is invented. Because a board *is* the sum of the same rows XP is derived from, a leaderboard cannot drift from the XP totals it claims to rank.
+
+Putting it in its own service matters for a second reason: by Milestone 10 four surfaces show a standing (landing page, dashboard, the leaderboard page, the Hall of Fame's XP board). Two ranking implementations would eventually disagree, and a rank that disagrees with itself on two pages is worse than no rank at all — so the Hall of Fame's XP board calls `getLeaderboardPage()` rather than writing its own aggregation.
+
+**Alternatives considered**: (a) A materialised `Leaderboard` collection refreshed on a schedule — rejected: the free tier has no scheduler (the same constraint that made mock-test expiry lazy), and a stale board is a wrong board. (b) Rolling time windows measured from `createdAt` — rejected in favour of competition days, so every student's "week" starts at the same instant and a window is a `$gte` on the day key an activity row already carries, with no timezone in the query. (c) Leaving ranking in `progressService.ts` — rejected: it had grown there as a corner of "the dashboard's figures", and scope, period and pagination are a subject of their own.
+
+**Consequences**: the all-time overall board groups the whole activity collection on every request — correct at the scale this product is designed for (a few hundred students; photo storage caps it near 250) and isolated in one function, which is where a cache goes if a cohort ever outgrows it. Period boards are cheaper, because the new `{occurredOn: -1}` index narrows them before grouping. A page costs three aggregations.
+
+---
+
+## 2026-08-13 — Equal XP shares a rank; the order within a tie is deterministic
+
+**Decision**: standard competition ranking — two students on the same XP hold the **same** rank, so a board reads 1, 2, 2, 4. The *order* in which tied students are listed is a total order: XP descending, then whoever reached that total first (`$max` of the counted rows' `createdAt`, ascending), then the account id ascending.
+
+**Reason**: sharing a rank is the honest answer. They earned the same amount, and picking a winner between them would be exactly the kind of fabricated distinction this product does not ship — the same instinct that deleted the invented dashboard tiles in Milestone 5. `getStanding()` has computed rank as "one plus the number strictly ahead" since Milestone 5; this states it as the rule rather than leaving it as an implementation detail, and applies it to the listing too.
+
+But a list still has an order, and "deterministic" is not optional. The second key is the only tie-break with a defensible meaning: of two students on 300 XP, the one who got there yesterday did it first. Sorting by name would advantage the alphabet; leaving it to Mongo's natural order would mean the same board reordered itself between two page loads. The third key exists because the second can itself tie — and without a final *unique* key, pagination can show a row on two pages or on none, which is a data-integrity bug that only appears once the cohort is big enough to page.
+
+**Alternatives considered**: (a) A strict total order with no shared ranks (1, 2, 3, 4) — rejected: it would tell one of two equal students they came second, which is not true. (b) Dense ranking (1, 2, 2, 3) — rejected: it hides how many people are ahead of you, which is the number a rank is for. (c) `$setWindowFields` with `$rank` — it computes exactly this, but was rejected so the correctness of a student's rank does not depend on the MongoDB server version underneath it; the count-ahead approach is two extra `$count`s and works anywhere.
+
+**Consequences**: a page's ranks are computed from one count-ahead plus a walk over the page, because the first row is the only one whose rank cannot be derived locally — a tie may straddle the page boundary. That case has its own test. A board can legitimately show six students at rank 6 and nothing at all at rank 7 through 11.
+
+---
+
+## 2026-08-13 — A signed-out visitor sees the top of the board, not all of it
+
+**Decision**: `GET /leaderboard` stays public, and pagination is capped for an anonymous caller at the first 100 rows (403 beyond it). A signed-in student may page the whole board. Implemented with `attachUserIfPresent`, a middleware that attaches session claims when present and never rejects.
+
+**Reason**: the leaderboard has been public since Milestone 5 by the owner's explicit decision, protected by three things: masked names, no contact details, and a 50-row cap that meant the endpoint returned *a leaderboard* rather than the roll. Pagination silently removes the third — fifty rows at a time, repeatedly, is the whole list. The entrants are children and the page is indexable, so the property had to be restored deliberately rather than lost as a side effect of a feature.
+
+The asymmetry is the point. A signed-in student is already part of this list, and the one thing they most need is to find themselves in it, which requires paging to wherever they are. An anonymous visitor needs to see that the competition is real, which the top hundred shows.
+
+**Alternatives considered**: (a) Require sign-in for the whole leaderboard — rejected: it would hide the competition from exactly the people it is meant to attract, and the landing page's champions section would have to go. (b) Cap page size instead of depth — that is what already existed, and it does not survive pagination. (c) A second, authenticated ranking endpoint — rejected: two ranking surfaces that could disagree, to express one difference in visibility.
+
+**Consequences**: `attachUserIfPresent` is a new kind of middleware in this codebase and is easy to misuse. It grants nothing and must never be used as a gate: anything decided on the strength of `req.user` there is a *presentation* decision, and a capability decision still goes through `requirePermission`, which rejects and re-reads the role from the database. Its docblock says so.
+
+---
+
+## 2026-08-13 — The Hall of Fame measures achievement, not more XP
+
+**Decision**: five boards in `services/hallOfFameService.ts` — XP champions, best mock-test paper (by percentage), longest streak, most correct daily challenges, most practice sessions submitted. A board with no data is returned empty with a reason. There is no official-exam board.
+
+**Reason**: XP measures participation more than ability — a student who scores 40/40 on a mock test earns exactly what one who scores 4/40 earns (known bugs #16, #23, #29). A hall of fame that only re-ranked XP would therefore be the leaderboard with a nicer heading and would honour turning up rather than doing well. Three of the five boards measure performance instead, and each is a real, dated feat.
+
+Several details follow from the same instinct. Papers rank by **percentage**, because 40/40 on a quiz and 40/80 on a final are not the same achievement. Only papers above zero appear, because negative marking makes 0% reachable and "0% of the paper" is not an honour. Streaks use `longest` and never `current`, so a broken run cannot withdraw something a student really did — the same reasoning the journey map's cumulative facts use. Challenges count **correct** answers, because the XP is paid for answering (right for a daily habit) and would otherwise be a third participation count. Practice counts **submitted** sessions, so the board cannot be filled by opening papers and walking away.
+
+The absent exam board is the important omission. `ExamAttempt` and `Result` are read by the product and written by nothing, so a "national champions" board would be permanently empty at best and fabricated at worst. It belongs to the milestone that makes an official sitting exist.
+
+**Alternatives considered**: (a) One board with a category filter — rejected: five things measured in five units read as one ranking, and a visitor would compare a percentage against a day count. (b) Storing a `HallOfFame` document per season — rejected for the same reason as the leaderboard, and there are no seasons yet. (c) Padding an empty board with the nearest thing available — rejected outright; that is the class of invention Milestone 5 spent a follow-up pass removing.
+
+**Consequences**: the streak board loads one array of day keys per active student and computes runs in this process, using the same `summariseStreak()` the dashboard uses so the honoured number and the student's own page cannot disagree. Bounded by the cohort, and carrying the same scale note as the leaderboard. A brand-new deployment shows five empty boards and a panel saying every board is still open, which is true and is the intended first impression.

@@ -110,6 +110,13 @@ const studentActivitySchema = new Schema<StudentActivityDocument>({
 studentActivitySchema.index({ student: 1, createdAt: -1 });
 // Backs the distinct-days query the streak is computed from.
 studentActivitySchema.index({ student: 1, occurredOn: -1 });
+/**
+ * Backs the **period** leaderboards (Milestone 10), which narrow the whole collection
+ * to a window of competition days before grouping — `occurredOn` leading, with no
+ * student, so the compound index above cannot serve them. Cheap to keep: this is an
+ * append-only log with one small string field indexed.
+ */
+studentActivitySchema.index({ occurredOn: -1 });
 
 /**
  * The rule that makes "once per day" and "once per account" true rather than
