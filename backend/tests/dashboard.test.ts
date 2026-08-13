@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type mongoose from 'mongoose';
 import app from '../src/app';
-import { ExamAttempt, Result, Student, StudentActivity } from '../src/models';
+import { Student, StudentActivity } from '../src/models';
 import { dayKeyOf, daysBetween, isDayKey, shiftDay, todayKey } from '../src/lib/competitionDay';
 import { levelProgressFor, XP_AWARDS } from '../src/lib/xp';
 import { summariseAchievements } from '../src/lib/achievements';
@@ -12,6 +12,7 @@ import { recordActivity } from '../src/services/activityService';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import { API, clearTestInbox, cookieHeader, createAdminSession, loginRootAdmin, otherStudent, registerVerifyLogin } from './helpers/auth';
 import { createPublishedQuestion, createQuestionVia, createTaxonomy } from './helpers/questions';
+import { publishAndIssue, seedExam, seedSubmittedAttempt } from './helpers/exams';
 
 /**
  * Milestone 5 — the student dashboard.
@@ -717,27 +718,18 @@ describe('GET /analytics/:studentId', () => {
 // ===========================================================================
 
 describe('GET /results/:studentId', () => {
-  /** A published result plus the attempt carrying the marks, inserted directly. */
+  /**
+   * A published result, produced by the **real** publication path (Milestone 13):
+   * an official exam, a submitted attempt, then `publishResults()`. Inserting a
+   * `Result` row by hand would skip the very code that computes rank and percentile.
+   */
   async function publishResultFor(studentId: string): Promise<void> {
-    await Result.create({
-      studentId,
-      examId: 'OLYMPIAD-2027-PRELIM',
-      nationalRank: 12,
-      stateRank: 3,
-      percentile: 97.5,
-      xpEarned: 250,
-      badges: ['Finalist'],
-      isPublished: true,
-    });
-    await ExamAttempt.create({
-      studentId,
-      status: 'Submitted',
-      totalScore: 46,
-      accuracy: 92,
-      timeTakenSeconds: 1800,
-      answers: Array.from({ length: 50 }, (_, i) => ({ questionId: `q${i}`, selectedOption: 'a', isCorrect: i < 46 })),
-      endTime: new Date(),
-    });
+    // The examiner is a second account; `otherStudent` is free because the student
+    // under test is always `validStudent`, and the database is cleared between tests.
+    const { cookies } = await createAdminSession(app, otherStudent);
+    const { exam } = await seedExam(app, cookies, { questionCount: 5, marksEach: 10 });
+    await seedSubmittedAttempt(exam, studentId, 5);
+    await publishAndIssue(exam);
   }
 
   it('reports that nothing is published rather than inventing a score', async () => {
@@ -770,21 +762,28 @@ describe('GET /results/:studentId', () => {
 
     const res = await request(app).get(`${API}/results/${studentId}`).expect(200);
 
-    expect(res.body.result.score).toBe(46);
+    // Five questions at 10 marks, all correct.
+    expect(res.body.result.score).toBe(50);
     expect(res.body.result.totalMarks).toBe(50);
-    expect(res.body.result.accuracy).toBe(92);
-    expect(res.body.result.nationalRank).toBe(12);
-    expect(res.body.result.percentile).toBe(97.5);
-    expect(res.body.result.badges).toEqual(['Finalist']);
+    expect(res.body.result.percentage).toBe(100);
+    expect(res.body.result.accuracy).toBe(100);
+    // The only candidate, so first of one — computed, not asserted into existence.
+    expect(res.body.result.rank).toBe(1);
+    expect(res.body.result.totalCandidates).toBe(1);
+    expect(res.body.result.percentile).toBe(100);
     expect(res.body.result.studentName).toBe('Test Kumar Student');
   });
 
   it('keeps an unpublished result invisible, so marks cannot be read before release', async () => {
     const { studentId } = await registerVerifyLogin(app);
-    await Result.create({ studentId, examId: 'OLYMPIAD-2027-PRELIM', isPublished: false, xpEarned: 0, badges: [] });
+    const { cookies } = await createAdminSession(app, otherStudent);
+    const { exam } = await seedExam(app, cookies, { questionCount: 2 });
+    await seedSubmittedAttempt(exam, studentId, 2);
+    // Submitted and graded, but never published — the common real state.
 
     const res = await request(app).get(`${API}/results/${studentId}`).expect(200);
     expect(res.body.result).toBeNull();
+    expect(res.body.reason).toBe('not-published');
   });
 
   it('never exposes contact details alongside a published result', async () => {
@@ -813,24 +812,23 @@ describe('GET /certificates/:studentId', () => {
     expect(serialised).not.toContain('CERT-2026-01');
   });
 
-  it('issues one once a result is published', async () => {
+  it('issues one once an official result is published', async () => {
     const { studentId } = await registerVerifyLogin(app);
-    await Result.create({
-      studentId,
-      examId: 'OLYMPIAD-2027-PRELIM',
-      percentile: 97.5,
-      isPublished: true,
-      xpEarned: 0,
-      badges: [],
-    });
+    const { cookies } = await createAdminSession(app, otherStudent);
+    const { exam } = await seedExam(app, cookies, { questionCount: 4, marksEach: 10 });
+    await seedSubmittedAttempt(exam, studentId, 4);
+    await publishAndIssue(exam);
 
     const res = await request(app).get(`${API}/certificates/${studentId}`).expect(200);
 
     expect(res.body.certificates).toHaveLength(1);
     expect(res.body.certificates[0].studentName).toBe('Test Kumar Student');
-    expect(res.body.certificates[0].percentile).toBe(97.5);
-    // No invented issue date — the model does not store one.
-    expect(res.body.certificates[0].issuedAt).toBeNull();
+    // 100% clears the default 85% distinction threshold.
+    expect(res.body.certificates[0].tier).toBe('distinction');
+    expect(res.body.certificates[0].percentage).toBe(100);
+    // A real issue date now exists, because a real issuance happened.
+    expect(res.body.certificates[0].issuedAt).not.toBeNull();
+    expect(res.body.certificates[0].certificateId).toMatch(/^AMIT-CERT-\d{4}-\d{6}$/);
   });
 });
 

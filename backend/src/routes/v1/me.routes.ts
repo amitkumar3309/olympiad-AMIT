@@ -389,7 +389,9 @@ router.get('/me/dashboard', requireAuth(), ensureDb, async (req: Request, res: R
 
     const [activity, exams, leaderboard, standing, challenges] = await Promise.all([
       getRecentActivity(id, DASHBOARD_ACTIVITY_LIMIT),
-      getRecentExamPerformance(student.studentId, DASHBOARD_EXAM_LIMIT),
+      // Milestone 13: the rewritten `ExamAttempt` keys on the account's ObjectId,
+      // not the human-facing `AMIT_xxxx` string the old shape used.
+      getRecentExamPerformance(id, DASHBOARD_EXAM_LIMIT),
       getTopLeaderboard(DASHBOARD_LEADERBOARD_LIMIT),
       getStanding(id, level.xp),
       // A class is needed to know what is on offer. Legacy accounts predate the

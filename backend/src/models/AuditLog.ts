@@ -85,6 +85,20 @@ export const AUDIT_ACTIONS = [
    * one afterwards does not unsee it.
    */
   'notification.changed',
+  /** An official exam was authored, edited, published, unpublished or archived. */
+  'exam.changed',
+  /**
+   * An exam's results were released. The single most consequential administrative act
+   * in the product: it fixes a national rank and mints every certificate for that
+   * sitting, so the entry records how many of each were written.
+   */
+  'exam.results.published',
+  /**
+   * A certificate was revoked. Never a deletion — the row stays so verification can
+   * say "issued and since withdrawn" rather than "no such certificate", because a
+   * printed copy exists in the world regardless.
+   */
+  'certificate.revoked',
   /** A subject was created or edited. */
   'subject.changed',
   /** A topic or subtopic was created or edited. */
@@ -108,6 +122,8 @@ export const AUDIT_TARGET_TYPES = [
   'topic',
   'gallery',
   'notification',
+  'exam',
+  'certificate',
   'route',
   'system',
 ] as const;

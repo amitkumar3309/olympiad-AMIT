@@ -2,6 +2,65 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-13 — Milestone 13: The official exam, and the certificate system
+
+Certificates were the ask. The official exam was the precondition — and it did not exist.
+
+Milestone 12 had recorded exactly why: `ExamAttempt` and `Result` were read by the product and **written by nothing**, so a certificate system built on them could never issue anything. Building certificates first would have shipped an inert surface, which is the trap that milestone explicitly avoided. So this milestone builds the sitting, then the certificates on top of it.
+
+### The official Olympiad is its own thing
+
+A new `Exam` collection, not a `MockTest` with `maxAttempts: 1`. That distinction is load-bearing rather than tidy: as a flag, every mock test would be one settings change away from minting certificates, and the rule that a mock is not the exam would live only in a comment.
+
+Three things differ from a mock test by design:
+
+- **The window is mandatory.** `MockTest.availableFrom`/`availableTo` are nullable, meaning "as soon as published" and "open indefinitely". For an official sitting both are required: the organisers announce the timeline in advance, so an exam with no window is not an exam. `deadlineFor()` takes the sooner of the duration and the close, so starting five minutes before the window shuts gives five minutes.
+- **One attempt, ever** — enforced by a **unique index** on `{exam, student}`, not by counting. On a serverless platform a read and its write can land in different invocations, so "count the attempts, then insert" has a race a unique index does not.
+- **Submitting reveals no score.** A score exists the moment a paper is graded, but a *result* is an announcement. Ranks cannot be computed until the window has closed and everybody who is going to sit has sat, and the organisers decide when to release them.
+
+`ExamAttempt` and `Result` were both **rewritten**. The old shapes predated Milestone 4: `studentId` was a plain string, `answers` was `{ questionId, selectedOption }`, and there was **no answer-key snapshot at all** — a shape the current grader cannot mark, and that cannot survive a question being edited after a paper was served. Neither had ever been written, so there was nothing to migrate. `snapshotOf()` moved to `services/attemptSnapshot.ts` so mock tests and the exam share one snapshot: two copies is how one of them ends up missing a key field, and a missing key field is a wrong mark on a student's report.
+
+### Releasing results
+
+One administrative act computes ranks and mints certificates together, because a result without a certificate — or a certificate without a published result — is a state nothing in the product knows how to describe.
+
+It **sweeps expired attempts first**, so a paper somebody abandoned is graded and ranked rather than silently excluded, which would otherwise flatter everybody else's position. **Equal scores share a rank** (1, 2, 2, 4), the same rule the leaderboard uses: two students who scored identically did not finish one ahead of the other. And it is **idempotent** — re-running recomputes ranks and updates the same rows, while the unique index on `{student, exam}` means nobody gets a second certificate.
+
+Publishing while the window is still open is refused. Ranks are a cohort fact, and publishing early would rank a student against whoever happened to finish first.
+
+### Certificates come from the exam and nowhere else
+
+**There is no issuance endpoint.** Not for a student, not for an administrator. That is what answers the brief's "do not allow the frontend to manufacture certificate eligibility" — the frontend cannot, because it is never asked, and neither can a human. A test walks the plausible paths (`POST /admin/certificates`, `/me/certificates`, `/certificates`) and confirms none of them exists, and another confirms that earning on mock tests, practice and the daily challenge yields nothing.
+
+Tiers are **participation / merit / distinction** from **per-exam** thresholds, because papers differ in difficulty and 60% on one is not 60% on another. Everyone who submitted gets Participation: sitting a national olympiad is itself the qualification, and excluding low scorers would empty most students' libraries.
+
+**Everything printable is snapshotted at issuance**, and the PDF is rendered from that snapshot alone. This is the detail that makes a certificate trustworthy: rendered from live joins, correcting a spelling in a student's name would silently reissue every certificate they hold with different text, and re-tuning a threshold would change what a two-year-old certificate claims the holder achieved. Worse, verification would confirm a document that no longer matches the one in somebody's hand.
+
+### Two identifiers, and why
+
+`certificateId` is a readable serial (`AMIT-CERT-2026-000123`), printed prominently and **guessable by design** — it is a reference, not a secret.
+
+`verificationCode` is 16 symbols of `crypto` randomness (~80 bits), and it is what public verification keys on. Keeping them apart is what stops verification becoming an **enumeration oracle**: anybody noticing that certificates are numbered sequentially could otherwise walk the serials and harvest the name, school and rank of every entrant. The code's alphabet omits `0`/`O` and `1`/`I`/`L`, because it gets read off paper and typed by hand, and a misread code makes a genuine certificate look forged.
+
+### The PDF
+
+`pdf-lib` — one free MIT package, pure JavaScript, no native binary and no headless browser, so it runs inside a Vercel serverless function on the free tier. The ₹0 constraint ruled out both a rendering service and Puppeteer's ~300 MB Chromium.
+
+The **gold founder signature** is Times italic in `#D4AF37` rather than an embedded script font, avoiding another licensed binary in the repository. The **AMIT OLYMPIAD seal is drawn from primitives** — concentric rings, a ring of impression marks, and centred text — so there is no image asset to lose, nothing to go stale, and it stays crisp at any scale where a small embedded PNG would not.
+
+### Verification, and revocation that tells the truth
+
+`GET /verify/:code` is **public and unauthenticated**: the whole point is that a school, a parent or an employer can check a document without an account. Codes are accepted with or without dashes and in any case.
+
+A **revoked** certificate reports as *revoked, with its details* — never as "not found". A printed copy exists in the world whatever the database says, and telling its holder it never existed reads as a system fault rather than as a decision somebody made. So revocation keeps the row, requires a reason, and blocks further downloads.
+
+### Also
+
+- Two new permissions, `exam:write` and `certificates:write`, taking the table to **21** (3 student / 19 admin / 21 super admin). **23 models.**
+- The dashboard's exam panel and the public result portal are **real** at last. Both had been written as live queries against empty collections rather than hardcoded empties, specifically so they would start working the moment exam submission existed. They did, and were updated to the new shapes in the same change.
+- `/exam` used to redirect to the Practice Zone, because the old page was a practice paper with no marking. It is now the official exam.
+- **50 new tests** (661 total, 20 files), weighted toward the ways this goes quietly wrong: an answer accepted after the deadline, a second attempt, a score visible before release, a mock test earning a certificate, a forged code leaking details, a revoked certificate still downloadable, and authorization on **both** URL prefixes.
+
 ## 2026-08-13 — Milestone 12: Complete Admin Platform
 
 An audit first, because the brief asked for fourteen areas and **eight already existed**. Rebuilding them would have produced duplicate routes and a second set of pages to keep in step. So the audit is the first deliverable, and it is recorded in `FEATURE_STATUS.md`: the dashboard, student management, question bank, daily challenge, mock tests, audit log, taxonomy and reward settings were already real and were left alone.

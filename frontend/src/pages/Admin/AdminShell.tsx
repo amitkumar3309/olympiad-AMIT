@@ -21,6 +21,8 @@ const NAV_ITEMS: Array<{ to: string; label: string; icon: string; permission?: P
   { to: '/admin/questions', label: 'Question Bank', icon: 'ph-list-checks', permission: 'questions:write' },
   { to: '/admin/taxonomy', label: 'Subjects & Topics', icon: 'ph-tree-structure', permission: 'taxonomy:write' },
   { to: '/admin/mock-tests', label: 'Mock Tests', icon: 'ph-exam', permission: 'mocktests:write' },
+  { to: '/admin/exams', label: 'Official Exam', icon: 'ph-certificate', permission: 'exam:write' },
+  { to: '/admin/certificates', label: 'Certificates', icon: 'ph-medal', permission: 'certificates:write' },
   { to: '/admin/daily-challenges', label: 'Daily Challenge', icon: 'ph-dice-five', permission: 'challenges:write' },
   { to: '/admin/standings', label: 'Standings & Rewards', icon: 'ph-ranking', permission: 'students:read' },
   { to: '/admin/reward-settings', label: 'Reward Settings', icon: 'ph-trophy', permission: 'rewards:write' },

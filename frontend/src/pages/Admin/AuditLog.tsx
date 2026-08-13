@@ -14,6 +14,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'user.deleted': 'Account deleted',
   // Milestone 12 — the two publishing surfaces.
   'gallery.changed': 'Gallery photo changed',
+  // Milestone 13 — the official exam and its certificates.
+  'exam.changed': 'Official exam changed',
+  'exam.results.published': 'Exam results released',
+  'certificate.revoked': 'Certificate revoked',
   'notification.changed': 'Announcement changed',
   // A student editing their own account is still a change to an account, so it is
   // in the trail alongside the administrative ones (Milestone 5).

@@ -16,6 +16,7 @@ import {
   type SubmissionReason,
 } from '../models';
 import type { Actor } from './taxonomyService';
+import { snapshotOf } from './attemptSnapshot';
 import { gradeEntries, isAnswered } from './grading';
 import { refView, studentQuestionView } from './questionView';
 
@@ -420,29 +421,6 @@ export function deadlineFor(test: MockTestDocument, startedAt: Date): Date {
 // ---------------------------------------------------------------------------
 // Starting an attempt
 // ---------------------------------------------------------------------------
-
-/** The answer-key snapshot for one question, priced as this test prices it. */
-function snapshotOf(question: QuestionDocument, ref: MockTestQuestionRef): AttemptAnswerEntry {
-  return {
-    question: question._id as Types.ObjectId,
-    revision: question.revision,
-    type: question.type,
-    // The test's marks, not the bank's: a test may re-price a question, and the
-    // attempt must be graded against what the student was actually offered.
-    marks: ref.marks,
-    negativeMarks: ref.negativeMarks,
-    correctOptionKeys: question.options.filter((option) => option.isCorrect).map((option) => option.key),
-    booleanAnswer: question.booleanAnswer ?? null,
-    numericAnswer: question.numericAnswer ?? null,
-    tolerance: question.tolerance ?? null,
-    selectedOptionKeys: [],
-    numericResponse: null,
-    booleanResponse: null,
-    answeredAt: null,
-    isCorrect: null,
-    awardedMarks: null,
-  };
-}
 
 export interface StartAttemptInput {
   test: MockTestDocument;

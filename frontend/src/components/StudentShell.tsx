@@ -49,7 +49,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/analytics', label: 'Analytics', icon: 'ph-chart-line-up' },
   { to: '/report', label: 'Report', icon: 'ph-file-text' },
   { to: '/result', label: 'Result', icon: 'ph-seal-check' },
-  { to: '/certificate', label: 'Certificate', icon: 'ph-medal' },
+  { to: '/my-certificates', label: 'Certificates', icon: 'ph-medal' },
 ]
 
 interface StudentShellProps {

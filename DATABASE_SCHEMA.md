@@ -164,41 +164,87 @@ Every document that could exist was produced by the old template generator and w
 
 ---
 
-## `ExamAttempt` — DEAD (declared, unused)
+## `Exam` (Milestone 13) — ACTIVE
 
-Purpose (intended): one document per student's attempt at an exam.
+The **official Olympiad sitting** — a fourth kind of paper, distinct from practice, mock tests and the daily challenge.
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `studentId` | String | **yes** | — | |
-| `startTime` | Date | no | `Date.now` | |
-| `endTime` | Date | no | — | |
-| `totalScore` | Number | no | `0` | |
-| `accuracy` | Number | no | `0` | |
-| `timeTakenSeconds` | Number | no | `0` | |
-| `answers` | Array of `{questionId: String, selectedOption: String, isCorrect: Boolean}` | no | — | |
-| `status` | String enum | no | `"In Progress"` | One of `In Progress`/`Submitted`/`Suspended`. |
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `title` | String | yes | ≤ 200 chars. |
+| `examCode` | String | yes | **Unique**, uppercase, e.g. `AMIT-2026-C9`. Printed on every certificate for this sitting. |
+| `classLevel` | String enum | yes | Indexed. A student may only sit their own class's paper. |
+| `questions[]` | subdocs | — | `{ question, order, marks, negativeMarks }` — the paper's marks, not the bank's. |
+| `durationMinutes` | Number | yes | 1–600. |
+| `totalMarks` | Number | yes | Sum of `questions[].marks`, written by the service. |
+| `opensAt` / `closesAt` | Date | **both yes** | The announced window. Mandatory here, unlike `MockTest`'s nullable pair: the organisers announce the timeline in advance, so an exam with no window is not an exam. |
+| `status` | String enum | no | `draft` / `published` / `archived`, indexed. |
+| `resultsPublishedAt` / `resultsPublishedBy` | Date \| String | no | Set when results are released. Until then no student sees a score, a rank or a certificate. |
+| `meritThresholdPercent` | Number | yes | Default 60. **Per-exam**, because papers differ in difficulty. |
+| `distinctionThresholdPercent` | Number | yes | Default 85. Validation refuses a value below merit. |
 
-No route currently creates, reads, updates, or deletes this. `Exam.tsx` on the frontend is entirely client-side and never posts anything here.
+Indexes: `{status, classLevel, opensAt}` (the student listing) and `{status, createdAt: -1}` (the admin listing).
+
+**Timing lives here; enforcement does not.** `ExamAttempt.expiresAt` is what actually holds the clock. See the Milestone 13 ADR.
 
 ---
 
-## `Result` — DEAD (declared, unused)
+## `ExamAttempt` (rewritten in Milestone 13) — ACTIVE
 
-Purpose (intended): published result per student per exam.
+One student's **single** sitting. Previously declared-but-unused with a pre-Milestone-4 shape; see the breaking-change note below.
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `studentId` | String | **yes** | — | |
-| `examId` | String | **yes** | — | No `Exam` model exists to reference. |
-| `nationalRank` | Number | no | — | |
-| `stateRank` | Number | no | — | |
-| `percentile` | Number | no | — | |
-| `xpEarned` | Number | no | `0` | |
-| `badges` | [String] | no | — | |
-| `isPublished` | Boolean | no | `false` | |
+| Field | Type | Notes |
+|---|---|---|
+| `exam` / `student` | ObjectId | Both indexed. |
+| `status` | String enum | `in_progress` / `submitted`. **No `expired`** — a paper whose time ran out is finished, not void. |
+| `questions[]` | `attemptAnswer` subdocs | The paper as served, each carrying its own **answer-key snapshot**. |
+| `totalQuestions` / `maxMarks` / `durationMinutes` | Number | Snapshotted at serve time. |
+| `score` / `correctCount` / `incorrectCount` / `unansweredCount` / `accuracy` | Number | Written once at submission. `score` **may be negative** where negative marking applies. |
+| `startedAt` / `expiresAt` / `submittedAt` | Date | `expiresAt` is computed once and **never recomputed**. |
+| `timeTakenSeconds` | Number | Clamped by the deadline. |
+| `submissionReason` | String enum \| null | `manual` / `time_expired`. |
 
-No route currently touches this. `Result.tsx` on the frontend fabricates a fake result client-side instead.
+**Unique index on `{exam, student}`** — this is what makes "one attempt, ever" true in the database rather than intended by a handler that counts first. Plus `{exam, status, score: -1}` for ranking.
+
+### Breaking change — the previous shape
+
+The old version keyed on a string `studentId`, stored `answers` as `{ questionId, selectedOption, isCorrect }`, and had **no answer-key snapshot**. It could not be marked by the grader this codebase now has, and could not survive a question being edited after a paper was served. **Nothing had ever written a document**, so there was nothing to migrate.
+
+---
+
+## `Result` (rewritten in Milestone 13) — ACTIVE
+
+A **published** result. Created by the publication step, not by submission.
+
+| Field | Type | Notes |
+|---|---|---|
+| `exam` / `student` / `attempt` | ObjectId | |
+| `score` / `maxMarks` / `percentage` / `accuracy` | Number | Copied from the attempt so a result reads standalone. `percentage` is the basis for a certificate tier. |
+| `rank` | Number | Within this exam's submitted attempts. **Equal scores share a rank** (1, 2, 2, 4), the same rule the leaderboard uses. |
+| `totalCandidates` / `percentile` | Number | **Cohort facts** — true only relative to a particular set of candidates at a particular moment, so stored once at publication rather than recomputed on every read. |
+| `isPublished` | Boolean | Indexed. Gates every student-facing read. |
+| `publishedAt` / `publishedBy` | Date \| String | |
+
+Unique index on `{exam, student}` — republishing updates the row rather than adding one.
+
+**Why this exists when the attempt already has the score**: a score exists the moment a paper is graded, but a *result* is an announcement. Ranks cannot be computed until the window has closed, and the organisers decide when to release them. An attempt with no `Result` is a paper sat and not yet announced — a real and common state.
+
+---
+
+## `Certificate` (Milestone 13) — ACTIVE
+
+| Field | Type | Notes |
+|---|---|---|
+| `certificateId` | String | **Unique.** Readable serial, `AMIT-CERT-2026-000123`. A reference, not a secret. |
+| `verificationCode` | String | **Unique.** 16 symbols of `crypto` randomness in four groups. What public verification keys on. |
+| `student` / `exam` / `result` | ObjectId | For administration and joins — **never for rendering.** |
+| `tier` | String enum | `participation` / `merit` / `distinction`, indexed. |
+| `studentName`, `studentIdLabel`, `classLevel`, `schoolName`, `examTitle`, `examCode`, `score`, `maxMarks`, `percentage`, `rank`, `totalCandidates`, `meritThresholdPercent`, `distinctionThresholdPercent` | — | **The snapshot.** Frozen at issuance. |
+| `issuedAt` / `issuedBy` | Date \| String | |
+| `revokedAt` / `revokedBy` / `revokedReason` | — | Revocation never deletes the row. |
+
+Unique index on `{student, exam}`, which makes issuance **idempotent**: republishing results cannot produce a second certificate for the same sitting. Plus `{issuedAt: -1}` for the admin listing.
+
+**Everything printable is duplicated on purpose and must not be "normalised away".** A certificate is a statement about a moment. Rendered from live joins, correcting a name would silently reissue every certificate a student holds with different text, and re-tuning a threshold would change what an old certificate claims. See the Milestone 13 ADR.
 
 ---
 
@@ -382,7 +428,7 @@ Deliberately **no TTL** — unlike the two token collections. Expiring a row wou
 
 ## Models Planned But Not Implemented
 
-Based on the UI's implied needs (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)), future models will likely be needed for: `Exam` (definitions, distinct from attempts) and `Certificate` — both belong to the **official exam**, which Milestone 12 deliberately left unbuilt rather than building an admin console over collections nothing writes (see the Milestone 12 ADR). (`AdminAuditLog` was on this list and is now implemented as `AuditLog`; `Leaderboard` is on it no longer — Milestone 5 derives the standing by aggregating `StudentActivity` rather than storing it.) None of these should be added without a corresponding [`DECISIONS.md`](DECISIONS.md) entry and a matching [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) update.
+Based on the UI's implied needs (see [`FEATURE_STATUS.md`](FEATURE_STATUS.md)), there are no known missing models. `Exam` and `Certificate` were the last two on this list and both landed in Milestone 13. (`AdminAuditLog` was on this list and is now implemented as `AuditLog`; `Leaderboard` is on it no longer — Milestone 5 derives the standing by aggregating `StudentActivity` rather than storing it.) None of these should be added without a corresponding [`DECISIONS.md`](DECISIONS.md) entry and a matching [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md) update.
 
 ## Note for whoever implements exam submission
 

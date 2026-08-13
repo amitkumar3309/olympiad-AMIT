@@ -12,6 +12,9 @@ import leaderboardRoutes from './leaderboard.routes';
 import galleryRoutes from './gallery.routes';
 import notificationsRoutes from './notifications.routes';
 import adminInsightsRoutes from './adminInsights.routes';
+import examsRoutes from './exams.routes';
+import examsAdminRoutes from './examsAdmin.routes';
+import certificatesRoutes from './certificates.routes';
 import questionsRoutes from './questions.routes';
 import questionsAdminRoutes from './questionsAdmin.routes';
 import taxonomyRoutes from './taxonomy.routes';
@@ -34,6 +37,11 @@ router.use(leaderboardRoutes);
 router.use(galleryRoutes);
 router.use(notificationsRoutes);
 router.use(adminInsightsRoutes);
+// Official exam and certificates (Milestone 13). `examsAdminRoutes` is mounted before
+// `certificatesRoutes` only for readability — the paths do not overlap.
+router.use(examsRoutes);
+router.use(examsAdminRoutes);
+router.use(certificatesRoutes);
 router.use(questionsRoutes);
 router.use(questionsAdminRoutes);
 router.use(taxonomyRoutes);

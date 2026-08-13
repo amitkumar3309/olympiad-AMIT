@@ -1,0 +1,26 @@
+.empty { padding: 44px 28px; text-align: center; }
+.empty h3 { margin: 0 0 10px; }
+.empty p { margin: 0 auto; max-width: 520px; color: var(--text-muted); line-height: 1.7; }
+.list { display: grid; gap: 16px; }
+.card { padding: 24px; border-left: 4px solid var(--gold); }
+.card.revoked { border-left-color: var(--danger); opacity: .85; }
+.head { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.head h3 { margin: 6px 0 2px; }
+.code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--text-muted); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.tier_distinction, .tier_merit, .tier_participation { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.tier_distinction { background: rgba(212,175,55,.18); color: var(--gold); }
+.tier_merit { background: rgba(56,189,248,.16); color: var(--royal-blue); }
+.tier_participation { background: rgba(148,163,184,.18); color: var(--text-muted); }
+.score { text-align: right; }
+.score strong { display: block; font-size: 30px; }
+.score span { font-size: 13px; color: var(--text-muted); }
+.facts { display: flex; flex-wrap: wrap; gap: 26px; margin: 18px 0; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.facts dt { font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px; }
+.facts dd { margin: 0; font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.download { padding: 10px 20px; border-radius: var(--radius-sm); background: var(--gold); color: #1a1400; font-weight: 700; text-decoration: none; }
+.download:hover { filter: brightness(1.06); }
+.copyBtn { padding: 9px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--text-main); font-weight: 600; cursor: pointer; }
+.verifyLink { color: var(--royal-blue); font-weight: 600; font-size: 14px; }
+.revokedNote { margin: 0; padding: 12px 16px; border-radius: var(--radius-sm); background: rgba(239,68,68,.1); color: var(--danger); font-size: 14px; line-height: 1.6; }

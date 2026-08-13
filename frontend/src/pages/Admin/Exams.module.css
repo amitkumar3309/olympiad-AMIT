@@ -1,0 +1,30 @@
+.panel { padding: 22px; margin-bottom: 20px; }
+.panel h3 { margin: 0 0 6px; }
+.hint { margin: 0 0 18px; color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: end; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.filters select { flex: 0 1 200px; }
+.notice { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-sm); background: rgba(34,197,94,.12); color: var(--success); font-size: 14px; font-weight: 600; }
+.empty { padding: 28px 0; color: var(--text-muted); text-align: center; }
+.tableScroll { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+.table td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.table tr.busy { opacity: .55; }
+.code { display: block; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--text-muted); }
+.muted { color: var(--text-muted); }
+.status_draft { color: var(--warning); font-weight: 700; text-transform: capitalize; }
+.status_published { color: var(--success); font-weight: 700; text-transform: capitalize; }
+.status_archived { color: var(--text-muted); font-weight: 700; text-transform: capitalize; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actionBtn, .publishBtn { padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--text-main); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.actionBtn:hover:not(:disabled) { border-color: var(--royal-blue); color: var(--royal-blue); }
+.publishBtn { border-color: var(--gold); color: var(--gold); }
+.publishBtn:hover:not(:disabled) { background: var(--gold); color: #1a1400; }
+.actionBtn:disabled, .publishBtn:disabled { opacity: .45; cursor: not-allowed; }
+.pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 18px; font-size: 14px; color: var(--text-muted); }
+.pager button { padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--text-main); font-weight: 600; cursor: pointer; }
+.pager button:disabled { opacity: .45; cursor: not-allowed; }
+.modalBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem; background: rgba(0,0,0,.55); }
+.modal { width: 100%; max-width: 720px; max-height: 84vh; overflow: auto; padding: 24px; }
+.modal h3 { margin: 0 0 16px; }

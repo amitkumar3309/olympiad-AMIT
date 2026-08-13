@@ -220,30 +220,30 @@ export interface ExamPerformanceView {
 }
 
 /**
- * Recent submitted exam attempts.
+ * Recent submitted official-exam attempts.
  *
- * This is a real query against the real `ExamAttempt` collection, which no route
- * in the codebase writes to yet — so today it truthfully returns an empty list and
- * the dashboard shows its "no tests yet" state. It is written as a live query
- * rather than a hardcoded `[]` so that the panel starts working the moment exam
- * submission exists, and so nothing has to remember to come back and un-fake it.
+ * **This panel is real as of Milestone 13.** It used to be a live query against a
+ * collection nothing wrote to, deliberately left un-faked so it would start working
+ * the moment exam submission existed. That has now happened, and this was updated to
+ * the rewritten `ExamAttempt` shape at the same time: an ObjectId `student` reference
+ * instead of the old string `studentId`, and `submittedAt`/`score` instead of
+ * `endTime`/`totalScore`.
  *
- * It matches on the human-facing `AMIT_xxxx` id because that is what
- * `ExamAttempt.studentId` is typed as (a `String`, not an ObjectId reference).
- * Whoever implements exam submission must write that same value — noted in
- * DATABASE_SCHEMA.md, since the model predates this milestone and will need
- * revisiting anyway.
+ * It shows the *attempt*, not the result — so a paper that has been sat but whose
+ * results the organisers have not yet released still appears here to its own author,
+ * which is correct: the student knows they sat it. Rank and percentile come from
+ * `Result` and only after publication.
  */
-export async function getRecentExamPerformance(studentId: string, limit: number): Promise<ExamPerformanceView[]> {
-  const attempts = await ExamAttempt.find({ studentId, status: 'Submitted' }).sort({ endTime: -1, startTime: -1 }).limit(limit);
+export async function getRecentExamPerformance(student: Types.ObjectId, limit: number): Promise<ExamPerformanceView[]> {
+  const attempts = await ExamAttempt.find({ student, status: 'submitted' }).sort({ submittedAt: -1 }).limit(limit);
 
   return attempts.map((attempt) => ({
     id: String(attempt._id),
-    submittedAt: attempt.endTime ?? null,
-    totalScore: attempt.totalScore,
+    submittedAt: attempt.submittedAt ?? null,
+    totalScore: attempt.score,
     accuracy: attempt.accuracy,
     timeTakenSeconds: attempt.timeTakenSeconds,
-    questionCount: attempt.answers.length,
+    questionCount: attempt.totalQuestions,
   }));
 }
 

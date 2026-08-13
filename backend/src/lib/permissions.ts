@@ -105,6 +105,25 @@ export const PERMISSIONS = [
    * question that one cohort will eventually see.
    */
   'notifications:write',
+  /**
+   * Author the **official Olympiad**, set the announced window, and release results.
+   *
+   * Separate from `mocktests:write` because these are not the same job at all: a mock
+   * test is a rehearsal that can be republished at will, whereas releasing an official
+   * result fixes a national rank and mints certificates. Holding the two apart means
+   * a member of staff can be trusted with rehearsals without being trusted with the
+   * sitting that counts.
+   */
+  'exam:write',
+  /**
+   * Read every certificate, and revoke one.
+   *
+   * Issuance is deliberately **not** a capability anybody holds directly: certificates
+   * are minted only as part of publishing an exam's results, from a graded attempt. No
+   * route lets a human choose who gets one, which is what makes the certificate a
+   * statement about a result rather than about an administrator's opinion.
+   */
+  'certificates:write',
 
   // --- Super-admin capabilities ---
   /** Grant or revoke the admin role on an account. */
@@ -145,6 +164,8 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'users:sessions:revoke',
   'gallery:write',
   'notifications:write',
+  'exam:write',
+  'certificates:write',
   'questions:write',
   'questions:delete',
   'taxonomy:write',

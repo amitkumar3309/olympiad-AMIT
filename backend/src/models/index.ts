@@ -19,3 +19,5 @@ export * from './VerificationToken';
 export * from './AuditLog';
 export * from './GalleryItem';
 export * from './Notification';
+export * from './Exam';
+export * from './Certificate';

@@ -1,35 +1,42 @@
 import type { PipelineStage } from 'mongoose';
 import { shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
-import { ExamAttempt, Result, Student, StudentActivity } from '../models';
+import {
+  Certificate,
+  CERTIFICATE_TIER_TITLES,
+  ExamAttempt,
+  Result,
+  Student,
+  StudentActivity,
+  type CertificateTier,
+} from '../models';
 
 /**
  * Published results and certificates, read from the real collections.
  *
- * Everything here queries `Result` and `ExamAttempt`, which **no route writes to
- * yet**. So every function truthfully returns "nothing published" today, and the
- * pages that call them render an explicit empty state.
+ * **Real as of Milestone 13.** These used to query collections nothing wrote to, and
+ * were written as live queries rather than hardcoded empties precisely so they would
+ * start working the moment exam submission existed. That has now happened, and this
+ * file was rewritten for the new shapes at the same time.
  *
- * They are written as real queries rather than as hardcoded empties for the same
- * reason the dashboard's test panel is: the moment exam submission exists, the
- * result portal, the report and the certificate start working without anyone having
- * to remember to come back and un-fake them. What they replaced was much worse than
- * an empty state — the result portal invented a score, a national rank and a
- * percentile by hashing whatever student ID was typed into it.
+ * What they replaced was much worse than an empty state: the result portal invented a
+ * score, a national rank and a percentile by hashing whatever student ID was typed
+ * into it. Everything below is now a real join over a **published** `Result`.
  */
 
 export interface PublishedResult {
   studentId: string;
   studentName: string | null;
   examId: string;
+  examTitle: string;
   score: number;
   totalMarks: number;
+  percentage: number;
   accuracy: number;
-  nationalRank: number | null;
-  statewiseRank: number | null;
-  percentile: number | null;
-  xpEarned: number;
-  badges: string[];
+  rank: number;
+  totalCandidates: number;
+  percentile: number;
   submittedAt: Date | null;
+  publishedAt: Date | null;
 }
 
 export type ResultLookup =
@@ -37,87 +44,100 @@ export type ResultLookup =
   /**
    * `no-account` and `not-published` are deliberately **not** distinguished in what
    * the route sends back to an unauthenticated caller — see the comment in
-   * `results.routes.ts`. The distinction exists here so the route can log it.
+   * `misc.routes.ts`. The distinction exists here so the route can log it.
    */
   | { found: false; reason: 'no-account' | 'not-published' };
 
 /**
  * The published result for one student, or why there isn't one.
  *
- * Only `isPublished` results are ever returned: a result that exists but has not
- * been released must be invisible, or the portal becomes a way to read marks before
- * the organisers announce them.
+ * Only `isPublished` rows are ever returned. A result that exists but has not been
+ * released must be invisible, or the portal becomes a way to read marks before the
+ * organisers announce them — and since a `Result` row is only created *by* the
+ * publication step, an unpublished one is a deliberate state rather than an accident.
  */
 export async function findPublishedResult(studentId: string): Promise<ResultLookup> {
-  const account = await Student.findOne({ studentId }).select('studentId fullName status');
+  const account = await Student.findOne({ studentId }).select('_id studentId fullName status');
   if (!account || account.status !== 'active') {
     return { found: false, reason: 'no-account' };
   }
 
-  const result = await Result.findOne({ studentId, isPublished: true });
+  const result = await Result.findOne({ student: account._id, isPublished: true })
+    .sort({ publishedAt: -1 })
+    .populate<{ exam: { _id: unknown; title: string; examCode: string } }>('exam', 'title examCode');
+
   if (!result) {
     return { found: false, reason: 'not-published' };
   }
 
-  // Marks live on the attempt, ranks and badges on the result. Both are needed for
-  // a complete card, and the attempt is the authority on what was actually scored.
-  const attempt = await ExamAttempt.findOne({ studentId, status: 'Submitted' }).sort({ endTime: -1 });
+  // The attempt is the authority on when the paper was actually sat.
+  const attempt = await ExamAttempt.findById(result.attempt).select('submittedAt');
 
   return {
     found: true,
     result: {
-      studentId: result.studentId,
+      studentId: account.studentId,
       studentName: account.fullName ?? null,
-      examId: result.examId,
-      score: attempt?.totalScore ?? 0,
-      // `answers.length` is the paper's length as actually attempted. There is no
-      // Exam entity carrying a total yet, so this is the honest denominator.
-      totalMarks: attempt?.answers.length ?? 0,
-      accuracy: attempt?.accuracy ?? 0,
-      nationalRank: result.nationalRank ?? null,
-      statewiseRank: result.stateRank ?? null,
-      percentile: result.percentile ?? null,
-      xpEarned: result.xpEarned,
-      badges: result.badges,
-      submittedAt: attempt?.endTime ?? null,
+      examId: result.exam?.examCode ?? '',
+      examTitle: result.exam?.title ?? '',
+      score: result.score,
+      totalMarks: result.maxMarks,
+      percentage: result.percentage,
+      accuracy: result.accuracy,
+      rank: result.rank,
+      totalCandidates: result.totalCandidates,
+      percentile: result.percentile,
+      submittedAt: attempt?.submittedAt ?? null,
+      publishedAt: result.publishedAt ?? null,
     },
   };
 }
 
 export interface EarnedCertificate {
   id: string;
+  certificateId: string;
   studentId: string;
   studentName: string | null;
+  tier: CertificateTier;
   title: string;
-  examId: string;
-  issuedAt: Date | null;
-  percentile: number | null;
+  examTitle: string;
+  examCode: string;
+  percentage: number;
+  rank: number;
+  issuedAt: Date;
+  revoked: boolean;
 }
 
 /**
  * Certificates a student has actually earned.
  *
- * A certificate requires a **published result**, which is the whole point: the page
- * this feeds used to print "For outstanding participation and achievement" for
- * anybody who was signed in, dated today, with their student ID as the certificate
- * number. Nobody had earned anything.
+ * A certificate requires a **published result for an official exam**, which is the
+ * whole point: the page this feeds used to print "For outstanding participation and
+ * achievement" for anybody who was signed in, dated today, with their student ID as
+ * the certificate number. Nobody had earned anything.
+ *
+ * Every printable field is read from the certificate's own **snapshot**, not joined
+ * from live documents — see `models/Certificate.ts` for why that matters.
  */
 export async function findEarnedCertificates(studentId: string): Promise<EarnedCertificate[]> {
-  const account = await Student.findOne({ studentId }).select('fullName status');
+  const account = await Student.findOne({ studentId }).select('_id fullName status');
   if (!account || account.status !== 'active') return [];
 
-  const results = await Result.find({ studentId, isPublished: true });
+  const certificates = await Certificate.find({ student: account._id }).sort({ issuedAt: -1 });
 
-  return results.map((result) => ({
-    id: `${result.studentId}-${result.examId}`,
-    studentId: result.studentId,
-    studentName: account.fullName ?? null,
-    title: 'A.M.I.T Maths Olympiad — Participation & Achievement',
-    examId: result.examId,
-    // No issue date is stored on a Result yet; null rather than today's date, which
-    // is what made the old certificate look genuine when it was not.
-    issuedAt: null,
-    percentile: result.percentile ?? null,
+  return certificates.map((certificate) => ({
+    id: String(certificate._id),
+    certificateId: certificate.certificateId,
+    studentId,
+    studentName: certificate.studentName,
+    tier: certificate.tier,
+    title: CERTIFICATE_TIER_TITLES[certificate.tier],
+    examTitle: certificate.examTitle,
+    examCode: certificate.examCode,
+    percentage: certificate.percentage,
+    rank: certificate.rank,
+    issuedAt: certificate.issuedAt,
+    revoked: certificate.revokedAt !== null && certificate.revokedAt !== undefined,
   }));
 }
 

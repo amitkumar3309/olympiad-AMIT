@@ -39,6 +39,9 @@ export default function Navbar() {
           <Link to="/gallery" onClick={() => setOpen(false)}>
             Gallery
           </Link>
+          <Link to="/verify" onClick={() => setOpen(false)}>
+            Verify Certificate
+          </Link>
           <Link to="/result" onClick={() => setOpen(false)}>
             Result
           </Link>

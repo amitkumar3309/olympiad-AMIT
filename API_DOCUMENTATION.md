@@ -408,6 +408,95 @@ Staff write **one** document carrying an audience *rule*; each student's inbox i
 
 ---
 
+---
+
+## Official exam — Milestone 13
+
+The national sitting. **Not** a mock test: its window is announced in advance, a student gets **one** attempt, and submitting reveals no score — results are released by the organisers.
+
+### `GET /api/v1/exams`
+- **Permission**: `exam:take` (every student). Reuses the capability mock tests established: sitting a paper is the same kind of act whichever paper it is.
+- **Response 200**: `{ success, exams: StudentExam[] }` — published exams for the caller's **own class only**, with the window state and their own attempt if any. Never the questions. A student with no `classLevel` gets `{ exams: [], reason: 'no-class' }`.
+- Expired attempts are swept on the way through, so the listing cannot offer to resume a paper whose clock has run out.
+
+### `POST /api/v1/exams/:id/attempt`
+- **Permission**: `exam:take`. **Response 201** on a new attempt, **200** when resuming (`created: false`).
+- **One attempt, ever.** Resuming returns the *same* attempt with the *same* deadline — which is what stops "start again" being a way to buy time. A **submitted** attempt is a `409`, not a new attempt.
+- The paper is served with the answer key **snapshotted** onto the attempt and stripped from the response (`studentQuestionView`). `expiresAt` is computed here and never recomputed.
+- **Errors**: `403` wrong class or no class on the account, `409` outside the announced window / already sat / under a minute left / paper has no questions, `404`, `401`, `503`.
+
+### `GET /api/v1/exams/attempts/:attemptId`
+- **Permission**: `exam:take`, and **ownership is in the query** — somebody else's attempt is a `404`, not a `403`, because the route never loads it.
+- **Response 200**: the paper with `secondsRemaining` from the server's clock. Returning to a paper whose time ran out **closes it** rather than showing a countdown at zero.
+
+### `PATCH /api/v1/exams/attempts/:attemptId/questions/:questionId`
+- **Permission**: `exam:take`. **Request**: one of `selectedOptionKeys`, `numericResponse`, `booleanResponse`.
+- **The body may not carry a time of any kind** — no elapsed duration, no client timestamp, no remaining seconds. Accepting one would hand the clock to the browser.
+- **An answer arriving after `expiresAt` is refused with `409` and is not stored.** Not stored late, not stored quietly, not stored and ignored at grading (asserted by a test that moves the deadline into the past and then reads the document back).
+- **Errors**: `400` unknown option key or a numeric answer on a choice question, `404` question not on this paper, `409` submitted or past the deadline.
+
+### `POST /api/v1/exams/attempts/:attemptId/submit`
+- **Permission**: `exam:take`. **Response 200**: `{ success, submitted: true, attempt: {...}, resultsPending: true, message }`.
+- **Returns no score, no accuracy and no answer key.** This is the whole difference from a mock test. Idempotent and race-safe: the write is conditional on `status: 'in_progress'`, so of two concurrent submissions exactly one grades.
+- `submittedAt` is clamped to the deadline, so a late submission is marked as at the deadline rather than recording a time longer than the exam allowed.
+
+### `GET /api/v1/me/exam-results`
+- **Permission**: `exam:take`. **Response 200**: the caller's **published** results only — `isPublished` is in the query, so an unreleased result is invisible however long ago the paper was sat.
+
+### `GET`/`POST`/`PATCH /api/v1/admin/exams`…
+- **Permission**: `exam:write` (admin, super admin) — separate from `mocktests:write` because releasing an official result fixes a national rank and mints certificates, where a mock test is a rehearsal.
+- `POST` creates a **draft**. `opensAt`/`closesAt` are both **mandatory**, `closesAt` must be after `opensAt`, and `distinctionThresholdPercent` must be at least `meritThresholdPercent` — otherwise every distinction would also qualify as merit.
+- Questions must exist and be **published**: an official paper made partly of drafts would refuse to start once somebody sat down, which is a far worse place to find out.
+- `PATCH` **freezes the paper once anybody has sat it**: questions, duration and class become `409`. The window and thresholds stay editable, because releasing late or re-deciding a grade boundary do not rewrite what anyone sat.
+- `PATCH /:id/status` publishes / unpublishes / archives. Publishing an exam with no questions is a `409`.
+
+### `GET /api/v1/admin/exams/:id/attempts`
+- **Permission**: `exam:write`. Sweeps expired attempts first, then returns every attempt with real marks and the student's identity.
+
+### `POST /api/v1/admin/exams/:id/publish-results`
+- **Permission**: `exam:write`. The single most consequential act in the product: it fixes every rank **and mints every certificate for the sitting, in one operation** — a result without a certificate, or a certificate without a published result, is a state nothing knows how to describe.
+- **Refused with `409` while the window is still open.** Ranks are a cohort fact; publishing early would rank a student against whoever happened to finish first.
+- Sweeps expired attempts first, so an abandoned paper is graded and counted rather than silently dropped — which would flatter every other rank.
+- **Equal scores share a rank** (1, 2, 2, 4), the same rule the leaderboard uses.
+- **Idempotent**: re-running recomputes ranks and updates the same `Result` rows, and the unique index on `{student, exam}` means no student gets a second certificate. The response reports `certificates.issued` and `certificates.skipped`.
+- **Response 200**: `{ success, exam, publication: { candidates, resultsWritten }, certificates: { issued, skipped } }`. Writes an `exam.results.published` audit entry carrying those counts.
+
+---
+
+## Certificates — Milestone 13
+
+**There is no issuance endpoint.** Certificates are minted only by publishing an exam's results. No student and no administrator can nominate a recipient, which is what makes "the frontend cannot manufacture eligibility" structural rather than validated — the frontend is never asked.
+
+### `GET /api/v1/verify/:code`
+- **Auth**: none. **Public and unauthenticated** — a school, parent or employer must be able to check a document without an account.
+- Keyed on the **verification code**, never the readable serial: the serial is effectively guessable, so keying on it would let anybody walk the numbers and harvest every entrant's name, school and rank.
+- The code is accepted with or without dashes and in any case, because it is read off paper and typed by hand — rejecting a correctly-remembered code over punctuation would make a genuine certificate look forged. A malformed code is a `400`.
+- **Response 200**: `{ success, valid, status: 'valid' | 'revoked' | 'not-found', certificate?, revokedAt?, revokedReason? }`.
+- A **revoked** certificate reports `revoked` **with** its details, not `not-found`: a printed copy exists in the world regardless, and its holder needs to be told it was withdrawn rather than that it never existed. A forged code returns no certificate object at all.
+- Everything returned is the certificate's own **snapshot**, so this confirms the document in somebody's hand rather than what the live records say today.
+
+### `GET /api/v1/me/certificates`
+- **Auth**: `requireAuth()` — an identity gate, like the rest of `/me`.
+- **Response 200**: the caller's certificates, **including the verification code** (the holder needs it to prove their own certificate, and it is printed on their PDF anyway).
+
+### `GET /api/v1/me/certificates/:id/download`
+- **Auth**: `requireAuth()`, with ownership in the query — somebody else's certificate is a `404`.
+- **Response 200**: `application/pdf`, rendered server-side by `pdf-lib` from the certificate's snapshot alone. `Cache-Control: private, no-store`, because this is personal data behind an authorization check.
+- A **revoked** certificate is a `409`: continuing to hand out fresh copies of a withdrawn document would undermine the revocation entirely.
+
+### `GET /api/v1/admin/certificates`
+- **Permission**: `certificates:write` (admin, super admin).
+- **Query**: `page`, `limit`, `tier`, `examCode`, `revoked` (`true`/`false`), `search` (literal, over name, student ID and certificate number).
+
+### `POST /api/v1/admin/certificates/:id/revoke`
+- **Permission**: `certificates:write`. **Request**: `{ reason }` — **mandatory**, 3–500 chars.
+- **Never deletes.** The row stays so verification can tell the truth. Re-revoking is a no-op (`changed: false`). Writes a `certificate.revoked` audit entry.
+
+### `GET /api/v1/admin/certificates/:id/download`
+- **Permission**: `certificates:write`. Staff copy of any certificate, for support and reissue.
+
+---
+
 ## Administrative insight — Milestone 12
 
 Three read-only surfaces. **Every figure is counted from a collection**; nothing is estimated or projected.

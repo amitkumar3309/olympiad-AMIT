@@ -29,6 +29,8 @@ export type Permission =
   | 'audit:read'
   | 'gallery:write'
   | 'notifications:write'
+  | 'exam:write'
+  | 'certificates:write'
   | 'users:password:reset'
   | 'users:sessions:revoke'
   | 'users:role:write'
@@ -157,6 +159,9 @@ export type AuditAction =
   | 'user.deleted'
   | 'gallery.changed'
   | 'notification.changed'
+  | 'exam.changed'
+  | 'exam.results.published'
+  | 'certificate.revoked'
   | 'student.profile.updated'
   | 'student.photo.updated'
   | 'student.password.changed'
@@ -192,6 +197,8 @@ export interface AuditEntry {
     | 'topic'
     | 'gallery'
     | 'notification'
+    | 'exam'
+    | 'certificate'
     | 'route'
     | 'system'
   targetId: string | null
@@ -1493,4 +1500,168 @@ export interface RewardsOverview {
      *  counted by aggregation — not that nobody holds it. */
     holders: number | null
   }>
+}
+
+// ---------------------------------------------------------------------------
+// Milestone 13 — the official exam and certificates
+// ---------------------------------------------------------------------------
+
+export type ExamStatus = 'draft' | 'published' | 'archived'
+export type ExamWindowState = 'open' | 'not-open-yet' | 'closed' | 'not-published'
+export type ExamAttemptStatus = 'in_progress' | 'submitted'
+
+/** An official exam as a student sees it before sitting. Never the questions. */
+export interface StudentExam {
+  id: string
+  examCode: string
+  title: string
+  description: string | null
+  classLevel: ClassLevel
+  durationMinutes: number
+  totalMarks: number
+  questionCount: number
+  opensAt: string
+  closesAt: string
+  isOpen: boolean
+  windowState: ExamWindowState
+  resultsPublished: boolean
+  attempt: {
+    id: string
+    status: ExamAttemptStatus
+    startedAt: string
+    submittedAt: string | null
+  } | null
+}
+
+/** One question on a paper being sat. Carries no answer key. */
+export interface ExamPaperQuestion {
+  position: number
+  marks: number
+  negativeMarks: number
+  selectedOptionKeys: string[]
+  numericResponse: number | null
+  booleanResponse: boolean | null
+  answered: boolean
+  question: StudentQuestion | null
+}
+
+export interface ExamAttemptInProgress {
+  id: string
+  status: ExamAttemptStatus
+  startedAt: string
+  expiresAt: string
+  /** The server's clock. The countdown is a display of this, never an input. */
+  secondsRemaining: number
+  totalQuestions: number
+  maxMarks: number
+  questions: ExamPaperQuestion[]
+}
+
+export interface ExamResult {
+  id: string
+  examTitle: string
+  examCode: string
+  score: number
+  maxMarks: number
+  percentage: number
+  accuracy: number
+  rank: number
+  totalCandidates: number
+  percentile: number
+  publishedAt: string | null
+}
+
+export interface AdminExam {
+  id: string
+  examCode: string
+  title: string
+  description: string | null
+  instructions: string | null
+  classLevel: ClassLevel
+  durationMinutes: number
+  totalMarks: number
+  questionCount: number
+  questions: Array<{ question: string; order: number; marks: number; negativeMarks: number }>
+  opensAt: string
+  closesAt: string
+  windowState: ExamWindowState
+  status: ExamStatus
+  meritThresholdPercent: number
+  distinctionThresholdPercent: number
+  resultsPublishedAt: string | null
+  resultsPublishedBy: string | null
+  createdByLabel: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AdminExamAttempt {
+  id: string
+  studentId: string | null
+  fullName: string | null
+  schoolName: string | null
+  status: ExamAttemptStatus
+  score: number
+  maxMarks: number
+  percentage: number
+  accuracy: number
+  correctCount: number
+  incorrectCount: number
+  unansweredCount: number
+  startedAt: string
+  submittedAt: string | null
+  submissionReason: 'manual' | 'time_expired' | null
+  timeTakenSeconds: number
+}
+
+export type CertificateTier = 'participation' | 'merit' | 'distinction'
+
+export interface Certificate {
+  id: string
+  certificateId: string
+  /** Only ever sent to the holder and to staff — it is what proves the certificate. */
+  verificationCode?: string
+  tier: CertificateTier
+  title: string
+  studentName: string
+  studentIdLabel: string
+  classLevel: string
+  schoolName: string | null
+  examTitle: string
+  examCode: string
+  score: number
+  maxMarks: number
+  percentage: number
+  rank: number
+  totalCandidates: number
+  issuedAt: string
+  issuedBy: string | null
+  revoked: boolean
+  revokedAt: string | null
+  revokedReason: string | null
+}
+
+/** What public verification returns. Everything comes from the certificate's snapshot. */
+export interface VerificationResponse {
+  valid: boolean
+  status: 'valid' | 'revoked' | 'not-found'
+  certificate?: {
+    certificateId: string
+    tier: CertificateTier
+    title: string
+    studentName: string
+    studentIdLabel: string
+    classLevel: string
+    schoolName: string | null
+    examTitle: string
+    examCode: string
+    score: number
+    maxMarks: number
+    percentage: number
+    rank: number
+    totalCandidates: number
+    issuedAt: string
+  }
+  revokedAt?: string | null
+  revokedReason?: string | null
 }

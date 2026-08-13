@@ -49,9 +49,17 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `users:password:reset` | — | yes | yes |
 | `users:sessions:revoke` | — | yes | yes |
 | `gallery:write` | — | yes | yes |
+| `exam:write` | — | yes | yes |
+| `certificates:write` | — | yes | yes |
 | `notifications:write` | — | yes | yes |
 | `users:role:write` | — | — | **yes** |
 | `users:delete` | — | — | **yes** |
+
+**A certificate cannot be manufactured, by anybody.** There is no issuance endpoint: certificates are minted only as a side effect of releasing an official exam's results, from a graded attempt. No student and no administrator can nominate a recipient, which makes “the frontend must not manufacture certificate eligibility” true structurally rather than by validation — the frontend is never asked.
+
+**Verification keys on a secret, not on the serial.** `certificateId` is readable and effectively guessable; `verificationCode` is 16 symbols (~80 bits) of `crypto` randomness. Keying public verification on the serial would be an enumeration oracle: anybody noticing that certificates are numbered sequentially could walk them and harvest the name, school and rank of every entrant. A **revoked** certificate reports as revoked rather than missing, and can no longer be downloaded — continuing to issue fresh copies would undermine the revocation.
+
+**The official exam never leaks its answer key or an unreleased mark.** The served paper composes the shared `studentQuestionView`, so no hand-written projection can forget a field; submission returns **no score at all**; and a `Result` row is created only by the publication step, with `isPublished` in the query rather than filtered afterwards. An answer arriving after `expiresAt` is refused and **not stored** — a browser is free to keep its countdown running, which is precisely why the clock is never taken from a request.
 
 **The gallery is the only surface published to the open internet** (Milestone 12), which is why it holds its own permission rather than riding on `questions:write`: a mistake there is visible to anybody, not just to a signed-in cohort. Uploads are validated by **magic bytes** through the shared `imageDataUrl()` validator, so a file that merely *claims* to be a PNG is refused — a browser or a script controls the MIME type in a data URL, and trusting it would mean storing arbitrary bytes and serving them back with an image content type. Archiving stops the bytes being served, not just the listing, so a taken-down photo is genuinely gone for anyone holding the URL.
 

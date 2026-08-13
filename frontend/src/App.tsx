@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute, RequirePermission } from './components/ProtectedRoute'
@@ -58,6 +58,17 @@ const AdminGallery = lazy(() => import('./pages/Admin/Gallery'))
 const AdminNotifications = lazy(() => import('./pages/Admin/Notifications'))
 const AdminAnalytics = lazy(() => import('./pages/Admin/Analytics'))
 const AdminStandings = lazy(() => import('./pages/Admin/Standings'))
+/**
+ * The official exam and certificates (Milestone 13). The sitting runner renders
+ * question content through KaTeX, so it is split out for the same reason the mock-test
+ * runner is; the rest are secondary destinations.
+ */
+const Exams = lazy(() => import('./pages/Exam/Exams'))
+const ExamAttemptPage = lazy(() => import('./pages/Exam/ExamAttempt'))
+const MyCertificates = lazy(() => import('./pages/Certificates/Certificates'))
+const VerifyCertificate = lazy(() => import('./pages/Certificates/Verify'))
+const AdminExams = lazy(() => import('./pages/Admin/Exams'))
+const AdminCertificates = lazy(() => import('./pages/Admin/Certificates'))
 const HallOfFame = lazy(() => import('./pages/HallOfFame/HallOfFame'))
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
@@ -132,6 +143,22 @@ export default function App() {
             element={
               <RequirePermission permission="audit:read">
                 <AdminAuditLog />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/exams"
+            element={
+              <RequirePermission permission="exam:write">
+                <AdminExams />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/certificates"
+            element={
+              <RequirePermission permission="certificates:write">
+                <AdminCertificates />
               </RequirePermission>
             }
           />
@@ -357,6 +384,10 @@ export default function App() {
            */}
           {/* Public marketing surface, like the leaderboard and Hall of Fame. */}
           <Route path="/gallery" element={<PublicGallery />} />
+          {/* Public certificate verification: a school or employer must be able to
+              check a document without an account. Both forms so a pasted code works. */}
+          <Route path="/verify" element={<VerifyCertificate />} />
+          <Route path="/verify/:code" element={<VerifyCertificate />} />
           <Route
             path="/notifications"
             element={
@@ -365,7 +396,35 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/exam" element={<Navigate to="/practice" replace />} />
+          {/*
+           * `/exam` is the **official Olympiad** as of Milestone 13. It used to redirect
+           * to the Practice Zone, because the old page was a practice paper with no
+           * marking and the official sitting did not exist. It does now.
+           */}
+          <Route
+            path="/exam"
+            element={
+              <ProtectedRoute>
+                <Exams />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exam/:attemptId"
+            element={
+              <ProtectedRoute>
+                <ExamAttemptPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-certificates"
+            element={
+              <ProtectedRoute>
+                <MyCertificates />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
         </Suspense>
       </BrowserRouter>
