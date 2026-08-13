@@ -77,3 +77,122 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Milestone 15 — the derived breakdowns
+--------------------------------------------------------------------------- */
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* The subject a topic belongs to, so two same-named topics stay distinguishable. */
+.sub {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Accuracy rendered as a bar plus its number. The number is never dropped: a bar
+   alone cannot distinguish 0% from "not measured". */
+.barWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 130px;
+}
+
+.bar {
+  height: 8px;
+  min-width: 2px;
+  border-radius: 999px;
+  background: var(--royal-blue);
+  transition: width 0.3s ease;
+}
+
+.bar[data-low='true'] {
+  background: var(--danger);
+}
+
+.barLabel {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.areaList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.areaList li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.strong {
+  border-left-color: var(--success, #16a34a);
+}
+
+.weak {
+  border-left-color: var(--danger);
+}
+
+.areaName {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 600;
+}
+
+/* Whether this area is a topic, a subject or a difficulty band. */
+.scope {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.areaFigure {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}

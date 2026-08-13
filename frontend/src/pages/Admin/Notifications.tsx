@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../../api/client'
-import { CLASS_LEVELS, type AdminNotification, type ClassLevel, type Pagination } from '../../api/types'
+import {
+  CLASS_LEVELS,
+  type AdminNotification,
+  type BroadcastOutcome,
+  type ClassLevel,
+  type Pagination,
+} from '../../api/types'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
@@ -20,6 +26,8 @@ export default function Notifications() {
   const [busyId, setBusyId] = useState('')
   const [page, setPage] = useState(1)
   const [publishedFilter, setPublishedFilter] = useState('')
+  /** Empty means the server's default, which is the staff stream. */
+  const [sourceFilter, setSourceFilter] = useState('')
   const [search, setSearch] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
 
@@ -29,6 +37,7 @@ export default function Notifications() {
   const [audience, setAudience] = useState<'all' | 'class'>('all')
   const [classLevel, setClassLevel] = useState<ClassLevel>('Class 9')
   const [kind, setKind] = useState<'announcement' | 'alert'>('announcement')
+  const [emailBroadcast, setEmailBroadcast] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const load = useCallback(async () => {
@@ -37,6 +46,7 @@ export default function Notifications() {
     try {
       const params = new URLSearchParams({ page: String(page), limit: '20' })
       if (publishedFilter) params.set('published', publishedFilter)
+      if (sourceFilter) params.set('source', sourceFilter)
       if (appliedSearch) params.set('search', appliedSearch)
 
       const res = await api.get<ListResponse>(`/admin/notifications?${params.toString()}`)
@@ -49,7 +59,7 @@ export default function Notifications() {
     } finally {
       setLoading(false)
     }
-  }, [page, publishedFilter, appliedSearch])
+  }, [page, publishedFilter, sourceFilter, appliedSearch])
 
   useEffect(() => {
     void load()
@@ -61,21 +71,25 @@ export default function Notifications() {
     setNotice('')
     setSubmitting(true)
     try {
-      await api.post('/admin/notifications', {
+      const res = await api.post<{ broadcast: BroadcastOutcome | null }>('/admin/notifications', {
         title: title.trim(),
         body: body.trim(),
         kind,
         audience,
         classLevel: audience === 'class' ? classLevel : null,
         isPublished: publishNow,
+        // Only meaningful together with publication; a draft emails nobody.
+        emailBroadcast: publishNow && emailBroadcast,
       })
       setNotice(
         publishNow
-          ? `“${title.trim()}” is now visible to ${audience === 'all' ? 'every student' : classLevel}.`
+          ? `“${title.trim()}” is now visible to ${audience === 'all' ? 'every student' : classLevel}.` +
+            describeBroadcast(res.broadcast)
           : `“${title.trim()}” was saved as a draft. Students cannot see it yet.`,
       )
       setTitle('')
       setBody('')
+      setEmailBroadcast(false)
       setPage(1)
       await load()
     } catch (err) {
@@ -83,6 +97,27 @@ export default function Notifications() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  /**
+   * Reports what the email half actually did.
+   *
+   * Suppressed recipients are named rather than hidden. Staff who email 72 students
+   * and see "60 queued" need to know the other 12 chose not to receive announcements —
+   * otherwise the honest outcome reads as a bug, and the natural next move is to send
+   * it again.
+   */
+  function describeBroadcast(broadcast: BroadcastOutcome | null): string {
+    if (!broadcast) return ''
+
+    const parts = [`${broadcast.queued} email${broadcast.queued === 1 ? '' : 's'} queued`]
+    if (broadcast.suppressed > 0) {
+      parts.push(`${broadcast.suppressed} skipped (announcement emails switched off)`)
+    }
+    if (broadcast.cappedAt !== null) {
+      parts.push(`capped at the first ${broadcast.cappedAt} recipients`)
+    }
+    return ` ${parts.join('; ')}.`
   }
 
   async function togglePublished(item: AdminNotification) {
@@ -197,6 +232,27 @@ export default function Notifications() {
             </div>
           </div>
 
+          {/*
+            Email is opt-in per announcement, and unchecked by default.
+
+            Milestone 12 shipped notifications in-app only because emailing the whole
+            roll from a free tier is a deliverability problem. That has not changed —
+            what changed is that staff can now decide a particular notice is worth it.
+            Leaving this on by default would quietly undo the reasoning, so it resets
+            after every send.
+          */}
+          <label className={styles.emailOptIn}>
+            <input type="checkbox" checked={emailBroadcast} onChange={(e) => setEmailBroadcast(e.target.checked)} />
+            <span>
+              <strong>Also send this by email</strong>
+              <em>
+                Queued and delivered in the background, so publishing is not held up. Students who have switched
+                announcement emails off are skipped, and the recipient list is capped — everyone still sees it in their
+                inbox either way.
+              </em>
+            </span>
+          </label>
+
           <div className={styles.actions}>
             <Button type="submit" disabled={submitting}>
               {submitting ? 'Saving...' : 'Publish now'}
@@ -230,6 +286,25 @@ export default function Notifications() {
             <option value="true">Published</option>
             <option value="false">Drafts</option>
           </select>
+          {/*
+            Defaults to the staff stream, which is what the server does when this is
+            omitted. Releasing one national exam's results writes a system row per
+            candidate, so listing both by default would bury the announcements this
+            page exists to manage.
+          */}
+          <select
+            className="form-control"
+            value={sourceFilter}
+            onChange={(e) => {
+              setPage(1)
+              setSourceFilter(e.target.value)
+            }}
+            aria-label="Filter by who wrote it"
+          >
+            <option value="">Written by staff</option>
+            <option value="system">Sent automatically</option>
+            <option value="all">Both</option>
+          </select>
           <button type="submit" className={styles.searchBtn}>
             Search
           </button>
@@ -262,9 +337,16 @@ export default function Notifications() {
                   <tr key={item.id} className={busyId === item.id ? styles.busy : ''}>
                     <td>
                       <strong>{item.title}</strong>
+                      {item.source === 'system' && <span className={styles.systemTag}>Automatic</span>}
                       <span className={styles.bodyPreview}>{item.body}</span>
                     </td>
-                    <td className={styles.muted}>{item.audience === 'all' ? 'Every student' : (item.classLevel ?? '—')}</td>
+                    <td className={styles.muted}>
+                      {item.audience === 'all'
+                        ? 'Every student'
+                        : item.audience === 'student'
+                          ? 'One student'
+                          : (item.classLevel ?? '—')}
+                    </td>
                     <td>
                       <span className={item.isPublished ? styles.published : styles.draft}>
                         {item.isPublished ? 'Published' : 'Draft'}
@@ -278,13 +360,21 @@ export default function Notifications() {
                     </td>
                     <td>
                       <div className={styles.rowActions}>
-                        <button
-                          className={styles.actionBtn}
-                          disabled={busyId === item.id}
-                          onClick={() => void togglePublished(item)}
-                        >
-                          {item.isPublished ? 'Withdraw' : 'Publish'}
-                        </button>
+                        {/*
+                          A system row cannot be withdrawn or edited — the backend
+                          refuses with a 409, and offering a button that always fails
+                          would be worse than not offering it. Delete stays available:
+                          housekeeping is not falsification.
+                        */}
+                        {item.source === 'staff' && (
+                          <button
+                            className={styles.actionBtn}
+                            disabled={busyId === item.id}
+                            onClick={() => void togglePublished(item)}
+                          >
+                            {item.isPublished ? 'Withdraw' : 'Publish'}
+                          </button>
+                        )}
                         <button className={styles.dangerBtn} disabled={busyId === item.id} onClick={() => void remove(item)}>
                           Delete
                         </button>

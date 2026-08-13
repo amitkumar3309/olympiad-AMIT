@@ -655,8 +655,15 @@ describe('GET /analytics/:studentId', () => {
 
     const res = await request(app).get(`${API}/analytics/${studentId}`).set('Cookie', cookieHeader(cookies)).expect(200);
 
-    expect(res.body.data).toBeNull();
-    expect(res.body.reason).toBe('no-exam-data');
+    // The shape changed in Milestone 15 — analytics are now derived from real attempts
+    // rather than read from the never-written `StudentAnalytics` document, so there is
+    // no `data: null` / `reason` pair any more. The property under test is unchanged
+    // and is the one that matters: a student who has answered nothing is told that,
+    // rather than being shown a number.
+    expect(res.body.analytics.hasData).toBe(false);
+    expect(res.body.analytics.overall.accuracyPercent).toBeNull();
+    expect(res.body.analytics.overall.answered).toBe(0);
+    expect(res.body.analytics.notes).toContain('nothing-submitted-yet');
   });
 
   it('contains none of the invented performance figures it used to return', async () => {

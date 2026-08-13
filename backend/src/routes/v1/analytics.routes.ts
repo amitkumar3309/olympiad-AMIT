@@ -1,59 +1,44 @@
 import { Router, type Request, type Response } from 'express';
 import type { Types } from 'mongoose';
 import { requirePermission, callerCanFresh } from '../../middleware/auth';
-import { Student, StudentAnalytics, type StudentAnalyticsDocument, type TopicMetric } from '../../models';
+import { Student } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { ensureDb } from '../../middleware/ensureDb';
+import { logger } from '../../lib/logger';
 import { getXpByDay } from '../../services/progressService';
+import { getStudentAnalytics } from '../../services/analyticsService';
 
 const router = Router();
 
-function generateAIInsights(analyticsData: Pick<StudentAnalyticsDocument, 'topicMetrics' | 'averageSpeedPerQuestion'>): string[] {
-  const insights: string[] = [];
-  let strongestTopic: { name: string; acc: number } = { name: '', acc: 0 };
-  let weakestTopic: { name: string; acc: number } = { name: '', acc: 100 };
-
-  if (analyticsData.topicMetrics && analyticsData.topicMetrics.length > 0) {
-    analyticsData.topicMetrics.forEach((topic: TopicMetric) => {
-      const acc = (topic.correct / topic.attempted) * 100 || 0;
-      if (acc > strongestTopic.acc) strongestTopic = { name: topic.topicName, acc };
-      if (acc < weakestTopic.acc && topic.attempted > 2) weakestTopic = { name: topic.topicName, acc };
-    });
-  }
-
-  if (strongestTopic.name) insights.push(`You are exceptionally strong in ${strongestTopic.name}. Keep it up! 🌟`);
-  if (weakestTopic.name) insights.push(`You need more focused practice in ${weakestTopic.name}. Your accuracy is dropping here. ⚠️`);
-
-  if (analyticsData.averageSpeedPerQuestion > 90) {
-    insights.push('Time Management Alert: You are taking too long per question (>90s). Try practicing rapid quizzes daily. ⏱️');
-  } else {
-    insights.push('Excellent pacing! Your time management is perfectly balanced with your accuracy. 🎯');
-  }
-
-  return insights;
-}
-
 /**
- * Performance analytics for one student.
+ * Performance analytics for one student — **real, and derived on read** (Milestone 15).
  *
- * **This endpoint used to lie.** When no `StudentAnalytics` document existed — which
- * is *every* student, because nothing in the codebase writes one — it returned a
- * hardcoded fallback claiming 88% accuracy over 450 questions, a rising five-point
- * learning curve, four topic breakdowns, and the flourish "You are currently in the
- * top 5% of all national Olympiad participants". Every one of those numbers was
- * invented, and they were presented to the student as their own measured performance
- * on a page reachable straight from their dashboard. It is deleted.
+ * ## The two things this endpoint used to be
  *
- * What replaces it is a split between what can be measured and what cannot:
- *  - `data` is the real `StudentAnalytics` document, or **null** with a `reason`. It
- *    stays null until exam submission exists, because accuracy, speed and
- *    topic-level breakdowns are all functions of answered questions.
- *  - `xpByDay` is **real** — actual XP earned per competition day, from the activity
- *    log — so the page has something true to plot rather than nothing at all.
+ * First it **lied**: with no `StudentAnalytics` document — which was every student,
+ * because nothing ever wrote one — it returned a hardcoded 88% accuracy over 450
+ * questions, a rising five-point learning curve, four invented topic breakdowns and
+ * "you are currently in the top 5% of all national Olympiad participants". That was
+ * deleted in the Milestone 5 follow-up.
  *
- * The frontend renders an explicit empty state for the null half. See
- * DECISIONS.md; the rule this restores is "no fabricated statistic is ever shown as
- * if it were the student's own".
+ * Then it was **honestly empty**: `data: null` with `reason: 'no-exam-data'`, because
+ * the only real thing available was an XP series. That was correct at the time and is
+ * no longer, because four collections now hold graded answers.
+ *
+ * ## What it is now
+ *
+ * Everything is computed from submitted `PracticeSession`, `MockTestAttempt`,
+ * `DailyChallengeAttempt` and `ExamAttempt` documents by `services/analyticsService.ts`.
+ * There is **no analytics collection**, deliberately — the same decision XP, levels,
+ * streaks and the leaderboard rest on. A stored breakdown is a number that can drift
+ * from the answers behind it, and it would need invalidating on every submission.
+ *
+ * `StudentAnalytics` is **gone**, not repurposed: it predated Milestone 4, keyed on a
+ * string `studentId`, and stored topics as free text with no reference to the `Topic`
+ * collection. See the Milestone 15 ADR.
+ *
+ * `xpByDay` is kept alongside, unchanged. It measures participation where the rest of
+ * this measures ability, and both belong on the page.
  */
 router.get(
   '/analytics/:studentId',
@@ -76,21 +61,16 @@ router.get(
         return;
       }
 
-      const xpByDay = await getXpByDay(account._id as Types.ObjectId);
-      const analytics = await StudentAnalytics.findOne({ studentId: req.params.studentId });
+      const studentObjectId = account._id as Types.ObjectId;
+      const [analytics, xpByDay] = await Promise.all([
+        getStudentAnalytics(studentObjectId),
+        getXpByDay(studentObjectId),
+      ]);
 
-      if (!analytics) {
-        // Nothing writes a StudentAnalytics document yet, so this is the path every
-        // real student takes. Answering honestly — null, with a machine-readable
-        // reason — is what lets the page say "not measured yet" instead of guessing.
-        sendSuccess(res, 200, { data: null, reason: 'no-exam-data', xpByDay });
-        return;
-      }
-
-      analytics.aiInsights = generateAIInsights(analytics);
-      sendSuccess(res, 200, { data: analytics, xpByDay });
-    } catch {
-      sendError(res, 500, 'Failed to fetch analytics');
+      sendSuccess(res, 200, { analytics, xpByDay });
+    } catch (err) {
+      logger.error({ err, studentId: req.params.studentId }, 'Failed to derive student analytics');
+      sendError(res, 500, 'Could not load those analytics right now. Please try again.');
     }
   },
 );

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import type { InboxNotification, Pagination } from '../../api/types'
 import StudentShell from '../../components/StudentShell'
@@ -11,7 +12,18 @@ interface InboxResponse {
   pagination: Pagination
 }
 
-/** The student's own notice board. Nothing is emailed; this is where it lives. */
+/**
+ * The student's own notice board — **everything** the platform has told them.
+ *
+ * That completeness is the point, and it is why nothing here can be switched off.
+ * Since Milestone 14 some of these are also emailed and some of those emails can be
+ * declined, so this page is the one place where the record is guaranteed whole: a
+ * student who never opens their email still finds their result here.
+ *
+ * Two things arrive from the server and are not decided here: `source` (whether a
+ * human or the platform wrote it) and `link` (where the thing it is about lives). The
+ * page renders them; it never infers either from the text.
+ */
 export default function Notifications() {
   const [items, setItems] = useState<InboxNotification[]>([])
   const [unread, setUnread] = useState(0)
@@ -115,13 +127,26 @@ export default function Notifications() {
                 <div className={styles.itemHead}>
                   <strong>{item.title}</strong>
                   {item.kind === 'alert' && <span className={styles.alertTag}>Alert</span>}
+                  {item.source === 'system' && <span className={styles.systemTag}>Automatic</span>}
                   {!item.read && <span className={styles.dot} aria-label="Unread" />}
                 </div>
+                {/*
+                  `white-space: pre-line` in the stylesheet, because the server writes
+                  multi-line bodies (a result carries score, rank and certificate on
+                  separate lines). Still a plain text node — notification copy never
+                  goes near an HTML sink.
+                */}
                 <p className={styles.body}>{item.body}</p>
                 <span className={styles.meta}>
                   {item.publishedAt ? new Date(item.publishedAt).toLocaleString() : ''}
                   {item.audience === 'class' && item.classLevel ? ` · ${item.classLevel}` : ''}
+                  {item.audience === 'student' ? ' · Just for you' : ''}
                 </span>
+                {item.link && (
+                  <Link className={styles.action} to={item.link}>
+                    Take me there <i className="ph ph-arrow-right" aria-hidden="true" />
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

@@ -5,7 +5,14 @@ import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { api, ApiError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
-import { CLASS_LEVELS, type ClassLevel, type OwnProfile, type ProfileUpdateInput } from '../../api/types'
+import {
+  CLASS_LEVELS,
+  type ClassLevel,
+  type NotificationPrefs,
+  type NotificationPrefsResponse,
+  type OwnProfile,
+  type ProfileUpdateInput,
+} from '../../api/types'
 import { PHOTO_ACCEPT_ATTRIBUTE, formatBytes, readPhotoFile, type SelectedPhoto } from '../../lib/photo'
 import styles from './Profile.module.css'
 
@@ -121,6 +128,10 @@ export default function Profile() {
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
   const [passwordSaving, setPasswordSaving] = useState(false)
 
+  const [prefs, setPrefs] = useState<NotificationPrefsResponse | null>(null)
+  const [prefsError, setPrefsError] = useState('')
+  const [prefsSaving, setPrefsSaving] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     setLoadError(null)
@@ -138,6 +149,41 @@ export default function Profile() {
   useEffect(() => {
     void load()
   }, [load])
+
+  /**
+   * Loaded separately from the profile, and deliberately not blocking it: a failure
+   * here should cost the student their preference switches, not their whole profile
+   * page.
+   */
+  useEffect(() => {
+    void api
+      .get<NotificationPrefsResponse>('/me/notification-preferences')
+      .then(setPrefs)
+      .catch((err) =>
+        setPrefsError(err instanceof ApiError ? err.message : 'Could not load your notification preferences.'),
+      )
+  }, [])
+
+  /**
+   * Saves one switch immediately, with no separate Save button.
+   *
+   * A toggle that needs confirming is a toggle people leave in the wrong state. The
+   * server accepts a partial update, so one changed switch sends one field — and the
+   * response is the authority for what is now stored, rather than the optimistic value
+   * this component guessed.
+   */
+  async function savePrefs(change: Partial<NotificationPrefs>) {
+    setPrefsSaving(true)
+    setPrefsError('')
+    try {
+      const res = await api.patch<{ preferences: NotificationPrefs }>('/me/notification-preferences', change)
+      setPrefs((current) => (current === null ? current : { ...current, preferences: res.preferences }))
+    } catch (err) {
+      setPrefsError(err instanceof ApiError ? err.message : 'Could not save that preference.')
+    } finally {
+      setPrefsSaving(false)
+    }
+  }
 
   function update(field: keyof FormState) {
     return (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -538,6 +584,68 @@ export default function Profile() {
             <button type="button" className={styles.secondaryBtn} onClick={() => void logoutEverywhere()}>
               <i className="ph-bold ph-sign-out" /> Sign out everywhere
             </button>
+
+            <hr className={styles.divider} />
+
+            {/* ---------------------------------------------------------------
+                Notification preferences (Milestone 14)
+            --------------------------------------------------------------- */}
+            <h3>Notification preferences</h3>
+            <p className={styles.hint}>
+              These control <strong>email only</strong>. Everything is always saved to your{' '}
+              <Link to="/notifications">notifications page</Link>, so switching an email off never means losing the
+              message.
+            </p>
+
+            {prefsError && <p className="error-text">{prefsError}</p>}
+
+            {prefs === null ? (
+              <Spinner label="Loading your preferences..." />
+            ) : (
+              <>
+                <label className={styles.prefRow}>
+                  <input
+                    type="checkbox"
+                    checked={prefs.preferences.announcements}
+                    disabled={prefsSaving}
+                    onChange={(e) => void savePrefs({ announcements: e.target.checked })}
+                  />
+                  <span>
+                    <strong>Announcements</strong>
+                    <em>Email me when the organisers post an announcement.</em>
+                  </span>
+                </label>
+
+                <label className={styles.prefRow}>
+                  <input
+                    type="checkbox"
+                    checked={prefs.preferences.results}
+                    disabled={prefsSaving}
+                    onChange={(e) => void savePrefs({ results: e.target.checked })}
+                  />
+                  <span>
+                    <strong>Results</strong>
+                    <em>Email me when an official exam result is released to me.</em>
+                  </span>
+                </label>
+
+                {/*
+                  Stating what cannot be switched off, rather than quietly offering
+                  only two toggles. A settings page that lists two options invites the
+                  question "so does it email me about my password or not?" — and the
+                  honest answer is worth the space. The reasons come from the server,
+                  so the page cannot drift from the policy.
+                */}
+                <p className={styles.hint}>Always sent, and not optional:</p>
+                <ul className={styles.alwaysList}>
+                  {prefs.always.map((entry) => (
+                    <li key={entry.category}>
+                      <strong>{entry.category}</strong> — {entry.reason}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </section>
         </div>
 

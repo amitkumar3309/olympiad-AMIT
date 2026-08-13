@@ -27,6 +27,56 @@
   margin-top: 8px;
 }
 
+/*
+  The email opt-in. Boxed rather than a bare checkbox, because it is the one control
+  on this form with a consequence outside the app.
+*/
+.emailOptIn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(148, 163, 184, 0.06);
+  cursor: pointer;
+}
+
+.emailOptIn input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.emailOptIn span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.emailOptIn strong {
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.emailOptIn em {
+  font-style: normal;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+/* Marks a generated row in the admin list, matching the student inbox's badge. */
+.systemTag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.16);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .secondaryBtn {
   padding: 10px 18px;
   border-radius: var(--radius-sm);

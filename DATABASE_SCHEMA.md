@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 **That default is a trap worth knowing about.** Because it exists, a script or process with no `.env` loaded connects to a *local* database and works perfectly, writing to somewhere nobody is looking. This happened: a seed run from the wrong directory published 208 questions to localhost while production stayed empty. `config/env.ts` now anchors the `.env` lookup to the package root, and every write script calls `assertConfiguredForWrites()`. Use `npx tsx scripts/where-is-data.ts` to see which database is actually connected and what every collection really holds.
 
@@ -50,7 +50,7 @@ Indexes: unique on `mobile`, `email`, and `studentId`; non-unique on `role` (the
 
 **Migration warning**: `email` is required and unique, so any `Student` document created before Milestone 2 has no email and will fail validation on its next save. Reads still work. There is no migration script — see [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md). The Milestone 4 fields deliberately avoid repeating this, per the note above.
 
-Relationships: `studentId` remains the informal, human-facing key used by `ExamAttempt`, `Result` and `StudentAnalytics`. It is now unique, but those are still plain strings rather than real `ObjectId` references. The new auth collections below correctly use an `ObjectId` ref to `Student`.
+Relationships: `studentId` is the informal, human-facing key. **This note is now historical** — `ExamAttempt` and `Result` were rewritten in Milestone 13 to use real `ObjectId` refs, and `StudentAnalytics`, the last holder of a string `studentId`, was removed in Milestone 15. Every collection now references `Student` by `ObjectId`.
 
 **Role model (Milestone 3)**: an account's `role` on this document is the authority. The access token carries a `role` claim as well, but for any privileged request the middleware re-reads this field and uses the database value, so a demotion cannot be outlived by an already-issued token. The environment-configured root administrator holds `superadmin` and has **no document here** — see [`DECISIONS.md`](DECISIONS.md).
 
@@ -248,22 +248,17 @@ Unique index on `{student, exam}`, which makes issuance **idempotent**: republis
 
 ---
 
-## `StudentAnalytics` — ACTIVE (read path only, never written)
+## `StudentAnalytics` — **REMOVED in Milestone 15**
 
-Purpose: per-student rolled-up performance metrics + AI-generated insight strings.
+Deleted, not migrated. It held per-student rolled-up performance metrics and "AI insight" strings, and **nothing ever wrote it** — it survived ten milestones as a read path over an empty collection.
 
-| Field | Type | Required | Default | Notes |
-|---|---|---|---|---|
-| `studentId` | String | **yes** | — | `unique: true`. |
-| `overallAccuracy` | Number | no | `0` | |
-| `averageSpeedPerQuestion` | Number | no | `0` | |
-| `totalQuestionsAttempted` | Number | no | `0` | |
-| `topicMetrics` | Array of subdocument (`{topicName: String (required), attempted: Number, correct: Number, averageTimeSeconds: Number}`, `_id: false`) | no | — | |
-| `learningCurve` | Array of `{date: String, accuracy: Number}` | no | — | |
-| `aiInsights` | [String] | no | — | Overwritten in-memory by `generateAIInsights()` on every read, but that mutation is **never `.save()`d** — see known bug in [`PROJECT_STATE.md`](PROJECT_STATE.md). |
-| `lastUpdated` | Date | no | `Date.now` | Never actually updated by any write path, since nothing writes to this collection at all today. |
+Three reasons it went rather than being filled in:
 
-`GET /api/v1/analytics/:studentId` does `findOne` on this collection; if not found, returns a hardcoded mock payload instead of a 404 — meaning the API contract for "not found" is currently indistinguishable from "found, with demo data." Nothing in the codebase ever inserts a `StudentAnalytics` document, so this collection is likely empty in any real deployment.
+- **It predated Milestone 4 and was the wrong shape.** `studentId` was a plain `String`, and `topicMetrics[].topicName` was **free text** with no reference to the `Topic` collection — so a topic rename would have silently orphaned a student's history, and two subjects with a same-named topic were indistinguishable.
+- **A stored breakdown can drift from the answers behind it.** That is the same argument that keeps XP, levels, streaks and the leaderboard derived; analytics over attempt data is the same case, and it would additionally have needed invalidating on every submission from four different services.
+- **Its `aiInsights` field was a documented bug.** `generateAIInsights()` mutated it in memory on every read and never saved, which was harmless only because the branch was unreachable. Both the field and the function are gone; strengths and weaknesses are now derived facts rather than generated prose, and nothing in the product claims to be AI.
+
+Analytics are now computed on read by `services/analyticsService.ts`. There is **no analytics collection**. See "Analytics aggregations" below, and the Milestone 15 ADR in [`DECISIONS.md`](DECISIONS.md).
 
 ---
 
@@ -387,24 +382,34 @@ Index: `{ status, displayOrder, createdAt: -1 }` — exactly the public page's q
 
 ---
 
-## `Notification` (Milestone 12) — ACTIVE
+## `Notification` (Milestone 12, extended in Milestone 14) — ACTIVE
 
-An in-app announcement written by staff. **In-app only** — nothing is emailed.
+An in-app notification: either an announcement written by staff, or a notice generated from a real event. **In-app is the channel; email is an escalation of some of them** (see `EmailOutbox`) — nothing about email is stored here, because "what we told them" and "whether the SMTP handshake worked" are different facts with different lifetimes.
 
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | `title` | String | yes | — | ≤ 150 chars. |
-| `body` | String | yes | — | ≤ 2000 chars. |
+| `body` | String | yes | — | ≤ 2000 chars. May contain newlines; the UI renders it with `white-space: pre-line` as a plain text node. |
 | `kind` | String enum | no | `'announcement'` | `announcement` / `alert`. |
-| `audience` | String enum | no | `'all'` | `all` / `class`, indexed. |
+| `audience` | String enum | no | `'all'` | `all` / `class` / **`student`**, indexed. |
 | `classLevel` | String enum \| null | no | `null` | Set only when `audience` is `class`; validation refuses `class` without one. |
-| `isPublished` | Boolean | no | `false` | Indexed. Unpublished is a **draft** — invisible to students, editable by staff. |
+| `student` | ObjectId \| null | no | `null` | **Milestone 14.** Set only when `audience` is `student`. → `Student`. |
+| `source` | String enum | no | `'staff'` | **Milestone 14.** `staff` / `system`, indexed. A `system` row **cannot be edited** (409). |
+| `event` | String \| null | no | `null` | **Milestone 14.** The `SystemEvent` code for a generated row; null for anything a human wrote. |
+| `link` | String \| null | no | `null` | **Milestone 14.** A **relative** in-app path (`/result`). Relative on purpose: an absolute URL on thousands of rows would still point at the old host after a domain change. |
+| `dedupeKey` | String \| null | no | `null` | **Milestone 14.** Partial-unique. |
+| `isPublished` | Boolean | no | `false` | Indexed. Unpublished is a **draft** — invisible to students, editable by staff. A `system` row is published on creation; there is no draft state for something that already happened. |
 | `publishedAt` | Date \| null | no | `null` | Stamped at **publication**, not creation, so a draft written last week and published today sorts as today's news. |
-| `createdBy` / `createdByLabel` | ObjectId \| String \| null | no | `null` | |
+| `createdBy` / `createdByLabel` | ObjectId \| String \| null | no | `null` | `createdByLabel` is `'System'` for a generated row. |
 
-Index: `{ isPublished, publishedAt: -1 }` — a student's inbox is "published, addressed to me, newest first".
+Indexes:
+- `{ isPublished, publishedAt: -1 }` — a student's inbox is "published, addressed to me, newest first".
+- `{ student, publishedAt: -1 }` — the personal half of an inbox.
+- **partial unique** on `dedupeKey` (where it is a string) — what makes "post this notice once" true in the database rather than intended by the caller. Releasing an exam's results is an idempotent administrative action that a nervous administrator *will* click twice, and the second click must not tell every candidate their results are out again. Partial, so the many rows with no key do not all collide on `null`.
 
 **Nothing is fanned out.** A notification is **one document** carrying an audience *rule*, and each student's inbox is that rule evaluated at read time by `inboxFilter()`. Publishing to the whole roll writes one document rather than thousands, and a student who registers tomorrow sees the announcement written today — which is what a notice board does, and what a publish-time fan-out would silently get wrong. See the Milestone 12 ADR.
+
+**`audience: 'student'` is system-only.** The staff composer's schemas accept `STAFF_AUDIENCES` (`all`, `class`) only, so it is unreachable from any API a human drives. A per-student notice carries a score, a rank and a certificate tier, so a filter that leaked one row across the class boundary would be a disclosure bug rather than a display bug. `inboxFilter()` is the single definition of visibility, shared by the inbox, the unread count and `isVisibleTo()` — three readers that must not be able to disagree. See the Milestone 14 ADR.
 
 ---
 
@@ -419,6 +424,53 @@ That one student has read one notification.
 | `readAt` | Date | no (default now) | |
 
 **Unique index on `{ student, notification }`.** This is what makes "mark as read" idempotent: a double-tapped button, a replayed request or two open tabs cannot create two rows. A separate collection rather than an array on the notification, because an announcement to every student would grow an unbounded `readBy` inside a single 16 MB document and marking one read would rewrite the whole thing.
+
+---
+
+## `EmailOutbox` (Milestone 14) — ACTIVE
+
+One outbound email, persisted **before** anything tries to send it. This is the whole email queue; see `services/emailOutbox.ts`.
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `to` | String | yes | — | |
+| `subject` / `text` / `html` | String | yes | — | The rendered message, built once at enqueue time. |
+| `category` | String enum | yes | — | `transactional` / `security` / `announcement` / `results`. The first two always send; the last two are switchable per student. |
+| `student` | ObjectId \| null | no | `null` | → `Student`. Null for a message to a bare address. |
+| `status` | String enum | no | `'pending'` | `pending` / `sent` / `failed`, indexed. `pending` covers both "never tried" and "tried, failed, due again". |
+| `attempts` | Number | no | `0` | Incremented **by the claim**, so it reflects the attempt in flight. |
+| `maxAttempts` | Number | no | `4` | |
+| `nextAttemptAt` | Date | no | now | When the row may next be claimed — **and** the visibility timeout while in flight. |
+| `lastAttemptAt` | Date \| null | no | `null` | |
+| `lastError` | String \| null | no | `null` | The provider's own message, truncated to 500 chars, shown in the delivery console. |
+| `sentAt` | Date \| null | no | `null` | |
+| `dedupeKey` | String \| null | no | `null` | Application-level idempotency, e.g. `results:<examId>:<studentId>`. Partial-unique. |
+
+Indexes:
+- `{ status, nextAttemptAt }` — the drain's only query: what is pending and due, oldest deadline first.
+- **partial unique** on `dedupeKey` (where it is a string) — so releasing the same exam's results twice cannot email the cohort twice. Partial is essential here: a verification email genuinely may be requested again, so the many keyless rows must not collide on `null`.
+- `{ createdAt: -1 }` — the admin delivery view.
+
+**Why there is no `sending` status.** A row is claimed by pushing `nextAttemptAt` into the future and incrementing `attempts` in the same conditional write — a visibility timeout, not a state change. A separate `sending` state would be a lie the moment a serverless container is frozen or recycled mid-send: the row would sit in `sending` for ever with nothing to move it, and the message would never arrive. With a timeout, a crashed attempt simply becomes due again. The honest consequence is **at-least-once** delivery.
+
+**Deliberately no TTL**, like `AuditLog`. A delivery record is the evidence for "we did tell them", and for a competition that issues certificates and refuses late submissions that evidence is worth more than the bytes. Rows are a few KB and bounded by real events rather than by traffic.
+
+---
+
+## `Student.notificationPrefs` (Milestone 14) — an embedded subdocument
+
+Not a model. Two booleans on the `Student` document:
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `announcements` | Boolean | `true` | Email me when staff post an announcement. |
+| `results` | Boolean | `true` | Email me when an official exam result is released. |
+
+**These control email only, never the in-app inbox.** Everything is always written, so declining an email never costs a student the message — and read state would become meaningless if rows could be suppressed at write time, because "unread" and "never delivered" would be indistinguishable.
+
+**Only the optional categories appear here.** There is no switch for `transactional` or `security`; those are absent from the update schema rather than ignored by the handler. Embedded rather than given its own collection because it is one small object per account, always wanted alongside the account, and never large.
+
+The object itself has **no schema-level default**, so a pre-Milestone-14 document genuinely has none. `resolvePrefs()` is the single place a missing object is interpreted, and treats it as all-on — which is what those students were already receiving.
 
 Deliberately **no TTL** — unlike the two token collections. Expiring a row would make a notification the student has already read reappear as unread, which reads as a bug rather than as tidying.
 
@@ -535,3 +587,66 @@ Fields: `question` (ref), `revision`, `type`, `marks`, `negativeMarks` — then 
 Shared because the alternative is two definitions of what counts as correct and, sooner or later, two graders that disagree — and a grader that disagrees with the answer key is a wrong score on a student's report. For the same reason there is exactly one implementation of the marking rules, in `services/grading.ts`, used by both collections.
 
 **Consequence to respect, twice over:** the answer key now lives in *two* collections beyond `Question`. Nothing may project these fields before the attempt is finished and disclosure is permitted. `practiceService.ts` and `mockTestService.ts` each build explicit views and never return a raw document; `sessionReviewView()` throws on an unsubmitted session, and `attemptReviewView()` throws unless the attempt is submitted **and** the test's review policy currently allows it.
+
+**Milestone 15 note:** `answeredAt` is the **stored materialisation of `isAnswered()`**. Every write path sets it as `isAnswered(entry) ? now : null`, including when an answer is *cleared*, so it records whether a response currently stands. The analytics aggregations read it rather than re-deriving the per-type rule in aggregation expressions — which would have been a second grader by another name. `isCorrect` is three-valued on a stored entry (`true` / `false` / **`null` for unanswered**, written by `gradeEntries()`), so correctness must be counted as an explicit `true`; `$ne: false` would count every blank as correct.
+
+---
+
+# Analytics aggregations (Milestone 15)
+
+Performance analytics have **no collection of their own**. Everything is derived on read from the four attempt collections. This section documents the queries and the indexes they depend on, as required by `CLAUDE.md`.
+
+## Student analytics — `services/analyticsService.ts`
+
+**Eight operations per page load, all narrowed by `student`, all run in parallel.**
+
+### 1–4. The faceted aggregation, once per surface
+
+Run against `PracticeSession`, `MockTestAttempt`, `DailyChallengeAttempt` and `ExamAttempt`:
+
+```
+$match  { student, status: 'submitted' }        ← index: {student, status, submittedAt}
+$project  entries: <answers array, or the single answer>
+$unwind   $entries
+$lookup   questions  (pipeline: $project topic, subject, difficulty)
+$unwind   $question                             ← non-preserving: see below
+$lookup   topics     (pipeline: $project name)
+$lookup   subjects   (pipeline: $project name)
+$group    _id: { topic, topicName, subject, subjectName, difficulty, type }
+          served, answered, correct, marksAwarded, marksAvailable
+```
+
+Four properties are deliberate:
+
+- **One pipeline per collection, not one per facet.** Grouping on the *composite* `{topic, subject, difficulty, type}` key means topic, subject, difficulty and type breakdowns are all sums over rows already in memory rather than four more round trips. Cardinality is bounded by the distinct combinations the student actually met — a question has exactly one of each — so it is a few dozen rows at most.
+- **The `$lookup` projects three fields.** Without the inner `pipeline`, the join drags the whole question — text, options, solution and the **answer key** — through the pipeline for every answer the student has ever given.
+- **The `$unwind` after the join is non-preserving.** A served question whose document has since been deleted cannot be attributed to a topic, and inventing an "Unknown" bucket would be a fabricated category. `overall.servedIncludingDeletedQuestions` is counted separately from the attempts, so the difference is visible rather than absorbed.
+- **Only raw counts are grouped, never percentages.** Percentages are computed once at the end, from summed counts. Combining `1/1` and `1/9` therefore gives 20%, not the 55% an average of percentages would produce. There is a test.
+
+### 5–8. Attempt-level reads
+
+Four projected `find()`s, not aggregations — each attempt document already stores its own `score`, `maxMarks`, `correctCount`, `unansweredCount`, `accuracy` and `timeTakenSeconds`, written once by `gradeEntries()` at submission. Recomputing them from the embedded answers would be slower **and** could disagree with the score the student was shown.
+
+These feed the progress trend, the pace trend and accuracy-by-day (bucketed into IST competition days in code, using `lib/competitionDay.ts`).
+
+## Admin analytics — `services/questionAnalyticsService.ts`
+
+**Question performance:** one `$unwind` + `$group by question` per attempt collection, merged in code by summing raw counts, then a single `Question.find({_id: {$in: eligible}})` to join names for the rows that survive the `minAnswered` floor. The join is at the **end** deliberately — joining inside the group stage would multiply the lookup by the number of times each question has been served.
+
+**Test performance:** one `$group by test/exam` per attempt collection. It `$push`es the individual score percentages because a **median** cannot be accumulated the way a mean can, and a mean alone is misleading on a small cohort — one student who submitted a blank moves it several points, which is exactly the case an invigilator wants to see. Bounded by one paper's cohort.
+
+## Indexes added in Milestone 15
+
+| Collection | Index | Why |
+|---|---|---|
+| `ExamAttempt` | `{student: 1, status: 1, submittedAt: 1}` | **This collection had no index on `student` at all.** The unique `{exam, student}` index cannot serve a query naming a student without an exam, because `student` is not its prefix — so every "everything this student has sat" read was a full collection scan. The dashboard's exam panel takes the same path. |
+| `MockTestAttempt` | `{student: 1, status: 1, submittedAt: 1}` | `{student, startedAt}` narrows to the student but then fetches and discards every unfinished attempt, and returns them ordered by *start* rather than by submission — the wrong sequence for a progress trend. |
+| `PracticeSession` | `{student: 1, status: 1, submittedAt: 1}` | Same reason: `{student, status, startedAt}` narrows correctly but sorts by start time, which for a session left open overnight is a genuinely different order. |
+
+`DailyChallengeAttempt` needed nothing new — `{student, day: -1}` already covers its read.
+
+## The one rule that governs all of it
+
+**Grading reads the snapshot; analytics joins the live taxonomy.** A mark is a historical fact about one paper, so `services/grading.ts` reads the answer-key snapshot on the attempt and never the live `Question` — absolutely. But "how am I doing in Trigonometry?" is a question about the taxonomy *as it stands now*, so the analytics aggregations `$lookup` the current `topic`, `subject` and `difficulty`.
+
+The honest cost, recorded in the Milestone 15 ADR: recategorising a question moves historical breakdowns, and deleting one drops its answers out of them. That is the right trade — the alternative, snapshotting the taxonomy onto every answer, would freeze a typo in a subject name into thousands of rows and describe a filing system nobody uses any more.

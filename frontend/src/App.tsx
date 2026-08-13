@@ -56,6 +56,8 @@ const PublicGallery = lazy(() => import('./pages/Gallery/Gallery'))
 const StudentNotifications = lazy(() => import('./pages/Notifications/Notifications'))
 const AdminGallery = lazy(() => import('./pages/Admin/Gallery'))
 const AdminNotifications = lazy(() => import('./pages/Admin/Notifications'))
+const AdminEmailDeliveries = lazy(() => import('./pages/Admin/EmailDeliveries'))
+const AdminQuestionPerformance = lazy(() => import('./pages/Admin/QuestionPerformance'))
 const AdminAnalytics = lazy(() => import('./pages/Admin/Analytics'))
 const AdminStandings = lazy(() => import('./pages/Admin/Standings'))
 /**
@@ -175,6 +177,22 @@ export default function App() {
             element={
               <RequirePermission permission="notifications:write">
                 <AdminNotifications />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/email-deliveries"
+            element={
+              <RequirePermission permission="notifications:write">
+                <AdminEmailDeliveries />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="/admin/performance"
+            element={
+              <RequirePermission permission="analytics:read:any">
+                <AdminQuestionPerformance />
               </RequirePermission>
             }
           />

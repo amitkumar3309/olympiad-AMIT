@@ -7,6 +7,7 @@ import { respondToServiceError } from '../../lib/serviceError';
 import { recordAudit } from '../../lib/audit';
 import { MockTestAttempt } from '../../models';
 import { actorFrom } from '../../services/taxonomyService';
+import { notifyMockTestPublished } from '../../services/systemNotifier';
 import {
   adminTestView,
   changeMockTestStatus,
@@ -215,6 +216,13 @@ router.patch(
         targetLabel: test.title,
         metadata: { to: status, reason: reason ?? null },
       });
+
+      // In-app only, deliberately: a new mock test is useful news but it is a
+      // rehearsal, and emailing a class every time staff publish practice material is
+      // how a free-tier sender loses its reputation. Deduped on the test id.
+      if (status === 'published') {
+        await notifyMockTestPublished(test);
+      }
 
       sendSuccess(res, 200, { test: adminTestView(test) });
     } catch (err) {

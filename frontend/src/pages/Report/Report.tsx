@@ -18,9 +18,11 @@ import styles from './Report.module.css'
  * never been measured on. And when that fabrication was removed, `data` became null and
  * this page's `{!data && !error && <Spinner/>}` left it **spinning forever**.
  *
- * Both are fixed: it now handles the real response shape, reports the progress that is
- * genuinely recorded, and states plainly which sections need exam results before they
- * can say anything.
+ * Both were fixed, and **Milestone 15 filled the gap the second fix left open**: the
+ * accuracy and topic sections are no longer waiting on a scored exam that did not
+ * exist, because analytics are now derived from every submitted practice session, mock
+ * test, daily challenge and official exam. The page reads the same derived response the
+ * Analytics page does and computes nothing of its own.
  */
 export default function Report() {
   const { state } = useAuth()
@@ -44,7 +46,7 @@ export default function Report() {
   }, [state])
 
   const studentName = state.status === 'student' ? state.student.fullName : ''
-  const data = result?.data ?? null
+  const analytics = result?.analytics ?? null
   const xpByDay = result?.xpByDay ?? []
   const totalXp = xpByDay.reduce((sum, point) => sum + point.xp, 0)
 
@@ -104,43 +106,55 @@ export default function Report() {
             {/* ----------------------------------------------------------
                 Exam-derived sections — real when they exist, honest when not
             ---------------------------------------------------------- */}
-            {data ? (
+            {analytics?.hasData ? (
               <>
                 <div className="card">
                   <h3>Accuracy</h3>
                   <p>
-                    Out of <strong>{data.totalQuestionsAttempted}</strong> questions attempted, you're maintaining an
-                    overall accuracy of <strong>{data.overallAccuracy}%</strong> at an average pace of{' '}
-                    <strong>{data.averageSpeedPerQuestion}s</strong> per question.
+                    Out of <strong>{analytics.overall.answered}</strong> questions answered across{' '}
+                    <strong>{analytics.overall.attempts}</strong> submitted sittings, your overall accuracy is{' '}
+                    <strong>{analytics.overall.accuracyPercent}%</strong>
+                    {analytics.overall.averageSecondsPerQuestion !== null && (
+                      <>
+                        , at an average pace of <strong>{analytics.overall.averageSecondsPerQuestion}s</strong> per
+                        question
+                      </>
+                    )}
+                    .
                   </p>
                 </div>
 
-                <ChartCard
-                  title="Accuracy over time"
-                  type="line"
-                  label="Accuracy %"
-                  labels={data.learningCurve.map((p) => p.date)}
-                  data={data.learningCurve.map((p) => p.accuracy)}
-                />
+                {analytics.accuracyByDay.length > 1 && (
+                  <ChartCard
+                    title="Accuracy over time"
+                    type="line"
+                    label="Accuracy %"
+                    labels={analytics.accuracyByDay.map((point) => shortDay(point.day))}
+                    data={analytics.accuracyByDay.map((point) => point.accuracyPercent ?? 0)}
+                  />
+                )}
 
                 <div className="card">
-                  <h3>Topic Breakdown</h3>
+                  <h3>Topic breakdown</h3>
                   <table className={styles.table}>
                     <thead>
                       <tr>
                         <th>Topic</th>
-                        <th>Attempted</th>
+                        <th>Subject</th>
+                        <th>Answered</th>
                         <th>Correct</th>
                         <th>Accuracy</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {data.topicMetrics.map((t) => (
-                        <tr key={t.topicName}>
-                          <td>{t.topicName}</td>
-                          <td>{t.attempted}</td>
-                          <td>{t.correct}</td>
-                          <td>{Math.round((t.correct / t.attempted) * 100)}%</td>
+                      {analytics.byTopic.map((row) => (
+                        <tr key={row.id}>
+                          <td>{row.name}</td>
+                          <td>{row.subjectName ?? '—'}</td>
+                          <td>{row.answered}</td>
+                          <td>{row.correct}</td>
+                          {/* Never `0%` for an unmeasured row — see the API's null contract. */}
+                          <td>{row.accuracyPercent === null ? '—' : `${row.accuracyPercent}%`}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -151,9 +165,9 @@ export default function Report() {
               <div className={`card ${styles.pending}`}>
                 <h3>Accuracy and topic breakdown</h3>
                 <p>
-                  These are worked out from questions you have answered in a scored exam. No exam has been held yet, so
-                  there is nothing measured to report — this report deliberately leaves them blank rather than
-                  estimating.
+                  These are worked out from questions you have actually answered, and you have not submitted anything
+                  yet. Sit a practice session, a mock test or the daily challenge and this section fills in by itself —
+                  it deliberately stays blank rather than estimating.
                 </p>
               </div>
             )}

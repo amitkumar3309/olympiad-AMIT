@@ -72,6 +72,33 @@ export interface StudentDocument extends Document {
   lockedUntil?: Date | null;
   lastLoginAt?: Date | null;
   registeredAt: Date;
+  /**
+   * Which optional **email** streams this student wants (Milestone 14).
+   *
+   * Two properties are load-bearing:
+   *
+   *  - **These control email only, never the in-app inbox.** A notice board a
+   *    student can empty is not a record, and read state would become meaningless if
+   *    rows could be suppressed at write time — "unread" and "never delivered" would
+   *    be indistinguishable. Everything is always written; this decides what is also
+   *    posted out.
+   *  - **Only the optional categories appear here.** There is no switch for
+   *    `transactional` or `security`, by design — see `isOptionalCategory()`. A
+   *    setting that refuses to take effect is worse than no setting.
+   *
+   * Embedded rather than given its own collection: it is exactly one small object per
+   * account, always wanted alongside the account, and never large. A 24th model for
+   * two booleans would be the sort of sprawl `DECISIONS.md` already warns about for
+   * attempt-shaped collections.
+   *
+   * Optional on the interface, because accounts created before Milestone 14 have no
+   * such field. `resolvePrefs()` treats a missing object as all-on, which matches
+   * the behaviour those students already had.
+   */
+  notificationPrefs?: {
+    announcements: boolean;
+    results: boolean;
+  };
 }
 
 /**
@@ -135,6 +162,14 @@ const studentSchema = new Schema<StudentDocument>({
   lockedUntil: { type: Date, default: null },
   lastLoginAt: { type: Date, default: null },
   registeredAt: { type: Date, default: Date.now },
+  // No schema-level default for the object itself: a pre-Milestone-14 document
+  // genuinely has no preferences, and inventing an empty one on read would make
+  // "never chose" indistinguishable from "chose the defaults". `resolvePrefs()`
+  // is the single place a missing object is interpreted.
+  notificationPrefs: {
+    announcements: { type: Boolean, default: true },
+    results: { type: Boolean, default: true },
+  },
 });
 
 /**

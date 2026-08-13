@@ -4,7 +4,39 @@ _Last updated: 2026-08-13 (Milestone 10 — Leaderboards and Hall of Fame)._
 
 ## Current State
 
-The backend has a working test suite: **661 passing tests across 20 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **739 passing tests across 22 files** (`backend/tests/`). The frontend still has **no test suite**.
+
+**`tests/analytics.test.ts` — 32 tests, the Milestone 15 suite.** Its organising idea is that **an analytics test asserting only that a number is present would pass just as happily against a fabricated one**. So every case declares its outcomes up front and asserts the exact figure that must follow:
+
+```ts
+await seedPracticeSession({
+  studentId, questionIds: ids,
+  outcomes: ['correct', 'correct', 'wrong', 'blank'],   // → 3 answered, 66.7%
+});
+```
+
+`tests/helpers/analytics.ts` builds those attempts through the **real** `snapshotOf()` and `gradeEntries()`, so the stored documents are byte-for-byte what a genuine sitting produces. A hand-written approximation would let the analytics agree with the fixture while both disagreed with the product.
+
+Three properties get the most attention, because each is a way of being wrong that looks right:
+
+- **Weighted, not averaged.** 1/1 in practice plus 1/9 on a mock must give 20%, not 55%.
+- **`null` is not `0`.** An untouched difficulty band reports `null`, not a measured zero.
+- **Blanks are not wrong answers.** `isCorrect` is `null` for an unanswered entry, so a careless `$ne: false` would count every blank as correct.
+
+One test is a **cross-check rather than an assertion about a value**: it asserts the aggregation's `answered` count equals the attempt's own `totalQuestions - unansweredCount`, which `gradeEntries()` wrote. The aggregation reads `answeredAt` and the grader used `isAnswered()`; if those ever diverge, every accuracy figure in the product shifts silently, so the agreement is pinned rather than assumed.
+
+**`tests/notifications.test.ts` — 46 tests, the Milestone 14 suite.** Its organising idea is that the *failure* path of an email system is the one nobody exercises by accident: the happy path runs on every registration, and the retry path runs only when somebody's provider is down. So most of the file breaks delivery deliberately, using a **test-only** hook in `lib/email.ts`:
+
+```ts
+failNextDeliveries(1);         // fail once, then succeed — tests recovery
+failNextDeliveries(Infinity);  // fail every attempt — tests giving up
+```
+
+It throws outside `config.isTest`, so it cannot be turned on in production, and `clearTestInbox()` resets it. What that buys, specifically: a registration that still returns 201 with a dead provider; a message *retried* rather than lost; a **recovered** provider that genuinely delivers on a later attempt (the case a fail-always test cannot prove); a terminal give-up that keeps the row and the provider's error; two concurrent drains that cannot double-send; and `forgot-password` staying a generic 200 rather than becoming a timing oracle.
+
+Two things about it are worth knowing when adding tests here:
+- **The drain is awaited inline under test**, so an assertion can read the captured message immediately after the request that caused it. The non-blocking property lives in `enqueueEmail()` returning after one insert, which is identical in both modes — this only removes a race from the suite.
+- **`createAdminSession()` reads a real verification token out of the captured email**, so it cannot run while delivery is failing. Create the admin *before* calling `failNextDeliveries()`.
 
 | App | Runner | Tests | Status |
 |---|---|---|---|

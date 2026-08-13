@@ -133,6 +133,15 @@ mockTestAttemptSchema.index({ test: 1, student: 1, attemptNumber: 1 }, { unique:
 
 // A student's own history, newest first.
 mockTestAttemptSchema.index({ student: 1, startedAt: -1 });
+/**
+ * A student's own **submitted** attempts in submission order — added in Milestone 15
+ * for analytics, which reads exactly that and nothing else.
+ *
+ * The index above cannot serve it: `{student, startedAt}` narrows to the student but
+ * then has to fetch and discard every unfinished attempt, and returns them in the wrong
+ * order for a progress trend, which is chronological by *submission*.
+ */
+mockTestAttemptSchema.index({ student: 1, status: 1, submittedAt: 1 });
 // The admin results table for one test, and the lazy sweep for expired attempts.
 mockTestAttemptSchema.index({ test: 1, status: 1, score: -1 });
 

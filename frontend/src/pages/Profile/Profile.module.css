@@ -333,6 +333,52 @@
   margin: 22px 0 18px;
 }
 
+/* One notification-preference switch: checkbox, bold label, quiet explanation. */
+.prefRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.prefRow input {
+  /* Nudged down so it lines up with the first line of text, not the block. */
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.prefRow span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prefRow strong {
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.prefRow em {
+  font-style: normal;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* The streams a student cannot switch off, and why. */
+.alwaysList {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.alwaysList strong {
+  color: var(--text-main);
+  text-transform: capitalize;
+}
+
 @media (max-width: 860px) {
   .layout {
     grid-template-columns: 1fr;

@@ -296,7 +296,10 @@ describe('notifications — behaviour', () => {
       .set('Cookie', cookieHeader(cookies))
       .send({ title: 'Nobody', body: 'Reaches no one.', audience: 'class' })
       .expect(400);
-    expect(await Notification.countDocuments({})).toBe(0);
+    // Scoped to `staff`, because the assertion is "no *announcement* was written".
+    // Promoting the admin above legitimately produced a `system` role-change notice
+    // (Milestone 14), and counting the whole collection would conflate the two.
+    expect(await Notification.countDocuments({ source: 'staff' })).toBe(0);
   });
 
   it('marks read idempotently, so a double tap cannot double-count', async () => {

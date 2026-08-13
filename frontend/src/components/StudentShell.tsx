@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import Navbar from './Navbar'
 import Footer from './Footer'
@@ -65,6 +66,39 @@ export default function StudentShell({ title, subtitle, children }: StudentShell
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [unread, setUnread] = useState(0)
+
+  /**
+   * The unread badge (Milestone 14).
+   *
+   * Fetched here rather than on the Notifications page, because the whole point of a
+   * badge is to be visible from everywhere *except* that page. Before this, a system
+   * notification could sit unread indefinitely — the menu item gave no sign that
+   * anything had arrived, so a student had to think to go and look, which is not a
+   * property you can rely on for "your results are out".
+   *
+   * Re-read on navigation (`pathname` is a dependency) rather than polled on a timer:
+   * it is one indexed count, a student changes page far less often than any sensible
+   * poll interval, and a timer would keep firing on an idle open tab for no benefit.
+   * A failure is swallowed — a missing badge must never break the page around it.
+   */
+  useEffect(() => {
+    if (state.status !== 'student') return
+    let cancelled = false
+
+    void api
+      .get<{ unread: number }>('/me/notifications/unread-count')
+      .then((res) => {
+        if (!cancelled) setUnread(res.unread)
+      })
+      .catch(() => {
+        /* A badge is not worth an error state. */
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [state.status, pathname])
 
   // Only an actual student account gets the sidebar. A promoted admin is still a
   // student and keeps it (they have a student record and their own progress);
@@ -113,6 +147,12 @@ export default function StudentShell({ title, subtitle, children }: StudentShell
               onClick={() => setSidebarOpen(false)}
             >
               <i className={`ph-bold ${item.icon}`} /> {item.label}
+              {item.to === '/notifications' && unread > 0 && (
+                // Capped display, so a long absence cannot stretch the menu item.
+                <span className={styles.badge} aria-label={`${unread} unread`}>
+                  {unread > 99 ? '99+' : unread}
+                </span>
+              )}
             </Link>
           ))}
         </nav>

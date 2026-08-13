@@ -107,6 +107,16 @@ const practiceSessionSchema = new Schema<PracticeSessionDocument>({
 // covers both that and the "resume my open session" lookup.
 practiceSessionSchema.index({ student: 1, startedAt: -1 });
 practiceSessionSchema.index({ student: 1, status: 1, startedAt: -1 });
+/**
+ * Added in Milestone 15 for analytics, which reads one student's **submitted** sessions
+ * in submission order.
+ *
+ * The `{student, status, startedAt}` index above narrows correctly but sorts by *start*
+ * time, so a progress trend built on it would order sessions by when they were opened
+ * rather than when they were finished — which for a session left open overnight is a
+ * genuinely different sequence.
+ */
+practiceSessionSchema.index({ student: 1, status: 1, submittedAt: 1 });
 
 /**
  * Deliberately **no TTL**, for the same reason as `StudentActivity`: a practice

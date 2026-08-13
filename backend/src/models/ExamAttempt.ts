@@ -118,4 +118,15 @@ examAttemptSchema.index({ exam: 1, student: 1 }, { unique: true });
 /** Ranking reads "submitted attempts for this exam, best score first". */
 examAttemptSchema.index({ exam: 1, status: 1, score: -1 });
 
+/**
+ * A student's own submitted sittings, oldest first — added in Milestone 15.
+ *
+ * Before it, **this collection had no index on `student` at all**: the unique
+ * `{exam, student}` index cannot serve a query that names a student without an exam,
+ * because `student` is not its prefix. Every read of "everything this student has sat"
+ * was therefore a full collection scan, which analytics does on every page load. The
+ * dashboard's exam panel takes the same path.
+ */
+examAttemptSchema.index({ student: 1, status: 1, submittedAt: 1 });
+
 export const ExamAttempt = mongoose.model<ExamAttemptDocument>('ExamAttempt', examAttemptSchema);

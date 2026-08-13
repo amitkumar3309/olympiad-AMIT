@@ -112,7 +112,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 ## Beginner instructions: free SMTP with Brevo (recommended)
 
-Brevo's free tier allows 300 emails/day, needs no credit card, and works over plain SMTP. Any equivalent provider (Resend, Mailtrap, or a Gmail app password) works the same way — only the four `SMTP_*` values change.
+Brevo's free tier allows 300 emails/day, needs no credit card, and works over plain SMTP. Any equivalent provider (Resend ~3,000/month, SendGrid, Mailtrap for testing, or a Gmail app password ~500/day) works the same way — only the four `SMTP_*` values change, because the transport is provider-agnostic.
+
+> **Milestone 14 added no new environment variables**, and no new dependency. Email notifications, the outbox, retries and the delivery console all run on the `SMTP_*` group already documented below. What *did* change is how much mail the platform can now send, so the daily limit matters in a way it did not before:
+>
+> - **A daily cap is now reachable.** Emailing an announcement to a class of 200 is 200 messages. On Brevo's 300/day that is most of a day's allowance in one action, and registrations and password resets share the same budget. This is exactly why a broadcast is **opt-in per announcement** and capped at 500 recipients rather than being the default.
+> - **Hitting the cap is visible rather than silent.** The provider refuses, the outbox records its error text, and the message is retried with a growing delay — so a quota problem shows up as a run of retrying rows on **`/admin/email-deliveries`**, not as mail that quietly vanished. If you see that, the queue will drain itself once the quota resets; nothing needs re-sending by hand.
+> - **Authorise your sender address before any broadcast.** Mail from an unauthorised address is rejected or spam-filed, and a rejected broadcast burns the same quota as a delivered one.
 
 1. Go to **brevo.com** and create a free account. Confirm your own email address when they ask.
 2. In the left sidebar, open **Transactional** → **Settings** → **SMTP & API**, then choose the **SMTP** tab.

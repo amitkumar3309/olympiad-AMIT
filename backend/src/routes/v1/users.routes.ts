@@ -10,6 +10,7 @@ import { recordAudit } from '../../lib/audit';
 import { revokeAllRefreshTokens } from '../../lib/tokens';
 import { hashPassword } from '../../lib/password';
 import { logger } from '../../lib/logger';
+import { notifyAccountRoleChanged, notifyAccountStatusChanged } from '../../services/systemNotifier';
 import {
   listStudentsQuerySchema,
   studentIdParamSchema,
@@ -292,6 +293,13 @@ router.patch(
         metadata: { from: previous, to: status, reason: reason ?? null },
       });
 
+      // A `security` notice, so it reaches them whatever their preferences say —
+      // being suspended without being told is how an account looks broken instead of
+      // acted upon. Note this is the one case where the notice must survive the
+      // account no longer being active, which is why `emailAllowedFor()` checks the
+      // category *before* the status.
+      await notifyAccountStatusChanged(account, req.user?.email ?? req.user?.studentId ?? null);
+
       sendSuccess(res, 200, { changed: true, student: adminAccountView(account) });
     } catch (err) {
       logger.error({ err }, 'Failed to change account status');
@@ -369,6 +377,11 @@ router.patch(
         { target: account.studentId, from: previous, to: role, actor: req.user?.email },
         'Account role changed',
       );
+
+      // Their sessions were just revoked, so without this they would meet an
+      // unexplained sign-out. The notice says what changed and that a fresh sign-in
+      // is expected.
+      await notifyAccountRoleChanged(account);
 
       sendSuccess(res, 200, { changed: true, student: adminAccountView(account) });
     } catch (err) {

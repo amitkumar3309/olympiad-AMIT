@@ -1,6 +1,6 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-13 (Milestone 9 — Gamification Engine)._
+_Last updated: 2026-08-13 (Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes)._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
@@ -142,20 +142,53 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 
 ## Other implemented routes called by the frontend
 
-### `GET /api/v1/analytics/:studentId` — no longer fabricates a result
+### `GET /api/v1/analytics/:studentId` — real, derived on read (rewritten in Milestone 15)
 
-Returns `{ data, reason?, xpByDay }`.
+Returns `{ analytics, xpByDay }`. **The shape changed in Milestone 15** — the old `{ data, reason }` pair is gone with the `StudentAnalytics` model that backed it.
 
-- `data` is the real `StudentAnalytics` document, or **`null`** with `reason: 'no-exam-data'`. It is null for every student today, because nothing writes that document.
-- `xpByDay` is **real**: actual XP earned per competition day over the last 30 days, from the activity log, oldest first. Days with no activity are **omitted** rather than zero-filled — a flat line at zero would imply a measured zero.
-
-**This endpoint used to lie.** When no document existed it returned a hardcoded object claiming 88% accuracy over 450 questions, a rising five-point learning curve, four topic breakdowns and "You are currently in the top 5% of all national Olympiad participants" — as the student's own measured performance. That fallback is deleted; a test asserts none of those strings can appear in a response.
-
-Authorization is unchanged: `analytics:read:self` for your own record, with a **fresh** database-backed `analytics:read:any` check for anyone else's. A non-existent student ID now returns 404.
-- **Auth**: `requirePermission('analytics:read:self')`. Fetching **someone else's** record additionally requires `analytics:read:any`, checked *freshly* against the database via `callerCanFresh()` — so a demoted admin stops being able to read other students' data immediately, not at token expiry. A student reading another ID gets **403**.
-- **Response 200**: `{ success, data: AnalyticsData }` — the real `StudentAnalytics` document if one exists, **otherwise a hardcoded demo payload**. Since nothing creates those documents, this currently always returns demo data.
-- **Errors**: `401`, `403`, `429`, `503`, `500`.
+- **Auth**: `requirePermission('analytics:read:self')`. Fetching **someone else's** record additionally requires `analytics:read:any`, checked *freshly* against the database via `callerCanFresh()` — so a demoted admin stops being able to read other students' data immediately, not at token expiry. A student reading another ID gets **403**. A non-existent student ID returns **404**.
+- **Errors**: `401`, `403`, `404`, `429`, `503`, `500`.
 - **Called by**: `Analytics.tsx`, `Report.tsx`.
+
+`analytics` is derived on every read from **submitted** attempts in `PracticeSession`, `MockTestAttempt`, `DailyChallengeAttempt` and `ExamAttempt`. There is no analytics collection. Its fields:
+
+| Field | Meaning |
+|---|---|
+| `hasData` | False when nothing has been submitted anywhere. The UI shows one honest message rather than a page of dashes. |
+| `overall` | Counts plus `accuracyPercent`, `scorePercent`, `attempts`, `averageSecondsPerQuestion`, and `servedIncludingDeletedQuestions`. |
+| `bySurface` | The four surfaces, each always present. |
+| `byTopic` / `bySubject` | Named rows, ordered by how much the student has answered. A topic row carries its `subjectName`, so two same-named topics stay distinguishable. |
+| `byDifficulty` / `byType` | **Fixed axes** — every difficulty and every question type is always present, with `null` percentages where untouched, so a chart cannot lose its axis when empty. |
+| `strongAreas` / `weakAreas` | Up to five each, across topics, subjects and difficulties. Requires `minimumAreaSample` (5) answers. |
+| `accuracyByDay` | Bucketed by **IST** competition day. |
+| `progressTrend` | One point per submitted sitting, chronological by submission. |
+| `paceTrend` | Seconds per question **per attempt**. Excludes the daily challenge, which has no clock. |
+| `notes` | Machine-readable reasons a section is empty, e.g. `nothing-submitted-yet`, `pace-unavailable-daily-challenge-has-no-clock`. |
+
+Three contracts a client must respect:
+
+- **`null` is not `0`.** Every percentage is `number | null`; null means "nothing answered here", which is a different fact from "answered, all wrong". Rendering the first as `0%` throws away the distinction the API preserves.
+- **Percentages are already weighted.** Do not average them — the server sums raw counts and derives once, so combining 1/1 and 1/9 gives 20%, not 55%.
+- **The client computes nothing.** Same rule as the leaderboard: a second implementation is a second thing to disagree with the first.
+
+`xpByDay` is unchanged and stays alongside: actual XP earned per competition day over the last 30 days, oldest first, days with no activity **omitted** rather than zero-filled. It measures participation where the rest measures ability.
+
+**This endpoint used to lie.** When no document existed it returned a hardcoded object claiming 88% accuracy over 450 questions, a rising five-point learning curve, four topic breakdowns and "You are currently in the top 5% of all national Olympiad participants" — as the student's own measured performance. That fallback was deleted in the Milestone 5 follow-up, and a test still asserts none of those strings can appear in a response.
+
+### `GET /api/v1/admin/analytics/questions` (Milestone 15)
+- **Permission**: `analytics:read:any`.
+- **Query**: `page`, `limit`, `classLevel`, `difficulty`, `subject` (id), `sort` (`hardest` | `easiest` | `most-served` | `most-skipped`, default `hardest`), `minAnswered` (1–100, default 3).
+- **Response 200**: `{ success, questions, questionsWithData, minAnswered, notes, pagination }`.
+- Each row carries `served`, `answered`, `correct`, `accuracyPercent`, **`skipRatePercent`** and the joined topic/subject/difficulty. Counted from every submitted attempt across all four surfaces and **merged by summing raw counts**, so a question used in both practice and a mock test reports one combined figure.
+- **`minAnswered` is a floor, not a filter on data quality.** A question answered once, wrongly, is a real 0% and a useless diagnosis; without the floor it would head the hardest list for ever. The value in force is returned so the UI can state it, and `questionsWithData` reports how many questions have any data at all, so an empty table can distinguish "nothing answered yet" from "nothing meets the floor".
+- **No caller may supply or filter on a measured value.** Accuracy, counts and skip rate are absent from the query schema — the same discipline the leaderboard uses for ranked values.
+
+### `GET /api/v1/admin/analytics/tests` (Milestone 15)
+- **Permission**: `analytics:read:any`. No query parameters.
+- **Response 200**: `{ success, tests, notes }` — every mock test and official exam with at least one attempt, official exams first.
+- Each row: `attemptsStarted`, `attemptsSubmitted`, `completionPercent`, `distinctStudents`, `averageScorePercent`, **`medianScorePercent`**, `highestScorePercent`, `lowestScorePercent`, `averageAccuracyPercent`, `averageSecondsPerQuestion`.
+- **The median is reported beside the mean** because on a cohort of a few dozen one student who submitted a blank moves the mean several points — exactly the case an invigilator wants to see rather than have smoothed away.
+- **`kind`** (`mock_test` | `official_exam`) is on every row, so a rehearsal can never be read as the Olympiad.
 
 ### `POST /api/v1/admin/generate-questions`
 - **Auth**: `requirePermission('questions:write')` (admin and super admin).
@@ -372,12 +405,14 @@ The only content in this product **published to the open internet**, which is wh
 
 ## In-app notifications — Milestone 12
 
-Staff write **one** document carrying an audience *rule*; each student's inbox is that rule evaluated at read time. Nothing is fanned out per recipient and nothing is emailed. See the Milestone 12 ADR.
+Staff write **one** document carrying an audience *rule*; each student's inbox is that rule evaluated at read time. Nothing is fanned out per recipient. See the Milestone 12 ADR.
+
+**Milestone 14** added a third audience (`student`, system-only), automated notifications for six real events, and **email** as an escalation of some of them. Email itself is never sent inside a request — see "Email delivery" below.
 
 ### `GET /api/v1/me/notifications`
 - **Auth**: `requireAuth()` — an identity gate, like the rest of `/me`: an inbox is yours because it is yours, not because of a capability.
 - **Query**: `page`, `limit`, `unreadOnly` (`true`/`false`).
-- **Response 200**: `{ success, notifications: InboxNotification[], unread, pagination }` — published announcements addressed to `all` or to the caller's own class, newest first, each with real `read`/`readAt`.
+- **Response 200**: `{ success, notifications: InboxNotification[], unread, pagination }` — published notifications addressed to `all`, to the caller's own class, **or to the caller personally**, newest first, each with real `read`/`readAt` plus `source` (`staff`/`system`) and `link` (a relative in-app path, or null).
 - A student with no `classLevel` (a legacy account, or the bootstrap super admin) sees `all` announcements only.
 
 ### `GET /api/v1/me/notifications/unread-count`
@@ -386,25 +421,66 @@ Staff write **one** document carrying an audience *rule*; each student's inbox i
 ### `POST /api/v1/me/notifications/:id/read` · `POST /api/v1/me/notifications/read-all`
 - **Auth**: `requireAuth()`. **Response 200**: `{ success, read: true, unread }` / `{ success, marked, unread }`.
 - **Idempotent**: an upsert against the unique index on `{student, notification}`, so a double-tapped button, a replayed request or two open tabs cannot create two rows or return an error the user did nothing to cause.
-- **`404` for an announcement the caller cannot see** — including one addressed to another class. Not `403`: the route must not confirm that an id it will not show nevertheless exists (asserted by a test).
+- **`404` for a notification the caller cannot see** — including one addressed to another class or to another student. Not `403`: the route must not confirm that an id it will not show nevertheless exists (asserted by a test).
+- Visibility is decided by `isVisibleTo()`, which composes `inboxFilter()`. **Milestone 14 fixed a latent bug here**: the route used to hand-write the audience comparison, which was correct for the two audiences that existed and would have silently refused every per-student notification.
+
+### `GET /api/v1/me/notification-preferences` (Milestone 14)
+- **Auth**: `requireAuth()`.
+- **Response 200**: `{ success, preferences: { announcements, results }, always: [{ category, reason }], inAppAlwaysOn: true }`.
+- `always` names the streams that **cannot** be switched off (`transactional`, `security`) **with their reasons**, so the UI can state them rather than silently offering only two toggles. A missing stored object reads as all-on, matching what a pre-Milestone-14 account was already receiving.
+
+### `PATCH /api/v1/me/notification-preferences` (Milestone 14)
+- **Auth**: `requireAuth()`. **Request**: `{ announcements?, results? }` — at least one (`400` otherwise).
+- There is deliberately **no field** for `transactional` or `security`: they are absent from the schema rather than ignored by the handler, so "I turned it off and it kept sending" is not a state the API can be asked to produce.
+- **These control email only.** In-app rows are always written, so declining an email never costs the student the message.
+- **Response 200**: `{ success, preferences }`. Writes `student.profile.updated` naming the changed field names.
 
 ### `GET /api/v1/admin/notifications`
 - **Permission**: `notifications:write` (admin, super admin).
-- **Query**: `page`, `limit`, `audience` (`all`/`class`), `classLevel`, `published` (`true`/`false`), `search` (literal, over title and body).
-- **Response 200**: `{ success, notifications: AdminNotification[], pagination }`. Each carries **`readCount`** — how many students actually opened it, from one grouped aggregation for the whole page. The only honest reach figure.
+- **Query**: `page`, `limit`, `audience`, `classLevel`, `published` (`true`/`false`), **`source`** (`staff`/`system`/`all`), `search` (literal, over title and body).
+- **`source` omitted means `staff`, not everything.** Releasing one national exam's results writes a system row per candidate, so listing both by default would bury the handful of announcements this page exists to manage. `source=all` gives the combined view.
+- **Response 200**: `{ success, notifications: AdminNotification[], pagination }`. Each carries **`readCount`** — how many students actually opened it, from one grouped aggregation for the whole page. The only honest reach figure — plus `source`, `event` and `link`.
 
 ### `POST /api/v1/admin/notifications`
-- **Permission**: `notifications:write`. **Request**: `{ title, body, kind?, audience?, classLevel?, isPublished? }`.
+- **Permission**: `notifications:write`. **Request**: `{ title, body, kind?, audience?, classLevel?, isPublished?, emailBroadcast? }`.
+- `audience` accepts `all` or `class` only. **`student` is not addressable here** — it exists for system notices about one person, and is absent from the schema rather than rejected in the handler.
 - `audience: 'class'` **requires** `classLevel` (`400` otherwise) — a class-targeted announcement with no class would reach nobody and look sent.
 - Unpublished is a **draft**: invisible to students, editable by staff. `publishedAt` is stamped at publication, not creation, so a draft written last week and published today sorts as today's news.
-- **Response 201**: `{ success, notification: AdminNotification }`. Writes `notification.changed` with `operation: 'published' | 'drafted'`.
+- **`emailBroadcast: true`** additionally queues one email per eligible recipient. Only meaningful together with publication — a draft emails nobody. Default **false**, deliberately: see the Milestone 14 ADR.
+- **Response 201**: `{ success, notification, broadcast: { recipients, queued, suppressed, cappedAt } | null }`. `suppressed` counts recipients who switched announcement email off, reported rather than hidden — staff who see "0 queued" with no explanation will conclude it is broken and send it again. `cappedAt` is set when the recipient list hit the 500 cap. Writes `notification.changed` with `emailBroadcast` and `emailsQueued`.
 
 ### `PATCH /api/v1/admin/notifications/:id`
-- **Permission**: `notifications:write`. Any field, plus `isPublished` to publish or withdraw.
+- **Permission**: `notifications:write`. Any field, plus `isPublished` to publish or withdraw, plus `emailBroadcast`.
+- **`409` for a `source: 'system'` notification.** Editing the text of a record of something that happened would turn it into a claim about something that did not — and it would then disagree with the email already delivered from it.
 - Switching `audience` back to `all` clears `classLevel`, so the two cannot disagree. Withdrawing and republishing keeps the original `publishedAt` — it is the same announcement. The audit `operation` distinguishes `published` / `withdrawn` / `updated`.
+- Asking for `emailBroadcast` again is **safe**: each message is keyed on `{announcement, student}`, so publishing, withdrawing and re-publishing cannot email the same person twice.
 
 ### `DELETE /api/v1/admin/notifications/:id`
-- **Permission**: `notifications:write`. Deletes the announcement **and every read receipt for it** — a receipt pointing at nothing would skew the anti-join the unread count relies on, making the count wrong for everybody who had read it.
+- **Permission**: `notifications:write`. Deletes the notification **and every read receipt for it** — a receipt pointing at nothing would skew the anti-join the unread count relies on, making the count wrong for everybody who had read it.
+- Allowed for a `system` row, unlike editing: housekeeping is not falsification.
+
+---
+
+## Email delivery (Milestone 14)
+
+**No user-facing request ever waits on SMTP.** Every message is written to `EmailOutbox` before anything tries to send it; delivery happens off the request path with backoff and a terminal give-up. See `services/emailOutbox.ts` and the Milestone 14 ADR.
+
+Because the free tier has no scheduler, delivery is driven by an opportunistic kick at enqueue time plus a lazy sweep on later requests — neither of which is a deadline. That is why the drain is also an explicit staff action rather than a hidden one.
+
+### `GET /api/v1/admin/email-deliveries`
+- **Permission**: `notifications:write`.
+- **Query**: `page`, `limit`, `status` (`pending`/`sent`/`failed`), `category` (`transactional`/`security`/`announcement`/`results`).
+- **Response 200**: `{ success, deliveries: EmailDelivery[], stats: { pending, sent, failed, oldestPendingAt }, pagination }`.
+- Each row carries `to`, `subject`, `category`, `status`, `attempts`/`maxAttempts`, `nextAttemptAt`, `lastAttemptAt`, `lastError` and `sentAt`. **The body is never returned** — a delivery record has no business reproducing the contents of somebody's password-reset email.
+- `oldestPendingAt` is the only figure that answers "is the queue stuck?"; a pending count alone cannot, because three queued messages is healthy if they arrived a second ago and a problem if the oldest has waited since Tuesday.
+
+### `POST /api/v1/admin/email-deliveries/drain`
+- **Permission**: `notifications:write`. **Response 200**: `{ success, drain: { claimed, sent, failed, retrying }, stats }`.
+- Sends up to 10 due messages. Safe to press twice — the claim is a conditional write, so two concurrent drains cannot pick up the same row. Reports an empty drain honestly (`claimed: 0`) rather than claiming success.
+
+### `POST /api/v1/admin/email-deliveries/retry`
+- **Permission**: `notifications:write`. **Response 200**: `{ success, requeued, drain, stats }`.
+- Puts every `failed` row back with a fresh attempt budget, then drains. The counterpart to a terminal give-up: that state has to exist or a dead address would be retried for ever, but somebody who has just corrected their SMTP settings needs a way to say "try again" that is not editing the database by hand. Writes `notification.changed` with `operation: 'retry-failed'`.
 
 ---
 

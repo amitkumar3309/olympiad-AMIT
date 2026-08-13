@@ -11,6 +11,7 @@ import { logger } from '../../lib/logger';
 import { ApiError } from '../../lib/ApiError';
 import { availabilityOf, publishResults, sweepExpiredExamAttempts } from '../../services/examService';
 import { issueForExam } from '../../services/certificateService';
+import { notifyExamPublished, notifyResultsReleased } from '../../services/systemNotifier';
 import {
   createExamSchema,
   updateExamSchema,
@@ -329,6 +330,13 @@ router.patch(
         metadata: { operation: 'status', from: previous, to: status, reason: reason ?? null },
       });
 
+      // Announce it to the class the first time it is published — an official sitting
+      // with a mandatory window is precisely the thing a student must not miss.
+      // Deduped on the exam id, so unpublish-and-republish does not announce twice.
+      if (status === 'published' && previous !== 'published') {
+        await notifyExamPublished(exam);
+      }
+
       sendSuccess(res, 200, { exam: adminExamView(exam) });
     } catch (err) {
       logger.error({ err }, 'Failed to change exam status');
@@ -433,6 +441,13 @@ router.post(
       const publication = await publishResults(exam, publishedBy, now);
       const certificates = await issueForExam(exam, publishedBy, now);
 
+      // Third, and only now: tell the candidates. It runs *after* both writes so the
+      // message is built from the `Result` and `Certificate` rows that really exist —
+      // a notification derived from what we intended to write is one that can
+      // disagree with the portal it links to. Best-effort and per-student deduped, so
+      // re-releasing results does not re-announce them.
+      const notifications = await notifyResultsReleased(exam);
+
       await recordAudit(req, {
         action: 'exam.results.published',
         targetType: 'exam',
@@ -443,12 +458,14 @@ router.post(
           resultsWritten: publication.resultsWritten,
           certificatesIssued: certificates.issued,
           certificatesSkipped: certificates.skipped,
+          candidatesNotified: notifications.notified,
+          resultEmailsQueued: notifications.emailsQueued,
           reason: reason ?? null,
         },
       });
 
       logger.warn(
-        { examCode: exam.examCode, ...publication, ...certificates, actor: publishedBy },
+        { examCode: exam.examCode, ...publication, ...certificates, ...notifications, actor: publishedBy },
         'Official exam results published',
       );
 
@@ -456,6 +473,7 @@ router.post(
         exam: adminExamView(exam),
         publication,
         certificates,
+        notifications,
       });
     } catch (err) {
       if (err instanceof ApiError) {

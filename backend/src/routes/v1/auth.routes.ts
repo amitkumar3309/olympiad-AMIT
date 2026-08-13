@@ -41,7 +41,8 @@ import {
   issueVerificationToken,
   consumeVerificationToken,
 } from '../../lib/tokens';
-import { sendEmail, buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email';
+import { buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email';
+import { enqueueEmail } from '../../services/emailOutbox';
 import { logger } from '../../lib/logger';
 import { grantDailyVisit, grantReward } from '../../services/rewardService';
 
@@ -119,9 +120,25 @@ function duplicateField(err: { keyPattern?: Record<string, unknown> }): string |
   return Object.keys(err.keyPattern ?? {})[0];
 }
 
+/**
+ * Queues the verification link rather than sending it inline.
+ *
+ * This used to `await sendEmail(...)`, which meant a registering student's request
+ * waited on a third-party SMTP handshake, and a failed handshake **lost the link
+ * silently** — and since login requires verification, a lost link is an unusable
+ * account. `enqueueEmail()` persists the message first and returns; delivery and
+ * retries happen off the request path. See `services/emailOutbox.ts`.
+ *
+ * No `dedupeKey`: resending a verification link is a legitimate thing to ask for
+ * (that is what `/auth/resend-verification` is), so these must not collide.
+ */
 async function sendVerificationLink(student: StudentDocument): Promise<void> {
   const { token } = await issueVerificationToken(studentObjectId(student), 'email_verify');
-  await sendEmail(buildVerificationEmail(student.email, token));
+  await enqueueEmail({
+    ...buildVerificationEmail(student.email, token),
+    category: 'transactional',
+    student: studentObjectId(student),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -661,7 +678,15 @@ router.post('/auth/forgot-password', emailActionLimiter, validate({ body: forgot
 
     if (student && student.status === 'active') {
       const { token } = await issueVerificationToken(studentObjectId(student), 'password_reset');
-      await sendEmail(buildPasswordResetEmail(student.email, token));
+      // Queued, not sent inline — so the generic response below is returned at the
+      // same speed whether or not an account exists. Awaiting a real SMTP round trip
+      // here made this endpoint a *timing* oracle for account existence, which is
+      // precisely what the identical message is meant to prevent.
+      await enqueueEmail({
+        ...buildPasswordResetEmail(student.email, token),
+        category: 'transactional',
+        student: studentObjectId(student),
+      });
     }
 
     sendSuccess(res, 200, { message: genericMessage });

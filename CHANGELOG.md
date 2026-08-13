@@ -2,6 +2,133 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-13 — Milestone 15: Performance analytics
+
+The data had been accumulating for nine milestones. Nothing read it.
+
+Four collections hold graded answers — `PracticeSession`, `MockTestAttempt`, `DailyChallengeAttempt` and `ExamAttempt` — each with per-question outcomes, marks and timestamps. The analytics page meanwhile read `StudentAnalytics`, a collection **nothing had ever written**, and told every student their accuracy was "not measured yet".
+
+### `StudentAnalytics` is deleted, not filled in
+
+It was the obvious move and the wrong one. Three reasons it went instead:
+
+- **The wrong shape.** It predated Milestone 4: `studentId` was a plain `String`, and `topicMetrics[].topicName` was **free text** with no reference to the `Topic` collection. A topic rename would have orphaned a student's history, and two subjects with a same-named topic were indistinguishable.
+- **A stored breakdown drifts.** That is the argument that already keeps XP, levels, streaks and the leaderboard derived. Analytics over attempts is the same case, and worse: it would have needed invalidating on every submission from four different services.
+- **Its `aiInsights` field was a live bug** (known bug #2). `generateAIInsights()` mutated it on every read and never saved, harmless only because the branch was unreachable. Both are gone. Strengths and weaknesses are now derived facts, and nothing in the product claims to be AI.
+
+### Student analytics, all eight things
+
+Accuracy, topic performance, subject performance, difficulty performance, time trends, progress trends, weak areas and strong areas — every one counted from submitted attempts. Only **submitted** ones: an abandoned paper measures nothing, and counting its blanks as wrong answers would libel the student.
+
+Three rules the service is built around, each with a test:
+
+- **Raw counts are summed; percentages are computed last.** Every aggregation returns `served / answered / correct / marksAwarded / marksAvailable` and never a percentage, so rolling a topic up from per-surface rows is addition. Combining `1/1` in practice with `1/9` on a mock gives **20%** — the average of the two percentages would be 55.6%, which would tell a struggling student they are better than half right.
+- **`null` is not `0`.** An accuracy with nothing behind it is null. "Has answered nothing" and "gets everything wrong" are different facts about a child, and the frontend renders the two differently.
+- **A weak area needs a sample.** One wrong answer in a topic is noise, and presenting it as a diagnosis is a fabricated conclusion drawn from real data — the same sin as a fabricated number. Five answers minimum, reported to the client so an empty list can explain itself.
+
+### What the data could not answer, and was not made up
+
+**There is no per-question time.** No collection stores one — `answeredAt` is a timestamp, not a duration, and a student may answer in any order. So the pace trend is per *attempt*: the sitting's real duration divided by its real question count, labelled as such. The **daily challenge has no clock at all**, so it contributes to accuracy and progress and is **absent** from pace rather than being given an invented duration; the page says so.
+
+### Admin: the questions that are not working
+
+**Question performance** is the view staff did not have. A question nobody gets right is usually mis-keyed or mis-tagged rather than genuinely hard, and until now the only way to find one was for a student to complain. Hardest-first by default, with a **skip rate** beside the accuracy — a mostly-skipped question is a differently-broken question from a mostly-wrong one.
+
+A `minAnswered` floor keeps a single wrong answer from topping the list for ever. It is a parameter rather than a constant, and the value in force comes back with the result.
+
+**Test performance** compares papers, where `testResults()` only ever showed one at a time. Each row carries a **median** alongside the mean, because on a cohort of a few dozen one blank submission moves the mean several points — exactly the case an invigilator wants to see rather than have smoothed away. `kind` marks every row, so a rehearsal can never read as the Olympiad.
+
+The Milestone 12 platform metrics — accounts, engagement, content counts, XP — were **already real and were not rebuilt**.
+
+### Efficient by construction
+
+**One faceted aggregation per collection, not one per facet.** Grouping on the composite `{topic, subject, difficulty, type}` key means all four breakdowns are sums over rows already in memory. Eight operations per page load, all indexed by `student`, all parallel. The `$lookup` projects three fields — without that inner pipeline it drags every question's text, options and **answer key** through the pipeline for every answer ever given.
+
+### Three indexes, one of them overdue
+
+- **`ExamAttempt {student, status, submittedAt}`** — this collection had **no index on `student` at all**. The unique `{exam, student}` index cannot serve a query naming a student without an exam, so every "everything this student has sat" read was a full collection scan. The dashboard's exam panel took the same path.
+- **`MockTestAttempt`** and **`PracticeSession`**, same key: the existing indexes narrow correctly but sort by *start* time, which for a session left open overnight is a genuinely different order from submission.
+
+### Also
+
+- `answeredAt` turns out to be the **stored materialisation of `isAnswered()`** — every write path sets it as `isAnswered(entry) ? now : null`, including on a cleared answer. The aggregations read it rather than re-deriving the per-type rule, which would have been a second grader by another name. A test pins that its count agrees with the attempt's own `unansweredCount`.
+- `isCorrect` is **three-valued** on a stored entry: `true`, `false`, or `null` for unanswered. `$ne: false` would have counted every blank as correct.
+- **Grading reads the snapshot; analytics joins the live taxonomy.** A mark is a historical fact about one paper. "How am I doing in Trigonometry?" is a question about the taxonomy as it stands now. The cost — recategorising moves history, deleting drops it — is in the ADR, and a deleted question is surfaced rather than hidden.
+- **23 models** (one removed), no new permissions, no new environment variables. **32 new tests** (739 total, 22 files), all seeded with declared outcomes so each asserts an exact figure rather than merely that a number exists.
+
+## 2026-08-13 — Milestone 14: The notification system
+
+An audit first, because Milestone 12 had already built half of this. In-app notifications, unread/read state, notification history and staff-written announcements were **real, tested and left alone** — one document with an audience rule, an inbox that evaluates that rule at read time, read receipts in their own collection with a unique index. Rebuilding any of it would have produced a second set of routes to keep in step.
+
+What Milestone 12 openly left out was everything to do with *delivery* and *automation*, and that is this milestone.
+
+### The thing that was actually broken
+
+`sendEmail()` was **awaited inline** in registration and in forgot-password, and it **swallowed delivery failures**. Two consequences, both real and both invisible:
+
+- A registering student's request sat waiting on a third-party SMTP handshake.
+- When that handshake failed, the verification link was **destroyed**. No record, no retry, one log line. Since login requires verification, a lost link is an account that can never be used — and nobody could find out, because there was nothing to look at.
+
+There was also a subtler version of the first problem: `forgot-password` returns a deliberately identical message for a known and an unknown address, so that it cannot be used to enumerate accounts. But it only did that in *wording*. Awaiting a real SMTP round trip for an address that exists, and skipping it for one that does not, made the endpoint a **timing oracle** for exactly the fact the identical message was there to hide.
+
+### `EmailOutbox`: persist first, deliver after
+
+Every outbound message is now written to a collection **before** anything tries to send it. The request does one indexed insert and returns. Delivery happens outside the request and is retried from the row, because the row is still there to retry from.
+
+`deliverEmail()` replaces `sendEmail()` and **throws** when delivery fails. That single change is what makes the queue possible: a worker that cannot detect failure is not a worker. Only the outbox service may call it.
+
+**There is no `sending` status.** A row is claimed by pushing `nextAttemptAt` into the future and incrementing `attempts` in one conditional write — a visibility timeout, not a state change. A `sending` state would become a lie the moment a serverless container is frozen mid-send: the row would sit there for ever with nothing to move it. With a timeout, a crashed attempt simply becomes due again. The honest cost is **at-least-once** delivery, and that is the right trade: a duplicate "your results are out" is an annoyance, a missing one is a student who never found out.
+
+**Delivery is driven two ways, because the free tier has no scheduler.** An opportunistic kick when a message is queued (started, never awaited), plus a lazy sweep on later requests — the same pattern the codebase already uses for expired mock-test and exam attempts. Neither is a deadline, so `drainOutbox()` is *also* exposed to staff as an explicit "Send queued now" rather than hidden. A queue that only drains when somebody visits the site is not a promise an organiser can make to a parent.
+
+### System notifications
+
+Before this, the platform never told a student anything on its own — every notification was typed by a human. Six real events now produce one:
+
+| Event | Who | Emailed? |
+|---|---|---|
+| Official exam published | the class | no |
+| **Official exam results released** | each candidate | **yes** |
+| Mock test published | the class | no |
+| Account status changed | that student | yes (security) |
+| Account role changed | that student | yes (security) |
+| Password changed | that student | yes (security) |
+
+The two broadcasts are deliberately **not** emailed: mailing a whole class every time staff publish practice material is exactly the free-tier deliverability problem Milestone 12 declined to create, and the inbox and the bell already carry it.
+
+`Notification` gained a third audience, `student`, which **staff cannot address** — it is absent from the composer's schema rather than rejected by the handler. A per-student notice carries a score, a rank and a certificate tier, so a filter that leaked one row across the class boundary would be a disclosure bug rather than a display bug. There is a test for it, using two students in the *same* class so that the audience clause is what is under test.
+
+**Results and certificates produce one notification, not two.** A certificate can only be issued by releasing results, so a separate "your certificate is ready" would always arrive in the same second — twice the free-tier email budget for a worse experience, and it invites "did I get two results?". The notice is also built by **reading back the `Result` rows that were actually written**, not from a list the caller passed in, so what a student is told matches what the portal will show them when they follow the link.
+
+Every system notice an administrator can trigger twice carries a **partial-unique `dedupeKey`** — the same idiom as `StudentActivity`'s once-per-day index. Releasing results is idempotent by design; without this, a nervous administrator clicking twice tells the whole cohort their results are out twice.
+
+### Preferences, and what deliberately cannot be switched off
+
+Two switchable email streams: **announcements** and **results**. Two that are not: **transactional** (verification and reset links — the mechanism of using the account) and **security** (password and status changes).
+
+That asymmetry is the design, not an omission. "You may switch off the warning that your password was changed" is a setting that only ever helps an attacker. Rather than quietly offering two toggles and leaving the reader to wonder, the API returns the non-optional categories **with their reasons** and the page prints them.
+
+**Preferences control email only, never the in-app inbox.** Everything is always written. Suppressing rows at write time would make "unread" and "never delivered" indistinguishable, and a notice board a student can empty is not a record. Declining an email never costs you the message.
+
+There is deliberately no `certificates` preference: nothing sends that stream on its own, and a switch that does nothing is worse than a shorter list.
+
+### Emailing a broadcast is opt-in, capped, and honest about it
+
+Staff may tick "also send this by email" per announcement. Unchecked by default, and reset after every send, so the Milestone 12 reasoning is not quietly undone. Recipients who opted out are **counted and reported** — "60 queued, 12 skipped" — because staff who see "0 queued" with no explanation will reasonably conclude it is broken and send it again.
+
+### Making failure visible
+
+A new `/admin/email-deliveries` console: every message with its status, attempt count and **the provider's own error text**, plus counted statistics and "send now" / "requeue failed" actions. `oldestPendingAt` is included because a pending count alone cannot answer "is the queue stuck?" — three queued messages is healthy if they arrived a second ago and a problem if the oldest has waited since Tuesday. The subject is listed; the body never is.
+
+### Also
+
+- **Free-tier email needs no new dependency and no new environment variable.** The transport was already provider-agnostic SMTP, so Brevo, Resend, SendGrid, a Gmail app password or Mailtrap all work through the existing `SMTP_*` vars. `ENVIRONMENT_VARIABLES.md` now names the free tiers and their limits.
+- The mark-as-read route was **hand-writing** its own audience comparison. It was correct for the two audiences that existed and would have silently refused every per-student notification this milestone added. It now composes `inboxFilter()` through `isVisibleTo()`, so the inbox, the unread count and the read check cannot disagree about what a student may see.
+- A `system` notification **cannot be edited** (409). Editing the text of a record of something that happened would turn it into a claim about something that did not, and would then disagree with the email already delivered from it. Deleting one is still allowed — housekeeping is not falsification.
+- The admin announcement list **defaults to the staff stream**. Releasing one national exam's results writes a system row per candidate, so listing both by default would bury the handful of announcements the page exists to manage. `?source=all` gives the combined view.
+- **One new model** (`EmailOutbox`), taking the total to **24**. **No new permissions** — the console reuses `notifications:write`.
+- **46 new tests** (707 total, 21 files), most of them making delivery fail on purpose: a request that succeeds anyway, a message retried rather than lost, a *recovered* provider that actually delivers, a terminal give-up that stays visible, two concurrent drains that cannot double-send, and a dead provider that does not turn `forgot-password` into an enumeration oracle.
+
 ## 2026-08-13 — Milestone 13: The official exam, and the certificate system
 
 Certificates were the ask. The official exam was the precondition — and it did not exist.

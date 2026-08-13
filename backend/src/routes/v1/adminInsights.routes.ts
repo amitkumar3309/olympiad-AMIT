@@ -11,8 +11,14 @@ import { periodWindow, type LeaderboardPeriod } from '../../services/leaderboard
 import { ACHIEVEMENTS } from '../../lib/achievements';
 import { levelProgressFor } from '../../lib/xp';
 import {
+  getQuestionPerformance,
+  getTestPerformance,
+  type QuestionPerformanceQuery,
+} from '../../services/questionAnalyticsService';
+import {
   platformAnalyticsQuerySchema,
   adminLeaderboardQuerySchema,
+  questionPerformanceQuerySchema,
   type PlatformAnalyticsQuery,
   type AdminLeaderboardQuery,
 } from '../../validation/contentSchemas';
@@ -299,6 +305,85 @@ router.get(
     } catch (err) {
       logger.error({ err }, 'Failed to build the rewards overview');
       sendError(res, 500, 'Could not load the rewards overview. Please try again.');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Question performance (Milestone 15)
+// ---------------------------------------------------------------------------
+
+/**
+ * Which questions are working, and which are not.
+ *
+ * The most useful administrative view the product did not have. A question nobody gets
+ * right is usually mis-keyed or mis-tagged rather than genuinely hard, and until now
+ * the only way to discover one was for a student to complain. Default sort is
+ * `hardest`, because that is the list somebody would actually act on.
+ *
+ * Counted from every **submitted** attempt across all four surfaces, merged by summing
+ * raw counts so a question used in both practice and a mock test reports one combined
+ * figure. `minAnswered` keeps a single wrong answer from topping the table for ever;
+ * the value in force comes back with the result rather than being an invisible
+ * constant.
+ */
+router.get(
+  '/admin/analytics/questions',
+  requirePermission('analytics:read:any'),
+  validate({ query: questionPerformanceQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const query = req.query as unknown as QuestionPerformanceQuery;
+      const result = await getQuestionPerformance(query);
+
+      sendSuccess(res, 200, {
+        questions: result.rows,
+        questionsWithData: result.questionsWithData,
+        minAnswered: result.minAnswered,
+        notes: result.notes,
+        pagination: {
+          page: query.page,
+          limit: query.limit,
+          total: result.total,
+          totalPages: Math.max(1, Math.ceil(result.total / query.limit)),
+        },
+      });
+    } catch (err) {
+      logger.error({ err }, 'Failed to build question performance');
+      sendError(res, 500, 'Could not load question performance. Please try again.');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Test performance (Milestone 15)
+// ---------------------------------------------------------------------------
+
+/**
+ * Every paper with at least one attempt, mock tests and official exams together.
+ *
+ * `testResults()` has always shown one mock test's cohort in detail; what was missing
+ * is the comparison across papers — which is how staff notice that one test is far
+ * harder than the rest, or that a paper is being started and abandoned.
+ *
+ * Each row carries a **median** alongside the mean, because on a cohort of a few dozen
+ * one student who submitted a blank moves the mean several points, and that is exactly
+ * the case an invigilator wants to see rather than have smoothed away. `kind`
+ * distinguishes a rehearsal from the Olympiad on every row, so the two can never be
+ * read as the same thing.
+ */
+router.get(
+  '/admin/analytics/tests',
+  requirePermission('analytics:read:any'),
+  ensureDb,
+  async (_req: Request, res: Response) => {
+    try {
+      const { rows, notes } = await getTestPerformance();
+      sendSuccess(res, 200, { tests: rows, notes });
+    } catch (err) {
+      logger.error({ err }, 'Failed to build test performance');
+      sendError(res, 500, 'Could not load test performance. Please try again.');
     }
   },
 );

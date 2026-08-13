@@ -83,12 +83,42 @@
   text-transform: uppercase;
 }
 
+/*
+  Distinguishes a generated notice from one a human wrote. Deliberately quieter than
+  `.alertTag`: "the platform sent this" is context, not a warning.
+*/
+.systemTag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.16);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .dot {
   width: 8px;
   height: 8px;
   margin-left: auto;
   border-radius: 50%;
   background: var(--royal-blue);
+}
+
+/* The deep link a system notification carries, e.g. straight to the result portal. */
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--royal-blue);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.action:hover {
+  text-decoration: underline;
 }
 
 .body {

@@ -14,6 +14,7 @@ import { summariseAchievements } from '../../lib/achievements';
 import { todayKey } from '../../lib/competitionDay';
 import { isClassLevel } from '../../lib/classLevels';
 import { buildRewardFacts, grantDailyVisit, grantReward } from '../../services/rewardService';
+import { notifyPasswordChanged } from '../../services/systemNotifier';
 import { getRecentActivity, listActivity, getRecentExamPerformance } from '../../services/progressService';
 import { getStanding, getTopLeaderboard } from '../../services/leaderboardService';
 import { getAvailableChallenges } from '../../services/challengeService';
@@ -334,6 +335,13 @@ router.post(
         targetLabel: student.email,
         metadata: { self: true, otherSessionsRevoked: true },
       });
+
+      // A `security` notice, so it is sent regardless of preferences. This is the
+      // classic detection signal for a stolen session: if somebody else changed the
+      // password, the real owner finds out from this message and can take the account
+      // back with "Forgot password". An option to switch it off would only ever help
+      // the thief, which is why `security` is deliberately not a preference.
+      await notifyPasswordChanged(student);
 
       sendSuccess(res, 200, {
         message: 'Your password has been changed. Other devices have been signed out.',

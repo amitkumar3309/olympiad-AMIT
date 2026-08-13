@@ -749,3 +749,105 @@ No issuance route is what answers the brief's "do not allow the frontend to manu
 **Alternatives considered**: (a) Render from live joins — rejected above. (b) One identifier for both purposes — rejected above. (c) Delete a bad certificate — rejected: a printed copy exists in the world regardless, and telling its holder "no such certificate" reads as a system fault rather than as a decision somebody made, so revoked reports as *revoked* with a mandatory reason. (d) Global merit thresholds — rejected: papers differ in difficulty, and 60% on one is not 60% on another. (e) Merit-only eligibility — rejected by the owner: a student who sat a national olympiad and did badly still sat it.
 
 **Consequences**: `pdf-lib` is a new dependency, chosen because it is pure JavaScript with no native binary and no headless browser, so it works inside a Vercel serverless function on the free tier — the ₹0 constraint rules out both a rendering service and Puppeteer's ~300 MB Chromium. The **seal is drawn from primitives** rather than embedded, so there is no image asset to lose and it stays crisp at any scale; the **gold signature** is Times italic in `#D4AF37` rather than an embedded script font, avoiding another licensed binary in the repository. Issuance is idempotent through the unique index on `{student, exam}`, so republishing results cannot produce a second certificate for the same sitting. A revoked certificate cannot be downloaded again — continuing to hand out fresh copies would undermine the revocation entirely.
+
+---
+
+## 2026-08-13 — Email is queued in an outbox, never sent inside a request
+
+**Decision**: every outbound email is written to a new `EmailOutbox` collection **before** anything attempts delivery. `enqueueEmail()` does one indexed insert and returns; `deliverEmail()` (which replaces `sendEmail()` and **throws** on failure) may be called only by `services/emailOutbox.ts`. Delivery is driven by an opportunistic, deliberately un-awaited kick at enqueue time plus a lazy sweep on later requests, and is also exposed to staff as an explicit "send now". A row is claimed by a **conditional write that pushes `nextAttemptAt` forward** — a visibility timeout — rather than by moving it to a `sending` status. Retries back off 1 min → 5 min → 30 min → 2 h and then fail terminally, keeping the row and the provider's error text.
+
+**Reason**: the code this replaces awaited SMTP inline in registration and forgot-password and swallowed the failure. Two real defects followed. A registering student waited on a third-party handshake. And when that handshake failed the verification link was **destroyed** — no record, no retry, one log line — which, because login requires verification, means an account that can never be used and nobody able to find out why. A queue whose worker cannot detect failure is not a queue, which is why `deliverEmail()` had to start throwing before any of this could work.
+
+There is no `sending` status because it becomes a lie on a serverless platform: a container frozen or recycled mid-send leaves the row in `sending` with nothing to move it, and the message never arrives. A visibility timeout degrades correctly — a crashed attempt simply becomes due again. The claim is a single conditional write for the same reason exam submission is: a read followed by a write has a window between them, and on serverless those halves can land in different invocations.
+
+This also closed a live **timing oracle**. `forgot-password` returns an identical message for a known and an unknown address so it cannot be used to enumerate accounts — but it awaited a real SMTP round trip only when the account existed, leaking the exact fact the identical wording was there to hide.
+
+**Alternatives considered**: (a) Keep sending inline but stop swallowing errors — rejected: it turns a mail-provider outage into a failed registration, which is worse than a delayed email. (b) Fire-and-forget with no persistence (`void sendEmail(...)`) — rejected: it fixes the blocking half and makes the losing half *harder* to see, because there is then no row and no error text either. (c) A real job queue (BullMQ + Redis) — rejected on the ₹0 constraint; there is no free Redis in this stack, and the outbox is ~200 lines. (d) A Vercel cron to drain — rejected for now: cron needs a paid plan. The gap is recorded as known bug #41, with a free external uptime pinger as the intended fix.
+
+**Consequences**: delivery is **at-least-once**. If a container dies after the provider accepted a message but before the row was marked `sent`, it is sent twice; no local bookkeeping can close that without provider-side idempotency, and a duplicate notice is a far smaller harm than a lost one. On an idle site the queue has **no deadline**, which is why the manual drain exists and is not hidden. `EmailOutbox` has deliberately **no TTL** — like `AuditLog`, a delivery record is the evidence for "we did tell them". Under test the drain is awaited inline so the suite is deterministic; the non-blocking property lives in `enqueueEmail()` returning after one insert, which is identical either way.
+
+---
+
+## 2026-08-13 — In-app is the notification channel; email is an escalation (superseding "in-app only")
+
+**Decision**: this **supersedes** the Milestone 12 decision that notifications are in-app only. Every notification is still written to `Notification` exactly as before. Email is an *additional* copy of some of them, never an alternative: a student who never opens their email and one who never opens the app both still have one complete record. A staff broadcast is emailed only when staff tick it per announcement (unchecked by default, reset after each send, capped at 500 recipients with the cap reported). Per-student system notices about results are emailed automatically. The two class-wide broadcasts — exam published, mock test published — are **never** auto-emailed.
+
+**Reason**: Milestone 12's reasoning was that emailing the whole roll from a free tier is a deliverability and provider-limit problem, and that entrants are schoolchildren whose addresses are often their parents'. All of that is still true, so email was not simply switched on. What changed is the owner's requirement for "email notifications where appropriate", and the resolution is that *appropriate* is a real distinction: a released result is news a family would regret missing, and a newly published practice paper is not.
+
+Keeping in-app as the channel is what makes preferences safe. Because the record is always written, a preference can suppress email without suppressing information — so "I turned that off" never means "I was not told".
+
+**Alternatives considered**: (a) Email every notification — rejected: it is the free-tier deliverability problem Milestone 12 identified, and it trains recipients to ignore the sender. (b) Email nothing, as before — rejected: it leaves a student's *result* dependent on them thinking to log in and look. (c) Let preferences suppress in-app rows too — rejected: read state would become meaningless, because "unread" and "never delivered" would be indistinguishable, and a notice board a student can empty is not a record.
+
+**Consequences**: a broadcast is the one genuine fan-out in the system — of *email rows*, not notifications, because SMTP has no broadcast. It is capped rather than unbounded, and the cap is reported instead of being discovered as a provider suspension. Suppressed recipients are counted and shown to staff, because "0 queued" with no explanation reads as a bug and invites a resend.
+
+---
+
+## 2026-08-13 — Security and transactional email are not preferences
+
+**Decision**: there are exactly **two** switchable email streams, `announcements` and `results`. `transactional` (verification and password-reset links) and `security` (password changed, account status changed, role changed) always send. The switchable ones live in an embedded `Student.notificationPrefs`; the non-switchable ones are **absent from the update schema** rather than ignored by the handler, and the API returns them with their reasons so the UI can state them. Inside `emailAllowedFor()`, the category check runs **before** the account-status check.
+
+**Reason**: "you may switch off the warning that your password was changed" is a setting that only ever helps an attacker — that email is the standard way somebody notices a stolen session and recovers the account. Transactional mail is not a notification *about* anything; without it the account cannot be used at all. Offering either as a toggle would be offering a footgun, and offering one that silently refused to take effect would be worse.
+
+The rule ordering is load-bearing rather than incidental: a **suspension notice** is the one message a suspended account absolutely must still receive, and checking status first would swallow exactly that.
+
+**Alternatives considered**: (a) A switch for every category — rejected above. (b) Four categories including `certificates` — rejected: certificates can only be issued by releasing results, so that stream is folded into the results message and a preference for it would control nothing. A setting that does nothing is worse than a shorter list. (c) Its own `NotificationPreference` collection — rejected: two booleans, 1:1 with the account, always wanted alongside it. A 25th model for that is the sprawl `DECISIONS.md` already warns about.
+
+**Consequences**: the settings panel is short, and states plainly what it does not control — which is more honest than two toggles that leave the reader wondering whether password emails are covered. A missing `notificationPrefs` object reads as **all-on**, because a student who registered before this existed was already receiving everything and defaulting to off would silently take something away. Staff cannot see an individual's preferences (known bug #44), only the aggregate suppressed count on a broadcast.
+
+---
+
+## 2026-08-13 — A per-student audience that staff cannot address
+
+**Decision**: `Notification` gains `audience: 'student'` with a `student` reference, used only by `postSystemNotification()`. The staff composer's schemas accept `STAFF_AUDIENCES` (`all`, `class`) only, so `student` is unreachable from any API a human drives. `inboxFilter()` gains the matching clause, and `isVisibleTo()` composes it so the inbox, the unread count and the mark-as-read check share one definition. System rows also carry `source`, `event`, `link` and a partial-unique `dedupeKey`, and **cannot be edited** (409) though they can be deleted.
+
+**Reason**: a system notification is usually about one person — "your results are out", "your password was changed". Broadcasting that to a class is a disclosure bug, not a display bug, because the body carries a score, a rank and a certificate tier. Making the audience unreachable from the composer means staff cannot create that situation by mistake, and putting it in the *schema* rather than the handler follows the same discipline the leaderboard uses for ranked values.
+
+Editing is refused because a system notification is a record of something that happened; changing its text turns it into a claim about something that did not — and it would then disagree with the email already delivered from it. Deletion stays, because housekeeping is not falsification.
+
+**Alternatives considered**: (a) A separate `PersonalNotification` collection — rejected: it would need a second inbox query, a second read-state join and a second unread count, which is precisely how the bell comes to disagree with the list. (b) Let staff address one student too — rejected: there is no product need, and it would put a free-text private message next to a per-student notice that the student would reasonably read as official. (c) No dedupe key, relying on administrators not clicking twice — rejected: releasing results is explicitly idempotent, so the notification had to be as well, and an index is what makes that true rather than intended.
+
+**Consequences**: the admin announcement list now **defaults to `source: 'staff'`**, because one national exam release writes a system row per candidate and would otherwise bury the handful of announcements the page exists to manage; `?source=all` gives the combined view. Finding the shared-filter seam also fixed a latent bug: the mark-as-read route hand-wrote its audience comparison, which was correct for two audiences and would have silently refused every per-student notification this milestone added.
+
+---
+
+## 2026-08-13 — Analytics are derived on read; `StudentAnalytics` is deleted rather than filled in
+
+**Decision**: performance analytics have **no collection**. `services/analyticsService.ts` computes them on every read from the four attempt collections. The `StudentAnalytics` model is removed, along with `generateAIInsights()`.
+
+**Reason**: filling it in was the obvious move and the wrong one, for three reasons. It **predated Milestone 4 and was the wrong shape** — `studentId` was a plain `String` and `topicMetrics[].topicName` was free text with no `Topic` reference, so a topic rename would have orphaned a student's history and two subjects with a same-named topic were indistinguishable. A **stored breakdown drifts** from the answers behind it, which is exactly the argument that already keeps XP, levels, streaks and the leaderboard derived — and it would have been worse here, needing invalidation on every submission from four different services. And its `aiInsights` field was a **live bug**: `generateAIInsights()` mutated it on every read and never saved, harmless only because the branch was unreachable.
+
+Deleting it also lets the "AI insights" fiction go. Strengths and weaknesses are now derived facts with a stated minimum sample, not generated prose, and nothing in the product claims to be AI.
+
+**Alternatives considered**: (a) Write `StudentAnalytics` as a materialised cache — rejected above; it is a counter that can disagree with the events behind it, and this codebase has consistently refused those. (b) Keep the collection and rewrite its schema — rejected: nothing had ever written it, so there was no data to preserve and a rewrite would have been a new collection wearing an old name. (c) Cache the derived result with a TTL — rejected for now: eight indexed operations bounded by one student's own history is cheap, and a stale accuracy is worse than a slightly slower page. The place to add one is stated in the service header, alongside the same note the leaderboard carries.
+
+**Consequences**: the response shape of `GET /analytics/:studentId` changed (`data`/`reason` became `analytics`), so the Analytics and Report pages were rewritten and one dashboard test updated. Analytics cost eight database operations per page load rather than one document read — all narrowed by `student`, all parallel, and all bounded by one student's own activity. `StudentAnalytics` was the **last** collection keyed on a string `studentId`; every collection now references `Student` by `ObjectId`.
+
+---
+
+## 2026-08-13 — Grading reads the snapshot; analytics joins the live taxonomy
+
+**Decision**: `services/grading.ts` reads the answer-key snapshot stored on the attempt and never the live `Question` — absolutely, as before. The analytics aggregations do the **opposite** and `$lookup` the **current** `topic`, `subject` and `difficulty`.
+
+**Reason**: they are answering different questions. A mark is a **historical fact about one paper**: what the student was shown, and what it was worth at the time. Re-reading a live question to grade it would let an author's edit rewrite a mark already awarded, which is the whole reason the snapshot exists.
+
+"How am I doing in Trigonometry?" is a question about the taxonomy **as it stands now**. If a question is recategorised from Algebra to Trigonometry because it was filed wrongly, the student's history should follow it — otherwise their topic breakdown describes a filing system nobody uses any more. Snapshotting the taxonomy onto every answer would additionally freeze a typo in a subject name into thousands of rows, with no way to correct it.
+
+**Alternatives considered**: (a) Snapshot topic/subject/difficulty onto each answer alongside the answer key — rejected above; it makes the breakdown unfixable and grows every attempt document for a fact that is already stored once on the question. (b) Join the live taxonomy but keep a snapshot for comparison — rejected as complexity with no consumer: nothing in the product asks "which topic was this filed under at the time?".
+
+**Consequences**, both stated in the service header and surfaced to the user rather than hidden: recategorising questions **moves historical breakdowns**, and a **deleted** question drops out of them entirely — the `$lookup` is followed by a non-preserving `$unwind`, because a question that no longer exists cannot be attributed to a topic and an "Unknown" bucket would be a fabricated category. `overall.servedIncludingDeletedQuestions` is counted separately from the attempts themselves, so the gap is visible, and the page says plainly that some answered questions have since been removed.
+
+---
+
+## 2026-08-13 — A weak area needs a minimum sample, and a percentage is never averaged
+
+**Decision**: an area (topic, subject or difficulty) needs **at least five answered questions** before it may appear in the strong or weak lists. `MIN_AREA_SAMPLE` is returned to the client. Separately, every aggregation returns **raw counts only** — `served / answered / correct / marksAwarded / marksAvailable` — and percentages are computed once at the end from summed counts.
+
+**Reason**: both rules exist to stop a *real* number becoming a *false* conclusion.
+
+One wrong answer in a topic is a genuine 0%, and calling it a weakness is a fabricated diagnosis drawn from real data — which is the same failure as a fabricated statistic, dressed better. The floor is reported rather than hidden so the page can say why a list is empty instead of showing an unexplained blank.
+
+Averaging percentages is the other. A student who answered 1 of 1 correctly in practice and 1 of 9 on a mock test has answered 2 of 10 — **20%**. Averaging the two percentages gives 55.6%, which would tell a struggling student they are better than half right. Summing raw counts makes that arithmetic unwritable rather than merely discouraged, and there is a test that pins the 20%.
+
+**Alternatives considered**: (a) Show every area regardless of sample, with a confidence marker — rejected: the marker is the first thing a reader ignores, and the top of a "weak areas" list is read as a verdict. (b) A statistical confidence interval instead of a flat floor — rejected as unjustifiable precision for a cohort this size; a stated integer everyone can check is more honest than a formula nobody will. (c) Let each surface report its own percentage and average them for the total — rejected above.
+
+**Consequences**: a student with little history sees empty strength and weakness lists with an explanation, which is the correct answer rather than a limitation. The same discipline governs `null` versus `0` throughout: an accuracy with no answers behind it is `null`, because "has answered nothing" and "gets everything wrong" are different facts, and the frontend renders the two differently — never `0%` for the first.

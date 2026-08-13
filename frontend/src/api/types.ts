@@ -209,43 +209,177 @@ export interface AuditEntry {
   createdAt: string
 }
 
-export interface TopicMetric {
-  topicName: string
-  attempted: number
-  correct: number
-}
-
-export interface LearningPoint {
-  date: string
-  accuracy: number
-}
-
-export interface AnalyticsData {
-  overallAccuracy: number
-  averageSpeedPerQuestion: number
-  totalQuestionsAttempted: number
-  topicMetrics: TopicMetric[]
-  learningCurve: LearningPoint[]
-  aiInsights: string[]
-}
-
 /** Real XP earned on one competition day. Days with no activity are omitted. */
 export interface XpDayPoint {
   day: string
   xp: number
 }
 
+// ---------------------------------------------------------------------------
+// Performance analytics (Milestone 15)
+// ---------------------------------------------------------------------------
+
+/** Which kind of sitting an answer came from. */
+export type AnalyticsSurface = 'practice' | 'mock_test' | 'daily_challenge' | 'official_exam'
+
+export const SURFACE_LABELS: Record<AnalyticsSurface, string> = {
+  practice: 'Practice',
+  mock_test: 'Mock tests',
+  daily_challenge: 'Daily challenge',
+  official_exam: 'Official exam',
+}
+
 /**
- * What `GET /analytics/:studentId` returns.
+ * Raw counts plus the two percentages derived from them.
  *
- * `data` is **null** until exam submission exists, because accuracy, speed and
- * topic breakdowns are all functions of answered questions — the endpoint used to
- * fill that gap with invented figures and no longer does. `xpByDay` is always real.
+ * Both percentages are `number | null`, and the distinction is the point: `null` means
+ * "nothing has been answered here", which is a different fact from `0`, which means
+ * "answered, and all wrong". Rendering a null as `0%` would put the first student's
+ * blank record on the same footing as the second's, so every consumer must branch.
  */
+export interface PerformanceRow {
+  served: number
+  answered: number
+  correct: number
+  marksAwarded: number
+  marksAvailable: number
+  accuracyPercent: number | null
+  scorePercent: number | null
+}
+
+export interface NamedPerformanceRow extends PerformanceRow {
+  id: string
+  name: string
+  subjectName?: string | null
+}
+
+export interface AreaRow {
+  scope: 'topic' | 'subject' | 'difficulty'
+  id: string
+  name: string
+  accuracyPercent: number
+  answered: number
+}
+
+export interface DayAccuracy {
+  day: string
+  answered: number
+  correct: number
+  accuracyPercent: number | null
+}
+
+export interface AttemptPoint {
+  surface: AnalyticsSurface
+  at: string
+  label: string
+  score: number
+  maxMarks: number
+  scorePercent: number | null
+  answered: number
+  correct: number
+  served: number
+  accuracyPercent: number | null
+  /** Null where the surface has no clock — the daily challenge. */
+  timeTakenSeconds: number | null
+}
+
+export interface PacePoint {
+  at: string
+  surface: AnalyticsSurface
+  label: string
+  questions: number
+  secondsPerQuestion: number
+}
+
+/**
+ * Everything `GET /analytics/:studentId` derives, from real submitted attempts.
+ *
+ * There is no analytics collection behind this — it is computed on read from the four
+ * attempt collections, the same derived-not-stored decision XP and the leaderboard rest
+ * on. `notes` carries machine-readable reasons a section is empty, so the page can
+ * explain itself rather than showing an unexplained blank.
+ */
+export interface StudentAnalytics {
+  generatedAt: string
+  hasData: boolean
+  overall: PerformanceRow & {
+    attempts: number
+    servedIncludingDeletedQuestions: number
+    averageSecondsPerQuestion: number | null
+  }
+  bySurface: Array<PerformanceRow & { surface: AnalyticsSurface; attempts: number }>
+  byTopic: NamedPerformanceRow[]
+  bySubject: NamedPerformanceRow[]
+  byDifficulty: Array<PerformanceRow & { difficulty: Difficulty }>
+  byType: Array<PerformanceRow & { type: QuestionType }>
+  strongAreas: AreaRow[]
+  weakAreas: AreaRow[]
+  accuracyByDay: DayAccuracy[]
+  progressTrend: AttemptPoint[]
+  paceTrend: PacePoint[]
+  minimumAreaSample: number
+  notes: string[]
+}
+
 export interface AnalyticsResponse {
-  data: AnalyticsData | null
-  reason?: 'no-exam-data'
+  analytics: StudentAnalytics
+  /** Participation, from the activity log. Measures something different from the rest. */
   xpByDay: XpDayPoint[]
+}
+
+/** One question's measured performance, for the admin console. */
+export interface QuestionPerformanceRow {
+  id: string
+  preview: string
+  type: QuestionType
+  difficulty: Difficulty
+  classLevel: ClassLevel
+  status: string
+  topicName: string | null
+  subjectName: string | null
+  served: number
+  answered: number
+  correct: number
+  accuracyPercent: number | null
+  /** How often a served question was left blank — a mis-worded question's signature. */
+  skipRatePercent: number | null
+  marksAwarded: number
+  marksAvailable: number
+}
+
+export interface QuestionPerformanceResponse {
+  questions: QuestionPerformanceRow[]
+  questionsWithData: number
+  minAnswered: number
+  notes: string[]
+  pagination: Pagination
+}
+
+/** One paper's cohort performance. `kind` keeps a rehearsal from reading as the Olympiad. */
+export interface TestPerformanceRow {
+  id: string
+  kind: 'mock_test' | 'official_exam'
+  title: string
+  classLevel: ClassLevel
+  status: string
+  totalMarks: number
+  questionCount: number
+  attemptsStarted: number
+  attemptsSubmitted: number
+  completionPercent: number | null
+  distinctStudents: number
+  averageScorePercent: number | null
+  /** Reported alongside the mean, because one blank submission moves a small cohort. */
+  medianScorePercent: number | null
+  highestScorePercent: number | null
+  lowestScorePercent: number | null
+  averageAccuracyPercent: number | null
+  averageSecondsPerQuestion: number | null
+}
+
+export interface TestPerformanceResponse {
+  tests: TestPerformanceRow[]
+  notes: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -1382,8 +1516,14 @@ export interface GalleryItem {
   imageUrl: string
 }
 
-export type NotificationAudience = 'all' | 'class'
+/**
+ * `student` is a system-only audience — staff cannot address one person from the
+ * composer. It appears here because a *recipient* sees it on their own rows.
+ */
+export type NotificationAudience = 'all' | 'class' | 'student'
 export type NotificationKind = 'announcement' | 'alert'
+/** Written by a human, or generated from a real event. */
+export type NotificationSource = 'staff' | 'system'
 
 /** An announcement as staff see it, including how many students opened it. */
 export interface AdminNotification {
@@ -1393,6 +1533,10 @@ export interface AdminNotification {
   kind: NotificationKind
   audience: NotificationAudience
   classLevel: ClassLevel | null
+  source: NotificationSource
+  /** The system event code, for a generated row. Null for anything staff wrote. */
+  event: string | null
+  link: string | null
   isPublished: boolean
   publishedAt: string | null
   createdByLabel: string | null
@@ -1409,9 +1553,81 @@ export interface InboxNotification {
   kind: NotificationKind
   audience: NotificationAudience
   classLevel: ClassLevel | null
+  source: NotificationSource
+  /** A relative in-app path to the thing this is about, or null. */
+  link: string | null
   publishedAt: string | null
   read: boolean
   readAt: string | null
+}
+
+/**
+ * What a staff email broadcast actually did.
+ *
+ * `suppressed` is reported rather than hidden so the composer can say "60 queued, 12
+ * have these emails switched off" — the difference between a feature that looks
+ * broken and one that explains itself.
+ */
+export interface BroadcastOutcome {
+  recipients: number
+  queued: number
+  suppressed: number
+  /** Set when the recipient list hit the server's cap. */
+  cappedAt: number | null
+}
+
+/**
+ * The two switchable email streams (Milestone 14).
+ *
+ * Deliberately short: these are the only optional streams that exist. Verification,
+ * password reset, password-change warnings and account-status changes are always
+ * sent, and the API reports them under `always` rather than offering dead switches.
+ */
+export interface NotificationPrefs {
+  announcements: boolean
+  results: boolean
+}
+
+export interface NotificationPrefsResponse {
+  preferences: NotificationPrefs
+  always: Array<{ category: string; reason: string }>
+  /** In-app notifications are never suppressed by a preference. */
+  inAppAlwaysOn: boolean
+}
+
+export type EmailCategory = 'transactional' | 'security' | 'announcement' | 'results'
+export type EmailStatus = 'pending' | 'sent' | 'failed'
+
+/** One row of the outbox, as the delivery console shows it. The body is never sent. */
+export interface EmailDelivery {
+  id: string
+  to: string
+  subject: string
+  category: EmailCategory
+  status: EmailStatus
+  attempts: number
+  maxAttempts: number
+  nextAttemptAt: string
+  lastAttemptAt: string | null
+  /** The provider's own error message, for a row that failed. */
+  lastError: string | null
+  sentAt: string | null
+  createdAt: string
+}
+
+export interface OutboxStats {
+  pending: number
+  sent: number
+  failed: number
+  /** Oldest unsent row — the honest answer to "is the queue stuck?". */
+  oldestPendingAt: string | null
+}
+
+export interface DrainOutcome {
+  claimed: number
+  sent: number
+  failed: number
+  retrying: number
 }
 
 export interface DayCount {

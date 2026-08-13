@@ -58,6 +58,29 @@
   background: rgba(148, 163, 184, 0.1);
 }
 
+/*
+  Unread count on the Notifications item. `margin-left: auto` pushes it to the far
+  edge of the flex row, so it lines up down the menu whatever the label length.
+*/
+.badge {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* On the active (blue) row the red badge would clash, so it inverts instead. */
+.menuItemActive .badge {
+  background: #fff;
+  color: var(--royal-blue);
+}
+
 .sidebarFooter {
   display: flex;
   flex-direction: column;
