@@ -4,6 +4,7 @@ import StudentShell from '../../components/StudentShell'
 import Spinner from '../../components/Spinner'
 import StatTile from '../../components/StatTile'
 import ChartCard from '../../components/ChartCard'
+import Recommendations from '../../components/Recommendations'
 import { api, ApiError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -12,6 +13,8 @@ import {
   type AreaRow,
   type NamedPerformanceRow,
   type PerformanceRow,
+  type RecommendationSet,
+  type RecommendationsResponse,
 } from '../../api/types'
 import styles from './Analytics.module.css'
 
@@ -40,18 +43,38 @@ import styles from './Analytics.module.css'
  * **`null` is rendered as "not measured", never as `0%`.** The API distinguishes "has
  * answered nothing here" from "answered, and got none right", and collapsing the two
  * in the UI would throw away the honesty the backend went to trouble to preserve.
+ *
+ * ## Recommendations are fetched separately, on purpose (Milestone 16)
+ *
+ * They come from a swappable engine, and a model-backed one would have latency the
+ * arithmetic does not. Loading them alongside rather than inside the analytics request
+ * means the figures paint as soon as they arrive and the advice panel fills when it is
+ * ready — a slow engine costs one panel rather than the whole page. A failure there is
+ * likewise contained: `recommendationError` is shown in place of the panel, and the
+ * measurements below it are unaffected.
  */
 export default function Analytics() {
   const { state } = useAuth()
   const [result, setResult] = useState<AnalyticsResponse | null>(null)
   const [error, setError] = useState('')
+  const [recommendations, setRecommendations] = useState<RecommendationSet | null>(null)
+  const [recommendationError, setRecommendationError] = useState('')
 
   useEffect(() => {
     if (state.status !== 'student') return
+    const { studentId } = state.student
+
     api
-      .get<AnalyticsResponse>(`/analytics/${state.student.studentId}`)
+      .get<AnalyticsResponse>(`/analytics/${studentId}`)
       .then(setResult)
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load analytics.'))
+
+    api
+      .get<RecommendationsResponse>(`/analytics/${studentId}/recommendations`)
+      .then((res) => setRecommendations(res.recommendations))
+      .catch((err) =>
+        setRecommendationError(err instanceof ApiError ? err.message : 'Could not work out your recommendations.'),
+      )
   }, [state])
 
   const analytics = result?.analytics ?? null
@@ -183,6 +206,19 @@ export default function Analytics() {
             </p>
           </div>
         )}
+
+        {/* ------------------------------------------------------------
+            What to do next. Above the measurements for a student who has
+            some, below the "nothing yet" card for one who has none — in
+            both cases the first actionable thing on the page.
+        ------------------------------------------------------------ */}
+        {recommendationError && !recommendations && (
+          <div className="card">
+            <h3>What to work on next</h3>
+            <p className="error-text">{recommendationError}</p>
+          </div>
+        )}
+        {recommendations && <Recommendations data={recommendations} />}
 
         {analytics?.hasData && (
           <>

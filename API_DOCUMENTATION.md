@@ -1,6 +1,6 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-13 (Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes)._
+_Last updated: 2026-08-15 (Milestone 17 — AI question drafting: `POST /admin/generate-questions` rewritten behind a generator seam, plus `GET /admin/question-generator`). Before that, Milestone 16 — intelligent performance recommendations: one new route, `GET /analytics/:studentId/recommendations`. Before that, Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
@@ -175,6 +175,31 @@ Three contracts a client must respect:
 
 **This endpoint used to lie.** When no document existed it returned a hardcoded object claiming 88% accuracy over 450 questions, a rising five-point learning curve, four topic breakdowns and "You are currently in the top 5% of all national Olympiad participants" — as the student's own measured performance. That fallback was deleted in the Milestone 5 follow-up, and a test still asserts none of those strings can appear in a response.
 
+### `GET /api/v1/analytics/:studentId/recommendations` (Milestone 16)
+
+Returns `{ recommendations }` — what the student should work on next, derived on read from the same submitted attempts as the endpoint above plus the **published question bank for their own class**. There is no recommendation collection.
+
+- **Auth**: identical to `GET /analytics/:studentId`, through the same function — `requirePermission('analytics:read:self')`, plus a fresh `analytics:read:any` check to read somebody else's. It exposes the same student's record and quotes their accuracy in its own text, so one gate being looser than the other would be a disclosure bug. A student reading another ID gets **403**; an unknown ID **404**.
+- **Errors**: `401`, `403`, `404`, `429`, `503`, `500`.
+- **Called by**: `Analytics.tsx`, alongside (not inside) the analytics request.
+
+| Field | Meaning |
+|---|---|
+| `engine` | `{ id, label, kind, basis }` — **written by the server, never by the engine**. `kind` is `'statistical'` or `'model'`, and `'model'` may only be set when a real model produced the output. `basis` is a sentence the UI prints verbatim. |
+| `hasData` | False when nothing has been submitted. Stamped from the analytics facts, so an engine cannot claim data a student does not have. |
+| `minimumSample` | Answers an area needs before it may be called a strength or weakness — the same `MIN_AREA_SAMPLE` (5) the analytics endpoint reports. |
+| `weakTopics` / `strongTopics` | Topics asserted **on a 95% Wilson interval**, from the conservative end: a weakness on the upper bound, a strength on the lower. So 2 of 5 (40%) is not a weakness while 30 of 80 (37.5%) is. |
+| `difficulty` | At most one entry per level, and never contradictory: if a level is flagged for consolidation, no step-up above it is offered. |
+| `practice` | Actionable, and **only ever addressed at questions the class bank really has**. Each carries an `action.href` into `/practice?subject=&topic=`. |
+| `insights` | Observations about the record as a whole — trend, blank rate, pace, surface mix. |
+| `notes` | Machine-readable reasons a section is empty, e.g. `no-published-questions-for-your-class`, `no-topic-is-confidently-below-par`. |
+
+Every recommendation carries a required **`basis`**: `answered`, `correct`, `accuracyPercent`, the interval bounds, and a `figures` map of any other counts its sentence quotes. This is not decoration — a recommendation that cannot state its evidence cannot be constructed, which is the structural form of the rule that deleted `generateAIInsights()` in Milestone 15.
+
+Two contracts a client must respect, both the same as the analytics endpoint: **the client computes nothing** (ordering and wording arrive decided), and **`null` is not `0`**.
+
+**The engine is swappable** (`RECOMMENDATION_ENGINE`, see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)). The default is statistical and requires no credentials, no network and no paid service. An engine that throws is caught and the statistical engine answers instead, so a failing model costs this panel rather than the page. **No AI provider is integrated anywhere in the codebase** — see the Milestone 16 ADRs.
+
 ### `GET /api/v1/admin/analytics/questions` (Milestone 15)
 - **Permission**: `analytics:read:any`.
 - **Query**: `page`, `limit`, `classLevel`, `difficulty`, `subject` (id), `sort` (`hardest` | `easiest` | `most-served` | `most-skipped`, default `hardest`), `minAnswered` (1–100, default 3).
@@ -190,12 +215,26 @@ Three contracts a client must respect:
 - **The median is reported beside the mean** because on a cohort of a few dozen one student who submitted a blank moves the mean several points — exactly the case an invigilator wants to see rather than have smoothed away.
 - **`kind`** (`mock_test` | `official_exam`) is on every row, so a rehearsal can never be read as the Olympiad.
 
+### `GET /api/v1/admin/question-generator` (Milestone 17)
+- **Permission**: `questions:write`.
+- **Response 200**: `{ success, generator, available, alternatives }`, where `generator` is `{ id, label, kind, basis }` and `kind` is `'template'` or `'model'`.
+- Exists so the admin page can state whether AI drafting is configured **before** the button is pressed. "Is this on?" should not be a question you answer by trying it, especially when the answer depends on an environment variable set on another website.
+
 ### `POST /api/v1/admin/generate-questions`
 - **Auth**: `requirePermission('questions:write')` (admin and super admin).
-- **Request** (**changed in Milestone 4**): `{ subject, topic, classLevel, difficulty?, count }`. `subject` and `topic` are now **ObjectIds of real taxonomy rows** — the bank no longer accepts a free-text subject, so the generator cannot invent classification nothing else knows about. `count` is 1–20.
-- **Behaviour**: creates `count` **draft** questions from a template string (**not** an AI/LLM call — no AI provider is integrated anywhere in this backend). It goes through the same `createQuestion` service as a hand-authored question, so it cannot bypass the taxonomy consistency checks. Because everything it writes is a draft, template placeholder text can never reach a student.
-- **Response 201**: `{ success, message, questions: [{ id, questionText, status }] }`.
-- **Side effect**: writes a `questions.generated` audit entry.
+- **Request**: `{ subject, topic, classLevel, difficulty?, count, instructions? }`. `subject` and `topic` are **ObjectIds of real taxonomy rows** (Milestone 4) — the bank does not accept a free-text subject, so the generator cannot invent classification nothing else knows about. `count` is 1–20. `instructions` (Milestone 17, ≤500 chars) is an optional steer for a model-backed generator and is ignored by the template one.
+- **Behaviour (rewritten in Milestone 17)**: resolves a generator from the registry in `services/questionGeneratorService.ts` and asks it for candidates. With `GEMINI_API_KEY` set that is **Google Gemini**; with no key it is the blank-template generator, which is the supported default and needs no credential, network or paid service.
+
+  Whatever produced them, **candidates are not trusted**:
+  - The **taxonomy is attached from this request**, never from the generator — a `GeneratedCandidate` has no subject/topic/class/difficulty field to carry.
+  - Every candidate is parsed by **`createQuestionSchema`**, the same schema a hand-authored question passes, including `validateMathContent()`. There is deliberately no model-specific validator.
+  - A failure is **rejected and reported with its reason**, never repaired.
+  - Everything stored is a **draft**, because `createQuestion()` has no other mode.
+  - A generator returning more than `count` is truncated to `count`.
+
+  If the generator is unavailable or throws (quota, timeout, unusable output), the **template generator runs instead** and the response says so with the provider's own error text.
+- **Response 201**: `{ success, message, generator: { id, label, kind, basis }, requested, rejected: [{ index, reason }], notes, questions: [{ id, questionText, type, status }] }`. `generator` is written by the service from the registry entry it actually invoked — a generator cannot describe itself.
+- **Side effect**: writes a `questions.generated` audit entry recording `generator` and `generatorKind` alongside `count`, `created` and `rejected`, so "was this question written by a machine?" stays answerable. `count` keeps its original name because the audit trail is append-only and has no TTL.
 - **Errors**: `400` (unknown subject/topic, or a topic from another subject), `401`/`403`, `429`, `503`, `500`.
 - **Called by**: `AiGenerator.tsx`.
 

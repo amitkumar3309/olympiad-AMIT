@@ -2,29 +2,39 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Button from '../../components/Button'
 import { api, ApiError } from '../../api/client'
-import { CLASS_LEVELS, DIFFICULTIES, type ClassLevel, type Difficulty, type Subject, type Topic } from '../../api/types'
+import {
+  CLASS_LEVELS,
+  DIFFICULTIES,
+  type ClassLevel,
+  type Difficulty,
+  type GenerateQuestionsResponse,
+  type QuestionGeneratorStatus,
+  type Subject,
+  type Topic,
+} from '../../api/types'
 import MathText from '../../components/MathText'
 import styles from './AiGenerator.module.css'
 
 /**
- * The template draft generator.
+ * The question generator (Milestone 17).
  *
- * It is **not** AI — it fills a template string, and no AI provider is integrated
- * anywhere in this project. The name is inherited; the page now says so plainly
- * rather than implying otherwise.
+ * Until Milestone 17 this page filled a template string, and it said so, because
+ * calling that AI would have been a lie. It can now be backed by a real language model,
+ * and the page's job is to be **exact about which one ran** rather than to imply the
+ * better of the two.
  *
- * Since Milestone 4 it has to name a real subject and topic, and everything it
- * produces is a **draft** in the question bank, so placeholder text can never reach
- * a student. Its only real use is skipping the repetitive part of creating several
- * questions in the same topic; each one still has to be written and published by
- * hand.
+ * Three things it is careful about:
+ *
+ * - **It says up front whether AI is configured**, from `GET /admin/question-generator`,
+ *   so "is this on?" is not a question you answer by pressing the button and guessing
+ *   from the output.
+ * - **It shows what was thrown away.** A model that writes eight usable questions out of
+ *   ten is working normally; a page that quietly shows eight would read as broken. Each
+ *   rejection comes with the rule it broke.
+ * - **It never implies a draft is ready.** Everything generated is a draft, whoever
+ *   wrote it, and the wording keeps saying so — a machine-written question is a first
+ *   draft for a human examiner, not a question.
  */
-interface CreatedDraft {
-  id: string
-  questionText: string
-  status: string
-}
-
 export default function AiGenerator() {
   const navigate = useNavigate()
 
@@ -35,9 +45,10 @@ export default function AiGenerator() {
   const [classLevel, setClassLevel] = useState<ClassLevel>('Class 8')
   const [difficulty, setDifficulty] = useState<Difficulty>('Medium')
   const [count, setCount] = useState(5)
+  const [instructions, setInstructions] = useState('')
 
-  const [drafts, setDrafts] = useState<CreatedDraft[]>([])
-  const [message, setMessage] = useState('')
+  const [status, setStatus] = useState<QuestionGeneratorStatus | null>(null)
+  const [result, setResult] = useState<GenerateQuestionsResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -46,6 +57,12 @@ export default function AiGenerator() {
       .get<{ subjects: Subject[] }>('/subjects?status=active')
       .then((res) => setSubjects(res.subjects))
       .catch(() => setSubjects([]))
+
+    api
+      .get<QuestionGeneratorStatus>('/admin/question-generator')
+      .then(setStatus)
+      // A failure here costs the banner, not the page — the form still works.
+      .catch(() => setStatus(null))
   }, [])
 
   useEffect(() => {
@@ -59,6 +76,8 @@ export default function AiGenerator() {
       .catch(() => setTopics([]))
   }, [subject])
 
+  const usingModel = status?.generator.kind === 'model'
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!subject || !topic) {
@@ -66,20 +85,20 @@ export default function AiGenerator() {
       return
     }
     setError('')
-    setMessage('')
+    setResult(null)
     setLoading(true)
     try {
-      const res = await api.post<{ message: string; questions: CreatedDraft[] }>('/admin/generate-questions', {
+      const res = await api.post<GenerateQuestionsResponse>('/admin/generate-questions', {
         subject,
         topic,
         classLevel,
         difficulty,
         count,
+        instructions: instructions.trim() || null,
       })
-      setDrafts(res.questions)
-      setMessage(res.message)
+      setResult(res)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create the template drafts.')
+      setError(err instanceof ApiError ? err.message : 'Could not create the drafts.')
     } finally {
       setLoading(false)
     }
@@ -91,12 +110,28 @@ export default function AiGenerator() {
         <Link to="/admin" className={styles.back}>
           ← Back to Admin
         </Link>
-        <h1>Template Draft Generator</h1>
+        <h1>Question Generator</h1>
+
+        {/* What will happen when the button is pressed, stated before it is pressed. */}
+        {status && (
+          <div className={`card ${styles.status}`} data-kind={status.generator.kind}>
+            <span className={styles.statusBadge}>
+              <i className={`ph-bold ${usingModel ? 'ph-sparkle' : 'ph-rows'}`} /> {status.generator.label}
+            </span>
+            <p>{status.generator.basis}</p>
+            {!usingModel && (
+              <p className={styles.hint}>
+                AI drafting is off. To turn it on, set <code>GEMINI_API_KEY</code> in the backend environment and redeploy —
+                see <code>ENVIRONMENT_VARIABLES.md</code>. Nothing else changes, and no student data is ever sent.
+              </p>
+            )}
+          </div>
+        )}
+
         <p>
-          Creates a batch of blank <strong>draft</strong> questions in one subject and topic, so you do not have to repeat the
-          classification for each. This is a template filler, <strong>not</strong> AI — no question content is generated for
-          you, and nothing here is visible to students until you edit and publish it in the{' '}
-          <Link to="/admin/questions">question bank</Link>.
+          Creates <strong>draft</strong> questions in one subject and topic. Whatever writes them, nothing here is visible to
+          students until you review and publish it in the <Link to="/admin/questions">question bank</Link>
+          {usingModel && ' — a generated question is a first draft, and the answer key needs checking'}.
         </p>
 
         <form className={`card ${styles.form}`} onSubmit={handleSubmit}>
@@ -170,29 +205,76 @@ export default function AiGenerator() {
               />
             </div>
           </div>
+
+          {/* Only useful to a model, so it is only offered when one is configured. */}
+          {usingModel && (
+            <div className="form-group">
+              <label htmlFor="gen-instructions">Extra instructions (optional)</label>
+              <textarea
+                id="gen-instructions"
+                className="form-control"
+                rows={2}
+                maxLength={500}
+                placeholder="e.g. Prefer word problems. Avoid calculus notation."
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+              />
+              <p className={styles.hint}>{500 - instructions.length} characters left.</p>
+            </div>
+          )}
+
           <Button type="submit" disabled={loading || !subject || !topic}>
-            {loading ? 'Creating drafts…' : 'Create template drafts'}
+            {loading ? (usingModel ? 'Writing drafts…' : 'Creating drafts…') : `Create ${count} draft${count === 1 ? '' : 's'}`}
           </Button>
         </form>
 
-        {message && <p className={styles.notice}>{message}</p>}
+        {result && (
+          <>
+            <p className={styles.notice}>{result.message}</p>
 
-        {drafts.length > 0 && (
-          <div className={styles.results}>
-            {drafts.map((draft, i) => (
-              <div className="card" key={draft.id}>
-                <p className={styles.qText}>
-                  {i + 1}. <MathText>{draft.questionText}</MathText>
-                </p>
-                <p className={styles.draftMeta}>
-                  Status: {draft.status} ·{' '}
-                  <button type="button" className={styles.editLink} onClick={() => navigate(`/admin/questions/${draft.id}/edit`)}>
-                    Edit this draft
-                  </button>
+            {/*
+              Rejections are shown, not swallowed. A model that writes eight usable
+              questions out of ten is behaving normally; a page that quietly showed
+              eight would look broken and invite a second press of the button.
+            */}
+            {result.rejected.length > 0 && (
+              <div className={`card ${styles.rejected}`}>
+                <h3>
+                  {result.rejected.length} discarded — {result.generator.label} produced {result.requested}, and these did not
+                  meet the question rules
+                </h3>
+                <ul>
+                  {result.rejected.map((entry) => (
+                    <li key={entry.index}>
+                      <strong>#{entry.index}</strong> {entry.reason}
+                    </li>
+                  ))}
+                </ul>
+                <p className={styles.hint}>
+                  Nothing was corrected automatically — a repaired answer key that looks right is worse than a missing
+                  question. Generate again, or write these by hand.
                 </p>
               </div>
-            ))}
-          </div>
+            )}
+
+            {result.questions.length > 0 && (
+              <div className={styles.results}>
+                {result.questions.map((draft, i) => (
+                  <div className="card" key={draft.id}>
+                    <p className={styles.qText}>
+                      {i + 1}. <MathText>{draft.questionText}</MathText>
+                    </p>
+                    <p className={styles.draftMeta}>
+                      {draft.type.replace('_', ' ')} · Status: {draft.status} ·{' '}
+                      <button type="button" className={styles.editLink} onClick={() => navigate(`/admin/questions/${draft.id}/edit`)}>
+                        Review and edit
+                      </button>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

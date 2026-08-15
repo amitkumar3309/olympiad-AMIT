@@ -1,0 +1,217 @@
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.head h3 {
+  margin: 0;
+}
+
+/**
+ * How these were produced, stated rather than implied. `data-kind` is the honest
+ * distinction: statistical arithmetic and a real model must not look the same.
+ */
+.engine {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.engine[data-kind='model'] {
+  border-color: var(--royal-blue);
+  color: var(--royal-blue);
+}
+
+.basisLine {
+  margin: 6px 0 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.section {
+  margin-bottom: 18px;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  background: var(--bg);
+}
+
+.weak {
+  border-left-color: var(--warning);
+}
+
+.strong {
+  border-left-color: var(--success);
+}
+
+.neutral {
+  border-left-color: var(--royal-blue);
+}
+
+.cardHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cardTitle {
+  font-weight: 700;
+}
+
+/**
+ * Weight of evidence, never strength of effect: a shaky finding must look shaky even
+ * when the number in it is dramatic.
+ */
+.confidence {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.confidence[data-confidence='high'] {
+  color: var(--success);
+}
+
+.confidence[data-confidence='low'] {
+  opacity: 0.75;
+}
+
+.detail {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-main);
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--royal-blue);
+  text-decoration: none;
+}
+
+.action:hover {
+  text-decoration: underline;
+}
+
+.basisToggle {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.basis {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 13px;
+}
+
+.basis dt {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.basis dd {
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+/* Keeps a dynamically-keyed pair on one row inside the two-column grid. */
+.basisPair {
+  display: contents;
+}
+
+.basisNote {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.footnote {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 600px) {
+  .cardHead {
+    flex-direction: column;
+    gap: 2px;
+  }
+}

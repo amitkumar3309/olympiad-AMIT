@@ -327,6 +327,123 @@ export interface AnalyticsResponse {
   xpByDay: XpDayPoint[]
 }
 
+// ---------------------------------------------------------------------------
+// Performance recommendations (Milestone 16)
+// ---------------------------------------------------------------------------
+
+export type RecommendationKind = 'weak_topic' | 'strong_topic' | 'difficulty' | 'practice' | 'insight'
+export type Confidence = 'low' | 'medium' | 'high'
+
+/**
+ * The counts a recommendation was derived from — required, never optional.
+ *
+ * The page shows this rather than hiding it, because a recommendation the reader cannot
+ * check is indistinguishable from one that was made up. That distinction is the whole
+ * reason the previous "AI insights" feature was deleted in Milestone 15.
+ */
+export interface RecommendationBasis {
+  scope: 'overall' | 'topic' | 'subject' | 'difficulty' | 'surface' | 'bank' | 'trend'
+  scopeId: string | null
+  scopeName: string | null
+  answered: number
+  correct: number
+  accuracyPercent: number | null
+  /** 95% Wilson interval around the accuracy. Null when there is no sample. */
+  lowerBoundPercent: number | null
+  upperBoundPercent: number | null
+  figures: Record<string, number>
+}
+
+export interface Recommendation {
+  id: string
+  kind: RecommendationKind
+  title: string
+  detail: string
+  priority: number
+  confidence: Confidence
+  basis: RecommendationBasis
+  action: { label: string; href: string } | null
+}
+
+/**
+ * How the recommendations were produced.
+ *
+ * `kind` is a statement of fact: `'statistical'` means arithmetic over the student's
+ * answers, `'model'` means a real trained model produced them. The page prints `basis`
+ * verbatim so a reader is never left guessing which one they are looking at.
+ */
+export interface RecommendationEngineDescriptor {
+  id: string
+  label: string
+  kind: 'statistical' | 'model'
+  basis: string
+}
+
+export interface RecommendationSet {
+  generatedAt: string
+  engine: RecommendationEngineDescriptor
+  hasData: boolean
+  minimumSample: number
+  weakTopics: Recommendation[]
+  strongTopics: Recommendation[]
+  difficulty: Recommendation[]
+  practice: Recommendation[]
+  insights: Recommendation[]
+  /** Machine-readable reasons a section is empty. */
+  notes: string[]
+}
+
+export interface RecommendationsResponse {
+  recommendations: RecommendationSet
+}
+
+// ---------------------------------------------------------------------------
+// Question generation (Milestone 17)
+// ---------------------------------------------------------------------------
+
+/**
+ * What produced a batch of draft questions.
+ *
+ * `kind` is a statement of fact the page prints: `'template'` means blank forms were
+ * filled in, `'model'` means a real language model wrote the text. The distinction is
+ * recorded in the audit trail too, so "was this question written by a machine?" stays
+ * answerable later.
+ */
+export interface QuestionGeneratorDescriptor {
+  id: string
+  label: string
+  kind: 'template' | 'model'
+  basis: string
+}
+
+export interface QuestionGeneratorStatus {
+  generator: QuestionGeneratorDescriptor
+  available: boolean
+  alternatives: Array<QuestionGeneratorDescriptor & { available: boolean }>
+}
+
+/** A candidate the server refused, with the rule it broke. Shown, never hidden. */
+export interface RejectedCandidate {
+  index: number
+  reason: string
+}
+
+export interface GeneratedDraft {
+  id: string
+  questionText: string
+  type: QuestionType
+  status: string
+}
+
+export interface GenerateQuestionsResponse {
+  message: string
+  generator: QuestionGeneratorDescriptor
+  requested: number
+  rejected: RejectedCandidate[]
+  notes: string[]
+  questions: GeneratedDraft[]
+}
+
 /** One question's measured performance, for the admin console. */
 export interface QuestionPerformanceRow {
   id: string

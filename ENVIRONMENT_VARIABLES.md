@@ -108,6 +108,55 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 `FRONTEND_URL` gains a second job in Milestone 2: it is the base for the links inside those emails. If it is wrong or unset in production, links will point at `http://localhost:5173` and be useless to students.
 
+### Performance recommendations (Milestone 16)
+
+| Variable | Required | Purpose | Where to get it | Example |
+|---|---|---|---|---|
+| `RECOMMENDATION_ENGINE` | optional (default `statistical-v1`) | Which registered recommendation engine derives a student's advice. | Nowhere — it names code in this repository, not an external service. | `statistical-v1` |
+
+**There is nothing to obtain and nothing to pay for.** The default engine counts the student's own answered questions and compares them using confidence intervals; it makes no network calls and needs no credentials. Leaving this variable unset entirely is the supported configuration, and is what production should run.
+
+It exists so that an alternative engine — a trained model, or a language model — can be selected without changing the route, the response shape or the page. Setting it to a name that has not been registered in code is **not fatal**: the service logs one warning and falls back to the statistical engine, because a typo in an environment variable should not take a panel off the analytics page.
+
+Recommendations themselves use **no AI** and never will without a further decision — see the Milestone 16 ADR. The one place a model *is* used is question drafting, below.
+
+### AI question drafting (Milestone 17)
+
+| Variable | Required | Purpose | Where to get it | Example |
+|---|---|---|---|---|
+| `GEMINI_API_KEY` | **optional** | Lets Google Gemini write first drafts on the admin Question Generator page. **A secret.** | Google AI Studio — see below. | `AIzaSy…` |
+| `GEMINI_MODEL` | optional (default `gemini-2.0-flash`) | Which model to call. | — | `gemini-2.0-flash` |
+| `QUESTION_GENERATOR` | optional (default `auto`) | Which generator the admin button uses. `auto` = a model if a key is set, else blank templates. | — | `auto` |
+
+**Everything works with all three unset.** The generator then creates blank draft questions you type into, exactly as it did before Milestone 17. The key alone turns AI drafting on; deleting it turns it off. Nothing else in the product uses a model.
+
+**No student data is ever sent.** The request contains a subject name, a topic name, a class level, a difficulty and any instruction you typed into the box — nothing about any child. There is a test asserting the request body contains no student fields.
+
+**Every generated question is checked exactly as a hand-written one is** (the same zod schema and the same LaTeX safety rules) and is stored as a **draft**. Anything that fails is discarded with its reason shown, never silently corrected. A generated question still has to be reviewed and published by a person.
+
+#### Beginner instructions: getting a free Gemini API key
+
+1. Go to **https://aistudio.google.com/apikey** and sign in with a Google account.
+2. Click **Create API key**. If asked to pick a project, choose the default one or create a new one — the name does not matter.
+3. Copy the key immediately (it starts with `AIza…`). Treat it like a password: it is a live credential and anyone with it can spend your quota.
+4. Open `backend/.env` (copy `backend/.env.example` if you have not got one) and add:
+   ```
+   GEMINI_API_KEY=the key you just copied
+   ```
+5. Restart the backend (`npm run dev:local --prefix backend`).
+6. Open **/admin/ai-generator** in the app. The banner at the top should now read **Google Gemini** instead of **Blank templates**. If it still says Blank templates, the key was not picked up — check for a typo and that you restarted.
+7. Pick a subject, topic, class and difficulty, ask for 2 drafts, and press the button. Read what comes back before publishing anything.
+
+**Cost.** The free tier has a per-minute and per-day request limit and needs no card. If you exceed it, the provider returns a quota error, the page reports it in the provider's own words, and blank templates are created instead — nothing breaks and nothing is charged. Google can change those limits, so check the current free-tier terms before a heavy session. **Do not enable billing** on the Google Cloud project unless you have decided to spend money.
+
+#### Setting it on Vercel (production)
+
+1. Open your **backend** project on vercel.com → **Settings** → **Environment Variables**.
+2. Add `GEMINI_API_KEY` for the **Production** environment.
+3. **Redeploy the backend.** Vercel does not apply new environment variables to a running deployment.
+
+Never paste the key into a repository, an issue or a screenshot.
+
 ---
 
 ## Beginner instructions: free SMTP with Brevo (recommended)

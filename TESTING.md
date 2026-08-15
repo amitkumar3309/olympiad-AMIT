@@ -1,10 +1,41 @@
 # TESTING.md
 
-_Last updated: 2026-08-13 (Milestone 10 — Leaderboards and Hall of Fame)._
+_Last updated: 2026-08-15 (Milestone 17 — AI question drafting)._
 
 ## Current State
 
-The backend has a working test suite: **739 passing tests across 22 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **795 passing tests across 24 files** (`backend/tests/`). The frontend still has **no test suite**.
+
+**`tests/questionGenerator.test.ts` — 20 tests, the Milestone 17 suite.** Its organising idea: **a generator is never trusted, so most of the file feeds the pipeline output a real model could plausibly produce and asserts it is refused** — a `\href` smuggled into LaTeX, `<script>` in question text, a single-choice question with two correct options, a numeric question carrying options, 40 questions when 2 were asked for, and a model trying to set its own subject, class and `status: 'published'`.
+
+Nothing touches the network. `setGeminiTransport()` is a test-only hook — it throws outside the test environment, and one test asserts that — and it is what makes the failure paths testable at all:
+
+```ts
+setGeminiTransport(() => Promise.resolve(new Response(
+  JSON.stringify({ error: { message: 'Quota exceeded...' } }), { status: 429 })))
+```
+
+Three properties get the most attention: **the taxonomy comes from the request** (a model's chosen subject/class/status is ignored and the request's values are stored), **no student data is sent** (the request body is asserted not to contain an email, an `AMIT_` id or a mobile number), and **a failure falls back rather than failing** (quota, prose-instead-of-JSON, and an unreachable network each still produce the drafts that were asked for, attributed to templates).
+
+**`tests/recommendations.test.ts` — 36 tests, the Milestone 16 suite.** It inherits the Milestone 15 organising idea and sharpens it: **a test that only asserts a recommendation was produced would pass just as happily against a fabricated one**, so a large share of this file asserts that a finding is *not* produced.
+
+The headline case is a single pair of assertions that justifies the whole design:
+
+```ts
+await seedTopicRecord(studentId, noisyIds, 5, 2);    // 2 of 5  → 40%
+await seedTopicRecord(studentId, realIds, 80, 30);   // 30 of 80 → 37.5%
+
+expect(names).toContain('Optics');      // the real finding
+expect(names).not.toContain('Vectors'); // one bad session, not a weakness
+```
+
+Ranking on the percentage would have put the 40% topic first. Ranking on the 95% Wilson interval excludes it altogether. The mirror cases are pinned too: a **perfect five is not a strength**, and a four-answer topic is below the shared `MIN_AREA_SAMPLE` floor whatever its accuracy.
+
+The rest divides into three groups:
+
+- **Advice the product cannot honour.** No practice suggestion may name a topic with no published questions for that student's class; a weakness in such a topic is still reported, but with `action: null`. No difficulty recommendation may name a level the bank does not publish, and "consolidate Easy" suppresses any step-up above it.
+- **Provenance cannot be self-declared.** One test registers an engine that smuggles `engine`, `hasData` and `generatedAt` onto its draft, and asserts all three are ignored in favour of the service's own. Another registers an engine that throws and asserts the statistical engine answers instead, with the real finding intact.
+- **Purity.** The engine is called with a hand-built facts object and no database involvement at all — if that ever needs a connection, the wall between the service and the engine has been breached. A separate test runs the same record twice and asserts identical ordering, because advice that reshuffles between reloads while claiming to be a measurement is not a measurement.
 
 **`tests/analytics.test.ts` — 32 tests, the Milestone 15 suite.** Its organising idea is that **an analytics test asserting only that a number is present would pass just as happily against a fabricated one**. So every case declares its outcomes up front and asserts the exact figure that must follow:
 

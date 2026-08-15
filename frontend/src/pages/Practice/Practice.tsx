@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
@@ -24,6 +24,15 @@ import styles from './Practice.module.css'
  *
  * The paper is always drawn for the student's own class. The server decides that from
  * their account — this page never asks which class to use, and could not override it.
+ *
+ * ## Preselection from the URL (Milestone 16)
+ *
+ * `?subject=&topic=&difficulty=` lets a recommendation hand the student straight to the
+ * thing it suggested. The values are **validated against the loaded options** before
+ * anything is selected, and silently ignored otherwise: a link kept in a bookmark after
+ * a topic was archived then degrades to the ordinary picker rather than to a selection
+ * the bank cannot serve. That check is also why this cannot be used to widen what a
+ * student may practise — the ids have to already be on offer for their own class.
  */
 
 interface StartResponse {
@@ -49,6 +58,7 @@ function formatWhen(iso: string): string {
 
 export default function Practice() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [options, setOptions] = useState<PracticeOptionsResponse | null>(null)
   const [history, setHistory] = useState<PracticeHistoryEntry[] | null>(null)
@@ -99,6 +109,39 @@ export default function Practice() {
   )
 
   const selectedTopic = topics.find((entry) => entry.topicId === topicId) ?? null
+
+  /**
+   * Applies `?subject=&topic=&difficulty=` once the real options have loaded.
+   *
+   * Runs when `subjects` first becomes non-empty and never fights the student for the
+   * controls afterwards: every branch is guarded on the current selection still being
+   * empty, so a later re-render cannot undo a choice they made by hand.
+   */
+  useEffect(() => {
+    if (subjects.length === 0) return
+
+    const wantedTopic = searchParams.get('topic')
+    const wantedSubject = searchParams.get('subject')
+    const wantedDifficulty = searchParams.get('difficulty')
+
+    // A topic implies its subject, so it is resolved first and wins if the two disagree.
+    const owner = wantedTopic
+      ? subjects.find((entry) => entry.topics.some((topic) => topic.topicId === wantedTopic))
+      : undefined
+
+    if (owner && wantedTopic) {
+      setSubjectId((current) => current || owner.subjectId)
+      setTopicId((current) => current || wantedTopic)
+    } else if (wantedSubject && subjects.some((entry) => entry.subjectId === wantedSubject)) {
+      setSubjectId((current) => current || wantedSubject)
+    }
+
+    // Only offered where it really exists, matching what the select itself would allow.
+    const scope = owner?.topics.find((topic) => topic.topicId === wantedTopic) ?? owner
+    if (wantedDifficulty && scope?.difficulties.includes(wantedDifficulty as Difficulty)) {
+      setDifficulty((current) => current || (wantedDifficulty as Difficulty))
+    }
+  }, [subjects, searchParams])
 
   /**
    * Only the difficulties that exist in the narrowest chosen scope. Offering `Hard`

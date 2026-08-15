@@ -118,4 +118,22 @@ export const config = {
     generalMax: 300,
     authMax: 20,
   },
+  recommendations: {
+    /**
+     * The engine id `services/recommendationService.ts` resolves against its registry.
+     * The default engine is statistical and requires nothing external, so this is a
+     * knob rather than a dependency — see `lib/recommendationTypes.ts` for the seam.
+     */
+    engineId: env.RECOMMENDATION_ENGINE,
+  },
+  ai: {
+    /**
+     * The only AI credential in the project, and it is optional. Absent means the
+     * question generator falls back to blank templates — see
+     * `services/questionGeneratorService.ts`. Nothing else in the product uses a model.
+     */
+    geminiApiKey: env.GEMINI_API_KEY,
+    geminiModel: env.GEMINI_MODEL,
+    questionGenerator: env.QUESTION_GENERATOR,
+  },
 };

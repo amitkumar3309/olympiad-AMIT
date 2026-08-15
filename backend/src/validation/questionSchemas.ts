@@ -239,5 +239,20 @@ export const generateQuestionsSchema = z.object({
   classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
   difficulty: z.enum(DIFFICULTIES).default('Medium'),
   count: z.coerce.number().int('count must be a whole number').min(1, 'count must be at least 1').max(20, 'count cannot exceed 20'),
+  /**
+   * Optional steer for a model-backed generator ("focus on word problems").
+   *
+   * Bounded rather than free-form: it is pasted into a prompt, and an unbounded field
+   * is both a cost and a nuisance. It is **not** validated as math content, because it
+   * is an instruction rather than question text and never reaches a student — what the
+   * model produces from it is validated by `createQuestionSchema` like everything else,
+   * which is the check that actually matters.
+   */
+  instructions: z
+    .string()
+    .trim()
+    .max(500, 'Instructions must be at most 500 characters')
+    .nullish()
+    .transform((value) => value ?? null),
 });
 export type GenerateQuestionsInput = z.infer<typeof generateQuestionsSchema>;

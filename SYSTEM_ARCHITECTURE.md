@@ -1,6 +1,6 @@
 # SYSTEM_ARCHITECTURE.md
 
-_Last updated: 2026-08-13 (Milestone 9 — Gamification Engine)._
+_Last updated: 2026-08-15 (Milestone 16 — the recommendation engine seam). The topology and middleware sections were last revised in Milestone 9 and the inventory below has lagged since: read counts from the code, not from here — see [`PROJECT_STATE.md`](PROJECT_STATE.md) for verified ones._
 
 Documents what **actually exists** in the repository today. Anything not literally in the code is marked `PLANNED`.
 
@@ -92,9 +92,17 @@ src/
                           the only way anything decides a rank),
                           hallOfFame (the five honours boards),
                           grading (THE marking rules,
-                          shared by all three attempt surfaces), and
+                          shared by all three attempt surfaces),
                           questionView (the shared
-                          answer-stripped projection)
+                          answer-stripped projection),
+                          analytics (THE student derivation, M15),
+                          recommendation (THE advice path, M16 — resolves
+                          a swappable engine, assembles its facts, and
+                          stamps the provenance itself), and
+                          questionGenerator (THE path from "generate" to
+                          the bank, M17 — and THE trust boundary: it
+                          attaches the taxonomy, validates every candidate
+                          through the authoring schema, and writes drafts)
   models/                 one Mongoose model per file + barrel index (18)
   routes/health.routes.ts /health, /ready
   routes/v1/              auth, me, analytics, practice, mockTests,
@@ -114,7 +122,36 @@ scripts/                  dev-local, verify-email, migrate-questions,
 
 - **Routes do HTTP; services own the rules.** A route validates, authorises, calls a service and formats the envelope. Business rules live in `services/` and signal violations by throwing `ApiError`, which `lib/serviceError.ts` maps to a status code — so each rule is stated once, at the point it is enforced.
 
-- **Four "there is exactly one of these" services.** `grading.ts` marks every answer, `rewardService.ts` grants every point of XP, `leaderboardService.ts` decides every rank, and `questionView.ts` builds every answer-stripped projection. Each is singular for the same reason: a second implementation would eventually disagree with the first, and in each case the disagreement is visible to a student as a wrong score, a wrong XP total, a rank that differs between two pages, or a leaked answer. When a new surface needs one of these things, call the existing one — including from another service (the Hall of Fame's XP board calls `getLeaderboardPage()` rather than writing its own aggregation).
+- **Four "there is exactly one of these" services.** `grading.ts` marks every answer, `rewardService.ts` grants every point of XP, `leaderboardService.ts` decides every rank, and `questionView.ts` builds every answer-stripped projection. Each is singular for the same reason: a second implementation would eventually disagree with the first, and in each case the disagreement is visible to a student as a wrong score, a wrong XP total, a rank that differs between two pages, or a leaked answer. When a new surface needs one of these things, call the existing one — including from another service (the Hall of Fame's XP board calls `getLeaderboardPage()` rather than writing its own aggregation). `analyticsService.ts` (M15) and `recommendationService.ts` (M16) joined them on the same argument: one derivation of a student's performance, and one path to advice about it.
+
+- **The recommendation seam (Milestone 16)** is the one place in the backend designed to be *replaced* rather than extended, so it is worth reading as architecture rather than as a feature:
+
+  ```
+  route  →  recommendationService  →  RecommendationEngine (swappable)
+              │  assembles RecommendationFacts        ▲
+              │    · analyticsService (M15)           │  statistical-v1 (default)
+              │    · practiceService availability     │  …or a model-backed engine
+              │    · published mock-test count        │
+              │                                       │
+              └── stamps engine / generatedAt / hasData onto the result
+  ```
+
+  Three properties hold it together. **An engine cannot query** — it is a pure function of the facts object, exactly as `lib/achievements.ts` is of `RewardFacts`, so it cannot invent a figure no collection could produce nor make a page slow unexpectedly. **An engine cannot describe itself** — `recommend()` returns content only, and the service writes the provenance from the registry entry it actually invoked, so nothing can claim to be a model, or claim data a student does not have. **An engine that throws does not take the page down** — the statistical engine answers instead. The contract is one file, `lib/recommendationTypes.ts`; selection is one environment variable; nothing else changes.
+
+- **The question-generator seam (Milestone 17)** is the same shape, applied to the one place a language model really is called:
+
+  ```
+  route  →  questionGeneratorService  →  QuestionGenerator (swappable)
+              │  resolves by config           ▲
+              │                               │  template-v1 (always available)
+              │  ── THE TRUST BOUNDARY ──     │  gemini      (when a key is set)
+              │   · attaches the taxonomy from the request
+              │   · parses every candidate with createQuestionSchema
+              │   · reports rejects, repairs nothing
+              └── createQuestion() → status: 'draft', always
+  ```
+
+  The difference from the recommendation seam is the direction of distrust. There, the concern was an engine *describing* itself dishonestly. Here it is an engine *writing* content that will be shown to children, so the service is a validation gate rather than only a provenance stamp — and the gate is the **same schema a human author passes**, deliberately, because a model-specific validator would be the weaker of two. A generator is unavailable (no key) or failing (quota, timeout, prose instead of JSON) far more often than an engine is, so falling back to templates is the normal path rather than the exceptional one.
 
 - **Middleware order in `app.ts`** (deliberate):
   1. `helmet` + `x-powered-by` disabled

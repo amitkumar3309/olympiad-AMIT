@@ -2,6 +2,77 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-15 — Milestone 17: AI question drafting
+
+The admin "generate questions" button has existed since before Milestone 4. It filled a template string, and the page said so, because calling it AI would have been a lie. It can now be backed by Google Gemini.
+
+### Why this is a different decision from Milestone 16's
+
+Milestone 16 declined an LLM for performance recommendations, and that still stands. Three of its four reasons simply do not apply here:
+
+- Recommendations are questions about **counts**; arithmetic answers them exactly and a model could only paraphrase it while being able to get it wrong. **Drafting a question is writing** — there is nothing to compute, and the alternative is a human typing it from scratch.
+- **No student data is sent.** The payload is a subject name, a topic name, a class level, a difficulty and whatever instruction the examiner typed. A test asserts the request body contains no student fields.
+- **The MVP still runs with no paid service, identically.** With no key the button behaves exactly as before. AI is an enhancement to a complete feature, not the feature.
+
+The fourth reason — this product already deleted a fake AI feature — governs completely, which is why the naming discipline got *tighter*: `kind` is `'template'` or `'model'`, the page prints which one ran, and the audit trail records it per batch.
+
+### The model's output is not trusted
+
+A language model writing exam questions is safe only because of what happens afterwards, and every link is asserted by a test:
+
+- **The taxonomy comes from the request.** `GeneratedCandidate` has no subject, topic, class or difficulty field, so a model cannot file a question anywhere it was not asked to — structurally, not by a check.
+- **Every candidate passes `createQuestionSchema`** — the identical schema a hand-authored question passes, including `validateMathContent()`. There is deliberately no model-specific validator: two would eventually disagree, and the model-facing one would be the weaker.
+- **A failure is rejected and reported, never repaired.** A `\href` smuggled into LaTeX, a single-choice question with two correct options, a numeric question carrying options — all discarded with the rule they broke shown on the page. Silently fixing an answer key that looks right is worse than a missing question, because a reviewer skims what looks finished.
+- **Everything is a draft.** `createQuestion()` has no other mode, so nothing generated reaches a student without a person publishing it.
+
+### Failure is normal, and handled as such
+
+A spent free-tier quota, a timeout, prose where JSON was asked for, or a reply with 40 questions when 2 were requested — each falls back to blank templates and reports the provider's own words, because "it failed" cannot be acted on while "quota exceeded" can. An examiner who asked for five drafts always gets five.
+
+### Smaller things
+
+`GET /admin/question-generator` lets the page say whether AI is configured *before* the button is pressed. `withOptionKeys` and `toQuestionContent` moved into `questionService.ts`, because the generator became a second producer of question content and two implementations of "the server owns option keys" would be one too many. The key is sent as an `x-goog-api-key` header rather than `?key=`, since a URL is the thing most likely to reach a log line. No SDK — `fetch` against the REST endpoint, so **no new dependency**.
+
+### Verified by 20 new tests (795 total, 24 files)
+
+Nothing touches the network: a test-only transport hook (which throws outside the test environment) is what makes the failure paths testable at all. One pre-existing RBAC test caught a real mistake — an audit metadata key renamed from `count`, which would have split every query over an append-only trail into "before" and "after". The key kept its name.
+
+## 2026-08-15 — Milestone 16: Intelligent performance recommendations
+
+Milestone 15 made a student's performance measurable. It did not tell them what to do about it: the analytics page ended with a weak-areas list and no next step, and the only thing resembling advice in the product's history had been deleted for being invented.
+
+This milestone turns the measurements into five kinds of recommendation — weak topics, strong topics, difficulty guidance, practice suggestions and performance insights — behind an interface a model can be plugged into later.
+
+### Findings are asserted on a confidence interval, not on a percentage
+
+The obvious implementation ranks topics by accuracy and calls the bottom ones weak. On this product's data that is actively misleading. A practice session is ten questions, so a topic's whole sample is often five or six answers, and **2 of 5 (40%) would outrank 30 of 80 (37.5%)** — the first is one bad session, the second is the finding.
+
+So every claim is made against the **95% Wilson score interval** around the accuracy, always from the conservative end: a **weakness** on the interval's **upper** bound ("even read optimistically, still below par"), a **strength** on its **lower** bound. Wilson rather than the textbook normal interval, because the normal one is badly wrong at small `n` and at proportions near 0 or 1 — which is exactly where this data lives.
+
+Two consequences are asserted by tests, and both look like under-reporting until you see why: **a perfect five is not a strength**, and **five wrong answers are not a weakness**. That is what stops one lucky or unlucky session becoming a diagnosis. The flat `MIN_AREA_SAMPLE` floor from Milestone 15 is reused underneath, unchanged and shared, so the weak areas listed on the analytics page and the weak topics recommended beside them cannot be gated by two different numbers.
+
+### Every recommendation cites its evidence, structurally
+
+`basis` is a **required** field carrying the counts, the accuracy and the interval bounds. A recommendation that cannot say what it was derived from cannot be constructed at all — which is the type-level form of the rule that deleted `generateAIInsights()`. The page shows it: every card expands to `Answered 20 · Correct 4 · Likely range 8.1% – 40.9%`. A recommendation the reader cannot check is indistinguishable from one that was made up, and this product shipped invented ones once.
+
+### Advice the product cannot honour is not advice
+
+Every practice recommendation is joined against the **published question bank for the student's own class**, so nothing can suggest a topic with no questions behind it — a student who followed that link would land on an empty picker, which reads as the site being broken rather than as advice being approximate. A weakness in a topic published only for another class is still *reported*, with no link. Deep links (`/practice?subject=&topic=`) are validated by the Practice page against its own loaded options, so a bookmarked link to an archived topic degrades to the ordinary picker.
+
+The difficulty section cannot contradict itself either: if any level is flagged for consolidation, no step-up to a level above it is offered. "Shore up Easy" and "try Hard" in the same breath is not two pieces of advice, it is one incoherent one.
+
+### The engine is a seam, and the default one is not AI
+
+`lib/recommendationTypes.ts` is the whole contract: implement `RecommendationEngine`, register it, set `RECOMMENDATION_ENGINE`. Nothing about the route, the response shape or the page changes. An engine receives a facts object and **cannot query a database** — the same wall the gamification catalogues sit behind, and what makes "cites real counts" enforceable.
+
+An engine also **does not describe itself**. `recommend()` returns content only; the service stamps `engine`, `generatedAt` and `hasData` from the registry entry it actually invoked. A test smuggles all three onto a draft and asserts they are ignored. An engine that throws is caught and the statistical engine answers instead, so a failing model costs one panel rather than the page.
+
+**No AI provider is integrated, and nothing is labelled AI.** Google Gemini was evaluated and deliberately not wired up: the five requested capabilities are questions about counts rather than about language; the data is children's performance records, which is a privacy decision for the owner rather than a technical one; and the MVP must run with no paid service. The default engine declares `kind: 'statistical'` and the page prints "No AI is involved" verbatim. See the three Milestone 16 ADRs.
+
+### Verified by 36 new tests (775 total, 23 files)
+
+Weighted, as the Milestone 15 suite was, toward asserting that a finding is **not** produced: the 2-of-5 versus 30-of-80 case directly, a perfect five that is not a strength, a four-answer topic below the floor, a weakness with no link because the bank cannot serve it, a step-up to a level the bank does not publish, and a trend that refuses to speak from too few sittings. One new env var (`RECOMMENDATION_ENGINE`, defaulted), no new model, no new permission, no new dependency.
+
 ## 2026-08-13 — Milestone 15: Performance analytics
 
 The data had been accumulating for nine milestones. Nothing read it.

@@ -851,3 +851,74 @@ Averaging percentages is the other. A student who answered 1 of 1 correctly in p
 **Alternatives considered**: (a) Show every area regardless of sample, with a confidence marker — rejected: the marker is the first thing a reader ignores, and the top of a "weak areas" list is read as a verdict. (b) A statistical confidence interval instead of a flat floor — rejected as unjustifiable precision for a cohort this size; a stated integer everyone can check is more honest than a formula nobody will. (c) Let each surface report its own percentage and average them for the total — rejected above.
 
 **Consequences**: a student with little history sees empty strength and weakness lists with an explanation, which is the correct answer rather than a limitation. The same discipline governs `null` versus `0` throughout: an accuracy with no answers behind it is `null`, because "has answered nothing" and "gets everything wrong" are different facts, and the frontend renders the two differently — never `0%` for the first.
+
+---
+
+## 2026-08-15 — Recommendations are derived behind a swappable engine, and nothing is stored
+
+**Decision**: performance recommendations are produced by an engine resolved at request time from a registry (`services/recommendationService.ts`), selected by `RECOMMENDATION_ENGINE`, against a contract in `lib/recommendationTypes.ts`. The default is `statistical-v1`. There is **no `Recommendation` collection**: a set is derived on read and never persisted. An engine receives a `RecommendationFacts` object and **cannot query a database**. The service — not the engine — stamps `engine`, `generatedAt` and `hasData` onto the result.
+
+**Reason**: three separate arguments landing on the same design.
+
+*Nothing is stored*, for the reason `StudentAnalytics` was deleted in Milestone 15: a stored recommendation is a claim that outlives the evidence behind it. A student who fixes their weakest topic on Tuesday must not be told on Wednesday that it is still their weakest topic, and no cache invalidation across four attempt collections is more trustworthy than simply asking the data.
+
+*An engine cannot query*, for the reason the three gamification catalogues cannot: an engine that could read the database could invent a figure no collection can produce, and could make a page slow in a way the caller never budgeted for. The wall is what makes "every recommendation cites real counts" enforceable rather than aspirational, and adding an input stays a deliberate two-step act — declare it on `RecommendationFacts`, supply it in the service.
+
+*The service stamps provenance*, because the alternative is an engine that describes itself. `RecommendationDraft` has no `engine` field and no `hasData` field at all, so an engine cannot claim to be a model, cannot backdate its output, and cannot report data a student does not have. A test smuggles all three onto a draft and asserts they are ignored.
+
+**Alternatives considered**: (a) Fold recommendations into `GET /analytics/:studentId` — rejected: the seam exists so a model-backed engine can be dropped in, and a model has latency the arithmetic does not; a separate request means a slow engine costs one panel rather than the whole page. (b) A single hardcoded implementation with no seam — rejected: the requirement was explicitly that ML/LLM be able to replace or augment this, and retrofitting a seam after a page depends on a concrete shape is materially harder. (c) A stored nightly rollup — rejected as above, and premature: the derivation is bounded by one student's own history.
+
+**Consequences**: a recommendations request costs the analytics derivation (eight indexed operations) plus three more — the published bank for the class and a mock-test count — all parallel, all narrowed by `student` or `classLevel`. Uncached, deliberately, the same note the leaderboard and `buildRewardFacts()` carry. An engine that throws is caught and the statistical engine answers instead, so a failing model degrades the advice rather than the page.
+
+---
+
+## 2026-08-15 — A recommendation is asserted on a confidence interval, not on a percentage
+
+**Decision**: the statistical engine reasons over the **95% Wilson score interval** around each accuracy, and always from the conservative end — a weakness is asserted on the interval's **upper** bound ("even read optimistically, still below par"), a strength on its **lower** bound. `MIN_AREA_SAMPLE` from `analyticsService.ts` is reused unchanged as the hard floor beneath that.
+
+**This does not reverse the Milestone 15 decision**, which rejected an interval *as a replacement for the flat sample floor* when deciding which areas to **display**. That floor is still there, still five, still shared — a topic below it is not measured here either. The interval does a different and stronger job: deciding whether to **recommend**, which is a claim about what a child should do rather than a row in a table.
+
+**Reason**: on this product's data, ranking by percentage is actively misleading. A practice session is ten questions, so a topic's whole sample is often five or six answers, and **2 of 5 (40%) would outrank 30 of 80 (37.5%)** — the first is one bad session, the second is the finding. Wilson rather than the textbook normal interval because the normal one is badly wrong at small `n` and at proportions near 0 or 1, which is exactly where this data lives.
+
+The Milestone 15 objection — "a stated integer everyone can check is more honest than a formula nobody will" — is answered by **showing** the interval rather than only ranking on it: every card expands to `Likely range 12.4% – 43.5%`, labelled as 95% confidence given how many were answered. The formula is not hidden behind a verdict; it is quoted in the verdict, in numbers the reader can check.
+
+**Alternatives considered**: (a) Rank on raw accuracy above the flat floor — rejected above, with a test that pins the 2-of-5 versus 30-of-80 case directly. (b) Raise the flat floor to 20 answers instead — rejected: it would silence real findings for every student who has not practised heavily, and would still treat 5 of 20 and 50 of 200 as equally certain. (c) A Bayesian posterior with a prior drawn from the cohort — rejected as unexplainable to a student and dependent on cohort data that barely exists yet.
+
+**Consequences**: a perfect five is **not** reported as a strength, and five wrong answers are **not** reported as a weakness — both are asserted by tests, and both will look like under-reporting to anyone expecting a percentage ranking. That is the intended behaviour: it is what stops one lucky or unlucky session becoming a diagnosis. Confidence is derived from sample size alone (10 and 20 answers are the thresholds) and never from how dramatic the effect looks.
+
+---
+
+## 2026-08-15 — No AI provider is integrated, and the statistical engine is not called AI
+
+**Decision**: Milestone 16 ships **no** LLM or ML integration, adds **no** AI dependency and **no** API key. Google Gemini was evaluated for this task and deliberately not wired up. The default engine declares `kind: 'statistical'` and the page prints "No AI is involved" verbatim. The seam is built and documented so a model can be added later without touching the route, the response shape or the page.
+
+**Reason**: four, in order of weight.
+
+1. **It is not required.** All five requested capabilities — weak topics, strong topics, difficulty guidance, practice suggestions and insights — are questions about counts, not about language. Arithmetic answers them exactly, deterministically and instantly, and a language model asked the same question would paraphrase the arithmetic while being able to get it wrong.
+2. **The data is children's performance records.** Sending a named minor's accuracy, weakest topics and progress to a third-party API is a privacy decision belonging to the project owner, not a technical one — and free tiers commonly reserve the right to train on submitted data. That is not a trade to make silently inside a milestone.
+3. **The MVP must work without paid AI services**, and a free tier that later meters is a paid service with a delay. The ₹0 constraint is a standing rule here.
+4. **This product has already deleted a fake AI feature.** `generateAIInsights()` was rule-based string assembly that had never been near a model; Milestone 15 removed it and the "AI Performance Analytics" page with it. Re-introducing the label over real arithmetic would be worse than the original, because the numbers underneath are now good enough to be believed.
+
+**Alternatives considered**: (a) Wire Gemini in behind a disabled-by-default flag — rejected: it adds a dependency and an unexercised code path for a capability nobody has asked to turn on, and the privacy question above stays unanswered either way. (b) Use a language model to *phrase* findings the arithmetic produces — genuinely attractive, and the seam accommodates it exactly (an engine may return the same findings with different `detail` text), but it is a cost and privacy decision to be taken deliberately rather than a default. (c) Train a small local model — rejected: no training data exists, a cohort of a few hundred cannot produce any, and it would be a fabricated model rather than a fabricated statistic.
+
+**Consequences**: the product's advice is exactly as good as its arithmetic, which is checkable line by line and covered by tests that assert exact sentences. If a model is added later, `kind: 'model'` is the honest signal and the UI already renders it differently. The two questions that must be answered first are recorded above, and neither can be answered from a development sandbox — see the owner instructions in [`PROJECT_STATE.md`](PROJECT_STATE.md).
+
+---
+
+## 2026-08-15 — A language model may draft questions, and that is not a reversal of the Milestone 16 decision
+
+**Decision**: the admin question generator can be backed by Google Gemini (`GEMINI_API_KEY`). The default with no key configured is unchanged — blank templates — and the model is selected by `QUESTION_GENERATOR=auto` resolving to it only when a key exists.
+
+**This does not contradict the Milestone 16 ADR** ("No AI provider is integrated, and the statistical engine is not called AI"), and a future session should not read it as drift. That ADR gave four reasons, and **three of them do not apply to question drafting**:
+
+- *"It is not required — the task is arithmetic."* Recommendations are questions about counts, and a model could only paraphrase the arithmetic while being able to get it wrong. **Drafting a question is writing.** There is no correct answer to compute, and the alternative is a human typing it from scratch.
+- *"The data is children's performance records."* **No student data is sent here at all** — the payload is a subject name, a topic name, a class level, a difficulty and an instruction the examiner typed. A test asserts the request body contains no student fields. This is the reason the two cases genuinely differ, rather than the same trade being made twice with different enthusiasm.
+- *"The MVP must run with no paid service."* It still does, and *identically*: with no key the button behaves exactly as before. AI is an enhancement to a complete feature, not the feature.
+
+The fourth reason — *"this product already deleted a fake AI feature"* — still governs completely, and is why the naming discipline is tightened rather than relaxed: `GeneratorDescriptor.kind` is `'template'` or `'model'`, the page prints which one ran, and the **audit trail records it per batch**. "Was this question written by a machine?" must stay answerable years later.
+
+**Reason for the design, beyond the choice to do it at all**: a model writing exam questions is safe only because of what happens to its output. Four properties, all in `services/questionGeneratorService.ts` so a second caller cannot skip them: the **taxonomy comes from the request** (a `GeneratedCandidate` has no subject/topic/class/difficulty field to carry, so it cannot file itself anywhere); every candidate passes **`createQuestionSchema`**, the same schema and the same `validateMathContent()` a hand-authored question passes; a failure is **rejected and reported, never repaired**; and everything written is a **draft**, because `createQuestion()` has no other mode.
+
+**Alternatives considered**: (a) A separate, looser validator for model output — rejected outright: two validators eventually disagree and the model-facing one would be the weaker, which is the exact shape of the "two graders" argument that keeps `services/grading.ts` singular. (b) Auto-correcting a near-miss candidate (dropping a duplicate option, fixing a marks range) — rejected: a repaired answer key that looks right is worse than a missing question, because a reviewer skims what looks finished. (c) The `@google/genai` SDK — rejected in favour of `fetch` against the REST endpoint: it saves about twenty lines at the cost of a dependency, a supply-chain surface and a version to chase, and the retries it would bring are actively unwanted against a metered free tier. (d) Publishing generated questions directly, or into a separate review queue — rejected: `draft` already *is* the review queue, and a second one would be a second workflow to keep correct.
+
+**Consequences**: the free tier is a real ceiling, and hitting it is normal rather than exceptional — a spent quota falls back to templates and reports the provider's own words, because "it failed" cannot be acted on while "quota exceeded" can. Model output is unreliable by nature, so a partial batch (eight usable from ten) is the expected case and the page shows the discards with their reasons rather than quietly returning eight. The key is sent as an `x-goog-api-key` header rather than `?key=`, because a URL is the thing most likely to reach a log line. And there is now exactly one place in the product where `kind: 'model'` is the truthful answer — if a second appears, it needs its own entry here.

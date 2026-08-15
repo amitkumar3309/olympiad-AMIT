@@ -13,7 +13,7 @@ import {
   updateQuestion,
   changeQuestionStatus,
   deleteQuestion,
-  type QuestionContentInput,
+  toQuestionContent,
 } from '../../services/questionService';
 import { actorFrom } from '../../services/taxonomyService';
 import {
@@ -83,39 +83,13 @@ function adminQuestionView(question: QuestionDocument) {
 }
 
 /**
- * Assigns the stable per-option keys (`a`, `b`, `c`, ...).
- *
- * The server owns these rather than trusting the client's, because an answer is
- * recorded against the key: a client that reordered or reused keys could silently
- * repoint what "option b" means on a question that has already been answered.
+ * `withOptionKeys` and `toQuestionContent` moved into `services/questionService.ts` in
+ * Milestone 17, when the question generator became a second producer of question
+ * content. Two implementations of "the server owns option keys" would be one too many —
+ * an answer is recorded against the key, so the two could silently disagree about what
+ * "option b" means.
  */
-function withOptionKeys(options: CreateQuestionInput['options']): QuestionContentInput['options'] {
-  return options.map((option, index) => ({
-    key: String.fromCharCode(97 + index),
-    text: option.text,
-    isCorrect: option.isCorrect,
-  }));
-}
-
-function toContentInput(input: CreateQuestionInput): QuestionContentInput {
-  return {
-    questionText: input.questionText,
-    type: input.type,
-    options: withOptionKeys(input.options),
-    booleanAnswer: input.booleanAnswer ?? null,
-    numericAnswer: input.numericAnswer ?? null,
-    tolerance: input.tolerance ?? null,
-    solution: input.solution ?? null,
-    subject: input.subject,
-    topic: input.topic,
-    subtopic: input.subtopic ?? null,
-    classLevel: input.classLevel,
-    difficulty: input.difficulty,
-    marks: input.marks,
-    negativeMarks: input.negativeMarks,
-    tags: input.tags,
-  };
-}
+const toContentInput = toQuestionContent;
 
 // ---------------------------------------------------------------------------
 // Listing — search, filter, sort, paginate

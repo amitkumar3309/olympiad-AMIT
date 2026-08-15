@@ -205,6 +205,75 @@ async function resolveTaxonomy(input: {
   };
 }
 
+/**
+ * Assigns the stable per-option keys (`a`, `b`, `c`, …).
+ *
+ * The **server** owns these rather than trusting whatever produced the options, because
+ * an answer is recorded against the key: a caller that reordered or reused keys could
+ * silently repoint what "option b" means on a question somebody has already answered.
+ *
+ * It lives here rather than in a route because there are now two producers of question
+ * content — the admin editor and the Milestone 17 generator — and two implementations
+ * of "the server owns option keys" would be one too many.
+ */
+export function withOptionKeys(
+  options: Array<{ text: string; isCorrect: boolean }>,
+): QuestionContentInput['options'] {
+  return options.map((option, index) => ({
+    key: String.fromCharCode(97 + index),
+    text: option.text,
+    isCorrect: option.isCorrect,
+  }));
+}
+
+/**
+ * Turns validated question content into the service's input shape.
+ *
+ * Shared by the admin editor and the generator so both normalise nullables and assign
+ * option keys identically — a generated draft is stored exactly as a hand-authored one.
+ */
+export function toQuestionContent(input: ValidatedQuestionContent): QuestionContentInput {
+  return {
+    questionText: input.questionText,
+    type: input.type,
+    options: withOptionKeys(input.options),
+    booleanAnswer: input.booleanAnswer ?? null,
+    numericAnswer: input.numericAnswer ?? null,
+    tolerance: input.tolerance ?? null,
+    solution: input.solution ?? null,
+    subject: input.subject,
+    topic: input.topic,
+    subtopic: input.subtopic ?? null,
+    classLevel: input.classLevel,
+    difficulty: input.difficulty,
+    marks: input.marks,
+    negativeMarks: input.negativeMarks,
+    tags: input.tags,
+  };
+}
+
+/**
+ * What `createQuestionSchema` produces. Declared structurally rather than imported from
+ * the validation module, so a service does not depend on a zod schema's inferred type.
+ */
+export interface ValidatedQuestionContent {
+  questionText: string;
+  type: QuestionType;
+  options: Array<{ key?: string; text: string; isCorrect: boolean }>;
+  booleanAnswer?: boolean | null;
+  numericAnswer?: number | null;
+  tolerance?: number | null;
+  solution?: string | null;
+  subject: string;
+  topic: string;
+  subtopic?: string | null;
+  classLevel: ClassLevel;
+  difficulty: Difficulty;
+  marks: number;
+  negativeMarks: number;
+  tags: string[];
+}
+
 export async function createQuestion(input: QuestionContentInput, actor: Actor): Promise<QuestionDocument> {
   const taxonomy = await resolveTaxonomy(input);
 

@@ -83,6 +83,43 @@ const envSchema = z.object({
   SMTP_PASS: z.string().min(1).optional(),
   SMTP_SECURE: booleanish(false),
   EMAIL_FROM: z.string().min(1).default('AMIT Olympiad <no-reply@amitolympiad.local>'),
+
+  // --- Performance recommendations (Milestone 16) ---
+  /**
+   * Which registered recommendation engine to use. Defaults to the statistical one,
+   * which needs no credentials, no network and no paid service — the MVP runs on it.
+   *
+   * An unknown value is a misconfiguration rather than a fatal error: the service logs
+   * once and falls back, because a typo here should not take the advice panel down.
+   * Deliberately not an enum, since the whole point of the seam is that an engine can
+   * be added without editing this schema.
+   */
+  RECOMMENDATION_ENGINE: z.string().min(1).default('statistical-v1'),
+
+  // --- AI question drafting (Milestone 17) ---
+  /**
+   * Google Gemini API key. **Optional, and the product is complete without it** — with
+   * no key the admin generator falls back to blank templates, exactly as before.
+   *
+   * This is the only AI credential in the project, and it is used for exactly one
+   * thing: drafting questions from a subject, a topic, a class and a difficulty. No
+   * student data is ever sent to it.
+   */
+  GEMINI_API_KEY: z.string().min(1).optional(),
+  /**
+   * Which Gemini model to call. Configurable because model names are renamed and
+   * retired on the provider's schedule rather than ours, and a rename should be an
+   * environment change rather than a deploy.
+   */
+  GEMINI_MODEL: z.string().min(1).default('gemini-2.0-flash'),
+  /**
+   * Which registered generator the admin button uses.
+   *
+   * `auto` (the default) means "a model if one is configured, otherwise templates", so
+   * adding `GEMINI_API_KEY` is the only step needed to turn AI drafting on and removing
+   * it the only step needed to turn it off. Set an explicit id to pin one.
+   */
+  QUESTION_GENERATOR: z.string().min(1).default('auto'),
 });
 
 export type Env = z.infer<typeof envSchema>;
