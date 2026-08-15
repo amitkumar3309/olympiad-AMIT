@@ -124,6 +124,7 @@ router.post(
           negativeMarks: input.negativeMarks,
           optionCount: input.optionCount,
           instructions: input.instructions,
+          model: input.model,
           exclude: input.exclude,
         },
         actorFrom(req),
@@ -134,6 +135,7 @@ router.post(
       // trail records the *approval*, which is the act that alters the bank.
       sendSuccess(res, 200, {
         generator: outcome.generator,
+        model: outcome.model,
         questions: outcome.questions,
         rejected: outcome.rejected,
         duplicates: outcome.duplicates,

@@ -215,6 +215,11 @@ Two contracts a client must respect, both the same as the analytics endpoint: **
 - **The median is reported beside the mean** because on a cohort of a few dozen one student who submitted a blank moves the mean several points — exactly the case an invigilator wants to see rather than have smoothed away.
 - **`kind`** (`mock_test` | `official_exam`) is on every row, so a rehearsal can never be read as the Olympiad.
 
+### `GET /api/v1/admin/question-generator/models` (Milestone 18)
+- **Permission**: `questions:write`.
+- **Response 200**: `{ success, configured, models: [{ id, displayName, inUse }] }` — the models this API key can actually call, filtered to those supporting `generateContent`.
+- Exists because model names are retired on the provider's schedule (`gemini-2.0-flash` was this project's default until it stopped existing), and the only authoritative answer to "which name works?" is the key's own. Populates the model picker on the generator page; a failure there costs the picker, not generation.
+
 ### `GET /api/v1/admin/question-generator` (Milestone 17)
 - **Permission**: `questions:write`.
 - **Response 200**: `{ success, generator, available, alternatives }`, where `generator` is `{ id, label, kind, basis }` and `kind` is `'template'` or `'model'`.

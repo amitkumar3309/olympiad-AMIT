@@ -216,6 +216,55 @@ describe('generating', () => {
     }
   });
 
+  it('calls the model the examiner picked, and records it', async () => {
+    const { cookies, taxonomy } = await staffAndTaxonomy();
+    enableGemini();
+
+    let calledUrl = '';
+    setGeminiTransport((url, init) => {
+      calledUrl = url;
+      void init;
+      return Promise.resolve(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify([candidate()]) }] } }] }), { status: 200 }));
+    });
+
+    const res = await generate(cookies, taxonomy, { count: 1, model: 'gemini-2.5-pro' });
+
+    // The chosen name reaches the endpoint path, not the configured default.
+    expect(calledUrl).toContain('gemini-2.5-pro');
+    expect(res.body.model).toBe('gemini-2.5-pro');
+    // And the log records what was really called — a log naming the default while a
+    // different model wrote the questions is worse than no log at all.
+    const log = await GenerationLog.findById(res.body.logId);
+    expect(log!.modelName).toBe('gemini-2.5-pro');
+  });
+
+  it('falls back to the configured model when none is picked', async () => {
+    const { cookies, taxonomy } = await staffAndTaxonomy();
+    enableGemini();
+
+    let calledUrl = '';
+    setGeminiTransport((url) => {
+      calledUrl = url;
+      return Promise.resolve(new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify([candidate()]) }] } }] }), { status: 200 }));
+    });
+
+    const res = await generate(cookies, taxonomy, { count: 1 });
+
+    expect(calledUrl).toContain(config.ai.geminiModel);
+    expect(res.body.model).toBe(config.ai.geminiModel);
+  });
+
+  it('refuses a model name that could smuggle a path segment', async () => {
+    const { cookies, taxonomy } = await staffAndTaxonomy();
+    enableGemini();
+
+    const res = await generate(cookies, taxonomy, { count: 1, model: '../../secret:leak' });
+
+    // Bounded charset, because this value reaches a URL path.
+    expect(res.status).toBe(400);
+    expect(res.status).not.toBe(200);
+  });
+
   it('passes every configured parameter into the prompt', async () => {
     const { cookies, taxonomy } = await staffAndTaxonomy();
     enableGemini();

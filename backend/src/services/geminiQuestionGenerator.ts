@@ -343,7 +343,10 @@ export const geminiQuestionGenerator: QuestionGenerator = {
     const apiKey = config.ai.geminiApiKey;
     if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
 
-    const url = `${ENDPOINT_BASE}/${encodeURIComponent(config.ai.geminiModel)}:generateContent`;
+    // The examiner's choice wins; the configured value is the fallback. `encodeURIComponent`
+    // because this reaches a URL path and the name arrives from a request.
+    const model = request.model ?? config.ai.geminiModel;
+    const url = `${ENDPOINT_BASE}/${encodeURIComponent(model)}:generateContent`;
 
     let response: Response;
     try {

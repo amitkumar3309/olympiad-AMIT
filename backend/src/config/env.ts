@@ -123,7 +123,7 @@ const envSchema = z.object({
    * so is that you own the retirement. `GET /admin/question-generator/models` lists
    * exactly what your key can use, so the name never has to be guessed.
    */
-  GEMINI_MODEL: z.string().min(1).default('gemini-flash-latest'),
+  GEMINI_MODEL: z.string().min(1).default('gemini-2.5-pro'),
   /**
    * Which registered generator the admin button uses.
    *

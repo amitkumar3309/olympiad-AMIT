@@ -73,6 +73,9 @@ export default function AiGenerator() {
   const [negativeMarks, setNegativeMarks] = useState(1)
   const [optionCount, setOptionCount] = useState(4)
   const [instructions, setInstructions] = useState('')
+  // Empty means "whatever the deployment is configured with", which is what the
+  // examiner sees selected until they pick something else.
+  const [model, setModel] = useState('')
 
   // --- Review state ---
   const [batch, setBatch] = useState<EditableQuestion[] | null>(null)
@@ -94,6 +97,13 @@ export default function AiGenerator() {
       .get<QuestionGeneratorStatus>('/admin/question-generator')
       .then(setStatus)
       .catch(() => setStatus(null))
+    // Asked for up front so the picker is usable immediately. A failure here costs the
+    // picker, not the page: generation still runs on the configured default, which is
+    // why `models` being null is a supported state rather than an error.
+    api
+      .get<AvailableModelsResponse>('/admin/question-generator/models')
+      .then(setModels)
+      .catch((err) => setModelsError(err instanceof ApiError ? err.message : 'Could not reach Google.'))
   }, [])
 
   useEffect(() => {
@@ -124,8 +134,9 @@ export default function AiGenerator() {
       negativeMarks,
       optionCount,
       instructions: instructions.trim() || null,
+      model: model || null,
     }),
-    [subject, chapters, classLevel, difficulty, questionType, language, bloomLevel, marks, negativeMarks, optionCount, instructions],
+    [subject, chapters, classLevel, difficulty, questionType, language, bloomLevel, marks, negativeMarks, optionCount, instructions, model],
   )
 
   /** Text already on screen, so a regenerate is told not to repeat itself. */
@@ -205,34 +216,6 @@ export default function AiGenerator() {
               <i className={`ph-bold ${ready ? 'ph-sparkle' : 'ph-warning'}`} /> {status.generator.label}
             </span>
             <p>{status.generator.basis}</p>
-            <button
-              type="button"
-              className={styles.secondary}
-              onClick={() => {
-                setModelsError('')
-                api
-                  .get<AvailableModelsResponse>('/admin/question-generator/models')
-                  .then(setModels)
-                  .catch((err) => setModelsError(err instanceof ApiError ? err.message : 'Could not reach Google.'))
-              }}
-            >
-              Which models can my key use?
-            </button>
-            {modelsError && <p className="error-text">{modelsError}</p>}
-            {models && (
-              <div className={styles.modelList}>
-                <p className={styles.hint}>
-                  Currently configured: <code>{models.configured}</code>. Set <code>GEMINI_MODEL</code> to any name below.
-                </p>
-                <ul>
-                  {models.models.map((model) => (
-                    <li key={model.id}>
-                      <code>{model.id}</code> {model.inUse && <strong>· in use</strong>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
             {!ready && (
               <p className={styles.hint}>
                 <strong>Not configured.</strong> Set <code>GEMINI_API_KEY</code> in the backend environment and redeploy — see{' '}
@@ -360,6 +343,29 @@ export default function AiGenerator() {
             </div>
 
             <div className="form-group">
+              <label htmlFor="gen-model">Model</label>
+              <select id="gen-model" className="form-control" value={model} onChange={(e) => setModel(e.target.value)}>
+                <option value="">
+                  Default{models?.configured ? ` (${models.configured})` : ''}
+                </option>
+                {(models?.models ?? []).map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.id}
+                  </option>
+                ))}
+              </select>
+              {modelsError ? (
+                <p className={styles.hint}>
+                  Could not load the list ({modelsError}) — the configured default will be used.
+                </p>
+              ) : (
+                <p className={styles.hint}>
+                  {models ? `${models.models.length} available to your key.` : 'Loading what your key can use…'}
+                </p>
+              )}
+            </div>
+
+            <div className="form-group">
               <label htmlFor="gen-count">How many</label>
               <input id="gen-count" type="number" min={1} max={20} className="form-control" value={count} onChange={(e) => setCount(Number(e.target.value))} />
             </div>
@@ -439,6 +445,7 @@ export default function AiGenerator() {
                 <h3>Review {batch.length} question{batch.length === 1 ? '' : 's'}</h3>
                 <p className={styles.hint}>
                   <strong>Nothing is saved yet.</strong> These exist only on this screen — leaving the page discards them.
+                  {result?.model && <> Written by <code>{result.model}</code>.</>}
                 </p>
               </div>
               <div className={styles.reviewActions}>

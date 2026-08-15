@@ -164,6 +164,8 @@ export interface ProposeInput {
   negativeMarks: number;
   optionCount: number;
   instructions: string | null;
+  /** Which model to call. Null uses the deployment's configured default. */
+  model?: string | null;
   /** Question text already on the review screen, so a regenerate does not repeat it. */
   exclude?: string[];
 }
@@ -177,6 +179,8 @@ export interface ProposedQuestion extends GeneratedCandidate {
 
 export interface ProposalOutcome {
   generator: GeneratorDescriptor;
+  /** The model that actually wrote these, for the review screen and the audit trail. */
+  model: string;
   questions: ProposedQuestion[];
   rejected: RejectedCandidate[];
   duplicates: RejectedCandidate[];
@@ -245,6 +249,7 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
     negativeMarks: input.negativeMarks,
     optionCount: input.optionCount,
     instructions: input.instructions,
+    model: input.model ?? null,
     avoid,
   };
 
@@ -314,7 +319,15 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
     duplicates: duplicates.length,
   });
 
-  return { generator: generator.descriptor, questions, rejected, duplicates, requested: input.count, logId };
+  return {
+    generator: generator.descriptor,
+    model: input.model ?? config.ai.geminiModel,
+    questions,
+    rejected,
+    duplicates,
+    requested: input.count,
+    logId,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -410,7 +423,9 @@ async function writeLog(
       purpose: 'question_bank',
       generatorId: descriptor.id,
       generatorKind: descriptor.kind,
-      modelName: config.ai.geminiModel,
+      // The one actually called, not the configured default: an examiner may have
+      // picked another, and a log that records the wrong model is worse than none.
+      modelName: input.model ?? config.ai.geminiModel,
       subject: input.subject as unknown as Types.ObjectId,
       chapters: input.chapters as unknown as Types.ObjectId[],
       classLevel: input.classLevel,

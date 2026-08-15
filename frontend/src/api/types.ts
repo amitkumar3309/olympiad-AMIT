@@ -479,6 +479,8 @@ export interface ProposedQuestion {
 
 export interface GenerateQuestionsResponse {
   generator: QuestionGeneratorDescriptor
+  /** The model that actually wrote these — the examiner's choice, or the default. */
+  model: string
   questions: ProposedQuestion[]
   /** Failed the same validation a hand-written question faces. */
   rejected: RejectedCandidate[]

@@ -75,6 +75,16 @@ export interface GenerationRequest {
   optionCount: number;
   instructions: string | null;
   /**
+   * Which model to call, chosen by the examiner for this batch.
+   *
+   * Null means "use whatever the deployment is configured with". It is on the request
+   * rather than read from config inside the generator because the choice is now the
+   * examiner's per generation — one might want a fast model for a bulk draft and a
+   * stronger one for a hard paper — and a generator that reached for global config
+   * could not be told.
+   */
+  model: string | null;
+  /**
    * Question text the model must not reproduce — what is already in the bank for this
    * topic, plus anything already in the batch. This is how "unique and non-repetitive"
    * is asked for; `services/questionGeneratorService.ts` enforces it afterwards, because

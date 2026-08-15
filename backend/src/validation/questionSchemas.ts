@@ -329,6 +329,22 @@ export const generateQuestionsSchema = z.object({
   marks: z.number().min(0.25).max(100).default(4),
   negativeMarks: z.number().min(0).max(100).default(1),
   optionCount: z.coerce.number().int().min(2, 'At least 2 options').max(8, 'At most 8 options').default(4),
+  /**
+   * Which model to use for this batch. Optional — omitted means the configured default.
+   *
+   * Deliberately **not** an enum: the valid names are Google's, they change on Google's
+   * schedule, and a hardcoded list here would be the stale table this whole feature
+   * exists to avoid. The charset is bounded so it cannot smuggle a path segment into
+   * the endpoint URL, and Google is the authority on whether the name is real — its
+   * refusal is surfaced verbatim.
+   */
+  model: z
+    .string()
+    .trim()
+    .max(80)
+    .regex(/^[a-zA-Z0-9._-]+$/u, 'That is not a valid model name')
+    .nullish()
+    .default(null),
   /** Question text already on the review screen, so a regenerate does not repeat it. */
   exclude: z.array(z.string().max(1000)).max(40).default([]),
   count: z.coerce.number().int('count must be a whole number').min(1, 'count must be at least 1').max(20, 'count cannot exceed 20'),
