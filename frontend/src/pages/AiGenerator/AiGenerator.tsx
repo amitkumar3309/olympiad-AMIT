@@ -10,6 +10,7 @@ import {
   QUESTION_TYPES,
   QUESTION_TYPE_LABELS,
   type ApproveQuestionsResponse,
+  type AvailableModelsResponse,
   type BloomLevel,
   type ClassLevel,
   type Difficulty,
@@ -79,6 +80,10 @@ export default function AiGenerator() {
   const [saved, setSaved] = useState<ApproveQuestionsResponse | null>(null)
   const [busy, setBusy] = useState<'all' | 'approve' | string | null>(null)
   const [error, setError] = useState('')
+  // Model names are retired on Google's schedule, so the page can ask the key itself
+  // rather than making the examiner guess what to put in GEMINI_MODEL.
+  const [models, setModels] = useState<AvailableModelsResponse | null>(null)
+  const [modelsError, setModelsError] = useState('')
 
   useEffect(() => {
     api
@@ -200,6 +205,34 @@ export default function AiGenerator() {
               <i className={`ph-bold ${ready ? 'ph-sparkle' : 'ph-warning'}`} /> {status.generator.label}
             </span>
             <p>{status.generator.basis}</p>
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={() => {
+                setModelsError('')
+                api
+                  .get<AvailableModelsResponse>('/admin/question-generator/models')
+                  .then(setModels)
+                  .catch((err) => setModelsError(err instanceof ApiError ? err.message : 'Could not reach Google.'))
+              }}
+            >
+              Which models can my key use?
+            </button>
+            {modelsError && <p className="error-text">{modelsError}</p>}
+            {models && (
+              <div className={styles.modelList}>
+                <p className={styles.hint}>
+                  Currently configured: <code>{models.configured}</code>. Set <code>GEMINI_MODEL</code> to any name below.
+                </p>
+                <ul>
+                  {models.models.map((model) => (
+                    <li key={model.id}>
+                      <code>{model.id}</code> {model.inUse && <strong>· in use</strong>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {!ready && (
               <p className={styles.hint}>
                 <strong>Not configured.</strong> Set <code>GEMINI_API_KEY</code> in the backend environment and redeploy — see{' '}

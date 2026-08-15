@@ -111,7 +111,19 @@ const envSchema = z.object({
    * retired on the provider's schedule rather than ours, and a rename should be an
    * environment change rather than a deploy.
    */
-  GEMINI_MODEL: z.string().min(1).default('gemini-2.0-flash'),
+  /**
+   * Defaults to the **rolling alias** rather than a pinned version, deliberately.
+   *
+   * `gemini-2.0-flash` was the original default and Google retired it, which broke
+   * generation with "this model is no longer available" — a failure that arrives
+   * without warning, on their schedule, in production. An alias tracks whatever the
+   * current flash model is, so a retirement is invisible instead of an outage.
+   *
+   * Pin an exact version here if you ever need reproducible output; the cost of doing
+   * so is that you own the retirement. `GET /admin/question-generator/models` lists
+   * exactly what your key can use, so the name never has to be guessed.
+   */
+  GEMINI_MODEL: z.string().min(1).default('gemini-flash-latest'),
   /**
    * Which registered generator the admin button uses.
    *

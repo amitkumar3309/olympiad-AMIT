@@ -265,6 +265,7 @@ export interface ValidatedQuestionContent {
   booleanAnswer?: boolean | null;
   numericAnswer?: number | null;
   tolerance?: number | null;
+  acceptedAnswers?: string[];
   solution?: string | null;
   subject: string;
   topic: string;

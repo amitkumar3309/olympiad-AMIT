@@ -125,7 +125,7 @@ Recommendations themselves use **no AI** and never will without a further decisi
 | Variable | Required | Purpose | Where to get it | Example |
 |---|---|---|---|---|
 | `GEMINI_API_KEY` | **optional** | Lets Google Gemini write first drafts on the admin Question Generator page. **A secret.** | Google AI Studio — see below. | `AIzaSy…` |
-| `GEMINI_MODEL` | optional (default `gemini-2.0-flash`) | Which model to call. | — | `gemini-2.0-flash` |
+| `GEMINI_MODEL` | optional (default `gemini-flash-latest`) | Which model to call. **Leave it as the rolling alias** unless you need a pinned version — Google retires exact model names on their own schedule, and a pinned one will eventually stop working with "this model is no longer available". The admin page has a **"Which models can my key use?"** button that asks your key directly, so the name never has to be guessed. | — | `gemini-flash-latest` |
 | `QUESTION_GENERATOR` | optional (default `auto`) | Which generator the admin button uses. `auto` = a model if a key is set, else blank templates. | — | `auto` |
 
 **Everything works with all three unset.** The generator then creates blank draft questions you type into, exactly as it did before Milestone 17. The key alone turns AI drafting on; deleting it turns it off. Nothing else in the product uses a model.

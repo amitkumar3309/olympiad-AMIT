@@ -416,6 +416,19 @@ export interface QuestionGeneratorDescriptor {
   basis: string
 }
 
+/** One model the configured API key may call. */
+export interface AvailableModel {
+  /** The bare name to put in `GEMINI_MODEL`. */
+  id: string
+  displayName: string
+  inUse: boolean
+}
+
+export interface AvailableModelsResponse {
+  configured: string
+  models: AvailableModel[]
+}
+
 export interface QuestionGeneratorStatus {
   generator: QuestionGeneratorDescriptor
   available: boolean

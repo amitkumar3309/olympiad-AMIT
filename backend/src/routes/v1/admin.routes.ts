@@ -20,6 +20,8 @@ import {
 import { changeQuestionStatus } from '../../services/questionService';
 import { actorFrom } from '../../services/taxonomyService';
 import { BLOOM_LEVELS, GENERATION_LANGUAGES } from '../../lib/questionGeneratorTypes';
+import { listAvailableModels } from '../../services/geminiQuestionGenerator';
+import { config } from '../../config';
 
 const router = Router();
 
@@ -71,6 +73,31 @@ router.get(
       languages: GENERATION_LANGUAGES,
       providers: listQuestionGenerators().map((entry) => ({ ...entry.descriptor, available: entry.isAvailable() })),
     });
+  },
+);
+
+/**
+ * Which models this API key can actually use.
+ *
+ * A separate route from the status one because it makes a real network call, and the
+ * status endpoint runs on every page load. It exists because model names are retired on
+ * the provider's schedule — the original default stopped existing mid-deployment — and
+ * the only authoritative answer to "what should I put in `GEMINI_MODEL`?" is the key's
+ * own. A table in a doc goes stale; this cannot.
+ */
+router.get(
+  '/admin/question-generator/models',
+  requirePermission('questions:write'),
+  ensureDb,
+  async (_req: Request, res: Response) => {
+    try {
+      sendSuccess(res, 200, { configured: config.ai.geminiModel, models: await listAvailableModels() });
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to list Gemini models',
+        fallback: 'Could not ask Google which models your key can use.',
+      });
+    }
   },
 );
 

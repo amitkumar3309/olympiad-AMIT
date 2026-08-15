@@ -272,6 +272,58 @@ function toCandidate(value: unknown, request: GenerationRequest): GeneratedCandi
 // The generator
 // ---------------------------------------------------------------------------
 
+/** One model this API key may call, as the admin page lists them. */
+export interface AvailableModel {
+  /** The bare name to put in `GEMINI_MODEL`, e.g. `gemini-flash-latest`. */
+  id: string;
+  displayName: string;
+  /** True when this is the one currently configured. */
+  inUse: boolean;
+}
+
+interface ListModelsResponse {
+  models?: Array<{ name?: string; displayName?: string; supportedGenerationMethods?: string[] }>;
+  error?: { message?: string };
+}
+
+/**
+ * Asks the provider which models this key can actually use.
+ *
+ * Exists because the alternative is guessing. Google retires model names on their own
+ * schedule — `gemini-2.0-flash` was this project's default until it stopped existing
+ * mid-deployment — and the failure surfaces as a generation error with no indication of
+ * what to use instead. Reading the list is the only authoritative answer, and it is the
+ * key's own answer rather than a table in a doc that goes stale.
+ *
+ * Filtered to models that support `generateContent`, since the others cannot draft a
+ * question whatever they are good at.
+ */
+export async function listAvailableModels(): Promise<AvailableModel[]> {
+  const apiKey = config.ai.geminiApiKey;
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
+
+  const response = await transport(ENDPOINT_BASE, {
+    method: 'GET',
+    headers: { 'x-goog-api-key': apiKey },
+    signal: AbortSignal.timeout(15_000),
+  });
+
+  const body = (await response.json().catch(() => ({}))) as ListModelsResponse;
+  if (!response.ok) {
+    throw new Error(`Gemini refused the model list: ${body.error?.message ?? `HTTP ${response.status}`}`);
+  }
+
+  return (body.models ?? [])
+    .filter((model) => model.supportedGenerationMethods?.includes('generateContent'))
+    .map((model) => {
+      // The API returns `models/gemini-…`; `GEMINI_MODEL` takes the bare name.
+      const id = (model.name ?? '').replace(/^models\//u, '');
+      return { id, displayName: model.displayName ?? id, inUse: id === config.ai.geminiModel };
+    })
+    .filter((model) => model.id.length > 0)
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
 export const geminiQuestionGenerator: QuestionGenerator = {
   descriptor: {
     id: GEMINI_GENERATOR_ID,
@@ -324,7 +376,17 @@ export const geminiQuestionGenerator: QuestionGenerator = {
     if (!response.ok) {
       // The provider's own words: an expired key, a spent quota and an unknown model
       // all need different fixes, and "it failed" cannot be acted on.
-      throw new Error(`Gemini refused the request: ${body.error?.message ?? `HTTP ${response.status}`}`);
+      const detail = body.error?.message ?? `HTTP ${response.status}`;
+      // A retired or misspelled model is the one failure with a specific remedy, and
+      // it arrives on Google's schedule rather than ours. Say what to do about it
+      // instead of leaving an examiner to work out that "no longer available" is a
+      // configuration problem rather than an outage.
+      const retired = /no longer available|not found|not supported|unsupported model/i.test(detail);
+      throw new Error(
+        retired
+          ? `${detail} — open the AI generator page and use "Which models can my key use?" to see the current names, then set GEMINI_MODEL.`
+          : `Gemini refused the request: ${detail}`,
+      );
     }
 
     if (body.promptFeedback?.blockReason) {
