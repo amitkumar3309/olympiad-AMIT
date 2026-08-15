@@ -1,14 +1,24 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-15 (Milestone 17 — AI question drafting)._
+_Last updated: 2026-08-15 (Milestone 18 — generated questions need a human before they exist)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
-**Verified counts, read from the code rather than carried forward** (2026-08-15): **23 Mongoose models** (Milestone 15 *removed* one; Milestone 16 added none), **21 permissions** (3 student / 19 admin / 21 super admin — Milestones 14, 15 and 16 added none), **795 passing tests across 24 files**, **47 frontend routes**, 23 route modules under `routes/v1/`, **27 services**. Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true; if you are about to quote a number from here, the code is the authority.
+**Verified counts, read from the code rather than carried forward** (2026-08-15): **24 Mongoose models** (Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **21 permissions** (3 student / 19 admin / 21 super admin — Milestones 14, 15 and 16 added none), **796 passing tests across 24 files**, **47 frontend routes**, 23 route modules under `routes/v1/`, **27 services**. Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true; if you are about to quote a number from here, the code is the authority.
 
 ## Current Development Phase
 
-**Milestone 17 — AI question drafting: implemented.** The admin "generate questions" button has existed since before Milestone 4 and filled a template string; the page said so, because calling it AI would have been a lie. It can now be backed by **Google Gemini**, and the honesty discipline got tighter rather than looser.
+**Milestone 18 — Generated questions need a human before they exist: implemented.**
+
+- **Nothing generated is saved until it is approved.** Generation returns candidates and writes no question; they live in the reviewer's browser, and a separate explicit approval call is the only path that writes. Approval **re-validates from scratch**, because the review screen is a client and the examiner has been editing it. Milestone 17's blank-template generator is **deleted**, fallback included — a spent quota now says "Quota exceeded" rather than quietly producing filler.
+- **The full configuration**: class, subject, multiple chapters, difficulty, question type, Bloom's level, language, marks, negative marks, option count and free-text instructions, all reaching the prompt. The review screen offers edit, regenerate one, regenerate all, delete, then *approve as drafts* or *approve and publish*.
+- **A fifth question type, `fill_blank`**, marked against author-listed accepted answers with normalisation that forgives capitalisation, spacing and a trailing full stop and nothing else. **Short answer was deliberately not added** — it cannot be auto-graded without either a human marking queue or sending a child's written answer to a model.
+- **Duplicate detection**: a candidate at 80% or more word-overlap with an existing question in the chapter, or with another candidate, is refused. Jaccard over significant words, because the failure mode is rewording with new numbers.
+- **A new `GenerationLog`** records what was asked, what came back, why candidates were rejected, how long it took and the provider's own error — counts and parameters only, never question text.
+
+**Not done in this milestone, and explicitly outstanding** (see "Immediate Next Task"): AI mock-test generation, daily-challenge automation with a scheduler and admin controls, and the bulk seeding script. **Nothing has been driven through a browser**, because no `GEMINI_API_KEY` is available in this sandbox — the model path is covered only by tests against a fake transport.
+
+Before that, **Milestone 17 — AI question drafting: implemented.** The admin "generate questions" button has existed since before Milestone 4 and filled a template string; the page said so, because calling it AI would have been a lie. It can now be backed by **Google Gemini**, and the honesty discipline got tighter rather than looser.
 
 - **This is not a reversal of Milestone 16's "no AI" decision.** Three of that ADR's four reasons do not apply here: recommendations are questions about *counts* (arithmetic answers them exactly), while drafting a question is *writing*; **no student data is sent** (a subject name, a topic name, a class, a difficulty and the examiner's own instruction — there is a test asserting the request body contains no student fields); and the MVP still runs identically with no key. The fourth reason — this product already deleted a fake AI feature — governs completely.
 - **The model's output is not trusted, and that is the whole safety story.** The **taxonomy comes from the request** (`GeneratedCandidate` has no subject/topic/class/difficulty field, so a model cannot file a question anywhere it was not asked to); every candidate passes **`createQuestionSchema`**, the same schema and the same `validateMathContent()` a hand-authored question passes; a failure is **rejected and reported with its reason, never repaired**; and everything written is a **draft**, because `createQuestion()` has no other mode.
@@ -149,11 +159,11 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Last Completed Milestone
 
-**Milestone 17 — AI question drafting.** Preceded by Milestone 16 (intelligent performance recommendations), Milestone 15 (performance analytics), Milestone 14 (the notification system), Milestone 13 (the official exam and the certificate system), Milestone 12 (Complete Admin Platform), Milestone 11 (Account administration and a real super-admin account), Milestone 10 (Leaderboards and Hall of Fame), Milestone 9 (Gamification Engine), Milestone 8 (Daily Challenge), Milestone 7 (Mock Test System), Milestone 6 (Practice Zone), Milestone 5 (student profile and dashboard), Milestone 4 (complete question bank), Milestone 3 (RBAC and user management), Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
+**Milestone 18 — Generated questions need a human before they exist.** Preceded by Milestone 17 (AI question drafting), Milestone 16 (intelligent performance recommendations), Milestone 15 (performance analytics), Milestone 14 (the notification system), Milestone 13 (the official exam and the certificate system), Milestone 12 (Complete Admin Platform), Milestone 11 (Account administration and a real super-admin account), Milestone 10 (Leaderboards and Hall of Fame), Milestone 9 (Gamification Engine), Milestone 8 (Daily Challenge), Milestone 7 (Mock Test System), Milestone 6 (Practice Zone), Milestone 5 (student profile and dashboard), Milestone 4 (complete question bank), Milestone 3 (RBAC and user management), Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
 
 ## Current Milestone
 
-None in progress. Milestone 17 is complete, with a green suite: **795 tests across 24 files pass**, backend `typecheck` / `lint` / `compile` are clean, and the frontend `oxlint` / `tsc -b && vite build` succeed. Milestones 14 and 15 before it are committed as `9bea3f4`.
+None in progress. Milestone 18 is complete, with a green suite: **796 tests across 24 files pass**, backend `typecheck` / `lint` / `compile` are clean, and the frontend `oxlint` / `tsc -b && vite build` succeed. Milestones 14 and 15 before it are committed as `9bea3f4`.
 
 **The owner has reserved payment integration for the final milestone** (2026-08-13). It was previously floated as a Milestone 13 candidate and was deliberately skipped; nothing should start it until every other planned area is done. See "Immediate Next Task".
 
@@ -308,7 +318,7 @@ validation/               zod schemas for auth + questions + taxonomy + users
                           + exams/certificates (M13)
 scripts/                  dev-local, verify-email, migrate-questions,
                           backfill-activity (Milestone 5)
-tests/                    24 suites, 795 tests (20 of them Milestone 17's)
+tests/                    24 suites, 796 tests (21 of them Milestone 18's)
 ```
 
 Milestone 16 added two `lib/` modules and one service, and no new folder:
@@ -336,7 +346,7 @@ Milestone 14 added three modules and no new folder:
 
 ## Current Database State
 
-MongoDB via Mongoose, **23 models**: `Student` (with `role`, the nine registration fields and Milestone 14's embedded `notificationPrefs`), `StudentPhoto`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`, Milestone 4's **`Subject`**, **`Topic`** and a rewritten **`Question`**, Milestone 5's **`StudentActivity`**, Milestone 6's **`PracticeSession`**, Milestone 7's **`MockTest`** and **`MockTestAttempt`**, Milestone 8's **`DailyChallenge`** and **`DailyChallengeAttempt`**, Milestone 9's **`RewardSettings`** (one document, pinned by a unique index on a constant key), Milestone 12's **`GalleryItem`**, **`Notification`** and **`NotificationRead`**, Milestone 13's **`Exam`** and **`Certificate`** (with `ExamAttempt` and `Result` rewritten from their pre-Milestone-4 shapes), and Milestone 14's **`EmailOutbox`**. Only 23 *files* hold them, because `Notification.ts` registers both `Notification` and `NotificationRead`.
+MongoDB via Mongoose, **24 models** (Milestone 18 added `GenerationLog`, which records what a model was asked and what came back — counts and parameters only, never question text, and no TTL because it is the evidence for how a machine-written question came to exist): `Student` (with `role`, the nine registration fields and Milestone 14's embedded `notificationPrefs`), `StudentPhoto`, `ExamAttempt`, `Result`, `StudentAnalytics`, `RefreshToken`, `VerificationToken`, `AuditLog`, Milestone 4's **`Subject`**, **`Topic`** and a rewritten **`Question`**, Milestone 5's **`StudentActivity`**, Milestone 6's **`PracticeSession`**, Milestone 7's **`MockTest`** and **`MockTestAttempt`**, Milestone 8's **`DailyChallenge`** and **`DailyChallengeAttempt`**, Milestone 9's **`RewardSettings`** (one document, pinned by a unique index on a constant key), Milestone 12's **`GalleryItem`**, **`Notification`** and **`NotificationRead`**, Milestone 13's **`Exam`** and **`Certificate`** (with `ExamAttempt` and `Result` rewritten from their pre-Milestone-4 shapes), and Milestone 14's **`EmailOutbox`**. Only 23 *files* hold them, because `Notification.ts` registers both `Notification` and `NotificationRead`.
 
 **Milestone 14's schema changes**, all additive: `EmailOutbox` is new, with `{status, nextAttemptAt}` for the drain query, a **partial unique** index on `dedupeKey` (partial so the many keyless rows do not all collide on `null` — a resent verification link is legitimate) and deliberately **no TTL**, because a delivery record is the evidence for "we did tell them". `Notification` gained `student`, `source`, `event`, `link` and its own partial-unique `dedupeKey`, which is what makes re-releasing an exam's results unable to re-announce them. `Student` gained an embedded `notificationPrefs` — two booleans, 1:1 with the account, deliberately not a 25th model. `models/attemptAnswer.ts` is a *shared subdocument* embedded by the practice, mock-test, daily-challenge and exam attempt collections, not a model of its own.
 
@@ -621,6 +631,18 @@ Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with 
 3. **Seed a second class's question bank.** This is now the highest-value *content* task by some distance, because three features depend on it and all three are empty for nine of the ten classes: the Practice Zone has nothing to draw, a mock test cannot be assembled, and the daily challenge shows "no challenge today" every day. `scripts/seed-class12.ts` is the working model for how to do it — validated through the API's own schema, report-only by default, idempotent.
 
 **Owner decision: payment integration is the FINAL milestone** (2026-08-13). It was floated as a Milestone 13 candidate and deliberately skipped. Nothing should start it until the other planned areas are done, and it still needs a provider decision and cost approval from the owner before any code — see "Current Payment State".
+
+**Milestone 18 left three areas of the AI brief unbuilt, in this order of value:**
+
+1. **AI mock-test generation.** The generation pipeline is provider-agnostic and already produces validated questions, so this is assembling a `MockTest` around a batch — difficulty distribution, question-type distribution, total marks, time limit — plus a review screen that reuses the one built here. Roughly a day.
+2. **Daily-challenge automation.** Needs a `DailyChallengeConfig` document (enabled, per-day count, classes, subjects, difficulty mix, trigger time), a selection engine that avoids recently-used questions, a **secured trigger endpoint**, and an admin console showing status and the generation log. **You chose a free external pinger** (cron-job.org / UptimeRobot) over paid Vercel Cron, so the endpoint takes a shared secret and you point the pinger at it — a five-minute setup once the endpoint exists.
+3. **Bulk population.** A batched, resumable script with `--limit`, run against the 26 Class 12 Science chapters that already exist. The other nine classes have **no subjects or chapters at all**, so they need a syllabus before anything can be generated for them — that is a content decision only you can make.
+
+**Browser verification is outstanding for the whole AI feature.** No `GEMINI_API_KEY` is available in this development sandbox, so the model path has only ever run against a fake transport. Before trusting it in production:
+- open `/admin/ai-generator` and confirm the banner reads **Google Gemini**, not "Not configured";
+- generate 3 single-choice questions on a chapter that already has some, and check the bank is unchanged until you approve;
+- read one solution end to end and verify the marked answer is actually correct — the model is a first draft, not an examiner;
+- try *Regenerate this one* and *Approve as drafts*, then find them in `/admin/questions`.
 
 **Milestone 16 (intelligent performance recommendations) is done** — see "Current Development Phase". It needs **no owner action at all**: no new credential, no provider signup, and no cost. The one new environment variable has a working default and should be left unset in production.
 

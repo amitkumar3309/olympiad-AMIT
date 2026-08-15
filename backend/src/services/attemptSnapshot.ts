@@ -37,6 +37,7 @@ export function snapshotOf(question: QuestionDocument, ref: PricedQuestionRef): 
     booleanAnswer: question.booleanAnswer ?? null,
     numericAnswer: question.numericAnswer ?? null,
     tolerance: question.tolerance ?? null,
+    acceptedAnswers: [...(question.acceptedAnswers ?? [])],
     selectedOptionKeys: [],
     numericResponse: null,
     booleanResponse: null,

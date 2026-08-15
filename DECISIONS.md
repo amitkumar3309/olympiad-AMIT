@@ -922,3 +922,35 @@ The fourth reason — *"this product already deleted a fake AI feature"* — sti
 **Alternatives considered**: (a) A separate, looser validator for model output — rejected outright: two validators eventually disagree and the model-facing one would be the weaker, which is the exact shape of the "two graders" argument that keeps `services/grading.ts` singular. (b) Auto-correcting a near-miss candidate (dropping a duplicate option, fixing a marks range) — rejected: a repaired answer key that looks right is worse than a missing question, because a reviewer skims what looks finished. (c) The `@google/genai` SDK — rejected in favour of `fetch` against the REST endpoint: it saves about twenty lines at the cost of a dependency, a supply-chain surface and a version to chase, and the retries it would bring are actively unwanted against a metered free tier. (d) Publishing generated questions directly, or into a separate review queue — rejected: `draft` already *is* the review queue, and a second one would be a second workflow to keep correct.
 
 **Consequences**: the free tier is a real ceiling, and hitting it is normal rather than exceptional — a spent quota falls back to templates and reports the provider's own words, because "it failed" cannot be acted on while "quota exceeded" can. Model output is unreliable by nature, so a partial batch (eight usable from ten) is the expected case and the page shows the discards with their reasons rather than quietly returning eight. The key is sent as an `x-goog-api-key` header rather than `?key=`, because a URL is the thing most likely to reach a log line. And there is now exactly one place in the product where `kind: 'model'` is the truthful answer — if a second appears, it needs its own entry here.
+
+---
+
+## 2026-08-15 — Generated questions are never saved until a human approves them
+
+**Decision**: `POST /admin/generate-questions` returns candidates and **writes no question**. Candidates live in the reviewer's browser. `POST /admin/generate-questions/approve` is the only path that writes, and it **re-validates everything from scratch**. The blank-template generator was deleted, along with the fallback to it.
+
+**Reason**: Milestone 17 saved generated questions immediately as drafts. That was defensible — a draft is not student-visible — but it was the wrong default in practice: the bank filled with machine output nobody had read, and the reviewer's job became "delete the bad ones" rather than "keep the good ones". Those are not the same job, and the first one gets skipped.
+
+Re-validating on approval is not belt-and-braces. The review screen is a *client*: it can send anything, and the approval route is an ordinary authenticated endpoint. Trusting the second call because the first one validated would mean the schema was never really enforced — a test posts a candidate broken by the "edit" and asserts it is refused.
+
+The template generator went because a blank placeholder is only useful as something to type into, and an examiner who wants that can create a question by hand. Keeping it as a *fallback* was worse than useless: it meant a spent quota silently produced filler where the examiner expected questions.
+
+**Alternatives considered**: (a) A `pending` collection or a `proposed` question status — rejected: it is a third editorial state next to `draft`/`in_review`, needs its own cleanup policy for abandoned batches, and re-creates the problem (unread machine output accumulating in the database) that this decision exists to remove. (b) Keeping drafts and adding a "generated" flag to filter on — rejected for the same reason; the filter is the thing nobody applies. (c) Trusting the first validation and skipping it on approval — rejected above.
+
+**Consequences**: closing the tab loses the batch, and the page says so plainly. That is the honest cost of storing nothing, and it is bounded — regenerating costs one more model call. The approval route carries the full question payload rather than an id, which makes it a larger request body than a normal write; it is capped at 20 questions. `GenerationLog` records what was asked and what came back, so a bad prompt is diagnosable even though the candidates themselves are never persisted.
+
+---
+
+## 2026-08-15 — Fill-in-the-blank is added; short answer is deliberately not
+
+**Decision**: a fifth question type, `fill_blank`, marked by normalised string comparison against an author-listed `acceptedAnswers`. **Short answer is not added.**
+
+**Reason**: everything in this product is auto-graded by one grader, and that is load-bearing — practice, mock tests, the daily challenge and the official exam all submit to `services/grading.ts`, and a result appears immediately. Fill-in-the-blank fits: the author lists every spelling that counts, so what will be marked correct is *data a human can read and correct* before anyone sits the paper.
+
+Short answer does not fit, and the two ways to make it fit were both rejected. **Human marking** means a marking queue, a partially-graded attempt state, and results that cannot be released until every script is read — a large feature that changes what a "submitted" attempt means everywhere. **Model marking** means sending a child's written answer to a third party, which reverses the privacy line drawn in Milestones 16 and 17 (the drafting call sends no student data at all, and that is exactly why it was acceptable).
+
+Normalisation forgives what is never the point of a maths question — capitalisation, extra spaces, a trailing full stop — and nothing else. It does **not** do spelling correction or synonyms: a grader that guesses can silently mark a wrong answer right, and an author who wants "twelve" to count writes it in the list where a reviewer can see it. `normalizeAnswerText` is exported and used by the validation layer too, so the collision warning an author sees is produced by the same rule the marking will apply.
+
+**Alternatives considered**: (a) Fuzzy matching with an edit-distance threshold — rejected: it makes correctness depend on a tuning constant nobody can explain to a student who was marked wrong. (b) Regex answers — rejected: it puts a language nobody on the team writes into a field examiners edit. (c) Numeric-with-unit as a separate type — unnecessary; `fill_blank` with `["12 cm", "12cm"]` covers it.
+
+**Consequences**: adding a type touched the model, the validation, the grader, the shared attempt subdocument, three snapshot builders, four answer-application paths and every review view — which is the honest cost of a fifth answer shape and the reason short answer was not waved through on top of it. The compiler found all of them because `acceptedAnswers` is non-optional on `AttemptAnswerEntry`; an optional field would have been missed in two of the three snapshot builders and produced wrong marks. That near-miss is recorded as a follow-up to consolidate them.

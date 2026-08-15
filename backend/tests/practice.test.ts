@@ -102,6 +102,7 @@ function entry(overrides: Partial<PracticeQuestionEntry>): PracticeQuestionEntry
     booleanAnswer: null,
     numericAnswer: null,
     tolerance: null,
+    acceptedAnswers: [],
     selectedOptionKeys: [],
     numericResponse: null,
     booleanResponse: null,

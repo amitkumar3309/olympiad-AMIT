@@ -302,6 +302,7 @@ function snapshotOf(question: QuestionDocument, challenge: DailyChallengeDocumen
     booleanAnswer: question.booleanAnswer ?? null,
     numericAnswer: question.numericAnswer ?? null,
     tolerance: question.tolerance ?? null,
+    acceptedAnswers: [...(question.acceptedAnswers ?? [])],
     selectedOptionKeys: [],
     numericResponse: null,
     booleanResponse: null,
@@ -314,6 +315,7 @@ function snapshotOf(question: QuestionDocument, challenge: DailyChallengeDocumen
 export interface ChallengeAnswerInput {
   selectedOptionKeys?: string[];
   numericResponse?: number | null;
+  textResponse?: string | null;
   booleanResponse?: boolean | null;
 }
 
@@ -364,6 +366,9 @@ export async function submitChallengeAnswer(input: SubmitChallengeInput): Promis
     entry.selectedOptionKeys = keys;
   } else if (entry.type === 'true_false') {
     entry.booleanResponse = answer.booleanResponse ?? null;
+  } else if (entry.type === 'fill_blank') {
+    // Stored exactly as typed; normalisation belongs to the grader.
+    entry.textResponse = answer.textResponse ?? null;
   } else {
     entry.numericResponse = answer.numericResponse ?? null;
   }
@@ -458,6 +463,7 @@ export function attemptResultView(
     response: {
       selectedOptionKeys: entry.selectedOptionKeys,
       numericResponse: entry.numericResponse ?? null,
+      textResponse: entry.textResponse ?? null,
       booleanResponse: entry.booleanResponse ?? null,
     },
     correctAnswer: {
@@ -465,6 +471,7 @@ export function attemptResultView(
       booleanAnswer: entry.booleanAnswer ?? null,
       numericAnswer: entry.numericAnswer ?? null,
       tolerance: entry.tolerance ?? null,
+      acceptedAnswers: entry.acceptedAnswers ?? [],
     },
     explanation: question?.solution ?? null,
     /** The question has been edited since it was answered. */

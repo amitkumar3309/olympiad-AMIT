@@ -540,6 +540,7 @@ export async function startAttempt(input: StartAttemptInput): Promise<StartAttem
 export interface AttemptAnswerInput {
   selectedOptionKeys?: string[];
   numericResponse?: number | null;
+  textResponse?: string | null;
   booleanResponse?: boolean | null;
 }
 
@@ -591,6 +592,10 @@ export function applyAttemptAnswer(
     entry.selectedOptionKeys = [...new Set(keys)];
   } else if (entry.type === 'true_false') {
     entry.booleanResponse = answer.booleanResponse ?? null;
+  } else if (entry.type === 'fill_blank') {
+    // Stored exactly as typed. Normalisation belongs to the grader, so what the
+    // student wrote stays readable on review — including when it was marked wrong.
+    entry.textResponse = answer.textResponse ?? null;
   } else {
     entry.numericResponse = answer.numericResponse ?? null;
   }
@@ -868,6 +873,7 @@ function responseOf(entry: AttemptAnswerEntry) {
   return {
     selectedOptionKeys: entry.selectedOptionKeys,
     numericResponse: entry.numericResponse ?? null,
+    textResponse: entry.textResponse ?? null,
     booleanResponse: entry.booleanResponse ?? null,
     answered: isAnswered(entry),
   };
@@ -976,6 +982,7 @@ export function attemptReviewView(
           booleanAnswer: entry.booleanAnswer ?? null,
           numericAnswer: entry.numericAnswer ?? null,
           tolerance: entry.tolerance ?? null,
+          acceptedAnswers: entry.acceptedAnswers ?? [],
         },
         explanation: question?.solution ?? null,
         revisionChanged: question ? question.revision !== entry.revision : false,

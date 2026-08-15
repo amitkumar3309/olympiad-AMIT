@@ -25,3 +25,4 @@ export * from './Notification';
 export * from './Exam';
 export * from './Certificate';
 export * from './EmailOutbox';
+export * from './GenerationLog';

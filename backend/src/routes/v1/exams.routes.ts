@@ -87,6 +87,7 @@ async function inProgressView(attempt: ExamAttemptDocument, now = new Date()) {
         selectedOptionKeys: entry.selectedOptionKeys,
         numericResponse: entry.numericResponse ?? null,
         booleanResponse: entry.booleanResponse ?? null,
+        textResponse: entry.textResponse ?? null,
         answered: entry.answeredAt !== null && entry.answeredAt !== undefined,
         question: question ? studentQuestionView(question) : null,
       };

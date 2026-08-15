@@ -4,6 +4,10 @@ import { CLASS_LEVELS } from '../lib/classLevels';
 import { DIFFICULTIES, QUESTION_STATUSES, QUESTION_TYPES } from '../models/Question';
 import { validateMathContent } from '../lib/mathContent';
 import { QUESTION_SORT_KEYS } from '../services/questionService';
+// The grader's own normalisation, so an author is warned about exactly the collisions
+// the marking will actually produce — not a second, drifting definition of "the same".
+import { normalizeAnswerText } from '../services/grading';
+import { BLOOM_LEVELS, GENERATION_LANGUAGES } from '../lib/questionGeneratorTypes';
 
 /** A Mongo ObjectId as it arrives over HTTP. */
 const objectId = (label: string) =>
@@ -58,6 +62,15 @@ const questionContentShape = {
   booleanAnswer: z.boolean().nullish().default(null),
   numericAnswer: z.number().finite('The numeric answer must be a finite number').nullish().default(null),
   tolerance: z.number().min(0, 'Tolerance cannot be negative').finite().nullish().default(null),
+  /**
+   * `fill_blank` only. Validated as math content like any other author-written text —
+   * an accepted answer may legitimately be `$\\frac{1}{2}$`, and it is rendered to the
+   * student on review, so it reaches the same sinks the question text does.
+   */
+  acceptedAnswers: z
+    .array(mathText('Accepted answer', { max: 200 }))
+    .max(8, 'A fill-in-the-blank question may have at most 8 accepted answers')
+    .default([]),
   solution: mathText('Solution', { max: 8000 }).nullish().default(null),
   subject: objectId('Subject'),
   topic: objectId('Topic'),
@@ -82,6 +95,7 @@ type QuestionContentShape = {
   booleanAnswer?: boolean | null;
   numericAnswer?: number | null;
   tolerance?: number | null;
+  acceptedAnswers: string[];
   marks: number;
   negativeMarks: number;
 };
@@ -150,6 +164,37 @@ function refineQuestionAnswers(value: QuestionContentShape, ctx: z.RefinementCtx
     if (value.booleanAnswer !== null && value.booleanAnswer !== undefined) {
       at('booleanAnswer', 'A numeric question must not carry a true/false answer.');
     }
+  }
+
+  if (value.type === 'fill_blank') {
+    if (value.acceptedAnswers.length === 0) {
+      at('acceptedAnswers', 'Give at least one answer that counts as correct.');
+    }
+    if (value.options.length > 0) {
+      at('options', 'A fill-in-the-blank question must not carry options.');
+    }
+    if (value.booleanAnswer !== null && value.booleanAnswer !== undefined) {
+      at('booleanAnswer', 'A fill-in-the-blank question must not carry a true/false answer.');
+    }
+    if (value.numericAnswer !== null && value.numericAnswer !== undefined) {
+      at('numericAnswer', 'A fill-in-the-blank question must not carry a numeric answer.');
+    }
+    /**
+     * Two accepted answers that normalise to the same string are always an authoring
+     * slip ("12 cm" and "12 cm."), and they matter because the list is what a reviewer
+     * reads to understand what will be marked right. Checked with the **grader's own**
+     * `normalizeAnswerText`, so what the author is warned about is exactly what the
+     * marking will do.
+     */
+    const normalised = value.acceptedAnswers.map(normalizeAnswerText);
+    if (new Set(normalised).size !== normalised.length) {
+      at('acceptedAnswers', 'Two accepted answers are the same once spacing and capitalisation are ignored.');
+    }
+    if (normalised.some((answer) => answer.length === 0)) {
+      at('acceptedAnswers', 'An accepted answer cannot be blank.');
+    }
+  } else if (value.acceptedAnswers.length > 0) {
+    at('acceptedAnswers', 'Accepted answers only apply to a fill-in-the-blank question.');
   }
 
   if (value.type !== 'numeric' && value.tolerance !== null && value.tolerance !== undefined) {
@@ -233,11 +278,59 @@ export type ListQuestionsPublicQuery = z.infer<typeof listQuestionsPublicQuerySc
  * but it now has to name a real subject and topic — the bank no longer accepts a
  * free-text subject string. It writes drafts only; see admin.routes.ts.
  */
-export const generateQuestionsSchema = z.object({
+/**
+ * What the review screen sends back for approval.
+ *
+ * It is `createQuestionSchema` minus the taxonomy, which the approval request carries
+ * once for the whole batch — a reviewer approves a set of questions filed in one place,
+ * and letting each row name its own subject would let the client scatter them.
+ */
+export const approveQuestionsSchema = z.object({
   subject: objectId('Subject'),
   topic: objectId('Topic'),
   classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
   difficulty: z.enum(DIFFICULTIES).default('Medium'),
+  /** Publish straight away, or keep as a draft for a second pass. The reviewer decides. */
+  publish: z.boolean().default(false),
+  logId: z.string().nullish().default(null),
+  questions: z
+    .array(
+      z.object({
+        questionText: mathText('Question text'),
+        type: z.enum(QUESTION_TYPES),
+        options: z.array(optionSchema).max(8).default([]),
+        booleanAnswer: z.boolean().nullish().default(null),
+        numericAnswer: z.number().finite().nullish().default(null),
+        tolerance: z.number().min(0).finite().nullish().default(null),
+        acceptedAnswers: z.array(mathText('Accepted answer', { max: 200 })).max(8).default([]),
+        solution: mathText('Solution', { max: 8000 }).nullish().default(null),
+        marks: z.number().min(0.25).max(100),
+        negativeMarks: z.number().min(0).max(100).default(0),
+        tags,
+      }),
+    )
+    .min(1, 'Approve at least one question')
+    .max(20, 'Approve at most 20 questions at a time'),
+});
+export type ApproveQuestionsInput = z.infer<typeof approveQuestionsSchema>;
+
+export const generateQuestionsSchema = z.object({
+  subject: objectId('Subject'),
+  /**
+   * One or more chapters. The first is the one questions are filed under — a question
+   * belongs to exactly one topic in this bank, however many the prompt drew on.
+   */
+  chapters: z.array(objectId('Chapter')).min(1, 'Choose at least one chapter').max(6, 'Choose at most 6 chapters'),
+  classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
+  difficulty: z.enum(DIFFICULTIES).default('Medium'),
+  questionType: z.enum(QUESTION_TYPES).default('single_choice'),
+  language: z.enum(GENERATION_LANGUAGES).default('English'),
+  bloomLevel: z.enum(BLOOM_LEVELS).nullish().default(null),
+  marks: z.number().min(0.25).max(100).default(4),
+  negativeMarks: z.number().min(0).max(100).default(1),
+  optionCount: z.coerce.number().int().min(2, 'At least 2 options').max(8, 'At most 8 options').default(4),
+  /** Question text already on the review screen, so a regenerate does not repeat it. */
+  exclude: z.array(z.string().max(1000)).max(40).default([]),
   count: z.coerce.number().int('count must be a whole number').min(1, 'count must be at least 1').max(20, 'count cannot exceed 20'),
   /**
    * Optional steer for a model-backed generator ("focus on word problems").

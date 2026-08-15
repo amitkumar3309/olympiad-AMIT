@@ -179,6 +179,7 @@ export async function startExamAttempt(input: StartExamInput): Promise<StartExam
 export interface ExamAnswerInput {
   selectedOptionKeys?: string[];
   numericResponse?: number | null;
+  textResponse?: string | null;
   booleanResponse?: boolean | null;
 }
 
@@ -222,6 +223,10 @@ export function applyExamAnswer(
     entry.selectedOptionKeys = [...new Set(keys)];
   } else if (entry.type === 'true_false') {
     entry.booleanResponse = answer.booleanResponse ?? null;
+  } else if (entry.type === 'fill_blank') {
+    // Stored exactly as typed. Normalisation belongs to the grader, so what the
+    // student wrote stays readable on review — including when it was marked wrong.
+    entry.textResponse = answer.textResponse ?? null;
   } else {
     entry.numericResponse = answer.numericResponse ?? null;
   }

@@ -158,6 +158,8 @@ export const saveAttemptAnswerSchema = z.object({
   questionId: objectId,
   selectedOptionKeys: z.array(z.string().trim().min(1).max(4)).max(10).optional(),
   numericResponse: z.number().finite().nullable().optional(),
+  // Bounded: it is a blank to fill, not an essay box.
+  textResponse: z.string().trim().max(200).nullable().optional(),
   booleanResponse: z.boolean().nullable().optional(),
 });
 export type SaveAttemptAnswerInput = z.infer<typeof saveAttemptAnswerSchema>;

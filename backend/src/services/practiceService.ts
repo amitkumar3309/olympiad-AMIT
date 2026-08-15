@@ -207,6 +207,7 @@ function snapshotOf(question: QuestionDocument): PracticeQuestionEntry {
     booleanAnswer: question.booleanAnswer ?? null,
     numericAnswer: question.numericAnswer ?? null,
     tolerance: question.tolerance ?? null,
+    acceptedAnswers: [...(question.acceptedAnswers ?? [])],
     selectedOptionKeys: [],
     numericResponse: null,
     booleanResponse: null,
@@ -279,6 +280,7 @@ export async function startPracticeSession(input: StartPracticeInput): Promise<P
 export interface AnswerInput {
   selectedOptionKeys?: string[];
   numericResponse?: number | null;
+  textResponse?: string | null;
   booleanResponse?: boolean | null;
 }
 
@@ -319,6 +321,10 @@ export function applyAnswer(
     entry.selectedOptionKeys = [...new Set(keys)];
   } else if (entry.type === 'true_false') {
     entry.booleanResponse = answer.booleanResponse ?? null;
+  } else if (entry.type === 'fill_blank') {
+    // Stored exactly as typed. Normalisation belongs to the grader, so what the
+    // student wrote stays readable on review — including when it was marked wrong.
+    entry.textResponse = answer.textResponse ?? null;
   } else {
     entry.numericResponse = answer.numericResponse ?? null;
   }
@@ -407,6 +413,7 @@ export function sessionInProgressView(session: PracticeSessionDocument, question
         response: {
           selectedOptionKeys: entry.selectedOptionKeys,
           numericResponse: entry.numericResponse ?? null,
+          textResponse: entry.textResponse ?? null,
           booleanResponse: entry.booleanResponse ?? null,
           answered: isAnswered(entry),
         },
@@ -448,6 +455,7 @@ export function sessionReviewView(session: PracticeSessionDocument, questions: Q
         response: {
           selectedOptionKeys: entry.selectedOptionKeys,
           numericResponse: entry.numericResponse ?? null,
+          textResponse: entry.textResponse ?? null,
           booleanResponse: entry.booleanResponse ?? null,
           answered: isAnswered(entry),
         },
@@ -463,6 +471,7 @@ export function sessionReviewView(session: PracticeSessionDocument, questions: Q
           booleanAnswer: entry.booleanAnswer ?? null,
           numericAnswer: entry.numericAnswer ?? null,
           tolerance: entry.tolerance ?? null,
+          acceptedAnswers: entry.acceptedAnswers ?? [],
         },
         explanation: question?.solution ?? null,
         revisionChanged: question ? question.revision !== entry.revision : false,

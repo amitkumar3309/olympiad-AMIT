@@ -2,31 +2,31 @@ import type { Difficulty, QuestionType } from '../models';
 import type { ClassLevel } from './classLevels';
 
 /**
- * THE contract for a question generator (Milestone 17).
+ * THE contract for a question generator (Milestone 17, reworked in Milestone 18).
  *
- * The admin page has had a "generate questions" button since before Milestone 4, and
- * until now it filled a template string. This file is what an actual model plugs into.
+ * ## What changed in Milestone 18, and why it is the important change
  *
- * ## The safety property the whole design turns on
+ * Milestone 17 generated questions and **saved them immediately** as drafts. That was
+ * defensible — a draft is not visible to a student — but it meant the bank filled up
+ * with machine output nobody had read, and "delete the bad ones" was the reviewer's
+ * job rather than "keep the good ones".
+ *
+ * Now **nothing is persisted by generation at all**. `generate()` returns candidates,
+ * they are held in the reviewer's browser, and a separate, explicit approval call is
+ * the only thing that writes to the database. The template generator is gone with it:
+ * a blank placeholder was only ever useful as something to type into, and a reviewer
+ * who wants that can still create a question by hand.
+ *
+ * ## The safety property, unchanged and still the whole design
  *
  * **A generator produces a candidate. It does not produce a question.**
  *
- * Nothing here is trusted. Every candidate is parsed by `createQuestionSchema` — the
- * *identical* schema a human author's question goes through, including
- * `validateMathContent()` — and anything that fails is **rejected and reported**, never
- * repaired and never stored. Then it is written as a `draft`, because
- * `createQuestion()` has no other mode. So the worst a badly-behaved model can do is
- * waste a reviewer's time, which is a cost, not a hazard.
- *
- * ## Why a candidate cannot choose its own taxonomy
- *
- * `GeneratedCandidate` deliberately has **no** `subject`, `topic`, `classLevel` or
- * `difficulty` field. Those come from the validated request the administrator made and
- * are attached by the service afterwards. A model therefore cannot file a question
- * under a topic nobody asked for, or invent taxonomy that nothing else knows about —
- * the same failure Milestone 4 closed when it stopped the template generator accepting
- * a free-text subject. It is structural rather than checked, which is the same trick
- * `RecommendationDraft` uses to stop an engine describing itself.
+ * Every candidate is parsed by `createQuestionSchema` — the *identical* schema a human
+ * author's question goes through, including `validateMathContent()` — and anything
+ * that fails is **rejected and reported**, never repaired. The taxonomy is attached by
+ * the service from the reviewer's own request, so a model cannot file a question
+ * anywhere it was not asked to: `GeneratedCandidate` has no `subject`, `topic`,
+ * `classLevel` or `difficulty` field, and adding one would break that guarantee.
  */
 
 // ---------------------------------------------------------------------------
@@ -34,17 +34,53 @@ import type { ClassLevel } from './classLevels';
 // ---------------------------------------------------------------------------
 
 /**
- * Names rather than ids, because a model needs the words. The ids stay on the server
- * side of this boundary and are never sent anywhere.
+ * Bloom's taxonomy levels, ordered from recall to creation.
+ *
+ * Carried through to the prompt and stored as a tag rather than a first-class field:
+ * it describes the *intent* of a question, nothing in the product branches on it, and
+ * a stored field nothing reads is the shape of thing Milestone 15 deleted.
  */
+export const BLOOM_LEVELS = ['Remember', 'Understand', 'Apply', 'Analyse', 'Evaluate', 'Create'] as const;
+export type BloomLevel = (typeof BLOOM_LEVELS)[number];
+
+/** Languages the bank can be authored in. */
+export const GENERATION_LANGUAGES = ['English', 'Hindi', 'Hinglish'] as const;
+export type GenerationLanguage = (typeof GENERATION_LANGUAGES)[number];
+
+/** One chapter the questions may be drawn from, named for the prompt. */
+export interface ChapterRef {
+  id: string;
+  name: string;
+}
+
 export interface GenerationRequest {
   subjectName: string;
-  topicName: string;
+  /**
+   * One or more chapters. The generator is told to spread questions across them, and
+   * the service attaches whichever chapter id the reviewer picked as primary — a
+   * question belongs to exactly one topic in this bank.
+   */
+  chapters: ChapterRef[];
   classLevel: ClassLevel;
   difficulty: Difficulty;
   count: number;
-  /** Optional steer from the administrator ("focus on word problems"). May be null. */
+  /** The answer shape to produce. One per request, so the reviewer knows what to expect. */
+  questionType: QuestionType;
+  language: GenerationLanguage;
+  bloomLevel: BloomLevel | null;
+  /** Marks per question, and the deduction for a wrong answer. */
+  marks: number;
+  negativeMarks: number;
+  /** Options per MCQ. Ignored for the types that carry no options. */
+  optionCount: number;
   instructions: string | null;
+  /**
+   * Question text the model must not reproduce — what is already in the bank for this
+   * topic, plus anything already in the batch. This is how "unique and non-repetitive"
+   * is asked for; `services/questionGeneratorService.ts` enforces it afterwards, because
+   * an instruction is a request and a check is a guarantee.
+   */
+  avoid: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -55,9 +91,9 @@ export interface GenerationRequest {
  * One proposed question. Note what is absent: the taxonomy, the status, and any
  * identifier. A candidate is a suggestion about *content* and nothing else.
  *
- * `options` carries no `key` either — keys are assigned server-side, which is what
- * makes "the correct answer is option b" a fact about stored data rather than about
- * whatever order a model happened to emit.
+ * `options` carries no `key` — keys are assigned server-side, which is what makes "the
+ * correct answer is option b" a fact about stored data rather than about whatever order
+ * a model happened to emit.
  */
 export interface GeneratedCandidate {
   questionText: string;
@@ -66,6 +102,8 @@ export interface GeneratedCandidate {
   booleanAnswer: boolean | null;
   numericAnswer: number | null;
   tolerance: number | null;
+  /** `fill_blank` only: every spelling that counts as correct. */
+  acceptedAnswers: string[];
   solution: string | null;
   marks: number;
   negativeMarks: number;
@@ -76,12 +114,8 @@ export interface GeneratedCandidate {
 export interface GeneratorDescriptor {
   id: string;
   label: string;
-  /**
-   * `'template'` for string filling. `'model'` **only** when a real language model
-   * produced the text. The admin page prints this, and the audit trail records it, so
-   * "was this question written by a machine?" stays answerable years later.
-   */
-  kind: 'template' | 'model';
+  /** `'model'` only when a real language model produced the text. */
+  kind: 'model';
   /** One sentence the UI shows verbatim. */
   basis: string;
 }
@@ -90,24 +124,23 @@ export interface GeneratorDescriptor {
 // The seam
 // ---------------------------------------------------------------------------
 
+/**
+ * The interface an alternative provider implements.
+ *
+ * Adding OpenAI or Claude is: implement this, `registerQuestionGenerator(yours)`, set
+ * `QUESTION_GENERATOR` to its id. Nothing about the routes, the validation, the review
+ * screen or the approval path changes — they all speak `GeneratedCandidate`, which is
+ * provider-agnostic by construction.
+ */
 export interface QuestionGenerator {
   readonly descriptor: GeneratorDescriptor;
-  /**
-   * False when the generator cannot run — typically an unconfigured API key.
-   *
-   * Checked *before* use so an unconfigured provider is a clean fallback to the
-   * template generator rather than an error the administrator has to interpret. This
-   * is what keeps the product working with no credentials at all.
-   */
+  /** False when the provider is unconfigured. Checked before use, reported clearly. */
   isAvailable(): boolean;
-  /**
-   * May throw. The service catches, reports the provider's own message, and falls back
-   * to the template generator, so a dead quota costs a nicer button, not the feature.
-   */
+  /** May throw; the caller reports the provider's own message rather than swallowing it. */
   generate(request: GenerationRequest): Promise<GeneratedCandidate[]>;
 }
 
-/** Why a candidate was thrown away. Reported to the administrator, never swallowed. */
+/** Why a candidate was thrown away. Reported to the reviewer, never swallowed. */
 export interface RejectedCandidate {
   index: number;
   reason: string;

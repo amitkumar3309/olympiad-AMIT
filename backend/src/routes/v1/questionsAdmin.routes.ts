@@ -62,6 +62,7 @@ function adminQuestionView(question: QuestionDocument) {
     booleanAnswer: question.booleanAnswer ?? null,
     numericAnswer: question.numericAnswer ?? null,
     tolerance: question.tolerance ?? null,
+    acceptedAnswers: question.acceptedAnswers ?? [],
     solution: question.solution ?? null,
     subject: refView(question.subject),
     topic: refView(question.topic),

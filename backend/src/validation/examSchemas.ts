@@ -159,11 +159,16 @@ export const examAnswerSchema = z
   .object({
     selectedOptionKeys: z.array(z.string().trim().min(1).max(8)).max(10).optional(),
     numericResponse: z.number().finite().nullable().optional(),
+    // Bounded: it is a blank to fill, not an essay box.
+    textResponse: z.string().trim().max(200).nullable().optional(),
     booleanResponse: z.boolean().nullable().optional(),
   })
   .refine(
     (body) =>
-      body.selectedOptionKeys !== undefined || body.numericResponse !== undefined || body.booleanResponse !== undefined,
+      body.selectedOptionKeys !== undefined ||
+      body.numericResponse !== undefined ||
+      body.booleanResponse !== undefined ||
+      body.textResponse !== undefined,
     'Send an answer for this question',
   );
 export type ExamAnswerBody = z.infer<typeof examAnswerSchema>;

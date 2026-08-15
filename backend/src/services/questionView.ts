@@ -11,7 +11,12 @@ import type { QuestionDocument } from '../models';
  *
  *  - `isCorrect` on each option (options keep only `key` and `text`),
  *  - `booleanAnswer` / `numericAnswer` / `tolerance`,
+ *  - `acceptedAnswers` (the `fill_blank` key, Milestone 18),
  *  - `solution`.
+ *
+ * Being an **allow-list** is what made the Milestone 18 question type safe for free:
+ * `acceptedAnswers` was added to the model and was never at risk of appearing here,
+ * because a new field has to be named to be served. A deny-list would have leaked it.
  *
  * Adding a field here is therefore a deliberate act. Tests assert none of those
  * names appears in any student-facing response body.

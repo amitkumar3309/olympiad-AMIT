@@ -19,6 +19,16 @@ export const QUESTION_TYPES = [
   'true_false',
   /** Answered by `numericAnswer`, optionally within `tolerance`. No options. */
   'numeric',
+  /**
+   * Fill in the blank: answered by free text, marked against `acceptedAnswers`
+   * (Milestone 18). No options.
+   *
+   * It is auto-gradable, which is why it exists and why **short answer does not**.
+   * Comparison is a normalised string match through the one grader — every accepted
+   * spelling has to be listed by the author, so what counts as right is data a human
+   * can read and correct rather than a judgement made at marking time.
+   */
+  'fill_blank',
 ] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
@@ -57,6 +67,15 @@ export interface QuestionDocument extends Document {
   numericAnswer?: number | null;
   /** `numeric` only: absolute tolerance. 0 means an exact match is required. */
   tolerance?: number | null;
+  /**
+   * `fill_blank` only: every spelling that counts as correct, first one canonical.
+   *
+   * A list rather than a single string because "12 cm", "12cm" and "twelve cm" are the
+   * same answer to a human and three different strings to a computer. Matching is
+   * normalised (see `normalizeAnswerText` in `services/grading.ts`), so an author lists
+   * *meaningfully* different answers rather than every capitalisation.
+   */
+  acceptedAnswers: string[];
   /** Worked explanation. Required before a question may be published. */
   solution?: string | null;
   subject: Types.ObjectId;
@@ -111,6 +130,7 @@ const questionSchema = new Schema<QuestionDocument>(
     booleanAnswer: { type: Boolean, default: null },
     numericAnswer: { type: Number, default: null },
     tolerance: { type: Number, default: null, min: 0 },
+    acceptedAnswers: { type: [String], default: [] },
     solution: { type: String, default: null, trim: true, maxlength: 8000 },
     subject: { type: Schema.Types.ObjectId, ref: 'Subject', required: true, index: true },
     topic: { type: Schema.Types.ObjectId, ref: 'Topic', required: true, index: true },

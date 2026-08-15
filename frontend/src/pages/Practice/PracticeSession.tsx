@@ -356,6 +356,26 @@ export default function PracticeSessionPage() {
             </div>
           )}
 
+          {/* --- Fill in the blank (Milestone 18) --- */}
+          {question.type === 'fill_blank' && (
+            <div className={styles.numericRow}>
+              <label htmlFor="text-answer">Your answer</label>
+              <input
+                id="text-answer"
+                className="form-control"
+                type="text"
+                maxLength={200}
+                autoComplete="off"
+                placeholder="Type your answer"
+                value={question.response.textResponse ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  void saveAnswer(question, { textResponse: raw === '' ? null : raw })
+                }}
+              />
+            </div>
+          )}
+
           {saveError && <p className="error-text">{saveError}</p>}
 
           <div className={styles.navRow}>
@@ -423,6 +443,8 @@ function ReviewQuestion({ entry }: { entry: PracticeReviewQuestion }) {
       const value = String(entry.correctAnswer.numericAnswer ?? '—')
       return tolerance && tolerance > 0 ? `${value} (± ${tolerance})` : value
     }
+    // Every accepted spelling, so a student marked wrong can see what would have counted.
+    if (entry.type === 'fill_blank') return (entry.correctAnswer.acceptedAnswers ?? []).join(' or ')
     return entry.correctAnswer.optionKeys.map((key) => key.toUpperCase()).join(', ')
   }
 
@@ -430,6 +452,7 @@ function ReviewQuestion({ entry }: { entry: PracticeReviewQuestion }) {
     if (!entry.response.answered) return '—'
     if (entry.type === 'true_false') return entry.response.booleanResponse ? 'True' : 'False'
     if (entry.type === 'numeric') return String(entry.response.numericResponse)
+    if (entry.type === 'fill_blank') return entry.response.textResponse ?? '—'
     return entry.response.selectedOptionKeys.map((key) => key.toUpperCase()).join(', ')
   }
 

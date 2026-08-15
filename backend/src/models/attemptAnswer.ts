@@ -51,12 +51,16 @@ export interface AttemptAnswerEntry {
   booleanAnswer?: boolean | null;
   numericAnswer?: number | null;
   tolerance?: number | null;
+  /** `fill_blank` only: every accepted spelling, snapshotted like the rest of the key. */
+  acceptedAnswers: string[];
 
   // --- The student's response. ---
   /** Chosen option keys. Always an array, so `multiple_choice` needs no special case. */
   selectedOptionKeys: string[];
   numericResponse?: number | null;
   booleanResponse?: boolean | null;
+  /** `fill_blank` only: what the student typed, stored verbatim. */
+  textResponse?: string | null;
   answeredAt?: Date | null;
 
   // --- Grading outcome, written once at submission. ---
@@ -84,10 +88,14 @@ export const attemptAnswerSchema = new Schema<AttemptAnswerEntry>(
     booleanAnswer: { type: Boolean, default: null },
     numericAnswer: { type: Number, default: null },
     tolerance: { type: Number, default: null, min: 0 },
+    acceptedAnswers: { type: [String], default: [] },
 
     selectedOptionKeys: { type: [String], default: [] },
     numericResponse: { type: Number, default: null },
     booleanResponse: { type: Boolean, default: null },
+    // Stored verbatim, not normalised: what the student actually typed is the record,
+    // and normalisation is the grader's business rather than the store's.
+    textResponse: { type: String, default: null },
     answeredAt: { type: Date, default: null },
 
     isCorrect: { type: Boolean, default: null },

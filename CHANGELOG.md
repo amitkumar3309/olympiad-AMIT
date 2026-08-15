@@ -2,6 +2,40 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-15 - Milestone 18: Generated questions need a human before they exist
+
+Milestone 17 asked Gemini for questions and **saved them straight away** as drafts. Defensible - a draft is not student-visible - and the wrong default: the bank filled with machine output nobody had read, and the reviewer's job quietly became "delete the bad ones" instead of "keep the good ones".
+
+### Nothing is saved until it is approved
+
+Generation now returns candidates and writes **no question at all**. They live in the reviewer's browser; a separate, explicit approval call is the only thing that writes. Tests assert the question collection is still empty after generating, which is the property that would otherwise regress silently back into "saved as a draft".
+
+Approval **re-validates from scratch**. That is not belt-and-braces: the review screen is a client, it can send anything, and the examiner has been editing. A test posts a candidate broken by the "edit" and asserts it is refused.
+
+The blank-template generator is **deleted**, fallback included. A placeholder is only useful as something to type into, and keeping it as a fallback meant a spent quota silently produced filler where an examiner expected questions. An unconfigured key now says so (503, naming the variable); a failed provider reports its own words (502, "Quota exceeded...").
+
+### The full configuration the spec asked for
+
+Class, subject, **multiple chapters**, difficulty, question type, **Bloom's level**, **language** (English / Hindi / Hinglish), marks, negative marks, **option count**, and free-text instructions - all reaching the prompt, all asserted by a test. The review screen offers edit, **regenerate one**, **regenerate all**, delete, then *Approve as drafts* or *Approve & publish*.
+
+### Fill in the blanks, and why short answer is absent
+
+A fifth question type, `fill_blank`, marked against author-listed accepted answers with normalisation that forgives capitalisation, spacing and a trailing full stop - and nothing else. No fuzzy matching: a grader that guesses can silently mark a wrong answer right.
+
+**Short answer was deliberately not added.** It cannot be auto-graded, and the only two ways to make it work were a human marking queue (a large feature that changes what a submitted attempt means everywhere) or sending a child's written answer to a model (reversing the privacy line drawn in Milestones 16 and 17). See the ADR.
+
+Adding one type touched the model, validation, the grader, the shared attempt subdocument, **three** snapshot builders, four answer-application paths and every review view. The compiler found them all only because the new key field is non-optional - an optional one would have been missed in two of three builders and produced wrong marks. That near-miss is now a recorded follow-up.
+
+### Duplicate detection, and a log
+
+Candidates are refused when they are 80% or more word-overlap with something already in the chapter or with another candidate in the batch - Jaccard over significant words rather than edit distance, because the failure mode is *rewording with new numbers*, which edit distance scores as far apart. A test pins that a renumbered train-speed question is caught and an unrelated one is not.
+
+A new `GenerationLog` records what was asked, what came back, how many were rejected and why, how long it took, and the provider's error on failure. Counts and parameters only - never question text.
+
+### Verified by 21 new tests (796 total, 24 files)
+
+Nothing touches the network. One pre-existing RBAC test caught a real contract change and now documents it: the audit entry moved to **approval**, because proposing changes nothing and an audit trail full of work that was thrown away is worse than no entry.
+
 ## 2026-08-15 — Milestone 17: AI question drafting
 
 The admin "generate questions" button has existed since before Milestone 4. It filled a template string, and the page said so, because calling it AI would have been a lie. It can now be backed by Google Gemini.

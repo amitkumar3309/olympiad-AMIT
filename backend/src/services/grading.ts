@@ -18,6 +18,28 @@ import type { AttemptAnswerEntry } from '../models';
  * with (see CLAUDE.md, "The answer key must never reach the client").
  */
 
+/**
+ * How a `fill_blank` answer is compared. **The only definition of it**, exported so the
+ * authoring layer can warn about accepted answers that collide under it.
+ *
+ * Deliberately conservative: it forgives the things that are never the point of a maths
+ * question — capitalisation, stray whitespace, a trailing full stop — and forgives
+ * nothing else. It does **not** attempt spelling correction or synonyms, because a
+ * grader that guesses is a grader that can silently mark a wrong answer right, and an
+ * author who wants "twelve" to count writes it in `acceptedAnswers` where a human can
+ * see it.
+ */
+export function normalizeAnswerText(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    // Any run of whitespace becomes one space: "12  cm" and "12 cm" are one answer.
+    .replace(/\s+/gu, ' ')
+    // A trailing sentence full stop only. An internal one is a decimal point and must
+    // survive — stripping it would make "3.5" and "35" the same answer.
+    .replace(/\.$/u, '');
+}
+
 /** True when the student has actually given a response of the right shape. */
 export function isAnswered(entry: AttemptAnswerEntry): boolean {
   switch (entry.type) {
@@ -28,6 +50,10 @@ export function isAnswered(entry: AttemptAnswerEntry): boolean {
       return entry.booleanResponse !== null && entry.booleanResponse !== undefined;
     case 'numeric':
       return entry.numericResponse !== null && entry.numericResponse !== undefined;
+    case 'fill_blank':
+      // Whitespace only is not an answer. Normalising first means a response of "   "
+      // counts as blank rather than as a wrong answer, so it is never penalised.
+      return typeof entry.textResponse === 'string' && normalizeAnswerText(entry.textResponse).length > 0;
   }
 }
 
@@ -84,6 +110,13 @@ export function gradeEntry(entry: AttemptAnswerEntry): GradeOutcome {
       } else {
         isCorrect = Math.abs(given - expected) <= (entry.tolerance ?? 0);
       }
+      break;
+    }
+    case 'fill_blank': {
+      // Normalised on both sides, so the comparison is symmetric — an author who typed
+      // a trailing space into the answer key is not marking every student wrong.
+      const given = normalizeAnswerText(entry.textResponse ?? '');
+      isCorrect = entry.acceptedAnswers.some((accepted) => normalizeAnswerText(accepted) === given);
       break;
     }
   }

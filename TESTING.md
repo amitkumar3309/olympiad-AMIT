@@ -1,12 +1,12 @@
 # TESTING.md
 
-_Last updated: 2026-08-15 (Milestone 17 — AI question drafting)._
+_Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
-The backend has a working test suite: **795 passing tests across 24 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **796 passing tests across 24 files** (`backend/tests/`). The frontend still has **no test suite**.
 
-**`tests/questionGenerator.test.ts` — 20 tests, the Milestone 17 suite.** Its organising idea: **a generator is never trusted, so most of the file feeds the pipeline output a real model could plausibly produce and asserts it is refused** — a `\href` smuggled into LaTeX, `<script>` in question text, a single-choice question with two correct options, a numeric question carrying options, 40 questions when 2 were asked for, and a model trying to set its own subject, class and `status: 'published'`.
+**`tests/questionGenerator.test.ts` — 21 tests, the Milestone 17 suite, rewritten for Milestone 18.** Several tests now assert the question collection is **empty** after generating — the property the review-before-approval design exists for, and the one that would regress silently back into "saved as a draft". Its organising idea: **a generator is never trusted, so most of the file feeds the pipeline output a real model could plausibly produce and asserts it is refused** — a `\href` smuggled into LaTeX, `<script>` in question text, a single-choice question with two correct options, a numeric question carrying options, 40 questions when 2 were asked for, and a model trying to set its own subject, class and `status: 'published'`.
 
 Nothing touches the network. `setGeminiTransport()` is a test-only hook — it throws outside the test environment, and one test asserts that — and it is what makes the failure paths testable at all:
 
@@ -15,7 +15,7 @@ setGeminiTransport(() => Promise.resolve(new Response(
   JSON.stringify({ error: { message: 'Quota exceeded...' } }), { status: 429 })))
 ```
 
-Three properties get the most attention: **the taxonomy comes from the request** (a model's chosen subject/class/status is ignored and the request's values are stored), **no student data is sent** (the request body is asserted not to contain an email, an `AMIT_` id or a mobile number), and **a failure falls back rather than failing** (quota, prose-instead-of-JSON, and an unreachable network each still produce the drafts that were asked for, attributed to templates).
+Three properties get the most attention: **the taxonomy comes from the request** (a model's chosen subject/class/status is ignored and the request's values are stored), **no student data is sent** (the request body is asserted not to contain an email, an `AMIT_` id or a mobile number), and **a failure is reported rather than papered over** (quota, prose-instead-of-JSON and an unreachable network each produce a 502 carrying the provider's own words, and **save nothing** — Milestone 18 deleted the template fallback, because filler where an examiner expected questions is worse than an error).
 
 **`tests/recommendations.test.ts` — 36 tests, the Milestone 16 suite.** It inherits the Milestone 15 organising idea and sharpens it: **a test that only asserts a recommendation was produced would pass just as happily against a fabricated one**, so a large share of this file asserts that a finding is *not* produced.
 

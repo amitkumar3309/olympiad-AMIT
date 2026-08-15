@@ -479,27 +479,51 @@ describe('administrative audit trail', () => {
     expect(entry!.metadata).toMatchObject({ from: 'active', to: 'suspended' });
   });
 
-  it('records question generation', async () => {
+  it('records question generation when the questions are approved, not when they are proposed', async () => {
     const { cookies } = await createAdminSession(app);
-    // The generator now has to name a real subject and topic — it can no longer
-    // invent free-text taxonomy (Milestone 4).
+    // The generator has to name a real subject and chapter — it cannot invent
+    // free-text taxonomy (Milestone 4).
     const taxonomy = await createTaxonomy(app, cookies, { subject: 'Geometry', topic: 'Circles' });
 
-    await request(app)
-      .post(`${API}/admin/generate-questions`)
+    /**
+     * Milestone 18 split this into propose-then-approve, and the audit entry moved to
+     * the second half deliberately: **proposing changes nothing.** It reads a model and
+     * saves no question, so recording it as an administrative act would fill the trail
+     * with entries for work that was looked at and thrown away. The approval is the act
+     * that alters the bank, and that is what the trail is for.
+     */
+    const approval = await request(app)
+      .post(`${API}/admin/generate-questions/approve`)
       .set('Cookie', cookieHeader(cookies))
       .send({
         classLevel: 'Class 9',
         subject: taxonomy.subjectId,
         topic: taxonomy.topicId,
         difficulty: 'Hard',
-        count: 2,
+        questions: [
+          {
+            questionText: 'How many diagonals does a regular hexagon have?',
+            type: 'single_choice',
+            options: [
+              { text: '$9$', isCorrect: true },
+              { text: '$6$', isCorrect: false },
+              { text: '$12$', isCorrect: false },
+            ],
+            solution: 'A polygon with $n$ sides has $n(n-3)/2$ diagonals, so $6 \\cdot 3 / 2 = 9$.',
+            marks: 4,
+            negativeMarks: 1,
+          },
+        ],
       })
       .expect(201);
 
+    expect(approval.body.questions).toHaveLength(1);
+
     const entry = await AuditLog.findOne({ action: 'questions.generated' });
     expect(entry).not.toBeNull();
-    expect(entry!.metadata).toMatchObject({ subject: taxonomy.subjectId, topic: taxonomy.topicId, count: 2 });
+    // `count` keeps its historical name across the rewrite: the trail is append-only
+    // and has no TTL, so renaming a key splits every query over it.
+    expect(entry!.metadata).toMatchObject({ subject: taxonomy.subjectId, topic: taxonomy.topicId, count: 1, created: 1 });
   });
 
   it('records an administrative sign-in', async () => {

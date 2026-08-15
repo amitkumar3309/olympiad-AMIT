@@ -152,6 +152,7 @@ export interface QuestionContentInput {
   booleanAnswer: boolean | null;
   numericAnswer: number | null;
   tolerance: number | null;
+  acceptedAnswers: string[];
   solution: string | null;
   subject: string;
   topic: string;
@@ -240,6 +241,7 @@ export function toQuestionContent(input: ValidatedQuestionContent): QuestionCont
     booleanAnswer: input.booleanAnswer ?? null,
     numericAnswer: input.numericAnswer ?? null,
     tolerance: input.tolerance ?? null,
+    acceptedAnswers: input.acceptedAnswers ?? [],
     solution: input.solution ?? null,
     subject: input.subject,
     topic: input.topic,
@@ -286,6 +288,7 @@ export async function createQuestion(input: QuestionContentInput, actor: Actor):
     booleanAnswer: input.booleanAnswer,
     numericAnswer: input.numericAnswer,
     tolerance: input.tolerance,
+    acceptedAnswers: input.acceptedAnswers,
     solution: input.solution,
     ...taxonomy,
     classLevel: input.classLevel,
@@ -317,6 +320,7 @@ export async function updateQuestion(id: string, input: QuestionContentInput, ac
   question.booleanAnswer = input.booleanAnswer;
   question.numericAnswer = input.numericAnswer;
   question.tolerance = input.tolerance;
+  question.acceptedAnswers = input.acceptedAnswers;
   question.solution = input.solution;
   question.subject = taxonomy.subject;
   question.topic = taxonomy.topic;

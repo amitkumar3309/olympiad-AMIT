@@ -32,4 +32,22 @@ export class ApiError extends Error {
   static internal(message = 'Internal server error'): ApiError {
     return new ApiError(500, message);
   }
+
+  /**
+   * An upstream provider failed. Distinct from 500 on purpose: this backend is working,
+   * something it depends on is not, and the caller's retry has a real chance of
+   * succeeding where a retry against a genuine 500 usually does not.
+   */
+  static badGateway(message: string): ApiError {
+    return new ApiError(502, message);
+  }
+
+  /**
+   * A capability this deployment has not been configured for — an unset API key rather
+   * than a broken request. 503 rather than 500 because nothing is wrong with the code
+   * or the request, and rather than 400 because the caller did nothing incorrect.
+   */
+  static serviceUnavailable(message: string): ApiError {
+    return new ApiError(503, message);
+  }
 }

@@ -412,14 +412,16 @@ export interface RecommendationsResponse {
 export interface QuestionGeneratorDescriptor {
   id: string
   label: string
-  kind: 'template' | 'model'
+  kind: 'model'
   basis: string
 }
 
 export interface QuestionGeneratorStatus {
   generator: QuestionGeneratorDescriptor
   available: boolean
-  alternatives: Array<QuestionGeneratorDescriptor & { available: boolean }>
+  bloomLevels: BloomLevel[]
+  languages: GenerationLanguage[]
+  providers: Array<QuestionGeneratorDescriptor & { available: boolean }>
 }
 
 /** A candidate the server refused, with the rule it broke. Shown, never hidden. */
@@ -435,13 +437,50 @@ export interface GeneratedDraft {
   status: string
 }
 
+/** Bloom's taxonomy levels the prompt understands. Supplied by the backend. */
+export type BloomLevel = 'Remember' | 'Understand' | 'Apply' | 'Analyse' | 'Evaluate' | 'Create'
+export type GenerationLanguage = 'English' | 'Hindi' | 'Hinglish'
+
+/**
+ * One question the model proposed. **Not saved** — it exists only in the review screen
+ * until the examiner approves it, which is the whole point of Milestone 18.
+ *
+ * `clientId` is a batch-local key, not a database id, because there is no database row
+ * to have an id yet.
+ */
+export interface ProposedQuestion {
+  clientId: string
+  topic: string
+  questionText: string
+  type: QuestionType
+  options: Array<{ text: string; isCorrect: boolean }>
+  booleanAnswer: boolean | null
+  numericAnswer: number | null
+  tolerance: number | null
+  acceptedAnswers: string[]
+  solution: string | null
+  marks: number
+  negativeMarks: number
+  tags: string[]
+}
+
 export interface GenerateQuestionsResponse {
-  message: string
   generator: QuestionGeneratorDescriptor
-  requested: number
+  questions: ProposedQuestion[]
+  /** Failed the same validation a hand-written question faces. */
   rejected: RejectedCandidate[]
-  notes: string[]
+  /** Refused as too close to something already in the bank, or to another candidate. */
+  duplicates: RejectedCandidate[]
+  requested: number
+  logId: string | null
+}
+
+export interface ApproveQuestionsResponse {
+  message: string
   questions: GeneratedDraft[]
+  rejected: RejectedCandidate[]
+  published: number
+  publishFailures: Array<{ id: string; reason: string }>
 }
 
 /** One question's measured performance, for the admin console. */
@@ -504,7 +543,7 @@ export interface TestPerformanceResponse {
 // ---------------------------------------------------------------------------
 
 /** Mirrors `QUESTION_TYPES` in `backend/src/models/Question.ts`. */
-export const QUESTION_TYPES = ['single_choice', 'multiple_choice', 'true_false', 'numeric'] as const
+export const QUESTION_TYPES = ['single_choice', 'multiple_choice', 'true_false', 'numeric', 'fill_blank'] as const
 export type QuestionType = (typeof QUESTION_TYPES)[number]
 
 /** Mirrors `QUESTION_STATUSES`. `draft` → `in_review` → `published`, plus `archived`. */
@@ -523,6 +562,7 @@ export const QUESTION_TYPE_LABELS: Record<QuestionType, string> = {
   multiple_choice: 'Multiple choice',
   true_false: 'True / false',
   numeric: 'Numeric answer',
+  fill_blank: 'Fill in the blank',
 }
 
 export const QUESTION_STATUS_LABELS: Record<QuestionStatus, string> = {
@@ -994,6 +1034,8 @@ export type PracticeStatus = 'in_progress' | 'submitted' | 'abandoned'
 export interface PracticeResponse {
   selectedOptionKeys: string[]
   numericResponse: number | null
+  /** `fill_blank` only: what the student typed, verbatim. */
+  textResponse?: string | null
   booleanResponse: boolean | null
   answered: boolean
 }
@@ -1015,6 +1057,7 @@ export interface PracticeReviewQuestion extends PracticeQuestion {
     booleanAnswer: boolean | null
     numericAnswer: number | null
     tolerance: number | null
+    acceptedAnswers?: string[]
   }
   explanation: string | null
   /** The question has been edited since it was served. */
@@ -1144,6 +1187,8 @@ export interface DailyChallengeResult {
   response: {
     selectedOptionKeys: string[]
     numericResponse: number | null
+    /** `fill_blank` only: what the student typed, verbatim. */
+    textResponse?: string | null
     booleanResponse: boolean | null
   }
   correctAnswer: {
@@ -1151,6 +1196,7 @@ export interface DailyChallengeResult {
     booleanAnswer: boolean | null
     numericAnswer: number | null
     tolerance: number | null
+    acceptedAnswers?: string[]
   }
   explanation: string | null
   /** The question has been edited since it was answered. */
@@ -1327,6 +1373,8 @@ export interface MockTestListResponse {
 export interface MockAttemptResponse {
   selectedOptionKeys: string[]
   numericResponse: number | null
+  /** `fill_blank` only: what the student typed, verbatim. */
+  textResponse?: string | null
   booleanResponse: boolean | null
   answered: boolean
 }
@@ -1348,6 +1396,7 @@ export interface MockReviewQuestion extends MockAttemptQuestion {
     booleanAnswer: boolean | null
     numericAnswer: number | null
     tolerance: number | null
+    acceptedAnswers?: string[]
   }
   explanation: string | null
   /** The question has been edited since it was served. */
@@ -1873,6 +1922,8 @@ export interface ExamPaperQuestion {
   negativeMarks: number
   selectedOptionKeys: string[]
   numericResponse: number | null
+  /** `fill_blank` only: what the student typed, verbatim. */
+  textResponse?: string | null
   booleanResponse: boolean | null
   answered: boolean
   question: StudentQuestion | null
