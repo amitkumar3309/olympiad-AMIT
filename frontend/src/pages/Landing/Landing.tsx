@@ -6,7 +6,6 @@ import Button from '../../components/Button'
 import { useAuth, ApiError } from '../../context/AuthContext'
 import { api } from '../../api/client'
 import { CLASS_LEVELS, type ClassLevel, type LeaderboardRow, type PublicStats } from '../../api/types'
-import qrCode from '../../assets/my_qr.png'
 import styles from './Landing.module.css'
 
 /**
@@ -340,7 +339,7 @@ export default function Landing() {
         <div className={`card ${styles.wizardCard}`}>
           <div className={styles.steps}>
             <span className={step === 'details' ? styles.stepActive : styles.stepDone}>1. Details</span>
-            <span className={step === 'payment' ? styles.stepActive : step === 'success' ? styles.stepDone : ''}>2. Payment</span>
+            <span className={step === 'payment' ? styles.stepActive : step === 'success' ? styles.stepDone : ''}>2. Confirm</span>
             <span className={step === 'success' ? styles.stepActive : ''}>3. Verify Email</span>
           </div>
 
@@ -515,14 +514,32 @@ export default function Landing() {
             </form>
           )}
 
+          {/*
+            The entry fee is NOT collected here, and the QR code that used to sit on this
+            step is gone (Milestone 19).
+
+            It could not be made real: at this point there is no account and no session,
+            and a Razorpay order has to be recorded against a student — that is what makes
+            the entitlement work and what stops one person's payment entitling another.
+            Registration also deliberately issues no session until the email is verified.
+
+            What was here before was worse than nothing: a static QR and an "I've Paid"
+            button that recorded no payment, verified nothing, and created the account
+            regardless. It told every student something untrue.
+          */}
           {step === 'payment' && (
             <div className={styles.center}>
-              <h2>Scan &amp; Pay Registration Fee</h2>
-              <div className={styles.qrBox}>
-                <img src={qrCode} alt="Payment QR code" />
-              </div>
+              <h2>One last thing</h2>
+              <p className={styles.payNote}>
+                Creating your account is <strong>free</strong>. Practice, mock tests, the daily challenge and your
+                performance analytics are all included at no cost.
+              </p>
+              <p className={styles.payNote}>
+                The <strong>Olympiad entry fee</strong> is paid separately once your account is active — by UPI, card,
+                net banking or wallet. You will see it on your dashboard after you verify your email.
+              </p>
               <Button onClick={handlePaymentConfirm} disabled={submitting} fullWidth>
-                {submitting ? 'Creating your account...' : "I've Paid — Create My Account ➔"}
+                {submitting ? 'Creating your account...' : 'Create My Account ➔'}
               </Button>
               <Button type="button" variant="ghost" fullWidth onClick={() => setStep('details')}>
                 Back to details
