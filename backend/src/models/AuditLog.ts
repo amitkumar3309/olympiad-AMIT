@@ -76,6 +76,8 @@ export const AUDIT_ACTIONS = [
    * history) is worth being able to demonstrate from the trail.
    */
   'reward.settings.updated',
+  /** The entry fee changed, or the paid gate was switched on or off (Milestone 19). */
+  'payment.settings.updated',
   /** A gallery photo was uploaded, edited or removed. Recorded because this is the
    *  one authoring surface whose output is published to the open internet. */
   'gallery.changed',

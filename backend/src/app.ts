@@ -40,7 +40,25 @@ export function createApp() {
   // Mounted first so it wins for these paths; body-parser marks the request as
   // read, so the general parser below then skips it.
   app.use(PHOTO_UPLOAD_PATHS, express.json({ limit: MAX_PHOTO_BODY_BYTES }));
-  app.use(express.json());
+  /**
+   * The default parser, with a copy of the raw bytes kept for webhook verification.
+   *
+   * Razorpay signs the **exact body it sent**. `JSON.parse` followed by
+   * `JSON.stringify` does not reproduce those bytes — key order, whitespace and unicode
+   * escaping all differ — so a signature checked against a re-serialised object fails
+   * for legitimate webhooks. The predictable "fix" for that is to stop verifying, which
+   * is why the raw copy is taken here rather than left to the route.
+   *
+   * `verify` runs on every request, so the cost is one Buffer reference per call; only
+   * the webhook route ever reads it.
+   */
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        (req as express.Request & { rawBody?: string }).rawBody = buf.toString('utf8');
+      },
+    }),
+  );
   app.use(cookieParser());
 
   // Mounted before the rate limiter so uptime/monitoring probes are never throttled.

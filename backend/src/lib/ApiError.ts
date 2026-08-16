@@ -34,6 +34,16 @@ export class ApiError extends Error {
   }
 
   /**
+   * The request is understood and the caller is authenticated, but an entitlement has
+   * not been bought. Distinct from 403 deliberately: 403 means "not for you", while
+   * this means "not yet, and here is something you can do about it" — which the
+   * frontend needs to tell apart in order to show a pay button instead of an error.
+   */
+  static paymentRequired(message: string): ApiError {
+    return new ApiError(402, message);
+  }
+
+  /**
    * An upstream provider failed. Distinct from 500 on purpose: this backend is working,
    * something it depends on is not, and the caller's retry has a real chance of
    * succeeding where a retry against a genuine 500 usually does not.

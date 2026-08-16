@@ -21,6 +21,7 @@ import taxonomyRoutes from './taxonomy.routes';
 import adminRoutes from './admin.routes';
 import usersRoutes from './users.routes';
 import miscRoutes from './misc.routes';
+import paymentRoutes from './payments.routes';
 
 const router = Router();
 
@@ -47,6 +48,7 @@ router.use(questionsAdminRoutes);
 router.use(taxonomyRoutes);
 router.use(adminRoutes);
 router.use(usersRoutes);
+router.use(paymentRoutes);
 router.use(miscRoutes);
 
 export default router;

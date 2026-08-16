@@ -132,6 +132,30 @@ const envSchema = z.object({
    * it the only step needed to turn it off. Set an explicit id to pin one.
    */
   QUESTION_GENERATOR: z.string().min(1).default('auto'),
+
+  // --- Payments (Milestone 19) ---
+  /**
+   * Razorpay credentials. **Only these two, plus the webhook secret, are env vars** —
+   * the fee amount is business configuration and lives in an admin-editable settings
+   * document, not here, so changing a price is not a redeploy.
+   *
+   * `RAZORPAY_KEY_ID` is public by design (the browser needs it to open the checkout)
+   * but is still served from the backend rather than built into the frontend bundle,
+   * so the two can never drift apart. `RAZORPAY_KEY_SECRET` must never leave this
+   * process.
+   *
+   * All three optional: with none set, payments are unconfigured and the routes say so
+   * rather than half-working.
+   */
+  RAZORPAY_KEY_ID: z.string().min(1).optional(),
+  RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+  /**
+   * Shared secret for webhook signature verification. Deliberately separate from the
+   * API secret: Razorpay signs webhooks with this one, it is set independently in their
+   * dashboard, and a webhook endpoint that accepted the API secret would be verifying
+   * the wrong thing.
+   */
+  RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

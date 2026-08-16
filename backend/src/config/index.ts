@@ -136,4 +136,14 @@ export const config = {
     geminiModel: env.GEMINI_MODEL,
     questionGenerator: env.QUESTION_GENERATOR,
   },
+  payments: {
+    /** True only when an order can actually be created AND verified. */
+    configured: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),
+    /** Public. Served to the browser by the order endpoint — never bundled. */
+    keyId: env.RAZORPAY_KEY_ID,
+    /** Secret. Signs orders and verifies checkout signatures. Never leaves this process. */
+    keySecret: env.RAZORPAY_KEY_SECRET,
+    /** Secret. Verifies webhook bodies. Set separately in the Razorpay dashboard. */
+    webhookSecret: env.RAZORPAY_WEBHOOK_SECRET,
+  },
 };

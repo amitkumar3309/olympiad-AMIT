@@ -26,3 +26,5 @@ export * from './Exam';
 export * from './Certificate';
 export * from './EmailOutbox';
 export * from './GenerationLog';
+export * from './Payment';
+export * from './PaymentSettings';

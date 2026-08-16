@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { ApiError } from '../lib/ApiError';
+import { hasEntryEntitlement } from './paymentService';
 import { logger } from '../lib/logger';
 import type { ClassLevel } from '../lib/classLevels';
 import {
@@ -113,6 +114,23 @@ export async function startExamAttempt(input: StartExamInput): Promise<StartExam
   if (existing) {
     if (existing.status === 'in_progress') return { attempt: existing, created: false };
     throw ApiError.conflict('You have already sat this exam. There is one attempt only.');
+  }
+
+  /**
+   * **THE paid gate** (Milestone 19). The entry fee buys exactly this: the right to sit
+   * the official Olympiad. Practice, mock tests, the daily challenge and analytics are
+   * free and are not checked anywhere.
+   *
+   * It sits *after* the resume check on purpose. A student who has already started is
+   * let back into their own paper whatever the payment state now says — a provider
+   * refund, a settings change or a support action mid-exam must never lock somebody out
+   * of a sitting that is already running and already timing.
+   *
+   * `hasEntryEntitlement()` derives the answer from the payment record rather than a
+   * flag, and returns true outright when the fee is switched off.
+   */
+  if (!(await hasEntryEntitlement(input.student))) {
+    throw ApiError.paymentRequired('The entry fee has not been paid for this account. Pay it to enter the Olympiad.');
   }
 
   const availability = availabilityOf(exam, now);
