@@ -1,0 +1,83 @@
+.wrap {
+  padding: 32px 0 60px;
+  max-width: 620px;
+}
+
+.payBox {
+  padding: 28px;
+  text-align: center;
+  border-left: 3px solid var(--royal-blue);
+}
+
+.amountLabel {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.amount {
+  margin: 6px 0 16px;
+  font-size: 44px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--text-main);
+}
+
+.what {
+  margin: 0 auto 22px;
+  max-width: 46ch;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 18px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.paid {
+  padding: 28px;
+  text-align: center;
+  border-left: 3px solid var(--success);
+}
+
+.paid i {
+  font-size: 38px;
+  color: var(--success);
+}
+
+.paid h3 {
+  margin: 10px 0 8px;
+}
+
+.paid p {
+  margin: 0 auto 14px;
+  max-width: 48ch;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.notice {
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--success);
+  font-size: 0.9rem;
+}
+
+.history {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 0.85rem;
+}

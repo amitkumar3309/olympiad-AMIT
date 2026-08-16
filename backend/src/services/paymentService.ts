@@ -380,6 +380,88 @@ export async function verifyAndCapture(input: VerifyInput): Promise<CaptureResul
 }
 
 // ---------------------------------------------------------------------------
+// Reconciliation — asking Razorpay what really happened
+// ---------------------------------------------------------------------------
+
+interface RazorpayPaymentEntity {
+  id?: string;
+  status?: string;
+  method?: string;
+  error_description?: string;
+}
+
+/**
+ * Settles an order by asking Razorpay directly, rather than waiting to be told.
+ *
+ * **This is what stands in for the webhook.** The return journey from the checkout is
+ * the only other confirmation path, and it is a browser: it can be closed, refreshed,
+ * or killed by a flaky mobile connection in the second between the money moving and the
+ * verify call landing. Every one of those leaves Razorpay holding a captured payment
+ * that this database knows nothing about — the student has paid and received nothing,
+ * which is the worst failure this feature has.
+ *
+ * A webhook solves it by push. This solves it by pull: any time we have reason to think
+ * an order might have settled — the student reopening the payment page, an administrator
+ * looking at a stuck row — we fetch the truth from the provider and capture on the same
+ * idempotent path everything else uses.
+ *
+ * It is strictly *more* trustworthy than a webhook, because the answer comes from an
+ * authenticated call we initiated rather than from an unauthenticated request that
+ * claims to be Razorpay. The trade is that it happens when something asks, rather than
+ * within seconds automatically.
+ */
+export async function reconcileOrder(orderId: string): Promise<CaptureResult | null> {
+  const { keyId, keySecret } = requireConfigured();
+
+  const local = await Payment.findOne({ razorpayOrderId: orderId });
+  if (!local) return null;
+  // Already settled: nothing to ask, and asking would spend an API call to learn what
+  // we already know.
+  if (local.status === 'captured') return { payment: local, changed: false };
+
+  let response: Response;
+  try {
+    response = await transport(`${RAZORPAY_API}/orders/${encodeURIComponent(orderId)}/payments`, {
+      method: 'GET',
+      headers: { authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    logger.error({ err, orderId }, 'Could not reach Razorpay to reconcile');
+    throw ApiError.badGateway('Could not reach the payment provider to check that payment.');
+  }
+
+  if (!response.ok) {
+    throw ApiError.badGateway(`The payment provider could not be queried (HTTP ${response.status}).`);
+  }
+
+  const body = (await response.json().catch(() => ({}))) as { items?: RazorpayPaymentEntity[] };
+  const attempts = body.items ?? [];
+
+  // `captured` is the only status that means the money is ours. `authorized` means it
+  // is held but not taken, and treating that as paid would entitle a student against
+  // money that can still evaporate.
+  const captured = attempts.find((entry) => entry.status === 'captured');
+  if (captured) {
+    return capturePayment({
+      razorpayOrderId: orderId,
+      razorpayPaymentId: captured.id ?? 'unknown',
+      // Recorded as a webhook-equivalent: it is a provider-sourced settlement rather
+      // than something the browser told us.
+      source: 'webhook',
+      method: captured.method ?? null,
+    });
+  }
+
+  const failed = attempts.find((entry) => entry.status === 'failed');
+  if (failed) {
+    await failPayment(orderId, failed.error_description ?? 'Payment failed', 'webhook');
+  }
+
+  return { payment: (await Payment.findOne({ razorpayOrderId: orderId }))!, changed: false };
+}
+
+// ---------------------------------------------------------------------------
 // Entitlement
 // ---------------------------------------------------------------------------
 

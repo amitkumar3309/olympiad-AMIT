@@ -20,6 +20,7 @@ import {
   listPaymentsFor,
   paymentView,
   verifyWebhookSignature,
+  reconcileOrder,
 } from '../../services/paymentService';
 import {
   verifyPaymentSchema,
@@ -252,6 +253,36 @@ router.post('/payments/webhook', ensureDb, async (req: Request, res: Response) =
     // database was briefly unavailable — the event is not lost.
     logger.error({ err, orderId, event: body.event }, 'Webhook processing failed');
     sendError(res, 500, 'Could not process that webhook.');
+  }
+});
+
+/**
+ * Settles the caller's outstanding order by asking Razorpay directly.
+ *
+ * Called by the payment page whenever it loads with an unsettled order, and by the
+ * checkout handler when the modal is dismissed. With no webhook configured this is the
+ * safety net for "the student paid but their tab closed before verify landed" — see
+ * `reconcileOrder()`.
+ */
+router.post('/payments/reconcile', requireAuth(), ensureDb, async (req: Request, res: Response) => {
+  try {
+    const pending = await Payment.findOne({ student: callerId(req), status: { $in: ['created', 'attempted'] } }).sort({
+      createdAt: -1,
+    });
+
+    if (!pending) {
+      sendSuccess(res, 200, { reconciled: false, hasPaid: await hasEntryEntitlement(callerId(req)) });
+      return;
+    }
+
+    const result = await reconcileOrder(pending.razorpayOrderId);
+    sendSuccess(res, 200, {
+      reconciled: result?.changed ?? false,
+      payment: result ? paymentView(result.payment) : null,
+      hasPaid: await hasEntryEntitlement(callerId(req)),
+    });
+  } catch (err) {
+    respondToServiceError(res, err, { log: 'Reconciliation failed', fallback: 'Could not check that payment.' });
   }
 });
 

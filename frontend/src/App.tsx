@@ -6,6 +6,7 @@ import { ProtectedRoute, RequirePermission } from './components/ProtectedRoute'
 import ForcePasswordChange from './components/ForcePasswordChange'
 import Spinner from './components/Spinner'
 import Landing from './pages/Landing/Landing'
+import Payment from './pages/Payment/Payment'
 import Admin from './pages/Admin/Admin'
 import AdminUsers from './pages/Admin/Users'
 import AdminAuditLog from './pages/Admin/AuditLog'
@@ -127,6 +128,9 @@ export default function App() {
               already decides what a signed-out visitor may see (masked names, and only
               the top of the board), and gating the page would hide the competition from
               exactly the people it is meant to attract. */}
+          {/* The entry fee. Behind ProtectedRoute: only a signed-in student has an
+              entitlement to buy, and the server takes the account from the token. */}
+          <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/hall-of-fame" element={<HallOfFame />} />
           {/* The admin entry point doubles as the root-admin sign-in form, so it is
