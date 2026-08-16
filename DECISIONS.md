@@ -1023,6 +1023,8 @@ Only `captured` counts. `authorized` means the money is held but not taken, and 
 
 ## 2026-08-16 — The entry fee is charged by default, and it gates the whole platform
 
+> **Partly superseded on 2026-08-17 by "The entry fee buys the Olympiad, not the platform" below.** The *default* half stands: `entryFeeEnabled` still defaults to `true`. The *scope* half was reversed by the owner after one day — practice, mock tests and the daily challenge are free again.
+
 **Decision**: `entryFeeEnabled` defaults to **`true`**, and the fee entitles a student to **practice, mock tests, the daily challenge and the official Olympiad** — not the exam alone. The fee is **₹100**, stored in an administrator-editable settings document rather than an environment variable.
 
 **Reason**: two owner decisions on the same day, and one of them reverses a default set hours earlier.
@@ -1038,3 +1040,18 @@ The **fee is not an environment variable** because it is business configuration,
 **Alternatives considered**: (a) Keeping the fee exam-only and adding a second paid tier for practice — rejected: two products where the owner described one. (b) Gating the dashboard as well — rejected after asking the owner: a student must be able to see what they are buying, and a hard wall at sign-in reads as a broken account. (c) Deriving "charging" from whether Razorpay is configured — rejected above.
 
 **Consequences**: every suite that exercises a gated surface needs an entitled student, so `registerVerifyLogin()` grants one by default and takes `{ paid: false }` for the cases where not having paid is the point. That default is deliberate: a test student who cannot practise is asserting behaviour no real student reaches. `createAdminSession()` is unpaid, because staff are not entrants and an administrator with an entry-fee payment against their name would appear in the console's collected total. Changing the price never re-prices a captured payment — `Payment.amount` is a snapshot, the rule `StudentActivity.xpAwarded` already follows.
+
+
+---
+
+## 2026-08-17 — The entry fee buys the Olympiad, not the platform
+
+**Decision**: the ₹100 fee entitles a student to sit the **official Olympiad**. Practice, mock tests, the daily challenge and analytics are **free**, gated nowhere. `requireEntry` is mounted on the exam attempt route only. Paying is offered on `/payment`, as a dashboard banner, and as a card on `/profile`, because **paying later is the normal path** rather than the exception.
+
+**Reason**: the owner's, and it reverses the scope set the previous day. The product is a competition with preparation attached, not a subscription: a student should be able to practise, rehearse and measure themselves for nothing, and pay at the point they decide to compete. Gating preparation also inverts the funnel — it asks for money before the student has any evidence the material is worth paying for, which is exactly backwards for a first cohort with no reputation yet.
+
+It also removes a support problem that the wider gate created and nothing else solved: with preparation paid, a student whose payment failed could do *nothing at all*, so every payment problem became a total outage for that person. Now a failed or postponed payment costs them the competition entry and nothing else, and they keep using the site while it is sorted out.
+
+**Alternatives considered**: (a) Keeping the wide gate — rejected by the owner. (b) A free trial period on the preparation surfaces — rejected: it needs a per-student clock, a second notion of expiry, and a decision about what happens mid-practice-session when it lapses, all to approximate "free" less honestly than free does. (c) Free practice but paid mock tests — rejected as an arbitrary line: a mock test is preparation by definition, and the split would need explaining on every page.
+
+**Consequences**: the entitlement, the derivation, the 402, the ordering ahead of the resource lookup and the admin console are all unchanged — only the set of routes carrying the middleware moved. The tests now assert the free surfaces are **not** gated as well as that the exam is, in both directions, because a paywall that silently widens would start charging for things the owner said were free and nothing else in the codebase would notice. The dashboard banner and the profile card render nothing once the fee is paid or when it is switched off, so a settled matter never nags.

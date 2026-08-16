@@ -192,9 +192,18 @@ export async function issueVerificationToken(
   return { token, expiresAt };
 }
 
+/**
+ * A refusal carries the account it was *about* wherever one is known.
+ *
+ * Without that, a caller cannot tell the difference between the two things a spent
+ * token means: "this link already did its job" and "this link was burned and the job
+ * never happened". Those need opposite answers — the first is a success, the second is
+ * a dead end — and a bare reason string cannot distinguish them.
+ */
 export type VerificationOutcome =
   | { ok: true; studentId: Types.ObjectId }
-  | { ok: false; reason: 'invalid' | 'used' | 'expired' };
+  | { ok: false; reason: 'invalid' }
+  | { ok: false; reason: 'used' | 'expired'; studentId: Types.ObjectId };
 
 /** Consumes a token atomically, so a link cannot be redeemed twice concurrently. */
 export async function consumeVerificationToken(
@@ -204,8 +213,8 @@ export async function consumeVerificationToken(
   const tokenHash = hashToken(rawToken);
   const record = await VerificationToken.findOne({ tokenHash, type });
   if (!record) return { ok: false, reason: 'invalid' };
-  if (record.usedAt) return { ok: false, reason: 'used' };
-  if (record.expiresAt.getTime() <= Date.now()) return { ok: false, reason: 'expired' };
+  if (record.usedAt) return { ok: false, reason: 'used', studentId: record.student };
+  if (record.expiresAt.getTime() <= Date.now()) return { ok: false, reason: 'expired', studentId: record.student };
 
   // findOneAndUpdate with `usedAt: null` in the filter makes the consume atomic:
   // if two requests race, exactly one updates the document.
@@ -213,7 +222,29 @@ export async function consumeVerificationToken(
     { _id: record._id, usedAt: null },
     { $set: { usedAt: new Date() } },
   );
-  if (!claimed) return { ok: false, reason: 'used' };
+  if (!claimed) return { ok: false, reason: 'used', studentId: record.student };
 
   return { ok: true, studentId: record.student };
+}
+
+/**
+ * Gives a consumed token back, so the link in somebody's inbox still works.
+ *
+ * Consumption happens *before* the work the token authorises, which is what stops two
+ * concurrent redemptions both proceeding. The cost of that ordering is that a failure
+ * afterwards — a save that throws, a cold start that times out, a dropped connection —
+ * leaves the link permanently spent and the work never done. For email verification
+ * that is unrecoverable from the student's side: every later click reports "already
+ * used" while the account stays unverified, so they cannot sign in either.
+ *
+ * Releasing on failure keeps the atomicity (only one redemption is ever in flight) and
+ * removes the dead end. It is deliberately best-effort: if this itself fails there is
+ * nothing further to do, and the caller's own error is the one worth reporting.
+ */
+export async function releaseVerificationToken(rawToken: string, type: VerificationTokenType): Promise<void> {
+  try {
+    await VerificationToken.updateOne({ tokenHash: hashToken(rawToken), type }, { $set: { usedAt: null } });
+  } catch (err) {
+    logger.error({ err }, 'Could not release a verification token after a failed redemption');
+  }
 }

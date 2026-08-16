@@ -3,7 +3,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import app from '../src/app';
 import { config } from '../src/config';
-import { Student, VerificationToken, RefreshToken } from '../src/models';
+import { Student, VerificationToken, RefreshToken, StudentActivity } from '../src/models';
 import { hashToken } from '../src/lib/tokens';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import {
@@ -37,13 +37,33 @@ describe('invalid tokens', () => {
     expect(res.body.error).toMatch(/invalid/i);
   });
 
-  it('rejects a verification token that has already been used', async () => {
+  /**
+   * A replayed verification token does no work a second time — but it is **reported as
+   * success**, which is a deliberate change from the 400 this test used to assert.
+   *
+   * The security property is unchanged and is what is asserted below: the token is
+   * still single-use, the replay grants nothing, and no session comes out of it. What
+   * changed is only the answer given to somebody whose link already worked. A student
+   * whose browser sent the request twice, or whose mail provider followed the link, was
+   * previously shown "already been used" — a dead end for an account that was fine.
+   *
+   * Reset tokens are **not** treated this way, and the test below still requires a 400:
+   * replaying one would mean setting a password, so there the refusal is the point.
+   */
+  it('does not let a used verification token do anything a second time', async () => {
     await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
     const token = tokenFromLatestEmail('Verify');
 
     await request(app).post(`${API}/auth/verify-email`).send({ token }).expect(200);
-    const replay = await request(app).post(`${API}/auth/verify-email`).send({ token }).expect(400);
-    expect(replay.body.error).toMatch(/already been used/i);
+
+    const replay = await request(app).post(`${API}/auth/verify-email`).send({ token }).expect(200);
+    expect(replay.body.alreadyVerified).toBe(true);
+
+    // The properties that matter: nothing was re-granted, and a verification link is
+    // never a way to obtain a session.
+    expect(replay.headers['set-cookie']).toBeUndefined();
+    const activity = await StudentActivity.countDocuments({ type: 'email_verified' });
+    expect(activity, 'a replay must not pay XP twice').toBe(1);
   });
 
   it('rejects a reset token that has already been used', async () => {

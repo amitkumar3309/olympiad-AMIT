@@ -2,6 +2,53 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-17 - The entry fee buys the Olympiad, not the platform
+
+A same-week reversal of scope, made by the owner, plus the honest failure message that
+should have been there from the start.
+
+### Preparation is free again
+
+The fee gated practice, mock tests, the daily challenge and the exam for one day. It now
+gates **the official Olympiad and nothing else**. A student practises, rehearses,
+answers the daily challenge and reads their own analytics for nothing, and pays Rs.100
+only when they decide to compete.
+
+The product is a competition with preparation attached, not a subscription. Gating
+preparation also inverted the funnel -- it asked for money before the student had any
+evidence the material was worth paying for, which is backwards for a first cohort with
+no reputation yet. And it turned every payment problem into a total outage for that
+person: with preparation paid, a student whose payment failed could do nothing at all.
+Now a failed or postponed payment costs the competition entry and nothing else.
+
+`requireEntry` moved off three routes and stays on `POST /exams/:id/attempt`. Nothing
+else about the gate changed -- the derived entitlement, the 402, the ordering ahead of
+the resource lookup and the admin console are all as they were.
+
+### Paying later is the normal path, so it is offered where people look
+
+A new entry-fee card on `/profile`, beside the dashboard banner and the `/payment` page.
+Both render **nothing** once the fee is paid or when it is switched off: a settled matter
+does not need a card, and a "you're all set" panel on a page somebody opens to change
+their password is noise.
+
+### "Not available right now. Please try again later." was untrue
+
+That is what the entry fee page said when Razorpay was unconfigured, and waiting fixes
+nothing -- it means the credentials are absent from the backend environment. It now says
+online payment is not set up yet, states plainly that the student has not been charged
+and that everything they need to prepare still works, and -- **for staff only** -- names
+`RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`. The person most likely to meet this while
+testing is the person who can fix it, and telling them to wait sends them looking in the
+wrong place.
+
+### Tests
+
+836 across 25 files. The gate suite now asserts the free surfaces are **not** gated as
+well as that the exam is, in both directions -- a paywall that silently widens would
+start charging for things the owner said were free, and nothing else in the codebase
+would notice.
+
 ## 2026-08-16 - Milestone 19: Payments, and the entry fee that gates the platform
 
 The last planned development milestone. Registration used to show a static QR image and an "I've Paid - Create My Account" button. It recorded no payment, verified nothing, and created the account either way: every student who registered was told something untrue, and the site had no idea whether anyone had paid. That step is gone, and there is a real gateway behind it.

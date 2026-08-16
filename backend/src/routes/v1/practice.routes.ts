@@ -4,7 +4,6 @@ import { requireAuth } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { practiceLimiter } from '../../middleware/rateLimiter';
-import { requireEntry } from '../../middleware/requireEntry';
 import { PracticeSession, Student, type StudentDocument } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
@@ -128,10 +127,6 @@ router.post(
   practiceLimiter,
   validate({ body: startPracticeSchema }),
   ensureDb,
-  // Paid students only. Deliberately on *starting* a session rather than on reading
-  // one: a session already in progress when the fee arrived is finishable, and the
-  // options endpoint above stays open so an unpaid student can see what practice offers.
-  requireEntry,
   async (req: Request, res: Response) => {
     try {
       const student = await loadSelf(req, res);

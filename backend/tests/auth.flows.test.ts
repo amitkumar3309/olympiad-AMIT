@@ -10,6 +10,7 @@ import {
   clearTestInbox,
   parseCookies,
   cookieHeader,
+  registerVerifyLogin,
 } from './helpers/auth';
 
 beforeAll(startTestDb, 60_000);
@@ -174,5 +175,124 @@ describe('forgot password → reset password → login with the new password', (
 
     expect(known.status).toBe(unknown.status);
     expect(known.body).toEqual(unknown.body);
+  });
+});
+
+/**
+ * A spent verification token, and the two opposite things it can mean.
+ *
+ * Reported from production: "This verification link has already been used. Try signing
+ * in." on a fresh link, *and* the student could not sign in. Those two facts together
+ * are the whole bug — a link that had done its job would leave an account that can sign
+ * in, so the token had been burned without the account being verified.
+ *
+ * Both halves are pinned here, because fixing one without the other just moves the dead
+ * end.
+ */
+describe('a spent verification link', () => {
+  it('reports success when the link already did its job', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    const token = tokenFromLatestEmail('Verify');
+
+    await request(app).post(`${API}/auth/verify-email`).send({ token }).expect(200);
+
+    // The same link again: a double submit, a mail scanner following links, a retry
+    // after a cold start, or somebody clicking twice. The account is verified, so the
+    // honest answer is success — not a dead end telling them to try something else.
+    const second = await request(app).post(`${API}/auth/verify-email`).send({ token });
+
+    expect(second.status).toBe(200);
+    expect(second.status).not.toBe(400);
+    expect(second.body.alreadyVerified).toBe(true);
+
+    // And the claim is true: they really can sign in.
+    await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: validStudent.email, password: validStudent.password })
+      .expect(200);
+  });
+
+  it('never leaves a link spent when the verification itself failed', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    const token = tokenFromLatestEmail('Verify');
+
+    // Make the account update throw, the way a transient database error, a cold-start
+    // timeout or a dropped connection would. Before the fix this burned the token: the
+    // student saw "already been used" for ever, and could not sign in either, because
+    // login requires a verified address.
+    const save = Student.prototype.save;
+    Student.prototype.save = function failing() {
+      return Promise.reject(new Error('Simulated write failure'));
+    } as typeof save;
+
+    let failed: request.Response;
+    try {
+      failed = await request(app).post(`${API}/auth/verify-email`).send({ token });
+    } finally {
+      Student.prototype.save = save;
+    }
+
+    expect(failed.status).toBe(500);
+    expect(await Student.findOne({ email: validStudent.email }).then((s) => s!.isEmailVerified)).toBe(false);
+
+    // The link must still work. This is the assertion the whole fix exists for.
+    const retry = await request(app).post(`${API}/auth/verify-email`).send({ token });
+    expect(retry.status, 'the link must survive a failed attempt').toBe(200);
+    expect(retry.status).not.toBe(400);
+
+    expect(await Student.findOne({ email: validStudent.email }).then((s) => s!.isEmailVerified)).toBe(true);
+    await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: validStudent.email, password: validStudent.password })
+      .expect(200);
+  });
+
+  it('does not claim an unverified account can sign in', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    const stale = tokenFromLatestEmail('Verify');
+
+    // Asking for a new link invalidates every earlier one, by design. The older email
+    // must not be told "try signing in" — that account cannot sign in, and sending
+    // somebody at a door that will not open is the failure being reported.
+    await request(app).post(`${API}/auth/resend-verification`).send({ email: validStudent.email }).expect(200);
+
+    const res = await request(app).post(`${API}/auth/verify-email`).send({ token: stale });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/newest email/i);
+    expect(res.body.error).not.toMatch(/try signing in/i);
+
+    // The newest link is the one that works.
+    await request(app).post(`${API}/auth/verify-email`).send({ token: tokenFromLatestEmail('Verify') }).expect(200);
+  });
+
+  it('keeps a reset link usable when the reset itself fails', async () => {
+    await registerVerifyLogin(app);
+    await request(app).post(`${API}/auth/forgot-password`).send({ email: validStudent.email }).expect(200);
+    const token = tokenFromLatestEmail('Reset');
+
+    const save = Student.prototype.save;
+    Student.prototype.save = function failing() {
+      return Promise.reject(new Error('Simulated write failure'));
+    } as typeof save;
+
+    let failed: request.Response;
+    try {
+      failed = await request(app)
+        .post(`${API}/auth/reset-password`)
+        .send({ token, password: 'BrandNewPass9' });
+    } finally {
+      Student.prototype.save = save;
+    }
+
+    expect(failed.status).toBe(500);
+
+    // Same property as the verification link: a transient failure must not consume the
+    // one thing standing between the student and their account.
+    await request(app).post(`${API}/auth/reset-password`).send({ token, password: 'BrandNewPass9' }).expect(200);
+    await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: validStudent.email, password: 'BrandNewPass9' })
+      .expect(200);
   });
 });

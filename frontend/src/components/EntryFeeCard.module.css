@@ -1,0 +1,47 @@
+.card {
+  padding: 22px 24px;
+  margin-bottom: 22px;
+  border-left: 3px solid var(--royal-blue);
+}
+
+.card h2 {
+  margin: 0 0 10px;
+  font-size: 1.05rem;
+}
+
+.body {
+  margin: 0 0 8px;
+  max-width: 60ch;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.free {
+  margin: 0 0 16px;
+  max-width: 60ch;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.cta {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  background: var(--royal-blue);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.cta:hover {
+  filter: brightness(1.08);
+}
+
+.unavailable {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}

@@ -5,7 +5,17 @@ import { logger } from '../lib/logger';
 import { hasEntryEntitlement } from '../services/paymentService';
 
 /**
- * THE paywall (owner decision, 2026-08-16).
+ * THE Olympiad entry gate (owner decision, 2026-08-17).
+ *
+ * ## What it covers, and what it deliberately does not
+ *
+ * **Only the official Olympiad.** Practice, mock tests, the daily challenge and
+ * analytics are free and are gated nowhere — a student prepares for free and pays only
+ * to compete. This is narrower than the version that briefly shipped on 2026-08-16,
+ * which gated all four; the owner reversed that the next day, and the reversal is the
+ * product decision rather than a technical one. If you are adding a surface, the
+ * question to ask is "is this the competition itself?", and for everything built so far
+ * the answer is no.
  *
  * ## Why this is a middleware and not a permission
  *
@@ -63,7 +73,8 @@ export async function requireEntry(req: Request, res: Response, next: NextFuncti
 
   next(
     ApiError.paymentRequired(
-      'Pay the Olympiad entry fee to unlock practice, mock tests, the daily challenge and the exam.',
+      'The Olympiad entry fee has not been paid for this account. Pay it to sit the official exam — practice, mock ' +
+        'tests and the daily challenge stay free.',
     ),
   );
 }

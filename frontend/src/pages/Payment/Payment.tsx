@@ -4,6 +4,7 @@ import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { api, ApiError } from '../../api/client'
+import { useAuth } from '../../context/AuthContext'
 import styles from './Payment.module.css'
 
 /**
@@ -96,6 +97,9 @@ function loadCheckout(): Promise<boolean> {
 }
 
 export default function Payment() {
+  const { can } = useAuth()
+  // Staff see the operator-facing cause; a student never should.
+  const isStaff = can('students:read')
   const [status, setStatus] = useState<PaymentStatus | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -219,13 +223,12 @@ export default function Payment() {
             <h3>You are entered</h3>
             <p>
               {status.entryFeeEnabled
-                ? 'Your entry fee is paid. Practice, mock tests and the daily challenge are unlocked, and you can sit the official Olympiad when it opens.'
-                : 'No entry fee is being charged at the moment, so everything is open to you.'}
+                ? 'Your entry fee is paid, so your seat in the official Olympiad is booked. You can sit it when it opens.'
+                : 'No entry fee is being charged at the moment, so your place is confirmed.'}
             </p>
             <div className={styles.unlockedLinks}>
-              <Link to="/practice">Start practising →</Link>
-              <Link to="/mock-tests">Take a mock test →</Link>
-              <Link to="/daily-challenge">Today's challenge →</Link>
+              <Link to="/exam">Go to the Olympiad →</Link>
+              <Link to="/practice">Keep practising →</Link>
             </div>
           </div>
         )}
@@ -235,29 +238,47 @@ export default function Payment() {
             <p className={styles.amountLabel}>Entry fee</p>
             <p className={styles.amount}>{status.amountDisplay}</p>
             <p className={styles.what}>
-              A one-off payment that enters you into the national Olympiad and unlocks everything you need to prepare for
-              it.
+              A one-off payment for your seat in the national Olympiad.
             </p>
             <ul className={styles.unlocks}>
               <li>
-                <i className="ph-bold ph-check" /> Practice questions from the published bank for your class
+                <i className="ph-bold ph-check" /> Your place in the official Olympiad exam
               </li>
               <li>
-                <i className="ph-bold ph-check" /> Timed mock tests, with results and worked answers
+                <i className="ph-bold ph-check" /> Your rank against the whole cohort when results are released
               </li>
               <li>
-                <i className="ph-bold ph-check" /> The daily challenge, and the streak that goes with it
-              </li>
-              <li>
-                <i className="ph-bold ph-check" /> Your seat at the official Olympiad, and your certificate
+                <i className="ph-bold ph-check" /> Your certificate
               </li>
             </ul>
             <p className={styles.freeNote}>
-              Creating your account, verifying your email and your dashboard stay free — you only pay once, to compete.
+              Everything you need to prepare is <strong>free</strong> — practice, mock tests, the daily challenge and
+              your analytics. You only pay to compete, and you can do it whenever you are ready.
             </p>
 
             {!status.available ? (
-              <p className="error-text">Online payment is not available right now. Please try again later.</p>
+              /**
+               * Not a transient outage: it means the Razorpay credentials are absent
+               * from the backend environment, and "try again later" is therefore
+               * untrue — waiting fixes nothing. Students get an honest apology and a
+               * way to reach a human; staff get the actual variable names, because the
+               * person most likely to hit this while testing is the person who can fix
+               * it, and telling them to wait sends them looking in the wrong place.
+               */
+              <div className={styles.unavailable}>
+                <p className="error-text">Online payment is not set up yet, so nobody can pay right now.</p>
+                <p className={styles.unavailableNote}>
+                  Nothing is wrong with your account, and you have not been charged. Everything you need to prepare —
+                  practice, mock tests and the daily challenge — is free and works as normal. Please check back, or
+                  contact us if the Olympiad is close.
+                </p>
+                {isStaff && (
+                  <p className={styles.staffNote}>
+                    <strong>Staff:</strong> set <code>RAZORPAY_KEY_ID</code> and <code>RAZORPAY_KEY_SECRET</code> in the
+                    backend environment and redeploy the backend. See <code>ENVIRONMENT_VARIABLES.md</code>.
+                  </p>
+                )}
+              </div>
             ) : (
               <Button onClick={pay} disabled={busy} fullWidth>
                 {busy ? 'Opening payment…' : `Pay ${status.amountDisplay}`}

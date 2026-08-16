@@ -157,7 +157,18 @@ Worse, if the person testing has a local dev server running, `localhost:5173` **
 
 **Since 2026-08-16 this is no longer silent.** The backend logs an `error` at startup naming the consequence, and `/admin/email-deliveries` shows a red banner reading "Every link in these emails points at http://localhost:5173" whenever a production deployment is doing it. Check that page first — a delivery row can read *sent* and still contain a dead link, which is precisely the failure the banner exists to make visible.
 
-**Cause B — the link host is correct but verification still fails.** Then the token, not the URL, is the problem. In order of likelihood: the link was already used (each is strictly single-use, and a "resend" invalidates every earlier one — so the *newest* email is the only one that works); it is older than `EMAIL_VERIFY_TTL_HOURS`; or the student is clicking an older email from their inbox. All three report distinct messages, so read the wording on screen rather than guessing.
+**Cause B — "This verification link has already been used" on a link you have only just clicked, *and* you cannot sign in.** Those two facts together were a real bug, fixed on 2026-08-17. They are worth reading as a pair: a link that had genuinely done its job would leave an account that *can* sign in, so being unable to sign in meant the token had been burned without the account ever being verified.
+
+The route consumed the token **before** updating the account. That ordering is what stops two simultaneous clicks both proceeding, but it meant any failure afterwards — a write that threw, a serverless cold start that timed out, a dropped connection — spent the link permanently while leaving `isEmailVerified` false. Every later click then reported "already used", and login was impossible because login requires verification. There was no way out from the student's side, because nothing told them to ask for a new link.
+
+Two changes fixed it, both pinned by tests:
+
+- **A failure after consumption gives the token back** (`releaseVerificationToken`), so the link in the inbox still works. The same fix was applied to password reset, which had the identical fragility.
+- **A spent token whose account is already verified now reports success**, not an error. That case is a *duplicate of a request that worked* — a double submit, a mail scanner following the link, a retry after a cold start — and answering "already been used" was a dead end for an account that was perfectly fine. Where the account is genuinely still unverified, the message now says to request a new one and use the newest email, because "try signing in" was pointing at a door that could not open.
+
+**Cause C — the wrong email from the inbox.** Every link is strictly single-use, and asking for a new one **invalidates all earlier ones**, by design. If there are several verification emails, only the newest works; the others correctly refuse. This is also why "I got a fresh link" and "it says already used" can both be true at once — the fresh link is fine, but an older message was the one that got clicked.
+
+**Cause D — the link is older than `EMAIL_VERIFY_TTL_HOURS`** (24 by default). Reported distinctly as expired.
 
 **Verification**: register a test account in production and confirm the link host is your real frontend before clicking it.
 

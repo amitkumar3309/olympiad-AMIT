@@ -357,38 +357,38 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          {/* --- Practice Zone (Milestone 6), behind the entry fee since Milestone 19 --- */}
+          {/* --- Practice Zone (Milestone 6). Free: the entry fee buys the Olympiad only. --- */}
           <Route
             path="/practice"
             element={
-              <RequirePaidEntry feature="Practice">
+              <ProtectedRoute>
                 <Practice />
-              </RequirePaidEntry>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/practice/:sessionId"
             element={
-              <RequirePaidEntry feature="Practice">
+              <ProtectedRoute>
                 <PracticeSessionPage />
-              </RequirePaidEntry>
+              </ProtectedRoute>
             }
           />
-          {/* --- Mock tests (Milestone 7), behind the entry fee since Milestone 19 --- */}
+          {/* --- Mock tests (Milestone 7). Free: a rehearsal is not the competition. --- */}
           <Route
             path="/mock-tests"
             element={
-              <RequirePaidEntry feature="Mock tests">
+              <ProtectedRoute>
                 <MockTests />
-              </RequirePaidEntry>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/mock-tests/attempts/:attemptId"
             element={
-              <RequirePaidEntry feature="Mock tests">
+              <ProtectedRoute>
                 <MockTestAttemptPage />
-              </RequirePaidEntry>
+              </ProtectedRoute>
             }
           />
           {/* --- Gamification (Milestone 9) --- */}
@@ -400,13 +400,13 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          {/* --- Daily challenge (Milestone 8), behind the entry fee since Milestone 19 --- */}
+          {/* --- Daily challenge (Milestone 8). Free. --- */}
           <Route
             path="/daily-challenge"
             element={
-              <RequirePaidEntry feature="The daily challenge">
+              <ProtectedRoute>
                 <DailyChallengePage />
-              </RequirePaidEntry>
+              </ProtectedRoute>
             }
           />
           {/**

@@ -40,6 +40,7 @@ import {
   revokeAllRefreshTokens,
   issueVerificationToken,
   consumeVerificationToken,
+  releaseVerificationToken,
 } from '../../lib/tokens';
 import { buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email';
 import { enqueueEmail } from '../../services/emailOutbox';
@@ -270,34 +271,73 @@ router.post('/auth/verify-email', tokenSubmitLimiter, validate({ body: verifyEma
     const outcome = await consumeVerificationToken(token, 'email_verify');
 
     if (!outcome.ok) {
+      /**
+       * A spent token is not automatically a failure.
+       *
+       * If the account it pointed at is verified, this link already did its job and the
+       * honest answer is success — the student can sign in. Reporting "already used"
+       * there is a dead end produced by a *duplicate* of a request that worked: a
+       * double submit, a mail scanner that follows links, a retried request after a
+       * cold start, or simply someone clicking twice.
+       *
+       * If the account is **not** verified, the link really was burned without doing
+       * its job, and saying "try signing in" would send the student at a door that
+       * cannot open. That case is now largely prevented by the release below, but it is
+       * still reported honestly, with the action that actually helps.
+       */
+      if (outcome.reason === 'used') {
+        const already = await Student.findById(outcome.studentId).select('isEmailVerified');
+        if (already?.isEmailVerified) {
+          sendSuccess(res, 200, { message: 'Your email is already verified. You can sign in.', alreadyVerified: true });
+          return;
+        }
+        sendError(res, 400, 'This verification link is no longer valid. Request a new one below and use the newest email.');
+        return;
+      }
+
       const message =
         outcome.reason === 'expired'
           ? 'This verification link has expired. Request a new one.'
-          : outcome.reason === 'used'
-            ? 'This verification link has already been used. Try signing in.'
-            : 'This verification link is invalid. Request a new one.';
+          : 'This verification link is invalid. Request a new one.';
       sendError(res, 400, message);
       return;
     }
 
-    const student = await Student.findById(outcome.studentId);
-    if (!student) {
-      sendError(res, 400, 'This verification link is invalid. Request a new one.');
-      return;
-    }
+    // From here the token is spent. Anything that throws must give it back, or the link
+    // in the student's inbox is dead for ever while the account stays unverified — and
+    // since login requires verification, that locks them out of their own account with
+    // no way back except asking for a new link they have no reason to think they need.
+    try {
+      const student = await Student.findById(outcome.studentId);
+      if (!student) {
+        sendError(res, 400, 'This verification link is invalid. Request a new one.');
+        return;
+      }
 
-    if (!student.isEmailVerified) {
-      student.isEmailVerified = true;
-      await student.save();
-      // Only on the transition, so re-reading a link cannot pay twice — though the
-      // once-per-account unique index would refuse it anyway.
-      await grantReward({ student: studentObjectId(student), event: 'email_verified' });
-    }
+      if (!student.isEmailVerified) {
+        student.isEmailVerified = true;
+        await student.save();
 
-    sendSuccess(res, 200, { message: 'Email verified. You can now sign in.', student: publicStudent(student) });
+        // Best-effort, and deliberately after the save: XP is a reward for verifying,
+        // not a condition of it. The same rule the audit trail follows — a failure here
+        // must never cost a student the thing it was describing.
+        try {
+          // Only on the transition, so re-reading a link cannot pay twice — though the
+          // once-per-account unique index would refuse it anyway.
+          await grantReward({ student: studentObjectId(student), event: 'email_verified' });
+        } catch (rewardErr) {
+          logger.error({ err: rewardErr }, 'Email verified, but the XP grant failed');
+        }
+      }
+
+      sendSuccess(res, 200, { message: 'Email verified. You can now sign in.', student: publicStudent(student) });
+    } catch (err) {
+      await releaseVerificationToken(token, 'email_verify');
+      throw err;
+    }
   } catch (err) {
     logger.error({ err }, 'Email verification failed');
-    sendError(res, 500, 'Could not verify your email. Please try again.');
+    sendError(res, 500, 'Could not verify your email. Please try again — your link is still valid.');
   }
 });
 
@@ -734,6 +774,11 @@ router.post('/auth/reset-password', tokenSubmitLimiter, validate({ body: resetPa
       return;
     }
 
+    // As with email verification, the token is already spent at this point, so any
+    // failure below has to give it back — otherwise a transient error turns a valid
+    // reset link into a dead one, and the student cannot ask for another without
+    // realising they need to.
+    try {
     const student = await Student.findById(outcome.studentId);
     if (!student) {
       sendError(res, 400, 'This reset link is invalid. Request a new one.');
@@ -764,9 +809,13 @@ router.post('/auth/reset-password', tokenSubmitLimiter, validate({ body: resetPa
     clearSessionCookies(res);
 
     sendSuccess(res, 200, { message: 'Password updated. You can now sign in with your new password.' });
+    } catch (err) {
+      await releaseVerificationToken(token, 'password_reset');
+      throw err;
+    }
   } catch (err) {
     logger.error({ err }, 'Password reset failed');
-    sendError(res, 500, 'Could not reset your password. Please try again.');
+    sendError(res, 500, 'Could not reset your password. Please try again — your link is still valid.');
   }
 });
 

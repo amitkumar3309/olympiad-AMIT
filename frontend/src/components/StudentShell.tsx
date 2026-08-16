@@ -36,9 +36,8 @@ interface NavItem {
   label: string
   icon: string
   /**
-   * Needs a paid entry fee. The item is still shown and still navigable — it leads to
-   * a page explaining what is behind it, which is more use than a link that vanished.
-   * A padlock beside it is what tells the student why.
+   * Needs a paid entry fee, and shows a padlock until it is. Only the official
+   * Olympiad qualifies: practice, mock tests and the daily challenge are free.
    */
   paid?: boolean
 }
@@ -46,9 +45,9 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'ph-squares-four' },
   { to: '/profile', label: 'My Profile', icon: 'ph-user-circle' },
-  { to: '/practice', label: 'Practice Zone', icon: 'ph-target', paid: true },
-  { to: '/mock-tests', label: 'Mock Tests', icon: 'ph-exam', paid: true },
-  { to: '/daily-challenge', label: 'Daily Challenge', icon: 'ph-dice-five', paid: true },
+  { to: '/practice', label: 'Practice Zone', icon: 'ph-target' },
+  { to: '/mock-tests', label: 'Mock Tests', icon: 'ph-exam' },
+  { to: '/daily-challenge', label: 'Daily Challenge', icon: 'ph-dice-five' },
   { to: '/rewards', label: 'Rewards', icon: 'ph-trophy' },
   { to: '/payment', label: 'Entry fee', icon: 'ph-currency-inr' },
   { to: '/notifications', label: 'Notifications', icon: 'ph-bell' },

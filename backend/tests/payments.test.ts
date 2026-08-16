@@ -448,22 +448,23 @@ describe('authorization', () => {
 // ===========================================================================
 
 /**
- * The fee stopped being "the official exam only" and became the entry condition for
- * practice, mock tests and the daily challenge as well.
+ * The Olympiad entry gate.
  *
- * These assert the property that matters: **an unpaid student is refused by the server**,
- * on every gated surface, on both URL prefixes. The frontend's locks and banners are
- * presentation; this is the guarantee behind them.
+ * Scope, after the owner's decision of 2026-08-17: the fee buys **the official exam and
+ * nothing else**. Practice, mock tests and the daily challenge are free, and the tests
+ * below assert that in both directions — because a paywall that quietly widens is a
+ * paywall that starts charging for things the owner said were free, and nothing else in
+ * the codebase would catch it.
  *
- * Each case names the status it forbids as well as the one it expects, because a gate
- * that returns 500, or 404, or a 403 the page renders as a dead end, is broken in a way
- * a bare `toBe(402)` would still catch but would not explain.
+ * (For one day this gated all four. The tests are written to fail loudly if that comes
+ * back by accident.)
  */
-describe('the paywall', () => {
+describe('the Olympiad entry gate', () => {
   /** Syntactically valid, deliberately non-existent. Proves the gate runs *first*. */
   const ABSENT_ID = '507f1f77bcf86cd799439011';
 
-  async function gatedRequests(cookies: Record<string, string>) {
+  /** The three things a student may use without paying a penny. */
+  async function freeRequests(cookies: Record<string, string>) {
     return {
       practice: await request(app)
         .post(`${API}/practice/sessions`)
@@ -477,39 +478,47 @@ describe('the paywall', () => {
         .post(`${API}/me/daily-challenge/answer`)
         .set('Cookie', cookieHeader(cookies))
         .send({ selectedOptionKeys: ['A'] }),
-      exam: await request(app)
-        .post(`${API}/exams/${ABSENT_ID}/attempt`)
-        .set('Cookie', cookieHeader(cookies))
-        .send({}),
     };
   }
 
-  it('refuses an unpaid student on practice, mock tests, the daily challenge and the exam', async () => {
+  const examRequest = (cookies: Record<string, string>) =>
+    request(app).post(`${API}/exams/${ABSENT_ID}/attempt`).set('Cookie', cookieHeader(cookies)).send({});
+
+  it('refuses an unpaid student the official exam', async () => {
     const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
     await enableEntryFee();
 
-    const res = await gatedRequests(cookies);
+    const res = await examRequest(cookies);
 
+    // 402 rather than 403: "not yet, and here is the button" versus "never". The
+    // frontend branches on exactly this to show a pay page instead of a dead end.
+    expect(res.status).toBe(402);
+    expect(res.status).not.toBe(500);
+    expect(res.body.success).toBe(false);
+  });
+
+  it('leaves practice, mock tests and the daily challenge free for an unpaid student', async () => {
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
+    await enableEntryFee();
+
+    const res = await freeRequests(cookies);
+
+    // Each meets its ordinary handler and is refused on its own merits (the ids above
+    // are absent). The assertion is that **payment** is never what stops them.
     for (const [surface, response] of Object.entries(res)) {
-      // 402 rather than 403: "not yet, and here is the button" versus "never". The
-      // frontend branches on exactly this to show a pay page instead of a dead end.
-      expect(response.status, `${surface} should be 402`).toBe(402);
-      expect(response.status, `${surface} must not be a server error`).not.toBe(500);
-      expect(response.body.success).toBe(false);
+      expect(response.status, `${surface} must not be behind the entry fee`).not.toBe(402);
     }
   });
 
-  it('refuses before the resource is looked up, so a paywall cannot leak what exists', async () => {
+  it('refuses before the exam is looked up, so the gate cannot leak what exists', async () => {
     const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
     await enableEntryFee();
 
-    // Every id above is absent. A 404 here would mean the handler ran before the gate,
-    // which would let an unpaid caller probe which exams and tests exist.
-    const res = await gatedRequests(cookies);
-    expect(res.mockTest.status).toBe(402);
-    expect(res.exam.status).toBe(402);
-    expect(res.mockTest.status).not.toBe(404);
-    expect(res.exam.status).not.toBe(404);
+    // The id is absent. A 404 here would mean the handler ran before the gate, which
+    // would let an unpaid caller probe which exams exist.
+    const res = await examRequest(cookies);
+    expect(res.status).toBe(402);
+    expect(res.status).not.toBe(404);
   });
 
   it('holds on the unversioned /api alias too', async () => {
@@ -519,28 +528,22 @@ describe('the paywall', () => {
     // The compatibility alias mounts the same router. A gate that held on one prefix
     // and not the other would be no gate at all.
     const res = await request(app)
-      .post('/api/practice/sessions')
+      .post(`/api/exams/${ABSENT_ID}/attempt`)
       .set('Cookie', cookieHeader(cookies))
-      .send({ subjectId: ABSENT_ID, topicId: ABSENT_ID, questionCount: 5 });
+      .send({});
 
     expect(res.status).toBe(402);
   });
 
-  it('lets a paid student through the gate', async () => {
+  it('lets a paid student through to the exam', async () => {
     const { cookies } = await registerVerifyLogin(app);
     await enableEntryFee();
 
-    const res = await gatedRequests(cookies);
-
-    // Past the gate they meet the ordinary handler, which refuses these absent ids on
-    // their own merits. The assertion is that the *paywall* is no longer what stops
-    // them — anything but 402.
-    for (const [surface, response] of Object.entries(res)) {
-      expect(response.status, `${surface} should be past the paywall`).not.toBe(402);
-    }
+    const res = await examRequest(cookies);
+    expect(res.status).not.toBe(402);
   });
 
-  it('lets everybody through when the fee is switched off', async () => {
+  it('lets everybody sit the exam when the fee is switched off', async () => {
     const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
     await PaymentSettings.findOneAndUpdate(
       { key: 'default' },
@@ -548,21 +551,17 @@ describe('the paywall', () => {
       { upsert: true, setDefaultsOnInsert: true },
     );
 
-    const res = await gatedRequests(cookies);
-    for (const [surface, response] of Object.entries(res)) {
-      expect(response.status, `${surface} should be open while the fee is off`).not.toBe(402);
-    }
+    const res = await examRequest(cookies);
+    expect(res.status).not.toBe(402);
   });
 
   it('charges the fee by default, without anybody having saved a settings document', async () => {
-    // The reversal of 2026-08-16: a paywall nobody remembered to switch on is not a
-    // paywall. With no `PaymentSettings` row at all, the gate must still hold.
+    // A paywall nobody remembered to switch on is not a paywall. With no
+    // `PaymentSettings` row at all, the exam gate must still hold.
     expect(await PaymentSettings.findOne({ key: 'default' })).toBeNull();
 
     const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
-    const res = await gatedRequests(cookies);
-
-    expect(res.practice.status).toBe(402);
+    expect((await examRequest(cookies)).status).toBe(402);
   });
 
   it('reports the entitlement on every auth response, and never as true by omission', async () => {

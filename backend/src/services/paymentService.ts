@@ -468,18 +468,15 @@ export async function reconcileOrder(orderId: string): Promise<CaptureResult | n
 // ---------------------------------------------------------------------------
 
 /**
- * **THE entitlement check.** May this student use the platform?
+ * **THE entitlement check.** May this student sit the official Olympiad?
  *
- * Its scope widened on 2026-08-16, by owner decision. It used to answer "may this
- * student sit the official exam?", with practice, mock tests and the daily challenge
- * free. The fee now buys entry to all four, so this one function is what every gated
- * surface asks — reached through `middleware/requireEntry.ts` rather than called
- * directly by routes, so no surface can be added that forgets to ask.
+ * Scoped to the competition itself, and nothing else. Practice, mock tests, the daily
+ * challenge and analytics are free and ask this of nobody — a student prepares for free
+ * and pays only to compete. It briefly covered all four on 2026-08-16 and the owner
+ * reversed that the next day; the narrower scope is the product decision.
  *
- * What is deliberately *not* gated: registering, verifying an email, signing in, the
- * dashboard, the leaderboard, rewards and a student's own analytics. A student has to
- * be able to see what they are buying, and see their own record after they have bought
- * it.
+ * Reached through `middleware/requireEntry.ts` rather than called directly by routes, so
+ * a second gated surface cannot be added that forgets to ask.
  *
  * Derived from the payment record rather than a flag on `Student`, for the reason given
  * at the top of `models/Payment.ts`: a stored boolean is a second source of truth about

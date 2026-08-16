@@ -1089,18 +1089,13 @@ Reading is `requirePermission('students:read')`; **writing is `requirePermission
 
 **Changing the price never re-prices a captured payment.** `Payment.amount` is a snapshot, the rule `StudentActivity.xpAwarded` already follows.
 
-### Routes that now require a paid entry fee
+### The one route that requires a paid entry fee
 
-These gained `requireEntry` and answer **402** for an unpaid student. The gate runs before the resource is looked up, so an absent id returns 402 rather than 404 — a paywall must not report on what exists behind it.
+`POST /api/v1/exams/:id/attempt` — sitting the official Olympiad — carries `requireEntry` and answers **402** for an unpaid student. The gate runs before the exam is looked up, so an absent id returns 402 rather than 404: a paywall must not report on what exists behind it.
 
-| Route | Note |
-|---|---|
-| `POST /api/v1/practice/sessions` | Starting a session. `GET /practice/options` stays open, so an unpaid student can see what practice offers. |
-| `POST /api/v1/mock-tests/:id/attempts` | Starting an attempt. `GET /mock-tests` stays open, so the papers set for a class are visible before paying. |
-| `POST /api/v1/me/daily-challenge/answer` | Answering. Reading today's question stays open — the dashboard card shows it. |
-| `POST /api/v1/exams/:id/attempt` | Sitting the Olympiad. `startExamAttempt()` also refuses independently, as defence in depth. |
+**Everything else is free**, and that is the product decision of 2026-08-17 rather than an oversight: practice, mock tests, the daily challenge and analytics are gated nowhere, because a student prepares for free and pays only to compete. Tests assert those three surfaces are *not* 402 for an unpaid caller, in both directions, so a paywall cannot quietly widen.
 
-A session already in progress can still be read, answered and submitted: the gate is on *starting*, so a paper somebody is midway through is not taken away from them.
+`startExamAttempt()` also refuses an unentitled student independently, as defence in depth for any future caller.
 
 ### The entitlement on auth responses
 

@@ -4,7 +4,6 @@ import { requirePermission } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { mockTestLimiter } from '../../middleware/rateLimiter';
-import { requireEntry } from '../../middleware/requireEntry';
 import { MockTest, MockTestAttempt, Student, STUDENT_VISIBLE_TEST_STATUSES, type MockTestDocument, type StudentDocument } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
@@ -541,9 +540,6 @@ router.post(
   mockTestLimiter,
   validate({ params: mockTestIdParamSchema }),
   ensureDb,
-  // Paid students only. The listing above stays open on purpose, so an unpaid student
-  // can see which papers are set for their class before deciding to pay.
-  requireEntry,
   async (req: Request, res: Response) => {
     try {
       const student = await loadSelf(req, res);

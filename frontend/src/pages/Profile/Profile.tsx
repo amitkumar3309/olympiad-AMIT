@@ -14,6 +14,7 @@ import {
   type ProfileUpdateInput,
 } from '../../api/types'
 import { PHOTO_ACCEPT_ATTRIBUTE, formatBytes, readPhotoFile, type SelectedPhoto } from '../../lib/photo'
+import EntryFeeCard from '../../components/EntryFeeCard'
 import styles from './Profile.module.css'
 
 /**
@@ -485,6 +486,16 @@ export default function Profile() {
               </form>
             )}
           </section>
+
+          {/* ---------------------------------------------------------------
+              Olympiad entry
+
+              Here as well as on /payment because "pay later" is the normal path:
+              a student prepares for free and decides to compete at some point
+              afterwards, and the profile is where they come to manage their
+              account. It renders nothing once paid, or when no fee is charged.
+          --------------------------------------------------------------- */}
+          <EntryFeeCard />
 
           {/* ---------------------------------------------------------------
               Account settings

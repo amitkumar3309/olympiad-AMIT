@@ -19,8 +19,8 @@ export default function EntryFeeRequired({ feature }: { feature: string }) {
       <i className={`ph-bold ph-lock-simple ${styles.icon}`} />
       <h2 className={styles.title}>{feature} unlocks when you enter</h2>
       <p className={styles.body}>
-        The Olympiad entry fee is a single payment that opens practice, mock tests, the daily challenge and your seat at
-        the national competition.
+        The Olympiad entry fee is a single payment for your seat in the national competition. Practice, mock tests and
+        the daily challenge are free — you can keep preparing either way, and pay whenever you are ready to compete.
       </p>
 
       <Link to="/payment" className={styles.cta}>
