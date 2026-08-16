@@ -1,6 +1,6 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-15 (Milestone 17 — AI question drafting: `POST /admin/generate-questions` rewritten behind a generator seam, plus `GET /admin/question-generator`). Before that, Milestone 16 — intelligent performance recommendations: one new route, `GET /analytics/:studentId/recommendations`. Before that, Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes._
+_Last updated: 2026-08-16 (Milestone 19 — payments: seven payment routes at the end of this file, plus `requireEntry` on four existing student routes, which now answer **402** for an unpaid entrant, and an `entitlements` object on every auth response). Before that, Milestone 17 — AI question drafting: `POST /admin/generate-questions` rewritten behind a generator seam, plus `GET /admin/question-generator`). Before that, Milestone 16 — intelligent performance recommendations: one new route, `GET /analytics/:studentId/recommendations`. Before that, Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
@@ -1012,3 +1012,102 @@ Refusals: an unknown event name is **400**; a negative, fractional or out-of-ran
 **This cannot re-price history.** `StudentActivity.xpAwarded` is a snapshot written when the event happened and a student's total is the sum of those recorded values, so a change here decides what the *next* event pays and nothing else. It is a property of the data model rather than a promise made by this endpoint, and it has its own test. Audited as `reward.settings.updated`.
 
 Only **amounts** are configurable. Which events exist, how often each may be earned (`ONCE_PER_DAY` / `ONCE_PER_ACCOUNT`), what makes one eligible, and where the level thresholds fall all stay in code.
+
+---
+
+## Payments and the entry fee (Milestone 19)
+
+Razorpay Standard Checkout, verified server-side. **The browser is never believed about money**: it may ask for an order and report back three ids; it can never assert that a payment succeeded. Both paths that mark a payment captured verify an HMAC signature computed from a secret only this process holds, compared in constant time.
+
+Middleware note: the gated student surfaces below carry an extra middleware, `requireEntry`, mounted **after** the auth gate and `ensureDb` and **before** the handler. It answers **402** when the entry fee is unpaid — deliberately not 403, because "not yet, and here is the button" and "you may not" are different messages and the frontend branches on the status.
+
+### `POST /api/v1/payments/orders`
+
+Creates a Razorpay order for the caller's own entry fee. `requireAuth()`.
+
+**Takes no request body at all.** The amount comes from the settings document and the student from the token — a client-supplied amount is how a ₹100 fee gets paid as ₹1, and the only thing a student can buy is their own entry.
+
+- **201** → `{ keyId, orderId, amount, currency, prefill: { name, email, contact } }`. `keyId` is the *public* key id, sent from the server rather than built into the bundle so the two cannot drift apart.
+- **409** if the fee is switched off, or already paid.
+- **502** if Razorpay refused or could not be reached — no local row is created, because a payment row with no remote order can never be paid.
+- **503** if `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` are unset, naming the variables. Also 503 (not 502) on a Razorpay 401, because wrong credentials are an operator problem and must not be reported to a student as a payment failure.
+
+### `POST /api/v1/payments/verify`
+
+The browser's return journey from the checkout modal. `requireAuth()`.
+
+Body: `{ razorpay_order_id, razorpay_payment_id, razorpay_signature }` — Razorpay's own field names, unchanged.
+
+- **200** → `{ payment, newlyCaptured, hasPaid: true }`. `newlyCaptured` is `false` when a webhook or a reconcile got there first; the student is entitled either way.
+- **400** if the signature does not verify. The attempt is recorded as a failure, because a mismatch means either a bug or a forgery and both need to be visible.
+- **404** if the order belongs to another account. Ownership is checked separately from the signature: a valid signature proves the payment is *genuine*, not that it is *yours*, and without this check a student could verify somebody else's order and hand **them** the entitlement while appearing to have paid.
+
+### `POST /api/v1/payments/reconcile`
+
+Settles the caller's outstanding order by asking Razorpay directly. `requireAuth()`.
+
+**This stands in for the webhook** (no webhook secret is configured — see [`DECISIONS.md`](DECISIONS.md)). Called by the payment page on load and whenever the modal closes without success, so a student who paid and lost their tab is settled the moment they return.
+
+- **200** → `{ reconciled, payment, hasPaid }`. `reconciled: false` simply means nothing had changed.
+- **502** if Razorpay could not be queried.
+
+Only a `captured` payment counts. `authorized` means the money is held but not taken, and treating it as paid would entitle a student against money that can still evaporate.
+
+### `POST /api/v1/payments/webhook` — unauthenticated
+
+Razorpay's server-to-server notification. The **only** unauthenticated route in this group, and safe without a session for three reasons: the raw body is verified against `RAZORPAY_WEBHOOK_SECRET` before it is read as anything; capture is idempotent, so Razorpay's by-design retries are free; and it **never creates a payment**, so an order this server did not create is acknowledged and dropped rather than producing a row belonging to nobody.
+
+- **200** for anything understood, *including* ignored events — a non-2xx makes Razorpay retry, and retrying an event we will never care about only fills their queue and our logs.
+- **400** on a missing or invalid signature. Deliberately terse.
+- **500** on an internal failure, so the event is retried rather than lost.
+
+Handles `payment.captured`, `order.paid` and `payment.failed`. A late `payment.failed` can never revoke a capture.
+
+### `GET /api/v1/payments/status`
+
+`requireAuth()`. → `{ available, entryFeeEnabled, amount, amountDisplay, currency, hasPaid }`.
+
+`available` reports whether the credentials exist, so the page can say "payment is unavailable" rather than offering a button that will 503. `hasPaid` is the derived entitlement — and is `true` for everyone when `entryFeeEnabled` is false.
+
+### `GET /api/v1/payments/mine`
+
+`requireAuth()`. The caller's own transactions, newest first, capped at 50. The signature is never included.
+
+### `GET /api/v1/admin/payments`
+
+`requirePermission('students:read')` — it exposes who paid what, which is student account data, so every role that may already read a student's record is the right set.
+
+Optional `?status=` filtered through a literal allow-list rather than passed through, because the value reaches a Mongo filter.
+
+→ `{ payments[], byStatus[], collectedPaise, collectedDisplay }`, the 100 most recent. Every figure is counted from the collection by aggregation — no estimates, following the rule the rest of the admin area follows.
+
+### `GET` / `PUT /api/v1/admin/payment-settings`
+
+Reading is `requirePermission('students:read')`; **writing is `requirePermission('students:status:write')`**, because seeing a price and setting it are different acts.
+
+`PUT` body: `{ olympiadEntryFee (paise, 100–10 000 000), entryFeeEnabled }`. Writes an `AuditLog` entry recording **both sides** — who changed the fee, from what, to what — since that is the question the entry exists to answer.
+
+**Changing the price never re-prices a captured payment.** `Payment.amount` is a snapshot, the rule `StudentActivity.xpAwarded` already follows.
+
+### Routes that now require a paid entry fee
+
+These gained `requireEntry` and answer **402** for an unpaid student. The gate runs before the resource is looked up, so an absent id returns 402 rather than 404 — a paywall must not report on what exists behind it.
+
+| Route | Note |
+|---|---|
+| `POST /api/v1/practice/sessions` | Starting a session. `GET /practice/options` stays open, so an unpaid student can see what practice offers. |
+| `POST /api/v1/mock-tests/:id/attempts` | Starting an attempt. `GET /mock-tests` stays open, so the papers set for a class are visible before paying. |
+| `POST /api/v1/me/daily-challenge/answer` | Answering. Reading today's question stays open — the dashboard card shows it. |
+| `POST /api/v1/exams/:id/attempt` | Sitting the Olympiad. `startExamAttempt()` also refuses independently, as defence in depth. |
+
+A session already in progress can still be read, answered and submitted: the gate is on *starting*, so a paper somebody is midway through is not taken away from them.
+
+### The entitlement on auth responses
+
+Every auth response (`/auth/login`, `/auth/admin/login`, `/auth/refresh`, `/auth/me`) now also carries:
+
+```json
+"entitlements": { "olympiadEntry": true }
+```
+
+It rides there for the same reason `permissions` does — so the frontend reads the answer rather than deriving it. It is **presentation only**; `requireEntry` re-derives it from the payment record on every gated request, so a tampered client gets a nicer-looking 402 and nothing more.

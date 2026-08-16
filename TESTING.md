@@ -4,7 +4,9 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
-The backend has a working test suite: **796 passing tests across 24 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **830 passing tests across 25 files** (`backend/tests/`). The frontend still has **no test suite**.
+
+**One helper default worth knowing before writing a test** (Milestone 19): `registerVerifyLogin()` grants the account a captured entry-fee payment, because the fee gates practice, mock tests, the daily challenge and the exam — a test student who cannot practise would be asserting behaviour no real student reaches. Pass `{ paid: false }` as the third argument when *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants.
 
 **`tests/questionGenerator.test.ts` — 21 tests, the Milestone 17 suite, rewritten for Milestone 18.** Several tests now assert the question collection is **empty** after generating — the property the review-before-approval design exists for, and the one that would regress silently back into "saved as a draft". Its organising idea: **a generator is never trusted, so most of the file feeds the pipeline output a real model could plausibly produce and asserts it is refused** — a `\href` smuggled into LaTeX, `<script>` in question text, a single-choice question with two correct options, a numeric question carrying options, 40 questions when 2 were asked for, and a model trying to set its own subject, class and `status: 'published'`.
 

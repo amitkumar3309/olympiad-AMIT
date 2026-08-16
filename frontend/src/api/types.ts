@@ -100,6 +100,18 @@ export interface Admin {
   role: Role
 }
 
+/**
+ * What this account has **paid for**, as distinct from what its role permits.
+ *
+ * Rides on every auth response for the same reason `permissions` does: so the UI reads
+ * the answer rather than deriving it. Optional on the wire and treated as `false` when
+ * absent, so the gate fails closed.
+ */
+export interface Entitlements {
+  /** Practice, mock tests, the daily challenge and the official Olympiad. */
+  olympiadEntry: boolean
+}
+
 /** What the backend sends on login / refresh / `/auth/me`. */
 export interface SessionResponse {
   role: Role
@@ -111,6 +123,53 @@ export interface SessionResponse {
    * a forced change screen until it clears — see `ForcePasswordChange`.
    */
   mustChangePassword?: boolean
+  entitlements?: Entitlements
+}
+
+/** The student's own payment position, from `GET /payments/status`. */
+export interface PaymentStatusResponse {
+  available: boolean
+  entryFeeEnabled: boolean
+  amount: number
+  amountDisplay: string
+  currency: string
+  hasPaid: boolean
+}
+
+/** One transaction, as a student or an administrator sees it. Never the signature. */
+export interface PaymentRecord {
+  id: string
+  purpose: string
+  amount: number
+  amountDisplay: string
+  currency: string
+  status: 'created' | 'attempted' | 'captured' | 'failed' | 'refunded'
+  method: string | null
+  razorpayOrderId: string
+  razorpayPaymentId: string | null
+  failureReason: string | null
+  capturedAt: string | null
+  createdAt: string
+  /** Present only on the admin listing. */
+  student?: { studentId: string | null; fullName: string | null; email: string | null }
+}
+
+/** `GET /admin/payments`. Every figure counted from the collection. */
+export interface AdminPaymentsResponse {
+  payments: PaymentRecord[]
+  byStatus: { status: string; count: number; amount: number }[]
+  collectedPaise: number
+  collectedDisplay: string
+}
+
+/** `GET`/`PUT /admin/payment-settings`. */
+export interface PaymentSettingsResponse {
+  olympiadEntryFee: number
+  currency: string
+  entryFeeEnabled: boolean
+  amountDisplay: string
+  /** Whether the Razorpay credentials exist. Distinct from the fee being switched off. */
+  providerConfigured?: boolean
 }
 
 /** An account as an administrator sees it — wider than a student's own view. */

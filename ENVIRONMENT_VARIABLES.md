@@ -200,3 +200,49 @@ Brevo's free tier allows 300 emails/day, needs no credit card, and works over pl
 4. **Redeploy the backend.** Vercel does not apply new environment variables to an already-running deployment.
 
 Never paste these values into a public repository, issue, or screenshot; `SMTP_PASS` is a live credential.
+
+---
+
+## Payments — Razorpay (Milestone 19)
+
+| Variable | Required? | What it does | Where to get it | Example (fake) |
+|---|---|---|---|---|
+| `RAZORPAY_KEY_ID` | **optional** | The **public** key id. The browser needs it to open the checkout, and it is sent to the page by the server rather than built into the frontend bundle, so the two can never drift apart. | Razorpay dashboard — see below. | `rzp_test_1A2b3C4d5E6f7G` |
+| `RAZORPAY_KEY_SECRET` | **optional** | Signs orders and verifies what the checkout hands back. **A secret — this one must never leave the server.** | Same place, shown once. | `9zYx8Wv7Ut6Sr5Qp4On3Ml2K` |
+| `RAZORPAY_WEBHOOK_SECRET` | optional | Verifies Razorpay's server-to-server webhooks. A long random string **you** invent and then paste into their dashboard — deliberately separate from `RAZORPAY_KEY_SECRET`, because a webhook body is signed with a different secret and confusing the two produces a signature that never matches. | You invent it. | `a-long-random-string-you-invented` |
+
+**Everything boots with all three unset.** The product runs, but no student can pay: the payment page says payment is unavailable, and `POST /payments/orders` returns 503 naming the missing variables. That is deliberate — "we chose to run this free" and "the keys are missing" are different situations, and the second must not silently admit everybody. To run genuinely free, switch the fee off at `/admin/payments`.
+
+**The fee itself is not an environment variable.** ₹100 is the code default; the live value lives in the `PaymentSettings` document and is changed at `/admin/payments`, with an audit entry. A price is business configuration, not a credential — in `.env` it would be a redeploy to change and would leave no record of who changed it.
+
+**No webhook secret is set, and that is a supported configuration.** `POST /payments/reconcile` asks Razorpay directly what happened to an order, which covers the case a webhook exists for. Setting the secret later makes settlement automatic with no code change. See [`DECISIONS.md`](DECISIONS.md).
+
+### Getting Razorpay TEST keys (do this first — no real money moves)
+
+1. Go to **https://dashboard.razorpay.com** and sign in (or create an account — it is free; full KYC is only needed for Live mode).
+2. Find the **Test Mode / Live Mode** toggle at the top of the dashboard and switch it to **Test Mode**. Do not skip this — Live mode moves real money.
+3. In the left sidebar go to **Account & Settings** → **API Keys** (on some dashboards: **Settings** → **API Keys**).
+4. Press **Generate Test Key**. A dialog shows a **Key Id** and a **Key Secret**.
+5. **Copy the secret now.** Razorpay shows it exactly once; if you lose it you must regenerate, which invalidates the old one.
+6. Open `backend/.env` and add:
+   ```
+   RAZORPAY_KEY_ID=rzp_test_...the key id you copied...
+   RAZORPAY_KEY_SECRET=...the secret you copied...
+   ```
+7. Restart the backend (`npm run dev:local --prefix backend`).
+8. Sign in as an administrator and open **/admin/payments**. The warning "Razorpay is not configured" should be gone.
+9. Sign in as a student and open **/payment**. You should see **₹100.00** and a working **Pay ₹100.00** button.
+10. Pay with Razorpay's test card: **4111 1111 1111 1111**, any future expiry, any 3-digit CVV, any name. No money moves in Test Mode.
+11. Check that Practice, Mock Tests and the Daily Challenge lose their padlocks, and that the payment appears at **/admin/payments** with status `captured`.
+
+**One case worth testing on purpose**, because no automated test can cover it: start a payment, complete it, and **close the tab before the page returns**. Reopen `/payment`. It should find the payment and confirm your entry. That is the reconciliation path, and it is the difference between a student who paid getting what they paid for and getting nothing.
+
+### Going live (only when you are ready to take real money)
+
+1. Complete Razorpay's KYC. Live keys are not issued until it is approved.
+2. Switch the dashboard to **Live Mode** and generate a **live** key pair the same way. They start `rzp_live_`.
+3. Put them in the **backend** Vercel project → **Settings** → **Environment Variables**, for the **Production** environment. Not in any file, and never in the repository.
+4. **Redeploy the backend** — Vercel does not apply new environment variables to a running deployment.
+5. Confirm the fee at `/admin/payments` before announcing anything, and make one small real payment yourself to check the whole path end to end.
+
+`RAZORPAY_KEY_SECRET` is a live credential once you reach step 2: never paste it into a repository, an issue, a screenshot or a chat.

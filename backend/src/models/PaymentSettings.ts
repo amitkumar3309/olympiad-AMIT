@@ -30,20 +30,27 @@ export interface PaymentSettingsDocument extends Document {
   olympiadEntryFee: number;
   currency: string;
   /**
-   * Turns the paid gate off entirely: every student may sit the exam.
+   * Turns the paid gate off entirely: every student may practise, rehearse and compete
+   * without paying.
    *
-   * **Defaults to `false`: the paid gate is opt-in.**
+   * **Defaults to `true` as of 2026-08-16: the fee is how this product works.**
    *
-   * That default is deliberate and was chosen after the gate broke nine existing exam
-   * tests. Deploying a payment requirement that is on by default would instantly refuse
-   * entry to every student who could sit the exam yesterday — before Razorpay is even
-   * configured in production. A payment gate has to be switched on by somebody who
-   * knows the checkout works, not by a deploy.
+   * This reverses the default the feature shipped with earlier the same day, and the
+   * reversal is an owner decision rather than a technical one. The original `false` was
+   * chosen because switching a gate on by deploy would refuse entry to students who
+   * could enter yesterday — a good argument while the fee bought only the official exam
+   * and nobody had paid. It stopped applying when the owner made the fee the entry
+   * condition for the whole platform: a paywall that defaults to off is not a paywall,
+   * and every deployment would have had to remember to turn it on.
    *
-   * It is also the answer to a provider outage during an exam window, which needs a
-   * response that is not "nobody can enter"; and it is deliberately explicit rather than
-   * inferred from the credentials being absent, because "we chose to run this free" and
-   * "the keys are missing" are different situations that must not look the same.
+   * The switch itself is kept, and matters more now than it did, because it is the
+   * answer to two situations that have no other answer: a provider outage during an
+   * exam window (which needs a response that is not "nobody can enter"), and a decision
+   * to run a cohort free. It stays **explicit** rather than inferred from the
+   * credentials being absent, because "we chose to run this free" and "the keys are
+   * missing" are different situations that must never look the same — with the keys
+   * missing and this `true`, students are correctly told payment is unavailable rather
+   * than silently let in.
    */
   entryFeeEnabled: boolean;
   updatedByLabel: string | null;
@@ -51,8 +58,14 @@ export interface PaymentSettingsDocument extends Document {
   updatedAt: Date;
 }
 
-/** ₹499. Applies until an administrator saves anything else. */
-export const DEFAULT_ENTRY_FEE_PAISE = 49_900;
+/**
+ * ₹100. Applies until an administrator saves anything else.
+ *
+ * Set by the owner on 2026-08-16, down from the ₹499 the feature shipped with. It is a
+ * price, so it lives here as a starting value and is changed from `/admin/payments` —
+ * not by editing this line.
+ */
+export const DEFAULT_ENTRY_FEE_PAISE = 10_000;
 
 const paymentSettingsSchema = new Schema<PaymentSettingsDocument>(
   {
@@ -61,7 +74,7 @@ const paymentSettingsSchema = new Schema<PaymentSettingsDocument>(
     // their API, so accepting it here would only move the failure later.
     olympiadEntryFee: { type: Number, required: true, min: 100, max: 10_000_000, default: DEFAULT_ENTRY_FEE_PAISE },
     currency: { type: String, required: true, default: 'INR' },
-    entryFeeEnabled: { type: Boolean, required: true, default: false },
+    entryFeeEnabled: { type: Boolean, required: true, default: true },
     updatedByLabel: { type: String, default: null },
   },
   { timestamps: true },

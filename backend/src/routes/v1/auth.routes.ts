@@ -45,6 +45,7 @@ import { buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email
 import { enqueueEmail } from '../../services/emailOutbox';
 import { logger } from '../../lib/logger';
 import { grantDailyVisit, grantReward } from '../../services/rewardService';
+import { hasEntryEntitlement } from '../../services/paymentService';
 
 const router = Router();
 
@@ -79,7 +80,7 @@ function publicStudent(student: StudentDocument) {
  * permission list, so the frontend can drive guards and navigation from the
  * server's own authorization table instead of re-implementing it and drifting.
  */
-function sessionEnvelope(student: StudentDocument) {
+async function sessionEnvelope(student: StudentDocument) {
   return {
     role: student.role,
     permissions: permissionsFor(student.role),
@@ -90,6 +91,22 @@ function sessionEnvelope(student: StudentDocument) {
      * auth response so a reload cannot step around it.
      */
     mustChangePassword: student.mustChangePassword === true,
+    /**
+     * What this account has *paid for*, as opposed to what its role permits.
+     *
+     * It rides on every auth response for exactly the reason `permissions` does: the
+     * frontend must not re-derive it. A page that decided "have they paid?" for itself
+     * would be a second source of truth about money, and the two would disagree the
+     * first time somebody paid in another tab.
+     *
+     * This is **presentation only**. It decides whether a lock icon or a paper is
+     * rendered; it does not decide whether the paper is served. `requireEntry` on the
+     * route is the guarantee, and it re-derives the answer from the payment record on
+     * every gated request — so a tampered client gets a nicer-looking 402.
+     */
+    entitlements: {
+      olympiadEntry: await hasEntryEntitlement(studentObjectId(student)),
+    },
   };
 }
 
@@ -472,7 +489,7 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
       });
     }
 
-    sendSuccess(res, 200, sessionEnvelope(student));
+    sendSuccess(res, 200, await sessionEnvelope(student));
   } catch (err) {
     logger.error({ err }, 'Login failed');
     sendError(res, 500, 'Could not sign you in. Please try again.');
@@ -536,7 +553,7 @@ router.post('/auth/admin/login', loginLimiter, validate({ body: adminLoginSchema
       },
     });
 
-    sendSuccess(res, 200, sessionEnvelope(resolution.account));
+    sendSuccess(res, 200, await sessionEnvelope(resolution.account));
   } catch (err) {
     logger.error({ err }, 'Admin login failed');
     sendError(res, 500, 'Admin login failed.');
@@ -581,7 +598,7 @@ router.post('/auth/refresh', refreshLimiter, ensureDb, async (req, res) => {
     // Re-issuing from the database is what makes a role change reach the client:
     // the new access token and the returned permission list both come from the
     // account as it is now, not as it was when the session began.
-    sendSuccess(res, 200, sessionEnvelope(student));
+    sendSuccess(res, 200, await sessionEnvelope(student));
   } catch (err) {
     logger.error({ err }, 'Token refresh failed');
     sendError(res, 500, 'Could not refresh your session. Please sign in again.');
@@ -655,7 +672,7 @@ router.get('/auth/me', async (req, res) => {
     }
     // The role and permissions come from the account as it is now, so a promotion
     // or demotion is reflected on the next page load without a re-login.
-    sendSuccess(res, 200, sessionEnvelope(student));
+    sendSuccess(res, 200, await sessionEnvelope(student));
   } catch (err) {
     logger.error({ err }, 'Failed to load current user');
     sendError(res, 503, 'Could not load your session right now. Please try again.');

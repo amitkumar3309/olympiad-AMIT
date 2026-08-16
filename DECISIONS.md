@@ -51,6 +51,8 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ## 2026-08-04 — No payment gateway integrated yet; static QR placeholder only
 
+> **Superseded on 2026-08-16 by "Razorpay Standard Checkout, verified server-side" below.** The provider decision was made (Razorpay), the QR placeholder was deleted, and real payment collection exists. The concern recorded here — that the UI implied a payment nobody was taking — was exactly right and is what the replacement was written to close.
+
 **Decision (implicit, by omission)**: Ship the registration flow with a static QR code image and a self-reported "I've paid" button, with no real payment verification, pending a real decision.
 **Reason**: MVP needs to demonstrate the registration UX before committing to a specific payment provider (which likely has fees, KYC requirements, or isn't free-tier-friendly).
 **Alternatives considered**: Not yet evaluated — needs owner input (Razorpay, Cashfree, etc. are common India-market options with free/low-cost test modes, but this has **not been decided** and must go through the owner per [`CLAUDE.md`](CLAUDE.md)'s cost-constraint rule before any SDK is added).
@@ -954,3 +956,85 @@ Normalisation forgives what is never the point of a maths question — capitalis
 **Alternatives considered**: (a) Fuzzy matching with an edit-distance threshold — rejected: it makes correctness depend on a tuning constant nobody can explain to a student who was marked wrong. (b) Regex answers — rejected: it puts a language nobody on the team writes into a field examiners edit. (c) Numeric-with-unit as a separate type — unnecessary; `fill_blank` with `["12 cm", "12cm"]` covers it.
 
 **Consequences**: adding a type touched the model, the validation, the grader, the shared attempt subdocument, three snapshot builders, four answer-application paths and every review view — which is the honest cost of a fifth answer shape and the reason short answer was not waved through on top of it. The compiler found all of them because `acceptedAnswers` is non-optional on `AttemptAnswerEntry`; an optional field would have been missed in two of the three snapshot builders and produced wrong marks. That near-miss is recorded as a follow-up to consolidate them.
+
+---
+
+## 2026-08-16 — Razorpay Standard Checkout, verified server-side, with no SDK
+
+**Decision**: integrate **Razorpay** for the Olympiad entry fee, over the REST API with `fetch` and `node:crypto`. No SDK, no new dependency. The checkout modal runs in the browser; every state change that means "money arrived" is decided by an HMAC signature this server computes with a secret the bundle has never seen.
+
+**Reason**: the owner picked the provider. Razorpay is the common India-market choice, supports UPI / cards / net banking / wallets from one integration, and has a test mode that costs nothing to develop against. The **no-SDK** half follows the Milestone 17 precedent set for Gemini: the API is Basic auth over HTTPS and the signature is one HMAC, so an SDK would add a dependency and a version to chase to save about thirty lines — and its automatic retries are actively *unwanted* on an endpoint that creates orders.
+
+**This knowingly breaks the ₹0 cost target**, which no previous decision has done. Razorpay charges per transaction. That was the owner's call, it is what the entry fee funds, and everything else in the product still runs on free tiers. Recorded explicitly so a future session does not "fix" it back.
+
+**Alternatives considered**: (a) Cashfree — comparable, not chosen, no technical objection. (b) Razorpay's Node SDK — rejected above. (c) A payment link emailed per student — rejected: it cannot be reconciled against an account automatically, which is the whole basis of the entitlement.
+
+**Consequences**: the raw request body must be preserved in `app.ts`, because Razorpay signs the exact bytes it sent and verifying against a re-serialised object fails for legitimate webhooks — the predictable "fix" for which is to stop verifying. Three new environment variables, all optional, so the product still boots without them and says so rather than half-working. `checkout.js` is loaded on demand rather than from `index.html`, so a third-party script is not fetched on every page load of the whole site for a page almost nobody visits.
+
+---
+
+## 2026-08-16 — The entitlement is derived from a captured payment, never stored on the student
+
+**Decision**: "may this student use the platform?" is answered by `Payment.exists({ student, purpose: 'olympiad_entry', status: 'captured' })`. There is **no `hasPaid` flag on `Student`**, and no field anywhere that records entitlement as a boolean.
+
+**Reason**: the same argument that keeps XP, levels, streaks, the leaderboard and analytics derived, applied to the one subject where being wrong is worst. A stored boolean is a second source of truth about money. When it drifts — a failed write after a successful capture, a restore from a stale backup, a refund that updated one place and not the other — either somebody who paid is refused, or somebody who did not is admitted. The payment row is the fact; anything else is a cache of it.
+
+**Alternatives considered**: (a) A `hasPaid` boolean updated on capture — rejected above. (b) An `entitlements` array on `Student` — same objection, with more ways to drift. (c) Recomputing into a cache on read — rejected: the query is a single indexed existence check, so there is nothing to save.
+
+**Consequences**: every gated request costs one indexed `exists()` plus the settings read, and the entitlement rides on every auth response, which adds the same two reads there. Cheap, and it means a refund or a correction takes effect immediately with no reconciliation step. The index `{student, purpose, status}` exists precisely for this query.
+
+---
+
+## 2026-08-16 — One mounted `requireEntry` middleware, answering 402, ahead of the lookup
+
+**Decision**: the paywall is a **middleware mounted on gated routes**, not a call inside each handler and not an entry in the permission table. It answers **402**. It runs **after** the auth gate and `ensureDb`, and **before** the handler.
+
+**Reason**: three separate arguments landed in the same place.
+
+**Why not a permission**: `requirePermission()` answers "what may this *role* do?" from a static table, and the value of that table is that it can be checked by reading it. Payment is a different axis — two students with identical roles differ by whether money arrived, which is a fact about a collection. An `entry:paid` permission would make the table no longer derivable from the role.
+
+**Why mounted rather than called**: the same reason there is one grader and one reward engine. A surface that has to remember to ask will eventually forget, and a forgotten paywall is indistinguishable from a working one until somebody notices the revenue. A mounted middleware is visible in the route definition, where a reviewer can see whether it is there.
+
+**Why 402 and not 403**: they mean different things to the page receiving them. 403 is "you may not, and nothing you do will change that" — the `Unauthorized` screen. 402 is "not yet, and here is what to do about it" — a pay button. The frontend branches on the status, so a 403 would strand a paying customer on a dead end.
+
+**Why before the lookup**: the exam's original check sat inside `startExamAttempt()`, *after* the route's 404. That made the paywall report on what exists behind it — an unpaid caller could distinguish a real exam id from an invented one by the status code. The service check stays as defence in depth for any future caller; the middleware is what makes the refusal uniform. There is a regression test asserting 402 rather than 404 for an absent id.
+
+**Alternatives considered**: (a) Checking in each service — rejected: that is where the exam's leak came from. (b) A single global gate with a route allow-list of *free* routes — rejected: that fails open, so a new public route silently becomes paid, or worse, a new paid route silently becomes free. Naming the gated routes fails closed in the direction that matters less.
+
+**Consequences**: adding a gated surface is one line at the route, and forgetting it is visible in review rather than invisible in production. Staff are **not exempt** — a promoted admin is an ordinary student account, and a role exemption inside a payment gate is exactly the kind of thing that silently admits people. An administrator who wants to click through practice must pay or switch the fee off, which is recorded in [`PROJECT_STATE.md`](PROJECT_STATE.md) so it is not discovered as a bug.
+
+---
+
+## 2026-08-16 — Reconciliation replaces the webhook
+
+**Decision**: with no `RAZORPAY_WEBHOOK_SECRET` configured, `POST /payments/reconcile` asks Razorpay directly what happened to the student's outstanding order and captures on the same idempotent path. It runs on payment-page load and whenever the checkout modal closes without success. The webhook route remains, fully implemented, and works the moment a secret is set.
+
+**Reason**: the owner chose not to configure a webhook. That leaves the browser's return journey as the only confirmation — and a browser can be closed, refreshed, or killed by a dropped mobile connection in the second between the money moving and the verify call landing. Every one of those leaves Razorpay holding a captured payment this database knows nothing about: the student has paid and received nothing, which is the worst failure this feature has.
+
+Pulling is in one way **strictly more trustworthy** than being pushed: the answer comes from an authenticated call we initiated, rather than from an unauthenticated request claiming to be Razorpay. The trade is latency — it settles when something asks, rather than within seconds automatically.
+
+Only `captured` counts. `authorized` means the money is held but not taken, and treating it as paid would entitle a student against money that can still evaporate.
+
+**Alternatives considered**: (a) Requiring the webhook — rejected: it is the owner's environment to configure, and a feature that only works with an optional secret set is a feature that will be deployed broken. (b) Polling every pending order on a timer — rejected: the free tier has no scheduler, and it would spend API calls on abandoned checkouts, which are the majority.
+
+**Consequences**: a student who pays and never returns to the site is not settled until something asks. Mitigated because the payment page reconciles on load and the dismiss handler reconciles immediately, so the realistic path — pay, tab dies, come back — is covered. Configuring a webhook secret later makes settlement automatic with no code change.
+
+---
+
+## 2026-08-16 — The entry fee is charged by default, and it gates the whole platform
+
+**Decision**: `entryFeeEnabled` defaults to **`true`**, and the fee entitles a student to **practice, mock tests, the daily challenge and the official Olympiad** — not the exam alone. The fee is **₹100**, stored in an administrator-editable settings document rather than an environment variable.
+
+**Reason**: two owner decisions on the same day, and one of them reverses a default set hours earlier.
+
+The **scope** widened because the owner described the product's flow as: register, pay, then use the site. The narrower version — free practice, paid exam — was a reasonable first shape but was not what the product is.
+
+The **default** flipped from `false` for a reason that only became true once the scope widened. `false` was correct while the fee bought the exam alone and nobody had paid: switching a gate on by deploy would have refused entry to students who could enter yesterday. Once the fee is the entry condition for the platform, a paywall that defaults to off is not a paywall, and every deployment would have to remember to switch it on. The reversal is recorded here rather than silently applied, because the original argument was a good one and a future session will meet it in the model's comments.
+
+The **switch is kept**, and matters more now than it did. It is the only answer to two situations: a provider outage during an exam window, which needs a response that is not "nobody can enter", and a decision to run a cohort free. It stays **explicit** rather than inferred from the credentials being absent, because "we chose to run this free" and "the keys are missing" are different situations that must never look the same — with the keys missing and the fee on, students are correctly told payment is unavailable rather than quietly admitted.
+
+The **fee is not an environment variable** because it is business configuration, not a credential. In `.env` it would be a redeploy to change, unchangeable by the person who actually decides it, and would leave no record of who changed it or when. `RewardSettings` already established this pattern for the XP table.
+
+**Alternatives considered**: (a) Keeping the fee exam-only and adding a second paid tier for practice — rejected: two products where the owner described one. (b) Gating the dashboard as well — rejected after asking the owner: a student must be able to see what they are buying, and a hard wall at sign-in reads as a broken account. (c) Deriving "charging" from whether Razorpay is configured — rejected above.
+
+**Consequences**: every suite that exercises a gated surface needs an entitled student, so `registerVerifyLogin()` grants one by default and takes `{ paid: false }` for the cases where not having paid is the point. That default is deliberate: a test student who cannot practise is asserting behaviour no real student reaches. `createAdminSession()` is unpaid, because staff are not entrants and an administrator with an entry-fee payment against their name would appear in the console's collected total. Changing the price never re-prices a captured payment — `Payment.amount` is a snapshot, the rule `StudentActivity.xpAwarded` already follows.

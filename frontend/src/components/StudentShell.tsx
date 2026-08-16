@@ -35,14 +35,20 @@ interface NavItem {
   to: string
   label: string
   icon: string
+  /**
+   * Needs a paid entry fee. The item is still shown and still navigable — it leads to
+   * a page explaining what is behind it, which is more use than a link that vanished.
+   * A padlock beside it is what tells the student why.
+   */
+  paid?: boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'ph-squares-four' },
   { to: '/profile', label: 'My Profile', icon: 'ph-user-circle' },
-  { to: '/practice', label: 'Practice Zone', icon: 'ph-target' },
-  { to: '/mock-tests', label: 'Mock Tests', icon: 'ph-exam' },
-  { to: '/daily-challenge', label: 'Daily Challenge', icon: 'ph-dice-five' },
+  { to: '/practice', label: 'Practice Zone', icon: 'ph-target', paid: true },
+  { to: '/mock-tests', label: 'Mock Tests', icon: 'ph-exam', paid: true },
+  { to: '/daily-challenge', label: 'Daily Challenge', icon: 'ph-dice-five', paid: true },
   { to: '/rewards', label: 'Rewards', icon: 'ph-trophy' },
   { to: '/payment', label: 'Entry fee', icon: 'ph-currency-inr' },
   { to: '/notifications', label: 'Notifications', icon: 'ph-bell' },
@@ -63,7 +69,7 @@ interface StudentShellProps {
 }
 
 export default function StudentShell({ title, subtitle, children }: StudentShellProps) {
-  const { state, logout } = useAuth()
+  const { state, logout, hasPaid } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -148,6 +154,9 @@ export default function StudentShell({ title, subtitle, children }: StudentShell
               onClick={() => setSidebarOpen(false)}
             >
               <i className={`ph-bold ${item.icon}`} /> {item.label}
+              {item.paid && !hasPaid && (
+                <i className={`ph-bold ph-lock-simple ${styles.lock}`} aria-label="Entry fee required" />
+              )}
               {item.to === '/notifications' && unread > 0 && (
                 // Capped display, so a long absence cannot stretch the menu item.
                 <span className={styles.badge} aria-label={`${unread} unread`}>

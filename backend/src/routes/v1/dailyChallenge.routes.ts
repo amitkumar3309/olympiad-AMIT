@@ -4,6 +4,7 @@ import { requireAuth } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { challengeLimiter } from '../../middleware/rateLimiter';
+import { requireEntry } from '../../middleware/requireEntry';
 import { Student, type StudentDocument } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
@@ -190,6 +191,9 @@ router.post(
   challengeLimiter,
   validate({ body: answerChallengeSchema }),
   ensureDb,
+  // Paid students only. Reading today's question stays open — the dashboard card shows
+  // it, and seeing the challenge is part of what persuades somebody to enter.
+  requireEntry,
   async (req: Request, res: Response) => {
     try {
       const student = await loadSelf(req, res);

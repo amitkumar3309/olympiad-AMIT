@@ -2,7 +2,7 @@ import { Suspense, lazy, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
-import { ProtectedRoute, RequirePermission } from './components/ProtectedRoute'
+import { ProtectedRoute, RequirePermission, RequirePaidEntry } from './components/ProtectedRoute'
 import ForcePasswordChange from './components/ForcePasswordChange'
 import Spinner from './components/Spinner'
 import Landing from './pages/Landing/Landing'
@@ -41,6 +41,7 @@ const AdminDailyChallenges = lazy(() => import('./pages/Admin/DailyChallenges'))
  *  student opens on arrival. */
 const Rewards = lazy(() => import('./pages/Rewards/Rewards'))
 const AdminRewardSettings = lazy(() => import('./pages/Admin/RewardSettings'))
+const AdminPayments = lazy(() => import('./pages/Admin/Payments'))
 /**
  * Leaderboards and the Hall of Fame (Milestone 10). Both are **public** — a visitor
  * can see the standing without an account, which is the whole reason the backend masks
@@ -305,6 +306,17 @@ export default function App() {
               </RequirePermission>
             }
           />
+          {/* The payments console (Milestone 19). Gated on `students:read`, matching the
+              backend: it exposes who paid what, which is student account data. Changing
+              the fee needs `students:status:write` and the page enforces that itself. */}
+          <Route
+            path="/admin/payments"
+            element={
+              <RequirePermission permission="students:read">
+                <AdminPayments />
+              </RequirePermission>
+            }
+          />
           <Route
             path="/ai-generator"
             element={
@@ -345,38 +357,38 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          {/* --- Practice Zone (Milestone 6) --- */}
+          {/* --- Practice Zone (Milestone 6), behind the entry fee since Milestone 19 --- */}
           <Route
             path="/practice"
             element={
-              <ProtectedRoute>
+              <RequirePaidEntry feature="Practice">
                 <Practice />
-              </ProtectedRoute>
+              </RequirePaidEntry>
             }
           />
           <Route
             path="/practice/:sessionId"
             element={
-              <ProtectedRoute>
+              <RequirePaidEntry feature="Practice">
                 <PracticeSessionPage />
-              </ProtectedRoute>
+              </RequirePaidEntry>
             }
           />
-          {/* --- Mock tests (Milestone 7) --- */}
+          {/* --- Mock tests (Milestone 7), behind the entry fee since Milestone 19 --- */}
           <Route
             path="/mock-tests"
             element={
-              <ProtectedRoute>
+              <RequirePaidEntry feature="Mock tests">
                 <MockTests />
-              </ProtectedRoute>
+              </RequirePaidEntry>
             }
           />
           <Route
             path="/mock-tests/attempts/:attemptId"
             element={
-              <ProtectedRoute>
+              <RequirePaidEntry feature="Mock tests">
                 <MockTestAttemptPage />
-              </ProtectedRoute>
+              </RequirePaidEntry>
             }
           />
           {/* --- Gamification (Milestone 9) --- */}
@@ -388,13 +400,13 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          {/* --- Daily challenge (Milestone 8) --- */}
+          {/* --- Daily challenge (Milestone 8), behind the entry fee since Milestone 19 --- */}
           <Route
             path="/daily-challenge"
             element={
-              <ProtectedRoute>
+              <RequirePaidEntry feature="The daily challenge">
                 <DailyChallengePage />
-              </ProtectedRoute>
+              </RequirePaidEntry>
             }
           />
           {/**
@@ -426,17 +438,17 @@ export default function App() {
           <Route
             path="/exam"
             element={
-              <ProtectedRoute>
+              <RequirePaidEntry feature="The official Olympiad">
                 <Exams />
-              </ProtectedRoute>
+              </RequirePaidEntry>
             }
           />
           <Route
             path="/exam/:attemptId"
             element={
-              <ProtectedRoute>
+              <RequirePaidEntry feature="The official Olympiad">
                 <ExamAttemptPage />
-              </ProtectedRoute>
+              </RequirePaidEntry>
             }
           />
           <Route

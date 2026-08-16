@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Twenty-six models** as of Milestone 19, which added **`Payment`** and **`PaymentSettings`** — the transaction record and the administrator-editable entry fee. Twenty-four as of Milestone 18, which added `GenerationLog`. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 **That default is a trap worth knowing about.** Because it exists, a script or process with no `.env` loaded connects to a *local* database and works perfectly, writing to somewhere nobody is looking. This happened: a seed run from the wrong directory published 208 questions to localhost while production stayed empty. `config/env.ts` now anchors the `.env` lookup to the package root, and every write script calls `assertConfiguredForWrites()`. Use `npx tsx scripts/where-is-data.ts` to see which database is actually connected and what every collection really holds.
 
@@ -475,6 +475,65 @@ The object itself has **no schema-level default**, so a pre-Milestone-14 documen
 Deliberately **no TTL** — unlike the two token collections. Expiring a row would make a notification the student has already read reappear as unread, which reads as a bug rather than as tidying.
 
 "Unread" is therefore an **anti-join** (`_id: { $nin: readIds }`), not a filter — which is why the inbox and the unread count share one `inboxFilter()`, so the number on the bell cannot disagree with the list.
+
+---
+
+## `Payment` (Milestone 19) — ACTIVE
+
+One row per Razorpay **order**, created before any money moves and updated as it settles. Written by `services/paymentService.ts` only.
+
+| Field | Type | Notes |
+|---|---|---|
+| `student` | `ObjectId` → `Student` | Required. The row is what entitles this account, so it can never be absent. |
+| `purpose` | `String` enum | `olympiad_entry` today; the enum exists so a second purchasable thing does not need a second collection. |
+| `amount` | `Number` | **Integer paise**, min 100. Never rupees, never a float — money in a floating-point type is a rounding bug waiting for a total. Every display divides by 100 at the edge. |
+| `currency` | `String` | Default `INR`. |
+| `razorpayOrderId` | `String` | **Unique.** One row per order, which is what makes capture and webhooks idempotent. |
+| `razorpayPaymentId` | `String \| null` | `pay_…`. Absent until a payment is attempted against the order. |
+| `razorpaySignature` | `String \| null` | Set only once verified server-side. **Never returned to any client** — it is derived from the secret, so publishing it would be an oracle for whether an order/payment pair is genuine. |
+| `status` | `String` enum | `created` → `attempted` → `captured` / `failed`, plus `refunded`. |
+| `statusSource` | `String \| null` | `checkout_verify` or `webhook` — which path last moved it. Both happen, and knowing which is what makes a support question answerable. |
+| `failureReason` | `String \| null` | Razorpay's own text, verbatim, capped at 300 characters. |
+| `method` | `String \| null` | card / upi / netbanking, as reported. Display only. |
+| `capturedAt` | `Date \| null` | When the money was confirmed taken. The entitlement's effective date. |
+
+**Indexes**: `{student, purpose, status}` (THE entitlement query — it runs on every gated request), `{student, createdAt: -1}` (the student's own history), `{status, createdAt: -1}` (the admin console).
+
+**No TTL**, like `AuditLog` and `StudentActivity`. A payment record is financial evidence — that somebody paid, when, how much, and what it entitled them to. Expiring one would delete the proof of a transaction a student can be asked about years later.
+
+**`amount` is a snapshot.** Changing the fee never re-prices a captured payment, exactly as `StudentActivity.xpAwarded` records what an event was worth at the time.
+
+---
+
+## `PaymentSettings` (Milestone 19) — ACTIVE
+
+The fee, as a single administrator-editable document. Pinned by a unique index on a constant `key: 'default'`, the same pattern `RewardSettings` uses, so two concurrent saves cannot produce two settings documents that disagree about the price.
+
+| Field | Type | Notes |
+|---|---|---|
+| `key` | `String` | Constant `'default'`, unique. |
+| `olympiadEntryFee` | `Number` | Integer paise. Default **10 000 (₹100)**. `min: 100` mirrors Razorpay's own floor — an order below one rupee is refused by their API, so accepting it here would only move the failure later. |
+| `currency` | `String` | Default `INR`. |
+| `entryFeeEnabled` | `Boolean` | Default **`true`** since 2026-08-16. Turning it off admits every student to everything. |
+| `updatedByLabel` | `String \| null` | Who last saved it. The `AuditLog` entry carries the before-and-after values. |
+
+**Until somebody saves one, the code defaults apply** — there is nothing to seed and nothing to migrate. Note the consequence: a fresh database gates everything, because `entryFeeEnabled` reads as `true` when absent. That is deliberate (a paywall nobody remembered to switch on is not a paywall) and is recorded in [`DECISIONS.md`](DECISIONS.md).
+
+**The fee is not an environment variable.** It is business configuration, not a credential: in `.env` it would be a redeploy to change, unchangeable by the person who decides it, and would leave no record of who changed it or when.
+
+---
+
+## The entitlement — derived, with no collection behind it
+
+There is **no entitlement record and no `hasPaid` field on `Student`.** "May this student practise, rehearse, answer the daily challenge or sit the Olympiad?" is:
+
+```
+Payment.exists({ student, purpose: 'olympiad_entry', status: 'captured' })
+```
+
+…returning `true` unconditionally when `entryFeeEnabled` is off. This is the same discipline that keeps XP, levels, streaks, the leaderboard and analytics derived, applied where being wrong is worst: a stored boolean is a second source of truth about money, and when it drifts, either somebody who paid is refused or somebody who did not is admitted.
+
+Reached through `middleware/requireEntry.ts` rather than called directly by routes, so no surface can be added that forgets to ask.
 
 ---
 

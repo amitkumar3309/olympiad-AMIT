@@ -219,10 +219,14 @@ export default function Payment() {
             <h3>You are entered</h3>
             <p>
               {status.entryFeeEnabled
-                ? 'Your entry fee is paid. You can sit the official Olympiad when it opens.'
-                : 'No entry fee is being charged at the moment, so your place is confirmed.'}
+                ? 'Your entry fee is paid. Practice, mock tests and the daily challenge are unlocked, and you can sit the official Olympiad when it opens.'
+                : 'No entry fee is being charged at the moment, so everything is open to you.'}
             </p>
-            <Link to="/exam">Go to the exam →</Link>
+            <div className={styles.unlockedLinks}>
+              <Link to="/practice">Start practising →</Link>
+              <Link to="/mock-tests">Take a mock test →</Link>
+              <Link to="/daily-challenge">Today's challenge →</Link>
+            </div>
           </div>
         )}
 
@@ -231,8 +235,25 @@ export default function Payment() {
             <p className={styles.amountLabel}>Entry fee</p>
             <p className={styles.amount}>{status.amountDisplay}</p>
             <p className={styles.what}>
-              A one-off payment that enters you into the official Olympiad. Practice, mock tests, the daily challenge and
-              your analytics are free and stay free — this is only for the competition itself.
+              A one-off payment that enters you into the national Olympiad and unlocks everything you need to prepare for
+              it.
+            </p>
+            <ul className={styles.unlocks}>
+              <li>
+                <i className="ph-bold ph-check" /> Practice questions from the published bank for your class
+              </li>
+              <li>
+                <i className="ph-bold ph-check" /> Timed mock tests, with results and worked answers
+              </li>
+              <li>
+                <i className="ph-bold ph-check" /> The daily challenge, and the streak that goes with it
+              </li>
+              <li>
+                <i className="ph-bold ph-check" /> Your seat at the official Olympiad, and your certificate
+              </li>
+            </ul>
+            <p className={styles.freeNote}>
+              Creating your account, verifying your email and your dashboard stay free — you only pay once, to compete.
             </p>
 
             {!status.available ? (

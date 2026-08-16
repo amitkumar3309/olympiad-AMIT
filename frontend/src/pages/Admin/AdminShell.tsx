@@ -26,6 +26,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; icon: string; permission?: P
   { to: '/admin/daily-challenges', label: 'Daily Challenge', icon: 'ph-dice-five', permission: 'challenges:write' },
   { to: '/admin/standings', label: 'Standings & Rewards', icon: 'ph-ranking', permission: 'students:read' },
   { to: '/admin/reward-settings', label: 'Reward Settings', icon: 'ph-trophy', permission: 'rewards:write' },
+  { to: '/admin/payments', label: 'Payments', icon: 'ph-currency-inr', permission: 'students:read' },
   { to: '/admin/analytics', label: 'Analytics', icon: 'ph-chart-line-up', permission: 'analytics:read:any' },
   { to: '/admin/performance', label: 'Performance', icon: 'ph-target', permission: 'analytics:read:any' },
   { to: '/admin/gallery', label: 'Event Gallery', icon: 'ph-images', permission: 'gallery:write' },

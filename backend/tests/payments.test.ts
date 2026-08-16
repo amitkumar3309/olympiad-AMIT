@@ -40,7 +40,13 @@ afterEach(async () => {
   Object.assign(config.payments, ORIGINAL);
 });
 
-/** Switches the paid gate on. Off by default, so a test that gates must say so. */
+/**
+ * Switches the paid gate on explicitly.
+ *
+ * On by default since 2026-08-16, so this is now mostly about pinning the *amount* —
+ * but it is kept explicit rather than relying on the default, because a test that
+ * depends on a default silently changes meaning when the default does.
+ */
 async function enableEntryFee(): Promise<void> {
   await PaymentSettings.findOneAndUpdate(
     { key: 'default' },
@@ -68,7 +74,7 @@ function razorpayCreates(orderId = 'order_TEST123', amount = 49_900): void {
 }
 
 async function payingStudent() {
-  const session = await registerVerifyLogin(app);
+  const session = await registerVerifyLogin(app, {}, { paid: false });
   enablePayments();
   await enableEntryFee();
   razorpayCreates();
@@ -95,7 +101,7 @@ async function sendWebhook(event: string, orderId: string, secret = TEST_WEBHOOK
 
 describe('creating an order', () => {
   it('never lets the client choose the amount', async () => {
-    const { cookies } = await registerVerifyLogin(app);
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
     enablePayments();
     await enableEntryFee();
 
@@ -131,7 +137,7 @@ describe('creating an order', () => {
   });
 
   it('refuses when the provider is unconfigured, rather than half-working', async () => {
-    const { cookies } = await registerVerifyLogin(app);
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
     await enableEntryFee();
     Object.assign(config.payments, { configured: false, keyId: undefined, keySecret: undefined });
 
@@ -143,7 +149,7 @@ describe('creating an order', () => {
   });
 
   it('reports a provider refusal without creating a local row', async () => {
-    const { cookies } = await registerVerifyLogin(app);
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
     enablePayments();
     await enableEntryFee();
     setPaymentTransport(() =>
@@ -225,7 +231,7 @@ describe('verifying a payment', () => {
 
   it('refuses to let one student verify another student’s order', async () => {
     const { order } = await payingStudent();
-    const intruder = await registerVerifyLogin(app, otherStudent);
+    const intruder = await registerVerifyLogin(app, otherStudent, { paid: false });
     // A genuine signature — the point is that authenticity is not ownership.
     const signature = checkoutSignature(order.orderId, 'pay_ABC', TEST_SECRET);
 
@@ -346,7 +352,7 @@ describe('entitlement', () => {
   });
 
   it('grants entry to everyone when the fee is switched off', async () => {
-    const { cookies } = await registerVerifyLogin(app);
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
     enablePayments();
     // Explicit rather than relying on the default, because the assertion is about the
     // switch rather than about what happens when nobody has configured anything.
@@ -396,7 +402,7 @@ describe('authorization', () => {
   });
 
   it('keeps the admin payment console and the fee behind staff permissions', async () => {
-    const { cookies: studentCookies } = await registerVerifyLogin(app);
+    const { cookies: studentCookies } = await registerVerifyLogin(app, {}, { paid: false });
 
     for (const path of ['/admin/payments', '/admin/payment-settings']) {
       const guest = await request(app).get(`${API}${path}`);
@@ -434,5 +440,151 @@ describe('authorization', () => {
     // The completed payment keeps what was actually charged — the same snapshot rule
     // `StudentActivity.xpAwarded` follows.
     expect((await Payment.findOne({ razorpayOrderId: order.orderId }))!.amount).toBe(49_900);
+  });
+});
+
+// ===========================================================================
+// The paywall — what the fee actually buys (owner decision, 2026-08-16)
+// ===========================================================================
+
+/**
+ * The fee stopped being "the official exam only" and became the entry condition for
+ * practice, mock tests and the daily challenge as well.
+ *
+ * These assert the property that matters: **an unpaid student is refused by the server**,
+ * on every gated surface, on both URL prefixes. The frontend's locks and banners are
+ * presentation; this is the guarantee behind them.
+ *
+ * Each case names the status it forbids as well as the one it expects, because a gate
+ * that returns 500, or 404, or a 403 the page renders as a dead end, is broken in a way
+ * a bare `toBe(402)` would still catch but would not explain.
+ */
+describe('the paywall', () => {
+  /** Syntactically valid, deliberately non-existent. Proves the gate runs *first*. */
+  const ABSENT_ID = '507f1f77bcf86cd799439011';
+
+  async function gatedRequests(cookies: Record<string, string>) {
+    return {
+      practice: await request(app)
+        .post(`${API}/practice/sessions`)
+        .set('Cookie', cookieHeader(cookies))
+        .send({ subjectId: ABSENT_ID, topicId: ABSENT_ID, questionCount: 5 }),
+      mockTest: await request(app)
+        .post(`${API}/mock-tests/${ABSENT_ID}/attempts`)
+        .set('Cookie', cookieHeader(cookies))
+        .send({}),
+      dailyChallenge: await request(app)
+        .post(`${API}/me/daily-challenge/answer`)
+        .set('Cookie', cookieHeader(cookies))
+        .send({ selectedOptionKeys: ['A'] }),
+      exam: await request(app)
+        .post(`${API}/exams/${ABSENT_ID}/attempt`)
+        .set('Cookie', cookieHeader(cookies))
+        .send({}),
+    };
+  }
+
+  it('refuses an unpaid student on practice, mock tests, the daily challenge and the exam', async () => {
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
+    await enableEntryFee();
+
+    const res = await gatedRequests(cookies);
+
+    for (const [surface, response] of Object.entries(res)) {
+      // 402 rather than 403: "not yet, and here is the button" versus "never". The
+      // frontend branches on exactly this to show a pay page instead of a dead end.
+      expect(response.status, `${surface} should be 402`).toBe(402);
+      expect(response.status, `${surface} must not be a server error`).not.toBe(500);
+      expect(response.body.success).toBe(false);
+    }
+  });
+
+  it('refuses before the resource is looked up, so a paywall cannot leak what exists', async () => {
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
+    await enableEntryFee();
+
+    // Every id above is absent. A 404 here would mean the handler ran before the gate,
+    // which would let an unpaid caller probe which exams and tests exist.
+    const res = await gatedRequests(cookies);
+    expect(res.mockTest.status).toBe(402);
+    expect(res.exam.status).toBe(402);
+    expect(res.mockTest.status).not.toBe(404);
+    expect(res.exam.status).not.toBe(404);
+  });
+
+  it('holds on the unversioned /api alias too', async () => {
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
+    await enableEntryFee();
+
+    // The compatibility alias mounts the same router. A gate that held on one prefix
+    // and not the other would be no gate at all.
+    const res = await request(app)
+      .post('/api/practice/sessions')
+      .set('Cookie', cookieHeader(cookies))
+      .send({ subjectId: ABSENT_ID, topicId: ABSENT_ID, questionCount: 5 });
+
+    expect(res.status).toBe(402);
+  });
+
+  it('lets a paid student through the gate', async () => {
+    const { cookies } = await registerVerifyLogin(app);
+    await enableEntryFee();
+
+    const res = await gatedRequests(cookies);
+
+    // Past the gate they meet the ordinary handler, which refuses these absent ids on
+    // their own merits. The assertion is that the *paywall* is no longer what stops
+    // them — anything but 402.
+    for (const [surface, response] of Object.entries(res)) {
+      expect(response.status, `${surface} should be past the paywall`).not.toBe(402);
+    }
+  });
+
+  it('lets everybody through when the fee is switched off', async () => {
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
+    await PaymentSettings.findOneAndUpdate(
+      { key: 'default' },
+      { $set: { olympiadEntryFee: 10_000, entryFeeEnabled: false } },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+
+    const res = await gatedRequests(cookies);
+    for (const [surface, response] of Object.entries(res)) {
+      expect(response.status, `${surface} should be open while the fee is off`).not.toBe(402);
+    }
+  });
+
+  it('charges the fee by default, without anybody having saved a settings document', async () => {
+    // The reversal of 2026-08-16: a paywall nobody remembered to switch on is not a
+    // paywall. With no `PaymentSettings` row at all, the gate must still hold.
+    expect(await PaymentSettings.findOne({ key: 'default' })).toBeNull();
+
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
+    const res = await gatedRequests(cookies);
+
+    expect(res.practice.status).toBe(402);
+  });
+
+  it('reports the entitlement on every auth response, and never as true by omission', async () => {
+    const unpaid = await registerVerifyLogin(app, {}, { paid: false });
+    await enableEntryFee();
+
+    const before = await request(app).get(`${API}/auth/me`).set('Cookie', cookieHeader(unpaid.cookies)).expect(200);
+    expect(before.body.entitlements.olympiadEntry).toBe(false);
+
+    const paid = await registerVerifyLogin(app, otherStudent);
+    const after = await request(app).get(`${API}/auth/me`).set('Cookie', cookieHeader(paid.cookies)).expect(200);
+    expect(after.body.entitlements.olympiadEntry).toBe(true);
+  });
+
+  it('defaults the fee to ₹100', async () => {
+    const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
+
+    const res = await request(app).get(`${API}/payments/status`).set('Cookie', cookieHeader(cookies)).expect(200);
+
+    expect(res.body.amount).toBe(10_000);
+    expect(res.body.amountDisplay).toBe('₹100.00');
+    expect(res.body.entryFeeEnabled).toBe(true);
+    expect(res.body.hasPaid).toBe(false);
   });
 });

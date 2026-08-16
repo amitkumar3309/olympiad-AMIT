@@ -87,9 +87,11 @@ export async function getPaymentSettings(): Promise<EffectivePaymentSettings> {
   return {
     olympiadEntryFee: saved?.olympiadEntryFee ?? DEFAULT_ENTRY_FEE_PAISE,
     currency: saved?.currency ?? 'INR',
-    // Opt-in — see the note on the model field. A missing settings document means
-    // the gate is off, not on.
-    entryFeeEnabled: saved?.entryFeeEnabled ?? false,
+    // On by default — see the note on the model field. A missing settings document
+    // means the gate is *on*, because the fee is the entry condition for the platform
+    // and a paywall nobody remembered to switch on is not a paywall. Turning it off is
+    // a deliberate administrative act with an audit entry behind it.
+    entryFeeEnabled: saved?.entryFeeEnabled ?? true,
   };
 }
 
@@ -466,14 +468,25 @@ export async function reconcileOrder(orderId: string): Promise<CaptureResult | n
 // ---------------------------------------------------------------------------
 
 /**
- * **THE entitlement check.** May this student sit the official exam?
+ * **THE entitlement check.** May this student use the platform?
+ *
+ * Its scope widened on 2026-08-16, by owner decision. It used to answer "may this
+ * student sit the official exam?", with practice, mock tests and the daily challenge
+ * free. The fee now buys entry to all four, so this one function is what every gated
+ * surface asks — reached through `middleware/requireEntry.ts` rather than called
+ * directly by routes, so no surface can be added that forgets to ask.
+ *
+ * What is deliberately *not* gated: registering, verifying an email, signing in, the
+ * dashboard, the leaderboard, rewards and a student's own analytics. A student has to
+ * be able to see what they are buying, and see their own record after they have bought
+ * it.
  *
  * Derived from the payment record rather than a flag on `Student`, for the reason given
  * at the top of `models/Payment.ts`: a stored boolean is a second source of truth about
  * money, and when it drifts somebody is wrongly refused or wrongly admitted.
  *
- * Returns true when the fee is switched off, so "we are running this Olympiad free" is
- * expressed once, in settings, rather than by every caller remembering to check.
+ * Returns true when the fee is switched off, so "we are running this free" is expressed
+ * once, in settings, rather than by every caller remembering to check.
  */
 export async function hasEntryEntitlement(student: Types.ObjectId): Promise<boolean> {
   const settings = await getPaymentSettings();

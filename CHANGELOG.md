@@ -2,6 +2,78 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-16 - Milestone 19: Payments, and the entry fee that gates the platform
+
+The last planned development milestone. Registration used to show a static QR image and an "I've Paid - Create My Account" button. It recorded no payment, verified nothing, and created the account either way: every student who registered was told something untrue, and the site had no idea whether anyone had paid. That step is gone, and there is a real gateway behind it.
+
+### What the fee buys, and what it costs
+
+**Rs.100, once.** It unlocks practice, mock tests, the daily challenge and a seat at the official Olympiad. Registering, verifying an email, signing in, the dashboard, the leaderboard, rewards and a student's own analytics stay free - a student has to be able to see what they are buying.
+
+The fee is **administrator-editable** at `/admin/payments`, not an environment variable. A price is business configuration, not a credential: in `.env` it would be a redeploy to change, unchangeable by the person who decides it, and would leave no record of who changed it. `RewardSettings` already established the pattern.
+
+**Changing the price never re-prices a captured payment.** `Payment.amount` is a snapshot, the same rule `StudentActivity.xpAwarded` follows.
+
+This knowingly breaks the Rs.0 cost target, which no previous decision had done. Razorpay charges per transaction. It is the owner's call and it is what the fee funds.
+
+### The browser is never believed about money
+
+It cannot say a payment succeeded, how much was paid, or what was bought. `POST /payments/orders` takes **no request body at all** - the amount comes from the settings document and the student from the session token, because a client-supplied amount is how a Rs.100 fee gets paid as Rs.1. Both paths that mark a payment captured verify an HMAC signature computed from a secret only the server holds, compared in constant time.
+
+A valid signature proves a payment is *genuine*, not that it is *yours*, so ownership is checked separately. Without that, a student could verify somebody else's order and hand **them** the entitlement while appearing to have paid.
+
+### The entitlement is derived, never stored
+
+"Has a captured `Payment` with purpose `olympiad_entry`". There is deliberately no `hasPaid` flag on `Student`, for the reason XP, analytics and the leaderboard are all derived - a stored boolean is a second source of truth about money, and when it drifts either somebody who paid is refused or somebody who did not is admitted.
+
+### One gate, mounted rather than called
+
+`middleware/requireEntry.ts` sits on the four gated routes. Routes never call the entitlement check themselves, for the same reason there is one grader and one reward engine: a surface that has to remember to ask will eventually forget, and a forgotten paywall is indistinguishable from a working one until somebody notices the revenue.
+
+It answers **402, not 403**. Those mean different things to the page receiving them - 403 is "you may not, ever" and renders a dead end; 402 is "not yet, and here is the button".
+
+**It runs before the resource is looked up.** The exam's check originally sat inside `startExamAttempt()`, *after* the route's 404 - so an unpaid caller could tell a real exam id from an invented one by the status code. Found by writing the test, fixed by mounting the middleware, and pinned by a regression test. The service check stays as defence in depth.
+
+### Reconciliation in place of a webhook
+
+The owner chose not to configure a webhook secret. That leaves the browser's return journey as the only confirmation, and a browser can be closed, refreshed, or killed by a dropped mobile connection in the second between the money moving and the verify call landing - every one of which leaves Razorpay holding a captured payment this database knows nothing about. The student has paid and received nothing, which is the worst failure this feature has.
+
+So `POST /payments/reconcile` asks Razorpay directly and captures on the same idempotent path, on page load and whenever the modal closes without success. It is strictly *more* trustworthy than a webhook: the answer comes from an authenticated call we initiated rather than an unauthenticated request claiming to be Razorpay. The trade is that it settles when something asks. The webhook route remains fully implemented and works the moment a secret is set.
+
+Only `captured` counts. `authorized` means the money is held but not taken.
+
+### Idempotency
+
+Capture is a conditional update matching only a not-yet-captured row, and it reports whether it won - because the return journey and the webhook routinely arrive in the same second and on serverless land in different invocations, where a read-then-write would let both believe they were first. A duplicate webhook (which Razorpay sends by design) changes nothing, a late `payment.failed` cannot revoke a capture, and a webhook for an order this server never created is acknowledged and dropped rather than creating a payment belonging to nobody.
+
+### The gate is on by default - a same-day reversal, recorded
+
+`entryFeeEnabled` shipped as `false` earlier the same day, after the gate broke nine existing exam tests: switching a paywall on by deploy would have refused entry to every student who could enter yesterday. That argument was right while the fee bought only the exam and nobody had paid. It stopped applying when the owner made the fee the entry condition for the whole platform - a paywall that defaults to off is not a paywall, and every deployment would have had to remember to switch it on.
+
+The switch is kept and matters more now: it is the only answer to a provider outage during an exam window, and to running a cohort free. It stays explicit rather than inferred from the credentials being absent, because "we chose to run this free" and "the keys are missing" must never look the same.
+
+### The console, and the UI
+
+`/admin/payments`: counted totals per status, the collected total, the 100 most recent transactions with Razorpay's own failure text, and the fee with its on/off switch. Reading needs `students:read`; changing the fee needs `students:status:write`, because seeing a price and setting it are different acts. **No new permission was added.**
+
+For students: a dashboard banner naming the real price (fetched, not hardcoded, since an administrator can change it), padlocks on the locked sidebar items, and a panel on each locked page explaining what is behind it rather than a redirect - bouncing somebody out of the page they asked for reads as a bug and hides the thing that makes paying feel worth it.
+
+The entitlement rides on every auth response beside `permissions`, so the UI reads it rather than deriving it. It is presentation only: the server refuses regardless.
+
+### Tests
+
+31 payment tests, 830 total across 25 files. None touch the network. Signatures are **genuine** - computed with the same HMAC the product uses, from a test secret - because a suite that only ever sent a hardcoded fake signature would pass against an implementation that accepted everything, which is precisely the bug that matters.
+
+Most of the file is about refusing things: a forged signature, a signature computed with the wrong secret, somebody else's order, a duplicate webhook, an unknown order, an amount the client tried to choose, and a late failure trying to revoke a capture. The paywall tests assert the refusal on all four surfaces, on both URL prefixes, with the fee on, with it off, and with no settings document at all.
+
+`registerVerifyLogin()` now grants an entry fee by default, because a student exercising practice in production has paid and a test student who cannot practise asserts behaviour no real student reaches. `createAdminSession()` is deliberately unpaid: staff are not entrants, and an administrator with an entry-fee payment against their name would appear in the console's collected total.
+
+### Not done
+
+**No real checkout has been driven through a browser.** No Razorpay credentials exist in this sandbox, so the whole path has only ever run against a fake transport. `ENVIRONMENT_VARIABLES.md` has the numbered steps for getting test keys and the one case worth testing by hand - paying, then closing the tab before the page returns.
+
+**CSRF still does not exist.** `SECURITY.md` said a token should land before payments; it did not. The practical exposure stays narrow - the API parses JSON only and CORS uses a strict allow-list - but it is now an accepted gap rather than a plan.
+
 ## 2026-08-15 - Milestone 18: Generated questions need a human before they exist
 
 Milestone 17 asked Gemini for questions and **saved them straight away** as drafts. Defensible - a draft is not student-visible - and the wrong default: the bank filled with machine output nobody had read, and the reviewer's job quietly became "delete the bad ones" instead of "keep the good ones".

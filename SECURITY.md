@@ -226,7 +226,22 @@ Not done, and worth knowing: the image is **not** re-encoded or stripped of meta
 
 ## Payment / Webhook Security
 
-Not applicable yet — no gateway is integrated. When one is added, webhook signature verification must be implemented from day one, and CSRF protection should land first.
+**Razorpay, integrated in Milestone 19 (2026-08-16).** Signature verification was implemented from day one, as this section previously required. CSRF was not — see the note at the end.
+
+**The browser is never believed about money.** It may ask for an order and report back three ids; it can never assert that a payment succeeded, how much was paid, or what was bought.
+
+- **The amount is never accepted from a request.** `POST /payments/orders` has no request body at all: the amount comes from the `PaymentSettings` document and the student from the token's `sub`. A client-supplied amount is how a ₹100 fee gets paid as ₹1.
+- **Both capture paths verify an HMAC-SHA256 signature** computed with `RAZORPAY_KEY_SECRET`, compared with `crypto.timingSafeEqual`. A `===` comparison leaks, through timing, how many leading characters an attacker guessed right, turning forgery into a character-at-a-time search; lengths are compared first because `timingSafeEqual` throws on a mismatch and a digest length is not a secret.
+- **A signature proves a payment is genuine, not that it is yours.** Ownership is checked separately against the token — without it, a student could verify somebody else's order and, since the entitlement is keyed on the row's `student`, hand *them* the entry while appearing to have paid. There is a test.
+- **The webhook verifies the raw request body**, which is why `app.ts` preserves it. `JSON.parse` followed by `JSON.stringify` does not reproduce the bytes Razorpay signed — key order, whitespace and unicode escaping all differ — so verifying against a re-serialised object fails for legitimate webhooks, and the predictable "fix" for that is to stop verifying. With no `RAZORPAY_WEBHOOK_SECRET` set, **every** webhook is refused: an unverifiable webhook is an anonymous request that grants entitlements.
+- **The webhook never creates a payment.** An order this server did not create belongs to nobody, so it is acknowledged and dropped.
+- **Capture is idempotent** by conditional write, so a replayed webhook changes nothing, and a late `payment.failed` cannot revoke a capture.
+- **The signature is never returned to any client.** It is derived from the secret, so publishing it would be an oracle for whether an order/payment pair is genuine.
+- **The key secret never leaves the process.** Only `RAZORPAY_KEY_ID`, which is public by design, reaches the browser — and it is sent by the server rather than built into the bundle, so the two cannot drift apart.
+
+**The paywall itself is an authorization surface**, not just a commercial one: `middleware/requireEntry.ts` gates practice, mock tests, the daily challenge and the exam. It runs **before** the resource is looked up, so an absent id returns 402 rather than 404 — otherwise an unpaid caller could probe which exams and tests exist. It is derived from the payment record on every request, never from a stored flag and never from anything the client sends.
+
+**Still open here: CSRF.** This document said a token should land before payments. It did not. `POST /payments/orders` and `POST /payments/reconcile` are authenticated, state-mutating and bodyless-friendly, which is the shape the gap is about. Two things narrow it: the API parses JSON only, so an HTML form post cannot reach these routes, and CORS uses a strict allow-list. The realistic harm is a forced order creation (which takes no money and creates a `created` row) rather than a forced payment. It should be recorded as accepted rather than forgotten — see the CSRF section above.
 
 ## Secrets Management
 
@@ -306,7 +321,7 @@ Photos still are **not re-encoded**, so EXIF (including any GPS tags a phone wro
 
 ## Remaining Gaps, in priority order
 
-1. **CSRF tokens** — the clear top gap, and more pressing again after Milestone 5: alongside the administrative state-mutating routes, there are now student-facing ones on every account (`PATCH /me/profile`, `PUT /me/photo`, `POST /me/change-password`, and since Milestone 14 `PATCH /me/notification-preferences`). The password route is partly self-protecting, since an attacker would also need the current password; the profile, photo and preference routes are not. Production cookies are `sameSite: 'none'` because the apps are on different domains, so `sameSite` is not doing this job. **This must land before the payment milestone** — a payment route is precisely the authenticated state-mutating surface this gap is about.
+1. **CSRF tokens** — the clear top gap, and more pressing again after Milestone 5: alongside the administrative state-mutating routes, there are now student-facing ones on every account (`PATCH /me/profile`, `PUT /me/photo`, `POST /me/change-password`, and since Milestone 14 `PATCH /me/notification-preferences`). The password route is partly self-protecting, since an attacker would also need the current password; the profile, photo and preference routes are not. Production cookies are `sameSite: 'none'` because the apps are on different domains, so `sameSite` is not doing this job. **The payment milestone shipped without it (2026-08-16)**, so the sentence that used to sit here — that a token must land first — describes a requirement that was not met rather than a plan. That is now a knowingly accepted gap: the API parses JSON only and CORS uses a strict allow-list, so the realistic harm on the payment routes is a forced order creation that takes no money, not a forced payment. It remains the top open item.
 2. **Shared-store rate limiting** — current limits are per-instance and weak on serverless.
 3. **Two-factor authentication** — not started, and now more valuable: an admin account is worth more than it was.
 4. **`JWT_SECRET` rotation** — no mechanism; rotating it invalidates every session at once.

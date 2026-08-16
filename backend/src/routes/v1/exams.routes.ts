@@ -3,6 +3,7 @@ import type { Types } from 'mongoose';
 import { requirePermission } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
+import { requireEntry } from '../../middleware/requireEntry';
 import { Exam, ExamAttempt, Question, Result, Student, type ExamAttemptDocument } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
@@ -137,6 +138,14 @@ router.post(
   requirePermission('exam:take'),
   validate({ params: examIdParamSchema }),
   ensureDb,
+  // Paid entrants only, checked **before** the exam is looked up.
+  //
+  // `startExamAttempt()` also refuses an unentitled student, and that check stays as
+  // the guarantee for any future caller — but on its own it ran *after* the 404, so an
+  // unpaid caller could tell a real exam id from an invented one by the status code.
+  // Mounting the gate here makes the refusal uniform with practice, mock tests and the
+  // daily challenge, and stops the paywall reporting on what exists behind it.
+  requireEntry,
   async (req: Request, res: Response) => {
     try {
       const account = await callerAccount(req);

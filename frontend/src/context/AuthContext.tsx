@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../api/client'
-import type { Admin, Permission, RegisterInput, Role, SessionResponse, Student } from '../api/types'
+import type { Admin, Entitlements, Permission, RegisterInput, Role, SessionResponse, Student } from '../api/types'
 
 /**
  * `status` says which *kind of account* is signed in — one backed by a student
@@ -15,8 +15,22 @@ import type { Admin, Permission, RegisterInput, Role, SessionResponse, Student }
 type AuthState =
   | { status: 'loading' }
   | { status: 'guest' }
-  | { status: 'student'; student: Student; role: Role; permissions: Permission[]; mustChangePassword: boolean }
-  | { status: 'admin'; admin: Admin; role: Role; permissions: Permission[]; mustChangePassword: boolean }
+  | {
+      status: 'student'
+      student: Student
+      role: Role
+      permissions: Permission[]
+      mustChangePassword: boolean
+      entitlements: Entitlements
+    }
+  | {
+      status: 'admin'
+      admin: Admin
+      role: Role
+      permissions: Permission[]
+      mustChangePassword: boolean
+      entitlements: Entitlements
+    }
 
 export interface RegisterResult {
   message: string
@@ -28,6 +42,18 @@ interface AuthContextValue {
   state: AuthState
   /** True when the signed-in user holds the permission, per the backend's own table. */
   can: (permission: Permission) => boolean
+  /**
+   * True when the entry fee has been paid — or is not being charged.
+   *
+   * Read this exactly as you read `can()`: it comes from the server on every auth
+   * response and is never derived here. It is **presentation only** — it decides
+   * whether to show a lock or a link. The server refuses the request regardless, with
+   * a 402, so a tampered client gets a nicer-looking failure and nothing more.
+   *
+   * `false` while the session is loading or for a guest, so a gate never opens by
+   * default while the answer is unknown.
+   */
+  hasPaid: boolean
   /** Creates an account and emails a verification link. Does NOT sign the student in. */
   register: (input: RegisterInput) => Promise<RegisterResult>
   /** `identifier` is the mobile number OR the email address. */
@@ -58,8 +84,13 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 function toAuthState(res: SessionResponse): AuthState {
   const permissions = res.permissions ?? []
   const mustChangePassword = res.mustChangePassword === true
-  if (res.student) return { status: 'student', student: res.student, role: res.role, permissions, mustChangePassword }
-  if (res.admin) return { status: 'admin', admin: res.admin, role: res.role, permissions, mustChangePassword }
+  // Absent means not entitled. An older backend, a truncated response or a field the
+  // server chose not to send must never read as "paid" — the gate has to fail closed.
+  const entitlements: Entitlements = { olympiadEntry: res.entitlements?.olympiadEntry === true }
+  if (res.student)
+    return { status: 'student', student: res.student, role: res.role, permissions, mustChangePassword, entitlements }
+  if (res.admin)
+    return { status: 'admin', admin: res.admin, role: res.role, permissions, mustChangePassword, entitlements }
   return { status: 'guest' }
 }
 
@@ -199,11 +230,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [state],
   )
 
+  const hasPaid =
+    (state.status === 'student' || state.status === 'admin') && state.entitlements.olympiadEntry === true
+
   return (
     <AuthContext.Provider
       value={{
         state,
         can,
+        hasPaid,
         register,
         login,
         adminLogin,

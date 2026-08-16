@@ -179,3 +179,13 @@
     padding: 16px;
   }
 }
+
+/**
+ * The padlock beside a menu item the entry fee has not unlocked yet.
+ * `margin-left: auto` pushes it to the right edge, matching the unread badge.
+ */
+.lock {
+  margin-left: auto;
+  font-size: 13px;
+  opacity: 0.65;
+}

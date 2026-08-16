@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext'
 import type { Permission } from '../api/types'
 import Spinner from './Spinner'
 import Unauthorized from './Unauthorized'
+import StudentShell from './StudentShell'
+import EntryFeeRequired from './EntryFeeRequired'
 
 /**
  * Route-level gates. These are the only place a page should be authorized; pages
@@ -42,5 +44,30 @@ export function RequirePermission({
   if (state.status === 'loading') return <Spinner label="Checking your permissions..." />
   if (state.status === 'guest') return <Navigate to={signInPath} replace />
   if (!can(permission)) return <Unauthorized />
+  return <>{children}</>
+}
+
+/**
+ * Requires a paid entry fee, on top of a signed-in student account.
+ *
+ * A **second axis** from `RequirePermission`, not a replacement for it: a permission
+ * says what a role may do and comes from a static table, while this says what this
+ * account has bought and comes from the payment record. Wrapping rather than merging
+ * them keeps each answerable on its own.
+ *
+ * As with every guard here, this is not a security boundary. The matching
+ * `requireEntry` middleware refuses the request with a 402 whatever the browser
+ * believes; this only decides whether the student is shown a paper or a pay button.
+ */
+export function RequirePaidEntry({ feature, children }: { feature: string; children: React.ReactNode }) {
+  const { state, hasPaid } = useAuth()
+  if (state.status === 'loading') return <Spinner label="Checking your session..." />
+  if (state.status !== 'student') return <Navigate to="/" replace />
+  if (!hasPaid)
+    return (
+      <StudentShell title={feature} subtitle="Entry fee required">
+        <EntryFeeRequired feature={feature} />
+      </StudentShell>
+    )
   return <>{children}</>
 }

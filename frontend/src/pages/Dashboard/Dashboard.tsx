@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import StudentShell from '../../components/StudentShell'
+import EntryFeeBanner from '../../components/EntryFeeBanner'
 import { api, ApiError } from '../../api/client'
 import { ACTIVITY_LABELS, type ActivityEntry, type DashboardData, type Pagination } from '../../api/types'
 import styles from './Dashboard.module.css'
@@ -144,6 +145,11 @@ export default function Dashboard() {
             <Button onClick={() => void load()}>Try again</Button>
           </div>
         )}
+
+        {/* Sits above everything and renders nothing once the fee is paid or switched
+            off. Outside the `data` guard on purpose: whether the student has entered
+            does not depend on their dashboard figures loading. */}
+        <EntryFeeBanner />
 
         {!loading && !error && data && (
           <>
