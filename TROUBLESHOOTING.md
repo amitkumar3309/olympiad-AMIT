@@ -143,12 +143,23 @@ grep -o "http://localhost:5173/verify-email?token=[a-f0-9]*" backend.log | tail 
 
 ---
 
-## Emailed links point at localhost in production
+## Email verification fails in production ("the link doesn't work")
 
-**Problem**: Students receive verification/reset emails whose links go to `http://localhost:5173`.
-**Cause**: Link bases come from `FRONTEND_URL`, which falls back to the local dev origin when unset. In Milestone 1 that variable only affected CORS, so it was easy to leave unset.
-**Solution**: Set `FRONTEND_URL` on the **backend** Vercel project to the real frontend URL (no trailing slash), then redeploy the backend.
-**Verification**: Register a test account in production and confirm the link host is correct.
+**Problem**: A student registers, receives the email, clicks the verification link, and it fails — either the page never loads, or it loads and reports *"This verification link is invalid. Request a new one."* Because login requires a verified address, the account is unusable, so this presents as "nobody can sign up".
+
+**First, read the link itself.** The host in the URL tells you which of two very different problems you have, and it is the one diagnostic worth doing before anything else.
+
+**Cause A — the link points at `http://localhost:5173`.** This is by far the most common. Link bases come from `FRONTEND_URL`, which falls back to the local dev origin when unset. In Milestone 1 that variable only affected CORS, so it was easy to leave unset — and the CORS half is *survivable*, because the deployed frontend proxies `/api/*` to the backend through a Vercel rewrite, so the browser sees a same-origin request and no preflight happens. The site therefore works perfectly while every email it sends is dead, which is exactly why this goes unnoticed.
+
+Worse, if the person testing has a local dev server running, `localhost:5173` **does** open — and posts a token that only exists in the production database to their *local* backend, which correctly answers "invalid". That is the confusing case.
+
+**Solution**: set `FRONTEND_URL` on the **backend** Vercel project to the real frontend URL (no trailing slash), then **redeploy the backend** — Vercel does not apply new environment variables to a running deployment. Accounts that registered while it was wrong are fine: once it is set, "resend verification" reaches them.
+
+**Since 2026-08-16 this is no longer silent.** The backend logs an `error` at startup naming the consequence, and `/admin/email-deliveries` shows a red banner reading "Every link in these emails points at http://localhost:5173" whenever a production deployment is doing it. Check that page first — a delivery row can read *sent* and still contain a dead link, which is precisely the failure the banner exists to make visible.
+
+**Cause B — the link host is correct but verification still fails.** Then the token, not the URL, is the problem. In order of likelihood: the link was already used (each is strictly single-use, and a "resend" invalidates every earlier one — so the *newest* email is the only one that works); it is older than `EMAIL_VERIFY_TTL_HOURS`; or the student is clicking an older email from their inbox. All three report distinct messages, so read the wording on screen rather than guessing.
+
+**Verification**: register a test account in production and confirm the link host is your real frontend before clicking it.
 
 ---
 

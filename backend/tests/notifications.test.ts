@@ -896,4 +896,27 @@ describe('the email delivery console', () => {
 
     expect(res.body.drain).toEqual({ claimed: 0, sent: 0, failed: 0, retrying: 0 });
   });
+
+  /**
+   * A delivered message with a dead link is the failure this reports.
+   *
+   * Every verification and reset link is built from `FRONTEND_URL`; unset, it falls
+   * back to `http://localhost:5173`, which is unreachable for a student. The outbox row
+   * still reads `sent`, so nothing on this page would show it — which is exactly how it
+   * goes unnoticed until somebody reports "the link doesn't work".
+   */
+  it('reports where the links in these emails point', async () => {
+    const { cookies } = await createAdminSession(app, { email: 'staff-links@example.com', mobile: '9000000077' });
+
+    const res = await request(app)
+      .get(`${API}/admin/email-deliveries`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+
+    expect(res.body.linkBase).toBeDefined();
+    expect(typeof res.body.linkBase.url).toBe('string');
+    // Outside production the local fallback is the correct answer, so this is not
+    // flagged — the warning is about a *deployed* backend emailing localhost links.
+    expect(res.body.linkBase.configured).toBe(true);
+  });
 });

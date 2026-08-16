@@ -24,9 +24,25 @@ const LOCAL_FRONTEND_ORIGIN = 'http://localhost:5173';
 const corsOrigins = [env.FRONTEND_URL, LOCAL_FRONTEND_ORIGIN].filter((origin): origin is string => Boolean(origin));
 
 if (isProd && !env.FRONTEND_URL) {
-  logger.warn(
-    'FRONTEND_URL is not set in production — CORS will only allow http://localhost:5173, which will block your ' +
-      'real deployed frontend. Set FRONTEND_URL to your frontend production URL (see ENVIRONMENT_VARIABLES.md).',
+  // `error`, not `warn`, and it names the consequence that actually bites first.
+  //
+  // The CORS half of this is survivable: the deployed frontend proxies `/api/*` to this
+  // backend through a Vercel rewrite, so the browser sees a same-origin request and no
+  // preflight happens — the site keeps working, which is precisely why this went
+  // unnoticed. The *email* half is not survivable and is silent: every verification and
+  // password-reset link is built from `publicAppUrl`, so with this unset they all point
+  // at `http://localhost:5173` and every student who registers receives a dead link.
+  // They cannot log in, because login requires a verified address.
+  //
+  // Deliberately not a throw. A student who registered while this was misconfigured has
+  // a real account, and once the variable is set "resend verification" reaches them —
+  // refusing to boot, or refusing to register, would take that away for no gain.
+  logger.error(
+    'FRONTEND_URL is not set in production. Every verification and password-reset email will link to ' +
+      `${LOCAL_FRONTEND_ORIGIN}, which is dead for your students, so nobody can verify their address or sign in. ` +
+      'CORS is also restricted to that origin. Set FRONTEND_URL to your frontend production URL and redeploy the ' +
+      'backend (see ENVIRONMENT_VARIABLES.md). Students who already registered can be recovered with "resend ' +
+      'verification" once it is set.',
   );
 }
 

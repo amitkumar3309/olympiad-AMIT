@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import type { Types } from 'mongoose';
+import { config } from '../../config';
 import { requireAuth, requirePermission } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
@@ -561,6 +562,20 @@ router.get(
         deliveries: docs.map(outboxRowView),
         stats,
         pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
+        /**
+         * Where the links in these emails point.
+         *
+         * Reported because a delivery console that only says "sent" answers the wrong
+         * half of "did that student get their link?". A message can be delivered
+         * perfectly and still be useless if `FRONTEND_URL` is unset, because then every
+         * link is built against `http://localhost:5173` — dead for every recipient, and
+         * invisible here until somebody thinks to read a server log.
+         */
+        linkBase: {
+          url: config.publicAppUrl,
+          /** False when a production deployment is emailing localhost links. */
+          configured: !config.isProd || config.publicAppUrl !== 'http://localhost:5173',
+        },
       });
     } catch (err) {
       logger.error({ err }, 'Failed to list email deliveries');

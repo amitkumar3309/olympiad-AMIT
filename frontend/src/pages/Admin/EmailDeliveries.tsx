@@ -10,6 +10,8 @@ interface ListResponse {
   deliveries: EmailDelivery[]
   stats: OutboxStats
   pagination: Pagination
+  /** Where the links inside these emails point. See the banner below. */
+  linkBase?: { url: string; configured: boolean }
 }
 
 const STATUSES: EmailStatus[] = ['pending', 'sent', 'failed']
@@ -30,6 +32,7 @@ const CATEGORIES: EmailCategory[] = ['transactional', 'security', 'announcement'
  */
 export default function EmailDeliveries() {
   const [deliveries, setDeliveries] = useState<EmailDelivery[]>([])
+  const [linkBase, setLinkBase] = useState<{ url: string; configured: boolean } | null>(null)
   const [stats, setStats] = useState<OutboxStats | null>(null)
   const [pagination, setPagination] = useState<Pagination | null>(null)
   const [loading, setLoading] = useState(true)
@@ -51,6 +54,7 @@ export default function EmailDeliveries() {
       const res = await api.get<ListResponse>(`/admin/email-deliveries?${params.toString()}`)
       setDeliveries(res.deliveries)
       setStats(res.stats)
+      setLinkBase(res.linkBase ?? null)
       setPagination(res.pagination)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load the delivery log.')
@@ -122,6 +126,25 @@ export default function EmailDeliveries() {
 
   return (
     <AdminShell title="Email delivery">
+      {/* A message can be delivered perfectly and still be useless: if FRONTEND_URL is
+          unset, every link in it points at localhost. That is invisible in the table
+          below — the row says "sent" — so it is called out here, above everything. */}
+      {linkBase && !linkBase.configured && (
+        <div className={`card ${styles.linkWarning}`}>
+          <i className="ph-bold ph-warning-circle" />
+          <div>
+            <strong>Every link in these emails points at {linkBase.url}</strong>
+            <p>
+              That address is your own machine, not a site your students can reach, so verification and password-reset
+              links are dead for everyone who receives one — even the messages below marked <em>sent</em>. Set{' '}
+              <code>FRONTEND_URL</code> to your real frontend URL in the backend&rsquo;s environment variables and
+              redeploy the backend. Students who already registered can then be recovered with <em>resend
+              verification</em>; their accounts are fine.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className={`card ${styles.panel}`}>
         <p className={styles.intro}>
           Every email the platform sends is queued here first and delivered in the background, so no student's
