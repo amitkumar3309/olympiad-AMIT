@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { requirePermission } from '../../middleware/auth';
+import { publicLookupLimiter } from '../../middleware/rateLimiter';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
 import { getPublicStats } from '../../services/progressService';
@@ -58,34 +59,45 @@ router.get('/public/stats', ensureDb, async (_req: Request, res: Response) => {
  *
  * Deliberately **unauthenticated**, because a public result portal is what the page
  * is for (a parent or a school checking a child's result should not need an account),
- * with three properties that keep that safe:
+ * with four properties that keep that safe:
  *
  *  - only `isPublished` results are visible, so marks cannot be read before release;
  *  - the response for "no such account" and "no published result" is **identical**,
  *    so the portal cannot be used to enumerate which student IDs exist;
- *  - it returns marks and ranks only — no email, mobile, address or date of birth.
+ *  - it returns marks and ranks only — no email, mobile, address or date of birth;
+ *  - the name is **masked** to a first name and last initial, and the route is rate
+ *    limited. Both were added by the security audit: `AMIT_xxxx` is only ten thousand
+ *    identifiers, so without them this was a way to walk the numbering and harvest
+ *    every entrant's full legal name beside their score and national rank — more than
+ *    the leaderboard is allowed to publish about the same children.
  */
-router.get('/results/:studentId', validate({ params: studentIdParamSchema }), ensureDb, async (req: Request, res: Response) => {
-  try {
-    // `validate({ params })` has already parsed and replaced these against
-    // `studentIdParamSchema`, so narrowing here states an established fact — the same
-    // pattern the question routes use for their id param.
-    const { studentId } = req.params as unknown as { studentId: string };
-    const lookup = await findPublishedResult(studentId);
+router.get(
+  '/results/:studentId',
+  publicLookupLimiter,
+  validate({ params: studentIdParamSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      // `validate({ params })` has already parsed and replaced these against
+      // `studentIdParamSchema`, so narrowing here states an established fact — the same
+      // pattern the question routes use for their id param.
+      const { studentId } = req.params as unknown as { studentId: string };
+      const lookup = await findPublishedResult(studentId);
 
-    if (!lookup.found) {
-      // One shape for both reasons. A 200 rather than a 404 because "there is no
-      // result yet" is the expected, ordinary answer for every student today.
-      sendSuccess(res, 200, { result: null, reason: 'not-published' });
-      return;
+      if (!lookup.found) {
+        // One shape for both reasons. A 200 rather than a 404 because "there is no
+        // result yet" is the expected, ordinary answer for every student today.
+        sendSuccess(res, 200, { result: null, reason: 'not-published' });
+        return;
+      }
+
+      sendSuccess(res, 200, { result: lookup.result });
+    } catch (err) {
+      logger.error({ err }, 'Failed to look up a result');
+      sendError(res, 500, 'Could not look up that result. Please try again.');
     }
-
-    sendSuccess(res, 200, { result: lookup.result });
-  } catch (err) {
-    logger.error({ err }, 'Failed to look up a result');
-    sendError(res, 500, 'Could not look up that result. Please try again.');
-  }
-});
+  },
+);
 
 /**
  * Certificates a student has **actually earned**, which requires a published result.
@@ -93,9 +105,15 @@ router.get('/results/:studentId', validate({ params: studentIdParamSchema }), en
  * Was a hardcoded two-item array returned for any `:studentId`, including one that
  * did not exist. Now a real query, which today returns `[]` for everyone — and the
  * certificate page renders "not earned yet" rather than printing an award nobody won.
+ *
+ * Public, and therefore masked and rate limited for the same reason as the result
+ * portal above. The `verificationCode` is never included here — that is what public
+ * verification keys on, and it is the difference between confirming a document
+ * somebody holds and being handed one.
  */
 router.get(
   '/certificates/:studentId',
+  publicLookupLimiter,
   validate({ params: studentIdParamSchema }),
   ensureDb,
   async (req: Request, res: Response) => {

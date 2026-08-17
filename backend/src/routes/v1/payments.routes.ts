@@ -3,6 +3,7 @@ import { Types } from 'mongoose';
 import { requireAuth, requirePermission } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
+import { paymentLimiter } from '../../middleware/rateLimiter';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { respondToServiceError } from '../../lib/serviceError';
 import { recordAudit } from '../../lib/audit';
@@ -84,7 +85,7 @@ router.get('/payments/status', requireAuth(), ensureDb, async (req: Request, res
  * There is deliberately no request body at all: the only thing a student can buy is
  * their own entry, and who they are comes from the token.
  */
-router.post('/payments/orders', requireAuth(), ensureDb, async (req: Request, res: Response) => {
+router.post('/payments/orders', requireAuth(), paymentLimiter, ensureDb, async (req: Request, res: Response) => {
   try {
     const account = await Student.findById(req.user!.sub).select('studentId fullName email mobile');
     if (!account) {
@@ -264,7 +265,7 @@ router.post('/payments/webhook', ensureDb, async (req: Request, res: Response) =
  * safety net for "the student paid but their tab closed before verify landed" — see
  * `reconcileOrder()`.
  */
-router.post('/payments/reconcile', requireAuth(), ensureDb, async (req: Request, res: Response) => {
+router.post('/payments/reconcile', requireAuth(), paymentLimiter, ensureDb, async (req: Request, res: Response) => {
   try {
     const pending = await Payment.findOne({ student: callerId(req), status: { $in: ['created', 'attempted'] } }).sort({
       createdAt: -1,

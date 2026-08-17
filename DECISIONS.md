@@ -4,6 +4,32 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-17 — CSRF is defended by verifying the request's origin, not by a token
+
+**Decision**: `backend/src/middleware/csrf.ts` refuses any `POST`/`PUT`/`PATCH`/`DELETE` under `/api` whose `Origin` (or, if absent, `Referer`) names a host outside the CORS allow-list and outside the request's own host. A request carrying neither header is allowed. No CSRF token, cookie or header is issued.
+
+**Reason**: A browser sends `Origin` on every request whose method is not `GET`/`HEAD`, including a cross-site form post, and `Origin` is a forbidden header name that page script cannot set or strip. This backend already keeps an exact allow-list of legitimate origins for CORS, so "did this come from our own front end?" was already answerable — CORS simply never asked it about *simple* requests, because CORS governs whether a response may be **read**, not whether a request may be **sent**. Asking it in one mounted middleware closes the gap with no client change at all.
+
+Rule 3 — allow when neither header is present — is the part that looks like a hole and is not. CSRF is by definition a browser attack: the attacker's entire leverage is the victim's browser attaching the victim's cookies. A request with no `Origin` and no `Referer` did not come from a browser, so it cannot be a forgery, and refusing it would break `curl`, the test suite and Razorpay's server-to-server webhook while protecting nobody.
+
+**Alternatives considered**: A **double-submit cookie / `x-csrf-token` header**, which SECURITY.md had promised since Milestone 5. Rejected as an addition *on top of* the origin check rather than on its merits: for browser-issued requests — the only category that exists here — it adds no coverage the origin check lacks, while requiring every client to read a cookie and echo it in a header. That is a change at 610 call sites in the existing suite and a permanent obligation on every future API consumer. Also considered and rejected: relying on `SameSite`, which is unavailable because production cookies must be `sameSite: 'none'` for the two-domain split (see the 2026-08-04 ADR).
+
+**Consequences**: `FRONTEND_URL` becomes load-bearing for *writes* in production, not only for emailed links — if it is wrong, browser-issued writes are refused. That is a deliberate tightening: the same variable already had to be right for anybody to verify their address at all, and the startup log reports it as an error. Adding a `urlencoded` body parser or loosening the CORS allow-list no longer silently removes the CSRF defence, because the defence is now explicit rather than incidental. If a token is ever wanted as a second layer, add it *behind* this check, not instead of it.
+
+---
+
+## 2026-08-17 — The public result and certificate lookups publish a masked name
+
+**Decision**: `GET /results/:studentId` and `GET /certificates/:studentId` return the student's name through `displayNameFor()` — a first name and a last initial — instead of the full legal name. The `/certificate` page was moved to the authenticated `GET /me/certificates`, which still carries the full name.
+
+**Reason**: Both routes are unauthenticated by design and keyed on `AMIT_0000`–`AMIT_9999`, which is ten thousand identifiers. Once results are released, that is a walk of the whole roll returning every entrant's full name beside their score, national rank and percentile. The leaderboard was given `displayNameFor()` and an anonymous depth cap precisely to stop this product becoming a directory of children; these two routes were answering the same question a different way, which was never a decision anybody took.
+
+**Alternatives considered**: **Rate limiting alone** — added as well, but it is a delay rather than a property, and on serverless the per-instance counters make it weaker still. **Requiring authentication** — rejected, because a parent or a school checking a child's result should not need an account, which is the whole reason the portal is public. **Returning no name at all** — rejected, because a parent typing an ID needs to confirm they are looking at the right child.
+
+**Consequences**: One more surface now depends on `displayNameFor()`, which keeps the count of places that decide how much of a child's name is published at exactly one. Widening it stays a one-line change and the owner's call. The holder's own view is unaffected, and public verification (`GET /verify/:code`) still returns the full name — correctly, because it keys on 16 symbols of randomness rather than a walkable serial.
+
+---
+
 ## 2026-08-04 — MongoDB (via Mongoose) as the database
 
 **Decision**: Use MongoDB with Mongoose ODM for all persistence.

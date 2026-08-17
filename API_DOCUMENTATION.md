@@ -1,6 +1,6 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-16 (Milestone 19 — payments: seven payment routes at the end of this file, plus `requireEntry` on four existing student routes, which now answer **402** for an unpaid entrant, and an `entitlements` object on every auth response). Before that, Milestone 17 — AI question drafting: `POST /admin/generate-questions` rewritten behind a generator seam, plus `GET /admin/question-generator`). Before that, Milestone 16 — intelligent performance recommendations: one new route, `GET /analytics/:studentId/recommendations`. Before that, Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes._
+_Last updated: 2026-08-17 (complete security audit — **no new routes**, but three cross-cutting changes below: a CSRF origin check on every state-changing method, masked names on the two public lookups, and three new rate limiters). Before that, Milestone 19 — payments: seven payment routes at the end of this file, plus `requireEntry` on four existing student routes, which now answer **402** for an unpaid entrant, and an `entitlements` object on every auth response). Before that, Milestone 17 — AI question drafting: `POST /admin/generate-questions` rewritten behind a generator seam, plus `GET /admin/question-generator`). Before that, Milestone 16 — intelligent performance recommendations: one new route, `GET /analytics/:studentId/recommendations`. Before that, Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
@@ -14,6 +14,18 @@ Middleware order on data routes: `rateLimit → validate → requireAuth → ens
 - All `/api*` routes are rate limited (general limiter). Sensitive auth routes have their own tighter limiters, listed per endpoint below. Exceeding any of them returns **429**.
 - Routes gated by `requirePermission` run `authenticate → ensureDb → freshRoleCheck → permissionCheck` **before** `validate`, so an unauthorized caller is refused before any input is parsed. On those routes a privileged caller sees **503** if MongoDB is down, because the role can no longer be verified — see [`DECISIONS.md`](DECISIONS.md).
 - Refusal statuses: **401** not authenticated (missing, forged, expired or revoked token), **403** authenticated but lacking the permission, **409** a request that conflicts with a safety rule (acting on your own account, promoting an unverified one).
+
+### Every state-changing request is origin-checked (2026-08-17)
+
+Ahead of everything above, `middleware/csrf.ts` runs on **every `POST`, `PUT`, `PATCH` and `DELETE`** under either prefix:
+
+- If the request carries an `Origin` header, its **host** must be in the CORS allow-list (`FRONTEND_URL`, plus `http://localhost:5173` outside production) or must equal the request's own host. Otherwise: **403**, `"This request did not come from the AMIT Olympiad website and was refused..."`.
+- If `Origin` is absent, `Referer` is checked the same way.
+- If neither is present the request proceeds. A browser always sends `Origin` on an unsafe method, so a request with neither is not browser-issued and cannot be a forgery — which is what keeps `curl`, the test suite and Razorpay's webhook working.
+
+`GET` and `HEAD` are not checked. **There is no CSRF token**: no client needs to read a cookie or send an extra header, so no existing caller changes. See the ADR in [`DECISIONS.md`](DECISIONS.md) for why a double-submit token was considered and deliberately not stacked on top.
+
+The practical consequence for a browser client: `FRONTEND_URL` must exactly match the origin the browser sees. In production that is the frontend's own domain, because `/api/*` is proxied there by a Vercel rewrite; in development it is `http://localhost:5173` via the Vite proxy.
 
 ---
 
@@ -776,12 +788,15 @@ Five fixed boards, each `{ code, title, description, icon, entries, emptyReason 
 Deliberately unauthenticated, because a public result portal is the point (a parent or school should not need an account). Three properties keep that safe:
 - only `isPublished` results are visible, so marks cannot be read before release;
 - the response for "no such account" and "no published result" is **identical**, so the portal cannot be used to enumerate which student IDs exist (asserted by test);
-- marks and ranks only — no email, mobile, address or date of birth (asserted by test).
+- marks and ranks only — no email, mobile, address or date of birth (asserted by test);
+- **`studentName` is masked** to a first name and a last initial (`"Ishaan C."`), through the same `displayNameFor()` the leaderboard uses, and the route is behind `publicLookupLimiter` (60 / 15 min). Both added by the 2026-08-17 audit: `AMIT_0000`–`AMIT_9999` is ten thousand identifiers, so returning the full legal name made this a way to walk the numbering and harvest every entrant's name beside their score and national rank.
 
 A malformed id is a 400. "No result" is a **200**, not a 404, because it is the ordinary expected answer.
 
 ### `GET /api/v1/certificates/:studentId` — now real
 `{ certificates: [...] }`, containing only certificates backed by a **published result**. Returns `[]` for everyone today.
+
+Public, so `studentName` is **masked** and the route is rate limited, exactly as the result portal above. `verificationCode` is never included — that is what public verification keys on. A student's own certificates come from `GET /api/v1/me/certificates`, which is authenticated and carries the full name and the code; the `/certificate` page uses that endpoint.
 
 Was a hardcoded two-item array (`CERT-2026-01`, "National Math Olympiad Finalist") returned for any id including a non-existent one. The page it feeds used to print "For outstanding participation and achievement" for anyone signed in, dated today, with their student ID as the certificate number. `issuedAt` is `null` rather than today's date, because no issue date is stored — inventing one is what made the old certificate look genuine.
 

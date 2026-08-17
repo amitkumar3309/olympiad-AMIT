@@ -125,6 +125,55 @@ export const challengeLimiter = limiter({
   message: 'Too many attempts at today’s challenge. Please wait a little before trying again.',
 });
 
+/**
+ * Creating and reconciling a payment order.
+ *
+ * Neither route takes money, but each one spends a **Razorpay API call** and the first
+ * writes a row, so an authenticated student could otherwise loop either of them for
+ * free at the platform's expense — the one place in this product where a request has a
+ * direct third-party cost. Generous enough that a student retrying a failed checkout,
+ * or a payment page reconciling on every load, never notices.
+ */
+export const paymentLimiter = limiter({
+  windowMs: HOUR,
+  limit: 30,
+  message: 'Too many payment attempts. Please wait a little before trying again.',
+});
+
+/**
+ * Administrative acts on somebody else's account.
+ *
+ * These sat behind the general `/api` limiter alone, which was recorded as an open gap
+ * in SECURITY.md and closed by the security audit. The one that matters most is the
+ * staff password reset: it **mints a working credential** for another account, so a
+ * stolen admin session looping it is how a whole cohort's accounts get taken at once.
+ * Deletion and session revocation are here for the same reason — they are the acts
+ * whose damage scales with how many times they can be repeated.
+ *
+ * Deliberately not applied to the read-only listings: an administrator legitimately
+ * pages through hundreds of accounts, and throttling that would only teach staff that
+ * the console is broken.
+ */
+export const adminActionLimiter = limiter({
+  windowMs: HOUR,
+  limit: 60,
+  message: 'Too many account administration actions. Please wait a little before trying again.',
+});
+
+/**
+ * The unauthenticated result and certificate lookups.
+ *
+ * `AMIT_0000`–`AMIT_9999` is only ten thousand identifiers, so these two routes can be
+ * walked to harvest the roll. The durable fix is that they publish a masked name (see
+ * `services/resultService.ts`); this bounds the walk as well, because a public portal
+ * has no reason to be read hundreds of times an hour from one address.
+ */
+export const publicLookupLimiter = limiter({
+  windowMs: 15 * MINUTE,
+  limit: 60,
+  message: 'Too many lookups. Please wait a few minutes before trying again.',
+});
+
 /** Refresh is called routinely by every active client, so this is generous. */
 export const refreshLimiter = limiter({
   windowMs: 15 * MINUTE,

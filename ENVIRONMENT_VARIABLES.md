@@ -108,6 +108,8 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 `FRONTEND_URL` gains a second job in Milestone 2: it is the base for the links inside those emails. If it is wrong or unset in production, links will point at `http://localhost:5173` and be useless to students.
 
+**And a third, since the 2026-08-17 security audit: it decides which browser origin may make a state-changing request.** `middleware/csrf.ts` checks every `POST`/`PUT`/`PATCH`/`DELETE` against the CORS allow-list, and in production that list is `FRONTEND_URL` and nothing else — `http://localhost:5173` is no longer admitted there. So the failure mode of getting this wrong is now visible immediately rather than only in somebody's inbox: **every write returns 403**. It must match the origin the browser is actually on, character for character — scheme included, no path, no trailing slash — which matters if the site is reachable at both a custom domain and a `*.vercel.app` one. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
 ### Performance recommendations (Milestone 16)
 
 | Variable | Required | Purpose | Where to get it | Example |
@@ -196,7 +198,7 @@ Brevo's free tier allows 300 emails/day, needs no credit card, and works over pl
 
 1. Open your **backend** project on vercel.com → **Settings** → **Environment Variables**.
 2. Add each of the six `SMTP_*` / `EMAIL_FROM` values from step 6, for the **Production** environment.
-3. While you are there, confirm `FRONTEND_URL` is set to your real frontend URL — the emailed links are built from it.
+3. While you are there, confirm `FRONTEND_URL` is set to your real frontend URL. Two things depend on it: the emailed links are built from it, **and since 2026-08-17 it is the only origin allowed to make a state-changing request** — get it wrong and every save, every sign-out and every payment returns 403.
 4. **Redeploy the backend.** Vercel does not apply new environment variables to an already-running deployment.
 
 Never paste these values into a public repository, issue, or screenshot; `SMTP_PASS` is a live credential.

@@ -5,7 +5,7 @@ import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { api, ApiError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
-import type { EarnedCertificate } from '../../api/types'
+import type { Certificate as CertificateRecord } from '../../api/types'
 import logo from '../../assets/logo.png'
 import styles from './Certificate.module.css'
 
@@ -18,22 +18,30 @@ import styles from './Certificate.module.css'
  * and the student's own ID as the certificate number, all client-side with no server
  * call. A student could print it the minute they registered.
  *
- * It now asks `GET /certificates/:studentId`, which returns only certificates backed by
- * a **published result**. Nothing writes one yet, so the honest answer for everybody is
- * that there is nothing to issue, and the page says so instead of printing a credential.
+ * It now asks `GET /me/certificates`, which returns only certificates backed by a
+ * **published result**, for the signed-in holder alone.
+ *
+ * It used to ask the *public* `GET /certificates/:studentId` with its own student ID.
+ * That worked, but the security audit (2026-08-17) masked the name on the public
+ * lookups — they are unauthenticated and keyed on an identifier with only ten thousand
+ * values, so they were a way to walk the numbering and harvest every entrant's full
+ * legal name beside their rank. A printed certificate must carry the holder's real
+ * name, so this page asks the endpoint that is allowed to give it: the authenticated
+ * one. It also carries the real serial (`certificateId`), where this page previously
+ * printed the database row id as the certificate number.
  */
 export default function Certificate() {
   const { state } = useAuth()
   const student = state.status === 'student' ? state.student : null
 
-  const [certificates, setCertificates] = useState<EarnedCertificate[] | null>(null)
+  const [certificates, setCertificates] = useState<CertificateRecord[] | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!student) return
     let cancelled = false
     api
-      .get<{ certificates: EarnedCertificate[] }>(`/certificates/${student.studentId}`)
+      .get<{ certificates: CertificateRecord[] }>('/me/certificates')
       .then((res) => {
         if (!cancelled) setCertificates(res.certificates)
       })
@@ -86,12 +94,12 @@ export default function Certificate() {
             <div className={styles.certificate}>
               <img src={logo} alt="A.M.I.T Olympiad" className={styles.certLogo} />
               <p className={styles.presented}>This certificate is proudly presented to</p>
-              <h2 className={styles.recipient}>{certificate.studentName ?? certificate.studentId}</h2>
+              <h2 className={styles.recipient}>{certificate.studentName || certificate.studentIdLabel}</h2>
               <p className={styles.desc}>{certificate.title}</p>
               <div className={styles.metaRow}>
                 <div>
                   <span className={styles.metaLabel}>Certificate ID</span>
-                  <span className={styles.metaValue}>{certificate.id}</span>
+                  <span className={styles.metaValue}>{certificate.certificateId}</span>
                 </div>
                 <div>
                   <span className={styles.metaLabel}>Date Issued</span>
@@ -105,12 +113,10 @@ export default function Certificate() {
                       : '—'}
                   </span>
                 </div>
-                {certificate.percentile !== null && (
-                  <div>
-                    <span className={styles.metaLabel}>Percentile</span>
-                    <span className={styles.metaValue}>{certificate.percentile}%</span>
-                  </div>
-                )}
+                <div>
+                  <span className={styles.metaLabel}>Score</span>
+                  <span className={styles.metaValue}>{certificate.percentage}%</span>
+                </div>
               </div>
               <p className={styles.signature}>Amit Kumar — Founder &amp; M.D.</p>
             </div>

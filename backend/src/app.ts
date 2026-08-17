@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { config } from './config';
 import { requestLogger } from './middleware/requestLogger';
 import { generalLimiter } from './middleware/rateLimiter';
+import { verifyRequestOrigin } from './middleware/csrf';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/health.routes';
 import v1Routes from './routes/v1';
@@ -65,6 +66,20 @@ export function createApp() {
   app.use(healthRoutes);
 
   app.use(generalLimiter);
+
+  /**
+   * The CSRF gate, mounted once for the whole API.
+   *
+   * Deliberately here rather than on individual routes, for the reason `requireEntry`
+   * is mounted rather than called: a per-route defence is one a new route can forget,
+   * and a forgotten CSRF check looks exactly like a working one. It sits **before**
+   * both prefixes below, because `/api` is an alias for the same router and a gate
+   * that held on only one of them would be bypassed by using the other.
+   *
+   * It only polices state-changing methods, so `/health`, `/ready` and every read are
+   * untouched. See `middleware/csrf.ts` for what it does and does not cover.
+   */
+  app.use(verifyRequestOrigin);
 
   // /api/v1 is canonical; /api is a backward-compatible alias for the
   // current frontend, which still calls unversioned paths — see DECISIONS.md.

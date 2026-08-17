@@ -2,6 +2,98 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-17 - Complete security audit: five findings, five fixes
+
+The whole application reviewed against the standard list -- authentication, authorization
+bypass, IDOR, privilege escalation, JWT and refresh handling, password storage, CORS,
+CSRF, XSS, NoSQL injection, input validation, rate limiting, brute force, mass assignment,
+information and error leakage, file upload, payment and webhook handling, secret exposure,
+and administrative endpoint protection. Five findings were confirmed and fixed. The full
+write-up is in [`SECURITY.md`](SECURITY.md); this is what changed in the code.
+
+### CSRF is closed, by verifying the request's origin
+
+`backend/src/middleware/csrf.ts`, mounted once in `app.ts` so it covers `/api/v1` and the
+`/api` alias together. Every `POST`/`PUT`/`PATCH`/`DELETE` must carry an `Origin` (or,
+failing that, a `Referer`) whose host is in the same allow-list CORS uses, or the request's
+own host. Reads are untouched.
+
+The gap was real and had been mis-scoped in the documentation. Two incidental defences --
+JSON-only body parsing and a preflighted CORS allow-list -- covered every route that needs
+a **body**, and covered nothing that does not. A hidden auto-submitting form reached
+`POST /auth/logout`, `/auth/logout-all`, `/auth/refresh`, `/payments/orders`,
+`/payments/reconcile` and the two notification read routes with a victim's cookies
+attached. SECURITY.md called that "session nuisance", which was true in Milestone 5 and
+stopped being true in Milestone 19: it now includes creating a payment order against a
+child's account.
+
+A double-submit token was considered and deliberately not stacked on top -- it buys nothing
+over an origin check for browser-issued requests, which is the only category CSRF has, and
+it would have meant a header change at 610 test call sites and for every future API client.
+A request with no `Origin` and no `Referer` is allowed, because a browser always sends one
+on an unsafe method and a request that is not from a browser cannot be a forgery. That is
+also what keeps Razorpay's server-to-server webhook working, which is verified by HMAC
+instead.
+
+### `localhost:5173` is no longer a permitted production origin
+
+It was in the CORS allow-list unconditionally, so the deployed API accepted credentialed
+cross-origin requests from any page a visitor happened to be serving on that port of their
+own machine -- and it would have counted as an "allowed" origin for the check above. It is
+admitted only outside production now. With `FRONTEND_URL` unset the list is empty, which
+fails closed; the deployed site is unaffected either way, because the frontend proxies
+`/api/*` through a Vercel rewrite and the browser never issues a cross-origin request.
+
+### The public lookups no longer publish a child's full name
+
+`GET /results/:studentId` and `GET /certificates/:studentId` are unauthenticated by design
+and keyed on `AMIT_0000`-`AMIT_9999`. They were returning the **full legal name** beside a
+score and a national rank, so once results are released they were a walk of the entire roll
+-- exactly what the leaderboard was given `displayNameFor()` and an anonymous depth cap to
+prevent. Both now publish through that same function, and both are rate limited. A parent
+still gets a first name, a last initial, the ID they typed and the marks.
+
+The holder's own certificate is untouched: `GET /me/certificates` and the PDF still carry
+the full name and the verification code. The `/certificate` page was pointed at that
+authenticated endpoint, which it should always have used -- it had been calling the public
+one with its own student ID, and printing the database row id where the certificate serial
+belongs.
+
+### The frontend deployment sends security headers
+
+`frontend/vercel.json` sent none at all, so the signed-in SPA could be framed by any site --
+the classic pairing with `sameSite: 'none'` cookies. It now sends `X-Frame-Options: DENY`,
+CSP `frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy` and a narrow
+`Permissions-Policy`. Deliberately **only** `frame-ancestors` in the CSP: a `default-src`
+policy would have to enumerate Google Fonts, unpkg and Razorpay's checkout, and a CSP
+written without a browser to check it against is a broken page rather than a safer one.
+`payment=()` is deliberately absent for the same reason -- Razorpay's checkout can use the
+Payment Request API.
+
+### Rate limits where a request has a cost or issues a credential
+
+`paymentLimiter` on `POST /payments/orders` and `/payments/reconcile`, the only routes here
+where one request spends a third-party API call. `adminActionLimiter` on the staff password
+reset, session revocation and account deletion -- the reset **mints a working credential**
+for another account, and it had nothing but the general limiter in front of it, which
+SECURITY.md had listed as an open gap since Milestone 5. `publicLookupLimiter` on the two
+public lookups above. Administrative *reads* are deliberately not limited.
+
+### What was checked and found sound
+
+Recorded so it is not re-derived: the answer-key rules, grading and the timing model, the
+reward and ranking engines, the permission table and its fresh database re-check,
+`refuseIfProtected()`, the root-superadmin bootstrap, refresh rotation and family
+revocation, password storage, every Mongo filter, every magic-byte-validated upload, the
+payment signature/ownership/idempotency rules, and the KaTeX text/math split. **No IDOR was
+found** -- every owner-scoped route puts the account in the query rather than checking it
+afterwards, and every route in `routes/v1/` carries a gate.
+
+### What this pass did not verify
+
+`npm audit` was not run, and nothing was driven through a browser. Both are recorded at the
+top of "Remaining Gaps" in [`SECURITY.md`](SECURITY.md) rather than left implied.
+
 ## 2026-08-17 - The entry fee buys the Olympiad, not the platform
 
 A same-week reversal of scope, made by the owner, plus the honest failure message that

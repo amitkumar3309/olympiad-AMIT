@@ -21,7 +21,27 @@ if (!jwtSecret) {
 }
 
 const LOCAL_FRONTEND_ORIGIN = 'http://localhost:5173';
-const corsOrigins = [env.FRONTEND_URL, LOCAL_FRONTEND_ORIGIN].filter((origin): origin is string => Boolean(origin));
+
+/**
+ * The origins allowed to make credentialed cross-origin requests, and — since the
+ * security audit — the same list the CSRF origin check is made against.
+ *
+ * `http://localhost:5173` is included **only outside production**. It used to be
+ * unconditional, which meant a deployed API accepted credentialed requests from any
+ * page a visitor happened to be serving on that port of their own machine: a
+ * development server left running, or anything a user was talked into starting. That
+ * is a genuine cross-origin read of a signed-in student's data, and it also punched a
+ * permanent hole in the origin check below, because `localhost:5173` would always be
+ * an "allowed" origin for a forged request.
+ *
+ * Removing it fails **closed**: with `FRONTEND_URL` unset in production the list is
+ * empty and no cross-origin request is allowed at all. The deployed site is unaffected
+ * either way, because the frontend proxies `/api/*` through a Vercel rewrite and the
+ * browser therefore never issues a cross-origin request to this backend.
+ */
+const corsOrigins = [env.FRONTEND_URL, isProd ? undefined : LOCAL_FRONTEND_ORIGIN].filter(
+  (origin): origin is string => Boolean(origin),
+);
 
 if (isProd && !env.FRONTEND_URL) {
   // `error`, not `warn`, and it names the consequence that actually bites first.
@@ -40,9 +60,9 @@ if (isProd && !env.FRONTEND_URL) {
   logger.error(
     'FRONTEND_URL is not set in production. Every verification and password-reset email will link to ' +
       `${LOCAL_FRONTEND_ORIGIN}, which is dead for your students, so nobody can verify their address or sign in. ` +
-      'CORS is also restricted to that origin. Set FRONTEND_URL to your frontend production URL and redeploy the ' +
-      'backend (see ENVIRONMENT_VARIABLES.md). Students who already registered can be recovered with "resend ' +
-      'verification" once it is set.',
+      'No cross-origin request is allowed either, and no browser origin is recognised by the CSRF check. Set ' +
+      'FRONTEND_URL to your frontend production URL and redeploy the backend (see ENVIRONMENT_VARIABLES.md). ' +
+      'Students who already registered can be recovered with "resend verification" once it is set.',
   );
 }
 

@@ -4,6 +4,23 @@ Log real problems + solutions here as they're encountered, so we don't re-solve 
 
 ---
 
+## (Anticipated) Every write returns 403 "This request did not come from the AMIT Olympiad website"
+
+**Problem** (recorded proactively when the CSRF check landed on 2026-08-17): reads work, the user is signed in, but **every** `POST`/`PUT`/`PATCH`/`DELETE` fails with a 403 whose message mentions the request not coming from the website. Nothing in the browser console mentions CORS.
+
+**Cause**: `middleware/csrf.ts` compares the browser's `Origin` header against the CORS allow-list, which in production is **`FRONTEND_URL` and nothing else**. If `FRONTEND_URL` does not exactly match the origin the browser is on, every write is refused. The two ways this happens:
+
+- `FRONTEND_URL` is set to the custom domain while people reach the site at `*.vercel.app` (or the reverse). Both are real origins; only one is configured.
+- `FRONTEND_URL` is unset in production. The allow-list is then **empty**, which fails closed. The startup log already reports this as an error, because the same variable builds every emailed verification link — so if writes are failing, check the log for that error first; you probably also have students holding dead verification links.
+
+**Fix**: set `FRONTEND_URL` on the **backend** Vercel project to the exact origin the browser shows — scheme included, no path, no trailing slash — and redeploy the backend (Vercel env changes need a redeploy). If the site is genuinely reachable at two origins, that is a product decision to make deliberately, not something to paper over by loosening the check.
+
+**Verification**: devtools → Network → pick the failing request → Request Headers → compare `Origin` character-for-character with `FRONTEND_URL`. Do **not** "fix" this by removing the middleware or by allowing every origin: the check is what stands between a signed-in child's session and a cross-site forgery, and production cookies are `sameSite: 'none'` so nothing else is doing that job. See [`SECURITY.md`](SECURITY.md) "CSRF".
+
+**Not this**: a 403 from `requirePermission` reads "You do not have permission to perform this action." The two are deliberately worded differently so they can be told apart at a glance.
+
+---
+
 ## Vercel build failure from TypeScript version mismatch
 
 **Problem**: Production build on Vercel failed after a TypeScript dependency update.

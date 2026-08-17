@@ -3,6 +3,7 @@ import { Router, type Request, type Response } from 'express';
 import { requireAuth, requirePermission, callerCan, callerCanFresh } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
+import { adminActionLimiter } from '../../middleware/rateLimiter';
 import { AuditLog, Student, StudentPhoto, type AccountStatus, type AuditAction, type StudentDocument } from '../../models';
 import type { Role } from '../../lib/permissions';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
@@ -416,6 +417,9 @@ router.patch(
 router.post(
   '/admin/users/:studentId/reset-password',
   requirePermission('users:password:reset'),
+  // The one administrative route that hands out a working credential, so it is the one
+  // whose damage scales with repetition — see `adminActionLimiter`.
+  adminActionLimiter,
   validate({ params: studentIdParamSchema, body: accountActionSchema }),
   ensureDb,
   async (req: Request, res: Response) => {
@@ -486,6 +490,7 @@ router.post(
 router.post(
   '/admin/users/:studentId/revoke-sessions',
   requirePermission('users:sessions:revoke'),
+  adminActionLimiter,
   validate({ params: studentIdParamSchema, body: accountActionSchema }),
   ensureDb,
   async (req: Request, res: Response) => {
@@ -538,6 +543,7 @@ router.post(
 router.delete(
   '/admin/users/:studentId',
   requirePermission('users:delete'),
+  adminActionLimiter,
   validate({ params: studentIdParamSchema, body: deleteAccountSchema }),
   ensureDb,
   async (req: Request, res: Response) => {

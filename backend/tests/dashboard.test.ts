@@ -778,7 +778,15 @@ describe('GET /results/:studentId', () => {
     expect(res.body.result.rank).toBe(1);
     expect(res.body.result.totalCandidates).toBe(1);
     expect(res.body.result.percentile).toBe(100);
-    expect(res.body.result.studentName).toBe('Test Kumar Student');
+    /**
+     * Masked, not the full legal name it used to be (security audit, 2026-08-17).
+     * This route is unauthenticated and keyed on an identifier with only ten thousand
+     * values, so returning "Test Kumar Student" made it a way to walk the numbering and
+     * harvest the roll — more than the leaderboard publishes about the same children.
+     * `displayNameFor()` is the one place that decides this.
+     */
+    expect(res.body.result.studentName).toBe('Test S.');
+    expect(JSON.stringify(res.body)).not.toContain('Test Kumar Student');
   });
 
   it('keeps an unpublished result invisible, so marks cannot be read before release', async () => {
@@ -829,7 +837,8 @@ describe('GET /certificates/:studentId', () => {
     const res = await request(app).get(`${API}/certificates/${studentId}`).expect(200);
 
     expect(res.body.certificates).toHaveLength(1);
-    expect(res.body.certificates[0].studentName).toBe('Test Kumar Student');
+    // Masked for the same reason as the result portal above — this listing is public.
+    expect(res.body.certificates[0].studentName).toBe('Test S.');
     // 100% clears the default 85% distinction threshold.
     expect(res.body.certificates[0].tier).toBe('distinction');
     expect(res.body.certificates[0].percentage).toBe(100);

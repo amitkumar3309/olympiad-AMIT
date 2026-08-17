@@ -1036,6 +1036,12 @@ export interface DashboardData {
  */
 export interface PublishedResult {
   studentId: string
+  /**
+   * **Masked** — a first name and a last initial ("Ishaan C."), never the full legal
+   * name. This endpoint is unauthenticated and keyed on an identifier with only ten
+   * thousand values, so publishing the full name made it a way to walk the roll
+   * (security audit, 2026-08-17). Do not display it as though it were complete.
+   */
   studentName: string | null
   examId: string
   score: number
@@ -1054,10 +1060,18 @@ export interface ResultResponse {
   reason?: 'not-published'
 }
 
-/** A certificate the student has actually earned — requires a published result. */
+/**
+ * A certificate the student has actually earned — requires a published result.
+ *
+ * The shape of the **public** `GET /certificates/:studentId`, which is not what any
+ * page uses: `/certificate` reads the authenticated `GET /me/certificates` (the
+ * `Certificate` interface below), because a printed certificate has to carry the
+ * holder's real name and this listing deliberately does not.
+ */
 export interface EarnedCertificate {
   id: string
   studentId: string
+  /** **Masked**, for the reason given on `PublishedResult.studentName`. */
   studentName: string | null
   title: string
   examId: string

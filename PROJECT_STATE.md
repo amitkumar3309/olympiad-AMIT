@@ -1,14 +1,26 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-16 (Milestone 19 — payments, and the entry fee that gates the platform)._
+_Last updated: 2026-08-17 (complete security audit)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
-**Verified counts, read from the code rather than carried forward** (2026-08-16): **26 Mongoose models** (Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **21 permissions** (3 student / 19 admin / 21 super admin — Milestone 19 added none, reusing `students:read` to see payments and `students:status:write` to change the fee), **830 passing tests across 25 files**, **49 frontend routes** (Milestone 19 added `/payment` and `/admin/payments`), 24 route modules under `routes/v1/`, **28 services**. Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true; if you are about to quote a number from here, the code is the authority.
+**Verified counts, read from the code rather than carried forward** (2026-08-16): **26 Mongoose models** (Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **21 permissions** (3 student / 19 admin / 21 super admin — Milestone 19 added none, and the security audit added none), **49 frontend routes** (Milestone 19 added `/payment` and `/admin/payments`), 24 route modules under `routes/v1/`, **28 services**. **The test count is deliberately not stated here**: it was **830 across 25 files** at the end of Milestone 19, and the 2026-08-17 security audit added a 26th file (`tests/security.audit.test.ts`) and amended two assertions in `dashboard.test.ts` **without being able to run the suite** — see "Current Milestone". Read the real number from `npm test --prefix backend`. Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true; if you are about to quote a number from here, the code is the authority.
 
 ## Current Development Phase
 
-**Milestone 19 — Payments, and the entry fee that gates the platform: implemented.** The last planned development milestone. Full detail is under "Current Payment State"; the shape of it:
+**Complete security audit — 2026-08-17: five findings, five fixes.** Not a feature milestone; no product behaviour was added. The whole application was reviewed against authentication, authorization bypass, IDOR, privilege escalation, JWT and refresh handling, password storage, CORS, CSRF, XSS, NoSQL injection, input validation, rate limiting, brute force, mass assignment, information and error leakage, file upload, payment and webhook handling, secret exposure, and administrative endpoint protection. The authoritative write-up is in [`SECURITY.md`](SECURITY.md).
+
+1. **CSRF is closed**, by `backend/src/middleware/csrf.ts` — every state-changing method must carry an `Origin` (or, failing that, a `Referer`) whose host is in the CORS allow-list or is the request's own. The gap was genuinely exploitable and the documentation had mis-scoped it: the two incidental defences it relied on (JSON-only body parsing, preflighted CORS) cover every route that needs a **body** and nothing that does not — a list that since Milestone 19 includes `POST /payments/orders`.
+2. **`http://localhost:5173` is no longer a permitted production CORS origin.** It was unconditional, so any page a visitor happened to be serving on that port of their own machine could make credentialed cross-origin reads of live student data — and it would have counted as an allowed origin for the check above.
+3. **The public result and certificate lookups no longer publish a child's full legal name.** Both are unauthenticated by design and keyed on `AMIT_0000`–`AMIT_9999`, so once results are released they were a walk of the whole roll. Both now publish through `displayNameFor()` — the same masking the leaderboard uses — and both are rate limited. The holder's own certificate is unchanged, and the `/certificate` page was pointed at the authenticated endpoint it should always have used.
+4. **The frontend deployment sends security headers** (`X-Frame-Options`, CSP `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`). It sent none at all, so the signed-in SPA could be framed — the classic pairing with `sameSite: 'none'` cookies.
+5. **Rate limits where a request has a third-party cost or issues a credential** — the two payment routes, and the staff password reset / session revocation / account deletion. The last had been an open gap in `SECURITY.md` since Milestone 5, and the reset hands over a *working credential* for somebody else's account.
+
+**Found sound, and recorded as such so nobody re-derives it**: the answer-key rules, grading and the timing model, the reward and ranking engines, the permission table and its fresh database re-check, `refuseIfProtected()`, the root-superadmin bootstrap and the escalation it refuses, refresh rotation and family revocation, password storage and the single `authenticateAccount()`, every Mongo filter, every magic-byte-validated upload, the payment signature/ownership/idempotency rules, and the KaTeX text/math split. **No IDOR was found** — every owner-scoped route puts the account in the *query* rather than checking it afterwards, and every route in `routes/v1/` carries a gate.
+
+**Two things this pass did not verify, recorded rather than implied**: `npm audit` was not run in either app, and nothing was driven through a browser. Both sit at the top of "Remaining Gaps" in [`SECURITY.md`](SECURITY.md).
+
+Before that, **Milestone 19 — Payments, and the entry fee that gates the platform: implemented.** The last planned development milestone. Full detail is under "Current Payment State"; the shape of it:
 
 - **Razorpay Standard Checkout, verified server-side**, replacing a static QR image and an "I've Paid" button that recorded nothing, verified nothing, and created the account either way. Every student who registered was told something untrue, and the site had no idea whether anyone had paid.
 - **₹100, once, and it buys a seat in the Olympiad.** Practice, mock tests, the daily challenge and analytics are free — the fee is for the competition itself. The gate is **on by default**, and can be switched off entirely from `/admin/payments`.
@@ -170,13 +182,26 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Last Completed Milestone
 
-**Milestone 19 — Payments, and the entry fee that gates the platform.** Preceded by Milestone 18 (generated questions need a human before they exist), Milestone 17 (AI question drafting), Milestone 16 (intelligent performance recommendations), Milestone 15 (performance analytics), Milestone 14 (the notification system), Milestone 13 (the official exam and the certificate system), Milestone 12 (Complete Admin Platform), Milestone 11 (Account administration and a real super-admin account), Milestone 10 (Leaderboards and Hall of Fame), Milestone 9 (Gamification Engine), Milestone 8 (Daily Challenge), Milestone 7 (Mock Test System), Milestone 6 (Practice Zone), Milestone 5 (student profile and dashboard), Milestone 4 (complete question bank), Milestone 3 (RBAC and user management), Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
+**The complete security audit (2026-08-17)**, which is a hardening pass rather than a milestone. Before it, **Milestone 19 — Payments, and the entry fee that gates the platform.** Preceded by Milestone 18 (generated questions need a human before they exist), Milestone 17 (AI question drafting), Milestone 16 (intelligent performance recommendations), Milestone 15 (performance analytics), Milestone 14 (the notification system), Milestone 13 (the official exam and the certificate system), Milestone 12 (Complete Admin Platform), Milestone 11 (Account administration and a real super-admin account), Milestone 10 (Leaderboards and Hall of Fame), Milestone 9 (Gamification Engine), Milestone 8 (Daily Challenge), Milestone 7 (Mock Test System), Milestone 6 (Practice Zone), Milestone 5 (student profile and dashboard), Milestone 4 (complete question bank), Milestone 3 (RBAC and user management), Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
 
 ## Current Milestone
 
-None in progress. Milestone 19 is complete, with a green suite: **830 tests across 25 files pass**, backend `typecheck` / `lint` / `compile` are clean, and the frontend `oxlint` / `tsc -b && vite build` succeed.
+None in progress. Milestone 19 is complete and the 2026-08-17 security audit has landed on top of it.
 
-**This was the last planned development milestone.** The owner's stated next phase is full testing. Two things stand between here and that: the Razorpay credentials have never been set in this sandbox, so **no real checkout has been driven through a browser**, and the frontend still has no test suite at all. See "Immediate Next Task".
+> **⚠ The audit's changes are unverified by any run.** The session that made them had both its shells blocked by a tooling restriction, so **`npm test`, `npm run typecheck`, `npm run lint`, `npm run compile`, `npm run build` and `npm audit` were all impossible to execute** — for either app. Every change was made by reading and editing files only. At the end of Milestone 19 the suite was green at 830 tests across 25 files; **that is the last measured state, not the current one.**
+>
+> **Run this before trusting anything above**, and fix or report what it says:
+>
+> ```
+> npm test --prefix backend
+> npm run typecheck --prefix backend && npm run lint --prefix backend && npm run compile --prefix backend
+> npm audit --prefix backend
+> cd frontend && npm run lint && npx tsc -b && npm run build && npm audit
+> ```
+>
+> The changes most likely to need attention if something fails: the new `tests/security.audit.test.ts` (it asserts against a middleware written in the same unrun session), the two amended name assertions in `dashboard.test.ts`, and the `Certificate.tsx` switch from the public lookup to `GET /me/certificates` (the frontend `EarnedCertificate` type was stale and the page now uses `Certificate` instead).
+
+**Milestone 19 was the last planned development milestone.** The owner's stated next phase is full testing. Two things stand between here and that: the Razorpay credentials have never been set in this sandbox, so **no real checkout has been driven through a browser**, and the frontend still has no test suite at all. See "Immediate Next Task".
 
 **The ₹0 cost target is now formally broken**, knowingly: Razorpay charges per transaction. That was the owner's decision and it is what the entry fee funds. Everything else in the product still runs on free tiers.
 

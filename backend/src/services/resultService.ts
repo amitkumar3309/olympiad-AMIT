@@ -1,5 +1,6 @@
 import type { PipelineStage } from 'mongoose';
 import { shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
+import { displayNameFor } from './leaderboardService';
 import {
   Certificate,
   CERTIFICATE_TIER_TITLES,
@@ -21,6 +22,26 @@ import {
  * What they replaced was much worse than an empty state: the result portal invented a
  * score, a national rank and a percentile by hashing whatever student ID was typed
  * into it. Everything below is now a real join over a **published** `Result`.
+ *
+ * ## Names are masked here, as they are everywhere else public (security audit)
+ *
+ * Both lookups are **unauthenticated by design** — a parent or a school checking a
+ * child's result should not need an account — and both are keyed on `AMIT_xxxx`, of
+ * which there are only ten thousand. They therefore had the shape the leaderboard was
+ * carefully given a cap to avoid: anybody could walk the numbering and harvest every
+ * entrant's **full legal name** beside their score and national rank. That the
+ * leaderboard publishes "Ishaan V." while this published "Ishaan Verma" was not a
+ * decision anybody took; it was two surfaces answering the same question differently.
+ *
+ * So both now publish through `displayNameFor()`, the single place this product
+ * decides how much of a child's name goes on a public page. A parent still gets enough
+ * to confirm they are looking at the right result — first name, last initial, the
+ * student ID they typed in, and the marks. Widening it stays a one-line change and the
+ * owner's call, exactly as it is for the leaderboard.
+ *
+ * A signed-in student's **own** certificate is unaffected: `GET /me/certificates` and
+ * the PDF render from the certificate's own snapshot and carry the full name, because
+ * that is the document in their hand.
  */
 
 export interface PublishedResult {
@@ -57,7 +78,7 @@ export type ResultLookup =
  * publication step, an unpublished one is a deliberate state rather than an accident.
  */
 export async function findPublishedResult(studentId: string): Promise<ResultLookup> {
-  const account = await Student.findOne({ studentId }).select('_id studentId fullName status');
+  const account = await Student.findOne({ studentId }).select('_id studentId firstName lastName fullName status');
   if (!account || account.status !== 'active') {
     return { found: false, reason: 'no-account' };
   }
@@ -77,7 +98,8 @@ export async function findPublishedResult(studentId: string): Promise<ResultLook
     found: true,
     result: {
       studentId: account.studentId,
-      studentName: account.fullName ?? null,
+      // Masked, like every other public surface. See the note at the top of this file.
+      studentName: displayNameFor(account),
       examId: result.exam?.examCode ?? '',
       examTitle: result.exam?.title ?? '',
       score: result.score,
@@ -120,7 +142,9 @@ export interface EarnedCertificate {
  * from live documents — see `models/Certificate.ts` for why that matters.
  */
 export async function findEarnedCertificates(studentId: string): Promise<EarnedCertificate[]> {
-  const account = await Student.findOne({ studentId }).select('_id fullName status');
+  // Only the id and the status are needed: the printable fields all come from each
+  // certificate's own snapshot, which is the rule certificates were built on.
+  const account = await Student.findOne({ studentId }).select('_id status');
   if (!account || account.status !== 'active') return [];
 
   const certificates = await Certificate.find({ student: account._id }).sort({ issuedAt: -1 });
@@ -129,7 +153,16 @@ export async function findEarnedCertificates(studentId: string): Promise<EarnedC
     id: String(certificate._id),
     certificateId: certificate.certificateId,
     studentId,
-    studentName: certificate.studentName,
+    /**
+     * Masked, because this listing is public. The certificate's own **snapshot** is
+     * still the source — masking it here rather than reading the live account keeps
+     * this listing agreeing with the PDF about *who* it belongs to, and a later name
+     * correction cannot change a certificate already in somebody's hands.
+     *
+     * The full name is served by `GET /me/certificates` and printed on the PDF, both
+     * of which require being the holder.
+     */
+    studentName: displayNameFor({ fullName: certificate.studentName }),
     tier: certificate.tier,
     title: CERTIFICATE_TIER_TITLES[certificate.tier],
     examTitle: certificate.examTitle,

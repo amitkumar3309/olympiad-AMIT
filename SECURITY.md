@@ -1,8 +1,26 @@
 # SECURITY.md
 
-_Last updated: 2026-08-13 (Milestone 9 — Gamification Engine)._
+_Last updated: 2026-08-17 (complete security audit)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.
+
+## The 2026-08-17 audit, in one page
+
+The whole application — backend and frontend — was reviewed against authentication, authorization bypass, IDOR, privilege escalation, JWT handling, refresh tokens, password storage, CORS, CSRF, XSS, NoSQL injection, input validation, rate limiting, brute force, mass assignment, information and error leakage, file upload, payment and webhook handling, secret exposure, and administrative endpoint protection.
+
+**Five findings were confirmed and fixed.** Each is described in its own section below.
+
+| # | Finding | Severity | Fix |
+|---|---|---|---|
+| 1 | **No CSRF defence.** Production cookies are `sameSite: 'none'`, and the routes that need **no request body** were reachable cross-site by a hidden auto-submitting form — including `POST /payments/orders`. | High | `middleware/csrf.ts`: `Origin`/`Referer` verified against the CORS allow-list for every state-changing method, mounted once for the whole API. |
+| 2 | **`http://localhost:5173` was a permitted CORS origin in production**, so any page a visitor happened to be serving on that port could make credentialed cross-origin reads of live student data — and it was a permanently "allowed" origin for finding 1's fix. | Medium | Localhost is admitted only outside production. Fails closed. |
+| 3 | **The public result and certificate lookups published entrants' full legal names**, keyed on `AMIT_0000`–`AMIT_9999` — ten thousand identifiers, walkable, returning more about the same children than the leaderboard is permitted to. | Medium‑high | Both publish through `displayNameFor()` now, and both are rate limited. The holder's own certificate is unchanged. |
+| 4 | **The frontend deployment sent no security headers at all** — no `X-Frame-Options`, no `frame-ancestors`. An authenticated SPA with `sameSite: 'none'` cookies could be framed and clickjacked. | Medium | `frontend/vercel.json` now sets `X-Frame-Options`, CSP `frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy`. |
+| 5 | **No rate limit on the routes with a third-party cost or a credential-issuing effect**: `POST /payments/orders`, `POST /payments/reconcile`, and the administrative password reset / session revocation / account deletion. | Low‑medium | `paymentLimiter`, `adminActionLimiter` and `publicLookupLimiter` (see "Rate Limiting"). |
+
+**What was checked and found genuinely sound**, so a future reader does not re-derive it: the answer-key rules; grading and the timing model; the reward and ranking engines; the permission table and its fresh database re-check; `refuseIfProtected()`; the root-superadmin bootstrap and the escalation it refuses; refresh-token rotation and family revocation; password storage and the single `authenticateAccount()`; every Mongo filter built from zod-parsed values with escaped regexes; every upload validated by magic bytes; the payment signature, ownership and idempotency rules; and the KaTeX text/math split. No IDOR was found — every owner-scoped route puts the account in the **query** rather than checking it afterwards, and every route in `routes/v1/` carries a gate.
+
+**Not verified in this pass, and honestly outstanding**: `npm audit` (see "Remaining Gaps"), and nothing was driven through a real browser.
 
 ## Authentication Security
 
@@ -155,24 +173,62 @@ Route guards, permission-aware navigation and the unauthorized state exist to ma
 
 ## CORS
 
-- Explicit origin allow-list built from `FRONTEND_URL` plus `http://localhost:5173`, with `credentials: true`. It **never** falls back to reflecting an arbitrary origin; if `FRONTEND_URL` is unset in production the app logs a warning and allows only localhost, which fails closed rather than open.
+- Explicit origin allow-list built from `FRONTEND_URL`, with `credentials: true`. It **never** falls back to reflecting an arbitrary origin.
+- **`http://localhost:5173` is admitted only outside production** — changed by the 2026-08-17 audit (finding 2). It used to be unconditional, which meant the deployed API accepted credentialed cross-origin requests from *any* page a visitor happened to be serving on that port of their own machine: a development server left running, or anything they were talked into starting. That is a genuine cross-origin read of a signed-in student's data, and it also punched a permanent hole in the origin check below, because `localhost:5173` would always have counted as an allowed origin for a forged request.
+- With `FRONTEND_URL` unset in production the list is now **empty**, which fails closed: no cross-origin request is allowed at all. The deployed site is unaffected either way, because the frontend proxies `/api/*` through a Vercel rewrite and the browser therefore never issues a cross-origin request to this backend. The startup log already reports the misconfiguration as an error, because the same variable builds every emailed verification link.
+- The allow-list is also what the CSRF check below is made against, derived from `config.cors.origins` rather than copied, so the two cannot drift apart.
 
 ## CSRF
 
-**Still open, but narrower than this document previously claimed.** There is no CSRF token mechanism, and in production cookies are `sameSite: 'none'`, so a browser *will* attach them to a cross-site request.
+**Closed on 2026-08-17** (audit finding 1) by `backend/src/middleware/csrf.ts`, mounted once in `app.ts` for the whole API.
 
-The practical exposure was re-examined on 2026-08-11 and is **smaller** than the earlier wording implied, because of two incidental defences:
+### What was actually exposed
+
+Production cookies are `sameSite: 'none'`, because the frontend and backend are on different Vercel domains, so a browser attaches a signed-in student's session to a request issued by any other site. Two **incidental** defences narrowed that and had been relied on:
 
 - **Only `express.json()` is mounted** — there is no `urlencoded` parser. A cross-site HTML form can only send `application/x-www-form-urlencoded`, `multipart/form-data` or `text/plain`, none of which `express.json()` parses, so the body arrives empty and validation returns 400.
 - **CORS uses an explicit origin allow-list.** A cross-origin `fetch` carrying `Content-Type: application/json` is not a simple request, so it is preflighted, and the preflight fails.
 
-Together those mean every route needing a JSON body — the profile edit, the password change, the role and status changes, practice submission — is effectively protected today. `PATCH`, `PUT` and `DELETE` are additionally never simple methods, so they are always preflighted regardless of body.
+Both are real, and **neither covers a route that needs no body at all**. A hidden auto-submitting form reaches those with no preflight and nothing for the JSON parser to refuse: `POST /auth/logout`, `/auth/logout-all`, `/auth/refresh`, `/payments/orders`, `/payments/reconcile`, `/me/notifications/read-all` and `/me/notifications/:id/read`. The earlier wording here called that "session nuisance", which was accurate in Milestone 5 and stopped being accurate in Milestone 19: the list now includes creating a payment order against a student's account.
 
-**What remains genuinely exposed** is the set of `POST` routes that need no body: `/auth/logout`, `/auth/logout-all` and `/auth/refresh`. A hidden auto-submitting form can trigger those cross-site. The consequence is session nuisance — someone can sign you out — not data modification or account takeover.
+### The defence
 
-This is still worth fixing, and it is **not** the emergency the previous wording implied. Note that the defences above are incidental rather than designed: adding a `urlencoded` parser, or loosening the CORS allow-list, would silently remove them. A double-submit cookie or header-based token remains the correct fix.
+For every `POST`, `PUT`, `PATCH` and `DELETE` under `/api` (both prefixes — the gate is mounted before the router, so the alias cannot be used to step around it):
 
-Practical exposure today: `logout`, `logout-all`, and `refresh` could be triggered cross-site (nuisance rather than data loss), and registration/login/reset all require knowledge the attacker does not have. It becomes serious the moment an authenticated, state-mutating route exists — payments, profile edits, or admin actions. **A double-submit cookie or a header-based CSRF token should be added before any of those ship.**
+1. If an `Origin` header is present, its host must be in the allow-list, or equal to the request's own host.
+2. If `Origin` is absent, `Referer` is checked the same way. `Referer` is second because a page can suppress it with a referrer policy and cannot suppress `Origin`.
+3. If neither is present, the request is allowed.
+
+Reads are not policed: a cross-origin read is already governed by CORS, and refusing `GET` would break ordinary clients while protecting nothing.
+
+### Why this works, and why rule 3 is not a hole
+
+A browser sends `Origin` on **every** request whose method is not `GET` or `HEAD`, including a cross-site form post, and `Origin` is a forbidden header name — page script cannot set or strip it. So a browser-issued cross-site state change always arrives with an `Origin` this backend can judge, and `Origin: null` (a sandboxed iframe, a `data:` document) is not a URL and is therefore refused rather than treated as absent.
+
+A request with neither header is not browser-issued, and CSRF is by definition a browser attack: the attacker's leverage is *the victim's browser attaching the victim's cookies*. Refusing those would break every API client — `curl`, the test suite, and Razorpay's server-to-server webhook, which is separately authenticated by an HMAC over its raw body — while protecting nobody.
+
+Comparison is on **host**, not full origin, so a TLS-terminating proxy deciding what scheme this process sees cannot break the check. An attacker controls neither the host nor the port.
+
+### Why not a double-submit token
+
+A double-submit cookie is the other standard answer and remains a reasonable second layer. It is deliberately **not** stacked on top of this, for two reasons worth writing down rather than rediscovering: it buys nothing over the origin check for browser-issued requests, which is the only category CSRF has; and it requires every client to read a cookie and echo it in a header, which is a change to 610 call sites in the test suite and to every future API consumer. If it is added later, the right shape is a non-`httpOnly` `csrf_token` cookie issued alongside the session and required in an `x-csrf-token` header — not a replacement for the origin check.
+
+### What this does not cover
+
+- A browser that omits `Origin` on a cross-site unsafe method. No current browser does; a sufficiently old one would be admitted.
+- Anything reachable with no ambient session — login, registration and password reset are unaffected either way, because an attacker forging them supplies the credentials themselves.
+
+### Frontend delivery headers
+
+Fixed at the same time (finding 4). `frontend/vercel.json` previously set **no** security headers, so the signed-in SPA could be framed by any site — the classic pairing with `sameSite: 'none'` cookies, because the frame is authenticated. It now sends:
+
+| Header | Value | Why |
+|---|---|---|
+| `X-Frame-Options` | `DENY` | Clickjacking. Nothing in this product is meant to be framed. |
+| `Content-Security-Policy` | `frame-ancestors 'none'` | The modern form of the same control, which `X-Frame-Options` no longer covers everywhere. Deliberately **only** `frame-ancestors`: a `default-src` policy would have to enumerate Google Fonts, unpkg and Razorpay's checkout, and a CSP written blind is a broken page rather than a safer one. |
+| `X-Content-Type-Options` | `nosniff` | Matches what `helmet` already sends from the API. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | A URL in this app can name a student's own resources; it should not travel to third-party sites in full. |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Nothing here uses them. `payment=()` is deliberately **absent** — Razorpay's checkout can use the Payment Request API, and disabling it would break paying. |
 
 ## Rate Limiting
 
@@ -186,10 +242,22 @@ Implemented per endpoint via `express-rate-limit` (`backend/src/middleware/rateL
 | `forgot-password`, `resend-verification` | 5 / hour |
 | `verify-email`, `reset-password` | 20 / 15 min |
 | `refresh` | 60 / 15 min |
+| self-service account changes (`accountUpdateLimiter`) | 20 / hour |
+| practice start/submit | 120 / hour |
+| mock-test start/submit | 60 / hour |
+| daily challenge | 30 / hour |
+| **`payments/orders`, `payments/reconcile`** (`paymentLimiter`) | 30 / hour |
+| **admin password reset / revoke-sessions / delete** (`adminActionLimiter`) | 60 / hour |
+| **`results/:studentId`, `certificates/:studentId`** (`publicLookupLimiter`) | 60 / 15 min |
 
 The email-sending endpoints are tightest because each request consumes a third-party mail quota as well as touching an account. `/health` and `/ready` are mounted before the limiter so monitoring probes are never throttled.
 
-Caveat: limits are per instance and held in memory. On Vercel's serverless platform each cold container has its own counters, so effective limits are looser than the numbers above. A shared store (e.g. Redis) would be needed for strict enforcement — not free-tier friendly, so deferred.
+The last three arrived with the 2026-08-17 audit (finding 5) and each closes a different kind of hole. The **payment** routes are the only place in this product where one request has a direct third-party cost: neither takes money, but each spends a Razorpay API call and the first writes a row, so an authenticated student could otherwise loop them for free at the platform's expense. The **administrative** ones are the acts whose damage scales with repetition — above all the staff password reset, which mints a *working credential* for another account, so a stolen admin session looping it is how a whole cohort gets taken at once. Administrative *reads* are deliberately not limited: staff legitimately page through hundreds of accounts, and throttling that would only teach them the console is broken. The **public lookups** are keyed on an identifier with ten thousand possible values, so bounding the walk is a second line behind the name masking described under "Public data exposure".
+
+Two caveats, and the second is worse than the first:
+
+- Limits are **per instance** and held in memory. On Vercel's serverless platform each cold container has its own counters, so effective limits are looser than the numbers above. A shared store (e.g. Redis) would be needed for strict enforcement — not free-tier friendly, so deferred.
+- **`trust proxy` is not set, so `req.ip` is the connection's peer, not the caller.** Behind Vercel's proxy that is very likely a *constant*, which means every per-IP limiter is effectively a single shared bucket: a handful of failed logins from anyone could exhaust the login limiter for everybody, and the `ip` recorded on audit entries and refresh tokens is not the caller's address. This was examined during the audit and deliberately **left alone**, because the obvious fix is worse than the problem: setting `trust proxy` makes `req.ip` come from `X-Forwarded-For`, and if the platform *appends* to that header rather than overwriting it, an attacker can put any value in front and bypass every per-IP limit at will. Changing it needs a verified answer to "does this platform overwrite `X-Forwarded-For`?" and a test proving a spoofed header does not move `req.ip`. Until then the current setting fails toward shared throttling rather than toward no throttling, which is the right direction.
 
 ## Validation
 
@@ -239,9 +307,11 @@ Not done, and worth knowing: the image is **not** re-encoded or stripped of meta
 - **The signature is never returned to any client.** It is derived from the secret, so publishing it would be an oracle for whether an order/payment pair is genuine.
 - **The key secret never leaves the process.** Only `RAZORPAY_KEY_ID`, which is public by design, reaches the browser — and it is sent by the server rather than built into the bundle, so the two cannot drift apart.
 
-**The paywall itself is an authorization surface**, not just a commercial one: `middleware/requireEntry.ts` gates practice, mock tests, the daily challenge and the exam. It runs **before** the resource is looked up, so an absent id returns 402 rather than 404 — otherwise an unpaid caller could probe which exams and tests exist. It is derived from the payment record on every request, never from a stored flag and never from anything the client sends.
+**The paywall itself is an authorization surface**, not just a commercial one: `middleware/requireEntry.ts` gates **the official Olympiad, and nothing else**. (It briefly gated practice, mock tests and the daily challenge too, on 2026-08-16; the owner reversed that the next day — a student prepares for free and pays only to compete. An earlier revision of this line still described the wider version.) It runs **before** the resource is looked up, so an absent id returns 402 rather than 404 — otherwise an unpaid caller could probe which exams exist. It is derived from the payment record on every request, never from a stored flag and never from anything the client sends.
 
-**Still open here: CSRF.** This document said a token should land before payments. It did not. `POST /payments/orders` and `POST /payments/reconcile` are authenticated, state-mutating and bodyless-friendly, which is the shape the gap is about. Two things narrow it: the API parses JSON only, so an HTML form post cannot reach these routes, and CORS uses a strict allow-list. The realistic harm is a forced order creation (which takes no money and creates a `created` row) rather than a forced payment. It should be recorded as accepted rather than forgotten — see the CSRF section above.
+**CSRF here: closed on 2026-08-17.** This document had said a token should land before payments, and it did not. `POST /payments/orders` and `POST /payments/reconcile` are authenticated, state-mutating and take **no request body**, which is exactly the shape the incidental JSON-only defence never covered — a hidden auto-submitting form reached both. The realistic harm was a forced order creation (which takes no money and creates a `created` row) rather than a forced payment, but "an attacker can make orders appear against a child's account" is not something to leave standing. Both are now behind the origin check described in the CSRF section, and behind `paymentLimiter`.
+
+**Payments and the origin check.** Razorpay's checkout runs in an iframe on our own page, so the `POST /payments/verify` that follows a successful payment is issued by our origin and passes. The **webhook** arrives server-to-server with no `Origin` and no `Referer`, so the origin check does not apply to it — correctly, because it is authenticated by an HMAC over its raw body instead, and refusing it for lacking a browser header would break the only push path we have.
 
 ## Secrets Management
 
@@ -319,15 +389,31 @@ Photos still are **not re-encoded**, so EXIF (including any GPS tags a phone wro
 
 `/public/stats` returns only aggregate counts, which cannot be resolved to an individual.
 
+### The result portal and the public certificate listing (fixed 2026-08-17)
+
+`GET /results/:studentId` and `GET /certificates/:studentId` are unauthenticated on purpose — a parent or a school checking a child's result should not need an account — and the three properties recorded above still hold: only `isPublished` rows are visible, "no such account" and "no published result" are byte-identical answers, and no email, mobile, address or date of birth is in the payload.
+
+What the audit found is that they answered the *name* question differently from everything else public. Both were returning the **full legal name**, and both are keyed on `AMIT_0000`–`AMIT_9999` — ten thousand identifiers. Once results are released, that is a walk of the entire roll producing every entrant's full name beside their score, national rank and percentile: precisely the shape the leaderboard was given `displayNameFor()` and an anonymous depth cap to avoid. It was never a decision anybody took; it was two surfaces answering the same question two ways.
+
+Both now publish through **`displayNameFor()`**, so there is still exactly one place this product decides how much of a child's name goes on a public page, and both sit behind `publicLookupLimiter`. A parent still gets enough to confirm the right child — a first name, a last initial, the student ID they typed in, and the marks. Widening it stays a one-line change and the owner's call.
+
+**The holder's own certificate is unchanged.** `GET /me/certificates` and the PDF render from the certificate's own snapshot and carry the full name and the verification code, because that is the document in their hand. The `/certificate` page was pointed at that authenticated endpoint as part of this change; it had been calling the public one with its own student ID, which also meant it printed the database row id where the certificate serial belongs.
+
+The **public verification** route (`GET /verify/:code`) still returns the full name, and correctly: it keys on 16 symbols of `crypto` randomness rather than on a walkable serial, so the caller is confirming a document they are holding.
+
 ## Remaining Gaps, in priority order
 
-1. **CSRF tokens** — the clear top gap, and more pressing again after Milestone 5: alongside the administrative state-mutating routes, there are now student-facing ones on every account (`PATCH /me/profile`, `PUT /me/photo`, `POST /me/change-password`, and since Milestone 14 `PATCH /me/notification-preferences`). The password route is partly self-protecting, since an attacker would also need the current password; the profile, photo and preference routes are not. Production cookies are `sameSite: 'none'` because the apps are on different domains, so `sameSite` is not doing this job. **The payment milestone shipped without it (2026-08-16)**, so the sentence that used to sit here — that a token must land first — describes a requirement that was not met rather than a plan. That is now a knowingly accepted gap: the API parses JSON only and CORS uses a strict allow-list, so the realistic harm on the payment routes is a forced order creation that takes no money, not a forced payment. It remains the top open item.
-2. **Shared-store rate limiting** — current limits are per-instance and weak on serverless.
-3. **Two-factor authentication** — not started, and now more valuable: an admin account is worth more than it was.
-4. **`JWT_SECRET` rotation** — no mechanism; rotating it invalidates every session at once.
-5. **Rate limiting on the administrative routes** — they sit behind the general `/api` limiter only, with no tighter per-route limit of their own. (The self-service account routes added in Milestone 5 do have one, `accountUpdateLimiter`; the admin routes still do not.)
+Items 1 and 5 of the previous list — CSRF and administrative rate limiting — were closed by the 2026-08-17 audit and now have sections of their own above.
+
+1. **Dependency vulnerabilities are unverified as of 2026-08-17.** `npm audit` could not be run in the session that performed the audit, so the standing entry below is carried forward on trust rather than re-checked, which is exactly the state this document is supposed to make impossible. **Run `npm audit` in both `backend/` and `frontend/` and record the result here.** The previously-known finding is in `@vercel/node`'s *build-time* dependency tree, where fixing needs a breaking major upgrade; that is a different risk from a runtime dependency and should be recorded as such.
+2. **`trust proxy` and `req.ip`** — every per-IP rate limit is effectively one shared bucket on serverless, and the `ip` on audit entries is not the caller's. Deliberately not changed, because the naive fix makes the limits spoofable. See the caveat under "Rate Limiting" for what a correct fix has to prove first.
+3. **Shared-store rate limiting** — limits are per-instance and weak on serverless. Compounds item 2.
+4. **Two-factor authentication** — not started, and now more valuable: an admin account is worth more than it was.
+5. **`JWT_SECRET` rotation** — no mechanism; rotating it invalidates every session at once.
 6. **Changing your own email address or mobile number** — not possible at all, because doing it safely needs a confirm-at-the-new-address flow. Recorded here rather than only as a missing feature, because the reason it is absent is a security one.
-7. **Pre-existing `npm audit` findings** in `@vercel/node`'s build-time dependency tree; fixing needs a breaking major upgrade.
+7. **A double-submit CSRF token** as a second layer behind the origin check. Optional rather than required — see "Why not a double-submit token" for the shape it should take if it is ever added.
+8. **Registration photos are not re-encoded**, so EXIF (including GPS tags a phone camera wrote) is stored and served as uploaded. Unchanged since Milestone 4.
+9. **Account lockout is a denial-of-service primitive against a known address** — five wrong guesses lock an account for fifteen minutes, and the address is the student's email. Accepted: the alternative is no lockout, which is worse, and the reset path is self-service.
 
 ---
 
