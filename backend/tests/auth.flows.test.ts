@@ -12,6 +12,7 @@ import {
   cookieHeader,
   registerVerifyLogin,
 } from './helpers/auth';
+import { getTestInbox } from '../src/lib/email';
 
 beforeAll(startTestDb, 60_000);
 afterAll(stopTestDb);
@@ -247,23 +248,63 @@ describe('a spent verification link', () => {
       .expect(200);
   });
 
-  it('does not claim an unverified account can sign in', async () => {
+  it('emails a fresh link instead of a dead end, and never claims an unverified account can sign in', async () => {
     await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
     const stale = tokenFromLatestEmail('Verify');
 
-    // Asking for a new link invalidates every earlier one, by design. The older email
-    // must not be told "try signing in" — that account cannot sign in, and sending
-    // somebody at a door that will not open is the failure being reported.
+    // Asking for a new link invalidates every earlier one, by design — so this is the
+    // "somebody opened the older of two emails" case, which is one of several ways a
+    // student legitimately arrives holding a spent token.
     await request(app).post(`${API}/auth/resend-verification`).send({ email: validStudent.email }).expect(200);
 
+    const before = getTestInbox().length;
     const res = await request(app).post(`${API}/auth/verify-email`).send({ token: stale });
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/newest email/i);
+    // Not "try signing in": that account cannot sign in, and pointing somebody at a
+    // door that will not open is the failure this replaces.
     expect(res.body.error).not.toMatch(/try signing in/i);
+    expect(res.body.error).toMatch(/emailed you a new one/i);
 
-    // The newest link is the one that works.
+    // A replacement really was sent, to the address on the account and nowhere else.
+    const inbox = getTestInbox();
+    expect(inbox.length, 'a fresh link must actually be sent').toBeGreaterThan(before);
+    expect(inbox[inbox.length - 1]!.to).toBe(validStudent.email);
+
+    // And it works, which is the whole point.
     await request(app).post(`${API}/auth/verify-email`).send({ token: tokenFromLatestEmail('Verify') }).expect(200);
+    await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: validStudent.email, password: validStudent.password })
+      .expect(200);
+  });
+
+  it('does not re-send once the account is verified, so a replay cannot pump out email', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    const token = tokenFromLatestEmail('Verify');
+    await request(app).post(`${API}/auth/verify-email`).send({ token }).expect(200);
+
+    const before = getTestInbox().length;
+    const replay = await request(app).post(`${API}/auth/verify-email`).send({ token }).expect(200);
+
+    expect(replay.body.alreadyVerified).toBe(true);
+    // The verified branch returns before the re-send, so a stale link in an inbox — or a
+    // mail scanner re-following it — cannot be turned into a mail generator.
+    expect(getTestInbox().length, 'a verified account must not trigger more email').toBe(before);
+  });
+
+  it('sends nothing for a token that belongs to nobody', async () => {
+    const before = getTestInbox().length;
+
+    const res = await request(app)
+      .post(`${API}/auth/verify-email`)
+      .send({ token: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' })
+      .expect(400);
+
+    expect(res.body.error).toMatch(/invalid/i);
+    // There is no account to send to, and inventing one would make this endpoint a way
+    // to have mail sent to arbitrary addresses.
+    expect(getTestInbox().length).toBe(before);
   });
 
   it('keeps a reset link usable when the reset itself fails', async () => {

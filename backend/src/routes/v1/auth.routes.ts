@@ -285,20 +285,55 @@ router.post('/auth/verify-email', tokenSubmitLimiter, validate({ body: verifyEma
        * cannot open. That case is now largely prevented by the release below, but it is
        * still reported honestly, with the action that actually helps.
        */
-      if (outcome.reason === 'used') {
-        const already = await Student.findById(outcome.studentId).select('isEmailVerified');
-        if (already?.isEmailVerified) {
+      if (outcome.reason === 'used' || outcome.reason === 'expired') {
+        const account = await Student.findById(outcome.studentId);
+
+        if (account?.isEmailVerified) {
           sendSuccess(res, 200, { message: 'Your email is already verified. You can sign in.', alreadyVerified: true });
           return;
         }
-        sendError(res, 400, 'This verification link is no longer valid. Request a new one below and use the newest email.');
-        return;
+
+        /**
+         * A spent or expired link on an account that is **still unverified** used to be
+         * a dead end: the student was shown an error and a form asking them to retype
+         * the address they had just proved they owned, on a page they reached by doing
+         * exactly what the email told them to do. Most people stop there.
+         *
+         * So we send a fresh link instead of asking. It is safe and it discloses
+         * nothing: whoever is holding this token got it from that mailbox, and the new
+         * link goes to that same address and nowhere else. Issuing one invalidates the
+         * old, and the route's own rate limiter caps how often this can happen.
+         *
+         * This is a deliberate belt to the brace added alongside it — the token is no
+         * longer burned by a failed attempt in the first place — because the causes of
+         * a spent token are not all ours. A mail provider that follows links, a
+         * forwarded message, a second registration attempt, or somebody opening the
+         * older of two emails all produce one, and none of them should cost a student
+         * their account.
+         */
+        if (account) {
+          logger.warn(
+            { studentId: account.studentId, reason: outcome.reason },
+            'Verification link was spent or expired on an unverified account — issuing a fresh one',
+          );
+          await sendVerificationLink(account);
+          sendError(
+            res,
+            400,
+            outcome.reason === 'expired'
+              ? 'That link had expired, so we have emailed you a new one. Please open the newest email and try again.'
+              : 'That link had already been used, so we have emailed you a new one. Please open the newest email and try again.',
+          );
+          return;
+        }
       }
 
+      // No account behind the token, or no token at all. Nothing to send anywhere.
       const message =
         outcome.reason === 'expired'
           ? 'This verification link has expired. Request a new one.'
           : 'This verification link is invalid. Request a new one.';
+      logger.warn({ reason: outcome.reason }, 'Verification failed with no account to re-send to');
       sendError(res, 400, message);
       return;
     }
