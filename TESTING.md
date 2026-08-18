@@ -4,11 +4,30 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
-The backend has a working test suite: **830 passing tests across 25 files** (`backend/tests/`). The frontend still has **no test suite**.
+The backend has a working test suite: **882 passing tests across 26 files** (`backend/tests/`), measured on 2026-08-18. The frontend still has **no test suite**.
 
 **One helper default worth knowing before writing a test** (Milestone 19): `registerVerifyLogin()` grants the account a captured entry-fee payment, because the fee gates practice, mock tests, the daily challenge and the exam — a test student who cannot practise would be asserting behaviour no real student reaches. Pass `{ paid: false }` as the third argument when *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants.
 
-**`tests/questionGenerator.test.ts` — 21 tests, the Milestone 17 suite, rewritten for Milestone 18.** Several tests now assert the question collection is **empty** after generating — the property the review-before-approval design exists for, and the one that would regress silently back into "saved as a draft". Its organising idea: **a generator is never trusted, so most of the file feeds the pipeline output a real model could plausibly produce and asserts it is refused** — a `\href` smuggled into LaTeX, `<script>` in question text, a single-choice question with two correct options, a numeric question carrying options, 40 questions when 2 were asked for, and a model trying to set its own subject, class and `status: 'published'`.
+**`tests/questionGenerator.test.ts` — 52 tests, the Milestone 17 suite, rewritten for Milestone 18 and extended by 30 tests in Milestone 20.**
+
+Milestone 20 replaced the `fetch`-level fixture with a **client-level seam**: `setGeminiClientFactory()` swaps the whole `@google/genai` client, so a fake is four lines rather than a hand-built HTTP response, and it still throws outside the test environment so it cannot be reached at runtime. **No test makes a network call**, and none needs an API key — `enableGemini()` sets an obviously-fake string, because `isAvailable()` only asks whether a key is present. What the new tests cover, all of it offline:
+
+- **Retry classification**, which is the part most likely to cost real money if it regresses: a 429 retried once and then succeeding; a 403 **not** retried at all (the spy asserts one call); a 503 retried exactly `GEMINI_MAX_RETRIES` times and no more.
+- **Key redaction** — a provider that echoes the credential back in its error text, asserting the response contains `[redacted]` and not the key.
+- **Structured output** — the `responseSchema` actually sent: that a numeric request's schema has *no* `options` property, that the batch size and option count are pinned, and that `marks` is absent from it.
+- **Prompt injection** — that the requirements appear *before* the examiner's instruction, and that a triple-quote fence inside that instruction cannot close the real one.
+- **Cost limits** — a `count` or an instruction over the configured maximum is refused with **no provider call made** (`spy.calls === 0`).
+- **Subtopics** — named in the prompt, saved on the row, and a subtopic from another chapter refused *before* a request is spent.
+- **Provenance** — the model recorded from the server's own log, and a client's attempt to claim `source: 'human'` or a different model ignored.
+- **The dry run** — that its verdict matches what approval actually does (the same batch is then approved, and the same one question is refused), and that it writes nothing.
+- **Advisory warnings** — a figure reference, an answer missing from a solution, a loose tolerance, and batch-level answer-position bias — each asserting the candidate is **still returned**, because these annotate rather than reject.
+- **Authorization on both prefixes** for the two new routes, guest and plain student.
+
+One test is worth knowing about if it ever fails for a confusing reason: the position-bias test needs **four textually different** questions, because four near-identical ones are eaten by duplicate detection first and there is no batch left to find a pattern in.
+
+Milestone 18's original description follows.
+
+**The Milestone 18 rewrite.** Several tests now assert the question collection is **empty** after generating — the property the review-before-approval design exists for, and the one that would regress silently back into "saved as a draft". Its organising idea: **a generator is never trusted, so most of the file feeds the pipeline output a real model could plausibly produce and asserts it is refused** — a `\href` smuggled into LaTeX, `<script>` in question text, a single-choice question with two correct options, a numeric question carrying options, 40 questions when 2 were asked for, and a model trying to set its own subject, class and `status: 'published'`.
 
 Nothing touches the network. `setGeminiTransport()` is a test-only hook — it throws outside the test environment, and one test asserts that — and it is what makes the failure paths testable at all:
 

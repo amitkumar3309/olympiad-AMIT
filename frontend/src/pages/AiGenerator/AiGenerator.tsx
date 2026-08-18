@@ -17,10 +17,13 @@ import {
   type GenerateQuestionsResponse,
   type GenerationLanguage,
   type ProposedQuestion,
+  type QualityWarning,
   type QuestionGeneratorStatus,
   type QuestionType,
+  type QuestionVerdict,
   type Subject,
   type Topic,
+  type ValidateQuestionsResponse,
 } from '../../api/types'
 import styles from './AiGenerator.module.css'
 
@@ -37,11 +40,27 @@ import styles from './AiGenerator.module.css'
  *
  * ## What the reviewer can do, and what they cannot
  *
- * Edit any field, regenerate one question, regenerate the whole batch, delete
- * individual questions — then approve, as drafts or published. What they *cannot* do is
- * bypass validation: every approval is re-checked server-side against the same schema a
- * hand-written question passes, so an edit that breaks a rule is refused there rather
- * than trusted here. This page's own checks are a courtesy, not the gate.
+ * Edit any field, regenerate one question, regenerate the whole batch, discard individual
+ * questions, tick which ones to keep — then approve the selection, as drafts or published.
+ * What they *cannot* do is bypass validation: every approval is re-checked server-side
+ * against the same schema a hand-written question passes, so an edit that breaks a rule is
+ * refused there rather than trusted here. This page's own checks are a courtesy, not the
+ * gate.
+ *
+ * ## "Check before saving" is not a second opinion
+ *
+ * The Check button calls a dry-run endpoint that runs the **same** screening function
+ * approval runs, and saves nothing. It exists because an edit can break a rule — most often
+ * unticking the correct option and forgetting to tick another — and the alternative was
+ * pressing Approve to find out, having already saved the rest of the batch.
+ *
+ * ## Warnings are advisory, and the page says so
+ *
+ * A card may carry warnings and still be perfectly approvable: they are the defects that are
+ * decidable from the text but not always defects (a reference to a figure, a tolerance wide
+ * enough to mark a wrong answer right, the correct option sitting in position (a) all the way
+ * down). Nothing here claims the mathematics has been checked, because nothing has checked
+ * it — that is what the reviewer is for.
  *
  * Questions approved here become practice material automatically — the Practice Zone
  * draws from the published bank, so there is no separate "practice question" to
@@ -58,11 +77,14 @@ const DEFAULT_COUNT = 5
 export default function AiGenerator() {
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
+  const [subtopics, setSubtopics] = useState<Topic[]>([])
   const [status, setStatus] = useState<QuestionGeneratorStatus | null>(null)
 
   // --- Configuration ---
   const [subject, setSubject] = useState('')
   const [chapters, setChapters] = useState<string[]>([])
+  // Of the *first* chapter only, since that is the one questions are filed under.
+  const [subtopic, setSubtopic] = useState('')
   const [classLevel, setClassLevel] = useState<ClassLevel>('Class 9')
   const [difficulty, setDifficulty] = useState<Difficulty>('Medium')
   const [questionType, setQuestionType] = useState<QuestionType>('single_choice')
@@ -81,8 +103,12 @@ export default function AiGenerator() {
   const [batch, setBatch] = useState<EditableQuestion[] | null>(null)
   const [result, setResult] = useState<GenerateQuestionsResponse | null>(null)
   const [saved, setSaved] = useState<ApproveQuestionsResponse | null>(null)
-  const [busy, setBusy] = useState<'all' | 'approve' | string | null>(null)
+  const [busy, setBusy] = useState<'all' | 'approve' | 'check' | string | null>(null)
   const [error, setError] = useState('')
+  // Which questions Approve will save. Everything starts ticked: the common case is keeping
+  // the batch, and an examiner who has to tick twenty boxes will stop reading them.
+  const [selected, setSelected] = useState<string[]>([])
+  const [checked, setChecked] = useState<ValidateQuestionsResponse | null>(null)
   // Model names are retired on Google's schedule, so the page can ask the key itself
   // rather than making the examiner guess what to put in GEMINI_MODEL.
   const [models, setModels] = useState<AvailableModelsResponse | null>(null)
@@ -118,6 +144,26 @@ export default function AiGenerator() {
       .catch(() => setTopics([]))
   }, [subject])
 
+  /**
+   * The subtopic list follows the **first** ticked chapter, and resets when it changes.
+   *
+   * Reset rather than kept: a subtopic of a chapter you are no longer generating for
+   * describes a question that cannot exist, and the backend refuses it — better to lose the
+   * selection than to send a request that is guaranteed to fail.
+   */
+  const primaryChapter = chapters[0] ?? ''
+  useEffect(() => {
+    setSubtopic('')
+    if (!primaryChapter) {
+      setSubtopics([])
+      return
+    }
+    api
+      .get<{ topics: Topic[] }>(`/topics?parent=${primaryChapter}&status=active`)
+      .then((res) => setSubtopics(res.topics))
+      .catch(() => setSubtopics([]))
+  }, [primaryChapter])
+
   const ready = Boolean(status?.available)
   const takesOptions = questionType === 'single_choice' || questionType === 'multiple_choice'
 
@@ -125,6 +171,7 @@ export default function AiGenerator() {
     () => ({
       subject,
       chapters,
+      subtopic: subtopic || null,
       classLevel,
       difficulty,
       questionType,
@@ -136,7 +183,7 @@ export default function AiGenerator() {
       instructions: instructions.trim() || null,
       model: model || null,
     }),
-    [subject, chapters, classLevel, difficulty, questionType, language, bloomLevel, marks, negativeMarks, optionCount, instructions, model],
+    [subject, chapters, subtopic, classLevel, difficulty, questionType, language, bloomLevel, marks, negativeMarks, optionCount, instructions, model],
   )
 
   /** Text already on screen, so a regenerate is told not to repeat itself. */
@@ -147,6 +194,9 @@ export default function AiGenerator() {
   async function generate(replace: boolean, howMany: number, replacing?: string) {
     setError('')
     setSaved(null)
+    // Any earlier verdict describes questions that no longer exist, and a stale tick beside a
+    // replaced question is worse than no tick at all.
+    setChecked(null)
     setBusy(replacing ?? 'all')
     try {
       const res = await api.post<GenerateQuestionsResponse>('/admin/generate-questions', {
@@ -156,12 +206,19 @@ export default function AiGenerator() {
       })
       setResult(res)
       setBatch((current) => {
-        if (replace || !current) return res.questions
-        if (!replacing) return [...current, ...res.questions]
+        if (replace || !current) {
+          setSelected(res.questions.map((entry) => entry.clientId))
+          return res.questions
+        }
+        if (!replacing) {
+          setSelected((ids) => [...ids, ...res.questions.map((entry) => entry.clientId)])
+          return [...current, ...res.questions]
+        }
         // Swap the one being regenerated in place, so the reviewer's eye does not have
         // to find it again at the bottom of the list.
         const replacement = res.questions[0]
         if (!replacement) return current
+        setSelected((ids) => ids.map((id) => (id === replacing ? replacement.clientId : id)))
         return current.map((entry) => (entry.clientId === replacing ? replacement : entry))
       })
     } catch (err) {
@@ -175,31 +232,137 @@ export default function AiGenerator() {
     setBatch((current) =>
       (current ?? []).map((entry) => (entry.clientId === clientId ? { ...entry, ...changes, edited: true } : entry)),
     )
+    // The verdict was about the text as it was a keystroke ago.
+    setChecked(null)
+  }
+
+  /**
+   * What the server accepts for a reviewed question.
+   *
+   * `clientId`, `topic`, `subtopic` and `warnings` are dropped: the taxonomy travels once for
+   * the whole batch, and a warning is something the server told *us*. `edited` is kept,
+   * because whether the examiner changed the text is worth recording next to the model that
+   * wrote it.
+   */
+  function payload(questions: EditableQuestion[]) {
+    return questions.map(
+      ({ clientId: _clientId, topic: _topic, subtopic: _subtopic, warnings: _warnings, edited, ...question }) => ({
+        ...question,
+        edited: edited === true,
+      }),
+    )
+  }
+
+  /**
+   * Records that candidates were thrown away.
+   *
+   * Nothing was stored, so there is nothing to delete — but the count is the only measure of
+   * whether a prompt configuration is producing usable questions, and it is invisible
+   * everywhere else. Deliberately fire-and-forget: a failure here must not interrupt the
+   * examiner, because the questions are discarded either way.
+   */
+  function recordDiscarded(count: number) {
+    const logId = result?.logId
+    if (!logId || count <= 0) return
+    void api.post('/admin/generate-questions/reject', { logId, count }).catch(() => undefined)
+  }
+
+  function discard(clientId: string) {
+    setBatch((current) => (current ?? []).filter((entry) => entry.clientId !== clientId))
+    setSelected((ids) => ids.filter((id) => id !== clientId))
+    setChecked(null)
+    recordDiscarded(1)
+  }
+
+  function discardAll() {
+    recordDiscarded(batch?.length ?? 0)
+    setBatch(null)
+    setSelected([])
+    setChecked(null)
+    setResult(null)
+  }
+
+  const chosen = (batch ?? []).filter((entry) => selected.includes(entry.clientId))
+
+  /** The dry run: the same screening approval performs, with nothing written. */
+  async function check() {
+    if (chosen.length === 0) return
+    setError('')
+    setBusy('check')
+    try {
+      setChecked(
+        await api.post<ValidateQuestionsResponse>('/admin/generate-questions/validate', {
+          subject,
+          topic: chapters[0],
+          subtopic: subtopic || null,
+          classLevel,
+          difficulty,
+          questions: payload(chosen),
+        }),
+      )
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not check those questions.')
+    } finally {
+      setBusy(null)
+    }
   }
 
   async function approve(publish: boolean) {
-    if (!batch || batch.length === 0) return
+    if (chosen.length === 0) return
     setError('')
     setBusy('approve')
     try {
       const res = await api.post<ApproveQuestionsResponse>('/admin/generate-questions/approve', {
         subject,
         topic: chapters[0],
+        subtopic: subtopic || null,
         classLevel,
         difficulty,
         publish,
         logId: result?.logId ?? null,
-        questions: batch.map(({ clientId: _clientId, topic: _topic, edited: _edited, ...question }) => question),
+        questions: payload(chosen),
       })
       setSaved(res)
-      // Only the ones that failed remain, so the reviewer can fix them rather than
-      // hunting for which of twenty was refused.
-      if (res.rejected.length === 0) setBatch(null)
+      setChecked(null)
+
+      if (res.rejected.length === 0) {
+        // Anything left unticked was reviewed and not wanted, which is a rejection.
+        const leftBehind = (batch ?? []).filter((entry) => !selected.includes(entry.clientId))
+        recordDiscarded(leftBehind.length)
+        setBatch(leftBehind.length > 0 ? leftBehind : null)
+        setSelected(leftBehind.map((entry) => entry.clientId))
+      }
+      // When something was refused the whole batch stays put, so the reviewer can fix the
+      // one that failed rather than hunting for which of twenty it was.
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save those questions.')
     } finally {
       setBusy(null)
     }
+  }
+
+  /**
+   * Findings about the batch: whichever is more recent, the generation's or the check's.
+   *
+   * The check only looked at the ticked questions, so its answer supersedes the
+   * generation's — a position bias across twenty candidates is not a position bias across the
+   * three you kept.
+   */
+  const batchWarnings: QualityWarning[] = checked ? checked.batchWarnings : (result?.batchWarnings ?? [])
+
+  /**
+   * The verdict for one card.
+   *
+   * The check reports by *position within the ticked set*, which is what the server was sent,
+   * so the position has to be mapped back to a card. Untick something after checking and the
+   * verdicts stop lining up — which is exactly why `setSelected` does not clear `checked` but
+   * this mapping is recomputed from the current selection on every render.
+   */
+  function verdictFor(clientId: string): QuestionVerdict | null {
+    if (!checked) return null
+    const position = chosen.findIndex((entry) => entry.clientId === clientId)
+    if (position < 0) return null
+    return checked.verdicts[position] ?? null
   }
 
   return (
@@ -295,6 +458,30 @@ export default function AiGenerator() {
               </p>
             )}
           </div>
+
+          {/* Only of the first chapter, because that is where the questions are filed. */}
+          {subtopics.length > 0 && (
+            <div className="form-group">
+              <label htmlFor="gen-subtopic">Subtopic (optional)</label>
+              <select
+                id="gen-subtopic"
+                className="form-control"
+                value={subtopic}
+                onChange={(e) => setSubtopic(e.target.value)}
+              >
+                <option value="">Whole chapter</option>
+                {subtopics.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <p className={styles.hint}>
+                Narrows what is written to one part of <strong>{topics.find((t) => t.id === primaryChapter)?.name ?? 'the chapter'}</strong>,
+                and files the questions under it.
+              </p>
+            </div>
+          )}
 
           <div className={styles.grid}>
             <div className="form-group">
@@ -436,28 +623,85 @@ export default function AiGenerator() {
         )}
 
         {/* ----------------------------------------------------------------
+            Findings about the batch as a whole
+        ---------------------------------------------------------------- */}
+        {batchWarnings.length > 0 && (
+          <div className={`card ${styles.warnBox}`}>
+            <h3>
+              <i className="ph-bold ph-warning-circle" /> Worth a look before you save
+            </h3>
+            <ul>
+              {batchWarnings.map((warning) => (
+                <li key={warning.code}>{warning.message}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* ----------------------------------------------------------------
             Review
         ---------------------------------------------------------------- */}
         {batch && batch.length > 0 && (
           <>
             <div className={`card ${styles.reviewBar}`}>
               <div>
-                <h3>Review {batch.length} question{batch.length === 1 ? '' : 's'}</h3>
+                <h3>
+                  Review {batch.length} question{batch.length === 1 ? '' : 's'}
+                </h3>
                 <p className={styles.hint}>
                   <strong>Nothing is saved yet.</strong> These exist only on this screen — leaving the page discards them.
                   {result?.model && <> Written by <code>{result.model}</code>.</>}
                 </p>
+                <div className={styles.selectRow}>
+                  <span>
+                    <strong>{chosen.length}</strong> of {batch.length} ticked to save
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.linkAction}
+                    onClick={() => setSelected(batch.map((entry) => entry.clientId))}
+                  >
+                    Select all
+                  </button>
+                  <button type="button" className={styles.linkAction} onClick={() => setSelected([])}>
+                    Select none
+                  </button>
+                </div>
+                {checked && (
+                  <p className={checked.wouldSave === chosen.length ? styles.checkOk : styles.checkBad}>
+                    {checked.wouldSave === chosen.length
+                      ? `Checked: all ${chosen.length} would save.`
+                      : `Checked: ${checked.wouldSave} of ${chosen.length} would save. The rest are marked below with the rule they break.`}
+                  </p>
+                )}
               </div>
               <div className={styles.reviewActions}>
-                <button type="button" className={styles.secondary} disabled={busy !== null} onClick={() => void generate(true, batch.length)}>
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  disabled={busy !== null}
+                  onClick={() => void generate(true, batch.length)}
+                >
                   Regenerate all
                 </button>
-                <Button type="button" disabled={busy !== null} onClick={() => void approve(false)}>
-                  {busy === 'approve' ? 'Saving…' : 'Approve as drafts'}
+                {/* No provider call, so an examiner may press this as often as they like. */}
+                <button
+                  type="button"
+                  className={styles.secondary}
+                  disabled={busy !== null || chosen.length === 0}
+                  onClick={() => void check()}
+                >
+                  {busy === 'check' ? 'Checking…' : 'Check before saving'}
+                </button>
+                <Button type="button" disabled={busy !== null || chosen.length === 0} onClick={() => void approve(false)}>
+                  {busy === 'approve' ? 'Saving…' : `Approve ${chosen.length} as draft${chosen.length === 1 ? '' : 's'}`}
                 </Button>
-                <Button type="button" disabled={busy !== null} onClick={() => void approve(true)}>
+                <Button type="button" disabled={busy !== null || chosen.length === 0} onClick={() => void approve(true)}>
                   Approve &amp; publish
                 </Button>
+                <button type="button" className={styles.danger} disabled={busy !== null} onClick={discardAll}>
+                  Discard all
+                </button>
               </div>
             </div>
 
@@ -468,9 +712,16 @@ export default function AiGenerator() {
                 question={question}
                 busy={busy === question.clientId}
                 disabled={busy !== null}
+                picked={selected.includes(question.clientId)}
+                verdict={verdictFor(question.clientId)}
+                onPick={(next) =>
+                  setSelected((ids) =>
+                    next ? [...ids, question.clientId] : ids.filter((id) => id !== question.clientId),
+                  )
+                }
                 onChange={(changes) => patch(question.clientId, changes)}
                 onRegenerate={() => void generate(false, 1, question.clientId)}
-                onDelete={() => setBatch((current) => (current ?? []).filter((entry) => entry.clientId !== question.clientId))}
+                onDelete={() => discard(question.clientId)}
               />
             ))}
           </>
@@ -513,6 +764,9 @@ function QuestionCard({
   question,
   busy,
   disabled,
+  picked,
+  verdict,
+  onPick,
   onChange,
   onRegenerate,
   onDelete,
@@ -521,16 +775,32 @@ function QuestionCard({
   question: EditableQuestion
   busy: boolean
   disabled: boolean
+  picked: boolean
+  /** The dry run's answer for this card, once the examiner has asked for one. */
+  verdict: QuestionVerdict | null
+  onPick: (next: boolean) => void
   onChange: (changes: Partial<EditableQuestion>) => void
   onRegenerate: () => void
   onDelete: () => void
 }) {
   const [open, setOpen] = useState(false)
   const takesOptions = question.type === 'single_choice' || question.type === 'multiple_choice'
+  // The check's warnings describe the text as checked; the generation's describe it as
+  // written. Prefer the newer of the two.
+  const warnings = verdict ? verdict.warnings : question.warnings
 
   return (
-    <div className={`card ${styles.qCard}`}>
+    <div className={`card ${styles.qCard}`} data-picked={picked} data-refused={verdict?.ok === false}>
       <div className={styles.qHead}>
+        <label className={styles.pick}>
+          <input
+            type="checkbox"
+            checked={picked}
+            disabled={disabled}
+            onChange={(e) => onPick(e.target.checked)}
+            aria-label={`Save question ${index}`}
+          />
+        </label>
         <span className={styles.qIndex}>#{index}</span>
         <span className={styles.qType}>{QUESTION_TYPE_LABELS[question.type]}</span>
         {question.edited && <span className={styles.editedTag}>edited</span>}
@@ -538,6 +808,27 @@ function QuestionCard({
           {question.marks} mark{question.marks === 1 ? '' : 's'}
         </span>
       </div>
+
+      {/* The rule this question breaks, from the dry run. Approving would refuse it. */}
+      {verdict?.ok === false && verdict.reason && (
+        <p className={styles.refusedLine}>
+          <i className="ph-bold ph-x-circle" /> Would not save: {verdict.reason}
+        </p>
+      )}
+
+      {/*
+        Advisory only. A card can carry these and still be exactly right — nothing here has
+        checked the mathematics, which is what the reviewer is for.
+      */}
+      {warnings.length > 0 && (
+        <ul className={styles.warnList}>
+          {warnings.map((warning) => (
+            <li key={warning.code}>
+              <i className="ph-bold ph-warning" /> {warning.message}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {open ? (
         <textarea className="form-control" rows={3} value={question.questionText} onChange={(e) => onChange({ questionText: e.target.value })} />
@@ -642,7 +933,7 @@ function QuestionCard({
           {busy ? 'Regenerating…' : 'Regenerate this one'}
         </button>
         <button type="button" className={styles.danger} disabled={disabled} onClick={onDelete}>
-          Delete
+          Discard
         </button>
       </div>
     </div>

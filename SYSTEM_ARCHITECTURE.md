@@ -138,20 +138,39 @@ scripts/                  dev-local, verify-email, migrate-questions,
 
   Three properties hold it together. **An engine cannot query** — it is a pure function of the facts object, exactly as `lib/achievements.ts` is of `RewardFacts`, so it cannot invent a figure no collection could produce nor make a page slow unexpectedly. **An engine cannot describe itself** — `recommend()` returns content only, and the service writes the provenance from the registry entry it actually invoked, so nothing can claim to be a model, or claim data a student does not have. **An engine that throws does not take the page down** — the statistical engine answers instead. The contract is one file, `lib/recommendationTypes.ts`; selection is one environment variable; nothing else changes.
 
-- **The question-generator seam (Milestone 17)** is the same shape, applied to the one place a language model really is called:
+- **The question-generator seam** (Milestone 17, reworked in 18, rebuilt on the official SDK in 20) is the same shape, applied to the one place a language model really is called. Note that it is **two phases with nothing stored between them**:
 
   ```
-  route  →  questionGeneratorService  →  QuestionGenerator (swappable)
-              │  resolves by config           ▲
-              │                               │  template-v1 (always available)
-              │  ── THE TRUST BOUNDARY ──     │  gemini      (when a key is set)
-              │   · attaches the taxonomy from the request
-              │   · parses every candidate with createQuestionSchema
-              │   · reports rejects, repairs nothing
-              └── createQuestion() → status: 'draft', always
+  POST /admin/generate-questions
+     │  generationLimiter (60/hr — the one route that spends provider quota)
+     ↓
+  questionGeneratorService.proposeQuestions()  →  QuestionGenerator (swappable)
+     │  resolves by config                            ▲
+     │                                                │  gemini  (when a key is set)
+     │  ── THE TRUST BOUNDARY: screenCandidates() ──  │  …or any registered provider
+     │   · attaches the taxonomy from the request (subject/chapter/subtopic/class)
+     │   · parses every candidate with createQuestionSchema
+     │   · refuses near-duplicates of the bank and of the batch
+     │   · annotates with advisory warnings (lib/questionQuality.ts, pure)
+     │   · reports rejects, repairs nothing
+     └── returns candidates.  WRITES NO QUESTION.  Only a GenerationLog row.
+                       │
+             (candidates live in the reviewer's browser)
+                       │
+        ┌──────────────┼───────────────────────────┐
+        ↓              ↓                           ↓
+   .../validate    .../reject                 .../approve
+   dry run,        counts what the            THE ONLY WRITER
+   same screen-    examiner discarded         · re-screens from scratch
+   ing, writes     against the log            · createQuestion() + provenance
+   nothing                                      read back from OUR log
   ```
 
-  The difference from the recommendation seam is the direction of distrust. There, the concern was an engine *describing* itself dishonestly. Here it is an engine *writing* content that will be shown to children, so the service is a validation gate rather than only a provenance stamp — and the gate is the **same schema a human author passes**, deliberately, because a model-specific validator would be the weaker of two. A generator is unavailable (no key) or failing (quota, timeout, prose instead of JSON) far more often than an engine is, so falling back to templates is the normal path rather than the exceptional one.
+  The difference from the recommendation seam is the direction of distrust. There, the concern was an engine *describing* itself dishonestly. Here it is an engine *writing* content that will be shown to children, so the service is a validation gate rather than only a provenance stamp — and the gate is the **same schema a human author passes**, deliberately, because a model-specific validator would be the weaker of two.
+
+  Three things are worth reading off that diagram. **Approval re-screens**: what arrives is whatever the browser sent after the examiner edited it, so trusting it because the proposal validated would mean the schema was never really enforced. **`/validate` calls the same function**, which is why its answer is the answer approval will give rather than an approximation of it. And **there is no template fallback** any more (deleted in Milestone 18): an unconfigured key is a 503 naming the variable, a failed provider is a 502 carrying its own words, and neither invents filler — a blank placeholder is only useful as something to type into, and a reviewer who wants one can create a question by hand.
+
+  Structured output is what makes the parsing short: the SDK is handed a `responseSchema` built for the requested question type, so a numeric question's schema has no `options` property to be filled in wrongly, and the batch size and option count are pinned by `minItems`/`maxItems`. `marks` is deliberately absent — the paper is priced by the examiner. Retries are **this codebase's**, not the SDK's: only 429/5xx/timeout, bounded by `GEMINI_MAX_RETRIES`, and sharing **one time budget across all attempts** so a retry can neither inherit a spent deadline nor outlive a serverless invocation.
 
 - **Middleware order in `app.ts`** (deliberate):
   1. `helmet` + `x-powered-by` disabled

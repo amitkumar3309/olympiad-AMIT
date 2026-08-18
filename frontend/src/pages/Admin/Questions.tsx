@@ -60,6 +60,7 @@ const EMPTY_FILTERS = {
   difficulty: '',
   type: '',
   tag: '',
+  source: '',
 }
 
 export default function Questions() {
@@ -111,7 +112,7 @@ export default function Questions() {
     try {
       const params = new URLSearchParams({ page: String(page), limit: '10', sort, order })
       if (appliedSearch) params.set('search', appliedSearch)
-      for (const key of ['status', 'subject', 'topic', 'classLevel', 'difficulty', 'type', 'tag'] as const) {
+      for (const key of ['status', 'subject', 'topic', 'classLevel', 'difficulty', 'type', 'tag', 'source'] as const) {
         if (filters[key]) params.set(key, filters[key])
       }
 
@@ -265,6 +266,16 @@ export default function Questions() {
             </option>
           ))}
         </select>
+        <select
+          className="form-control"
+          value={filters.source}
+          onChange={(e) => setFilter('source', e.target.value)}
+          aria-label="Filter by who drafted it"
+        >
+          <option value="">Anyone&rsquo;s work</option>
+          <option value="human">Written by hand</option>
+          <option value="ai_assisted">AI-drafted</option>
+        </select>
         <input
           className="form-control"
           placeholder="Tag"
@@ -344,6 +355,20 @@ export default function Questions() {
                 </span>
                 <span className={styles.revision}>rev {question.revision}</span>
               </div>
+
+              {/*
+                Machine-drafted questions say so, on the row, naming the model and the person
+                who approved them. The record is kept in order to be read: a provenance field
+                nobody sees could not answer the question it exists for.
+              */}
+              {question.provenance?.source === 'ai_assisted' && (
+                <p className={styles.provenance}>
+                  <i className="ph-bold ph-sparkle" /> Drafted by{' '}
+                  <strong>{question.provenance.modelName ?? 'a language model'}</strong>
+                  {question.provenance.reviewedByLabel && <> · approved by {question.provenance.reviewedByLabel}</>}
+                  {question.provenance.editedByReviewer && <> · edited before saving</>}
+                </p>
+              )}
 
               <MathText block className={styles.stem}>
                 {question.questionText}

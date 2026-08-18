@@ -5,15 +5,22 @@ import { ensureDb } from '../../middleware/ensureDb';
 import { sendSuccess } from '../../lib/apiResponse';
 import { respondToServiceError } from '../../lib/serviceError';
 import { recordAudit } from '../../lib/audit';
+import { generationLimiter } from '../../middleware/rateLimiter';
 import {
   generateQuestionsSchema,
   approveQuestionsSchema,
+  validateQuestionsSchema,
+  rejectQuestionsSchema,
   type GenerateQuestionsInput,
   type ApproveQuestionsInput,
+  type ValidateQuestionsInput,
+  type RejectQuestionsInput,
 } from '../../validation/questionSchemas';
 import {
   proposeQuestions,
   approveQuestions,
+  validateProposals,
+  recordReviewerRejections,
   listQuestionGenerators,
   resolveQuestionGenerator,
 } from '../../services/questionGeneratorService';
@@ -38,6 +45,21 @@ const router = Router();
  * re-validates everything it is sent, because what arrives is whatever the review screen
  * submitted — the examiner's edits included — and an edited candidate is untrusted input
  * exactly as the model's original was.
+ *
+ * Two more routes exist and neither of them writes a question. `/validate` is a **dry run**
+ * over the reviewer's edited batch, answering "would this save?" through the same screening
+ * function approval uses — so the answer is not an approximation of the save, it is the
+ * save's own verdict. `/reject` records that candidates were thrown away, which is the one
+ * fact about a run nothing else could recover: without it the log shows twenty proposed and
+ * is silent about the examiner having kept two.
+ *
+ * ## Regenerating one question is this same route
+ *
+ * There is deliberately no `/regenerate` endpoint. Asking for a replacement is asking for
+ * one question with the batch's own constraints and the texts already on screen in
+ * `exclude` — which is `POST /admin/generate-questions` with `count: 1`. A second endpoint
+ * would be a second copy of the generation path, and it would be the copy that quietly
+ * missed a validation step.
  *
  * Milestone 17 saved generated questions immediately as drafts. That was defensible (a
  * draft is not student-visible) but it filled the bank with machine output nobody had
@@ -101,8 +123,15 @@ router.get(
   },
 );
 
+/**
+ * `generationLimiter` sits ahead of the permission check on purpose — it is the only route
+ * in the product whose every call spends **provider quota**, so the cheapest possible
+ * rejection is the right one, and an unauthenticated flood should never reach the database
+ * read that authorization performs.
+ */
 router.post(
   '/admin/generate-questions',
+  generationLimiter,
   requirePermission('questions:write'),
   validate({ body: generateQuestionsSchema }),
   ensureDb,
@@ -114,6 +143,7 @@ router.post(
         {
           subject: input.subject,
           chapters: input.chapters,
+          subtopic: input.subtopic,
           classLevel: input.classLevel,
           difficulty: input.difficulty,
           questionType: input.questionType,
@@ -139,6 +169,7 @@ router.post(
         questions: outcome.questions,
         rejected: outcome.rejected,
         duplicates: outcome.duplicates,
+        batchWarnings: outcome.batchWarnings,
         requested: outcome.requested,
         logId: outcome.logId,
       });
@@ -165,6 +196,7 @@ router.post(
         {
           subject: input.subject,
           topic: input.topic,
+          subtopic: input.subtopic,
           classLevel: input.classLevel,
           difficulty: input.difficulty,
           publish: input.publish,
@@ -214,6 +246,7 @@ router.post(
         metadata: {
           subject: input.subject,
           topic: input.topic,
+          subtopic: input.subtopic ?? null,
           classLevel: input.classLevel,
           difficulty: input.difficulty,
           // `count` keeps its historical name: the audit trail is append-only and has
@@ -243,6 +276,82 @@ router.post(
       respondToServiceError(res, err, {
         log: 'Failed to approve generated questions',
         fallback: 'Could not save those questions. Please try again.',
+      });
+    }
+  },
+);
+
+/**
+ * The dry run: would this batch save?
+ *
+ * Not rate-limited, and that is the point of it existing — it makes **no provider call**,
+ * only a schema pass and one indexed read of the bank. An examiner should be able to check
+ * their edits as often as they like, precisely so they are not pressing Approve to find
+ * out.
+ *
+ * It writes nothing, so there is no audit entry: nothing happened.
+ */
+router.post(
+  '/admin/generate-questions/validate',
+  requirePermission('questions:write'),
+  validate({ body: validateQuestionsSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const input = req.body as ValidateQuestionsInput;
+      const outcome = await validateProposals({
+        subject: input.subject,
+        topic: input.topic,
+        subtopic: input.subtopic,
+        classLevel: input.classLevel,
+        difficulty: input.difficulty,
+        questions: input.questions.map((question) => ({
+          ...question,
+          booleanAnswer: question.booleanAnswer ?? null,
+          numericAnswer: question.numericAnswer ?? null,
+          tolerance: question.tolerance ?? null,
+          solution: question.solution ?? null,
+        })),
+      });
+
+      sendSuccess(res, 200, {
+        verdicts: outcome.verdicts,
+        batchWarnings: outcome.batchWarnings,
+        wouldSave: outcome.wouldSave,
+      });
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to validate generated questions',
+        fallback: 'Could not check those questions. Please try again.',
+      });
+    }
+  },
+);
+
+/**
+ * Discarding candidates.
+ *
+ * There is nothing to delete — nothing was ever stored — so this records a count against
+ * the generation log and returns. It exists because "the examiner threw eighteen of twenty
+ * away" is the only honest measure of whether a prompt configuration works, and it is
+ * invisible everywhere else in the system.
+ *
+ * No audit entry, for the same reason as generating: the bank did not change.
+ */
+router.post(
+  '/admin/generate-questions/reject',
+  requirePermission('questions:write'),
+  validate({ body: rejectQuestionsSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const input = req.body as RejectQuestionsInput;
+      await recordReviewerRejections(input.logId, input.count);
+      sendSuccess(res, 200, { recorded: input.count });
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to record rejected questions',
+        fallback: 'Could not record that. The questions were discarded either way — nothing was saved.',
       });
     }
   },

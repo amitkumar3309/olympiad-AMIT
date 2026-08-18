@@ -6,6 +6,8 @@ import {
   type QuestionDocument,
   type QuestionStatus,
   type QuestionType,
+  type QuestionSource,
+  type QuestionProvenance,
   type Difficulty,
 } from '../models';
 import type { ClassLevel } from '../lib/classLevels';
@@ -52,6 +54,8 @@ export interface ListQuestionsOptions {
   difficulty?: Difficulty;
   type?: QuestionType;
   tag?: string;
+  /** `human` or `ai_assisted` — who drafted it. See `Question.provenance`. */
+  source?: QuestionSource;
   /** When set, only these statuses are considered regardless of `status`. */
   restrictToStatuses?: readonly QuestionStatus[];
 }
@@ -74,6 +78,7 @@ interface QuestionFilter {
   difficulty?: Difficulty;
   type?: QuestionType;
   tags?: string;
+  'provenance.source'?: QuestionSource;
   $or?: Array<{ questionText?: RegExp } | { tags?: RegExp } | { solution?: RegExp }>;
 }
 
@@ -95,6 +100,7 @@ export function buildQuestionFilter(options: ListQuestionsOptions): QuestionFilt
   if (options.difficulty) filter.difficulty = options.difficulty;
   if (options.type) filter.type = options.type;
   if (options.tag) filter.tags = options.tag.trim().toLowerCase();
+  if (options.source) filter['provenance.source'] = options.source;
 
   if (options.search) {
     const pattern = new RegExp(escapeRegex(options.search), 'i');
@@ -277,7 +283,21 @@ export interface ValidatedQuestionContent {
   tags: string[];
 }
 
-export async function createQuestion(input: QuestionContentInput, actor: Actor): Promise<QuestionDocument> {
+/**
+ * Creates a question.
+ *
+ * `provenance` is supplied only by the AI approval path (`approveQuestions()`); the editor
+ * omits it and the model's own default records a hand-written question. It is a parameter
+ * rather than part of `QuestionContentInput` on purpose: content is what a reviewer may
+ * edit, and provenance is a fact about how the row came to exist that no request body
+ * should be able to set. Nothing reaching this function from an HTTP body can name itself
+ * human-written or claim a model it did not use.
+ */
+export async function createQuestion(
+  input: QuestionContentInput,
+  actor: Actor,
+  provenance?: QuestionProvenance,
+): Promise<QuestionDocument> {
   const taxonomy = await resolveTaxonomy(input);
 
   // Always created as a draft. Publishing is a separate, explicit act so that
@@ -303,6 +323,7 @@ export async function createQuestion(input: QuestionContentInput, actor: Actor):
     createdByLabel: actor.label,
     updatedBy: actor.id,
     updatedByLabel: actor.label,
+    provenance: provenance ?? { source: 'human' },
   });
 }
 

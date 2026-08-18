@@ -1,13 +1,24 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { CLASS_LEVELS } from '../lib/classLevels';
-import { DIFFICULTIES, QUESTION_STATUSES, QUESTION_TYPES } from '../models/Question';
+import { DIFFICULTIES, QUESTION_SOURCES, QUESTION_STATUSES, QUESTION_TYPES } from '../models/Question';
 import { validateMathContent } from '../lib/mathContent';
 import { QUESTION_SORT_KEYS } from '../services/questionService';
 // The grader's own normalisation, so an author is warned about exactly the collisions
 // the marking will actually produce — not a second, drifting definition of "the same".
 import { normalizeAnswerText } from '../services/grading';
 import { BLOOM_LEVELS, GENERATION_LANGUAGES } from '../lib/questionGeneratorTypes';
+import { config } from '../config';
+
+/**
+ * The most questions one reviewed batch may contain, whatever the environment says.
+ *
+ * `GENERATION_MAX_QUESTIONS` can lower how many may be *asked for* — a quota decision that
+ * belongs to a deployment — but the ceiling on a batch is a product rule: twenty questions
+ * is about as many as one examiner can genuinely read, and a limit meant to keep review
+ * real must not be raisable by an environment variable.
+ */
+const GENERATION_HARD_MAX = 20;
 
 /** A Mongo ObjectId as it arrives over HTTP. */
 const objectId = (label: string) =>
@@ -249,6 +260,11 @@ export const listQuestionsAdminQuerySchema = z.object({
   difficulty: z.enum(DIFFICULTIES).optional(),
   type: z.enum(QUESTION_TYPES).optional(),
   tag: z.string().trim().min(1).max(40).optional(),
+  /**
+   * Who drafted it. Present on the admin listing only: it is an editorial question about
+   * the bank, and a student has no business filtering by it.
+   */
+  source: z.enum(QUESTION_SOURCES).optional(),
 });
 export type ListQuestionsAdminQuery = z.infer<typeof listQuestionsAdminQuerySchema>;
 
@@ -285,34 +301,81 @@ export type ListQuestionsPublicQuery = z.infer<typeof listQuestionsPublicQuerySc
  * once for the whole batch — a reviewer approves a set of questions filed in one place,
  * and letting each row name its own subject would let the client scatter them.
  */
-export const approveQuestionsSchema = z.object({
+/**
+ * One candidate as the review screen sends it back.
+ *
+ * Note what it does **not** carry: the taxonomy, the status, and any provenance. The
+ * taxonomy arrives once for the whole batch (a reviewer approves a set filed in one place,
+ * and letting each row name its own subject would let the client scatter them), and
+ * provenance is recovered server-side from the generation log — see `approveQuestions()`.
+ */
+const reviewedCandidateSchema = z.object({
+  questionText: mathText('Question text'),
+  type: z.enum(QUESTION_TYPES),
+  options: z.array(optionSchema).max(8).default([]),
+  booleanAnswer: z.boolean().nullish().default(null),
+  numericAnswer: z.number().finite().nullish().default(null),
+  tolerance: z.number().min(0).finite().nullish().default(null),
+  acceptedAnswers: z.array(mathText('Accepted answer', { max: 200 })).max(8).default([]),
+  solution: mathText('Solution', { max: 8000 }).nullish().default(null),
+  marks: z.number().min(0.25).max(100),
+  negativeMarks: z.number().min(0).max(100).default(0),
+  tags,
+  /** The screen's own report that the examiner changed this one. Recorded, never trusted. */
+  edited: z.boolean().default(false),
+});
+
+/**
+ * The taxonomy a reviewed batch is filed under. Shared by approval and by the dry run so
+ * the two cannot drift into checking against different places.
+ */
+const reviewedBatchTaxonomy = {
   subject: objectId('Subject'),
   topic: objectId('Topic'),
+  /** Optional second level, checked against `topic` at write time. */
+  subtopic: objectId('Subtopic').nullish().default(null),
   classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
   difficulty: z.enum(DIFFICULTIES).default('Medium'),
+};
+
+export const approveQuestionsSchema = z.object({
+  ...reviewedBatchTaxonomy,
   /** Publish straight away, or keep as a draft for a second pass. The reviewer decides. */
   publish: z.boolean().default(false),
   logId: z.string().nullish().default(null),
   questions: z
-    .array(
-      z.object({
-        questionText: mathText('Question text'),
-        type: z.enum(QUESTION_TYPES),
-        options: z.array(optionSchema).max(8).default([]),
-        booleanAnswer: z.boolean().nullish().default(null),
-        numericAnswer: z.number().finite().nullish().default(null),
-        tolerance: z.number().min(0).finite().nullish().default(null),
-        acceptedAnswers: z.array(mathText('Accepted answer', { max: 200 })).max(8).default([]),
-        solution: mathText('Solution', { max: 8000 }).nullish().default(null),
-        marks: z.number().min(0.25).max(100),
-        negativeMarks: z.number().min(0).max(100).default(0),
-        tags,
-      }),
-    )
+    .array(reviewedCandidateSchema)
     .min(1, 'Approve at least one question')
-    .max(20, 'Approve at most 20 questions at a time'),
+    .max(GENERATION_HARD_MAX, `Approve at most ${GENERATION_HARD_MAX} questions at a time`),
 });
 export type ApproveQuestionsInput = z.infer<typeof approveQuestionsSchema>;
+
+/**
+ * A dry run: the same batch, asking only whether it *would* save.
+ *
+ * Deliberately the same candidate schema as approval rather than a looser one — the whole
+ * value of the answer is that it is the answer approval will give, and a check that passes
+ * where the save would fail is worse than no check.
+ */
+export const validateQuestionsSchema = z.object({
+  ...reviewedBatchTaxonomy,
+  questions: z
+    .array(reviewedCandidateSchema)
+    .min(1, 'Send at least one question to check')
+    .max(GENERATION_HARD_MAX, `Check at most ${GENERATION_HARD_MAX} questions at a time`),
+});
+export type ValidateQuestionsInput = z.infer<typeof validateQuestionsSchema>;
+
+/**
+ * Discarding candidates. Nothing was stored, so this reports a count against the
+ * generation log and nothing else — see `recordReviewerRejections()` for why the count is
+ * worth recording at all.
+ */
+export const rejectQuestionsSchema = z.object({
+  logId: objectId('Generation log'),
+  count: z.coerce.number().int().min(1, 'Nothing to reject').max(GENERATION_HARD_MAX),
+});
+export type RejectQuestionsInput = z.infer<typeof rejectQuestionsSchema>;
 
 export const generateQuestionsSchema = z.object({
   subject: objectId('Subject'),
@@ -321,6 +384,14 @@ export const generateQuestionsSchema = z.object({
    * belongs to exactly one topic in this bank, however many the prompt drew on.
    */
   chapters: z.array(objectId('Chapter')).min(1, 'Choose at least one chapter').max(6, 'Choose at most 6 chapters'),
+  /**
+   * An optional subtopic of the **first** chapter, narrowing what is asked for.
+   *
+   * Only one, and only of the primary chapter, because a question is filed under exactly
+   * one place in the taxonomy: a subtopic of a chapter the questions are not filed under
+   * would describe a row that cannot exist.
+   */
+  subtopic: objectId('Subtopic').nullish().default(null),
   classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
   difficulty: z.enum(DIFFICULTIES).default('Medium'),
   questionType: z.enum(QUESTION_TYPES).default('single_choice'),
@@ -347,7 +418,16 @@ export const generateQuestionsSchema = z.object({
     .default(null),
   /** Question text already on the review screen, so a regenerate does not repeat it. */
   exclude: z.array(z.string().max(1000)).max(40).default([]),
-  count: z.coerce.number().int('count must be a whole number').min(1, 'count must be at least 1').max(20, 'count cannot exceed 20'),
+  /**
+   * How many to write. Capped by `GENERATION_MAX_QUESTIONS` (a deployment's quota decision)
+   * under a hard ceiling in code, because a batch has to stay reviewable by one human in
+   * one sitting — which is a product rule, not a cost one, and so is not configurable.
+   */
+  count: z.coerce
+    .number()
+    .int('count must be a whole number')
+    .min(1, 'count must be at least 1')
+    .max(config.ai.maxQuestionsPerRequest, `count cannot exceed ${config.ai.maxQuestionsPerRequest}`),
   /**
    * Optional steer for a model-backed generator ("focus on word problems").
    *
@@ -360,7 +440,10 @@ export const generateQuestionsSchema = z.object({
   instructions: z
     .string()
     .trim()
-    .max(500, 'Instructions must be at most 500 characters')
+    .max(
+      config.ai.maxInstructionChars,
+      `Instructions must be at most ${config.ai.maxInstructionChars} characters`,
+    )
     .nullish()
     .transform((value) => value ?? null),
 });

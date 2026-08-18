@@ -2,6 +2,128 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-18 — Milestone 20: the official Gemini SDK, structured output, and review tooling
+
+Not a new feature so much as the AI question generator finally being built the way it should
+have been. The owner asked for the official Google SDK, real structured output, subtopic
+support, retries, rate limiting, a review workflow with per-question approval, and provenance
+on what gets saved. All of it landed; one thing on the list was deliberately declined and one
+defect was found and fixed by verifying against the live API rather than by reading the code.
+
+### The SDK, and the ADR it supersedes
+
+`@google/genai` replaces the hand-rolled `fetch` call. Milestone 17 had explicitly rejected an
+SDK — recorded in `DECISIONS.md` — on two grounds: a version to chase, and automatic retries
+that are unwanted against a metered free tier. The owner's instruction overrides the first, and
+the second is **answered rather than accepted**: retrying is this codebase's own logic, not the
+SDK's, it happens only for 429/5xx/timeout, and `GEMINI_MAX_RETRIES` (default 1, max 3) bounds
+it. An expired key, a blocked prompt and a retired model name are **not** retried, because
+repeating them spends quota to receive the same refusal.
+
+The package declares `"type": "module"` and ships one declaration file for both builds, so a
+CommonJS import of it is rejected by TypeScript (TS1479) even though `dist/node/index.cjs`
+loads perfectly. It is therefore `require`d behind a `typeof import(...)` cast — fully typed,
+one lint suppression, and a comment explaining why. Verified by loading the **compiled** output,
+not just the source.
+
+### Structured output, per question type
+
+The model is now handed a `responseSchema` describing the exact object shape it must return,
+built per question type rather than as one union: a numeric question's schema has no `options`
+property at all, so options cannot come back to be rejected. `minItems`/`maxItems` pin the batch
+size and the option count. `marks` and `negativeMarks` are **absent from the schema** — the
+paper is priced by the examiner, and the model has no opinion worth reading.
+
+### What else the examiner can now do
+
+- **Subtopics.** A generation request may name a subtopic of the primary chapter; it reaches the
+  prompt and the questions are filed under it. Checked against the chapter *before* a request is
+  spent, not after twenty unfileable questions come back.
+- **Check before saving** — `POST /admin/generate-questions/validate`, a dry run that answers
+  "would this batch save?" through the **same** screening function approval uses, and writes
+  nothing. It exists because an edit can break a rule (most often unticking the correct option
+  and forgetting to tick another) and the only way to find out was to press Approve.
+- **Per-question selection.** Tick what to keep; approve the selection as drafts or published.
+- **Advisory quality warnings** (`lib/questionQuality.ts`, pure, no database): a question
+  referring to a figure it cannot have, a solution that never reaches the stored answer, a
+  numeric tolerance loose enough to mark a wrong answer right, rounding left unstated, two
+  options that are the same value written two ways, a correct option conspicuously longer than
+  the distractors, and — across the batch — the correct answer sitting in one position
+  throughout. These **never reject**: they annotate, and the reviewer decides. `createQuestionSchema`
+  holds the rules that always are defects, and it is still the only gate.
+- **Rejection is recorded.** `POST /admin/generate-questions/reject` increments a counter on the
+  generation log. Nothing was stored, so there is nothing to delete — but "the examiner kept two
+  of twenty" is the only honest measure of whether a prompt configuration works, and it was
+  invisible everywhere else in the system.
+- **Provenance on the saved question.** A new `Question.provenance` block records the generator,
+  the **exact model**, the generation-log row, whether the reviewer edited it, and who approved
+  it. It is read back from **our own log** rather than taken from the request body, so a client
+  cannot name a model it did not use or file machine-written questions as hand-written ones. The
+  question bank prints a badge from it and can filter on `source`, because a stored field nothing
+  reads is the shape of thing Milestone 15 deleted.
+
+### Cost control
+
+`generationLimiter` — 60 requests/hour per IP, configurable — in front of the one route in the
+product where every call spends third-party quota. It had been sitting behind the general
+`/api` limiter alone, which allows 300 requests in fifteen minutes: enough for one examiner
+leaning on the button to exhaust a day's free tier before lunch. `GENERATION_MAX_QUESTIONS` and
+`GENERATION_MAX_INSTRUCTION_CHARS` cap a single request, enforced in the zod schema so the
+browser cannot exceed them, under a hard ceiling in code that keeps a batch reviewable by one
+human.
+
+### Prompt injection
+
+The examiner's instruction was already fenced and last; it is now introduced as a *preference*
+that explicitly cannot change the class, chapters, subtopic, type, count, language, marks, the
+formatting rules or the output shape — and the fence delimiter is **stripped out of the
+examiner's own text**, so it cannot close the quotation early and continue as though it were the
+system talking. A test asserts the requirements appear before the instruction and that the fence
+survives.
+
+### The defect that only a live call could find
+
+The first version created the abort signal **once** and reused it across retry attempts. A first
+attempt that consumed the whole minute left the retry aborting instantly — turning a real 503
+into a misleading "timed out", which is exactly what happened against the live API on the first
+verification run. A fresh full-length signal per attempt would have been no better on a
+serverless platform: two sixty-second attempts plus back-off outlive the invocation. It is now
+**one budget shared across all attempts**; each gets what is left, and the loop stops when too
+little remains to be worth trying.
+
+Verified against the real API: the model list, a retired model name (Google's own remedy
+message, with ours appended), a genuine 503 and the retry, and one real two-question generation
+whose output matched the schema exactly. That last one also produced an answer key that was
+**mathematically wrong** — a good demonstration of why `questionQuality.ts` is careful to claim
+nothing about mathematical correctness, and why the human review step is mandatory.
+
+### Deliberately not done
+
+**Short answer** as a question type, again. It cannot be auto-graded without either a human
+marking queue or sending a child's writing to a model, and both were rejected in Milestone 18.
+`fill_blank` covers the auto-gradable part of that space. Also **no `/regenerate` endpoint**:
+asking for a replacement is `POST /admin/generate-questions` with `count: 1` and the on-screen
+texts in `exclude`, and a second endpoint would be a second copy of the generation path — the
+copy that quietly misses a validation step.
+
+### New environment variables
+
+`GEMINI_MAX_RETRIES`, `GENERATION_MAX_QUESTIONS`, `GENERATION_MAX_INSTRUCTION_CHARS`,
+`GENERATION_RATE_LIMIT_PER_HOUR` — all optional with working defaults. `npm run verify:gemini
+--prefix backend` is a new read-only script that asks Google which models the configured key can
+call and says plainly whether `GEMINI_MODEL` is one of them; it spends no generation quota.
+
+### Verification
+
+`npm test --prefix backend` — **882 passing across 26 files**, up from 830/25 (30 new tests in
+`tests/questionGenerator.test.ts`, which now covers the SDK seam, retry classification, key
+redaction, structured-output schema shape, prompt-injection fencing, cost limits, subtopics,
+provenance, the dry run, warnings and rejection). Typecheck, lint and compile pass on the
+backend; `tsc -b` and `npm run build` pass on the frontend. **This also clears the warning left
+by the 2026-08-17 security audit**, whose changes had never been run: they run, and they pass.
+
+---
+
 ## 2026-08-17 - Complete security audit: five findings, five fixes
 
 The whole application reviewed against the standard list -- authentication, authorization

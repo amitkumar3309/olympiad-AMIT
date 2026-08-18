@@ -502,6 +502,32 @@ export interface RejectedCandidate {
   reason: string
 }
 
+/**
+ * One advisory finding about a proposed question.
+ *
+ * Explicitly *not* a claim that the maths is right — nothing on either side of the wire
+ * verifies that, which is why the review step is mandatory. These are the defects decidable
+ * from the text alone.
+ */
+export interface QualityWarning {
+  code: string
+  message: string
+}
+
+/** One question's verdict from the dry run: what approving right now would do to it. */
+export interface QuestionVerdict {
+  index: number
+  ok: boolean
+  reason: string | null
+  warnings: QualityWarning[]
+}
+
+export interface ValidateQuestionsResponse {
+  verdicts: QuestionVerdict[]
+  batchWarnings: QualityWarning[]
+  wouldSave: number
+}
+
 export interface GeneratedDraft {
   id: string
   questionText: string
@@ -523,6 +549,16 @@ export type GenerationLanguage = 'English' | 'Hindi' | 'Hinglish'
 export interface ProposedQuestion {
   clientId: string
   topic: string
+  /** The subtopic the batch was asked for, or null. Filed under it on approval. */
+  subtopic: string | null
+  /**
+   * Advisory findings — never why it was refused.
+   *
+   * A warning is a hint the reviewer's eye might slide past (a reference to a figure, the
+   * answer never appearing in the solution). The *rules* rejected their candidates before
+   * this array existed, and approval is not blocked by anything in here.
+   */
+  warnings: QualityWarning[]
   questionText: string
   type: QuestionType
   options: Array<{ text: string; isCorrect: boolean }>
@@ -545,6 +581,8 @@ export interface GenerateQuestionsResponse {
   rejected: RejectedCandidate[]
   /** Refused as too close to something already in the bank, or to another candidate. */
   duplicates: RejectedCandidate[]
+  /** Findings about the set as a whole, e.g. the answer sitting in one position throughout. */
+  batchWarnings: QualityWarning[]
   requested: number
   logId: string | null
 }
@@ -719,10 +757,33 @@ export interface AdminQuestion {
   revision: number
   createdByLabel: string | null
   updatedByLabel: string | null
+  /** Who drafted it, and — when a model did — which one, and who approved it. */
+  provenance: QuestionProvenance
   publishedAt: string | null
   archivedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+/** `human` for anything typed into the editor; `ai_assisted` for an approved draft. */
+export type QuestionSource = 'human' | 'ai_assisted'
+
+/**
+ * Where a question came from.
+ *
+ * Rendered as a badge in the question bank rather than merely stored — the backend note on
+ * `Question.provenance` explains why that matters: a field nothing displays is a field
+ * nobody can act on.
+ */
+export interface QuestionProvenance {
+  source: QuestionSource
+  generatorId: string | null
+  generatorKind: string | null
+  modelName: string | null
+  editedByReviewer: boolean
+  reviewedByLabel: string | null
+  reviewedAt: string | null
+  generatedAt: string | null
 }
 
 /** The write shape. Mirrors `createQuestionSchema` on the backend. */

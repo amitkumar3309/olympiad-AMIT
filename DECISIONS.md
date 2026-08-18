@@ -1081,3 +1081,65 @@ It also removes a support problem that the wider gate created and nothing else s
 **Alternatives considered**: (a) Keeping the wide gate — rejected by the owner. (b) A free trial period on the preparation surfaces — rejected: it needs a per-student clock, a second notion of expiry, and a decision about what happens mid-practice-session when it lapses, all to approximate "free" less honestly than free does. (c) Free practice but paid mock tests — rejected as an arbitrary line: a mock test is preparation by definition, and the split would need explaining on every page.
 
 **Consequences**: the entitlement, the derivation, the 402, the ordering ahead of the resource lookup and the admin console are all unchanged — only the set of routes carrying the middleware moved. The tests now assert the free surfaces are **not** gated as well as that the exam is, in both directions, because a paywall that silently widens would start charging for things the owner said were free and nothing else in the codebase would notice. The dashboard banner and the profile card render nothing once the fee is paid or when it is switched off, so a settled matter never nags.
+
+---
+
+## 2026-08-18 — Adopt the official `@google/genai` SDK, and keep the retries our own
+
+**Decision**: call Gemini through the official **`@google/genai`** SDK rather than `fetch` against the REST endpoint. **This supersedes item (c) of the 2026-08-15 Milestone 17 ADR**, which rejected exactly this. The `QuestionGenerator` seam, the trust boundary, the validation, the review screen and the approval path are all unchanged — they speak `GeneratedCandidate`, which is provider-agnostic by construction.
+
+**Reason**: the owner instructed it. The two objections the earlier ADR recorded were a dependency and version to chase, and automatic retries that are unwanted against a metered free tier. The first is the owner's call to make and they made it; the package is free, official, and the only new runtime dependency since the Milestone 1 foundation. The second is **answered rather than accepted**: retrying is this codebase's own logic in `attemptGenerate()`, not the SDK's, and it is deliberately narrow — only 429, 5xx and timeouts, bounded by `GEMINI_MAX_RETRIES` (default 1, max 3). A rejected key, a blocked prompt and a retired model name are **not** retried, because repeating them spends quota to receive the same refusal.
+
+There is also a genuine gain that the earlier ADR did not weigh, because it was thinking about transport rather than capability: **`responseSchema`**. Asking for JSON in prose is a request; handing the model a machine-readable schema is closer to a guarantee, and it is what turns "the model wrote prose today" from a failure mode into a non-event.
+
+**Consequences**: `require()` rather than `import`, behind a `typeof import(...)` cast and one lint suppression. The package declares `"type": "module"` and ships a single declaration file for both builds, so TypeScript resolves the `require` condition to the real `dist/node/index.cjs` — which Node loads perfectly — and then refuses the import because the *declaration* file is nominally ESM (TS1479). `await import()` would make every call site async for no behavioural gain; converting this package to ESM is far larger than one dependency justifies. The compiled output was loaded to confirm the require path works in production, not just under `tsx`.
+
+**Alternatives considered**: (a) staying on `fetch` — rejected: the owner asked, and the schema support is worth having. (b) Vertex AI instead of the Gemini API — not considered seriously: it needs a Google Cloud project with billing, which breaks the ₹0 posture for a feature that currently needs a free key. (c) Letting the SDK retry — rejected as above; its policy cannot know that a 403 here is permanent.
+
+---
+
+## 2026-08-18 — One structured-output schema per question type, and `marks` is not in it
+
+**Decision**: build the Gemini `responseSchema` **per requested question type** rather than as one schema covering all five. A numeric request's schema has no `options` property at all; a `fill_blank` request's has no `booleanAnswer`. `marks` and `negativeMarks` are absent from every variant.
+
+**Reason**: Gemini's schema dialect has no real union, so a schema listing every answer field would *invite* the model to fill in the ones that do not belong — which `refineQuestionAnswers` then rejects, spending a request to receive a candidate we throw away. What is not in the schema cannot come back, so the answer shape is right by construction rather than by validation, and `toCandidate()` fills the unused fields with the nulls the validator expects. `minItems`/`maxItems` pin the batch size and the option count for the same reason: "it returned four when I asked for three" stops being a case to handle.
+
+`marks` is excluded because it is the **paper's price**, set by the examiner, and the model has no opinion about it worth reading. It is overwritten server-side even if it arrives, which is the same rule that keeps the taxonomy out of `GeneratedCandidate`.
+
+**Consequences**: five schema shapes to keep in step with `refineQuestionAnswers`. That is a real duplication, and it is bounded by a test that asserts the schema for a numeric request contains exactly the expected property names — so adding a sixth question type fails loudly here as well as in the five places `CLAUDE.md` already lists.
+
+**Alternatives considered**: (a) one permissive schema plus validation — rejected above. (b) No schema, prose only (the Milestone 17 behaviour) — rejected: it worked most of the time, and "most of the time" against a metered API is a cost as well as a defect. (c) Function calling / tool use instead of structured output — rejected: it is the same guarantee expressed less directly for a single-shot generation.
+
+---
+
+## 2026-08-18 — Advisory quality warnings that annotate and never reject
+
+**Decision**: add `lib/questionQuality.ts` — a pure function of the candidates producing `{ code, message }` findings shown beside each question and beneath the batch. It **never** rejects, never blocks approval, and is explicitly documented as **not** verifying that a question is mathematically correct.
+
+**Reason**: there is a real band of defects that are decidable from the text alone and that a reviewer's eye slides past — a question referring to a diagram it cannot have, a solution that never states the stored answer, a numeric tolerance loose enough to mark a wrong answer right, rounding left unstated, two options that are the same value written two ways, a correct option conspicuously longer than the distractors, and the correct answer sitting in position (a) all the way down a batch. Every one of those is a genuine defect and cheap string arithmetic.
+
+They are warnings rather than rules because each is a strong *hint* that is sometimes wrong, and a rule that is sometimes wrong must not throw a question away. `createQuestionSchema` holds the rules — the things that are always defects — and it rejects. Keeping the gate singular is the same argument that keeps one grader and one ranking service.
+
+The naming discipline matters as much as the code. This is the same honesty rule that deleted `generateAIInsights()` and that keeps `EngineDescriptor.kind` factual: **do not claim mathematical correctness that has not been programmatically verified.** Checking that $3$ really is the larger root requires solving the question, which is the reviewer's job. The first live generation run of the new code returned a plausible, well-formatted question whose answer key was **wrong** — the best possible argument for saying nothing we cannot support.
+
+**Consequences**: a reviewer sees more amber on the page. The mitigation is that warnings look advisory (warning-toned, never error-toned; the one genuinely-refused state is the only thing allowed to look like a refusal), and a clean batch shows none at all — asserted by a test, because a checker that always finds something teaches people to ignore it.
+
+**Alternatives considered**: (a) rejecting on these — rejected: a legitimate question would eventually be thrown away silently. (b) A CAS or symbolic solver to actually check the mathematics — rejected for now: it is a large dependency that can only handle a narrow slice of olympiad questions, and a checker that verifies 20% while implying it verified everything is worse than none. (c) Asking a second model to review the first — rejected: it doubles the cost and the privacy surface to obtain an opinion that is no more trustworthy than the first one.
+
+---
+
+## 2026-08-18 — Provenance on the question, recovered from our own log, and no second review lifecycle
+
+**Decision**: add a `provenance` subdocument to `Question` recording the source (`human` / `ai_assisted`), the generator, the **exact model**, the `GenerationLog` row, whether the reviewer edited it, and who approved it. Populate it **only** in `approveQuestions()`, reading the generator facts back from the server's own log row via the `logId` the client was issued — never from the request body. Do **not** add a `DRAFT / PENDING_REVIEW / APPROVED / REJECTED` lifecycle.
+
+**Reason**: `GenerationLog` records that a *batch* was requested and `AuditLog` records that an approval happened, but neither answers the question somebody will eventually ask about a specific row — *"was this one written by a model, which model, and who signed it off?"* Answering that by joining a log against a timestamp is guesswork, and it is not a hypothetical question about machine-written exam content.
+
+It is read from our own log rather than accepted from the request because provenance is a **claim worth checking**. The field worth lying about is `source`: a client that could set it would be able to file machine-written questions as hand-written ones, which is precisely the record this exists to keep.
+
+And it is **displayed** — the admin question view serves it, the bank prints a badge, `?source=ai_assisted` filters on it. A stored field nothing reads is exactly the shape of thing Milestone 15 deleted when it removed `StudentAnalytics`, and the discipline that kept that from recurring is that a new field has to have a reader.
+
+**No second lifecycle** because `status` (`draft` → `in_review` → `published` → `archived`) already *is* the editorial workflow, an approved AI draft is an ordinary question-bank row, and "rejected" has no row to live on — nothing is stored until approval, so a rejected candidate is a count on a log, not a document with a state.
+
+**Consequences**: `editedByReviewer` is the review screen's own report about itself and cannot be verified server-side, because nothing was stored to compare against. That is a consequence of "nothing is saved until approval" rather than an oversight; it is documented as such, it grants nothing, and a client that lied about it would gain nothing.
+
+**Alternatives considered**: (a) accepting the whole provenance block from the client — rejected above. (b) Storing the prompt on the question — rejected: it is a draft artefact, not a fact about the row, and `GenerationLog.hadInstructions` already records that there was one without storing what a staff member typed. (c) A separate `QuestionProvenance` collection — rejected: it is one-to-one with a question, always read with it, and never queried alone.

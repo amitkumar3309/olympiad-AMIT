@@ -164,13 +164,21 @@ export const config = {
   },
   ai: {
     /**
-     * The only AI credential in the project, and it is optional. Absent means the
-     * question generator falls back to blank templates — see
-     * `services/questionGeneratorService.ts`. Nothing else in the product uses a model.
+     * The only AI credential in the project, and it is optional. Absent means the AI
+     * generator page reports itself unconfigured and the route answers 503 naming this
+     * variable — it does **not** invent filler; see `services/questionGeneratorService.ts`.
+     * Nothing else in the product uses a model.
      */
     geminiApiKey: env.GEMINI_API_KEY,
     geminiModel: env.GEMINI_MODEL,
     questionGenerator: env.QUESTION_GENERATOR,
+    /** Extra attempts for a *transient* provider failure only. */
+    geminiMaxRetries: env.GEMINI_MAX_RETRIES,
+    /** Cost controls on one generation request, enforced by the zod schema. */
+    maxQuestionsPerRequest: env.GENERATION_MAX_QUESTIONS,
+    maxInstructionChars: env.GENERATION_MAX_INSTRUCTION_CHARS,
+    /** Generation requests per hour per IP, enforced by `generationLimiter`. */
+    generationsPerHour: env.GENERATION_RATE_LIMIT_PER_HOUR,
   },
   payments: {
     /** True only when an order can actually be created AND verified. */

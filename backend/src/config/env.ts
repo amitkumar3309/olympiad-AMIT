@@ -96,14 +96,18 @@ const envSchema = z.object({
    */
   RECOMMENDATION_ENGINE: z.string().min(1).default('statistical-v1'),
 
-  // --- AI question drafting (Milestone 17) ---
+  // --- AI question drafting (Milestone 17, extended in Milestone 20) ---
   /**
-   * Google Gemini API key. **Optional, and the product is complete without it** — with
-   * no key the admin generator falls back to blank templates, exactly as before.
+   * Google Gemini API key. **Optional: every other feature works without it.**
    *
-   * This is the only AI credential in the project, and it is used for exactly one
-   * thing: drafting questions from a subject, a topic, a class and a difficulty. No
-   * student data is ever sent to it.
+   * With no key the AI generator page says so and refuses with a 503 naming this
+   * variable. It does *not* invent filler — the template fallback that used to sit here
+   * was removed in Milestone 18, because a blank placeholder is only useful as something
+   * to type into and a reviewer who wants one can create a question by hand.
+   *
+   * This is the only AI credential in the project, and it is used for exactly one thing:
+   * drafting questions from a subject, a topic, a class and a difficulty. No student data
+   * is ever sent to it.
    */
   GEMINI_API_KEY: z.string().min(1).optional(),
   /**
@@ -127,11 +131,38 @@ const envSchema = z.object({
   /**
    * Which registered generator the admin button uses.
    *
-   * `auto` (the default) means "a model if one is configured, otherwise templates", so
-   * adding `GEMINI_API_KEY` is the only step needed to turn AI drafting on and removing
-   * it the only step needed to turn it off. Set an explicit id to pin one.
+   * `auto` (the default) means "the first configured provider", so adding
+   * `GEMINI_API_KEY` is the only step needed to turn AI drafting on and removing it the
+   * only step needed to turn it off. Set an explicit id to pin one.
    */
   QUESTION_GENERATOR: z.string().min(1).default('auto'),
+  /**
+   * How many **extra** attempts a transient provider failure earns. 0 disables retrying.
+   *
+   * Small on purpose, and capped at 3. Only 429, 5xx and timeouts are retried at all
+   * (see `isTransient()` in `services/geminiQuestionGenerator.ts`); an expired key or a
+   * retired model name is permanent, and repeating it spends quota to receive the same
+   * refusal. Against a metered free tier a failed generation should tell the examiner
+   * immediately rather than quietly costing three more requests.
+   */
+  GEMINI_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(1),
+  /**
+   * The most questions one generation request may ask for, and the longest steer an
+   * examiner may attach.
+   *
+   * Both are cost controls rather than correctness rules, which is why they are
+   * environment configuration: a deployment on a tighter quota can lower them without a
+   * code change. They are enforced in the zod schema, so the browser cannot exceed them
+   * whatever the form allows — and the *ceiling* on the ceiling is in code (20 / 2000),
+   * because the review screen has to stay reviewable by one human in one sitting.
+   */
+  GENERATION_MAX_QUESTIONS: z.coerce.number().int().min(1).max(20).default(20),
+  GENERATION_MAX_INSTRUCTION_CHARS: z.coerce.number().int().min(50).max(2000).default(500),
+  /**
+   * Generation requests allowed per hour, per IP. Each one spends provider quota, so
+   * this is the same kind of protection `paymentLimiter` gives the Razorpay API call.
+   */
+  GENERATION_RATE_LIMIT_PER_HOUR: z.coerce.number().int().min(1).max(1000).default(60),
 
   // --- Payments (Milestone 19) ---
   /**

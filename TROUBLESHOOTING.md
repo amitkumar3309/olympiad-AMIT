@@ -4,6 +4,66 @@ Log real problems + solutions here as they're encountered, so we don't re-solve 
 
 ---
 
+## Generation fails with "this model is no longer available" or "is not found"
+
+**Symptom**: the AI generator page reports a 502 whose message names a model — e.g. *"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash"*. Nothing changed in the code; it worked last week.
+
+**Cause**: Google retires model names on their own schedule. This happened to this project once already — `gemini-2.0-flash` was the original default and stopped existing mid-deployment — and it will happen again.
+
+**Fix**: the error message already tells you to, and the page can answer it authoritatively. Open **AI Question Generator** and use the **Model** dropdown, which asks your key which models it may actually call, or run:
+
+```bash
+npm run verify:gemini --prefix backend
+```
+
+That prints the list and says plainly whether `GEMINI_MODEL` is one of them. Set `GEMINI_MODEL` to a name from it and restart (or redeploy). **Prefer a rolling alias** — `gemini-flash-latest`, `gemini-pro-latest` — which tracks the current model and makes the next retirement invisible. Pin an exact version only if you need reproducible output, and accept that you then own the retirement.
+
+---
+
+## Generation returns "Gemini ran out of room before it finished"
+
+**Symptom**: asking for a large batch returns a 502 saying the model ran out of room, or the reply is empty with a `MAX_TOKENS` finish reason. A smaller batch works.
+
+**Cause**: on a 2.5-series and later model, *thinking* tokens are spent from the same output budget as the answer. A fixed 8192-token ceiling was enough for five questions and silently truncated twenty — and truncation arrives as an **empty response**, not as an error, which is why the message has to be explicit. `outputBudget()` now scales with the batch size, but the ceiling is finite.
+
+**Fix**: ask for fewer questions in one go, or choose a flash model — they think less and are much faster. Nothing was saved, so retrying costs only the request.
+
+---
+
+## `npm test` or the build fails on `@google/genai` with TS1479 or TS1541
+
+**Symptom**: `error TS1479: The current file is a CommonJS module whose imports will produce 'require' calls; however, the referenced file is an ECMAScript module` — or, after switching to a type-only import, `TS1541: Type-only import of an ECMAScript module from a CommonJS module must have a 'resolution-mode' attribute`.
+
+**Cause**: `@google/genai` declares `"type": "module"` and ships **one** declaration file for both its ESM and CJS builds. This package compiles to CommonJS, so TypeScript correctly resolves the `require` condition to `dist/node/index.cjs` — which Node loads perfectly — and then reads that build's types as ESM and refuses.
+
+**Fix**: it is already handled at the top of `backend/src/services/geminiQuestionGenerator.ts`, and the shape is worth preserving if you touch it:
+
+```ts
+import type { GenerateContentParameters, Model, Schema } from '@google/genai' with { 'resolution-mode': 'import' };
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const genai = require('@google/genai') as typeof import('@google/genai', { with: { 'resolution-mode': 'import' } });
+```
+
+Type-only imports need the `resolution-mode` attribute; the runtime half is a `require` with a `typeof import(...)` cast, which keeps everything reached through it fully typed. **Do not "fix" this by switching the file to `await import()`** — that makes every call site async for no behavioural gain — and do not weaken the tsconfig. If you change it, verify the **compiled** output loads, not just the source:
+
+```bash
+npm run compile --prefix backend
+```
+
+then require `dist/src/services/geminiQuestionGenerator.js` from Node. Under `tsx` the source can work while the emitted CommonJS does not, and the Vercel build is the emitted path.
+
+---
+
+## A retry reports "Gemini timed out" when the provider actually returned 503
+
+**Symptom**: the log shows `Gemini failed transiently — retrying` with `status: 503`, and the examiner is then told the request timed out.
+
+**Cause**: this was a real defect, fixed on 2026-08-18. The abort signal was created **once**, outside the retry loop, so it was already part-spent when the retry began — and a first attempt that consumed the whole minute left the second aborting instantly. A fresh full-length signal per attempt would have been no better: two sixty-second attempts plus back-off outlive a serverless invocation, so the examiner would get a platform timeout instead of the provider's own words.
+
+**Fix (already applied)**: `attemptGenerate()` holds **one deadline shared across all attempts**. Each attempt gets `AbortSignal.timeout(remaining)`, the back-off is clamped to what is left, and the loop stops when less than `MIN_ATTEMPT_MS` remains rather than making a call that can only fail. If you add a retry anywhere else that wraps a request timeout, the same trap is waiting.
+
+---
+
 ## (Anticipated) Every write returns 403 "This request did not come from the AMIT Olympiad website"
 
 **Problem** (recorded proactively when the CSRF check landed on 2026-08-17): reads work, the user is signed in, but **every** `POST`/`PUT`/`PATCH`/`DELETE` fails with a 403 whose message mentions the request not coming from the website. Nothing in the browser console mentions CORS.

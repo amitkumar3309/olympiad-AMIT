@@ -72,6 +72,16 @@ export interface GenerationLogDocument extends Document {
   duplicates: number;
   /** How many the examiner went on to approve. Written by the approval call. */
   approved: number;
+  /**
+   * How many the examiner threw away themselves, as opposed to how many our own validation
+   * refused (`rejected`).
+   *
+   * The two counts together are the only honest measure of whether a prompt configuration
+   * is any good: `rejected` catches candidates that broke a rule, and this catches the ones
+   * that were valid and simply not worth keeping — which is the far commoner failure and
+   * the one nothing else in the system would ever have noticed.
+   */
+  rejectedByReviewer: number;
   durationMs: number;
   /** The provider's own message when `status` is `failed`. Never a key. */
   error: string | null;
@@ -107,6 +117,7 @@ const generationLogSchema = new Schema<GenerationLogDocument>(
     rejectionReasons: { type: [String], default: [] },
     duplicates: { type: Number, default: 0, min: 0 },
     approved: { type: Number, default: 0, min: 0 },
+    rejectedByReviewer: { type: Number, default: 0, min: 0 },
     durationMs: { type: Number, default: 0, min: 0 },
     error: { type: String, default: null },
   },

@@ -1,11 +1,12 @@
 import type { Types } from 'mongoose';
 import { config } from '../config';
 import { logger } from '../lib/logger';
-import { GenerationLog, Question, Subject, Topic, type QuestionDocument } from '../models';
+import { GenerationLog, Question, Subject, Topic, type QuestionDocument, type QuestionProvenance } from '../models';
 import { ApiError } from '../lib/ApiError';
 import { createQuestionSchema } from '../validation/questionSchemas';
 import { createQuestion, toQuestionContent } from './questionService';
 import { geminiQuestionGenerator } from './geminiQuestionGenerator';
+import { inspectCandidates, type QualityWarning } from '../lib/questionQuality';
 import type { Actor } from './taxonomyService';
 import type {
   ChapterRef,
@@ -154,6 +155,14 @@ export interface ProposeInput {
   subject: string;
   /** One or more topic ids. The first is the one a question is filed under. */
   chapters: string[];
+  /**
+   * An optional subtopic of the **first** chapter, narrowing what is asked for.
+   *
+   * `Topic` is one collection with a nullable `parent` and a depth capped at 1, so this is
+   * a second-level row rather than a different kind of thing — which is why it is checked
+   * against the chapter it claims to belong to rather than merely existing.
+   */
+  subtopic?: string | null;
   classLevel: GenerationRequest['classLevel'];
   difficulty: GenerationRequest['difficulty'];
   questionType: GenerationRequest['questionType'];
@@ -175,6 +184,16 @@ export interface ProposedQuestion extends GeneratedCandidate {
   /** Stable only within this batch — nothing is stored, so there is no database id. */
   clientId: string;
   topic: string;
+  subtopic: string | null;
+  /**
+   * Advisory findings from `lib/questionQuality.ts` — never a reason it was refused.
+   *
+   * A candidate carrying warnings is still a candidate: these are the defects that are
+   * decidable from the text but not always defects, so they are shown to the reviewer and
+   * approval is not blocked by them. The rules that *are* always defects live in
+   * `createQuestionSchema`, and those rejected the candidate before it got here.
+   */
+  warnings: QualityWarning[];
 }
 
 export interface ProposalOutcome {
@@ -184,11 +203,13 @@ export interface ProposalOutcome {
   questions: ProposedQuestion[];
   rejected: RejectedCandidate[];
   duplicates: RejectedCandidate[];
+  /** Findings about the set as a whole, e.g. the answer sitting in one position throughout. */
+  batchWarnings: QualityWarning[];
   requested: number;
   logId: string | null;
 }
 
-async function resolveTaxonomyNames(subjectId: string, chapterIds: string[]) {
+async function resolveTaxonomyNames(subjectId: string, chapterIds: string[], subtopicId: string | null) {
   const [subject, chapters] = await Promise.all([
     Subject.findById(subjectId).select('name'),
     Topic.find({ _id: { $in: chapterIds } }).select('name subject'),
@@ -205,7 +226,24 @@ async function resolveTaxonomyNames(subjectId: string, chapterIds: string[]) {
   // Ordered as the caller listed them, so "the first chapter" is the one they chose.
   const byId = new Map(chapters.map((chapter) => [String(chapter._id), chapter]));
   const ordered: ChapterRef[] = chapterIds.map((id) => ({ id, name: byId.get(id)!.name }));
-  return { subject, chapters: ordered };
+
+  /**
+   * The subtopic is checked against the chapter it will be filed under, not merely for
+   * existing. `resolveTaxonomy()` in `questionService.ts` applies the same rule at write
+   * time; doing it here as well means the examiner is told before a model call is spent
+   * rather than after twenty questions come back unfileable.
+   */
+  let subtopic: { id: string; name: string } | null = null;
+  if (subtopicId) {
+    const row = await Topic.findById(subtopicId).select('name parent');
+    if (!row) throw ApiError.badRequest('That subtopic does not exist.');
+    if (String(row.parent) !== String(chapterIds[0])) {
+      throw ApiError.badRequest(`"${row.name}" is not a subtopic of ${ordered[0]!.name}.`);
+    }
+    subtopic = { id: String(row._id), name: row.name };
+  }
+
+  return { subject, chapters: ordered, subtopic };
 }
 
 /**
@@ -225,7 +263,11 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
     );
   }
 
-  const { subject, chapters } = await resolveTaxonomyNames(input.subject, input.chapters);
+  const { subject, chapters, subtopic } = await resolveTaxonomyNames(
+    input.subject,
+    input.chapters,
+    input.subtopic ?? null,
+  );
 
   // What the model must not repeat: what is already published in these chapters, plus
   // whatever is already on the reviewer's screen.
@@ -239,6 +281,7 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
   const request: GenerationRequest = {
     subjectName: subject.name,
     chapters,
+    subtopicName: subtopic?.name ?? null,
     classLevel: input.classLevel,
     difficulty: input.difficulty,
     count: input.count,
@@ -271,63 +314,211 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
     throw ApiError.badGateway(detail);
   }
 
-  const questions: ProposedQuestion[] = [];
-  const rejected: RejectedCandidate[] = [];
-  const duplicates: RejectedCandidate[] = [];
   const primaryTopic = input.chapters[0]!;
+  const screened = screenCandidates(candidates.slice(0, input.count), {
+    subject: input.subject,
+    topic: primaryTopic,
+    subtopic: subtopic?.id ?? null,
+    classLevel: input.classLevel,
+    difficulty: input.difficulty,
+    against: [...existingTexts, ...(input.exclude ?? [])],
+  });
 
-  for (const [index, candidate] of candidates.slice(0, input.count).entries()) {
-    const parsed = createQuestionSchema.safeParse({
-      ...candidate,
-      subject: input.subject,
-      topic: primaryTopic,
-      subtopic: null,
-      classLevel: input.classLevel,
-      difficulty: input.difficulty,
-    });
+  const report = inspectCandidates(screened.accepted.map((entry) => entry.candidate));
+  const batchStamp = Date.now().toString(36);
 
-    if (!parsed.success) {
-      rejected.push({ index: index + 1, reason: reasonFrom(parsed.error) });
-      continue;
-    }
-
-    // Against the bank, then against the batch. Both matter: the first stops the
-    // examiner re-adding what they already have, the second stops one run producing
-    // the same question three times.
-    const against = [...existingTexts, ...(input.exclude ?? []), ...questions.map((entry) => entry.questionText)];
-    const clash = against.find((text) => similarity(text, candidate.questionText) >= DUPLICATE_SIMILARITY_THRESHOLD);
-    if (clash) {
-      duplicates.push({ index: index + 1, reason: `Too similar to an existing question: "${clash.slice(0, 90)}…"` });
-      continue;
-    }
-
-    questions.push({
-      ...candidate,
-      acceptedAnswers: candidate.acceptedAnswers,
-      clientId: `${Date.now().toString(36)}-${index}`,
-      topic: primaryTopic,
-    });
-  }
+  const questions: ProposedQuestion[] = screened.accepted.map((entry, position) => ({
+    ...entry.candidate,
+    clientId: `${batchStamp}-${entry.index}`,
+    topic: primaryTopic,
+    subtopic: subtopic?.id ?? null,
+    warnings: report.perQuestion[position] ?? [],
+  }));
 
   const logId = await writeLog(input, actor, generator.descriptor, {
     status: 'succeeded',
     durationMs: Date.now() - startedAt,
     returned: candidates.length,
     accepted: questions.length,
-    rejected: rejected.length,
-    rejectionReasons: rejected.map((entry) => entry.reason).slice(0, 10),
-    duplicates: duplicates.length,
+    rejected: screened.rejected.length,
+    rejectionReasons: screened.rejected.map((entry) => entry.reason).slice(0, 10),
+    duplicates: screened.duplicates.length,
   });
 
   return {
     generator: generator.descriptor,
     model: input.model ?? config.ai.geminiModel,
     questions,
-    rejected,
-    duplicates,
+    rejected: screened.rejected,
+    duplicates: screened.duplicates,
+    batchWarnings: report.batch,
     requested: input.count,
     logId,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Screening — one definition, shared by proposing and by the dry run
+// ---------------------------------------------------------------------------
+
+/** Where a batch will be filed, which is what makes the candidates checkable at all. */
+export interface ScreenTarget {
+  subject: string;
+  topic: string;
+  subtopic: string | null;
+  classLevel: GenerationRequest['classLevel'];
+  difficulty: GenerationRequest['difficulty'];
+  /** Question text a candidate must not resemble: the bank, and the reviewer's screen. */
+  against: string[];
+}
+
+export interface ScreenOutcome {
+  /** Survivors, each carrying the position it arrived in so a reason can name it. */
+  accepted: Array<{ index: number; candidate: GeneratedCandidate }>;
+  rejected: RejectedCandidate[];
+  duplicates: RejectedCandidate[];
+}
+
+/**
+ * Runs every candidate past the same two gates, in the same order, wherever it came from.
+ *
+ * Extracted because there are now two callers — the model's output, and the reviewer's
+ * edited version of it on the way to a dry run — and two copies of "validate then
+ * de-duplicate" would eventually disagree about what is acceptable. That is the same
+ * argument that keeps one grader and one ranking service: a second screener would be a
+ * second answer to "may this become a question?".
+ *
+ * Note the order, and that it does not change. A candidate that fails validation is never
+ * also reported as a duplicate, because the first reason is the one the examiner has to fix
+ * first.
+ */
+export function screenCandidates(candidates: GeneratedCandidate[], target: ScreenTarget): ScreenOutcome {
+  const accepted: ScreenOutcome['accepted'] = [];
+  const rejected: RejectedCandidate[] = [];
+  const duplicates: RejectedCandidate[] = [];
+
+  for (const [position, candidate] of candidates.entries()) {
+    const index = position + 1;
+    const parsed = createQuestionSchema.safeParse({
+      ...candidate,
+      subject: target.subject,
+      topic: target.topic,
+      subtopic: target.subtopic,
+      classLevel: target.classLevel,
+      difficulty: target.difficulty,
+    });
+
+    if (!parsed.success) {
+      rejected.push({ index, reason: reasonFrom(parsed.error) });
+      continue;
+    }
+
+    // Against the bank first, then against the batch. Both matter: the first stops the
+    // examiner re-adding what they already have, the second stops one run producing the
+    // same question three times.
+    const against = [...target.against, ...accepted.map((entry) => entry.candidate.questionText)];
+    const clash = against.find((text) => similarity(text, candidate.questionText) >= DUPLICATE_SIMILARITY_THRESHOLD);
+    if (clash) {
+      duplicates.push({ index, reason: `Too similar to an existing question: "${clash.slice(0, 90)}…"` });
+      continue;
+    }
+
+    accepted.push({ index, candidate });
+  }
+
+  return { accepted, rejected, duplicates };
+}
+
+// ---------------------------------------------------------------------------
+// The dry run
+// ---------------------------------------------------------------------------
+
+export interface ValidateInput {
+  subject: string;
+  topic: string;
+  subtopic?: string | null;
+  classLevel: GenerationRequest['classLevel'];
+  difficulty: GenerationRequest['difficulty'];
+  questions: GeneratedCandidate[];
+}
+
+export interface ValidationOutcome {
+  /** One verdict per question sent, positionally, so the screen can label each card. */
+  verdicts: Array<{ index: number; ok: boolean; reason: string | null; warnings: QualityWarning[] }>;
+  batchWarnings: QualityWarning[];
+  /** How many would be saved if the examiner approved right now. */
+  wouldSave: number;
+}
+
+/**
+ * Answers "would this batch save?" without saving it.
+ *
+ * Exists because the examiner edits these questions, and an edit can break a rule — the
+ * commonest being unticking one correct option and forgetting to tick another. Before this,
+ * the only way to find out was to press Approve and read which of twenty were refused,
+ * having already saved the rest. A dry run against the *same* screening function makes the
+ * answer trustworthy: it is not an approximation of what approval will do, it is the same
+ * code.
+ *
+ * It **writes nothing**, not even a log row — nothing happened that a later reader would
+ * want to know about, and a row per keystroke would bury the runs that matter.
+ */
+export async function validateProposals(input: ValidateInput): Promise<ValidationOutcome> {
+  // The bank is re-read rather than trusted from the earlier proposal: somebody else may
+  // have added a colliding question in the meantime, and this is the check that is supposed
+  // to catch that before it becomes two near-identical rows.
+  const existing = await Question.find({ topic: input.topic, classLevel: input.classLevel })
+    .select('questionText')
+    .limit(200)
+    .lean();
+
+  const screened = screenCandidates(input.questions, {
+    subject: input.subject,
+    topic: input.topic,
+    subtopic: input.subtopic ?? null,
+    classLevel: input.classLevel,
+    difficulty: input.difficulty,
+    against: existing.map((row) => row.questionText),
+  });
+
+  const report = inspectCandidates(screened.accepted.map((entry) => entry.candidate));
+  const warningsByIndex = new Map(
+    screened.accepted.map((entry, position) => [entry.index, report.perQuestion[position] ?? []]),
+  );
+  const reasonByIndex = new Map(
+    [...screened.rejected, ...screened.duplicates].map((entry) => [entry.index, entry.reason]),
+  );
+
+  const verdicts = input.questions.map((_question, position) => {
+    const index = position + 1;
+    const reason = reasonByIndex.get(index) ?? null;
+    return { index, ok: reason === null, reason, warnings: warningsByIndex.get(index) ?? [] };
+  });
+
+  return { verdicts, batchWarnings: report.batch, wouldSave: screened.accepted.length };
+}
+
+// ---------------------------------------------------------------------------
+// Rejecting
+// ---------------------------------------------------------------------------
+
+/**
+ * Records that the examiner threw candidates away.
+ *
+ * Rejection needs no other action — nothing was stored, so discarding a candidate is
+ * genuinely just not approving it — but the *count* is the one fact about a generation run
+ * that nothing else could ever recover, and it is the one that says whether a prompt
+ * configuration is producing usable questions. Without it the log shows twenty accepted and
+ * is silent about the examiner having kept two.
+ *
+ * Best-effort, exactly like the approval counter: a log row that will not update must not
+ * fail the reviewer's action, because there is no action to fail.
+ */
+export async function recordReviewerRejections(logId: string, count: number): Promise<void> {
+  if (count <= 0) return;
+  await GenerationLog.updateOne({ _id: logId }, { $inc: { rejectedByReviewer: count } }).catch((err: unknown) =>
+    logger.error({ err, logId }, 'Could not record rejections against the generation log'),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -337,11 +528,20 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
 export interface ApproveInput {
   subject: string;
   topic: string;
+  subtopic?: string | null;
   classLevel: GenerationRequest['classLevel'];
   difficulty: GenerationRequest['difficulty'];
   /** Whether to publish immediately or keep for a second pass. */
   publish: boolean;
-  questions: GeneratedCandidate[];
+  /**
+   * The questions, each optionally reporting whether the reviewer edited it.
+   *
+   * `edited` is the review screen's own account of itself and is recorded as such — a
+   * display fact, not a control. It cannot be verified here, because nothing was stored to
+   * compare against, and that is a consequence of the design rather than an oversight. It
+   * grants nothing, so a client that lied about it would have gained nothing.
+   */
+  questions: Array<GeneratedCandidate & { edited?: boolean }>;
   logId?: string | null;
 }
 
@@ -353,20 +553,30 @@ export interface ApprovalOutcome {
 /**
  * Writes the approved questions.
  *
- * Re-validates every one from scratch — see the note at the top of this file: what
- * arrives here is whatever the browser sent, edits included, and an edited candidate is
- * untrusted input exactly as the model's original was.
+ * Re-validates every one from scratch — see the note at the top of this file: what arrives
+ * here is whatever the browser sent, edits included, and an edited candidate is untrusted
+ * input exactly as the model's original was.
+ *
+ * ## Provenance is recovered, not accepted
+ *
+ * Every row is stamped with which generator and which model wrote it, and those facts are
+ * read back from **our own `GenerationLog` row** rather than taken from the request body.
+ * The browser supplies only the log id, which it received from us. A client cannot
+ * therefore name a model it did not use, and — more to the point — cannot file
+ * machine-written questions as hand-written ones. That would be the one field here worth
+ * lying about.
  */
 export async function approveQuestions(input: ApproveInput, actor: Actor): Promise<ApprovalOutcome> {
   const created: QuestionDocument[] = [];
   const rejected: RejectedCandidate[] = [];
+  const origin = await readGenerationOrigin(input.logId ?? null);
 
   for (const [index, candidate] of input.questions.entries()) {
     const parsed = createQuestionSchema.safeParse({
       ...candidate,
       subject: input.subject,
       topic: input.topic,
-      subtopic: null,
+      subtopic: input.subtopic ?? null,
       classLevel: input.classLevel,
       difficulty: input.difficulty,
     });
@@ -377,7 +587,15 @@ export async function approveQuestions(input: ApproveInput, actor: Actor): Promi
     }
 
     try {
-      created.push(await createQuestion(toQuestionContent(parsed.data), actor));
+      created.push(
+        await createQuestion(toQuestionContent(parsed.data), actor, {
+          ...origin,
+          editedByReviewer: candidate.edited === true,
+          reviewedBy: actor.id,
+          reviewedByLabel: actor.label,
+          reviewedAt: new Date(),
+        }),
+      );
     } catch (err) {
       rejected.push({ index: index + 1, reason: err instanceof Error ? err.message : 'Could not be saved.' });
     }
@@ -392,6 +610,39 @@ export async function approveQuestions(input: ApproveInput, actor: Actor): Promi
   }
 
   return { created, rejected };
+}
+
+// ---------------------------------------------------------------------------
+// Provenance
+// ---------------------------------------------------------------------------
+
+/**
+ * What the generation log says about who wrote this batch.
+ *
+ * Read from the database rather than from the approval request for the reason above: a
+ * model name and "a model wrote this" are claims worth checking. A missing or unknown log
+ * id is not an error — an examiner may approve a batch after a log write failed, and
+ * refusing to save their reviewed questions over a diagnostic row would be the wrong trade
+ * — so it degrades to the honest minimum: this was AI-assisted, and we cannot say by what.
+ */
+async function readGenerationOrigin(logId: string | null): Promise<QuestionProvenance> {
+  const base: QuestionProvenance = { source: 'ai_assisted' };
+  if (!logId) return base;
+
+  const row = await GenerationLog.findById(logId)
+    .select('generatorId generatorKind modelName createdAt')
+    .lean()
+    .catch(() => null);
+  if (!row) return base;
+
+  return {
+    ...base,
+    generatorId: row.generatorId,
+    generatorKind: row.generatorKind,
+    modelName: row.modelName,
+    generationLog: row._id as Types.ObjectId,
+    generatedAt: row.createdAt,
+  };
 }
 
 // ---------------------------------------------------------------------------

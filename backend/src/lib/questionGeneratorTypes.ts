@@ -61,6 +61,15 @@ export interface GenerationRequest {
    * question belongs to exactly one topic in this bank.
    */
   chapters: ChapterRef[];
+  /**
+   * The narrower area inside the first chapter, when the examiner picked one.
+   *
+   * A **name only**, like the chapters: the generator is told what to write about and the
+   * service attaches the id afterwards. Optional because a chapter need not have
+   * subtopics — `Topic` is one collection with a nullable `parent` and a depth capped at
+   * 1, so "chapter" and "subtopic" are the two levels of the same tree.
+   */
+  subtopicName: string | null;
   classLevel: ClassLevel;
   difficulty: Difficulty;
   count: number;

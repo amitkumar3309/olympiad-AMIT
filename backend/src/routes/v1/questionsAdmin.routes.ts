@@ -76,6 +76,24 @@ function adminQuestionView(question: QuestionDocument) {
     revision: question.revision,
     createdByLabel: question.createdByLabel ?? null,
     updatedByLabel: question.updatedByLabel ?? null,
+    /**
+     * Who wrote it — a person, or a model somebody approved.
+     *
+     * Served because a stored field nothing reads is the shape of thing Milestone 15
+     * deleted. The bank prints a badge from this, which is the reason the provenance block
+     * exists: so a human can see that a question was machine-drafted, by which model, and
+     * who signed it off. It carries no credential and no prompt text.
+     */
+    provenance: {
+      source: question.provenance?.source ?? 'human',
+      generatorId: question.provenance?.generatorId ?? null,
+      generatorKind: question.provenance?.generatorKind ?? null,
+      modelName: question.provenance?.modelName ?? null,
+      editedByReviewer: question.provenance?.editedByReviewer ?? false,
+      reviewedByLabel: question.provenance?.reviewedByLabel ?? null,
+      reviewedAt: question.provenance?.reviewedAt ?? null,
+      generatedAt: question.provenance?.generatedAt ?? null,
+    },
     publishedAt: question.publishedAt ?? null,
     archivedAt: question.archivedAt ?? null,
     createdAt: question.createdAt,

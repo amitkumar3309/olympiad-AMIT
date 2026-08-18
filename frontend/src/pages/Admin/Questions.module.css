@@ -302,3 +302,24 @@
   font-size: 0.88rem;
   color: var(--text-muted);
 }
+
+/*
+   Who drafted it. Understated on purpose: this is a provenance note on an ordinary question,
+   not a warning about it — an approved AI draft is a normal question-bank row and should read
+   like one.
+*/
+.provenance {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.provenance strong {
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}

@@ -122,40 +122,66 @@ It exists so that an alternative engine — a trained model, or a language model
 
 Recommendations themselves use **no AI** and never will without a further decision — see the Milestone 16 ADR. The one place a model *is* used is question drafting, below.
 
-### AI question drafting (Milestone 17)
+### AI question drafting (Milestone 17, extended in Milestone 20)
 
 | Variable | Required | Purpose | Where to get it | Example |
 |---|---|---|---|---|
-| `GEMINI_API_KEY` | **optional** | Lets Google Gemini write first drafts on the admin Question Generator page. **A secret.** | Google AI Studio — see below. | `AIzaSy…` |
-| `GEMINI_MODEL` | optional (default `gemini-flash-latest`) | Which model to call. **Leave it as the rolling alias** unless you need a pinned version — Google retires exact model names on their own schedule, and a pinned one will eventually stop working with "this model is no longer available". The admin page has a **"Which models can my key use?"** button that asks your key directly, so the name never has to be guessed. | — | `gemini-flash-latest` |
-| `QUESTION_GENERATOR` | optional (default `auto`) | Which generator the admin button uses. `auto` = a model if a key is set, else blank templates. | — | `auto` |
+| `GEMINI_API_KEY` | **optional** | Lets Google Gemini write first drafts on the admin **AI Question Generator** page. **A secret.** | Google AI Studio — see below. | `AIzaSy…` |
+| `GEMINI_MODEL` | optional (default `gemini-flash-latest`) | Which model to call. **Leave it as the rolling alias** unless you need a pinned version — Google retires exact model names on their own schedule, and a pinned one will eventually stop working with "this model is no longer available". The page has a **"Which models can my key use?"** button that asks your key directly, so the name never has to be guessed. | — | `gemini-flash-latest` |
+| `QUESTION_GENERATOR` | optional (default `auto`) | Which registered generator the button uses. `auto` = "the first configured provider". Only set this if a second provider has been registered in code. | — | `auto` |
+| `GEMINI_MAX_RETRIES` | optional (default `1`, max `3`) | How many **extra** attempts a *transient* failure earns. Only 429, 5xx and timeouts are retried; an expired key, a blocked prompt and a retired model name are not, because repeating them spends quota to receive the same refusal. `0` disables retrying. | — | `1` |
+| `GENERATION_MAX_QUESTIONS` | optional (default `20`, max `20`) | The most questions one request may ask for. Lower it on a tighter quota. | — | `20` |
+| `GENERATION_MAX_INSTRUCTION_CHARS` | optional (default `500`) | How long the examiner's "extra instructions" box may be. It is pasted into a prompt, so an unbounded field is a cost. | — | `500` |
+| `GENERATION_RATE_LIMIT_PER_HOUR` | optional (default `60`) | Generation requests allowed per hour, per IP. This is the one route in the product where each call spends third-party quota. | — | `60` |
 
-**Everything works with all three unset.** The generator then creates blank draft questions you type into, exactly as it did before Milestone 17. The key alone turns AI drafting on; deleting it turns it off. Nothing else in the product uses a model.
+**Everything else works with all of these unset.** With no key the AI generator page reports itself unconfigured and the endpoint answers **503 naming the variable**. It does **not** invent placeholder questions — the template fallback that used to exist was removed in Milestone 18, because a blank placeholder is only useful as something to type into and a reviewer who wants one can create a question by hand. The key alone turns AI drafting on; deleting it turns it off. Nothing else in the product uses a model.
 
-**No student data is ever sent.** The request contains a subject name, a topic name, a class level, a difficulty and any instruction you typed into the box — nothing about any child. There is a test asserting the request body contains no student fields.
+**No student data is ever sent.** The request contains a subject name, chapter names, an optional subtopic name, a class level, a difficulty, the marks, and any instruction you typed into the box — nothing about any child. There is a test asserting the request body contains no student fields.
 
-**Every generated question is checked exactly as a hand-written one is** (the same zod schema and the same LaTeX safety rules) and is stored as a **draft**. Anything that fails is discarded with its reason shown, never silently corrected. A generated question still has to be reviewed and published by a person.
+**Nothing generated is saved until you approve it.** Generation returns candidates that live only in your browser; a separate, explicit approval call is the only thing that writes to the question bank, and it re-checks everything from scratch against the same zod schema and the same LaTeX safety rules a hand-written question passes. Anything that fails is discarded **with its reason shown**, never silently corrected. Approved questions are saved as drafts unless you also tick publish.
+
+**The key is never exposed.** It lives only in the backend process, is sent to Google as a request header rather than in a URL, and every provider message that reaches your screen or the logs is scrubbed of it first. The frontend never receives it, and it is not in any API response.
 
 #### Beginner instructions: getting a free Gemini API key
 
 1. Go to **https://aistudio.google.com/apikey** and sign in with a Google account.
 2. Click **Create API key**. If asked to pick a project, choose the default one or create a new one — the name does not matter.
-3. Copy the key immediately (it starts with `AIza…`). Treat it like a password: it is a live credential and anyone with it can spend your quota.
+3. Copy the key immediately (it usually starts with `AIza…`). Treat it like a password: it is a live credential and anyone with it can spend your quota.
 4. Open `backend/.env` (copy `backend/.env.example` if you have not got one) and add:
    ```
    GEMINI_API_KEY=the key you just copied
    ```
-5. Restart the backend (`npm run dev:local --prefix backend`).
-6. Open **/admin/ai-generator** in the app. The banner at the top should now read **Google Gemini** instead of **Blank templates**. If it still says Blank templates, the key was not picked up — check for a typo and that you restarted.
-7. Pick a subject, topic, class and difficulty, ask for 2 drafts, and press the button. Read what comes back before publishing anything.
+   Leave `GEMINI_MODEL` alone unless you have a reason to pin a version.
+5. **Restart the backend.** `config/env.ts` reads the environment once at startup, so a running process will not pick up the new key:
+   ```
+   npm run dev:local --prefix backend
+   ```
 
-**Cost.** The free tier has a per-minute and per-day request limit and needs no card. If you exceed it, the provider returns a quota error, the page reports it in the provider's own words, and blank templates are created instead — nothing breaks and nothing is charged. Google can change those limits, so check the current free-tier terms before a heavy session. **Do not enable billing** on the Google Cloud project unless you have decided to spend money.
+#### Verifying that the backend can actually reach Gemini
+
+Do these in order. Each one tells you something different, and the first two need no quota worth speaking of.
+
+1. **Is the key loaded at all?** Sign in to the admin panel and open **AI Question Generator**. The banner at the top should read **Google Gemini**. If it instead says *"Not configured — set `GEMINI_API_KEY`"*, the backend did not see the key: check for a typo, check the variable is in `backend/.env` and not somewhere else, and check you restarted.
+2. **Can the key talk to Google?** On the same page, look at the **Model** dropdown. It fills itself by asking your key which models it may use. If it lists models, the credential is valid and the network path works. If it shows *"Could not load the list"*, the message underneath is Google's own — an invalid key, a blocked project or no internet each say something different. This is a free metadata call, not a generation.
+3. **Can it generate?** Pick a subject, a chapter, **Class 9**, **Medium**, ask for **2** questions and press **Generate**. This is the first step that spends real quota, and two questions is a negligible amount of it. Read what comes back before approving anything.
+4. **If something fails**, the page shows the provider's own words rather than a generic error, because an expired key, a spent quota, a blocked prompt and a retired model name need four different fixes. [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) has the common ones.
+
+There is also a command-line check that needs no admin session — it asks Google directly with whatever key your `.env` holds:
+
+```bash
+npm run verify:gemini --prefix backend
+```
 
 #### Setting it on Vercel (production)
 
 1. Open your **backend** project on vercel.com → **Settings** → **Environment Variables**.
-2. Add `GEMINI_API_KEY` for the **Production** environment.
+2. Add `GEMINI_API_KEY` for the **Production** environment. Add the others only if you want to change a default.
 3. **Redeploy the backend.** Vercel does not apply new environment variables to a running deployment.
+4. Verify against the deployed site using the same three steps above.
+
+Never add `GEMINI_API_KEY` to the **frontend** Vercel project. The frontend reads no environment variables at all, and anything placed there would be compiled into a public JavaScript bundle.
+
+**Cost and quota.** The free tier has per-minute and per-day request limits and needs no card. If you exceed it, Google returns a quota error and the page reports it in Google's own words — **nothing is charged and nothing is saved**. Google changes these limits on their own schedule, so check the current free-tier terms before a heavy session. **Do not enable billing** on the Google Cloud project unless you have decided to spend money. `GENERATION_RATE_LIMIT_PER_HOUR` and `GENERATION_MAX_QUESTIONS` are the two knobs for bounding a session's spend, and `GEMINI_MAX_RETRIES=0` stops a failing run from costing more than one request.
 
 Never paste the key into a repository, an issue or a screenshot.
 

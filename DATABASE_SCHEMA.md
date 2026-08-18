@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. **Twenty-six models** as of Milestone 19, which added **`Payment`** and **`PaymentSettings`** — the transaction record and the administrator-editable entry fee. Twenty-four as of Milestone 18, which added `GenerationLog`. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Twenty-six models** — Milestone 20 added no collection: it extended `Question` with an embedded **`provenance`** subdocument and `GenerationLog` with `rejectedByReviewer`. Twenty-six as of Milestone 19, which added **`Payment`** and **`PaymentSettings`** — the transaction record and the administrator-editable entry fee. Twenty-four as of Milestone 18, which added `GenerationLog`. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 **That default is a trap worth knowing about.** Because it exists, a script or process with no `.env` loaded connects to a *local* database and works perfectly, writing to somewhere nobody is looking. This happened: a seed run from the wrong directory published 208 questions to localhost while production stayed empty. `config/env.ts` now anchors the `.env` lookup to the package root, and every write script calls `assertConfiguredForWrites()`. Use `npx tsx scripts/where-is-data.ts` to see which database is actually connected and what every collection really holds.
 
@@ -126,11 +126,12 @@ Purpose: the Olympiad question bank. **Rewritten in Milestone 4** — questions 
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
 | `questionText` | String | **yes** | — | Max 5000. Plain text with LaTeX islands (`$…$`, `$$…$$`), validated by `lib/mathContent.ts`. |
-| `type` | String enum | **yes** | — | `single_choice` / `multiple_choice` / `true_false` / `numeric`. Determines which answer field is used — and which are **forbidden**. |
+| `type` | String enum | **yes** | — | `single_choice` / `multiple_choice` / `true_false` / `numeric` / **`fill_blank`** (Milestone 18). Determines which answer field is used — and which are **forbidden**. |
 | `options` | [{ `key`, `text`, `isCorrect` }] | no | `[]` | Choice types only; max 8. `key` (`a`, `b`, …) is assigned by the **server**. |
 | `booleanAnswer` | Boolean \| null | no | `null` | `true_false` only. |
 | `numericAnswer` | Number \| null | no | `null` | `numeric` only. |
 | `tolerance` | Number \| null | no | `null` | `numeric` only; null means an exact match is required. |
+| `acceptedAnswers` | [String] | no | `[]` | **`fill_blank` only** (Milestone 18); max 8, first one canonical. Every spelling that counts as correct, matched through `normalizeAnswerText()` in the one grader — which forgives capitalisation, whitespace and a *sentence-final* full stop and **nothing else**. Two entries that normalise to the same string are refused at validation, because this list is what a reviewer reads to understand what will be marked right. |
 | `solution` | String \| null | no | `null` | Max 8000, LaTeX-aware. **Required before publishing.** |
 | `subject` | ObjectId → `Subject` | **yes** | — | Indexed. |
 | `topic` | ObjectId → `Topic` | **yes** | — | Indexed. Must be `depth: 0` and belong to `subject`. |
@@ -146,9 +147,32 @@ Purpose: the Olympiad question bank. **Rewritten in Milestone 4** — questions 
 | `updatedBy` / `updatedByLabel` | ObjectId \| null / String \| null | no | `null` | |
 | `publishedAt` | Date \| null | no | `null` | When last published. **Historical** — deliberately *not* cleared when a question returns to `draft`, because it is the witness the hard-delete guard tests. `status` is the authority on current visibility. |
 | `archivedAt` | Date \| null | no | `null` | Cleared on restore. |
+| `provenance` | subdocument | no | `{ source: 'human' }` | **Milestone 20.** Who wrote it. See below. |
 | `createdAt` / `updatedAt` | Date | auto | — | |
 
-Indexes: `status + createdAt`, `subject + topic + status`, `classLevel + difficulty + status`, `tags`.
+### `Question.provenance` (Milestone 20) — an embedded subdocument
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `source` | String enum | `'human'` | `human` / `ai_assisted`. `human` covers every question typed into the editor **and every question created before Milestone 20**, so a missing provenance block never has to be interpreted. |
+| `generatorId` | String \| null | `null` | The registered generator, e.g. `gemini`. |
+| `generatorKind` | String \| null | `null` | `model` only when a real language model produced the text. A statement of fact, not a label. |
+| `modelName` | String \| null | `null` | The **exact** model that wrote it, not the deployment's current default. |
+| `generationLog` | ObjectId → `GenerationLog` \| null | `null` | The run it came from, so the batch is traceable. |
+| `generatedAt` | Date \| null | `null` | When the batch was generated (the log row's own timestamp). |
+| `editedByReviewer` | Boolean | `false` | Whether the reviewer changed the text before approving. |
+| `reviewedBy` / `reviewedByLabel` | ObjectId → `Student` \| null / String \| null | `null` | Who approved it. Distinct in *intent* from `createdBy` even when it is the same account: `createdBy` says who caused the row to exist, this says who took responsibility for its correctness. |
+| `reviewedAt` | Date \| null | `null` | |
+
+**Written only by `approveQuestions()`**, and every field is either derived from the server's own `GenerationLog` row or taken from the token. It is **not** part of `QuestionContentInput`, deliberately: content is what a reviewer may edit, and provenance is a fact about how the row came to exist that no request body should be able to set. A client cannot name a model it did not use, and — the field actually worth lying about — cannot file machine-written questions as hand-written ones.
+
+**It holds no credential and no prompt text.** The examiner's instruction is not stored here; `GenerationLog.hadInstructions` records only that there was one. A model name and a reviewer are facts about the row; a prompt is a draft artefact.
+
+**It is displayed, not merely stored.** `GET /admin/questions` serves it, the question bank prints a badge from it, and `?source=ai_assisted` filters on it. That matters: a stored field nothing reads is exactly the shape of thing Milestone 15 deleted when it removed `StudentAnalytics`.
+
+**There is no separate review lifecycle.** A `DRAFT / PENDING_REVIEW / APPROVED / REJECTED` state was considered and not added: `status` (`draft` → `in_review` → `published` → `archived`) already *is* the editorial workflow, and a machine-drafted question that has been approved is an ordinary question-bank row. Two lifecycles would be two things to keep correct, and "rejected" has no row to live on — nothing is stored until approval.
+
+Indexes: `status + createdAt`, `subject + topic + status`, `classLevel + difficulty + status`, `tags`, `provenance.source + createdAt`.
 
 **The answer shape per type is exclusive.** Validation requires the fields a type uses *and rejects the ones it does not*, so a `numeric` question cannot carry an option list nothing will read, and an MCQ cannot carry a stray `numericAnswer` — the kind of bad data that later looks like a rendering bug.
 
@@ -475,6 +499,43 @@ The object itself has **no schema-level default**, so a pre-Milestone-14 documen
 Deliberately **no TTL** — unlike the two token collections. Expiring a row would make a notification the student has already read reappear as unread, which reads as a bug rather than as tidying.
 
 "Unread" is therefore an **anti-join** (`_id: { $nin: readIds }`), not a filter — which is why the inbox and the unread count share one `inboxFilter()`, so the number on the bell cannot disagree with the list.
+
+---
+
+## `GenerationLog` (Milestone 18, extended in Milestone 20) — ACTIVE
+
+Purpose: one record of **asking a model for questions** — what was asked, what came back, and what survived. Written by `services/questionGeneratorService.ts`; read by `approveQuestions()` to recover provenance, and by whoever is diagnosing a bad prompt.
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `actor` / `actorLabel` | ObjectId → `Student` \| null / String | no / **yes** | `null` / — | Who asked. |
+| `purpose` | String enum | **yes** | — | `question_bank` / `mock_test` / `daily_challenge`, so cost can be attributed to a feature. |
+| `generatorId` / `generatorKind` / `modelName` | String | **yes** | — | Which provider and **which model was actually called** — an examiner may have picked one for the batch, and a log naming the configured default while a different model wrote the questions is worse than no log. |
+| `subject` / `chapters` | ObjectId / [ObjectId] | no | `null` / `[]` | What was asked for. |
+| `classLevel` / `difficulty` / `questionType` / `language` | String | **yes** | — | |
+| `bloomLevel` | String \| null | no | `null` | |
+| `requested` | Number | **yes** | — | |
+| `hadInstructions` | Boolean | no | `false` | **Whether** the examiner typed a steer, never what they typed. |
+| `status` | String enum | **yes** | — | `succeeded` / `failed`. A failed generation writes a row too. |
+| `returned` | Number | no | `0` | Candidates the model produced, before any checking. |
+| `accepted` | Number | no | `0` | Passed validation and survived duplicate detection. |
+| `rejected` / `rejectionReasons` | Number / [String] | no | `0` / `[]` | Failed `createQuestionSchema`, with up to ten reasons, so a bad prompt is diagnosable. |
+| `duplicates` | Number | no | `0` | Refused as too similar to an existing question or to another candidate. |
+| `approved` | Number | no | `0` | How many the examiner went on to approve. Written by the approval call. |
+| `rejectedByReviewer` | Number | no | `0` | **Milestone 20.** How many the examiner threw away themselves. |
+| `durationMs` | Number | no | `0` | |
+| `error` | String \| null | no | `null` | The provider's own message when `status` is `failed`. **Never a key** — every message is scrubbed first. |
+| `createdAt` / `updatedAt` | Date | auto | — | |
+
+Indexes: `createdAt`, `status + createdAt`.
+
+**Why this is separate from `AuditLog`.** The audit trail answers "who did what to the bank", and it already records an approval as `questions.generated`. This answers a different question: **"why did the generator behave like that?"** Those are debugging and cost facts, not administrative ones — and a *failed* generation, which writes a row here, is not an administrative act at all.
+
+**`rejected` and `rejectedByReviewer` are both needed and they mean different things.** The first counts candidates that broke a rule; the second counts candidates that were perfectly valid and simply not worth keeping. The second is the far commoner failure, it is the honest measure of whether a prompt configuration works, and nothing else in the system would ever have noticed it — which is why `POST /admin/generate-questions/reject` exists despite having nothing to delete.
+
+**It stores counts and parameters, never question text.** Candidates are either approved (and then live in `Question`, with their own history) or discarded — and keeping rejected model output indefinitely would be storing unreviewed machine text for no reader.
+
+**No TTL**, for the reason `AuditLog` and `StudentActivity` have none: this is the evidence for "a model produced this, on this date, from this prompt configuration". A question in the bank can be traced back to the run that proposed it years later, which is exactly the question somebody will eventually ask about machine-written exam content.
 
 ---
 

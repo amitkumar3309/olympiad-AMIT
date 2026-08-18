@@ -401,6 +401,69 @@ Both now publish through **`displayNameFor()`**, so there is still exactly one p
 
 The **public verification** route (`GET /verify/:code`) still returns the full name, and correctly: it keys on 16 symbols of `crypto` randomness rather than on a walkable serial, so the caller is confirming a document they are holding.
 
+## AI question generation (Milestone 17, hardened in Milestone 20)
+
+The one place this product calls a language model. Five properties, all of them enforced in
+`services/questionGeneratorService.ts` or `services/geminiQuestionGenerator.ts` rather than in a
+route, so a second caller could not skip them.
+
+**The credential never leaves the backend.** `GEMINI_API_KEY` is read only through the typed
+`config` object, is sent to Google as the `x-goog-api-key` **header** rather than in a URL (a URL
+is the thing most likely to end up in a log line, an error message or a proxy's access log), and
+appears in no API response. It is not a frontend variable — the frontend reads no environment
+variables at all, and anything placed in the frontend Vercel project would be compiled into a
+public bundle.
+
+**Provider errors are surfaced verbatim, which is only safe because they are scrubbed.** An
+expired key, a spent quota, a blocked prompt and a retired model name need four different fixes
+and only Google knows which happened, so the message reaches the examiner unedited — after
+passing through `redact()`, which removes the API key from it. There is a test that fails if a
+key can appear in an error body. No stack trace and no infrastructure detail is ever returned;
+the route answers **502** (the provider failed) or **503** (no key configured, naming the
+variable), never 500 with internals.
+
+**No student data is sent.** The whole request is a subject name, chapter names, an optional
+subtopic name, a class level, a difficulty, the marks, question text already in the bank, and the
+examiner's own instruction. A test asserts the outgoing request body contains no student email,
+`AMIT_` identifier, mobile number or password hash. Adding a second AI call means answering the
+children's-privacy question again, from scratch, with the owner.
+
+**The examiner's instruction is untrusted input, and the prompt is ordered accordingly.** It is
+staff-authored, but it is still user-controlled text on its way into a prompt. Three things
+contain it: every constraint that matters (class, chapters, subtopic, type, count, language,
+marks, formatting rules, output shape) is stated as a **requirement before** the instruction is
+reached; the instruction is introduced as a *preference* that explicitly cannot override any of
+them; and the fence delimiter is **stripped out of the instruction text**, so it cannot close the
+quotation early and continue as though it were the system talking. A test asserts both the
+ordering and the fencing.
+
+Prompt injection is nonetheless treated as *unpreventable in principle* rather than solved: the
+real defence is that **nothing the model returns is trusted**. Every candidate passes
+`createQuestionSchema` — the same schema and the same `validateMathContent()` a hand-authored
+question passes, so a model cannot smuggle `\href`, HTML or a script tag into question text — the
+taxonomy is attached from the request rather than from the response, and **nothing is stored
+until a human approves it**. A successfully injected prompt can therefore produce a bad question
+for a reviewer to reject; it cannot produce a stored one, a misfiled one, or an XSS sink.
+
+**Cost is a security property here.** `POST /admin/generate-questions` is the only route whose
+every call spends third-party quota, so `generationLimiter` (`GENERATION_RATE_LIMIT_PER_HOUR`,
+default 60/hour/IP) is mounted **ahead of the permission check** — the cheapest rejection is the
+right one, and an unauthenticated flood should not reach the database read that authorization
+performs. `GENERATION_MAX_QUESTIONS` and `GENERATION_MAX_INSTRUCTION_CHARS` bound one request,
+enforced in the zod schema so the browser cannot exceed them. Retries are conservative and
+**ours, not the SDK's**: only 429/5xx/timeout, bounded by `GEMINI_MAX_RETRIES`, sharing one time
+budget so a retry can neither inherit a spent deadline nor outlive a serverless invocation. A
+rejected key or a retired model name is never retried — that would spend quota to receive the
+same refusal.
+
+**Provenance cannot be forged.** `Question.provenance` records which model wrote a question and
+who approved it, and every field is read back from the server's own `GenerationLog` row using the
+`logId` we issued — never from the request body. The one field worth lying about would be
+`source`, and a client cannot set it: it cannot claim a model it did not use, and it cannot file
+machine-written questions as hand-written ones.
+
+---
+
 ## Remaining Gaps, in priority order
 
 Items 1 and 5 of the previous list — CSRF and administrative rate limiting — were closed by the 2026-08-17 audit and now have sections of their own above.

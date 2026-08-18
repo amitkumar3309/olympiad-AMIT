@@ -43,6 +43,61 @@ export type QuestionStatus = (typeof QUESTION_STATUSES)[number];
 /** Statuses a student may ever see. Kept here so no route has to remember it. */
 export const STUDENT_VISIBLE_STATUSES: readonly QuestionStatus[] = ['published'];
 
+/**
+ * Who wrote a question — a person at a keyboard, or a model a person then approved.
+ *
+ * `human` is the default and covers every question created before Milestone 20 as well as
+ * every one typed into the editor, so the absence of a provenance block never has to be
+ * interpreted.
+ */
+export const QUESTION_SOURCES = ['human', 'ai_assisted'] as const;
+export type QuestionSource = (typeof QUESTION_SOURCES)[number];
+
+/**
+ * How an AI-drafted question came to exist (Milestone 20).
+ *
+ * ## Why this is stored on the question and not left to the logs
+ *
+ * `GenerationLog` records that a *batch* was asked for and `AuditLog` records that an
+ * approval happened, but neither can answer the question somebody will eventually ask
+ * about a specific row: **"was this one written by a model, which model, and who signed
+ * off on it?"** Answering that by joining a log against a timestamp is guesswork, and the
+ * question is not hypothetical for machine-written exam content.
+ *
+ * ## And why it is displayed
+ *
+ * A stored field nothing reads is the shape of thing Milestone 15 deleted. This one is
+ * read: the admin question view returns it and the question bank shows a badge naming the
+ * model and the reviewer, which is the point — the record exists so a human can see it,
+ * not so we can say we kept it.
+ *
+ * It holds **no credential** and no prompt text. The examiner's instruction is not stored
+ * here (`GenerationLog.hadInstructions` records only that there was one); a model name and
+ * a reviewer are facts about the row, and a prompt is a draft artefact.
+ */
+export interface QuestionProvenance {
+  source: QuestionSource;
+  /** The registered generator id, e.g. `gemini`. Null for a hand-written question. */
+  generatorId?: string | null;
+  /** `model` only when a real language model produced the text. A statement of fact. */
+  generatorKind?: string | null;
+  /** The exact model that wrote it, not the deployment's current default. */
+  modelName?: string | null;
+  /** The `GenerationLog` row this came from, so the batch is traceable. */
+  generationLog?: Types.ObjectId | null;
+  generatedAt?: Date | null;
+  /** Whether the reviewer changed the text before approving it. */
+  editedByReviewer?: boolean;
+  /**
+   * Who approved it. Distinct from `createdBy` in intent even when they are the same
+   * account: `createdBy` says who caused the row to exist, this says who took
+   * responsibility for its correctness.
+   */
+  reviewedBy?: Types.ObjectId | null;
+  reviewedByLabel?: string | null;
+  reviewedAt?: Date | null;
+}
+
 export interface QuestionOption {
   /**
    * Stable per-question identifier (`a`, `b`, `c`, ...). An answer is recorded
@@ -100,6 +155,11 @@ export interface QuestionDocument extends Document {
   updatedBy?: Types.ObjectId | null;
   updatedByLabel?: string | null;
   /**
+   * Who wrote it. Always present — `{ source: 'human' }` for anything typed in — so a
+   * reader never has to decide what a missing field means.
+   */
+  provenance: QuestionProvenance;
+  /**
    * When the question was last published. A **historical** record, not a
    * description of the current state — it is deliberately retained if the question
    * later returns to `draft`, because "this was visible to students at some point"
@@ -118,6 +178,22 @@ const optionSchema = new Schema<QuestionOption>(
     key: { type: String, required: true, trim: true, maxlength: 4 },
     text: { type: String, required: true, trim: true, maxlength: 2000 },
     isCorrect: { type: Boolean, required: true, default: false },
+  },
+  { _id: false },
+);
+
+const provenanceSchema = new Schema<QuestionProvenance>(
+  {
+    source: { type: String, enum: QUESTION_SOURCES, required: true, default: 'human' },
+    generatorId: { type: String, default: null },
+    generatorKind: { type: String, default: null },
+    modelName: { type: String, default: null },
+    generationLog: { type: Schema.Types.ObjectId, ref: 'GenerationLog', default: null },
+    generatedAt: { type: Date, default: null },
+    editedByReviewer: { type: Boolean, default: false },
+    reviewedBy: { type: Schema.Types.ObjectId, ref: 'Student', default: null },
+    reviewedByLabel: { type: String, default: null },
+    reviewedAt: { type: Date, default: null },
   },
   { _id: false },
 );
@@ -148,6 +224,7 @@ const questionSchema = new Schema<QuestionDocument>(
     updatedByLabel: { type: String, default: null },
     publishedAt: { type: Date, default: null },
     archivedAt: { type: Date, default: null },
+    provenance: { type: provenanceSchema, default: () => ({ source: 'human' }) },
   },
   { timestamps: true },
 );
@@ -159,5 +236,8 @@ questionSchema.index({ status: 1, createdAt: -1 });
 questionSchema.index({ subject: 1, topic: 1, status: 1 });
 questionSchema.index({ classLevel: 1, difficulty: 1, status: 1 });
 questionSchema.index({ tags: 1 });
+// "Show me everything a model drafted" is the question the provenance block exists to
+// answer, and the admin listing offers it as a filter.
+questionSchema.index({ 'provenance.source': 1, createdAt: -1 });
 
 export const Question = mongoose.model<QuestionDocument>('Question', questionSchema);

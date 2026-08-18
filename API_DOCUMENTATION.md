@@ -1,6 +1,6 @@
 # API_DOCUMENTATION.md
 
-_Last updated: 2026-08-17 (complete security audit — **no new routes**, but three cross-cutting changes below: a CSRF origin check on every state-changing method, masked names on the two public lookups, and three new rate limiters). Before that, Milestone 19 — payments: seven payment routes at the end of this file, plus `requireEntry` on four existing student routes, which now answer **402** for an unpaid entrant, and an `entitlements` object on every auth response). Before that, Milestone 17 — AI question drafting: `POST /admin/generate-questions` rewritten behind a generator seam, plus `GET /admin/question-generator`). Before that, Milestone 16 — intelligent performance recommendations: one new route, `GET /analytics/:studentId/recommendations`. Before that, Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes._
+_Last updated: 2026-08-18 (Milestone 20 — AI question generation rebuilt on the official `@google/genai` SDK: `POST /admin/generate-questions` gains `subtopic`, a rate limiter of its own and advisory `warnings`; two new routes, `.../validate` (a dry run that writes nothing) and `.../reject` (records what the examiner discarded); `.../approve` gains `subtopic` and stamps a `provenance` block recovered from the server's own generation log; and `GET /admin/questions` gains a `source` filter. Before that, the complete security audit — **no new routes**, but three cross-cutting changes below: a CSRF origin check on every state-changing method, masked names on the two public lookups, and three new rate limiters). Before that, Milestone 19 — payments: seven payment routes at the end of this file, plus `requireEntry` on four existing student routes, which now answer **402** for an unpaid entrant, and an `entitlements` object on every auth response). Before that, Milestone 17 — AI question drafting: `POST /admin/generate-questions` rewritten behind a generator seam, plus `GET /admin/question-generator`). Before that, Milestone 16 — intelligent performance recommendations: one new route, `GET /analytics/:studentId/recommendations`. Before that, Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes._
 
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
@@ -234,26 +234,84 @@ Two contracts a client must respect, both the same as the analytics endpoint: **
 
 ### `GET /api/v1/admin/question-generator` (Milestone 17)
 - **Permission**: `questions:write`.
-- **Response 200**: `{ success, generator, available, alternatives }`, where `generator` is `{ id, label, kind, basis }` and `kind` is `'template'` or `'model'`.
-- Exists so the admin page can state whether AI drafting is configured **before** the button is pressed. "Is this on?" should not be a question you answer by trying it, especially when the answer depends on an environment variable set on another website.
+- **Response 200**: `{ success, generator, available, bloomLevels, languages, providers }`, where `generator` is `{ id, label, kind, basis }` and `kind` is `'model'` — a statement of fact the UI prints, not a label.
+- Exists so the admin page can state whether AI drafting is configured **before** the button is pressed. "Is this on?" should not be a question you answer by trying it, especially when the answer depends on an environment variable set on another website. `bloomLevels` and `languages` come from here rather than being hardcoded in the page, so the form cannot offer a value the prompt does not understand.
+
+## AI question generation (Milestone 17, reworked in 18, rebuilt on the SDK in 20)
+
+Four routes, and only **one of them writes a question**. Generation returns candidates that live
+in the reviewer's browser; approval is a separate, explicit act. Every route requires
+`questions:write`, so no student can reach any of them, and the administrator is always taken
+from the token — no route accepts an actor id.
 
 ### `POST /api/v1/admin/generate-questions`
-- **Auth**: `requirePermission('questions:write')` (admin and super admin).
-- **Request**: `{ subject, topic, classLevel, difficulty?, count, instructions? }`. `subject` and `topic` are **ObjectIds of real taxonomy rows** (Milestone 4) — the bank does not accept a free-text subject, so the generator cannot invent classification nothing else knows about. `count` is 1–20. `instructions` (Milestone 17, ≤500 chars) is an optional steer for a model-backed generator and is ignored by the template one.
-- **Behaviour (rewritten in Milestone 17)**: resolves a generator from the registry in `services/questionGeneratorService.ts` and asks it for candidates. With `GEMINI_API_KEY` set that is **Google Gemini**; with no key it is the blank-template generator, which is the supported default and needs no credential, network or paid service.
+- **Auth**: `generationLimiter` → `requirePermission('questions:write')` → `validate` → `ensureDb`.
+- **Rate limited: `GENERATION_RATE_LIMIT_PER_HOUR` (default 60) per hour per IP.** The limiter is mounted **first**, ahead of the permission check, because this is the one route in the product where every call spends **third-party quota** — the cheapest possible rejection is the right one. It is deliberately *not* applied to the two `GET` routes above.
+- **Request**:
+  ```
+  {
+    subject,                 // ObjectId of a real Subject
+    chapters: [ObjectId],    // 1-6 top-level Topics. The FIRST is where questions are filed.
+    subtopic?,               // ObjectId of a subtopic OF chapters[0], or null    (M20)
+    classLevel,              // one of the ten class values
+    difficulty?,             // Easy | Medium | Hard          (default Medium)
+    questionType?,           // single_choice | multiple_choice | true_false | numeric | fill_blank
+    language?,               // English | Hindi | Hinglish     (default English)
+    bloomLevel?,             // Remember … Create, or null
+    count,                   // 1 … GENERATION_MAX_QUESTIONS (default max 20)
+    marks, negativeMarks,    // the paper's price — the model is not asked for these
+    optionCount?,            // 2-8, ignored by the types that carry no options
+    model?,                  // a specific Gemini model for this batch, or null for the default
+    instructions?,           // ≤ GENERATION_MAX_INSTRUCTION_CHARS (default 500)
+    exclude?                 // question text already on the review screen, so a regenerate
+  }                          //   does not repeat it (≤40 entries)
+  ```
+  `subject`, `chapters` and `subtopic` are **ObjectIds of real taxonomy rows** — the bank does not accept a free-text subject, so a generator cannot invent classification nothing else knows about. A `subtopic` that does not belong to `chapters[0]` is **400 before any provider call is made**.
+- **Behaviour**: resolves a generator from the registry in `services/questionGeneratorService.ts` and asks it for candidates. That is **Google Gemini through the official `@google/genai` SDK**, handed a `responseSchema` built for the requested question type — so a numeric question's schema has no `options` property at all, and the batch size and option count are pinned by `minItems`/`maxItems`.
 
-  Whatever produced them, **candidates are not trusted**:
+  **Nothing is written to the question bank.** The only thing persisted is a `GenerationLog` row recording parameters and counts (never question text), so a bad prompt is diagnosable later.
+
+  Candidates are not trusted:
   - The **taxonomy is attached from this request**, never from the generator — a `GeneratedCandidate` has no subject/topic/class/difficulty field to carry.
   - Every candidate is parsed by **`createQuestionSchema`**, the same schema a hand-authored question passes, including `validateMathContent()`. There is deliberately no model-specific validator.
+  - **Near-duplicates are refused** — against what is already in the bank for those chapters, and against the rest of the batch.
   - A failure is **rejected and reported with its reason**, never repaired.
-  - Everything stored is a **draft**, because `createQuestion()` has no other mode.
-  - A generator returning more than `count` is truncated to `count`.
-
-  If the generator is unavailable or throws (quota, timeout, unusable output), the **template generator runs instead** and the response says so with the provider's own error text.
-- **Response 201**: `{ success, message, generator: { id, label, kind, basis }, requested, rejected: [{ index, reason }], notes, questions: [{ id, questionText, type, status }] }`. `generator` is written by the service from the registry entry it actually invoked — a generator cannot describe itself.
-- **Side effect**: writes a `questions.generated` audit entry recording `generator` and `generatorKind` alongside `count`, `created` and `rejected`, so "was this question written by a machine?" stays answerable. `count` keeps its original name because the audit trail is append-only and has no TTL.
-- **Errors**: `400` (unknown subject/topic, or a topic from another subject), `401`/`403`, `429`, `503`, `500`.
+  - A generator returning more than `count` is truncated to `count`; `marks` and `negativeMarks` are overwritten with the request's values.
+- **Response 200**: `{ success, generator, model, questions, rejected, duplicates, batchWarnings, requested, logId }`.
+  - `questions[]` — each carries `clientId` (batch-local, **not** a database id), `topic`, `subtopic`, the content and answer key, and `warnings[]`.
+  - `warnings[]` / `batchWarnings[]` — **advisory** findings from `lib/questionQuality.ts` (`{ code, message }`): a figure reference, a solution that never reaches the stored answer, a tolerance loose enough to mark a wrong answer right, unstated rounding, equivalent options, a conspicuously long correct option, answer-position bias across the batch. These **never** caused a rejection and must not be presented as if they had. **Nothing here verifies the mathematics** — that is what the reviewer is for.
+  - `model` is the model actually called, not the configured default.
+- **No audit entry**, deliberately: nothing changed. The audit trail records the *approval*.
+- **Errors**: `400` (unknown or inconsistent taxonomy, `count` or `instructions` over the configured limit, a malformed `model` name), `401`/`403`, `429` (this route's own limiter, or Google's quota surfaced as 502 — see below), **`502`** when the provider fails (its own words, with the API key scrubbed out), **`503`** when no `GEMINI_API_KEY` is configured (the message names the variable), `500`.
+- **Retries**: only for a genuinely transient failure — 429, 5xx, a timeout — up to `GEMINI_MAX_RETRIES` (default 1) extra attempts, all sharing **one 60-second budget**. An expired key, a blocked prompt and a retired model name are never retried, because repeating them spends quota to receive the same refusal.
+- **Regenerating one question is this route** with `count: 1` and the on-screen texts in `exclude`. There is deliberately no `/regenerate` endpoint: it would be a second copy of the generation path, and the copy that quietly misses a validation step.
 - **Called by**: `AiGenerator.tsx`.
+
+### `POST /api/v1/admin/generate-questions/validate` (Milestone 20)
+- **Permission**: `questions:write`. **Not** rate limited, because it makes **no provider call**.
+- **Request**: `{ subject, topic, subtopic?, classLevel, difficulty, questions[] }` — the same candidate schema approval accepts, deliberately, so the answer is the answer approval will give rather than an approximation of it.
+- **Behaviour**: a **dry run**. Runs the same `screenCandidates()` approval runs — `createQuestionSchema` then near-duplicate detection against a fresh read of the bank — and **writes nothing at all**, not even a log row.
+- **Response 200**: `{ success, verdicts: [{ index, ok, reason, warnings }], batchWarnings, wouldSave }`. `verdicts` is positional against the `questions` array sent.
+- Exists because the examiner **edits** these questions, and an edit can break a rule — most often unticking the correct option and forgetting to tick another. Before this, the only way to find out was to press Approve and read which of twenty were refused, having already saved the rest.
+- **Errors**: `400`, `401`/`403`, `503`.
+
+### `POST /api/v1/admin/generate-questions/approve`
+- **Permission**: `questions:write`. **The only route that writes a question.**
+- **Request**: `{ subject, topic, subtopic?, classLevel, difficulty, publish?, logId?, questions[] }`. Each question carries the content, the answer key, `marks`, `negativeMarks`, `tags` and an optional `edited` flag. The taxonomy travels **once for the batch** — a reviewer approves a set filed in one place, and letting each row name its own subject would let the client scatter them. 1–20 questions.
+- **Re-validates every question from scratch.** What arrives is whatever the review screen sent, edits included, and an edited candidate is untrusted input exactly as the model's original was. Trusting it because the proposal validated would mean the schema was never really enforced.
+- **Provenance is recovered, not accepted.** Each saved question gets a `provenance` block naming the generator, the **exact model**, the generation-log row and the timestamp — read back from **our own `GenerationLog`** using the `logId` we issued, never from the request body. A client therefore cannot name a model it did not use, and cannot file machine-written questions as hand-written ones. `reviewedBy`/`reviewedByLabel` come from the token. An unknown or absent `logId` still saves, recording the honest minimum (`source: 'ai_assisted'` with no model).
+- **`publish: true`** runs each saved question through `changeQuestionStatus()` rather than writing the field, so the rule "a question needs a solution before it may be published" still applies. Anything that cannot be published stays a draft and is reported.
+- **Response 201**: `{ success, message, questions: [{ id, questionText, type, status }], rejected: [{ index, reason }], published, publishFailures }`. The message states what really happened, including how many were refused.
+- **Side effect**: a `questions.generated` audit entry recording `generator`, `generatorKind`, the taxonomy, `count`, `created`, `rejected` and `published`. `count` keeps its original name because the audit trail is append-only and has no TTL, so renaming a key splits every query over it. Also increments `GenerationLog.approved`, best-effort.
+- **Errors**: `400`, `401`/`403`, `503`, `500`.
+
+### `POST /api/v1/admin/generate-questions/reject` (Milestone 20)
+- **Permission**: `questions:write`.
+- **Request**: `{ logId, count }`.
+- **Behaviour**: increments `GenerationLog.rejectedByReviewer`. **Writes no question and deletes nothing** — nothing was ever stored, so discarding a candidate is genuinely just not approving it. The route exists because "the examiner kept two of twenty" is the only honest measure of whether a prompt configuration is producing usable questions, and it is invisible everywhere else in the system.
+- **Response 200**: `{ success, recorded }`.
+- **No audit entry**: the bank did not change.
+- **Errors**: `400`, `401`/`403`, `503`.
 
 ---
 
@@ -313,11 +371,11 @@ Both require **`taxonomy:write`** (admin and super admin; no student holds it). 
 All require **`questions:write`** except the delete, which requires **`questions:delete`**.
 
 #### `GET /api/v1/admin/questions`
-- **Query**: `page` (≥1), `limit` (1–100), `sort`, `order` (`asc`/`desc`), `search`, `status`, `subject`, `topic`, `subtopic`, `classLevel`, `difficulty`, `type`, `tag`.
+- **Query**: `page` (≥1), `limit` (1–100), `sort`, `order` (`asc`/`desc`), `search`, `status`, `subject`, `topic`, `subtopic`, `classLevel`, `difficulty`, `type`, `tag`, **`source`** (`human` | `ai_assisted`, Milestone 20 — who drafted it). `source` is on the admin listing only: it is an editorial question about the bank, and a student has no business filtering by it.
 - `sort` is constrained to an **allow-list** (`createdAt`, `updatedAt`, `marks`, `difficulty`, `classLevel`); anything else is 400. Passing the parameter through would let a caller sort by an unindexed field, which is a cheap way to make the database do expensive work.
 - `search` matches `questionText`, `tags` and `solution`, case-insensitively and **literally** — the term is regex-escaped, so `.*` matches nothing rather than everything (asserted by a test). It searches the LaTeX source, so an author can find `x^2-9`.
 - Filters combine as **AND**. `_id` is appended to every sort as a tiebreaker, so pagination is stable and no question can appear on two pages.
-- **Response 200**: `{ success, questions, pagination }` — the **author's** view, including `isCorrect`, `solution` and the answer fields. This is a separate function from the student view rather than one function with an `includeAnswers` flag, so the two cannot be confused at a call site.
+- **Response 200**: `{ success, questions, pagination }` — the **author's** view, including `isCorrect`, `solution` and the answer fields. This is a separate function from the student view rather than one function with an `includeAnswers` flag, so the two cannot be confused at a call site. It also carries **`provenance`** (Milestone 20): `{ source, generatorId, generatorKind, modelName, editedByReviewer, reviewedByLabel, reviewedAt, generatedAt }`. It is served because a stored field nothing reads is the shape of thing Milestone 15 deleted — the question bank prints a badge from it. It contains no credential and no prompt text.
 
 #### `GET /api/v1/admin/questions/:id`
 - **Response 200**: `{ success, question }` (author's view). `400` malformed id, `404` unknown.

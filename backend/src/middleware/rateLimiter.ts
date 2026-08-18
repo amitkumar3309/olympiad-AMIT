@@ -141,6 +141,31 @@ export const paymentLimiter = limiter({
 });
 
 /**
+ * Asking a language model for questions.
+ *
+ * The one route in the product where a single request costs **provider quota** — the same
+ * argument that put `paymentLimiter` in front of the Razorpay call, and stronger here,
+ * because generation is the expensive end of a metered free tier and a held-open review
+ * screen can fire a regeneration per question. Without this it sat behind the general
+ * `/api` limiter alone, which allows 300 requests in fifteen minutes: enough for one
+ * examiner leaning on the button to exhaust a day's quota before lunch.
+ *
+ * Configurable (`GENERATION_RATE_LIMIT_PER_HOUR`) rather than fixed, because the right
+ * number is a property of the deployment's quota rather than of the code. Generous by
+ * default: sixty covers a genuine authoring session of a dozen batches with individual
+ * regenerations, and still bounds the damage.
+ *
+ * Deliberately **not** applied to the status or model-list routes: the first makes no
+ * network call and runs on every page load, and the second is a cheap metadata read whose
+ * failure only costs the model picker.
+ */
+export const generationLimiter = limiter({
+  windowMs: HOUR,
+  limit: config.ai.generationsPerHour,
+  message: 'Too many generation requests. Please wait a while before asking for more questions.',
+});
+
+/**
  * Administrative acts on somebody else's account.
  *
  * These sat behind the general `/api` limiter alone, which was recorded as an open gap
