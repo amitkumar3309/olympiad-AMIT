@@ -11,6 +11,7 @@ import {
   resetImportParsers,
   IMPORT_HARD_MAX,
 } from '../src/services/questionImportService';
+import { BULK_CHAPTER_MAX } from '../src/validation/taxonomySchemas';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import { API, cookieHeader, createAdminSession, registerVerifyLogin, clearTestInbox } from './helpers/auth';
 import { createTaxonomy, createPublishedQuestion, type Taxonomy } from './helpers/questions';
@@ -565,6 +566,64 @@ describe('taxonomy resolution', () => {
       .set('Cookie', cookieHeader(cookies))
       .expect(200);
     expect(topics.body.topics.map((t: { name: string }) => t.name)).not.toContain('Astrophysics');
+  });
+
+  /**
+   * The refusal above is right, but on its own it was a dead end: a real NCERT Class 9 paper names
+   * ten chapters a Class-12-seeded bank has never heard of, and "create it under Chapters first"
+   * meant retyping all ten by hand into a one-field form — with the rejected rows unreachable from
+   * the review screen. So the *names* come back structurally as well as in the prose.
+   */
+  it('reports the distinct unknown chapter names so they can be acted on', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({
+      'questions.xlsx': {
+        candidates: [
+          candidate({ topicName: 'Number Systems', sourceRef: 'Row 2' }),
+          candidate({ topicName: 'Polynomials', sourceRef: 'Row 3', text: 'What is $3 + 3$?' }),
+          // The same chapter again, and in a different case: one entry, spelled as the file spelled it.
+          candidate({ topicName: 'number systems', sourceRef: 'Row 4', text: 'What is $4 + 4$?' }),
+          // A resolvable one, to prove the list is only the unknowns.
+          candidate({ topicName: 'Algebra', sourceRef: 'Row 5', text: 'What is $5 + 5$?' }),
+        ],
+        failures: [],
+        examined: 4,
+      },
+    });
+
+    const res = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy))
+      .expect(200);
+
+    expect(res.body.unknownChapters).toEqual(['Number Systems', 'Polynomials']);
+    // Still refused, and still not created — the list is an offer, not an action.
+    expect(res.body.rejected).toHaveLength(3);
+    const topics = await request(app)
+      .get(`${API}/topics?subject=${taxonomy.subjectId}`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+    expect(topics.body.topics.map((t: { name: string }) => t.name)).not.toContain('Number Systems');
+  });
+
+  it('reports no unknown chapters when every stated chapter resolves', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({
+      'questions.xlsx': {
+        candidates: [candidate({ topicName: 'Algebra' })],
+        failures: [],
+        examined: 1,
+      },
+    });
+
+    const res = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy))
+      .expect(200);
+
+    expect(res.body.unknownChapters).toEqual([]);
   });
 
   it('refuses a subtopic that belongs to a different chapter', async () => {
@@ -1349,3 +1408,160 @@ describe('previewImport() directly', () => {
     ).rejects.toThrow(/archived/i);
   });
 });
+
+// ===========================================================================
+// Creating the chapters a file named — the way out of the dead end
+// ===========================================================================
+
+describe('POST /admin/chapters/bulk', () => {
+  const BULK_URL = `${API}/admin/chapters/bulk`;
+
+  /**
+   * The whole loop, which is the point: a file naming chapters this bank has never heard of is
+   * refused, the examiner creates the named chapters in one action, and the identical file then
+   * imports cleanly. That is the journey a real NCERT Class 9 paper could not complete.
+   */
+  it('closes the loop: rejected for unknown chapters, created, then imports cleanly', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+
+    const paper = () =>
+      fakeExcelParser({
+        'class9.xlsx': {
+          candidates: [
+            candidate({ topicName: 'Number Systems', sourceRef: 'Row 2' }),
+            candidate({ topicName: "Heron's Formula", sourceRef: 'Row 3', text: 'What is $3 + 3$?' }),
+          ],
+          failures: [],
+          examined: 2,
+        },
+      });
+
+    paper();
+    const before = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { files: [xlsxFile('class9.xlsx')] }))
+      .expect(200);
+
+    expect(before.body.questions).toHaveLength(0);
+    expect(before.body.unknownChapters).toEqual(['Number Systems', "Heron's Formula"]);
+
+    const made = await request(app)
+      .post(BULK_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ names: before.body.unknownChapters })
+      .expect(200);
+
+    expect(made.body.created.map((entry: { name: string }) => entry.name)).toEqual([
+      'Number Systems',
+      "Heron's Formula",
+    ]);
+    expect(made.body.failed).toEqual([]);
+
+    paper();
+    const after = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { files: [xlsxFile('class9.xlsx')] }))
+      .expect(200);
+
+    expect(after.body.questions).toHaveLength(2);
+    expect(after.body.unknownChapters).toEqual([]);
+    expect(after.body.rejected).toEqual([]);
+  });
+
+  it('files the new chapters under the implicit subject, at the top level', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+
+    await request(app)
+      .post(BULK_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ names: ['Quadrilaterals'] })
+      .expect(200);
+
+    const topics = await request(app)
+      .get(`${API}/topics?subject=${taxonomy.subjectId}&parent=root`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+
+    const made = topics.body.topics.find((t: { name: string }) => t.name === 'Quadrilaterals');
+    expect(made).toBeTruthy();
+    expect(made.parent).toBeNull();
+    expect(made.subject).toBe(taxonomy.subjectId);
+  });
+
+  /**
+   * Two examiners importing overlapping papers is ordinary, and the caller's intent is "make sure
+   * these exist" — so an existing name is reported rather than failed. Partial success answers 200
+   * with per-name results, the same shape `changeQuestionStatusBulk()` uses.
+   */
+  it('reports an existing chapter as existing rather than failing the batch', async () => {
+    const { cookies } = await adminSetup();
+
+    const res = await request(app)
+      .post(BULK_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ names: ['Algebra', 'Circles'] })
+      .expect(200);
+
+    expect(res.body.existing).toEqual(['Algebra']);
+    expect(res.body.created.map((entry: { name: string }) => entry.name)).toEqual(['Circles']);
+    expect(res.body.failed).toEqual([]);
+  });
+
+  it('does not create the same chapter twice when called twice', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+
+    for (let i = 0; i < 2; i += 1) {
+      await request(app)
+        .post(BULK_URL)
+        .set('Cookie', cookieHeader(cookies))
+        .send({ names: ['Statistics'] })
+        .expect(200);
+    }
+
+    const topics = await request(app)
+      .get(`${API}/topics?subject=${taxonomy.subjectId}&parent=root`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+
+    const matches = topics.body.topics.filter((t: { name: string }) => t.name === 'Statistics');
+    expect(matches).toHaveLength(1);
+  });
+
+  it('refuses an empty list and a batch over the ceiling', async () => {
+    const { cookies } = await adminSetup();
+
+    const empty = await request(app)
+      .post(BULK_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ names: [] });
+    expect(empty.status).toBe(400);
+    expect(empty.status).not.toBe(500);
+
+    const tooMany = await request(app)
+      .post(BULK_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ names: Array.from({ length: BULK_CHAPTER_MAX + 1 }, (_, i) => `Chapter ${i}`) });
+    expect(tooMany.status).toBe(400);
+    expect(tooMany.status).not.toBe(500);
+  });
+
+  it('refuses a student, and on both URL prefixes', async () => {
+    const { cookies } = await registerVerifyLogin(app);
+
+    for (const prefix of [API, ALIAS]) {
+      const res = await request(app)
+        .post(`${prefix}/admin/chapters/bulk`)
+        .set('Cookie', cookieHeader(cookies))
+        .send({ names: ['Circles'] });
+      expect(res.status).toBe(403);
+      expect(res.status).not.toBe(201);
+    }
+  });
+
+  it('refuses a guest', async () => {
+    await request(app).post(BULK_URL).send({ names: ['Circles'] }).expect(401);
+  });
+});
+

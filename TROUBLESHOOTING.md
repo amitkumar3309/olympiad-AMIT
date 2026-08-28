@@ -4,6 +4,36 @@ Log real problems + solutions here as they're encountered, so we don't re-solve 
 
 ---
 
+## "There is no chapter called X" on every row of a bulk import
+
+**Cause**: the file names chapters this bank does not have. Almost always the bank was seeded for
+one class (this project’s seed is Class 12) and the file is for another — a Class 9 paper names
+`Number Systems`, `Polynomials`, `Heron's Formula` and so on, none of which exist yet.
+
+Chapters are **not class-scoped** (`Topic` has no `classLevel`), so there is one flat chapter list
+per subject and a new class needs its chapters adding once.
+
+**Fix**: the preview now lists the distinct missing names in their own box with a **"Create N
+chapters and re-read the file"** button. Check the spelling in that list first — a chapter created
+by mistake becomes a real one that starts collecting questions — then click it. The upload is read
+again automatically and those rows resolve.
+
+Anything misspelled should be corrected **in the spreadsheet**, not created. You can also add
+chapters by hand under **Chapters**.
+
+**Not a bug**: the refusal itself is deliberate. An importer never creates taxonomy, because one
+bad spreadsheet must not be able to reshape the syllabus — see the ADR. What was wrong was only
+that the refusal gave no way forward.
+
+### Rows are refused with an unknown chapter even though a chapter is selected above
+
+**Expected.** The precedence is: what the **file** says, then detection, then your fallback. A
+`Topic` column that names something unresolvable is an error, not something to fall back around —
+the fallback only fills a genuine silence. Blank the `Topic` cells to use your selection, or
+create the chapters the file names.
+
+---
+
 ## Physics chapters, or another subject’s questions, appearing in a mathematics olympiad
 
 ### A chapter picker lists chapters nobody recognises

@@ -72,6 +72,27 @@ export const createTopicSchema = z.object({
 });
 export type CreateTopicInput = z.infer<typeof createTopicSchema>;
 
+/**
+ * Several chapters at once, by name, under the one implicit subject.
+ *
+ * The subject is **not** accepted: there is no user-facing subject in this product, and the server
+ * resolves the implicit one. Names only — a bulk create is for a flat list of chapters, never
+ * subtopics, because a subtopic needs a parent chosen deliberately per item.
+ *
+ * `BULK_CHAPTER_MAX` is a real syllabus's worth. It is a ceiling in code, not only in configuration,
+ * because the whole safety story here is that an examiner *reads the list first* — and a list nobody
+ * can read is not a review.
+ */
+export const BULK_CHAPTER_MAX = 60;
+
+export const createChaptersSchema = z.object({
+  names: z
+    .array(taxonomyName('Chapter name', 120))
+    .min(1, 'Name at least one chapter')
+    .max(BULK_CHAPTER_MAX, `Create at most ${BULK_CHAPTER_MAX} chapters at a time`),
+});
+export type CreateChaptersInput = z.infer<typeof createChaptersSchema>;
+
 export const updateTopicSchema = z
   .object({
     name: taxonomyName('Topic name', 120).optional(),

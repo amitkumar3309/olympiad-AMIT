@@ -4,6 +4,34 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-28 — An importer still never creates chapters; the review screen offers to
+
+**Decision**: `previewImport()` returns `unknownChapters` — the distinct chapter names a file
+stated that the bank does not have — and the review screen offers to create them in one action via
+`POST /admin/chapters/bulk`. The import path itself is **unchanged**: a stated chapter that does
+not resolve is still an error against that row, and no parser or import ever writes a `Topic`.
+
+**Reason**: the rule was right and the outcome was unusable. A bank seeded with Class 12 chapters
+refuses every row of a real NCERT Class 9 paper, and "create it under Chapters first" asked the
+examiner to retype ten names exactly into a one-field form — while the rejected rows never reach
+the review screen where the chapter dropdown lives. The feature was correct and unusable at the
+same time, which is the case worth designing for.
+
+**Why it does not weaken the rule**: the safety property is *not* that creating a chapter is
+laborious. It is that **an examiner reads an explicit list of what will be created before anything
+is created**. Preview writes nothing, the names are listed verbatim above the button, and reading
+"Polynomails" among ten is what catches it. Retyping it catches nothing — it just re-enters the
+typo. Keeping creation inside the importer, keyed off a row, is the thing that stays forbidden:
+that is what would let one spreadsheet reshape the syllabus unread.
+
+**Consequences**: the re-run is a **fresh preview**, not a patch — the previously rejected rows go
+back through the same resolution, screening and duplicate detection, so the second answer is the
+one approval will act on. The route lives in `taxonomy.routes.ts` under `taxonomy:write`, not in
+the import router, because it creates chapters and is not an import step; the importer merely
+names them. Subtopics are not creatable in bulk — a parent has to be chosen per item.
+
+---
+
 ## 2026-08-28 — Every student-facing question path is scoped to the implicit subject
 
 **Decision**: `getPracticeAvailability()`, `startPracticeSession()`, `pickAutomaticQuestion()` and

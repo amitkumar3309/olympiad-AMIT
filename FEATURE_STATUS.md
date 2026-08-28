@@ -180,6 +180,22 @@ These are backend capabilities, not user-facing features. `TESTED` here means co
 | Auth state restoration | IMPLEMENTED | NOT_STARTED | `AuthContext` tries `/auth/me`, then one `/auth/refresh`, before concluding "guest". Verified by a real browser reload, not by automated test. |
 | Transparent token refresh (frontend) | IMPLEMENTED | NOT_STARTED | `api/client.ts` retries once after a 401, de-duplicating concurrent refreshes through a shared promise so rotation cannot trip theft detection. Verified manually. |
 
+## Bulk import: naming a chapter the bank does not have — RESOLVABLE IN ONE ACTION
+
+Chapters are **not class-scoped** (`Topic` has no `classLevel`), so there is one flat chapter list per
+subject and each new class needs its chapters adding once. A bank seeded for Class 12 therefore
+refuses every row of a Class 9 paper.
+
+| Behaviour | State |
+| --- | --- |
+| A row naming an unresolvable chapter | Refused, with its row number — unchanged |
+| An importer creating a `Topic` itself | Never, by design |
+| The distinct missing names | Returned as `ImportPreview.unknownChapters` |
+| Fixing them | One button on the review screen, then the file is re-read |
+| Creating them | `POST /admin/chapters/bulk` (`taxonomy:write`), top-level only, 1–60 names |
+| Partial success | 200 with `created` / `existing` / `failed` per name |
+| Spelling protection | The examiner reads the verbatim list before the button |
+
 ## Mathematics-only scope (Milestone 21, Phases J and L) — ENFORCED, not just hidden
 
 Phase J removed every user-facing Subject control. Phase L found that removing the *control* had

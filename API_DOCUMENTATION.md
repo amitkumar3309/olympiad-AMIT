@@ -893,6 +893,15 @@ No routes exist for: exam attempt submission, published results, certificate iss
 
 All six routes are gated on `requireAuth()` and resolve the caller's own account from the token's `sub`. **No route accepts a student id**, and every session lookup puts `student` in the query rather than checking ownership afterwards — so another student's session is indistinguishable from one that does not exist (404, never 403, asserted by test).
 
+### `POST /api/v1/admin/chapters/bulk`
+Creates several chapters at once, by name, under the implicit subject. Body: `names` (1–60). Requires `taxonomy:write`.
+
+Exists because a bulk import **refuses** any row naming a chapter the bank does not have — an importer never creates taxonomy, so one bad spreadsheet cannot reshape the syllabus — and the preview's `unknownChapters` list is what makes that fixable in one action instead of ten by hand. The safety property is that the examiner reads the list first, which the review screen shows verbatim; this route is only reached by a deliberate action on it.
+
+Answers **200 with per-name results** (`created`, `existing`, `failed`), never a 400 for a partial failure — the same shape as `PATCH /admin/questions/bulk-status`, and for the same reason. A name that already exists is `existing`, not `failed`: two examiners importing overlapping papers is ordinary. It loops `createTopic()` rather than using `insertMany`, so the taxonomy rules are not skipped and one bad name fails alone.
+
+**Top-level chapters only.** Subtopics are not creatable this way, because a subtopic needs a parent chosen deliberately per item. The subject is never accepted — there is no user-facing subject, and the server resolves the implicit one.
+
 ### `GET /api/v1/practice/options`
 Real availability for the caller's class: subjects → topics with per-topic question counts and only the difficulties that actually exist. An empty bank returns `{ subjects: [] }`; an account with no class returns `reason: 'no-class'`. The picker is built from this, so a combination with nothing behind it can never be selected.
 
@@ -1284,10 +1293,19 @@ Response `200`:
   "failures":   [{ "sourceRef": "paper.xlsx — Row 45", "reason": "No question text in column A." }],
   "batchWarnings": [],
   "files": [{ "name": "class8-algebra.xlsx", "size": 20481, "examined": 20, "extracted": 18, "failed": 2, "error": null }],
+  "unknownChapters": ["Number Systems", "Heron's Formula"],
   "examined": 20,
   "truncated": false
 }
 ```
+
+**`unknownChapters`** is the distinct set of chapter names the file *stated* that this bank does not
+have — deduplicated case-insensitively, spelled as the file spelled them, because that is the string an
+examiner has to recognise as right or wrong. Those rows are in `rejected` as before and are **not**
+imported: an importer never creates taxonomy. The list exists so the review screen can offer
+[`POST /admin/chapters/bulk`](#post-apiv1adminchaptersbulk) and re-run the upload, which is what turns
+"there is no chapter called X" from a dead end into one click. Chapters are **not class-scoped**, so a
+bank seeded for one class refuses every row of another class's paper — the ordinary case this serves.
 
 Four different failure lists, because they need four different fixes: `rejected` failed validation or
 could not be placed in the taxonomy, `duplicates` are too close to the batch or the bank, `failures` are

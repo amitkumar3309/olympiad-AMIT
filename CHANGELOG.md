@@ -2,6 +2,83 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-28 — A file may name chapters that do not exist yet, and say so usefully
+
+Reported by the owner: a real **NCERT Class 9** paper was rejected row for row —
+
+```
+Row 2: There is no chapter called "Number Systems". Create it under Chapters first…
+Row 3: There is no chapter called "Polynomials". Create it under Chapters first…
+… ten of these
+```
+
+Nothing was wrong with the parsing, the file or the refusal. The bank was seeded with **Class 12**
+chapters only, so none of a Class 9 syllabus resolved — and the advice ("create it under Chapters
+first") meant retyping ten names by hand, spelled exactly, into a one-field form, with the
+rejected rows unreachable from the review screen where the chapter dropdown lives. Correct
+behaviour, dead end.
+
+### The refusal stays; the names became actionable
+
+An importer still **never creates taxonomy** — one bad spreadsheet must not be able to reshape the
+syllabus, and a typo must not quietly become a real chapter that starts collecting questions. What
+changed is that the chapter names come back **structurally** as well as inside the prose, so the
+review screen can group them:
+
+- `ImportPreview.unknownChapters` — the distinct names, deduplicated case-insensitively and
+  spelled as the file spelled them, because that is the string an examiner has to recognise as
+  right or wrong. The rows stay refused.
+- The preview page shows them in their own box **above** the rejection lists, with the spelling
+  warning, and one button: *Create N chapters and re-read the file*.
+- `POST /api/v1/admin/chapters/bulk` creates them under the implicit subject at the top level.
+  Then the same upload is re-run — a **fresh preview**, not a patch of the old one, so those rows
+  go back through the same resolution, screening and duplicate checks as everything else.
+
+### Why this is not a hole in the rule
+
+The control was never "typing ten names is tedious enough to deter a mistake". It is that **the
+examiner reads an explicit list of what will be created before anything is created**. That is
+preserved exactly: the upload wrote nothing, the names are listed verbatim, and reading
+"Polynomails" in a list of ten is what catches it — retyping it is not. The copy says so, and
+points at fixing the spreadsheet rather than the taxonomy.
+
+### Partial success is the normal outcome
+
+Per-name results and **200**, never a 400 — the same shape and reasoning as
+`changeQuestionStatusBulk()`. A loop over `createTopic()`, not an `insertMany`, so its rules are
+not skipped and one bad name fails alone instead of taking the other nine with it. A name that
+already exists is reported as `existing` rather than failed: two examiners importing overlapping
+papers is ordinary, and the caller’s intent ("make sure these exist") is met either way. Subtopics
+are deliberately **not** creatable this way — a subtopic needs a parent chosen per item.
+
+`BULK_CHAPTER_MAX` is 60, a real syllabus’s worth, and a ceiling in code rather than only in
+configuration: a list nobody can read is not a review.
+
+### Caught by the code review it should have been
+
+The preview route lists its response fields one by one, with a comment saying a field added to the
+outcome must not be published to the client without a thought. Adding `unknownChapters` to the
+service and forgetting the route made three new tests fail on `undefined` — which is the friction
+working as designed.
+
+### Tests
+
+Nine, the important one being the **whole loop**: a file naming unknown chapters is refused with
+zero usable questions, the names are created in one call, and the identical file then yields two
+questions with nothing rejected. Plus deduplication across case, that a resolvable chapter is not
+listed, that new chapters are top-level and under the implicit subject, that an existing name is
+`existing` and not `failed`, that calling twice does not duplicate, the empty and over-ceiling
+400s, and authorization on **both** URL prefixes.
+
+Verified in a browser with a ten-row NCERT Class 9 workbook: nine distinct chapters listed → one
+click → **10 examined, 10 usable, 0 invalid, 0 duplicates** → *"Saved 10 questions as drafts"*,
+each in its own correct chapter with `source: excel_import`, both `Polynomials` rows sharing one
+chapter.
+
+**1138 tests across 31 files.**
+
+---
+
 ## 2026-08-28 — Milestone 21, Phase L: the regression pass, and what it found
 
 Phase L was meant to be "run everything and confirm it is green". The backend suite was already

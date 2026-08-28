@@ -19,6 +19,7 @@ import {
   type ImportValidation,
   type ImportVerdict,
   type ImportWarning,
+  type CreateChaptersResult,
   type ImportedQuestion,
   type QuestionType,
   type Topic,
@@ -62,7 +63,7 @@ interface EditableQuestion extends ImportedQuestion {
   edited: boolean
 }
 
-type Busy = 'upload' | 'check' | 'approve' | 'template' | null
+type Busy = 'upload' | 'check' | 'approve' | 'template' | 'chapters' | null
 
 const KIND_LABELS: Record<ImportFileKind, string> = {
   excel: 'Excel',
@@ -251,6 +252,19 @@ export default function QuestionImport() {
 
   async function upload(event: FormEvent) {
     event.preventDefault()
+    await runUpload()
+  }
+
+  /**
+   * The upload itself, separated from the form event so it can be re-run programmatically.
+   *
+   * `createMissingChapters()` re-runs it: the chosen files are still in state, so once the named
+   * chapters exist the identical upload resolves them. That is deliberately a *fresh preview* rather
+   * than a patch of the existing one — the rejected rows have to go back through the same
+   * resolution, screening and duplicate check as everything else, and re-deriving is the only way
+   * to be sure the second answer is the one approval will act on.
+   */
+  async function runUpload() {
     if (files.length === 0) return
 
     setBusy('upload')
@@ -279,6 +293,52 @@ export default function QuestionImport() {
       setError(err instanceof ApiError ? err.message : 'That upload could not be read.')
       setPreview(null)
       setBatch(null)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
+   * Creates the chapters this file named that the bank does not have, then re-runs the upload.
+   *
+   * ## Why the importer does not just do this itself
+   *
+   * Because one bad spreadsheet must not be able to reshape the syllabus. A parser reports the
+   * chapter *names* it read and the server resolves them; a name that resolves to nothing is an
+   * error against that row, never a `Topic` that quietly appears. A typo would otherwise enter the
+   * taxonomy as a real chapter and start collecting questions.
+   *
+   * ## Why this is nonetheless safe
+   *
+   * The control was never "typing ten names is hard enough to deter a mistake" — it is that the
+   * examiner **reads an explicit list of what will be created before anything is**. That is exactly
+   * what this does: the upload wrote nothing, the distinct names are listed verbatim above this
+   * button, and reading "Polynomails" in a list of ten is what catches it. Retyping it does not.
+   */
+  async function createMissingChapters() {
+    const names = preview?.unknownChapters ?? []
+    if (names.length === 0) return
+
+    setBusy('chapters')
+    setError(null)
+    try {
+      const result = await api.post<CreateChaptersResult>('/admin/chapters/bulk', { names })
+
+      // Reported rather than swallowed: a name the taxonomy refused is one the re-run will refuse
+      // too, and the examiner needs to know which before wondering why rows are still rejected.
+      if (result.failed.length > 0) {
+        setError(
+          `${result.failed.length} chapter${result.failed.length === 1 ? '' : 's'} could not be created: ` +
+            result.failed.map((entry) => `"${entry.name}" — ${entry.reason}`).join('; '),
+        )
+      }
+
+      // The chapter dropdown on this page is now out of date, and so is the preview.
+      const chapters = await loadChapters()
+      setTopics(chapters)
+      await runUpload()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Those chapters could not be created.')
     } finally {
       setBusy(null)
     }
@@ -833,6 +893,35 @@ export default function QuestionImport() {
             <summary>
               {problemCount} item{problemCount === 1 ? '' : 's'} did not become a question
             </summary>
+            {preview.unknownChapters.length > 0 && (
+              <div className={styles.missingChapters}>
+                <h4>
+                  {preview.unknownChapters.length} chapter
+                  {preview.unknownChapters.length === 1 ? '' : 's'} named in your file
+                  {preview.unknownChapters.length === 1 ? ' does' : ' do'} not exist yet
+                </h4>
+                <p className={styles.missingHint}>
+                  The rows naming {preview.unknownChapters.length === 1 ? 'it' : 'them'} were refused — a file is never
+                  allowed to add to the syllabus on its own. <strong>Check the spelling below</strong>, then create them
+                  in one step and this upload will be read again.
+                </p>
+                <ul className={styles.missingList}>
+                  {preview.unknownChapters.map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
+                <Button type="button" onClick={createMissingChapters} disabled={busy !== null}>
+                  {busy === 'chapters'
+                    ? 'Creating…'
+                    : `Create ${preview.unknownChapters.length} chapter${preview.unknownChapters.length === 1 ? '' : 's'} and re-read the file`}
+                </Button>
+                <p className={styles.missingHint}>
+                  Anything spelled wrong here should be fixed in the spreadsheet instead — a chapter created by mistake
+                  becomes a real one that starts collecting questions. You can also add chapters yourself under{' '}
+                  <Link to="/admin/taxonomy">Chapters</Link>.
+                </p>
+              </div>
+            )}
             {preview.failures.length > 0 && (
               <>
                 <h4>Could not be read</h4>

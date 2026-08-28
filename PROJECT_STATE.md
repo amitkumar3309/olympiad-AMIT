@@ -271,7 +271,25 @@ and reveals the key only after submission; and the review page grades correctly.
 > unpublished or moved — and **refuses** if no subject is named for mathematics rather than
 > archiving them all. Verified locally: 2 active → 1 archived, 208 questions untouched.
 
-**Suite: 1129 passing across 31 files.**
+**Owner-reported fix (2026-08-28): a bulk import may now name chapters that do not exist yet.**
+
+A real NCERT Class 9 workbook was refused row for row — the bank is seeded with **Class 12** chapters
+and `Topic` is **not class-scoped**, so none of a Class 9 syllabus resolved. The refusal was correct
+(an importer never creates taxonomy) but the advice, "create it under Chapters first", meant retyping
+ten names exactly into a one-field form, with the rejected rows unreachable from the review screen.
+
+The refusal is unchanged. What changed is that `previewImport()` now also returns
+**`unknownChapters`** — the distinct names, spelled as the file spelled them — and the review screen
+shows them in their own box with one button, *Create N chapters and re-read the file*, backed by
+`POST /api/v1/admin/chapters/bulk`. The re-run is a **fresh preview**, so those rows go through the
+same screening as everything else.
+
+The safety property is preserved because it was never "typing is laborious": it is that the examiner
+**reads an explicit list of what will be created before anything is**. Verified in a browser with a
+ten-row Class 9 workbook — nine distinct chapters listed, one click, 10 examined / 10 usable / 0
+invalid, "Saved 10 questions as drafts", each in its correct chapter.
+
+**Suite: 1138 passing across 31 files.**
 
 **Latest verified state: 1121 passing across 31 files.** `npm run lint`, `npm run compile` and the
 frontend `tsc -b` + `npm run build` are clean. (The one `npm run typecheck` failure is a concurrent

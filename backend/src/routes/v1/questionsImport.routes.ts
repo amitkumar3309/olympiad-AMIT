@@ -185,6 +185,9 @@ function previewHandler(kind: ImportFileKind) {
         failures: outcome.failures,
         batchWarnings: outcome.batchWarnings,
         files: outcome.files,
+        // The distinct chapter names the file stated that this bank does not have. Published so the
+        // review screen can offer to create them in one action — the rows stay refused either way.
+        unknownChapters: outcome.unknownChapters,
         examined: outcome.examined,
         truncated: outcome.truncated,
       });

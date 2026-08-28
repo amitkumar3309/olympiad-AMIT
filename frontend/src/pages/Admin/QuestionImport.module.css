@@ -238,6 +238,44 @@
   line-height: 1.7;
 }
 
+/*
+ * The missing-chapter offer.
+ *
+ * Given its own box, above the plain rejection lists, because it is the one refusal on this screen
+ * an examiner can act on — and because the names have to be *read* before the button is pressed.
+ * A flat bullet in a list of ten identical "there is no chapter called X" messages is exactly what
+ * made this feature look broken rather than answerable.
+ */
+.missingChapters {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--warning, #f59e0b);
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.missingChapters h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: var(--text-strong, inherit);
+}
+
+.missingHint {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.missingList {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.8;
+  font-weight: 600;
+}
+
 .warnBox {
   border-color: var(--warning, #f59e0b);
   background: rgba(245, 158, 11, 0.08);

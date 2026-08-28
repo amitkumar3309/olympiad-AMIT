@@ -254,7 +254,7 @@ function resolvePlacement(
   defaultTopic: Types.ObjectId | null,
   index: TopicIndex,
   notes: string[],
-): { placement: ResolvedPlacement } | { reason: string } {
+): { placement: ResolvedPlacement } | { reason: string; unknownChapter?: string } {
   const hint = candidate.taxonomy;
 
   let classLevel = defaults.classLevel;
@@ -294,8 +294,22 @@ function resolvePlacement(
   if (hint.topicName !== null) {
     const found = index.chapters.get(hint.topicName.trim().toLowerCase());
     if (!found) {
+      /**
+       * Refused, and the name is handed back **structurally** as well as in the prose.
+       *
+       * The refusal itself is right and stays: an importer never creates taxonomy, because one bad
+       * spreadsheet must not be able to reshape the syllabus. But "create it under Chapters first"
+       * was a dead end in practice — a real NCERT Class 9 paper names ten chapters this bank has
+       * never heard of, and the examiner was being asked to retype all ten by hand, spelled exactly,
+       * into a one-field form, with the rejected rows unreachable from the review screen.
+       *
+       * So the *names* travel back separately from the message. The review screen groups them and
+       * offers to create them in one action, which keeps the examiner reading an explicit list —
+       * which is what catches "Polynomails" — while removing the transcription.
+       */
       return {
         reason: `There is no chapter called "${hint.topicName}". Create it under Chapters first, or correct the spelling.`,
+        unknownChapter: hint.topicName.trim(),
       };
     }
     topic = found;
@@ -422,6 +436,16 @@ export interface PreviewOutcome {
   batchWarnings: QualityWarning[];
   /** Per-file totals, so one unreadable photograph is visibly one failure and not ten. */
   files: ImportFileOutcome[];
+  /**
+   * Chapter names the file stated that do not exist in the bank, deduplicated and spelled as the
+   * file spelled them.
+   *
+   * Separate from `rejected` on purpose. Those rows are genuinely refused and stay refused — an
+   * importer never creates taxonomy — but "there is no chapter called X" is the one rejection an
+   * examiner can act on in bulk, and reading the distinct list is what catches a typo before ten
+   * misspelled chapters enter the syllabus.
+   */
+  unknownChapters: string[];
   examined: number;
   /** True when the upload held more than `importCeiling()` and the tail was not read. */
   truncated: boolean;
@@ -535,6 +559,8 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
   // ---- Placement, then the one shared screener -----------------------------
 
   const rejected: RejectedCandidate[] = [];
+  /** Chapter names the file stated that this bank has never heard of. Keyed lowercase, valued as written. */
+  const unknownChapters = new Map<string, string>();
   const placeable: Array<{ candidate: ImportedCandidate; placement: ResolvedPlacement }> = [];
 
   for (const [position, candidate] of candidates.entries()) {
@@ -546,6 +572,12 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
     const resolution = resolvePlacement(candidate, defaults, topic, index, notes);
     if ('reason' in resolution) {
       rejected.push({ index: position + 1, reason: `${candidate.sourceRef}: ${resolution.reason}` });
+      // Deduped case-insensitively but reported as the file spelled it, because that is the string
+      // the examiner has to recognise as right or wrong.
+      if (resolution.unknownChapter) {
+        const key = resolution.unknownChapter.toLowerCase();
+        if (!unknownChapters.has(key)) unknownChapters.set(key, resolution.unknownChapter);
+      }
       continue;
     }
     placeable.push({ candidate: { ...candidate, notes }, placement: resolution.placement });
@@ -629,6 +661,7 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
     failures,
     batchWarnings,
     files: fileOutcomes,
+    unknownChapters: [...unknownChapters.values()],
     examined,
     truncated,
   };

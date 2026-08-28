@@ -2302,8 +2302,22 @@ export interface ImportPreview {
   failures: ImportFailure[]
   batchWarnings: ImportWarning[]
   files: ImportFileOutcome[]
+  /**
+   * Chapter names the file stated that the bank does not have, deduplicated and spelled as the file
+   * spelled them. The rows naming them are refused; this list is what makes that fixable in one
+   * action instead of ten by hand.
+   */
+  unknownChapters: string[]
   examined: number
   truncated: boolean
+}
+
+/** What `POST /admin/chapters/bulk` did, per name. Partial success is normal and answers 200. */
+export interface CreateChaptersResult {
+  created: Array<{ name: string; id: string }>
+  /** Already present, so nothing was done — not a failure. */
+  existing: string[]
+  failed: Array<{ name: string; reason: string }>
 }
 
 /** The dry run's answer for one question. */
