@@ -2312,3 +2312,45 @@ export interface ImportValidation {
   batchWarnings: ImportWarning[]
   wouldSave: number
 }
+
+// ---------------------------------------------------------------------------
+// Bulk actions on the question bank (Milestone 21, Phase G)
+// ---------------------------------------------------------------------------
+
+/** What happened to one question in a bulk status change. */
+export interface BulkStatusResult {
+  id: string
+  /** A short label, so a report can name the question rather than just its id. */
+  label: string
+  ok: boolean
+  reason: string | null
+}
+
+/**
+ * A **partial success is the normal outcome**, which is why this reports per question rather than
+ * throwing: publishing twenty questions where one has no solution should publish nineteen and say
+ * which one it refused.
+ */
+export interface BulkStatusOutcome {
+  changed: number
+  requested: number
+  results: BulkStatusResult[]
+}
+
+/**
+ * What a student of one class would currently find in the practice picker.
+ *
+ * Counts and names only — no question text and no answer key. Derived by the **same**
+ * `getPracticeAvailability()` the student route uses, so the preview cannot disagree with the
+ * picker it is previewing.
+ */
+export interface PracticeAvailability {
+  classLevel: ClassLevel
+  topics: Array<{
+    topicId: string
+    topicName: string
+    questionCount: number
+    difficulties: Difficulty[]
+  }>
+  totalQuestions: number
+}

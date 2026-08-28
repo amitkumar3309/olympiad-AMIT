@@ -2,6 +2,56 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-23 — Milestone 21, Phase G: making imported questions practisable
+
+From the Question Bank, an administrator can now select questions and **publish them in one
+action**, then confirm what a class can actually practise.
+
+### Why this is not a "Practice Set"
+
+Practice is student-initiated: a student picks a class, chapter and difficulty and the server
+samples what is **published**. There is no curated set and never has been, so there is nothing
+for an administrator to assign *to*. Building one would mean a **second path that serves
+questions to students** — every such path has to re-implement the answer-key snapshot rules —
+and the brief says in terms not to create a second Practice system.
+
+So publishing *is* the assignment, which was already true (a Phase C test asserts an imported,
+published question appears in a student's practice availability). What was missing was the
+affordance and the confirmation. Owner decision, recorded as an ADR.
+
+### Added
+
+- **`PATCH /admin/questions/bulk-status`** — moves up to 100 questions through the editorial
+  workflow in one request. It **loops over `changeQuestionStatus()`** rather than issuing an
+  `updateMany`, which is the safety property: a bulk write would skip `assertPublishable()` and
+  put questions with no solution in front of children in batches. A partial success is normal and
+  answers 200 with per-question results; nothing is rolled back.
+- **`GET /admin/questions/practice-availability?classLevel=…`** — what a student of that class
+  would now find, from the **same** `getPracticeAvailability()` the student picker uses. Counts
+  and names only, no question text, no answer key.
+- Question Bank selection: per-row checkboxes, a select-all with a proper indeterminate state, a
+  bulk bar reading *"Publish N → available to practise"*, a refusal report naming each question
+  and its reason, and a class picker showing the resulting practice availability.
+- 11 tests in `tests/questionBank.test.ts`. Suite total **1086 → 1097**.
+
+### A route-ordering bug, caught before it shipped
+
+`GET /admin/questions/practice-availability` was first added at the bottom of the file, where
+`/admin/questions/:id` — declared 180 lines earlier — matched `practice-availability` as an id
+and answered 400. Both new routes moved above it, and there is now a test asserting the status is
+not 400. Same trap `CLAUDE.md` already records for mounting `questionsImport` ahead of
+`questionsAdmin`; it is apparently easy to walk into twice.
+
+### Verified in a browser
+
+Two seeded questions, one publishable and one with no solution, selected together and published:
+the page reported *"1 of 2 updated. 1 refused: … Add a solution before publishing"*, kept the
+refused one selected, and the preview then read *"1 question available to practise for Class 7 —
+Applications of Derivatives — 1 (Easy)"* while Class 6 correctly read empty. Seed rows deleted
+afterwards.
+
+---
+
 ## 2026-08-23 — Milestone 21, Phase F: the import review screen
 
 **Bulk import is now usable by an administrator.** Phases C–E built three parsers that were

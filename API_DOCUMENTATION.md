@@ -1565,3 +1565,61 @@ and **no `created` count** — the first version of the review page assumed one 
 undefined questions". Saving and publishing are separate outcomes: a question with no solution
 **saves as a draft and is refused publication**, so `questions.length` and `published` can
 legitimately differ and a client that conflates them will misreport what happened.
+
+---
+
+## Bulk actions on the question bank (Milestone 21, Phase G)
+
+Both gated on `questions:write`. Both declared **before** `/admin/questions/:id` in
+`questionsAdmin.routes.ts` — Express matches in declaration order, so a literal path that looks
+like an id (`practice-availability`) is otherwise swallowed by `/:id` and answered 400. There is
+a regression test asserting it is not.
+
+### `PATCH /admin/questions/bulk-status`
+
+```json
+{ "ids": ["…", "…"], "status": "published", "reason": "optional" }
+```
+
+```json
+{
+  "success": true,
+  "changed": 1,
+  "requested": 2,
+  "results": [
+    { "id": "…", "label": "What is $1 + 0$?", "ok": true,  "reason": null },
+    { "id": "…", "label": "What is $2 + 0$?", "ok": false, "reason": "Add a solution before publishing — a published question must be explainable to a student." }
+  ]
+}
+```
+
+At most 100 ids, no duplicates. **This is how a question becomes practice content** — Practice
+samples what is published for the student's own class, so there is no separate assignment step
+(see the Phase G ADR).
+
+It loops over `changeQuestionStatus()` rather than issuing one `updateMany`, and that is
+deliberate: a bulk write would skip `assertPublishable()`, which refuses a question with no
+solution or no resolvable answer key. **A partial success is the normal outcome** and answers
+**200** with per-question results, not 400. Nothing is rolled back. One audit entry per batch,
+not per question.
+
+### `GET /admin/questions/practice-availability?classLevel=Class%209`
+
+```json
+{
+  "success": true,
+  "classLevel": "Class 9",
+  "topics": [{ "topicId": "…", "topicName": "Algebra", "questionCount": 12, "difficulties": ["Easy", "Medium"] }],
+  "totalQuestions": 12
+}
+```
+
+Answers "what would a student of this class find in the practice picker right now?" by calling
+the **same `getPracticeAvailability()`** the student route calls — a second count would
+eventually disagree with the picker it is previewing.
+
+Takes a `classLevel` because this is the staff view; the student route deliberately takes none
+and uses the caller's own class. Returns **counts and names only** — no question text and no
+answer key — so it adds no disclosure surface, and there is a test asserting the response
+contains none of those field names. Counts only **published** questions, because that is what a
+student can actually practise.

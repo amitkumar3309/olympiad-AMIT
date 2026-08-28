@@ -242,6 +242,46 @@ export const questionIdParamSchema = z.object({
 });
 
 /**
+ * The most questions one bulk status change may carry.
+ *
+ * Bounded because each id is processed **individually** through `changeQuestionStatus()` — that is
+ * the point of the route, not a limitation of it — so the request cost is linear and an unbounded
+ * list would be an unbounded request. A hundred is more than a staff member selects in one sitting
+ * and still finishes inside a serverless invocation.
+ */
+export const BULK_STATUS_MAX = 100;
+
+/**
+ * Moving several questions through the editorial workflow at once.
+ *
+ * Deliberately the **same `status` enum** a single change takes, rather than a narrower
+ * "publish these" body. A bulk action that could only publish would grow a second endpoint the
+ * first time somebody wanted to archive a batch, and the transition rules are identical either way.
+ */
+export const bulkQuestionStatusSchema = z.object({
+  ids: z
+    .array(objectId('Question id'))
+    .min(1, 'Choose at least one question')
+    .max(BULK_STATUS_MAX, `Change at most ${BULK_STATUS_MAX} questions at a time`)
+    .refine((list) => new Set(list).size === list.length, 'The same question was listed twice.'),
+  status: z.enum(QUESTION_STATUSES, { message: 'Choose a valid status' }),
+  reason: z.string().trim().min(3).max(500).optional(),
+});
+export type BulkQuestionStatusInput = z.infer<typeof bulkQuestionStatusSchema>;
+
+/**
+ * Which class to preview practice availability for.
+ *
+ * A query parameter rather than the caller's own class, because this is the staff view: an
+ * administrator publishing Class 5 questions needs to see the Class 5 picker, and they are not a
+ * Class 5 student. The student route takes no class at all for exactly the opposite reason.
+ */
+export const practiceAvailabilityQuerySchema = z.object({
+  classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
+});
+export type PracticeAvailabilityQuery = z.infer<typeof practiceAvailabilityQuerySchema>;
+
+/**
  * The admin listing's query. Every filter is optional; `sort` is constrained to an
  * allow-list so a caller cannot ask the database to sort by an unindexed field
  * (see `services/questionService.ts`).

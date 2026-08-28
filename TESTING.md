@@ -4,7 +4,7 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
-The backend has a working test suite: **1086 passing tests across 30 files** (`backend/tests/`), measured on 2026-08-23 after Milestone 21 Phase F (882/26 before the milestone; 944/27 after Phase B; 1001/28 after C; 1039/29 after D; 1078/30 after E). Read the number from `npm test --prefix backend`, never from here. The frontend still has **no test suite**.
+The backend has a working test suite: **1097 passing tests across 30 files** (`backend/tests/`), measured on 2026-08-23 after Milestone 21 Phase G (882/26 before the milestone; 944/27 after Phase B; 1001/28 after C; 1039/29 after D; 1078/30 after E; 1086/30 after F). Read the number from `npm test --prefix backend`, never from here. The frontend still has **no test suite**.
 
 **One helper default worth knowing before writing a test** (Milestone 19): `registerVerifyLogin()` grants the account a captured entry-fee payment, because the fee gates practice, mock tests, the daily challenge and the exam — a test student who cannot practise would be asserting behaviour no real student reaches. Pass `{ paid: false }` as the third argument when *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants.
 
@@ -544,3 +544,29 @@ Neither is reachable from the backend suite: both are assumptions the *client* m
 response shape. Until a frontend suite exists, **a browser pass is not optional for a new admin
 page** — it is the only thing that checks the contract from the consuming side. Adding a
 frontend test framework still needs a `DECISIONS.md` entry first.
+
+---
+
+## Phase G: bulk publishing and the practice preview (11 tests)
+
+In `tests/questionBank.test.ts`. Two are worth knowing about specifically.
+
+**"refuses a question with no solution while publishing the rest"** is the test that guards the
+design. `changeQuestionStatusBulk()` loops over `changeQuestionStatus()` rather than issuing an
+`updateMany`, and this asserts why: it publishes two questions where one has no solution, and
+checks the refusal reason, the *label* naming which question, that the other one stayed
+published, and that the response is **200 with per-question results** rather than a 400. If
+somebody ever "optimises" that loop into a bulk write, this fails.
+
+**"is not swallowed by the /:id route"** exists because it happened. `GET
+`/admin/questions/practice-availability` was first added at the bottom of the routes file, where
+`/admin/questions/:id` — declared 180 lines earlier — matched `practice-availability` as an id
+and answered 400. Express matches in declaration order. The test asserts the status is 200 and
+explicitly `not.toBe(400)`, which is the shape `TESTING.md` already asks for: name the status you
+forbid.
+
+The rest cover: a clean bulk publish; an unknown id reported without failing the batch; a
+duplicated id and an empty selection both refused as 400; a 403 for a student on **both** URL
+prefixes; that the preview counts only *published* questions; that it is scoped to the class
+asked for; that it **never returns question text or an answer key** (asserted by field name); and
+that an invalid class is a 400.

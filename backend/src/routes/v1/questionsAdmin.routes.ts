@@ -12,9 +12,11 @@ import {
   createQuestion,
   updateQuestion,
   changeQuestionStatus,
+  changeQuestionStatusBulk,
   deleteQuestion,
   toQuestionContent,
 } from '../../services/questionService';
+import { getPracticeAvailability } from '../../services/practiceService';
 import { actorFrom } from '../../services/taxonomyService';
 import {
   createQuestionSchema,
@@ -22,9 +24,13 @@ import {
   questionStatusSchema,
   questionIdParamSchema,
   listQuestionsAdminQuerySchema,
+  bulkQuestionStatusSchema,
+  practiceAvailabilityQuerySchema,
   type CreateQuestionInput,
   type QuestionStatusInput,
   type ListQuestionsAdminQuery,
+  type BulkQuestionStatusInput,
+  type PracticeAvailabilityQuery,
 } from '../../validation/questionSchemas';
 
 const router = Router();
@@ -139,6 +145,130 @@ router.get(
   },
 );
 
+// ---------------------------------------------------------------------------
+// Bulk actions and the practice preview (Milestone 21, Phase G)
+//
+// Declared **before** `/admin/questions/:id` deliberately. Express matches in declaration
+// order, so a literal path that looks like an id — `practice-availability` — is swallowed by
+// `/:id` and answered 400 if it comes later. This is the same ordering trap CLAUDE.md records
+// for mounting `questionsImport` ahead of `questionsAdmin`, and there is a test for it.
+// ---------------------------------------------------------------------------
+
+/**
+ * The same editorial move, applied to a selection (Milestone 21, Phase G).
+ *
+ * This is what "select twenty questions and make them available for practice" is: publishing them.
+ * There is no separate practice-assignment mechanism, because Practice has no admin-curated set to
+ * assign to — a student picks a class, a chapter and a difficulty and the server samples what is
+ * **published**. So a question becomes practice content by being published, and this route is the
+ * bulk affordance for that rather than a second serving path (see the Milestone 21 Phase G ADR).
+ *
+ * It loops over `changeQuestionStatus()` rather than issuing one `updateMany`, and that is the
+ * safety property: a bulk write would skip `assertPublishable()`, which is what refuses a question
+ * with no solution or no resolvable answer key. A student is graded on a published question, so a
+ * bulk publish that bypassed it would put ungradeable questions in front of children in batches.
+ *
+ * A **partial success is the normal outcome** and is reported as one: 200 with per-question results,
+ * not 400. Nothing is rolled back — the questions that moved were each legitimately publishable, and
+ * reverting them because a different one lacked a solution would help nobody.
+ */
+router.patch(
+  '/admin/questions/bulk-status',
+  requirePermission('questions:write'),
+  validate({ body: bulkQuestionStatusSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const { ids, status, reason } = req.body as BulkQuestionStatusInput;
+      const outcomes = await changeQuestionStatusBulk(ids, status, actorFrom(req));
+      const changed = outcomes.filter((entry) => entry.ok);
+
+      /**
+       * One audit entry for the batch, not one per question.
+       *
+       * The individual `question.status.changed` rows would be the same act recorded twenty times;
+       * what an auditor wants to know is that somebody published a selection, how large it was, and
+       * how much of it was refused. The ids are recorded so the batch can still be reconstructed.
+       */
+      if (changed.length > 0) {
+        await recordAudit(req, {
+          action: 'question.status.changed',
+          targetType: 'question',
+          targetId: changed.map((entry) => entry.id).join(','),
+          targetLabel: `${changed.length} question${changed.length === 1 ? '' : 's'} → ${status}`,
+          metadata: {
+            to: status,
+            reason: reason ?? null,
+            requested: ids.length,
+            changed: changed.length,
+            refused: outcomes.length - changed.length,
+            bulk: true,
+          },
+        });
+      }
+
+      sendSuccess(res, 200, {
+        changed: changed.length,
+        requested: ids.length,
+        results: outcomes,
+      });
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to change question statuses in bulk',
+        fallback: 'Could not update those questions. Please try again.',
+      });
+    }
+  },
+);
+
+/**
+ * What a student of one class would currently find in the practice picker.
+ *
+ * The staff-side answer to "did publishing those questions actually make them practisable?", and it
+ * calls **`getPracticeAvailability()`** — the very function the student route uses — rather than
+ * counting questions itself. A second count would eventually disagree with the picker, and then the
+ * preview would be reassuring an administrator about something untrue.
+ *
+ * It takes a `classLevel` because this is the staff view: an administrator publishing Class 5
+ * questions needs to see the Class 5 picker and is not a Class 5 student. The student route
+ * deliberately takes no class at all, for the opposite reason.
+ *
+ * Returns **counts and names only** — no question text, and certainly no answer key — so it adds no
+ * disclosure surface even though it is a staff route.
+ */
+router.get(
+  '/admin/questions/practice-availability',
+  requirePermission('questions:write'),
+  validate({ query: practiceAvailabilityQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const { classLevel } = req.query as unknown as PracticeAvailabilityQuery;
+      const subjects = await getPracticeAvailability(classLevel);
+
+      sendSuccess(res, 200, {
+        classLevel,
+        // Flattened to chapters, because there is no user-facing subject in this product and a
+        // nested subject level would be a shape the page has to unwrap for nothing.
+        topics: subjects.flatMap((subject) =>
+          subject.topics.map((topic) => ({
+            topicId: topic.topicId,
+            topicName: topic.topicName,
+            questionCount: topic.questionCount,
+            difficulties: topic.difficulties,
+          })),
+        ),
+        totalQuestions: subjects.reduce((sum, subject) => sum + subject.questionCount, 0),
+      });
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to read practice availability',
+        fallback: 'Could not check what is available to practise. Please try again.',
+      });
+    }
+  },
+);
+
 router.get(
   '/admin/questions/:id',
   requirePermission('questions:write'),
@@ -237,6 +367,8 @@ router.patch(
     }
   },
 );
+
+
 
 // ---------------------------------------------------------------------------
 // Deletion — archiving is the normal path; this is only for unpublished drafts

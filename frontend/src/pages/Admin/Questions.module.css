@@ -323,3 +323,112 @@
   font-family: var(--font-mono);
   font-weight: 600;
 }
+
+/* ---------------------------------------------------------------------------
+   Bulk actions and the practice preview (Milestone 21, Phase G)
+
+   "Select questions and make them available for practice" is publishing them, so the bulk bar
+   sits directly above the list it acts on and names the consequence rather than the mechanism.
+--------------------------------------------------------------------------- */
+
+.bulkBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--card-bg, var(--bg));
+}
+
+.bulkPick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.bulkActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.linkAction {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* A partial success is normal, so refusals are shown rather than hidden behind a toast. */
+.bulkReport {
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.08);
+  font-size: 13px;
+}
+
+.bulkReport ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+
+.previewBar {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+  font-size: 13px;
+}
+
+.previewBar label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.previewBar select {
+  width: auto;
+  min-width: 180px;
+}
+
+.availability p {
+  margin: 0;
+}
+
+.availabilityList {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.rowPick {
+  margin-right: 4px;
+}
+
+@media (max-width: 720px) {
+  .bulkBar,
+  .previewBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

@@ -1129,3 +1129,221 @@ describe('audit trail', () => {
     expect(await AuditLog.countDocuments({ action: 'topic.changed' })).toBe(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Bulk actions and the practice preview (Milestone 21, Phase G)
+// ---------------------------------------------------------------------------
+
+describe('bulk status changes', () => {
+  it('publishes a selection, so imported questions become practice content', async () => {
+    const { cookies } = await createAdminSession(app);
+    const taxonomy = await createTaxonomy(app, cookies);
+
+    const a = await createQuestionVia(app, cookies, taxonomy, { questionText: 'What is $3 \\times 3$?' });
+    const b = await createQuestionVia(app, cookies, taxonomy, { questionText: 'What is $4 \\times 4$?' });
+
+    const res = await request(app)
+      .patch(`${API}/admin/questions/bulk-status`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ ids: [a.id, b.id], status: 'published' })
+      .expect(200);
+
+    expect(res.body.changed).toBe(2);
+    expect(res.body.requested).toBe(2);
+    expect(res.body.results.every((r: { ok: boolean }) => r.ok)).toBe(true);
+  });
+
+  /**
+   * The safety property of the whole route.
+   *
+   * A bulk `updateMany` would be a second path to a published question that skips
+   * `assertPublishable()` — so a question with no solution would go live in a batch, and a student
+   * would be graded on something with nothing to show them afterwards. The loop over
+   * `changeQuestionStatus()` is what stops that, and this is the test that would fail if somebody
+   * "optimised" it.
+   */
+  it('refuses a question with no solution while publishing the rest', async () => {
+    const { cookies } = await createAdminSession(app);
+    const taxonomy = await createTaxonomy(app, cookies);
+
+    const good = await createQuestionVia(app, cookies, taxonomy, { questionText: 'What is $5 \\times 5$?' });
+    const noSolution = await createQuestionVia(app, cookies, taxonomy, {
+      questionText: 'What is $6 \\times 6$?',
+      solution: null,
+    });
+
+    const res = await request(app)
+      .patch(`${API}/admin/questions/bulk-status`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ ids: [good.id, noSolution.id], status: 'published' })
+      .expect(200);
+
+    // A partial success is the normal outcome and is reported as one, not as a 400.
+    expect(res.body.changed).toBe(1);
+    const refused = res.body.results.find((r: { id: string }) => r.id === noSolution.id);
+    expect(refused.ok).toBe(false);
+    expect(refused.reason).toMatch(/add a solution before publishing/i);
+    // It names the question, not just its id, so a report is readable.
+    expect(refused.label).toContain('6');
+
+    // And nothing was rolled back: the publishable one stayed published.
+    const still = await request(app)
+      .get(`${API}/admin/questions/${good.id}`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+    expect(still.body.question.status).toBe('published');
+  });
+
+  it('reports an unknown id without failing the batch', async () => {
+    const { cookies } = await createAdminSession(app);
+    const taxonomy = await createTaxonomy(app, cookies);
+    const real = await createQuestionVia(app, cookies, taxonomy);
+
+    const res = await request(app)
+      .patch(`${API}/admin/questions/bulk-status`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ ids: [real.id, '6a8b0b3ebd358a7121c07999'], status: 'published' })
+      .expect(200);
+
+    expect(res.body.changed).toBe(1);
+    expect(res.body.results.find((r: { ok: boolean }) => !r.ok).reason).toMatch(/no question exists/i);
+  });
+
+  it('refuses a duplicated id and an empty selection', async () => {
+    const { cookies } = await createAdminSession(app);
+    const taxonomy = await createTaxonomy(app, cookies);
+    const q = await createQuestionVia(app, cookies, taxonomy);
+
+    await request(app)
+      .patch(`${API}/admin/questions/bulk-status`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ ids: [q.id, q.id], status: 'published' })
+      .expect(400);
+
+    await request(app)
+      .patch(`${API}/admin/questions/bulk-status`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ ids: [], status: 'published' })
+      .expect(400);
+  });
+
+  it('is refused to a student on both URL prefixes', async () => {
+    const { cookies } = await registerVerifyLogin(app, { email: 'nobulk@example.com', mobile: '9800000941' });
+
+    for (const prefix of [API, '/api']) {
+      const res = await request(app)
+        .patch(`${prefix}/admin/questions/bulk-status`)
+        .set('Cookie', cookieHeader(cookies))
+        .send({ ids: ['6a8b0b3ebd358a7121c07999'], status: 'published' });
+      expect(res.status).toBe(403);
+      expect(res.status).not.toBe(500);
+    }
+  });
+});
+
+describe('the practice availability preview', () => {
+  /**
+   * The ordering regression this route was one line away from having.
+   *
+   * Express matches in declaration order, so `GET /admin/questions/:id` declared first swallows the
+   * literal `practice-availability` as an id and answers 400 — which is exactly what happened when
+   * this route was first added at the bottom of the file. Same trap as mounting `questionsImport`
+   * ahead of `questionsAdmin`; asserting the status rules it out for good.
+   */
+  it('is not swallowed by the /:id route', async () => {
+    const { cookies } = await createAdminSession(app);
+
+    const res = await request(app)
+      .get(`${API}/admin/questions/practice-availability?classLevel=Class%209`)
+      .set('Cookie', cookieHeader(cookies));
+
+    expect(res.status).toBe(200);
+    expect(res.status).not.toBe(400);
+  });
+
+  it('counts only published questions, which is what a student can actually practise', async () => {
+    const { cookies } = await createAdminSession(app);
+    const taxonomy = await createTaxonomy(app, cookies);
+
+    const draft = await createQuestionVia(app, cookies, taxonomy, {
+      questionText: 'What is $7 \\times 7$?',
+      classLevel: 'Class 9',
+    });
+
+    const before = await request(app)
+      .get(`${API}/admin/questions/practice-availability?classLevel=Class%209`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+    expect(before.body.totalQuestions).toBe(0);
+
+    await request(app)
+      .patch(`${API}/admin/questions/bulk-status`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ ids: [draft.id], status: 'published' })
+      .expect(200);
+
+    const after = await request(app)
+      .get(`${API}/admin/questions/practice-availability?classLevel=Class%209`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+
+    // The point of the preview: publishing is what makes a question practisable, and the staff
+    // view says so using the student picker's own function.
+    expect(after.body.totalQuestions).toBe(1);
+    expect(after.body.topics[0]).toMatchObject({ topicName: 'Algebra', questionCount: 1 });
+  });
+
+  it('is scoped to the class asked for', async () => {
+    const { cookies } = await createAdminSession(app);
+    const taxonomy = await createTaxonomy(app, cookies);
+    await createPublishedQuestion(app, cookies, taxonomy, {
+      questionText: 'What is $8 \\times 8$?',
+      classLevel: 'Class 9',
+    });
+
+    const other = await request(app)
+      .get(`${API}/admin/questions/practice-availability?classLevel=Class%206`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+
+    // Students only ever get their own class's questions, and the preview must not suggest
+    // otherwise.
+    expect(other.body.totalQuestions).toBe(0);
+  });
+
+  it('never returns question text or an answer key', async () => {
+    const { cookies } = await createAdminSession(app);
+    const taxonomy = await createTaxonomy(app, cookies);
+    await createPublishedQuestion(app, cookies, taxonomy, { classLevel: 'Class 9' });
+
+    const res = await request(app)
+      .get(`${API}/admin/questions/practice-availability?classLevel=Class%209`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(200);
+
+    // Counts and names only. It is a staff route, but adding a disclosure surface for a preview
+    // would be a gratuitous one.
+    const body = JSON.stringify(res.body);
+    for (const forbidden of ['questionText', 'isCorrect', 'solution', 'numericAnswer', 'booleanAnswer']) {
+      expect(body).not.toContain(forbidden);
+    }
+  });
+
+  it('refuses a class the platform does not run', async () => {
+    const { cookies } = await createAdminSession(app);
+
+    await request(app)
+      .get(`${API}/admin/questions/practice-availability?classLevel=Class%2013`)
+      .set('Cookie', cookieHeader(cookies))
+      .expect(400);
+  });
+
+  it('is refused to a student', async () => {
+    const { cookies } = await registerVerifyLogin(app, { email: 'noavail@example.com', mobile: '9800000942' });
+
+    const res = await request(app)
+      .get(`${API}/admin/questions/practice-availability?classLevel=Class%209`)
+      .set('Cookie', cookieHeader(cookies));
+    expect(res.status).toBe(403);
+  });
+});

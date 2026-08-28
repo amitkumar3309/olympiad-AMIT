@@ -4,6 +4,52 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-23 — A question becomes practice content by being published; there is no `PracticeSet`
+
+**Decision**: "assign imported questions to Practice" is implemented as a **bulk publish** from
+the question bank, plus a preview of what a class can then practise. No `PracticeSet` collection
+was created. Owner decision, taken after Phase A raised it and re-confirmed before Phase G.
+
+**Reason**: Practice in this product is **student-initiated**. `startPracticeSession()` takes a
+class, an optional chapter and an optional difficulty from the *student* and `$sample`s the
+published questions matching them. There is no curated set, and never has been — so there is
+nothing for an administrator to assign *to*.
+
+Building one would mean a new model, new routes, a new student picker, and — the part that
+settles it — **a second path that serves questions to students**. Every such path has to
+re-implement the answer-key snapshot rules, and `CLAUDE.md` records that a forgotten field in a
+hand-written projection is an answer leak. The product brief also says in terms: *do not create a
+second Practice system*. A `PracticeSet` would have been one.
+
+So the honest reading of "select thirty approved questions and make them practisable" is:
+publish them with the right class and chapter. That is already true — a test in Phase C asserts
+an imported, published question appears in a student's practice availability — and what was
+missing was only the *affordance* and the *confirmation*.
+
+**Two things make it a real feature rather than a shrug.** `PATCH /admin/questions/bulk-status`
+moves a selection in one request, and `GET /admin/questions/practice-availability?classLevel=…`
+answers "what would a Class 7 student now find in the picker?" by calling the **same**
+`getPracticeAvailability()` the student route calls. A second count would eventually disagree
+with the picker, and then the preview would be reassuring an administrator about something
+untrue.
+
+**The bulk route loops rather than bulk-writes, and that is the safety property.** A single
+`updateMany` would be a second path to a published question that skips `assertPublishable()` —
+the check that refuses a question with no solution or no resolvable answer key. A student is
+*graded* on a published question, so a bulk publish that bypassed it would put ungradeable
+questions in front of children, quietly, in batches. There is a test that publishes two
+questions where one has no solution and asserts the refusal.
+
+**Consequences**: a partial success is the normal outcome and is reported per question, not as a
+400, and nothing is rolled back — the questions that moved were each legitimately publishable.
+The selection is held by **id** and cleared whenever the filters, sort or page change: an
+index-based selection surviving a filter change would let somebody publish questions they can no
+longer see, and "publish" here means "show to children". If a curated practice set is ever
+genuinely wanted, it needs its own ADR and it must reuse `studentQuestionView` rather than
+hand-rolling a projection.
+
+---
+
 ## 2026-08-23 — Image import uses a model; it transcribes, and our own code reads the answer
 
 **Decision**: `services/imageImportParser.ts` calls Google Gemini to read questions off a

@@ -448,6 +448,71 @@ function assertPublishable(question: QuestionDocument): void {
 }
 
 // ---------------------------------------------------------------------------
+// Bulk status changes
+// ---------------------------------------------------------------------------
+
+/** What happened to one question in a bulk status change. */
+export interface BulkStatusOutcome {
+  id: string;
+  /** A short label so a report can name the question rather than just its id. */
+  label: string;
+  ok: boolean;
+  /** Why it did not move. `null` when it did. */
+  reason: string | null;
+}
+
+/**
+ * Moves several questions through the editorial workflow, **one at a time**.
+ *
+ * The one-at-a-time part is the whole design, not a missing optimisation. A bulk `updateMany`
+ * would be a second path to a published question that skips every rule the single path enforces:
+ * the transition table, and — far more importantly — `assertPublishable()`, which refuses a
+ * question with no solution or no resolvable answer key. A student is *graded* on a published
+ * question, so a bulk publish that bypassed that check would put ungradeable questions in front of
+ * children, quietly, in batches.
+ *
+ * So this is a loop over `changeQuestionStatus()`, and its value is entirely in the **reporting**:
+ * a partial success is normal, and each failure comes back with the reason that question was
+ * refused. Nothing is rolled back — the ones that moved were each legitimately publishable, and
+ * undoing them because a *different* question lacked a solution would help nobody.
+ */
+export async function changeQuestionStatusBulk(
+  ids: readonly string[],
+  next: QuestionStatus,
+  actor: Actor,
+): Promise<BulkStatusOutcome[]> {
+  const outcomes: BulkStatusOutcome[] = [];
+
+  for (const id of ids) {
+    try {
+      const question = await changeQuestionStatus(id, next, actor);
+      outcomes.push({ id, label: question.questionText.slice(0, 80), ok: true, reason: null });
+    } catch (err) {
+      /**
+       * The question is re-read for its label so a report can name what failed.
+       *
+       * Best-effort: if even that read fails there is nothing to name, and the id is still
+       * reported. Losing the label must not turn a reportable refusal into a thrown request.
+       */
+      const label = await Question.findById(id)
+        .select('questionText')
+        .lean()
+        .then((row) => (row ? row.questionText.slice(0, 80) : id))
+        .catch(() => id);
+
+      outcomes.push({
+        id,
+        label,
+        ok: false,
+        reason: err instanceof ApiError ? err.message : 'Could not be updated.',
+      });
+    }
+  }
+
+  return outcomes;
+}
+
+// ---------------------------------------------------------------------------
 // Deletion
 // ---------------------------------------------------------------------------
 

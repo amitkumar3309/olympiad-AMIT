@@ -200,7 +200,7 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Current Milestone
 
-**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–F COMPLETE: bulk import is finished and usable.**
+**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–G COMPLETE.**
 
 **Phase F (the import review screen) is implemented and verified, which completes bulk import.**
 `npm test --prefix backend` is **1086 passing across 30 files** (882/26 before this milestone;
@@ -371,12 +371,12 @@ Measured against the code on 2026-08-18, with a green baseline established first
 Bulk import itself is **done**. The remaining phases are the surrounding scope changes the owner
 asked for in the same brief:
 
-- **Phase G — Practice assignment.** Blocked on an owner decision, and has been since Phase A
-  (finding 7): Practice is student-initiated and there is **no admin-curated practice set to
-  assign to**. Either publishing a question with the right class and chapter is accepted as the
-  assignment mechanism — which is what the architecture already does — or a genuinely new
-  `PracticeSet` collection is in scope, which the brief's "do not create a second Practice
-  system" rule appears to forbid.
+- ~~**Phase G — Practice assignment.**~~ **Done (2026-08-23).** The owner decided that
+  **publishing is the assignment**: no `PracticeSet` collection, because Practice is
+  student-initiated and a curated set would be a second path serving questions to students — and
+  every such path has to re-implement the answer-key snapshot rules. The affordance is
+  `PATCH /admin/questions/bulk-status`, plus a preview read from the student picker’s own
+  `getPracticeAvailability()`. See the Phase G ADR in [`DECISIONS.md`](DECISIONS.md).
 - **Phase H — Mock Test assignment** and **Phase I — Daily Challenge assignment.** Both already
   accept explicit question ids (`createMockTestSchema.questions`, `scheduleChallengeSchema.questionId`),
   so these are frontend affordances over existing APIs rather than new architecture.

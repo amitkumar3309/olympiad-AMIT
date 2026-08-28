@@ -15,6 +15,10 @@ import {
   type QuestionStatus,
   type Subject,
   type Topic,
+  type BulkStatusOutcome,
+  type BulkStatusResult,
+  type PracticeAvailability,
+  type ClassLevel,
 } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
@@ -86,6 +90,24 @@ export default function Questions() {
   /** The row whose full detail (solution, answer key) is expanded. */
   const [expandedId, setExpandedId] = useState('')
 
+  /**
+   * Bulk selection (Milestone 21, Phase G).
+   *
+   * Held by id rather than by index, so it survives re-sorting, re-filtering and paging — an
+   * index-based selection silently retargets the moment the list order changes, which on a screen
+   * whose bulk action *publishes to children* is not an acceptable failure mode.
+   */
+  const [selected, setSelected] = useState<string[]>([])
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [bulkReport, setBulkReport] = useState<{ changed: number; requested: number; refused: BulkStatusResult[] } | null>(
+    null,
+  )
+
+  /** The practice preview: what a student of this class would now find in the picker. */
+  const [previewClass, setPreviewClass] = useState<ClassLevel | ''>('')
+  const [availability, setAvailability] = useState<PracticeAvailability | null>(null)
+  const [availabilityBusy, setAvailabilityBusy] = useState(false)
+
   // Subjects are needed for the filter dropdown; topics narrow to the chosen
   // subject so the list cannot offer a combination that matches nothing.
   useEffect(() => {
@@ -132,6 +154,18 @@ export default function Questions() {
     void load()
   }, [load])
 
+  /**
+   * Drops the selection when the visible list changes.
+   *
+   * Deliberately aggressive. A selection that survived a filter or page change would let an
+   * administrator publish questions they can no longer see — and "publish" here means "show to
+   * children", so a surprising selection is the one bug on this screen worth being paranoid about.
+   */
+  useEffect(() => {
+    setSelected([])
+    setBulkReport(null)
+  }, [page, sort, order, appliedSearch, filters])
+
   async function changeStatus(question: AdminQuestion, status: QuestionStatus) {
     setBusyId(question.id)
     setError('')
@@ -146,6 +180,75 @@ export default function Questions() {
       setBusyId('')
     }
   }
+
+  /**
+   * Publishes (or archives) the selection.
+   *
+   * **This is how a question becomes practice content.** Practice is student-initiated — a student
+   * picks a class, a chapter and a difficulty and the server samples what is *published* — so there
+   * is no separate practice-assignment step and no admin-curated set to add questions to. Making a
+   * batch of imported questions practisable is publishing them, and this is that affordance. See
+   * the Milestone 21 Phase G ADR for why a `PracticeSet` collection was rejected.
+   *
+   * A **partial success is normal** and is shown as one: the endpoint refuses any question with no
+   * solution (a published question must be explainable to a student) and reports which, while
+   * publishing the rest.
+   */
+  async function bulkStatus(status: QuestionStatus) {
+    if (selected.length === 0) return
+
+    if (status === 'archived' && !window.confirm(`Archive ${selected.length} question(s)? Students will stop seeing them.`)) {
+      return
+    }
+
+    setBulkBusy(true)
+    setError('')
+    setNotice('')
+    setBulkReport(null)
+
+    try {
+      const outcome = await api.patch<BulkStatusOutcome>('/admin/questions/bulk-status', {
+        ids: selected,
+        status,
+      })
+
+      const refused = outcome.results.filter((entry) => !entry.ok)
+      setBulkReport({ changed: outcome.changed, requested: outcome.requested, refused })
+
+      if (refused.length === 0) {
+        setNotice(
+          `${outcome.changed} question${outcome.changed === 1 ? '' : 's'} moved to ${QUESTION_STATUS_LABELS[status].toLowerCase()}.`,
+        )
+      }
+
+      // Only the ones that moved leave the selection, so the examiner can fix and retry the rest.
+      setSelected(refused.map((entry) => entry.id))
+      await load()
+
+      // Publishing changes what students can practise, so the preview is refreshed rather than
+      // left showing a stale count next to a success message.
+      if (status === 'published' && previewClass) await loadAvailability(previewClass)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not update those questions.')
+    } finally {
+      setBulkBusy(false)
+    }
+  }
+
+  /** Asks the backend what a student of this class would find, using the picker's own function. */
+  const loadAvailability = useCallback(async (classLevel: ClassLevel) => {
+    setAvailabilityBusy(true)
+    try {
+      setAvailability(
+        await api.get<PracticeAvailability>(`/admin/questions/practice-availability?classLevel=${encodeURIComponent(classLevel)}`),
+      )
+    } catch (err) {
+      setAvailability(null)
+      setError(err instanceof ApiError ? err.message : 'Could not check practice availability.')
+    } finally {
+      setAvailabilityBusy(false)
+    }
+  }, [])
 
   async function remove(question: AdminQuestion) {
     // Archiving is the normal removal path, so a hard delete is confirmed
@@ -341,10 +444,139 @@ export default function Questions() {
           )}
         </div>
       ) : (
-        <ul className={styles.list}>
+        <>
+          {/* --------------------------------------------------------------
+              Bulk actions (Milestone 21, Phase G)
+
+              "Select questions and make them available for practice" is publishing them:
+              Practice samples what is published for a student's own class, so there is no
+              separate assignment step and no curated set to add to.
+          -------------------------------------------------------------- */}
+          <div className={styles.bulkBar}>
+            <label className={styles.bulkPick}>
+              <input
+                type="checkbox"
+                checked={selected.length > 0 && selected.length === questions.length}
+                // Indeterminate when only some are ticked, so "select all" is never misleading.
+                ref={(el) => {
+                  if (el) el.indeterminate = selected.length > 0 && selected.length < questions.length
+                }}
+                onChange={(e) => setSelected(e.target.checked ? questions.map((q) => q.id) : [])}
+                aria-label="Select all questions on this page"
+              />
+              <span>
+                {selected.length === 0
+                  ? `Select questions to publish or archive them together`
+                  : `${selected.length} of ${questions.length} selected`}
+              </span>
+            </label>
+
+            {selected.length > 0 && (
+              <div className={styles.bulkActions}>
+                <Button variant="outline" disabled={bulkBusy} onClick={() => void bulkStatus('published')}>
+                  {bulkBusy ? 'Working…' : `Publish ${selected.length} → available to practise`}
+                </Button>
+                <Button variant="outline" disabled={bulkBusy} onClick={() => void bulkStatus('archived')}>
+                  Archive
+                </Button>
+                <button type="button" className={styles.linkAction} onClick={() => setSelected([])}>
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/*
+            A partial success is the normal outcome, so the refusals are shown rather than
+            collapsed into a success message. The commonest is a question with no solution: the
+            editorial bar is that a published question must be explainable to a student.
+          */}
+          {bulkReport && bulkReport.refused.length > 0 && (
+            <div className={styles.bulkReport} role="alert">
+              <strong>
+                {bulkReport.changed} of {bulkReport.requested} updated. {bulkReport.refused.length} refused:
+              </strong>
+              <ul>
+                {bulkReport.refused.map((entry) => (
+                  <li key={entry.id}>
+                    <em>{entry.label}</em> — {entry.reason}
+                  </li>
+                ))}
+              </ul>
+              <p className={styles.emptyHint}>
+                Those are still selected, so you can fix them and try again.
+              </p>
+            </div>
+          )}
+
+          {/* --------------------------------------------------------------
+              What a student would actually find
+          -------------------------------------------------------------- */}
+          <div className={styles.previewBar}>
+            <label>
+              <span>Check what a class can practise:</span>
+              <select
+                className="form-control"
+                value={previewClass}
+                onChange={(e) => {
+                  const next = e.target.value as ClassLevel | ''
+                  setPreviewClass(next)
+                  setAvailability(null)
+                  if (next) void loadAvailability(next)
+                }}
+              >
+                <option value="">Choose a class</option>
+                {CLASS_LEVELS.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {availabilityBusy && <span className={styles.emptyHint}>Checking…</span>}
+
+            {availability && !availabilityBusy && (
+              <div className={styles.availability}>
+                {availability.totalQuestions === 0 ? (
+                  <p className={styles.emptyHint}>
+                    Nothing published for {availability.classLevel} yet, so its practice picker is empty. Publish
+                    questions for that class above.
+                  </p>
+                ) : (
+                  <>
+                    <p>
+                      <strong>{availability.totalQuestions}</strong> question
+                      {availability.totalQuestions === 1 ? '' : 's'} available to practise for{' '}
+                      {availability.classLevel}:
+                    </p>
+                    <ul className={styles.availabilityList}>
+                      {availability.topics.map((topic) => (
+                        <li key={topic.topicId}>
+                          {topic.topicName} — {topic.questionCount} ({topic.difficulties.join(', ')})
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          <ul className={styles.list}>
           {questions.map((question) => (
             <li key={question.id} className={`${styles.card} ${busyId === question.id ? styles.busy : ''}`}>
               <div className={styles.cardHead}>
+                <input
+                  type="checkbox"
+                  className={styles.rowPick}
+                  checked={selected.includes(question.id)}
+                  disabled={bulkBusy}
+                  onChange={(e) =>
+                    setSelected((ids) => (e.target.checked ? [...ids, question.id] : ids.filter((id) => id !== question.id)))
+                  }
+                  aria-label={`Select "${question.questionText.slice(0, 40)}"`}
+                />
                 <span className={styles[`status_${question.status}`]}>{QUESTION_STATUS_LABELS[question.status]}</span>
                 <span className={styles.badge}>{QUESTION_TYPE_LABELS[question.type]}</span>
                 <span className={styles.badge}>{question.classLevel}</span>
@@ -456,7 +688,8 @@ export default function Questions() {
               </div>
             </li>
           ))}
-        </ul>
+          </ul>
+        </>
       )}
 
       {pagination && pagination.totalPages > 1 && (
