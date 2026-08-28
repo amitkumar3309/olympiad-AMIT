@@ -36,6 +36,7 @@ export type Permission =
   | 'users:role:write'
   | 'users:delete'
   | 'content:reset'
+  | 'referrals:write'
 
 /**
  * Mirrors `CLASS_LEVELS` in `backend/src/lib/classLevels.ts`. Like the permission
@@ -354,6 +355,62 @@ export interface ReferralCheck {
   valid: boolean
   code: string
   referrerName: string | null
+}
+
+/** One side of an introduction, as staff see it (Milestone 22, Phase G). */
+export interface ReferralParty {
+  studentId: string | null
+  fullName: string | null
+  email: string | null
+  classLevel: ClassLevel | null
+}
+
+/**
+ * One row of `GET /admin/referrals`.
+ *
+ * Names are **unmasked** here, unlike the student's own list — this is the console that
+ * decides whether to pay somebody, and it already requires `students:read`.
+ */
+export interface AdminReferralRow {
+  id: string
+  code: string
+  referrer: ReferralParty
+  referred: ReferralParty
+  registeredAt: string
+  convertedAt: string | null
+  /** Derived from the payment record at read time, never a stored duplicate. */
+  referredHasPaid: boolean
+  paymentId: string | null
+  rewardStatus: ReferralRewardStatus
+  rewardAmount: number
+  rewardDisplay: string
+  approvedAt: string | null
+  approvedBy: string | null
+  paidAt: string | null
+  paidBy: string | null
+  payoutReference: string | null
+  rejectedAt: string | null
+  rejectedBy: string | null
+  rejectedReason: string | null
+}
+
+/** `GET /admin/referrals`. Totals are programme-wide, not page-wide. */
+export interface AdminReferralsResponse {
+  referrals: AdminReferralRow[]
+  totals: {
+    accruedPaise: number
+    approvedPaise: number
+    paidPaise: number
+    accruedDisplay: string
+    approvedDisplay: string
+    paidDisplay: string
+  }
+  pagination: Pagination
+}
+
+/** `GET`/`PUT /admin/referral-settings`. */
+export interface AdminReferralSettings extends ReferralSettingsView {
+  rewardDisplay: string
 }
 
 export interface Pagination {

@@ -45,6 +45,8 @@ const Rewards = lazy(() => import('./pages/Rewards/Rewards'))
 const Referrals = lazy(() => import('./pages/Referrals/Referrals'))
 const AdminRewardSettings = lazy(() => import('./pages/Admin/RewardSettings'))
 const AdminPayments = lazy(() => import('./pages/Admin/Payments'))
+/** The referral console (Milestone 22, Phase G). */
+const AdminReferrals = lazy(() => import('./pages/Admin/Referrals'))
 /**
  * Leaderboards and the Hall of Fame (Milestone 10). Both are **public** — a visitor
  * can see the standing without an account, which is the whole reason the backend masks
@@ -341,6 +343,18 @@ export default function App() {
             element={
               <RequirePermission permission="students:read">
                 <AdminPayments />
+              </RequirePermission>
+            }
+          />
+          {/* The referral console. Gated on `students:read`, matching the backend and the
+              payments console: it exposes who introduced whom, which is student account
+              data. The three acts that move money need `referrals:write`, and the page
+              hides those buttons without it — while the API refuses them regardless. */}
+          <Route
+            path="/admin/referrals"
+            element={
+              <RequirePermission permission="students:read">
+                <AdminReferrals />
               </RequirePermission>
             }
           />

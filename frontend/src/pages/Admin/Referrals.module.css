@@ -1,0 +1,391 @@
+/* The referral console (Milestone 22, Phase G). */
+
+.notice {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+  font-size: 14px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+ * What is owed
+ * ----------------------------------------------------------------------- */
+
+.totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+}
+
+.totalLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.totalValue {
+  font-family: var(--font-mono);
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--royal-blue);
+}
+
+/* --------------------------------------------------------------------------
+ * The reward settings
+ * ----------------------------------------------------------------------- */
+
+.settings {
+  padding: 22px;
+  margin-bottom: 18px;
+}
+
+/*
+ * Neutral, not a warning. No reward being configured is the correct and expected state
+ * until the owner decides one — colouring it amber would say something is broken.
+ */
+.notConfigured {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.settingsForm {
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+  margin-top: 14px;
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.switch input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.settingsNote {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+.readOnly {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+ * Buttons
+ * ----------------------------------------------------------------------- */
+
+.primary,
+.secondary,
+.approveBtn,
+.payBtn,
+.rejectBtn {
+  padding: 9px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.primary {
+  border: none;
+  background: var(--royal-blue);
+  color: #fff;
+  justify-self: start;
+}
+
+.secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.primary:disabled,
+.secondary:disabled,
+.approveBtn:disabled,
+.payBtn:disabled,
+.rejectBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.approveBtn,
+.payBtn,
+.rejectBtn {
+  padding: 6px 12px;
+  font-size: 0.76rem;
+}
+
+.approveBtn {
+  border: 1px solid var(--warning);
+  background: transparent;
+  color: var(--warning);
+}
+
+/*
+ * The only filled button in a row, because paying is the one action here that moves real
+ * money and should not look like the others.
+ */
+.payBtn {
+  border: none;
+  background: var(--success);
+  color: #04231a;
+  font-weight: 700;
+}
+
+.rejectBtn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.rejectBtn:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* --------------------------------------------------------------------------
+ * The table
+ * ----------------------------------------------------------------------- */
+
+.listCard {
+  padding: 22px;
+}
+
+.tableHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filters input {
+  min-width: 240px;
+}
+
+.empty {
+  padding: 36px 10px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.busy {
+  opacity: 0.5;
+}
+
+.name {
+  display: block;
+  font-weight: 600;
+}
+
+.sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.paidYes {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.paidNo {
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* --- Status chips, one per `ReferralRewardStatus`. --- */
+
+.status_pending_conversion,
+.status_no_reward,
+.status_accrued,
+.status_approved,
+.status_paid,
+.status_rejected {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status_pending_conversion {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text-muted);
+}
+
+.status_no_reward {
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--royal-blue);
+}
+
+/* Amber for the two that mean money is owed and somebody has to act. */
+.status_accrued,
+.status_approved {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.status_paid {
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--success);
+}
+
+.status_rejected {
+  background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pager button {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------------
+ * The note dialog
+ * ----------------------------------------------------------------------- */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.68);
+  overflow-y: auto;
+}
+
+.dialog {
+  width: min(520px, 100%);
+  padding: 24px;
+}
+
+.dialog h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
+.dialogLead {
+  margin: 0 0 16px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}

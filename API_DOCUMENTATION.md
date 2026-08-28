@@ -1260,6 +1260,7 @@ observed from the actual payment.
 ### `GET /api/v1/admin/referrals`
 - **Permission**: `students:read` — matching `/admin/payments`, because it exposes who introduced
   whom, which is student account data. Approving a payout is a **separate** permission.
+- **Called by**: `/admin/referrals` (the console, Milestone 22 Phase G).
 - **Query**: `page`, `limit`, `rewardStatus`, `search` (a student id, an email or a referral code —
   resolved to ids before any query, so nothing user-controlled reaches Mongo as a pattern).
 - **Response 200**: `{ referrals[], totals, pagination }`. Each row carries both parties (real names
@@ -1281,6 +1282,8 @@ observed from the actual payment.
 - **Errors**: `400` bad id or missing reference/reason, `401`, `403`, `404`, `409` wrong state, `429`.
 
 ### `GET`/`PUT /api/v1/admin/referral-settings`
+- **Called by**: `/admin/referrals`, which puts the settings form on the same page as what the
+  current reward has already accrued — so nobody changes the price without seeing the liability.
 - Read on `students:read`; **write on `referrals:write`** — seeing what a referral is worth and
   deciding it are different acts.
 - `{ rewardEnabled, rewardAmount (paise), currency, terms }`. **Eligibility is deliberately not

@@ -30,8 +30,11 @@ Registration                             Payment capture
         |       the backend refuses the whole registration on one that does not resolve
         +-- GET /admin/referrals         (students:read; referredHasPaid DERIVED)
         +-- POST /admin/referrals/:id/{approve,mark-paid,reject}
-                                         (referrals:write; conditional writes; audited)
+        |                                (referrals:write; conditional writes; audited)
         +-- GET/PUT /admin/referral-settings   (read: students:read, write: referrals:write)
+              ^ all four served by the console at /admin/referrals (Phase G), which puts
+                the settings beside the totals they accrued and offers only the
+                transitions the API accepts — it can move a reward, never invent one
 ```
 
 Three properties this shape exists for:

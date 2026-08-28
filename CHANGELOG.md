@@ -2,6 +2,54 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-28 — Milestone 22, Phase G: the admin referral console
+
+`/admin/referrals`. Two jobs on one page, deliberately: **what is owed**, and **what a referral is
+worth**. Splitting them would let somebody change the reward without seeing what the current one has
+already accrued — the same argument that keeps the fee beside the collected total on the payments
+console.
+
+### What it shows
+
+Four counted figures across the top — accrued, approved, paid, and the number of referrals — all
+**programme-wide sums from the collection, not the current page**, because "what do we owe?" must not
+change as somebody pages. Then the reward settings, then the referrals themselves with both parties,
+the code, the dates, whether the referred student has paid (**derived from the payment record at read
+time**, so a stale referral row cannot make it say the wrong thing), the reward state and the payout
+reference or rejection reason.
+
+Names are **unmasked** here, unlike the student's own list — this is the console that decides whether
+to pay somebody, and it already requires `students:read`.
+
+### What it cannot do
+
+It can move a reward along a fixed path and set the amount for *future* conversions. It **cannot
+create a reward, choose what an individual referral is worth, or pay somebody who was not
+introduced**: the amount is snapshotted server-side at conversion and no request from this page
+carries one. Each row offers only the transitions the API will accept — Approve appears on `accrued`,
+Mark paid only on `approved`, and a paid or rejected row reads "Closed". Offering "Mark paid" on an
+unapproved row would invite a 409, and worse, would suggest paying is one click when the two-step
+approval exists on purpose.
+
+Marking paid and rejecting both open a dialog demanding a note, because both end up on a permanent
+record: the payout reference is how a payment is traced afterwards, and the rejection reason is what
+somebody reads when they ask why.
+
+### Honest when nothing is configured
+
+With no reward set the page says so in plain words — that nothing is being accrued and that
+introductions are still being recorded — rather than leaving an administrator to infer it from a
+zero. Setting an amount says explicitly that it applies to conversions from now on and that rewards
+already earned keep the amount they were earned at.
+
+Verified in a browser against the local database, through the whole lifecycle: a referral accrued at
+₹50, approved, then paid with a reference, watching the three totals move each time. Then the reward
+was raised to **₹75 and the already-paid referral stayed at ₹50** — the snapshot rule demonstrated
+live rather than only in a test. Plus the empty-note guard on both dialogs, the status filter, and
+375px where the totals stack and the table scrolls in its own container.
+
+No backend change — 1253 tests across 35 files, unchanged.
+
 ## 2026-08-28 — Milestone 22, Phase F: the student Refer & Earn page
 
 `/referrals`, in the student sidebar. The code, the link, WhatsApp and native share, real

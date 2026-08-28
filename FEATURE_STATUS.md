@@ -84,7 +84,7 @@ _**Verified counts** (read from the code, not carried forward, 2026-08-16): **26
 | Security (baseline hardening) | N/A | IMPLEMENTED | IMPLEMENTED | IN_PROGRESS | Milestone 1 headers/CORS/validation; Milestone 2 token rotation with theft detection, hashed token storage, single-use email tokens, bcrypt cost 12, per-endpoint rate limits, account lockout, no enumeration; Milestone 3 permission-based authorization with database-fresh role checks, immediate session revocation on demotion/suspension, regex-escaped admin search, and an audit trail that records refusals. **The 2026-08-17 audit closed five findings**: CSRF (an `Origin`/`Referer` check mounted once for the whole API — this row's long-standing "top open gap" is no longer open), `localhost:5173` as a production CORS origin, full legal names on the two public lookups, no security headers on the frontend deployment, and no rate limit on the payment routes or the credential-issuing admin routes. Rate limiting, headers and CORS are still not asserted by tests; the CSRF check **is**, by `tests/security.audit.test.ts`. Still `IN_PROGRESS` rather than done: `npm audit` was not run in the audit session, `trust proxy` is unset so every per-IP limit is effectively one shared bucket on serverless, and there is no 2FA. See [`SECURITY.md`](SECURITY.md). |
 | Deployment | IMPLEMENTED | IMPLEMENTED | N/A | NOT_STARTED | Both apps have working Vercel configs; production builds verified locally. **Deploy the backend before the frontend.** Milestone 2 adds two prerequisites: set the `SMTP_*` vars (or students get no verification email) and set `FRONTEND_URL` (or emailed links point at localhost). Deploying also **signs everyone out**, because the cookie names changed. Not verified live. |
 
-## Refer & Earn (Milestone 22, Phases E–F) — STUDENT SIDE COMPLETE; admin UI is Phase G
+## Refer & Earn (Milestone 22, Phases E–G) — IMPLEMENTED end-to-end
 
 | Feature | Frontend | Backend | Database | Testing | Notes |
 |---|---|---|---|---|---|
@@ -94,10 +94,10 @@ _**Verified counts** (read from the code, not carried forward, 2026-08-16): **26
 | Abuse prevention | N/A | IMPLEMENTED | IMPLEMENTED | TESTED | A **unique index** on `Referral.referred` enforces one referrer per registration, no duplicate attribution and no changing it later — not a handler check that could race. Self-referral refused. A suspended referrer's code stops resolving. No request may supply an amount. |
 | Public code validation | IMPLEMENTED | IMPLEMENTED | N/A | TESTED | `GET /referrals/validate` — public (the user has no account yet), rate limited, and publishing a **masked** name only. |
 | Conversion on payment | N/A | IMPLEMENTED | N/A (derived) | TESTED | Hooked into `capturePayment()`, the one place money becomes real — **not** `hasEntryEntitlement()`, which is true when the paywall is off. Conditional write, so a duplicate webhook cannot accrue twice. Stale rows reconcile against `Payment` on read. |
-| Reward configuration | NOT_STARTED (Phase G) | IMPLEMENTED | IMPLEMENTED | TESTED | `ReferralSettings`, a pinned document like `PaymentSettings`. **Defaults to off and ₹0 — no reward rule was ever specified by anybody, so none was invented.** Eligibility is deliberately *not* configurable. |
-| Reward lifecycle | NOT_STARTED (Phase G) | IMPLEMENTED | IMPLEMENTED | TESTED | `pending_conversion → no_reward \| accrued → approved → paid`, or `rejected`. Every transition a **conditional write**; paying unreachable from `accrued`; payout reference and rejection reason mandatory; amount snapshotted at conversion so re-pricing cannot rewrite it. |
+| Reward configuration | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | TESTED | `ReferralSettings`, a pinned document like `PaymentSettings`. **Defaults to off and ₹0 — no reward rule was ever specified by anybody, so none was invented.** Eligibility is deliberately *not* configurable. |
+| Reward lifecycle | IMPLEMENTED | IMPLEMENTED | IMPLEMENTED | TESTED | `pending_conversion → no_reward \| accrued → approved → paid`, or `rejected`. Every transition a **conditional write**; paying unreachable from `accrued`; payout reference and rejection reason mandatory; amount snapshotted at conversion so re-pricing cannot rewrite it. |
 | Student referral summary | IMPLEMENTED | IMPLEMENTED | N/A | TESTED | `GET /me/referrals` — code, link, settings, counts and reward totals, all counted from real rows. Referred students **masked**. |
-| Admin referral console | NOT_STARTED (Phase G) | IMPLEMENTED | N/A | TESTED | `GET /admin/referrals` on `students:read`, with programme-wide totals and `referredHasPaid` **derived** from the payment record. The three money acts on the new `referrals:write`. |
+| Admin referral console | IMPLEMENTED | IMPLEMENTED | N/A | TESTED | `GET /admin/referrals` on `students:read`, with programme-wide totals and `referredHasPaid` **derived** from the payment record. The three money acts on the new `referrals:write`. |
 | Referral audit trail | N/A | IMPLEMENTED | IMPLEMENTED | TESTED | `referral.reward.changed` (with the amount and the acting administrator) and `referral.settings.updated` (both sides of the change). Attribution and conversion are recorded by the `Referral` document's own timestamps — there is no authenticated actor at either moment. |
 | Referral columns in the directory / export | IMPLEMENTED | IMPLEMENTED | N/A | TESTED | Promised in Phase B and held back until the data existed: `Referral Code`, `Referred By`, `Referred By ID`. |
 
@@ -108,8 +108,15 @@ backend tests could not**: the referral link pointed at `/register`, a route tha
 catch-all, so every link rendered blank), and a `behavior: 'smooth'` scroll whose failure mode is
 doing nothing at all.
 
-**The open owner decision**: set the reward amount and the terms sentence at
-`/admin/referral-settings` when it is decided. Until then the programme tracks every introduction and
+**Phase G (the admin console) added**: `/admin/referrals` — four programme-wide counted figures, the
+reward settings beside what they have accrued, and per-row actions offering only the transitions the
+API will accept (Approve on `accrued`, Mark paid only on `approved`, "Closed" once terminal). Paying
+and rejecting each demand a note, because both go on a permanent record. **The console cannot invent
+money**: no request it makes carries an amount.
+
+**The open owner decision**: set the reward amount and the terms sentence at **`/admin/referrals`**
+when it is decided (the settings form is on that page). Until then the console says plainly that
+nothing is being accrued and that introductions are still recorded. Until then the programme tracks every introduction and
 reports honestly that no reward is configured — it does not display ₹0 as though it were an offer.
 
 ## A.M.I.T branding — the full form (Milestone 22, Phase D) — IMPLEMENTED
@@ -326,6 +333,7 @@ Retiring legacy subject data is `npm run retire:subjects --prefix backend` (repo
 
 ## Summary counts
 
+- **New in Milestone 22 (Phase G)**: the admin referral console at `/admin/referrals` — counted programme-wide totals, the reward settings, filters and search, and the approve / mark-paid / reject lifecycle with a mandatory note on the two that go on the record. **No backend change, no new dependency.**
 - **New in Milestone 22 (Phase F)**: the student `/referrals` page — code, link, share and copy, real counts, a masked list, and an honest empty-reward state that shows **no** earnings tiles rather than ₹0.00. Plus `?ref=` capture on the register page and the `/register` route the referral link had been pointing at all along. **No backend change, no new dependency.**
 - **New in Milestone 22 (Phase E)**: the Refer & Earn **backend** — a code per student, server-validated attribution decided by a unique index, conversion driven by captured payments, a full reward lifecycle on conditional writes, an admin console and an audit trail. **The reward itself defaults to off and ₹0, because no amount or eligibility rule has ever been specified** — that is the open owner decision, not an oversight. Two new models (`Referral`, `ReferralSettings`), one new permission (`referrals:write`), two new audit actions, one new service, one new route module. **No new dependency, and no UI yet** (Phases F and G).
 - **New in Milestone 22 (Phase D)**: the officially approved full form of A.M.I.T — **Advance Mathematics and Intelligence Test** — shown once under the wordmark on the landing page, plus the SEO metadata, defined once in `frontend/src/lib/brand.ts`. **No new dependency, model, permission, route or page.**
