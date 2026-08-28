@@ -2,6 +2,52 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-28 — Milestone 22, Phase F: the student Refer & Earn page
+
+`/referrals`, in the student sidebar. The code, the link, WhatsApp and native share, real
+counts, and the list of people invited — every figure from `GET /me/referrals`, none of it
+invented.
+
+### The honest half
+
+With no reward configured the page says **"No referral reward is running at the moment"** and shows
+**no earnings tiles at all** — three tiles reading ₹0.00 look like a broken page rather than an
+honest one. The referral *counts* are shown either way, because those are real. The wording also
+does not promise that a future reward will cover past referrals, because it will not: the amount is
+snapshotted when a referral converts.
+
+When a reward *is* configured the page shows what it is worth, the terms sentence the administrator
+wrote, and three reward tiles — earned, approved, paid.
+
+**The people listed are masked** — "Nisha V." — by the same `displayNameFor()` the public
+leaderboard uses. A referral list is a list of children and the student reading it is not staff.
+
+### The register page understands `?ref=`
+
+It validates the code against the server before the form is filled and **shows the outcome either
+way**: a good code gets "Invited by Aarav S.", and a bad one gets an amber line saying it is not
+valid and will not be applied. That second case matters more than the first — the backend refuses
+the *whole registration* on a code that does not resolve, so passing an unchecked one through would
+lose a real registration over somebody else's typo. The code is sent only once confirmed.
+
+### Two defects the browser pass caught
+
+- **The referral link pointed at a route that did not exist.** `referralLinkFor()` builds
+  `<app>/register?ref=<code>`, and the app had no `/register` route and no catch-all — so every
+  referral link rendered a blank page. Added, rendering the landing page and scrolling to the form.
+  Nothing in 1253 backend tests could have found this: the link is generated on one side of the
+  wire and consumed on the other.
+- **A smooth scroll that silently did nothing.** The scroll-to-form used `behavior: 'smooth'`, which
+  does not run in every environment — and its failure mode is that nothing happens at all. Now
+  instant, which also means somebody who asked for reduced motion is not given an animation.
+
+Verified end to end in a browser: a real registration through a real referral link, the referrer's
+page showing it as "Signed up", then a captured payment flipping it to "Reward earned ₹50.00" with
+the tiles appearing. Plus the invalid-code banner, and 375px where the tiles reflow to two columns
+and the table scrolls in its own container.
+
+No backend change, so the suite is unchanged at 1253.
+
 ## 2026-08-28 — Milestone 22, Phase E: Refer & Earn, the backend
 
 Every student now has a referral code, every introduction is recorded, and every conversion is

@@ -74,6 +74,15 @@ export interface RegisterInput {
   password: string
   /** A base64 data URL, e.g. `data:image/jpeg;base64,...`. Max 2 MB decoded. */
   photo: string
+  /**
+   * The referral code from `?ref=` on the link they followed (Milestone 22).
+   *
+   * Sent **only when it has been validated** against `GET /referrals/validate`. The
+   * backend refuses the whole registration on a code that does not resolve, so passing an
+   * unchecked one through would cost a real registration over somebody else's bad link —
+   * the register page checks first and tells the student plainly when it is dropping one.
+   */
+  referralCode?: string
 }
 
 export interface Student {
@@ -286,6 +295,65 @@ export interface StudentDirectoryEntry extends ManagedAccount {
   hasPaid: boolean
   /** The captured payment if there is one, otherwise the latest attempt. */
   payment: PaymentRecord | null
+}
+
+/**
+ * Where one referral stands (Milestone 22, Phase E).
+ *
+ * `no_reward` means **converted, with no reward configured at that moment** — the
+ * introduction counted and nothing is owed. It is distinct from `pending_conversion`
+ * (they have not paid yet) on purpose: those are different answers to a student asking
+ * what happened.
+ */
+export type ReferralRewardStatus =
+  | 'pending_conversion'
+  | 'no_reward'
+  | 'accrued'
+  | 'approved'
+  | 'paid'
+  | 'rejected'
+
+/** What a referral is currently worth, as the server reports it. */
+export interface ReferralSettingsView {
+  /** False means the programme tracks introductions but pays nothing yet. */
+  rewardEnabled: boolean
+  /** Paise. `0` by default — no amount has been set by anybody. */
+  rewardAmount: number
+  currency: string
+  /** The terms sentence, written by whoever set the amount. `null` until then. */
+  terms: string | null
+}
+
+/** One person this student introduced. The name arrives **masked** from the server. */
+export interface StudentReferralRow {
+  id: string
+  /** `Rahul S.` — masked by `displayNameFor()`, never a full legal name. */
+  name: string
+  classLevel: ClassLevel | null
+  registeredAt: string
+  converted: boolean
+  convertedAt: string | null
+  rewardStatus: ReferralRewardStatus
+  rewardAmount: number
+  rewardDisplay: string
+}
+
+/** `GET /me/referrals`. Every figure counted from real rows. */
+export interface StudentReferralSummary {
+  code: string
+  /** Built server-side from `FRONTEND_URL`, so it is right in every environment. */
+  link: string
+  settings: ReferralSettingsView
+  counts: { total: number; pendingConversion: number; converted: number; rejected: number }
+  rewards: { accruedPaise: number; approvedPaise: number; paidPaise: number }
+  referrals: StudentReferralRow[]
+}
+
+/** `GET /referrals/validate`. Public, and the name is masked. */
+export interface ReferralCheck {
+  valid: boolean
+  code: string
+  referrerName: string | null
 }
 
 export interface Pagination {

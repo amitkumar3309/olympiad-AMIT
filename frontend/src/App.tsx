@@ -41,6 +41,8 @@ const AdminDailyChallenges = lazy(() => import('./pages/Admin/DailyChallenges'))
  *  destinations, so they are split out to keep the entry bundle for the pages every
  *  student opens on arrival. */
 const Rewards = lazy(() => import('./pages/Rewards/Rewards'))
+/** Refer & Earn (Milestone 22, Phase F). A secondary destination, so it is split out. */
+const Referrals = lazy(() => import('./pages/Referrals/Referrals'))
 const AdminRewardSettings = lazy(() => import('./pages/Admin/RewardSettings'))
 const AdminPayments = lazy(() => import('./pages/Admin/Payments'))
 /**
@@ -120,6 +122,16 @@ export default function App() {
         >
         <Routes>
           <Route path="/" element={<Landing />} />
+          {/*
+            The destination of every referral link — `referralLinkFor()` builds
+            `<app>/register?ref=<code>` (Milestone 22, Phase E).
+
+            It renders the landing page, which is where the registration form lives, and
+            the page scrolls straight to it. Added in Phase F after the browser pass:
+            the link was being generated for a path with no route behind it, so following
+            one rendered a blank page. There is no catch-all route to have caught it.
+          */}
+          <Route path="/register" element={<Landing />} />
           {/* Public auth flows — reached from emailed links, so they must not be gated. */}
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -412,6 +424,17 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Rewards />
+              </ProtectedRoute>
+            }
+          />
+          {/* Refer & Earn. Behind `ProtectedRoute` — a referral code belongs to an
+              account, and the server takes the account from the token. Free, like the
+              rest of preparation: you do not have to have paid to invite somebody. */}
+          <Route
+            path="/referrals"
+            element={
+              <ProtectedRoute>
+                <Referrals />
               </ProtectedRoute>
             }
           />

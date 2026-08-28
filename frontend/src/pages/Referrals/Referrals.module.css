@@ -1,0 +1,313 @@
+/* Refer & Earn, the student's page (Milestone 22, Phase F). */
+
+.wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 4px 40px;
+}
+
+.errorCard {
+  padding: 24px;
+  text-align: center;
+}
+
+.retry {
+  margin-top: 10px;
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+ * The code and the link — the reason the page exists
+ * ----------------------------------------------------------------------- */
+
+.codeCard {
+  padding: 26px;
+  text-align: center;
+}
+
+.codeLabel {
+  margin: 0 0 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/*
+ * Monospaced and widely tracked, because this is a value that gets read aloud and typed
+ * from a screenshot — the same reason the alphabet omits O/0 and I/1/L.
+ */
+.code {
+  margin: 0 0 20px;
+  font-family: var(--font-mono);
+  font-size: clamp(1.6rem, 6vw, 2.3rem);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--royal-blue);
+}
+
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.linkInput {
+  flex: 1 1 320px;
+  min-width: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+}
+
+.shareRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.copyBtn,
+.shareBtn,
+.shareWhatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.copyBtn,
+.shareBtn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+}
+
+.copyBtn:hover,
+.shareBtn:hover {
+  border-color: var(--royal-blue);
+  color: var(--royal-blue);
+}
+
+/* WhatsApp's own green, because the button is recognised by its colour first. */
+.shareWhatsapp {
+  border: none;
+  background: #25d366;
+  color: #05391b;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+ * What a referral is worth — or that it is worth nothing yet
+ * ----------------------------------------------------------------------- */
+
+.rewardCard {
+  margin-top: 18px;
+  padding: 20px 22px;
+  border-left: 3px solid var(--gold);
+}
+
+/*
+ * The "no reward configured" variant is deliberately neutral rather than a warning: the
+ * programme genuinely works, tracking genuinely happens, and colouring this red would tell
+ * a student something is broken when nothing is.
+ */
+.rewardOff {
+  border-left-color: var(--text-muted);
+}
+
+.rewardLead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.rewardTerms {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+ * Counts
+ * ----------------------------------------------------------------------- */
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.tiles > :global(.card) {
+  padding: 18px;
+  text-align: center;
+}
+
+.tileValue {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--royal-blue);
+}
+
+.tileLabel {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+ * The list
+ * ----------------------------------------------------------------------- */
+
+.listCard {
+  margin-top: 18px;
+  padding: 22px;
+}
+
+.listCard h3 {
+  margin: 0 0 14px;
+  font-size: 1rem;
+}
+
+.empty {
+  padding: 28px 10px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.empty i {
+  font-size: 2rem;
+  color: var(--border);
+}
+
+.empty p {
+  margin: 8px 0 0;
+  font-size: 0.9rem;
+}
+
+.emptyHint {
+  font-size: 0.8rem !important;
+  max-width: 40ch;
+  margin: 6px auto 0 !important;
+}
+
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.table th {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 11px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.name {
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.amount {
+  font-family: var(--font-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* --- Status chips. One per `ReferralRewardStatus`. --- */
+
+.status_pending_conversion,
+.status_no_reward,
+.status_accrued,
+.status_approved,
+.status_paid,
+.status_rejected {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Signed up but not paid — the ordinary state of most rows, so it stays quiet. */
+.status_pending_conversion {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text-muted);
+}
+
+/* Converted, nothing owed. A success, not a problem — so blue rather than grey. */
+.status_no_reward {
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--royal-blue);
+}
+
+.status_accrued,
+.status_approved {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.status_paid {
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--success);
+}
+
+.status_rejected {
+  background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
+}
+
+.footNote {
+  margin-top: 18px;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+  text-align: center;
+}

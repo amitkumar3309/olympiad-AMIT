@@ -333,3 +333,41 @@
     gap: 10px;
   }
 }
+
+/* --------------------------------------------------------------------------
+ * The referral banner on the register form (Milestone 22, Phase F)
+ * ----------------------------------------------------------------------- */
+
+.referralOk,
+.referralBad {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.referralOk code,
+.referralBad code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.referralOk {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+}
+
+/*
+ * Amber, not red. An invalid code is somebody else's typo and costs the student nothing —
+ * they can still register, and the sentence says so. Colouring it as an error would read
+ * as "your registration has failed", which is exactly the wrong impression.
+ */
+.referralBad {
+  background: rgba(245, 158, 11, 0.13);
+  color: var(--warning);
+}

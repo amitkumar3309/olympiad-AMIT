@@ -23,7 +23,11 @@ Registration                             Payment capture
    Referral  ── read paths reconcile a stale `pending_conversion` row against Payment
         |
         +-- GET /me/referrals            (identity gate; referred students MASKED)
+        |     ^ the student page at /referrals (Phase F)
         +-- GET /referrals/validate      (public, rate limited, masked name)
+        |     ^ the register page at /register?ref=<code> (Phase F), which checks the
+        |       code BEFORE the form is filled and sends it only once confirmed —
+        |       the backend refuses the whole registration on one that does not resolve
         +-- GET /admin/referrals         (students:read; referredHasPaid DERIVED)
         +-- POST /admin/referrals/:id/{approve,mark-paid,reject}
                                          (referrals:write; conditional writes; audited)

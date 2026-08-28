@@ -311,6 +311,15 @@ student's own list (asserted by searching the whole response for the surname); r
 reconciliation healing a referral whose hook was missed; authorization on both URL prefixes; and the
 student directory showing a code and who introduced whom.
 
+**Phase F added no backend test, because it added no backend code** — and it is worth recording what
+that cost. Two defects reached the browser pass that **no backend test could have caught**, both of
+them about the seam between the two halves: the referral link `referralLinkFor()` generates points at
+`/register`, and the frontend had no such route and no catch-all, so every referral link rendered a
+blank page; and the scroll-to-form used `behavior: 'smooth'`, which silently does nothing in
+environments that do not animate scrolling. A link generated on one side of the wire and consumed on
+the other is exactly the shape a backend suite cannot see, which is the standing argument for the
+browser pass being mandatory on a new page.
+
 **One defect this suite caught before it shipped**, and it surfaced nowhere near its cause: eleven
 tests failed with a 500 on the *root administrator's login*, because `Student.referralCode` had been
 declared `unique + sparse` **with `default: null`** — which makes every document carry an explicit

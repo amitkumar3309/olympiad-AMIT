@@ -1,11 +1,17 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 import Button from '../../components/Button'
 import { useAuth, ApiError } from '../../context/AuthContext'
 import { api } from '../../api/client'
-import { CLASS_LEVELS, type ClassLevel, type LeaderboardRow, type PublicStats } from '../../api/types'
+import {
+  CLASS_LEVELS,
+  type ClassLevel,
+  type LeaderboardRow,
+  type PublicStats,
+  type ReferralCheck,
+} from '../../api/types'
 import { AMIT_FULL_FORM } from '../../lib/brand'
 import styles from './Landing.module.css'
 
@@ -114,12 +120,62 @@ export default function Landing() {
   const [stats, setStats] = useState<PublicStats | null>(null)
   const [champions, setChampions] = useState<LeaderboardRow[] | null>(null)
 
+  /**
+   * The referral code from `?ref=` on the link they followed (Milestone 22, Phase F).
+   *
+   * Checked against the server before it is used, and the outcome is **shown either way**.
+   * That matters in both directions: a good code gets a "referred by" line so the student
+   * knows the link worked, and a bad one is dropped *visibly* — because the backend refuses
+   * the whole registration on a code that does not resolve, and losing somebody's
+   * registration over a friend's typo would be the worst possible behaviour here.
+   *
+   * `null` while it is being checked, and for a visitor who arrived without one.
+   */
+  const [referral, setReferral] = useState<ReferralCheck | null>(null)
+  const [searchParams] = useSearchParams()
+  const { pathname } = useLocation()
+
   const [loginOpen, setLoginOpen] = useState(false)
   const [loginIdentifier, setLoginIdentifier] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [needsVerification, setNeedsVerification] = useState(false)
   const [loginSubmitting, setLoginSubmitting] = useState(false)
+
+  /**
+   * Somebody who followed a referral link came to register, so put them at the form.
+   *
+   * Scoped to `/register` rather than to the presence of `?ref=`, so an ordinary visit to
+   * the landing page still starts at the hero.
+   *
+   * **Instant, not smooth.** A smooth scroll reads better, but its failure mode is that
+   * nothing happens at all — and it is exactly what fails in environments that do not run
+   * scroll animations, including the browser this was verified in. Landing on the form is
+   * the point; the animation is decoration, and decoration is not worth a feature that
+   * silently does not work. It also means somebody who has asked for reduced motion is not
+   * given an animation they did not want.
+   */
+  useEffect(() => {
+    if (pathname !== '/register') return
+    // After the first paint, or the section is not laid out yet and the scroll goes nowhere.
+    const timer = window.setTimeout(
+      () => document.getElementById('register')?.scrollIntoView({ behavior: 'auto', block: 'start' }),
+      120,
+    )
+    return () => window.clearTimeout(timer)
+  }, [pathname])
+
+  useEffect(() => {
+    const code = searchParams.get('ref')?.trim()
+    if (!code) return
+
+    void api
+      .get<ReferralCheck>(`/referrals/validate?code=${encodeURIComponent(code)}`)
+      .then(setReferral)
+      // A malformed code is a 400 from the schema. Recorded as invalid rather than
+      // swallowed, so the banner still tells the student it will not be applied.
+      .catch(() => setReferral({ valid: false, code: code.toUpperCase(), referrerName: null }))
+  }, [searchParams])
 
   useEffect(() => {
     void api
@@ -219,6 +275,12 @@ export default function Landing() {
         email: form.email.trim(),
         password: form.password,
         photo: photo.dataUrl,
+        /**
+         * Only a code the server has confirmed. An unchecked one would risk the whole
+         * registration — the backend refuses on a code that does not resolve — and the
+         * banner above the form has already told the student when one is being dropped.
+         */
+        ...(referral?.valid ? { referralCode: referral.code } : {}),
       })
       setRegisteredId(result.student.studentId)
       setStep('success')
@@ -345,6 +407,24 @@ export default function Landing() {
             <span className={step === 'payment' ? styles.stepActive : step === 'success' ? styles.stepDone : ''}>2. Confirm</span>
             <span className={step === 'success' ? styles.stepActive : ''}>3. Verify Email</span>
           </div>
+
+          {/*
+            Who invited them, or that the code will not be used. Shown before the first
+            field rather than beside a hidden input, because it changes what the student
+            expects to happen — and because a dropped code has to be visible, not silent.
+          */}
+          {referral?.valid && (
+            <p className={styles.referralOk}>
+              <i className="ph-bold ph-user-check" /> Invited by <strong>{referral.referrerName}</strong>. Their code{' '}
+              <code>{referral.code}</code> will be applied to your registration.
+            </p>
+          )}
+          {referral && !referral.valid && (
+            <p className={styles.referralBad}>
+              <i className="ph-bold ph-warning" /> The referral code <code>{referral.code}</code> is not valid, so it
+              will not be applied. You can still register normally — check the link with whoever shared it.
+            </p>
+          )}
 
           {formError && <p className="error-text">{formError}</p>}
 

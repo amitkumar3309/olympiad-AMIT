@@ -4,9 +4,18 @@ _Last updated: 2026-08-28 (Milestone 22, Phase B — the admin student directory
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
-**Verified counts, read from the code rather than carried forward** (2026-08-28, measured): **1253 tests passing across 35 files**, **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **50 frontend routes** (Phase B added none — it widened `/admin/users`; Phase D added none — it added an `#about` section to the existing landing page), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`). Every number on this line was measured on 2026-08-28 by running `npm test --prefix backend` and counting the code; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
+**Verified counts, read from the code rather than carried forward** (2026-08-28, measured): **1253 tests passing across 35 files**, **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **52 frontend routes** (Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`). Every number on this line was measured on 2026-08-28 by running `npm test --prefix backend` and counting the code; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
 
 ## Current Development Phase
+
+**Milestone 22 — Phase F: the student Refer & Earn page (2026-08-28): implemented and verified.**
+
+- **`/referrals`** in the student sidebar: the code, the link, WhatsApp and native share, copy buttons, real counts and the list of people invited. Every figure from `GET /me/referrals`.
+- **Honest when there is no reward.** With nothing configured the page says the programme is not running and shows **no earnings tiles at all** — three tiles reading ₹0.00 look like a fault. It also does not promise a future reward will be backdated, because the amount is snapshotted at conversion. With a reward configured it shows the amount, the administrator's terms sentence, and earned/approved/paid.
+- **The people listed are masked** (`Nisha V.`), by the same `displayNameFor()` the public leaderboard uses.
+- **The register page understands `?ref=`**: it validates the code first and shows the outcome either way — "Invited by Aarav S.", or an amber line saying the code is not valid and will not be applied. Only a confirmed code is sent, because the backend refuses the whole registration on one that does not resolve.
+- **Two defects the browser pass caught**, neither reachable from the backend suite: the referral link pointed at **`/register`, a route that did not exist** (no catch-all either, so every link rendered a blank page); and the scroll-to-form used a **smooth scroll that silently does nothing** in environments that do not animate it.
+- No backend change — the suite is unchanged at 1253 across 35 files.
 
 **Milestone 22 — Phase E: the Refer & Earn backend (2026-08-28): implemented and verified.**
 
@@ -76,7 +85,7 @@ affected — `Payment.amount` is a snapshot, and a test re-prices the fee after 
 - **Two things that would have been defects**: the export route is declared **before** `/admin/students/:studentId` (otherwise Express reads `export` as a student id and answers 400 — the `practice-availability` trap again, with a regression test), and an **aggregation bypasses `select: false`**, so every stage that reaches a response ends in an explicit `$project` allow-list.
 - Verified in a browser against a local database seeded with all five payment states. **1166 tests across 32 files** (28 new), typecheck, lint, compile and the frontend build all pass.
 
-**Still to come in Milestone 22**: Phase F (the student Refer & Earn page), Phase G (the admin referral console), Phase H (regression).
+**Still to come in Milestone 22**: Phase G (the admin referral console UI), Phase H (regression).
 
 **Milestone 20 — the AI question generator on the official SDK, with structured output and real review tooling (2026-08-18): implemented and verified.** The owner asked for the official Google GenAI SDK, structured JSON output, subtopic support, retries, rate limiting, per-question review and approval, and provenance on what gets saved.
 
@@ -270,7 +279,7 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Current Milestone
 
-**Milestone 22 — Admin student directory, student invoices, AMIT branding, and Refer & Earn. PHASES A–E COMPLETE, plus the content reset; F–H NOT STARTED.**
+**Milestone 22 — Admin student directory, student invoices, AMIT branding, and Refer & Earn. PHASES A–F COMPLETE, plus the content reset; G–H NOT STARTED.**
 
 Phase B is described under "Current Development Phase" above. Two decisions are recorded and not yet
 built on:
