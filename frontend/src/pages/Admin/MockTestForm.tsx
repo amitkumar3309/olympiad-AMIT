@@ -10,7 +10,6 @@ import {
   type ResultDisplayMode,
   type ReviewPolicy,
   type PaperSuggestion,
-  type Subject,
   type Topic,
 } from '../../api/types'
 import AdminShell from './AdminShell'
@@ -129,17 +128,9 @@ export default function MockTestForm() {
   const [available, setAvailable] = useState<AdminQuestion[]>([])
   const [pickerLoading, setPickerLoading] = useState(false)
   const [pickerError, setPickerError] = useState('')
-  const [subjects, setSubjects] = useState<Subject[]>([])
-  const [subjectId, setSubjectId] = useState('')
   const [search, setSearch] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
 
-  useEffect(() => {
-    api
-      .get<{ subjects: Subject[] }>('/subjects')
-      .then((res) => setSubjects(res.subjects))
-      .catch(() => setSubjects([]))
-  }, [])
 
   /**
    * Every active chapter, for the "fill the paper" control.
@@ -271,8 +262,7 @@ export default function MockTestForm() {
       setPickerError('')
       try {
         const params = new URLSearchParams({ status: 'published', classLevel, limit: '50', sort: 'createdAt' })
-        if (subjectId) params.set('subject', subjectId)
-        if (appliedSearch) params.set('search', appliedSearch)
+          if (appliedSearch) params.set('search', appliedSearch)
         const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
         if (isCurrent()) setAvailable(res.questions)
       } catch (err) {
@@ -281,7 +271,7 @@ export default function MockTestForm() {
         if (isCurrent()) setPickerLoading(false)
       }
     },
-    [classLevel, subjectId, appliedSearch],
+    [classLevel, appliedSearch],
   )
 
   /**
@@ -769,19 +759,6 @@ export default function MockTestForm() {
               setAppliedSearch(search.trim())
             }}
           >
-            <select
-              className="form-control"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              aria-label="Filter by subject"
-            >
-              <option value="">All subjects</option>
-              {subjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name}
-                </option>
-              ))}
-            </select>
             <input
               className="form-control"
               placeholder="Search question text…"

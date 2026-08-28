@@ -13,7 +13,6 @@ import {
   type Pagination,
   type QuestionSortKey,
   type QuestionStatus,
-  type Subject,
   type Topic,
   type BulkStatusOutcome,
   type BulkStatusResult,
@@ -59,7 +58,6 @@ const NEXT_STATUSES: Record<QuestionStatus, QuestionStatus[]> = {
 const EMPTY_FILTERS = {
   search: '',
   status: '',
-  subject: '',
   topic: '',
   classLevel: '',
   difficulty: '',
@@ -85,7 +83,6 @@ export default function Questions() {
   const [order, setOrder] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
 
-  const [subjects, setSubjects] = useState<Subject[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
 
   /** The row whose full detail (solution, answer key) is expanded. */
@@ -111,25 +108,20 @@ export default function Questions() {
 
   const navigate = useNavigate()
 
-  // Subjects are needed for the filter dropdown; topics narrow to the chosen
-  // subject so the list cannot offer a combination that matches nothing.
+  /**
+   * Every chapter, loaded once.
+   *
+   * There is **no subject filter** any more: AMIT is a mathematics olympiad, so the subject is
+   * implicit and a one-item dropdown was a control nobody could get wrong and everybody had to
+   * touch. The chapters endpoint takes no subject, so the cascade it used to require is gone with
+   * it — the list simply loads.
+   */
   useEffect(() => {
     api
-      .get<{ subjects: Subject[] }>('/subjects')
-      .then((res) => setSubjects(res.subjects))
-      .catch(() => setSubjects([]))
-  }, [])
-
-  useEffect(() => {
-    if (!filters.subject) {
-      setTopics([])
-      return
-    }
-    api
-      .get<{ topics: Topic[] }>(`/topics?subject=${filters.subject}&parent=root`)
+      .get<{ topics: Topic[] }>('/topics?parent=root&status=active')
       .then((res) => setTopics(res.topics))
       .catch(() => setTopics([]))
-  }, [filters.subject])
+  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -137,7 +129,7 @@ export default function Questions() {
     try {
       const params = new URLSearchParams({ page: String(page), limit: '10', sort, order })
       if (appliedSearch) params.set('search', appliedSearch)
-      for (const key of ['status', 'subject', 'topic', 'classLevel', 'difficulty', 'type', 'tag', 'source'] as const) {
+      for (const key of ['status', 'topic', 'classLevel', 'difficulty', 'type', 'tag', 'source'] as const) {
         if (filters[key]) params.set(key, filters[key])
       }
 
@@ -293,8 +285,6 @@ export default function Questions() {
     setFilters((current) => ({
       ...current,
       [key]: value,
-      // Changing the subject invalidates any topic chosen under the old one.
-      ...(key === 'subject' ? { topic: '' } : {}),
     }))
   }
 
@@ -342,22 +332,13 @@ export default function Questions() {
             </option>
           ))}
         </select>
-        <select className="form-control" value={filters.subject} onChange={(e) => setFilter('subject', e.target.value)} aria-label="Filter by subject">
-          <option value="">Any subject</option>
-          {subjects.map((subject) => (
-            <option key={subject.id} value={subject.id}>
-              {subject.name}
-            </option>
-          ))}
-        </select>
         <select
           className="form-control"
           value={filters.topic}
           onChange={(e) => setFilter('topic', e.target.value)}
-          disabled={!filters.subject}
-          aria-label="Filter by topic"
+          aria-label="Filter by chapter"
         >
-          <option value="">{filters.subject ? 'Any topic' : 'Choose a subject first'}</option>
+          <option value="">Any chapter</option>
           {topics.map((topic) => (
             <option key={topic.id} value={topic.id}>
               {topic.name}
@@ -453,7 +434,7 @@ export default function Questions() {
             <>
               <p>The question bank is empty.</p>
               <p className={styles.emptyHint}>
-                Create a subject and topic under <Link to="/admin/taxonomy">Subjects &amp; Topics</Link> first, then add your
+                Create a chapter under <Link to="/admin/taxonomy">Chapters</Link> first, then add your
                 first question.
               </p>
               <Link to="/admin/questions/new">
@@ -670,8 +651,7 @@ export default function Questions() {
               </MathText>
 
               <div className={styles.meta}>
-                {question.subject?.name ?? '—'}
-                {question.topic?.name ? ` › ${question.topic.name}` : ''}
+                {question.topic?.name ?? '—'}
                 {question.subtopic?.name ? ` › ${question.subtopic.name}` : ''}
                 {question.tags.length > 0 && (
                   <span className={styles.tags}>

@@ -39,11 +39,11 @@ async function main(): Promise<void> {
 
   const published = await models.Question.countDocuments({ status: 'published' });
   const class12 = await models.Question.countDocuments({
-    classLevel: 'Class 12 - Science',
+    classLevel: 'Class 12',
     status: 'published',
   });
   console.log('\nPublished questions, all classes :', published);
-  console.log('Published for Class 12 - Science  :', class12);
+  console.log('Published for Class 12           :', class12);
 
   const existing = (await db?.listCollections().toArray()) ?? [];
   console.log('\nCollections that exist in this database:');

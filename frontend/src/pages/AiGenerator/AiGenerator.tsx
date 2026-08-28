@@ -21,7 +21,6 @@ import {
   type QuestionGeneratorStatus,
   type QuestionType,
   type QuestionVerdict,
-  type Subject,
   type Topic,
   type ValidateQuestionsResponse,
 } from '../../api/types'
@@ -75,13 +74,11 @@ interface EditableQuestion extends ProposedQuestion {
 const DEFAULT_COUNT = 5
 
 export default function AiGenerator() {
-  const [subjects, setSubjects] = useState<Subject[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
   const [subtopics, setSubtopics] = useState<Topic[]>([])
   const [status, setStatus] = useState<QuestionGeneratorStatus | null>(null)
 
   // --- Configuration ---
-  const [subject, setSubject] = useState('')
   const [chapters, setChapters] = useState<string[]>([])
   // Of the *first* chapter only, since that is the one questions are filed under.
   const [subtopic, setSubtopic] = useState('')
@@ -115,10 +112,18 @@ export default function AiGenerator() {
   const [modelsError, setModelsError] = useState('')
 
   useEffect(() => {
+    /**
+     * Every chapter, loaded once.
+     *
+     * There is **no subject picker** (Milestone 21, Phase K): AMIT is a mathematics olympiad, and
+     * the API derives the subject from the first chapter — `subject` is optional on
+     * `generateQuestionsSchema`. The prompt still *names* the subject, because "write me a
+     * Mathematics question" is information the model needs; what changed is that nobody chooses it.
+     */
     api
-      .get<{ subjects: Subject[] }>('/subjects?status=active')
-      .then((res) => setSubjects(res.subjects))
-      .catch(() => setSubjects([]))
+      .get<{ topics: Topic[] }>('/topics?parent=root&status=active')
+      .then((res) => setTopics(res.topics))
+      .catch(() => setTopics([]))
     api
       .get<QuestionGeneratorStatus>('/admin/question-generator')
       .then(setStatus)
@@ -131,18 +136,6 @@ export default function AiGenerator() {
       .then(setModels)
       .catch((err) => setModelsError(err instanceof ApiError ? err.message : 'Could not reach Google.'))
   }, [])
-
-  useEffect(() => {
-    setChapters([])
-    if (!subject) {
-      setTopics([])
-      return
-    }
-    api
-      .get<{ topics: Topic[] }>(`/topics?subject=${subject}&parent=root&status=active`)
-      .then((res) => setTopics(res.topics))
-      .catch(() => setTopics([]))
-  }, [subject])
 
   /**
    * The subtopic list follows the **first** ticked chapter, and resets when it changes.
@@ -169,7 +162,6 @@ export default function AiGenerator() {
 
   const config = useMemo(
     () => ({
-      subject,
       chapters,
       subtopic: subtopic || null,
       classLevel,
@@ -183,7 +175,7 @@ export default function AiGenerator() {
       instructions: instructions.trim() || null,
       model: model || null,
     }),
-    [subject, chapters, subtopic, classLevel, difficulty, questionType, language, bloomLevel, marks, negativeMarks, optionCount, instructions, model],
+    [chapters, subtopic, classLevel, difficulty, questionType, language, bloomLevel, marks, negativeMarks, optionCount, instructions, model],
   )
 
   /** Text already on screen, so a regenerate is told not to repeat itself. */
@@ -292,7 +284,6 @@ export default function AiGenerator() {
     try {
       setChecked(
         await api.post<ValidateQuestionsResponse>('/admin/generate-questions/validate', {
-          subject,
           topic: chapters[0],
           subtopic: subtopic || null,
           classLevel,
@@ -313,7 +304,6 @@ export default function AiGenerator() {
     setBusy('approve')
     try {
       const res = await api.post<ApproveQuestionsResponse>('/admin/generate-questions/approve', {
-        subject,
         topic: chapters[0],
         subtopic: subtopic || null,
         classLevel,
@@ -401,22 +391,6 @@ export default function AiGenerator() {
           }}
         >
           <div className={styles.grid}>
-            <div className="form-group">
-              <label htmlFor="gen-subject">Subject</label>
-              <select id="gen-subject" className="form-control" value={subject} onChange={(e) => setSubject(e.target.value)}>
-                <option value="">Select a subject</option>
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              {subjects.length === 0 && (
-                <p className={styles.hint}>
-                  No subjects yet — <Link to="/admin/taxonomy">create one</Link> first.
-                </p>
-              )}
-            </div>
 
             <div className="form-group">
               <label htmlFor="gen-class">Class</label>
@@ -434,7 +408,7 @@ export default function AiGenerator() {
           <div className="form-group">
             <label>Chapters {chapters.length > 0 && <span className={styles.hint}>({chapters.length} selected)</span>}</label>
             {topics.length === 0 ? (
-              <p className={styles.hint}>{subject ? 'This subject has no chapters yet.' : 'Choose a subject first.'}</p>
+              <p className={styles.hint}>No chapters yet — create one under Chapters first.</p>
             ) : (
               <div className={styles.chapterList}>
                 {topics.map((t) => (
@@ -589,7 +563,7 @@ export default function AiGenerator() {
             <p className={styles.hint}>{500 - instructions.length} characters left.</p>
           </div>
 
-          <Button type="submit" disabled={!ready || busy !== null || !subject || chapters.length === 0}>
+          <Button type="submit" disabled={!ready || busy !== null || chapters.length === 0}>
             {busy === 'all' ? 'Writing questions…' : `Generate ${count} question${count === 1 ? '' : 's'}`}
           </Button>
         </form>

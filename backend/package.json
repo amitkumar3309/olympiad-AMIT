@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:email": "tsx scripts/verify-email.ts",
-    "verify:gemini": "tsx scripts/verify-gemini.ts"
+    "verify:gemini": "tsx scripts/verify-gemini.ts",
+    "migrate:classes": "tsx scripts/migrate-class-levels.ts"
   },
   "dependencies": {
     "@google/genai": "^2.17.1",

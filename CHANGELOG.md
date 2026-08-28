@@ -2,6 +2,88 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-28 — Milestone 21, Phase J: Classes 3–12, and Subject leaves the interface
+
+### Classes 3 to 12
+
+`CLASS_LEVELS` was Class 5–11 plus **three** Class 12 entries (`- Science`, `- Commerce`,
+`- Humanities`). It is now a flat ten: **Class 3 … Class 12**.
+
+The consequence is deliberate and stated where people will read it: **a Commerce student and a
+Science student now sit the same papers** — one practice pool, one mock test list, one daily
+challenge per day. If a stream ever matters again it must *not* come back as three class values;
+that shape put a curriculum distinction inside the field that decides which children see which
+questions, so every filter, index and unique constraint had to carry it. An optional `stream`
+field on `Student` is the shape to reach for.
+
+### The migration, and the collision it exists to catch
+
+`scripts/migrate-class-levels.ts` (`npm run migrate:classes`). **Report-only by default**, `--write`
+to convert, `assertConfiguredForWrites()` first so a misconfigured run cannot even read the wrong
+database.
+
+`DailyChallenge` has a **unique index on `{day, classLevel}`**. If one day had a Science *and* a
+Commerce challenge, both become `{day, Class 12}` and the second write fails — leaving the
+database half-converted. So collisions are detected **first**, reported day by day, and the run
+**refuses to proceed** without `--resolve-challenges`. Deleting a scheduled challenge is a real
+loss of an administrator's decision, so it is never implicit.
+
+`Certificate` and `GenerationLog` are **deliberately not migrated**. A certificate is a snapshot
+of what was printed and handed to a child; rewriting it would make the record disagree with the
+paper. Both are plain `String` fields, so a retired value reads back for ever. They are counted
+and reported so nobody thinks they were missed.
+
+Verified against the local database: 211 documents reported, then converted, then re-counted at
+zero.
+
+### Subject leaves the interface
+
+**Every user-facing Subject control is gone.** The model, the `/subjects` routes and
+`Question.subject` all stay — `Topic` is scoped by subject and removing the field would break the
+taxonomy — but nobody chooses one any more:
+
+- **Chapters** (was *Subjects & Topics*) manages chapters and subtopics of the one implicit
+  subject. No subject creation, no subject archiving.
+- **Practice** (student), **Question Bank**, **question editor**, **mock-test picker**, **daily
+  challenge picker** and the **AI generator** all lost their subject dropdown.
+- **Analytics** lost its "By subject" table — with one subject it repeated the overall figures
+  under a heading that made them look like a different measurement. "By topic" is now "By
+  chapter". The printed **Report** lost its Subject column.
+
+### The API change that made it clean
+
+`subject` is now **optional** on `createQuestionSchema`, `generateQuestionsSchema` and the
+approve/validate schemas, and `resolveTaxonomy()` derives it from the chapter. The cross-check is
+**kept** for callers that still send one (AI approval, import): a mismatched pair stays an error
+rather than being resolved silently one way or the other.
+
+Deriving beats asking, for the reason the import path already worked this way: a chapter records
+its subject, so accepting both admits a pair that can disagree.
+
+### Physics is gone
+
+`scripts/data/class12Physics.ts` deleted and unwired from the seed. AMIT is a mathematics
+olympiad; seeding a second subject is what put Physics chapters into a "whole syllabus"
+mathematics paper. The architecture still supports more than one subject internally — nothing
+forbids adding one later — but nothing seeds one.
+
+### Tests
+
+The registration class tests are now driven from `CLASS_LEVELS` rather than a hand-copied list.
+The old version asserted the *old* ten classes, so it had to be rewritten rather than merely
+re-run; reading the constant means it cannot go stale again. Added: Class 3 and 4 accepted,
+Class 12 accepted with no stream, the three retired stream values **refused**, and the invalid
+set from the brief — `2`, `13`, `0`, negative, plus bare numbers and empty.
+
+`normaliseClassLevel()` deliberately **refuses** a retired stream rather than mapping it: a
+spreadsheet still saying "Class 12 - Science" was written against the old syllabus, and silently
+accepting it would file its questions without the examiner learning the streams were merged. The
+migration converts *stored* data; a fresh upload is a chance to notice.
+
+**1125 tests across 31 files.**
+
+---
+
 ## 2026-08-23 — Optional auto-detected chapters, and building a paper in one action
 
 Four owner requests, one of which was already true.

@@ -4,6 +4,34 @@ Log real problems + solutions here as they're encountered, so we don't re-solve 
 
 ---
 
+## After the Class 12 merge: a duplicate-key error, or a class that no longer exists
+
+### `E11000 duplicate key` on `dailychallenges` during the migration
+
+**Cause**: `DailyChallenge` has a unique index on `{day, classLevel}`. Collapsing the three Class
+12 streams means two challenges on the same day — one Science, one Commerce — become the same key.
+
+**Fix**: you should never see this, because `scripts/migrate-class-levels.ts` detects collisions
+**before** writing anything and refuses to run without `--resolve-challenges`. If you see it, the
+conversion was done by hand. Re-run the script report-only to list the affected days, decide which
+challenge to keep, and delete the others before converting.
+
+### A certificate shows "Class 12 - Science"
+
+**Not a bug.** `Certificate.classLevel` is a **snapshot of what was printed and awarded**, and is
+deliberately excluded from the migration — rewriting it would make the record disagree with the
+paper a child was handed. It is a plain `String`, not an enum, so it reads back correctly for
+ever. The same applies to `GenerationLog.classLevel`, which records what was asked for on a date.
+
+### A spreadsheet with `Class: Class 12 - Science` is refused
+
+**Intended.** `normaliseClassLevel()` does not map retired values. A file still using the old
+stream names was written against the old syllabus, and silently accepting it would file its
+questions without the examiner ever learning the streams had been merged. Change the column to
+`Class 12` (or just `12`) and upload again.
+
+---
+
 ## A question picker says "no published questions" while the API is returning them
 
 **Symptom**: the Daily Challenge scheduler showed *"No published questions for Class 7. A

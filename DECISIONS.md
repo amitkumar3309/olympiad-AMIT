@@ -4,6 +4,67 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-28 — Classes run 3–12, and the three Class 12 streams collapse into one
+
+**Decision**: `CLASS_LEVELS` becomes a flat ten — `Class 3` … `Class 12`. Class 3 and 4 are new;
+`Class 12 - Science`, `- Commerce` and `- Humanities` are retired into a single `Class 12`. Owner
+decision, taken in Phase A and executed here. The string form was kept over integers because
+`classLevel` is a stored enum on nine collections, appears in compound indexes, and is printed on
+certificates.
+
+**The consequence, stated plainly**: a Commerce student and a Science student now **sit the same
+papers** — one practice pool, one mock test list, one daily challenge per day. The streams existed
+because the competition paper differed by stream, so this is a real product change and not a
+tidy-up.
+
+**If a stream ever matters again, it must not return as three class values.** That shape put a
+curriculum distinction inside the field that decides *which children see which questions*, so
+every filter, every compound index and the `{day, classLevel}` unique constraint all had to carry
+it — which is precisely why merging them needed a migration with collision handling. An optional
+`stream` field on `Student` is the shape to reach for.
+
+**Consequences**: `scripts/migrate-class-levels.ts` is report-only by default and refuses to write
+while daily-challenge collisions are unresolved, because two challenges on one day become one key
+and a mid-run failure would leave the database half-converted. `Certificate` and `GenerationLog`
+are **not** migrated — they are historical snapshots, and rewriting a certificate would make the
+record disagree with the paper a child was handed. `RETIRED_CLASS_LEVELS` lives in
+`lib/classLevels.ts` so a future reader can tell why a certificate prints a class that is not in
+the enum.
+
+---
+
+## 2026-08-28 — Subject leaves the interface; the model stays
+
+**Decision**: every user-facing Subject control is removed — the taxonomy page, the student
+practice picker, the question editor, the question bank filter, both admin question pickers, the
+AI generator, and the analytics/report breakdowns. The `Subject` model, the `/subjects` routes and
+`Question.subject` all **stay**.
+
+**Reason for removing the UI**: AMIT is a mathematics olympiad. A dropdown with one item is a
+decision nobody can get wrong and everybody has to make, and it taught administrators a concept
+the product does not have. "By subject" in analytics was worse than useless: with one subject it
+repeated the overall figures under a heading that made them look like a different measurement.
+
+**Reason for keeping the model**: `Topic` is scoped by subject, and a topic name is only unique
+within one — removing the field would break the taxonomy and every question already filed. Keeping
+it also means adding a second subject later is a new page rather than a migration.
+
+**How it was made clean**: `subject` became **optional** on `createQuestionSchema`,
+`generateQuestionsSchema` and the approve/validate schemas, and `resolveTaxonomy()` derives it
+from the chapter. Deriving beats asking for the reason the import path already worked this way — a
+chapter records its subject, so accepting both admits a pair that can disagree. The cross-check is
+**kept** for callers that still send one (AI approval, import): for them a mismatch is a real
+client bug worth refusing rather than resolving silently.
+
+**Consequences**: `findImplicitSubject()` / `requireImplicitSubject()` in `taxonomyService.ts` are
+the one place that answers "which subject is this product?", and the Chapters page makes the same
+choice client-side so the two agree about where a new chapter goes. The Physics seed was deleted:
+it is what put Physics chapters into a "whole syllabus" mathematics paper. **Do not add a subject
+selector back** without an ADR — if a second subject is genuinely wanted, the honest change is a
+new page, not resurrecting a dropdown of one item.
+
+---
+
 ## 2026-08-23 — A question’s chapter may be detected, deterministically, and is never guessed
 
 **Decision**: the chapter is **optional** when importing and when authoring by hand, and is worked

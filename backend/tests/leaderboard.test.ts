@@ -279,8 +279,8 @@ describe('ranking: a single standing', () => {
 
 describe('ranking: class scope', () => {
   it('ranks within the class, not within the platform', async () => {
-    await studentWith(900, { firstName: 'Senior', classLevel: 'Class 12 - Science' });
-    await studentWith(800, { firstName: 'AlsoSenior', classLevel: 'Class 12 - Science' });
+    await studentWith(900, { firstName: 'Senior', classLevel: 'Class 12' });
+    await studentWith(800, { firstName: 'AlsoSenior', classLevel: 'Class 12' });
     await studentWith(200, { firstName: 'Junior', classLevel: 'Class 9' });
     await studentWith(100, { firstName: 'AlsoJunior', classLevel: 'Class 9' });
 

@@ -6,7 +6,6 @@ import { validateMathContent } from '../src/lib/mathContent';
 import { slugify } from '../src/lib/slug';
 import { createQuestionSchema } from '../src/validation/questionSchemas';
 import { CLASS12_MATHS } from './data/class12Maths';
-import { CLASS12_PHYSICS } from './data/class12Physics';
 import type { SeedQuestion, SeedSubject } from './data/seedTypes';
 
 /**
@@ -45,7 +44,13 @@ import type { SeedQuestion, SeedSubject } from './data/seedTypes';
  * not actually stock the Practice Zone.
  */
 
-const CLASS_LEVEL = 'Class 12 - Science' as const;
+/**
+ * The class these seeds are filed under.
+ *
+ * Was `Class 12 - Science` until Milestone 21 Phase J collapsed the three Class 12 streams into
+ * one. `scripts/migrate-class-levels.ts` converts anything already seeded under the old value.
+ */
+const CLASS_LEVEL = 'Class 12' as const;
 const WRITE = process.argv.includes('--write');
 
 /** Small deterministic PRNG, seeded from a string. Good enough to shuffle options. */
@@ -248,12 +253,18 @@ async function main(): Promise<void> {
   await connectDB();
 
   const counts: Counts = { created: 0, skipped: 0, failed: 0 };
+  /**
+   * Mathematics only.
+   *
+   * The Physics seed was removed in Milestone 21 Phase J: AMIT is a mathematics olympiad, there is
+   * no user-facing subject, and seeding a second one put Physics chapters into a "whole syllabus"
+   * mathematics paper (see the Phase J notes). The architecture still supports more than one
+   * subject internally — nothing here forbids adding one later — but nothing seeds one.
+   */
   await seedSubject(CLASS12_MATHS, counts);
-  await seedSubject(CLASS12_PHYSICS, counts);
 
   const authored =
-    CLASS12_MATHS.topics.reduce((sum, t) => sum + t.questions.length, 0) +
-    CLASS12_PHYSICS.topics.reduce((sum, t) => sum + t.questions.length, 0);
+    CLASS12_MATHS.topics.reduce((sum, t) => sum + t.questions.length, 0);
 
   console.log(`\n${'-'.repeat(60)}`);
   console.log(`Authored in this seed : ${authored}`);

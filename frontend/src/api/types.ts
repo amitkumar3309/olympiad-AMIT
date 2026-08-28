@@ -42,6 +42,8 @@ export type Permission =
  * enforces it, so a stale copy here can never widen what the API accepts.
  */
 export const CLASS_LEVELS = [
+  'Class 3',
+  'Class 4',
   'Class 5',
   'Class 6',
   'Class 7',
@@ -49,9 +51,7 @@ export const CLASS_LEVELS = [
   'Class 9',
   'Class 10',
   'Class 11',
-  'Class 12 - Science',
-  'Class 12 - Commerce',
-  'Class 12 - Humanities',
+  'Class 12',
 ] as const
 
 export type ClassLevel = (typeof CLASS_LEVELS)[number]
@@ -797,7 +797,14 @@ export interface QuestionInput {
   numericAnswer: number | null
   tolerance: number | null
   solution: string | null
-  subject: string
+  /**
+   * Optional, and normally omitted (Milestone 21, Phase J).
+   *
+   * There is no user-facing subject: the chapter records which subject it belongs to and the API
+   * derives it. Kept on the type because the AI-approval and import paths still send one
+   * explicitly, and when they do the API still checks it against the chapter.
+   */
+  subject?: string | null
   topic: string
   subtopic: string | null
   classLevel: ClassLevel

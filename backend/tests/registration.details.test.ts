@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../src/app';
 import { Student, StudentPhoto, MAX_PHOTO_BYTES } from '../src/models';
+import { CLASS_LEVELS } from '../src/lib/classLevels';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import {
   API,
@@ -128,21 +129,16 @@ describe('the mandatory fields are actually mandatory', () => {
 // ---------------------------------------------------------------------------
 
 describe('class level', () => {
-  it('accepts each of the ten offered classes', async () => {
-    const classes = [
-      'Class 5',
-      'Class 6',
-      'Class 7',
-      'Class 8',
-      'Class 9',
-      'Class 10',
-      'Class 11',
-      'Class 12 - Science',
-      'Class 12 - Commerce',
-      'Class 12 - Humanities',
-    ];
-
-    for (const [index, classLevel] of classes.entries()) {
+  /**
+   * Driven from `CLASS_LEVELS` rather than a hand-copied list.
+   *
+   * The previous version listed the ten classes literally, and when Phase J changed the range it
+   * asserted the *old* list while the API accepted the new one — the test had to be rewritten rather
+   * than merely re-run. Reading the constant means this test cannot go stale: it asserts that every
+   * class the platform offers can actually register, whatever that list becomes.
+   */
+  it('accepts every class the platform offers', async () => {
+    for (const [index, classLevel] of CLASS_LEVELS.entries()) {
       const body = {
         ...validStudent,
         classLevel,
@@ -152,18 +148,66 @@ describe('class level', () => {
       await request(app).post(`${API}/auth/register`).send(body).expect(201);
     }
 
-    expect(await Student.countDocuments({})).toBe(classes.length);
+    expect(await Student.countDocuments({})).toBe(CLASS_LEVELS.length);
   });
 
-  it('refuses a class outside the offered list', async () => {
-    const res = await request(app).post(`${API}/auth/register`).send(withField('classLevel', 'Class 4'));
-    expect(res.status).toBe(400);
+  it('runs Class 3 to Class 12 and nothing outside it', () => {
+    // The range itself, asserted once. Phase J: Class 3 and 4 arrived, and the three Class 12
+    // streams collapsed into one.
+    expect(CLASS_LEVELS).toEqual([
+      'Class 3',
+      'Class 4',
+      'Class 5',
+      'Class 6',
+      'Class 7',
+      'Class 8',
+      'Class 9',
+      'Class 10',
+      'Class 11',
+      'Class 12',
+    ]);
+  });
+
+  it('accepts Class 3 and Class 4, which used to be refused', async () => {
+    for (const [index, classLevel] of ['Class 3', 'Class 4'].entries()) {
+      await request(app)
+        .post(`${API}/auth/register`)
+        .send({
+          ...validStudent,
+          classLevel,
+          mobile: `91000000${String(index).padStart(2, '0')}`,
+          email: `new-class-${index}@example.com`,
+        })
+        .expect(201);
+    }
+  });
+
+  it('accepts Class 12 with no stream, which used to be refused', async () => {
+    // The three streams are gone: `Class 12` is now the whole of it. A Commerce student and a
+    // Science student register identically and sit the same papers.
+    await request(app).post(`${API}/auth/register`).send(withField('classLevel', 'Class 12')).expect(201);
+  });
+
+  it('refuses the retired Class 12 stream values', async () => {
+    for (const retired of ['Class 12 - Science', 'Class 12 - Commerce', 'Class 12 - Humanities']) {
+      const res = await request(app).post(`${API}/auth/register`).send(withField('classLevel', retired));
+      expect(res.status).toBe(400);
+    }
     expect(await Student.countDocuments({})).toBe(0);
   });
 
-  it('refuses class 12 without a stream', async () => {
-    const res = await request(app).post(`${API}/auth/register`).send(withField('classLevel', 'Class 12'));
-    expect(res.status).toBe(400);
+  it('refuses a class outside 3–12, in every shape somebody might send one', async () => {
+    // The owner's own list: below the range, above it, zero, and negative — plus the bare numbers a
+    // client might send instead of the platform's spelling.
+    const invalid = ['Class 2', 'Class 13', 'Class 0', 'Class -1', '2', '13', '0', '-1', '', 'Class'];
+
+    for (const classLevel of invalid) {
+      const res = await request(app).post(`${API}/auth/register`).send(withField('classLevel', classLevel));
+      expect(res.status).toBe(400);
+      expect(res.status).not.toBe(500);
+    }
+
+    expect(await Student.countDocuments({})).toBe(0);
   });
 });
 

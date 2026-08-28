@@ -598,3 +598,23 @@ The test helper's `Taxonomy.subtopicId` is a plain `string`, and an **empty stri
 ObjectId** — passing one as `subtopic` is a 400, not "no subtopic". To publish a question under a
 second chapter, pass `{ subtopic: null }` explicitly: the fixture's subtopic belongs to the *first*
 chapter, and the write path rightly refuses a subtopic that is not under the chosen one.
+
+---
+
+## Phase J: the class tests are driven from the constant
+
+The registration class tests used to list the ten classes literally. When Phase J changed the
+range, that test asserted the **old** list while the API accepted the new one — it had to be
+rewritten rather than merely re-run, which is the tell that it was testing a copy rather than the
+thing.
+
+They now iterate `CLASS_LEVELS`, so "every class the platform offers can register" stays true
+whatever that list becomes. One test asserts the range itself, once, in one place.
+
+Added alongside: Class 3 and 4 accepted (both previously refused), Class 12 accepted with no
+stream (previously refused), the three retired stream values **refused**, and the invalid set from
+the owner's brief — `Class 2`, `Class 13`, `Class 0`, `Class -1`, plus the bare `2`/`13`/`0`/`-1`,
+empty, and `Class` alone. Each asserts `not.toBe(500)` as well as the 400.
+
+**If you change the class range again**, the only test that should need editing is the one that
+asserts the range. If others break, they are asserting a copy.

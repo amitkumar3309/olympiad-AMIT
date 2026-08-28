@@ -72,6 +72,30 @@ export type AnalyticsSurface = (typeof ANALYTICS_SURFACES)[number];
  */
 export const MIN_AREA_SAMPLE = 5;
 
+/**
+ * The accuracy either side of which an area may be *called* a strength or a weakness.
+ *
+ * Placing in a sort is not a diagnosis. These two lists used to be the same ranked
+ * array — top five, and the same array reversed — which meant that whenever five or
+ * fewer areas cleared `MIN_AREA_SAMPLE`, **every** area appeared in both. A student
+ * answering everything correctly was told that Mathematics was at once a strong area
+ * and a weak area, at 100%. That is the honest-looking kind of wrong: real counts,
+ * real percentages, a conclusion drawn from neither — rule 3's sin one level up, and
+ * the same fabricated-diagnosis problem the sample floor exists to prevent.
+ *
+ * So an area has to earn its label from its own accuracy. Between the two bands it is
+ * neither, which is the truthful answer for a middling area, and the lists are
+ * disjoint by construction rather than by a de-duplication pass.
+ *
+ * These are deliberately *not* confidence intervals. Milestone 15 considered and
+ * rejected them here (see `DECISIONS.md`): this surface reports what a student's own
+ * answers say, and a plain threshold on a figure shown beside the label is something
+ * a fourteen-year-old can check. The Wilson bounds in `lib/statisticalRecommender.ts`
+ * exist because a *recommendation* asserts more than a description does.
+ */
+export const STRONG_AREA_MIN_ACCURACY = 70;
+export const WEAK_AREA_MAX_ACCURACY = 50;
+
 // ---------------------------------------------------------------------------
 // The shared shape
 // ---------------------------------------------------------------------------
@@ -372,6 +396,9 @@ export interface StudentAnalytics {
   progressTrend: AttemptPoint[];
   paceTrend: PacePoint[];
   minimumAreaSample: number;
+  /** The accuracy bands, so the UI can say why a list is empty rather than guess. */
+  strongAreaMinAccuracy: number;
+  weakAreaMaxAccuracy: number;
   /** Machine-readable reasons a section is empty. Never a fabricated stand-in. */
   notes: string[];
 }
@@ -582,8 +609,11 @@ export async function getStudentAnalytics(student: Types.ObjectId): Promise<Stud
     (a, b) => b.accuracyPercent - a.accuracyPercent || b.answered - a.answered || a.id.localeCompare(b.id),
   );
 
-  const strongAreas = ranked.slice(0, 5);
-  const weakAreas = [...ranked].reverse().slice(0, 5);
+  const strongAreas = ranked.filter((area) => area.accuracyPercent >= STRONG_AREA_MIN_ACCURACY).slice(0, 5);
+  const weakAreas = [...ranked]
+    .reverse()
+    .filter((area) => area.accuracyPercent <= WEAK_AREA_MAX_ACCURACY)
+    .slice(0, 5);
 
   if (areaCandidates.length === 0) {
     notes.push(
@@ -591,6 +621,11 @@ export async function getStudentAnalytics(student: Types.ObjectId): Promise<Stud
         ? 'areas-need-answered-questions'
         : `areas-need-at-least-${MIN_AREA_SAMPLE}-answers-in-one-area`,
     );
+  } else {
+    // A list can now be empty because nothing earned the label, which is a different
+    // fact from having too small a sample, and the UI must be able to tell them apart.
+    if (strongAreas.length === 0) notes.push(`no-area-reached-${STRONG_AREA_MIN_ACCURACY}-percent`);
+    if (weakAreas.length === 0) notes.push(`no-area-fell-below-${WEAK_AREA_MAX_ACCURACY}-percent`);
   }
 
   const hasData = points.length > 0;
@@ -628,6 +663,8 @@ export async function getStudentAnalytics(student: Types.ObjectId): Promise<Stud
     progressTrend: points,
     paceTrend,
     minimumAreaSample: MIN_AREA_SAMPLE,
+    strongAreaMinAccuracy: STRONG_AREA_MIN_ACCURACY,
+    weakAreaMaxAccuracy: WEAK_AREA_MAX_ACCURACY,
     notes,
   };
 }

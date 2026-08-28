@@ -189,7 +189,24 @@ const EXCEL_URL = `${API}/admin/questions/import/excel`;
 describe('class normalisation', () => {
   it('accepts a class exactly as the platform spells it', () => {
     expect(normaliseClassLevel('Class 8')).toBe('Class 8');
-    expect(normaliseClassLevel('Class 12 - Science')).toBe('Class 12 - Science');
+    expect(normaliseClassLevel('Class 12')).toBe('Class 12');
+    // Class 3 and 4 arrived in Phase J; a spreadsheet naming them must not be refused.
+    expect(normaliseClassLevel('Class 3')).toBe('Class 3');
+  });
+
+  it('refuses a retired Class 12 stream rather than mapping it', () => {
+    /**
+     * Deliberately **not** forgiving here, even though `RETIRED_CLASS_LEVELS` knows the mapping.
+     *
+     * A spreadsheet still saying "Class 12 - Science" was written against the old syllabus, and
+     * silently accepting it would file its questions without the examiner ever learning the streams
+     * were merged. The importer reports the row with its number instead, which is the same rule that
+     * makes `Clss 8` an error rather than a guess. `scripts/migrate-class-levels.ts` is what converts
+     * *stored* data; a fresh upload is a chance to notice.
+     */
+    for (const retired of ['Class 12 - Science', 'Class 12 - Commerce', 'Class 12 - Humanities']) {
+      expect(normaliseClassLevel(retired)).toBeNull();
+    }
   });
 
   it('forgives capitalisation and spacing, which is what a spreadsheet really contains', () => {

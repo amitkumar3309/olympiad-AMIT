@@ -26,7 +26,7 @@ type WizardStep = 'details' | 'payment' | 'success'
 const MEDALS = ['🥇', '🥈', '🥉']
 
 const FAQS = [
-  { q: 'Who can participate?', a: 'Students from Class 5 to Class 12, across any school board, can register for the Olympiad.' },
+  { q: 'Who can participate?', a: 'Students from Class 3 to Class 12, across any school board, can register for the Olympiad.' },
   { q: 'Is there negative marking?', a: 'No — there is no negative marking. Attempt every question with confidence.' },
   { q: 'How will results be announced?', a: 'Results are published on your personal dashboard within 48 hours of your exam.' },
 ]

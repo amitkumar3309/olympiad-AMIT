@@ -391,7 +391,7 @@ describe('validation of candidates', () => {
     const { cookies, taxonomy } = await staffAndTaxonomy();
     const elsewhere = await createTaxonomy(app, cookies, { subject: 'Physics', topic: 'Optics' });
     enableGemini();
-    geminiReplying([candidate({ subject: elsewhere.subjectId, topic: elsewhere.topicId, classLevel: 'Class 12 - Science' })]);
+    geminiReplying([candidate({ subject: elsewhere.subjectId, topic: elsewhere.topicId, classLevel: 'Class 12' })]);
 
     const res = await generate(cookies, taxonomy, { count: 1 });
     await approve(cookies, taxonomy, res.body.questions);

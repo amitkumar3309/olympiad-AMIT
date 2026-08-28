@@ -8,7 +8,6 @@ import {
   type AdminQuestion,
   type ClassLevel,
   type Pagination,
-  type Subject,
 } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
@@ -70,8 +69,6 @@ export default function AdminDailyChallenges() {
   const [searchParams] = useSearchParams()
   const [saving, setSaving] = useState(false)
 
-  const [subjects, setSubjects] = useState<Subject[]>([])
-  const [subjectId, setSubjectId] = useState('')
   const [search, setSearch] = useState('')
   const [appliedSearch, setAppliedSearch] = useState('')
   const [available, setAvailable] = useState<AdminQuestion[]>([])
@@ -99,12 +96,6 @@ export default function AdminDailyChallenges() {
     void load()
   }, [load])
 
-  useEffect(() => {
-    api
-      .get<{ subjects: Subject[] }>('/subjects')
-      .then((res) => setSubjects(res.subjects))
-      .catch(() => setSubjects([]))
-  }, [])
 
   /** Only published questions of the class being scheduled can ever be chosen. */
   const loadQuestions = useCallback(
@@ -112,8 +103,7 @@ export default function AdminDailyChallenges() {
       setPickerLoading(true)
       try {
         const params = new URLSearchParams({ status: 'published', classLevel, limit: '50' })
-        if (subjectId) params.set('subject', subjectId)
-        if (appliedSearch) params.set('search', appliedSearch)
+          if (appliedSearch) params.set('search', appliedSearch)
         const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
         if (isCurrent()) setAvailable(res.questions)
       } catch {
@@ -122,7 +112,7 @@ export default function AdminDailyChallenges() {
         if (isCurrent()) setPickerLoading(false)
       }
     },
-    [classLevel, subjectId, appliedSearch],
+    [classLevel, appliedSearch],
   )
 
   /**
@@ -281,19 +271,6 @@ export default function AdminDailyChallenges() {
               setAppliedSearch(search.trim())
             }}
           >
-            <select
-              className="form-control"
-              value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              aria-label="Filter by subject"
-            >
-              <option value="">All subjects</option>
-              {subjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name}
-                </option>
-              ))}
-            </select>
             <input
               className="form-control"
               placeholder="Search question text…"

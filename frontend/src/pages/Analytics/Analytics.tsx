@@ -92,7 +92,7 @@ export default function Analytics() {
     return value === null ? '—' : `${value}%`
   }
 
-  function BreakdownTable({ title, rows, showSubject }: { title: string; rows: NamedPerformanceRow[]; showSubject?: boolean }) {
+  function BreakdownTable({ title, rows }: { title: string; rows: NamedPerformanceRow[] }) {
     if (rows.length === 0) return null
     return (
       <div className="card">
@@ -101,7 +101,7 @@ export default function Analytics() {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>{showSubject ? 'Topic' : 'Subject'}</th>
+                <th>Chapter</th>
                 <th>Answered</th>
                 <th>Correct</th>
                 <th>Accuracy</th>
@@ -113,7 +113,7 @@ export default function Analytics() {
                 <tr key={row.id}>
                   <td>
                     {row.name}
-                    {showSubject && row.subjectName && <span className={styles.sub}>{row.subjectName}</span>}
+
                   </td>
                   <td>{row.answered}</td>
                   <td>{row.correct}</td>
@@ -149,8 +149,13 @@ export default function Analytics() {
         <h3>{title}</h3>
         {areas.length === 0 ? (
           <p className={styles.muted}>
-            Nothing here yet — an area needs at least {analytics?.minimumAreaSample ?? 5} answered questions before it
-            can fairly be called a strength or a weakness.
+            {/* Two different reasons for an empty list, and saying the wrong one is
+                its own small dishonesty: too little evidence to judge, versus judged
+                and found to be neither. */}
+            Nothing here yet — an area needs at least {analytics?.minimumAreaSample ?? 5} answered questions, and{' '}
+            {tone === 'strong'
+              ? `an accuracy of ${analytics?.strongAreaMinAccuracy ?? 70}% or better, to count as a strength.`
+              : `an accuracy of ${analytics?.weakAreaMaxAccuracy ?? 50}% or below, to count as a weakness.`}
           </p>
         ) : (
           <ul className={styles.areaList}>
@@ -317,8 +322,16 @@ export default function Analytics() {
               </div>
             </div>
 
-            <BreakdownTable title="By topic" rows={analytics.byTopic} showSubject />
-            <BreakdownTable title="By subject" rows={analytics.bySubject} />
+            {/*
+              Chapters only.
+
+              The "By subject" table used to sit beside this one and, with a single implicit subject,
+              it was the *same numbers* as the overall figures at the top of the page under a heading
+              that made them look like a different measurement. The API still returns `bySubject` —
+              the analytics service groups by it and nothing about that changed — the page simply has
+              no reason to draw it.
+            */}
+            <BreakdownTable title="By chapter" rows={analytics.byTopic} />
 
             <div className="card">
               <h3>Where your answers came from</h3>

@@ -27,7 +27,7 @@ import styles from './Practice.module.css'
  *
  * ## Preselection from the URL (Milestone 16)
  *
- * `?subject=&topic=&difficulty=` lets a recommendation hand the student straight to the
+ * `?topic=&difficulty=` lets a recommendation hand the student straight to the
  * thing it suggested. The values are **validated against the loaded options** before
  * anything is selected, and silently ignored otherwise: a link kept in a bookmark after
  * a topic was archived then degrades to the ordinary picker rather than to a selection
@@ -64,7 +64,6 @@ export default function Practice() {
   const [history, setHistory] = useState<PracticeHistoryEntry[] | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [subjectId, setSubjectId] = useState('')
   const [topicId, setTopicId] = useState('')
   const [difficulty, setDifficulty] = useState<Difficulty | ''>('')
   const [questionCount, setQuestionCount] = useState<number>(10)
@@ -90,28 +89,30 @@ export default function Practice() {
     void load()
   }, [load])
 
+  /**
+   * Every chapter on offer, flattened out of the response's subject grouping.
+   *
+   * **There is no subject picker.** AMIT is a mathematics olympiad, so the subject is implicit and
+   * showing a one-item dropdown would be a decision the student cannot get wrong and should not have
+   * to make (see the Milestone 21 ADR on the Mathematics-only scope). The API still groups by
+   * subject — `Question.subject` is real and the taxonomy needs it — so the grouping is flattened
+   * here rather than removed from the response.
+   */
   // Memoised so the derivations below have a stable dependency: `options?.subjects ??
   // []` would be a fresh array on every render, which makes any `useMemo` over it
   // recompute every time and defeats the point.
   const subjects: PracticeSubjectOption[] = useMemo(() => options?.subjects ?? [], [options])
-  const selectedSubject = useMemo(
-    () => subjects.find((entry) => entry.subjectId === subjectId) ?? null,
-    [subjects, subjectId],
-  )
 
-  /**
-   * The topics on offer: those of the chosen subject, or every topic while no subject
-   * is chosen. Derived rather than stored, so it can never disagree with the subject.
-   */
+  /** Every chapter that has published questions for this student's class. */
   const topics = useMemo(
-    () => (selectedSubject ? selectedSubject.topics : subjects.flatMap((entry) => entry.topics)),
-    [subjects, selectedSubject],
+    () => subjects.flatMap((entry) => entry.topics),
+    [subjects],
   )
 
   const selectedTopic = topics.find((entry) => entry.topicId === topicId) ?? null
 
   /**
-   * Applies `?subject=&topic=&difficulty=` once the real options have loaded.
+   * Applies `?topic=&difficulty=` once the real options have loaded.
    *
    * Runs when `subjects` first becomes non-empty and never fights the student for the
    * controls afterwards: every branch is guarded on the current selection still being
@@ -121,19 +122,16 @@ export default function Practice() {
     if (subjects.length === 0) return
 
     const wantedTopic = searchParams.get('topic')
-    const wantedSubject = searchParams.get('subject')
+
     const wantedDifficulty = searchParams.get('difficulty')
 
-    // A topic implies its subject, so it is resolved first and wins if the two disagree.
+    // A chapter is all a recommendation ever needs to hand over now.
     const owner = wantedTopic
       ? subjects.find((entry) => entry.topics.some((topic) => topic.topicId === wantedTopic))
       : undefined
 
     if (owner && wantedTopic) {
-      setSubjectId((current) => current || owner.subjectId)
       setTopicId((current) => current || wantedTopic)
-    } else if (wantedSubject && subjects.some((entry) => entry.subjectId === wantedSubject)) {
-      setSubjectId((current) => current || wantedSubject)
     }
 
     // Only offered where it really exists, matching what the select itself would allow.
@@ -150,33 +148,17 @@ export default function Practice() {
    */
   const availableDifficulties: Difficulty[] = selectedTopic
     ? selectedTopic.difficulties
-    : selectedSubject
-      ? selectedSubject.difficulties
-      : DIFFICULTIES.filter((level) => subjects.some((entry) => entry.difficulties.includes(level)))
+    : DIFFICULTIES.filter((level) => subjects.some((entry) => entry.difficulties.includes(level)))
 
   /** How many questions the current selection really has behind it. */
   const availableCount = selectedTopic
     ? selectedTopic.questionCount
-    : selectedSubject
-      ? selectedSubject.questionCount
-      : subjects.reduce((sum, entry) => sum + entry.questionCount, 0)
-
-  function chooseSubject(nextSubjectId: string) {
-    setSubjectId(nextSubjectId)
-    // A topic from the previous subject would be a contradiction, so it is cleared.
-    setTopicId('')
-    setDifficulty('')
-  }
+    : subjects.reduce((sum, entry) => sum + entry.questionCount, 0)
 
   function chooseTopic(nextTopicId: string) {
     setTopicId(nextTopicId)
     setDifficulty('')
-    // Choosing a topic implies its subject, which keeps the two boxes consistent when
-    // a topic is picked while "All subjects" is showing.
-    if (nextTopicId && !subjectId) {
-      const owner = subjects.find((entry) => entry.topics.some((topic) => topic.topicId === nextTopicId))
-      if (owner) setSubjectId(owner.subjectId)
-    }
+
   }
 
   async function start() {
@@ -184,7 +166,6 @@ export default function Practice() {
     setStartError(null)
     try {
       const body: Record<string, unknown> = { questionCount }
-      if (subjectId) body.subjectId = subjectId
       if (topicId) body.topicId = topicId
       if (difficulty) body.difficulty = difficulty
 
@@ -256,22 +237,6 @@ export default function Practice() {
               <h3>🎯 Start a practice session</h3>
 
               <div className={styles.pickers}>
-                <div className="form-group">
-                  <label htmlFor="practice-subject">Subject</label>
-                  <select
-                    id="practice-subject"
-                    className="form-control"
-                    value={subjectId}
-                    onChange={(e) => chooseSubject(e.target.value)}
-                  >
-                    <option value="">All subjects ({subjects.reduce((sum, e) => sum + e.questionCount, 0)})</option>
-                    {subjects.map((entry) => (
-                      <option key={entry.subjectId} value={entry.subjectId}>
-                        {entry.subjectName} ({entry.questionCount})
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
                 <div className="form-group">
                   <label htmlFor="practice-topic">Topic</label>
@@ -355,7 +320,12 @@ export default function Practice() {
                   <li key={entry.id}>
                     <div className={styles.historyMain}>
                       <span className={styles.historyTitle}>
-                        {entry.filters.topic?.name ?? entry.filters.subject?.name ?? 'Mixed practice'}
+                        {/*
+                          The chapter, or "Mixed practice". It used to fall back to the *subject*
+                          name, which now just prints "Mathematics" on every unfiltered session —
+                          true, and no use at all to a student scanning their history.
+                        */}
+                        {entry.filters.topic?.name ?? 'Mixed practice'}
                         {entry.filters.difficulty ? ` · ${entry.filters.difficulty}` : ''}
                       </span>
                       <span className={styles.historyMeta}>

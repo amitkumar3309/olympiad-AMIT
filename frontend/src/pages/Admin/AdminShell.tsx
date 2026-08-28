@@ -20,7 +20,7 @@ const NAV_ITEMS: Array<{ to: string; label: string; icon: string; permission?: P
   { to: '/admin/users', label: 'User Management', icon: 'ph-users-three', permission: 'students:read' },
   { to: '/admin/questions', label: 'Question Bank', icon: 'ph-list-checks', permission: 'questions:write' },
   { to: '/admin/questions/import', label: 'Bulk Import', icon: 'ph-upload-simple', permission: 'questions:write' },
-  { to: '/admin/taxonomy', label: 'Subjects & Topics', icon: 'ph-tree-structure', permission: 'taxonomy:write' },
+  { to: '/admin/taxonomy', label: 'Chapters', icon: 'ph-tree-structure', permission: 'taxonomy:write' },
   { to: '/admin/mock-tests', label: 'Mock Tests', icon: 'ph-exam', permission: 'mocktests:write' },
   { to: '/admin/exams', label: 'Official Exam', icon: 'ph-certificate', permission: 'exam:write' },
   { to: '/admin/certificates', label: 'Certificates', icon: 'ph-medal', permission: 'certificates:write' },

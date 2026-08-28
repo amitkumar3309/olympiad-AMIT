@@ -152,7 +152,8 @@ export function similarity(a: string, b: string): number {
 // ---------------------------------------------------------------------------
 
 export interface ProposeInput {
-  subject: string;
+  /** Optional: derived from the first chapter when absent. */
+  subject?: string | null;
   /** One or more topic ids. The first is the one a question is filed under. */
   chapters: string[];
   /**
@@ -209,14 +210,23 @@ export interface ProposalOutcome {
   logId: string | null;
 }
 
-async function resolveTaxonomyNames(subjectId: string, chapterIds: string[], subtopicId: string | null) {
-  const [subject, chapters] = await Promise.all([
-    Subject.findById(subjectId).select('name'),
-    Topic.find({ _id: { $in: chapterIds } }).select('name subject'),
-  ]);
-
-  if (!subject) throw ApiError.badRequest('That subject does not exist.');
+async function resolveTaxonomyNames(
+  subjectId: string | null,
+  chapterIds: string[],
+  subtopicId: string | null,
+) {
+  const chapters = await Topic.find({ _id: { $in: chapterIds } }).select('name subject');
   if (chapters.length !== chapterIds.length) throw ApiError.badRequest('One of those chapters does not exist.');
+
+  /**
+   * The subject is **derived from the first chapter** unless the caller named one.
+   *
+   * A chapter already records its subject, and since Phase J there is no user-facing subject to
+   * ask for. The cross-check below is kept either way: it is what stops a batch being filed under
+   * chapters from two different subjects, which would produce questions no filter could find.
+   */
+  const subject = await Subject.findById(subjectId ?? chapters[0]?.subject).select('name');
+  if (!subject) throw ApiError.badRequest('That subject does not exist.');
   for (const chapter of chapters) {
     if (String(chapter.subject) !== String(subject._id)) {
       throw ApiError.badRequest(`"${chapter.name}" does not belong to ${subject.name}.`);
@@ -264,7 +274,7 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
   }
 
   const { subject, chapters, subtopic } = await resolveTaxonomyNames(
-    input.subject,
+    input.subject ?? null,
     input.chapters,
     input.subtopic ?? null,
   );
@@ -316,7 +326,8 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
 
   const primaryTopic = input.chapters[0]!;
   const screened = screenCandidates(candidates.slice(0, input.count), {
-    subject: input.subject,
+    // The *resolved* subject, which is present even when the request omitted one.
+    subject: String(subject._id),
     topic: primaryTopic,
     subtopic: subtopic?.id ?? null,
     classLevel: input.classLevel,
@@ -363,7 +374,13 @@ export async function proposeQuestions(input: ProposeInput, actor: Actor): Promi
 
 /** Where a batch will be filed, which is what makes the candidates checkable at all. */
 export interface ScreenTarget {
-  subject: string;
+  /**
+   * Optional since Phase J — `createQuestionSchema` derives it from `topic` when absent.
+   *
+   * Kept on the target rather than dropped, because the generator resolves a real subject id up
+   * front and passing it keeps the cross-subject check meaningful for a multi-chapter batch.
+   */
+  subject?: string | null;
   topic: string;
   subtopic: string | null;
   classLevel: GenerationRequest['classLevel'];
@@ -464,7 +481,7 @@ export function screenEach(entries: readonly ScreenEntry[]): ScreenOutcome {
 // ---------------------------------------------------------------------------
 
 export interface ValidateInput {
-  subject: string;
+  subject?: string | null;
   topic: string;
   subtopic?: string | null;
   classLevel: GenerationRequest['classLevel'];
@@ -556,7 +573,7 @@ export async function recordReviewerRejections(logId: string, count: number): Pr
 // ---------------------------------------------------------------------------
 
 export interface ApproveInput {
-  subject: string;
+  subject?: string | null;
   topic: string;
   subtopic?: string | null;
   classLevel: GenerationRequest['classLevel'];
@@ -707,7 +724,8 @@ async function writeLog(
       // The one actually called, not the configured default: an examiner may have
       // picked another, and a log that records the wrong model is worse than none.
       modelName: input.model ?? config.ai.geminiModel,
-      subject: input.subject as unknown as Types.ObjectId,
+      // The resolved id rather than the request's, which may legitimately have been absent.
+    subject: input.subject as unknown as Types.ObjectId,
       chapters: input.chapters as unknown as Types.ObjectId[],
       classLevel: input.classLevel,
       difficulty: input.difficulty,

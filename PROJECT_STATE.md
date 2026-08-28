@@ -200,7 +200,40 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Current Milestone
 
-**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–I COMPLETE.**
+**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–K COMPLETE; only L (full regression) remains.**
+
+**Phase J (Classes 3–12, and Subject out of the interface) is implemented and verified.**
+
+`CLASS_LEVELS` is now a flat ten — `Class 3` … `Class 12`. Class 3 and 4 are new; the three
+Class-12 streams are retired into one. **A Commerce student and a Science student now sit the same
+papers**: one practice pool, one mock test list, one daily challenge per day. That is the owner’s
+decision, and it is the reason the migration exists rather than a rename.
+
+> **The migration is written and tested but has NOT been run against production.** That is the
+> owner’s to run. `npm run migrate:classes --prefix backend` reports; `-- --write` converts. It
+> refuses to write while **daily-challenge collisions** are unresolved — `DailyChallenge` has a
+> unique index on `{day, classLevel}`, so two streams sharing a day become one key and a mid-run
+> failure would leave the database half-converted. `Certificate` and `GenerationLog` are
+> deliberately **not** migrated: they are snapshots of what was printed or asked for. Verified
+> end-to-end against the local database (211 documents reported, converted, re-counted at zero).
+
+**Subject is gone from every screen** — the taxonomy page (now **Chapters**), the student practice
+picker, the question editor, the question-bank filter, both admin question pickers, the AI
+generator (which is Phase K, done here since it is the same change), and the analytics and report
+breakdowns. The `Subject` **model, routes and `Question.subject` all stay**, because `Topic` is
+scoped by subject and a topic name is only unique within one.
+
+What made that clean: `subject` became **optional** on `createQuestionSchema`,
+`generateQuestionsSchema` and the approve/validate schemas, with `resolveTaxonomy()` deriving it
+from the chapter — and the cross-check kept for callers that still send one, so a mismatched pair
+is refused rather than resolved silently. The Physics seed was deleted; it is what put Physics
+chapters into a "whole syllabus" mathematics paper.
+
+Verified in a browser: every page offers Class 3–12 and shows no Subject control anywhere, the
+Chapters page has no trace of subject management, and a question was created through the API with
+**no subject sent at all** — derived from its chapter, filed under Class 3.
+
+**Suite: 1125 passing across 31 files.**
 
 **Latest verified state: 1121 passing across 31 files.** `npm run lint`, `npm run compile` and the
 frontend `tsc -b` + `npm run build` are clean. (The one `npm run typecheck` failure is a concurrent

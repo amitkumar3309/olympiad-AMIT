@@ -139,8 +139,7 @@ export default function Report() {
                   <table className={styles.table}>
                     <thead>
                       <tr>
-                        <th>Topic</th>
-                        <th>Subject</th>
+                        <th>Chapter</th>
                         <th>Answered</th>
                         <th>Correct</th>
                         <th>Accuracy</th>
@@ -150,7 +149,6 @@ export default function Report() {
                       {analytics.byTopic.map((row) => (
                         <tr key={row.id}>
                           <td>{row.name}</td>
-                          <td>{row.subjectName ?? '—'}</td>
                           <td>{row.answered}</td>
                           <td>{row.correct}</td>
                           {/* Never `0%` for an unmeasured row — see the API's null contract. */}

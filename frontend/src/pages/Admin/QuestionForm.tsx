@@ -11,7 +11,6 @@ import {
   type Difficulty,
   type QuestionInput,
   type QuestionType,
-  type Subject,
   type ChapterDetection,
   type Topic,
 } from '../../api/types'
@@ -35,7 +34,6 @@ interface FormState {
   numericAnswer: string
   tolerance: string
   solution: string
-  subject: string
   topic: string
   subtopic: string
   classLevel: ClassLevel
@@ -58,7 +56,6 @@ const EMPTY_STATE: FormState = {
   numericAnswer: '',
   tolerance: '',
   solution: '',
-  subject: '',
   topic: '',
   subtopic: '',
   classLevel: 'Class 9',
@@ -88,8 +85,6 @@ export default function QuestionForm() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [loadError, setLoadError] = useState('')
-
-  const [subjects, setSubjects] = useState<Subject[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
   const [subtopics, setSubtopics] = useState<Topic[]>([])
 
@@ -129,24 +124,20 @@ export default function QuestionForm() {
     }
   }
 
-  // --- Taxonomy dropdowns, cascading subject → topic → subtopic --------------
+  /**
+   * Every chapter, loaded once.
+   *
+   * There is **no subject picker** (Milestone 21, Phase J): AMIT is a mathematics olympiad, so the
+   * subject is implicit and the chapter already records it. The API derives it — `subject` is
+   * optional on `createQuestionSchema` and `resolveTaxonomy()` reads it off the chosen chapter — so
+   * the old subject → topic cascade is gone with the dropdown that drove it.
+   */
   useEffect(() => {
     api
-      .get<{ subjects: Subject[] }>('/subjects?status=active')
-      .then((res) => setSubjects(res.subjects))
-      .catch(() => setSubjects([]))
-  }, [])
-
-  useEffect(() => {
-    if (!form.subject) {
-      setTopics([])
-      return
-    }
-    api
-      .get<{ topics: Topic[] }>(`/topics?subject=${form.subject}&parent=root&status=active`)
+      .get<{ topics: Topic[] }>('/topics?parent=root&status=active')
       .then((res) => setTopics(res.topics))
       .catch(() => setTopics([]))
-  }, [form.subject])
+  }, [])
 
   useEffect(() => {
     if (!form.topic) {
@@ -175,7 +166,6 @@ export default function QuestionForm() {
         numericAnswer: q.numericAnswer === null ? '' : String(q.numericAnswer),
         tolerance: q.tolerance === null ? '' : String(q.tolerance),
         solution: q.solution ?? '',
-        subject: q.subject?.id ?? '',
         topic: q.topic?.id ?? '',
         subtopic: q.subtopic?.id ?? '',
         classLevel: q.classLevel,
@@ -207,7 +197,6 @@ export default function QuestionForm() {
       numericAnswer: form.type === 'numeric' && form.numericAnswer !== '' ? Number(form.numericAnswer) : null,
       tolerance: form.type === 'numeric' && form.tolerance !== '' ? Number(form.tolerance) : null,
       solution: form.solution.trim() === '' ? null : form.solution.trim(),
-      subject: form.subject,
       topic: form.topic,
       subtopic: form.subtopic === '' ? null : form.subtopic,
       classLevel: form.classLevel,
@@ -228,8 +217,8 @@ export default function QuestionForm() {
     // Only the checks the server cannot phrase better are done here; everything
     // else is left to the API so there is one authority on validity and the
     // messages the author sees are the real ones.
-    if (!form.subject || !form.topic) {
-      setError('Choose a subject and a topic.')
+    if (!form.topic) {
+      setError('Choose a chapter.')
       return
     }
 
@@ -306,29 +295,11 @@ export default function QuestionForm() {
           <h3 className={styles.sectionTitle}>Classification</h3>
           <div className={styles.grid}>
             <div className="form-group">
-              <label htmlFor="q-subject">
-                Subject <Required />
-              </label>
-              <select id="q-subject" className="form-control" value={form.subject} onChange={(e) => setForm((c) => ({ ...c, subject: e.target.value, topic: '', subtopic: '' }))} required>
-                <option value="">Select a subject</option>
-                {subjects.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
-              </select>
-              {subjects.length === 0 && (
-                <p className={styles.hint}>
-                  No subjects yet — <Link to="/admin/taxonomy">create one</Link> first.
-                </p>
-              )}
-            </div>
-            <div className="form-group">
               <label htmlFor="q-topic">
-                Topic <Required />
+                Chapter <Required />
               </label>
-              <select id="q-topic" className="form-control" value={form.topic} onChange={(e) => setForm((c) => ({ ...c, topic: e.target.value, subtopic: '' }))} disabled={!form.subject} required>
-                <option value="">{form.subject ? 'Select a topic' : 'Choose a subject first'}</option>
+              <select id="q-topic" className="form-control" value={form.topic} onChange={(e) => setForm((c) => ({ ...c, topic: e.target.value, subtopic: '' }))} required>
+                <option value="">Select a chapter</option>
                 {topics.map((topic) => (
                   <option key={topic.id} value={topic.id}>
                     {topic.name}

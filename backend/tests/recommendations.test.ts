@@ -3,7 +3,11 @@ import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../src/app';
 import { config } from '../src/config';
-import { MIN_AREA_SAMPLE } from '../src/services/analyticsService';
+import {
+  MIN_AREA_SAMPLE,
+  STRONG_AREA_MIN_ACCURACY,
+  WEAK_AREA_MAX_ACCURACY,
+} from '../src/services/analyticsService';
 import {
   getRecommendations,
   registerRecommendationEngine,
@@ -694,6 +698,10 @@ describe('the engine seam', () => {
         progressTrend: [],
         paceTrend: [],
         minimumAreaSample: MIN_AREA_SAMPLE,
+        // The accuracy bands a strength or a weakness has to clear. Read from the constants rather
+        // than written as 70/50, so this fixture cannot drift from the thresholds it stands in for.
+        strongAreaMinAccuracy: STRONG_AREA_MIN_ACCURACY,
+        weakAreaMaxAccuracy: WEAK_AREA_MAX_ACCURACY,
         notes: [],
       },
       availability: [],

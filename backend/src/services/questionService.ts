@@ -160,7 +160,8 @@ export interface QuestionContentInput {
   tolerance: number | null;
   acceptedAnswers: string[];
   solution: string | null;
-  subject: string;
+  /** Optional: derived from the chapter when absent. See `resolveTaxonomy()`. */
+  subject?: string | null;
   topic: string;
   subtopic: string | null;
   classLevel: ClassLevel;
@@ -179,15 +180,23 @@ export interface QuestionContentInput {
  * data loss.
  */
 async function resolveTaxonomy(input: {
-  subject: string;
+  subject?: string | null;
   topic: string;
   subtopic: string | null;
 }): Promise<{ subject: mongoose.Types.ObjectId; topic: mongoose.Types.ObjectId; subtopic: mongoose.Types.ObjectId | null }> {
-  const subject = await Subject.findById(input.subject);
-  if (!subject) throw ApiError.badRequest('That subject does not exist.');
-
   const topic = await Topic.findById(input.topic);
   if (!topic) throw ApiError.badRequest('That topic does not exist.');
+
+  /**
+   * The subject is **derived from the chapter** unless the caller named one.
+   *
+   * A chapter already records its subject, so asking for both admits a pair that can disagree —
+   * and since Phase J there is no user-facing subject to ask for, so the editor sends none. The
+   * check is kept for the callers that *do* send one (AI approval, import), because for them a
+   * mismatch is a real client bug worth refusing rather than resolving silently.
+   */
+  const subject = await Subject.findById(input.subject ?? topic.subject);
+  if (!subject) throw ApiError.badRequest('That subject does not exist.');
   if (String(topic.subject) !== String(subject._id)) {
     throw ApiError.badRequest('That topic does not belong to the selected subject.');
   }
@@ -249,7 +258,7 @@ export function toQuestionContent(input: ValidatedQuestionContent): QuestionCont
     tolerance: input.tolerance ?? null,
     acceptedAnswers: input.acceptedAnswers ?? [],
     solution: input.solution ?? null,
-    subject: input.subject,
+    subject: input.subject ?? null,
     topic: input.topic,
     subtopic: input.subtopic ?? null,
     classLevel: input.classLevel,
@@ -273,7 +282,7 @@ export interface ValidatedQuestionContent {
   tolerance?: number | null;
   acceptedAnswers?: string[];
   solution?: string | null;
-  subject: string;
+  subject?: string | null;
   topic: string;
   subtopic?: string | null;
   classLevel: ClassLevel;

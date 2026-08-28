@@ -423,6 +423,59 @@ describe('weak and strong areas', () => {
     expect(weakTopics[0]).toMatchObject({ name: 'Optics', accuracyPercent: 16.7, answered: 6 });
   });
 
+  it('never calls the same area both a strength and a weakness', async () => {
+    const admin = await createAdminSession(app);
+    const student = await registerVerifyLogin(app, otherStudent);
+    const { maths } = await twoTopicTaxonomy(admin.cookies);
+
+    // Everything correct. Before the accuracy bands, the two lists were one ranked
+    // array and its own reverse, so with five or fewer qualifying areas a student at
+    // 100% was told the same subject was strong *and* weak.
+    const all = await Promise.all(Array.from({ length: 6 }, () => publish(admin.cookies, maths)));
+    await seedPracticeSession({
+      studentId: student.studentId,
+      questionIds: all,
+      outcomes: ['correct', 'correct', 'correct', 'correct', 'correct', 'correct'],
+    });
+
+    const account = await mongoose.model('Student').findOne({ studentId: student.studentId });
+    const analytics = await getStudentAnalytics(account!._id as never);
+
+    expect(analytics.strongAreas.length).toBeGreaterThan(0);
+    expect(analytics.weakAreas).toEqual([]);
+
+    // The real property, independent of the numbers above: the lists are disjoint.
+    const strong = new Set(analytics.strongAreas.map((area) => `${area.scope}:${area.id}`));
+    for (const area of analytics.weakAreas) {
+      expect(strong.has(`${area.scope}:${area.id}`)).toBe(false);
+    }
+    // Nothing at 100% may be described as a weakness.
+    expect(analytics.weakAreas.every((area) => area.accuracyPercent <= analytics.weakAreaMaxAccuracy)).toBe(true);
+    expect(analytics.notes).toContain(`no-area-fell-below-${analytics.weakAreaMaxAccuracy}-percent`);
+  });
+
+  it('leaves a middling area out of both lists rather than forcing a label', async () => {
+    const admin = await createAdminSession(app);
+    const student = await registerVerifyLogin(app, otherStudent);
+    const { maths } = await twoTopicTaxonomy(admin.cookies);
+
+    // 60%: comfortably past the sample floor, and genuinely neither.
+    const ten = await Promise.all(Array.from({ length: 10 }, () => publish(admin.cookies, maths)));
+    await seedPracticeSession({
+      studentId: student.studentId,
+      questionIds: ten,
+      outcomes: ['correct', 'correct', 'correct', 'correct', 'correct', 'correct', 'wrong', 'wrong', 'wrong', 'wrong'],
+    });
+
+    const account = await mongoose.model('Student').findOne({ studentId: student.studentId });
+    const analytics = await getStudentAnalytics(account!._id as never);
+
+    expect(analytics.strongAreas).toEqual([]);
+    expect(analytics.weakAreas).toEqual([]);
+    expect(analytics.notes).toContain(`no-area-reached-${analytics.strongAreaMinAccuracy}-percent`);
+    expect(analytics.notes).toContain(`no-area-fell-below-${analytics.weakAreaMaxAccuracy}-percent`);
+  });
+
   it('reports subject and difficulty areas alongside topics', async () => {
     const admin = await createAdminSession(app);
     const student = await registerVerifyLogin(app, otherStudent);

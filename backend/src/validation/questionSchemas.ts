@@ -83,7 +83,16 @@ const questionContentShape = {
     .max(8, 'A fill-in-the-blank question may have at most 8 accepted answers')
     .default([]),
   solution: mathText('Solution', { max: 8000 }).nullish().default(null),
-  subject: objectId('Subject'),
+  /**
+   * **Optional**, and normally absent (Milestone 21, Phase J).
+   *
+   * There is no user-facing subject in this product, so the question editor no longer asks for one:
+   * the chapter already records which subject it belongs to, and `resolveTaxonomy()` derives it. The
+   * field survives because the AI-approval and import paths still pass it explicitly — and when they
+   * do, it is still checked against the chapter, so a mismatched pair is refused rather than
+   * silently preferred one way or the other.
+   */
+  subject: objectId('Subject').nullish().default(null),
   topic: objectId('Topic'),
   subtopic: objectId('Subtopic').nullish().default(null),
   classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
@@ -397,7 +406,8 @@ const reviewedCandidateSchema = z.object({
  * the two cannot drift into checking against different places.
  */
 const reviewedBatchTaxonomy = {
-  subject: objectId('Subject'),
+  /** Optional: derived from `topic` when absent, like every other write path since Phase J. */
+  subject: objectId('Subject').nullish().default(null),
   topic: objectId('Topic'),
   /** Optional second level, checked against `topic` at write time. */
   subtopic: objectId('Subtopic').nullish().default(null),
@@ -445,7 +455,15 @@ export const rejectQuestionsSchema = z.object({
 export type RejectQuestionsInput = z.infer<typeof rejectQuestionsSchema>;
 
 export const generateQuestionsSchema = z.object({
-  subject: objectId('Subject'),
+  /**
+   * **Optional** since Milestone 21 Phase J.
+   *
+   * The generator page no longer asks for a subject — there is no user-facing subject in this
+   * product — so it is derived from the first chapter, which already records it. The prompt still
+   * *names* the subject, because "write me a Mathematics question" is information the model needs;
+   * what changed is only that nobody has to choose it.
+   */
+  subject: objectId('Subject').nullish().default(null),
   /**
    * One or more chapters. The first is the one questions are filed under — a question
    * belongs to exactly one topic in this bank, however many the prompt drew on.
