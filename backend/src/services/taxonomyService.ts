@@ -250,3 +250,45 @@ async function assertNoPublishedQuestions(match: PublishedQuestionMatch, label: 
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// The implicit subject (Milestone 21)
+// ---------------------------------------------------------------------------
+
+/**
+ * The subject this platform is about, resolved without asking anybody.
+ *
+ * AMIT is a **mathematics** olympiad. There is no user-facing subject and there should not be one,
+ * so anything that needs to scope a query by subject asks here rather than taking one from a
+ * request — which would be a field to remove later and a pair that could disagree now.
+ *
+ * Returns `null` rather than throwing when it genuinely cannot tell, so a *filter* can degrade to
+ * "unscoped" while a *write* can insist. The two callers want opposite things from ambiguity and
+ * both are right: refusing to suggest a paper because legacy data holds two subjects would break a
+ * working feature, whereas filing questions under a guessed subject would make them invisible to
+ * every filter a user can construct.
+ *
+ * Preferring a subject actually **named** for mathematics matters while legacy data may hold more
+ * than one: taking the first row would let a stray second subject capture everything.
+ */
+export async function findImplicitSubject(): Promise<mongoose.Types.ObjectId | null> {
+  const active = await Subject.find({ status: 'active' }).select('name').lean();
+  if (active.length === 0) return null;
+  if (active.length === 1) return active[0]!._id as mongoose.Types.ObjectId;
+
+  const maths = active.find((subject) => /^(math|maths|mathematics)$/iu.test(subject.name.trim()));
+  return maths ? (maths._id as mongoose.Types.ObjectId) : null;
+}
+
+/** The same, but insisting — for a write, where a guess would misfile data. */
+export async function requireImplicitSubject(): Promise<mongoose.Types.ObjectId> {
+  const subject = await findImplicitSubject();
+  if (subject) return subject;
+
+  const any = await Subject.countDocuments({ status: 'active' });
+  throw ApiError.badRequest(
+    any === 0
+      ? 'No subject has been set up yet. Create a chapter under Chapters first.'
+      : 'This deployment has more than one subject, so a chapter is needed to know where these questions belong.',
+  );
+}

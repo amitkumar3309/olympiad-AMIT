@@ -195,3 +195,49 @@
   font-size: 0.78rem;
   color: var(--text-muted);
 }
+
+/*
+ * Chapter detection (Milestone 21).
+ *
+ * A suggestion the author accepts, never an automatic set: a question filed in the wrong chapter is
+ * served to students practising something else, so the decision stays with a human.
+ */
+.detectRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.detectButton {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.detectButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.detectResult {
+  color: var(--text-muted);
+}
+
+.detectAccept {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}

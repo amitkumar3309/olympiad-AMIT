@@ -54,10 +54,16 @@ const mathText = (label: string, { min = 1, max = 5000 }: { min?: number; max?: 
 /** The defaults an examiner sets once for the upload, for rows that do not say. */
 const importDefaults = {
   /**
-   * The chapter rows are filed under unless a row names its own. Required: a question must
-   * belong somewhere, and there is no sensible default chapter to invent.
+   * The chapter to fall back on — **optional**.
+   *
+   * Precedence, in order: the row's own `Topic` column, then what `lib/chapterDetection.ts` reads
+   * out of the question itself, then this. A question must still end up in a chapter
+   * (`Question.topic` is required), so a row that exhausts all three is **reported with its row
+   * number** rather than filed somewhere plausible — an importer that guessed here would serve a
+   * question to students practising something else, and would corrupt the topic analytics the
+   * recommendation engine reads.
    */
-  topic: objectId('Chapter'),
+  topic: objectId('Chapter').nullish().default(null),
   subtopic: objectId('Subtopic').nullish().default(null),
   classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
   difficulty: z.enum(DIFFICULTIES).default('Medium'),

@@ -559,3 +559,44 @@
   font-size: 13px;
   line-height: 1.6;
 }
+
+/*
+ * Filling a paper in one action (Milestone 21) — chapter-wise, or the whole syllabus.
+ *
+ * The whole-syllabus option spreads across every chapter that has published questions rather than
+ * taking the most recent, which is the difference between a syllabus paper and the top of the bank.
+ */
+.fillBar {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin: 8px 0 12px;
+  border-radius: var(--radius-sm);
+  border: 1px dashed var(--border);
+}
+
+.fillBar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.fillBar span {
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.fillBar select,
+.fillBar input {
+  width: auto;
+  min-width: 140px;
+}
+
+.fillBar .help {
+  flex-basis: 100%;
+  margin: 0;
+}

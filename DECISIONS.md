@@ -4,6 +4,67 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-23 — A question’s chapter may be detected, deterministically, and is never guessed
+
+**Decision**: the chapter is **optional** when importing and when authoring by hand, and is worked
+out from the question text by `lib/chapterDetection.ts` — a pure, deterministic function of the
+text and the chapter names. No language model is involved. Precedence: what the file states, then
+detection, then the examiner’s fallback.
+
+**Reason for no model**: the same argument the Phase D ADR makes for `.docx`. The signal is already
+in the text, so a model adds cost, latency, a third party on every upload, and a credential
+dependency in a *core* authoring path the product must work without. A chapter is also exactly the
+kind of claim a model states confidently and wrongly, and the mistake is invisible: the question
+looks fine, and only the analytics and a practising student ever notice.
+
+**Reason it may not guess**: a question in the wrong chapter is **served to a student practising
+something else**, and it corrupts the per-topic counts `services/analyticsService.ts` derives and
+`lib/statisticalRecommender.ts` reads. So three outcomes, not one: `matched` carries a note naming
+the words it matched on, `ambiguous` **names the candidates** rather than choosing, and `none`
+reports the row by its number. Refusing to choose between two equal fits is the important one —
+that is where a guess is most likely to be wrong and least likely to be questioned, because both
+answers look reasonable to a reviewer skimming.
+
+**Consequences**: everything in that module is pure, so every detection is reproducible from its
+inputs and testable without a fixture. The manual editor and the importer share the one function,
+so they cannot disagree about what a question looks like. The stemmer is crude on purpose — a real
+stemmer is a dependency and a black box — and it is short enough to read, which is how the
+`derivatives`/`derivative` bug was found. If detection ever needs to be better, the honest
+improvements are richer chapter descriptions or explicit keywords on `Topic`, not a model.
+
+---
+
+## 2026-08-23 — A whole-syllabus paper is a spread, and is scoped to the implicit subject
+
+**Decision**: `GET /admin/questions/paper-suggestion` round-robins across every chapter that has
+published questions for the class, and filters to the platform’s implicit subject via
+`findImplicitSubject()`.
+
+**Reason for the spread**: the obvious implementation — the existing listing with `limit=40` — is
+not a syllabus paper. It returns the forty most *recent* questions, and a bank filled chapter by
+chapter means that is one or two chapters and none of the rest. The spread is the entire feature;
+a test seeds a second chapter *after* the first specifically so a "newest N" implementation would
+fail it.
+
+**Reason for the subject scope**: a Class 12 whole-syllabus paper came back containing Ray Optics
+and Electromagnetic Induction, because this database still holds a legacy Physics subject and the
+spread dutifully included every chapter. Scoping at the query means the endpoint is right
+**regardless of whether that data is ever deleted**, rather than depending on a cleanup.
+
+**The two resolvers are deliberately different.** `findImplicitSubject()` returns `null` when it
+genuinely cannot tell and the caller degrades to unscoped; `requireImplicitSubject()` throws.
+A *filter* should not break a working feature over legacy data an examiner cannot see, and a
+*write* must not file questions under a guessed subject — that makes them invisible to every filter
+a user can construct, which looks exactly like data loss.
+
+**Consequences**: `ImportBatch` now records `subject`. Approval used to derive it from
+`defaultTopic`, which broke when the chapter became optional — an import that left the chapter to
+detection had nothing to derive from and would have been unapprovable for a reason the examiner
+could do nothing about. There is a fallback to the old derivation for rows written before the
+field existed.
+
+---
+
 ## 2026-08-23 — A question becomes practice content by being published; there is no `PracticeSet`
 
 **Decision**: "assign imported questions to Practice" is implemented as a **bulk publish** from

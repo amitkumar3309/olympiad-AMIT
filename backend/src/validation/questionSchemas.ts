@@ -282,6 +282,33 @@ export const practiceAvailabilityQuerySchema = z.object({
 export type PracticeAvailabilityQuery = z.infer<typeof practiceAvailabilityQuerySchema>;
 
 /**
+ * Asking for a suggested paper — chapter-wise, or the whole syllabus.
+ *
+ * One schema for both, because the only difference is whether `topic` is present. Capped at the
+ * same 100 a mock test may hold, so a suggestion can never propose a paper the API would refuse.
+ */
+export const paperSuggestionQuerySchema = z.object({
+  classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
+  /** Omit for a whole-syllabus paper spread across every chapter that has questions. */
+  topic: objectId('Chapter').optional(),
+  difficulty: z.enum(DIFFICULTIES).optional(),
+  count: z.coerce.number().int().min(1, 'Ask for at least one question').max(100, 'A paper holds at most 100').default(20),
+});
+export type PaperSuggestionQuery = z.infer<typeof paperSuggestionQuerySchema>;
+
+/**
+ * Asking which chapter a question looks like it belongs to, for the manual editor.
+ *
+ * The text is bounded like question text itself and is **not** validated as math content: it is a
+ * lookup key, nothing is stored, and a half-typed question with an unbalanced `$` should still get
+ * a suggestion rather than a validation error.
+ */
+export const detectChapterQuerySchema = z.object({
+  text: z.string().trim().min(3, 'Type a little more of the question first').max(5000),
+});
+export type DetectChapterQuery = z.infer<typeof detectChapterQuerySchema>;
+
+/**
  * The admin listing's query. Every filter is optional; `sort` is constrained to an
  * allow-list so a caller cannot ask the database to sort by an unindexed field
  * (see `services/questionService.ts`).

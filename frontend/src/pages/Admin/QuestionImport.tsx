@@ -257,7 +257,7 @@ export default function QuestionImport() {
 
   async function upload(event: FormEvent) {
     event.preventDefault()
-    if (!topic || files.length === 0) return
+    if (files.length === 0) return
 
     setBusy('upload')
     setError(null)
@@ -266,7 +266,7 @@ export default function QuestionImport() {
 
     try {
       const result = await api.post<ImportPreview>(`/admin/questions/import/${kind}`, {
-        topic,
+        topic: topic || null,
         subtopic: subtopic || null,
         classLevel,
         difficulty,
@@ -481,7 +481,9 @@ export default function QuestionImport() {
 
   const problemCount =
     (preview?.failures.length ?? 0) + (preview?.rejected.length ?? 0) + (preview?.duplicates.length ?? 0)
-  const ready = Boolean(topic) && files.length > 0 && parser?.available === true
+  // A chapter is no longer required: detection fills the gap, and a question it cannot place is
+  // reported rather than guessed at.
+  const ready = files.length > 0 && parser?.available === true
 
   return (
     <AdminShell title="Bulk import">
@@ -585,21 +587,31 @@ export default function QuestionImport() {
 
           <div className={styles.grid}>
             <div className="form-group">
-              <label htmlFor="imp-topic">Chapter *</label>
+              <label htmlFor="imp-topic">Chapter</label>
               <select
                 id="imp-topic"
                 className="form-control"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                required
               >
-                <option value="">Choose a chapter</option>
+                {/*
+                  Optional since the chapter can be worked out from each question. The precedence is
+                  the file's own Topic column, then detection, then this — so leaving it blank is a
+                  real choice rather than an omission, and a question that exhausts all three is
+                  reported with its row number rather than filed somewhere plausible.
+                */}
+                <option value="">Work it out from each question</option>
                 {topics.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
                 ))}
               </select>
+              <p className={styles.hint}>
+                {topic
+                  ? 'Used for any question that does not name its own chapter.'
+                  : 'Each question’s chapter will be read from its own words. Anything that cannot be worked out is reported for you to fix — nothing is filed by guesswork.'}
+              </p>
               {topics.length === 0 && (
                 <p className={styles.hint}>
                   No chapters yet — <Link to="/admin/taxonomy">create one</Link> first.

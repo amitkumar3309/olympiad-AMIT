@@ -13,7 +13,7 @@ import {
 import type { ClassLevel } from '../lib/classLevels';
 import { ApiError } from '../lib/ApiError';
 import { normalizeTags } from '../lib/mathContent';
-import type { Actor } from './taxonomyService';
+import { findImplicitSubject, type Actor } from './taxonomyService';
 
 /**
  * Question-bank business rules.
@@ -445,6 +445,114 @@ function assertPublishable(question: QuestionDocument): void {
       }
       break;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Suggesting a paper
+// ---------------------------------------------------------------------------
+
+export interface PaperSuggestionInput {
+  classLevel: ClassLevel;
+  /**
+   * One chapter for a **chapter-wise** paper, or `null` for a **whole-syllabus** one.
+   *
+   * The two are the same request with one field different rather than two endpoints, because the
+   * only thing that actually changes is whether the sample is drawn from one chapter or spread
+   * across all of them.
+   */
+  topic: string | null;
+  difficulty?: Difficulty;
+  count: number;
+}
+
+/**
+ * Picks published questions for a paper an author is about to assemble.
+ *
+ * ## What this is not
+ *
+ * **Not a second question-serving path.** It returns candidates for an *author* to look at and
+ * edit before saving a mock test; nothing here reaches a student, and the answer-key rules that
+ * govern `studentQuestionView` do not apply because the caller already holds `questions:write`
+ * and can read the whole bank anyway.
+ *
+ * ## Why the spread is a real feature and not a `limit`
+ *
+ * A whole-syllabus paper drawn with `find().limit(40)` is not a syllabus paper: it is the forty
+ * most recent questions, which in a bank filled chapter by chapter means one or two chapters and
+ * none of the rest. So a chapter-less request **round-robins across the chapters that have
+ * published questions**, taking one from each in turn until the count is met. Every chapter with
+ * anything to offer appears before any chapter appears twice.
+ *
+ * A chapter-wise request is the simple case: sample from that chapter alone.
+ *
+ * Sampling is random (`$sample`) rather than "the newest", so pressing the button twice gives two
+ * different papers — an author generating a second mock test for the same class wants a different
+ * one, exactly as the Practice Zone does.
+ */
+export async function suggestPaper(input: PaperSuggestionInput): Promise<QuestionDocument[]> {
+  const match: Record<string, unknown> = {
+    classLevel: input.classLevel,
+    status: 'published',
+  };
+  if (input.difficulty) match.difficulty = input.difficulty;
+
+  /**
+   * Scoped to the implicit subject, and this is not cosmetic.
+   *
+   * A "whole syllabus" paper drawn on class alone pulled **Physics** chapters into a Class 12
+   * mathematics paper — legacy seed data holds a second subject, and the spread across chapters
+   * dutifully included every one of them. Scoping here rather than waiting for that data to be
+   * deleted means the endpoint is right regardless of what is in the database.
+   *
+   * `null` (genuinely ambiguous) leaves it unscoped rather than failing: refusing to suggest a paper
+   * because legacy data holds two subjects would break a working feature for a condition the
+   * examiner cannot see.
+   */
+  const subject = await findImplicitSubject();
+  if (subject) match.subject = subject;
+
+  if (input.topic) {
+    // `$match` inside an aggregation does **not** cast a hex string to an ObjectId the way
+    // `find()` does — it compares raw BSON and silently matches nothing. The practice service
+    // documents the same trap.
+    match.topic = new mongoose.Types.ObjectId(input.topic);
+    return Question.aggregate<QuestionDocument>([{ $match: match }, { $sample: { size: input.count } }]);
+  }
+
+  /**
+   * Whole syllabus: sample generously per chapter, then interleave.
+   *
+   * Sampling `count` from *each* chapter and interleaving in memory is cheaper than it looks — the
+   * count is bounded at 100 and the chapter list is small — and it is the only way to guarantee the
+   * spread without one query per chapter per round.
+   */
+  const byChapter = await Question.aggregate<{ _id: unknown; questions: QuestionDocument[] }>([
+    { $match: match },
+    { $sample: { size: Math.min(1000, input.count * 20) } },
+    { $group: { _id: '$topic', questions: { $push: '$$ROOT' } } },
+  ]);
+
+  const buckets = byChapter.map((row) => row.questions);
+  const picked: QuestionDocument[] = [];
+  let round = 0;
+
+  while (picked.length < input.count) {
+    let tookAny = false;
+    for (const bucket of buckets) {
+      if (picked.length >= input.count) break;
+      const question = bucket[round];
+      if (question) {
+        picked.push(question);
+        tookAny = true;
+      }
+    }
+    // Every bucket exhausted: the bank simply has fewer questions than asked for, which is not an
+    // error — the author is told how many were found and can add more by hand.
+    if (!tookAny) break;
+    round += 1;
+  }
+
+  return picked;
 }
 
 // ---------------------------------------------------------------------------

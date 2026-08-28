@@ -12,6 +12,7 @@ import {
   type QuestionInput,
   type QuestionType,
   type Subject,
+  type ChapterDetection,
   type Topic,
 } from '../../api/types'
 import AdminShell from './AdminShell'
@@ -92,7 +93,41 @@ export default function QuestionForm() {
   const [topics, setTopics] = useState<Topic[]>([])
   const [subtopics, setSubtopics] = useState<Topic[]>([])
 
+  /**
+   * The chapter suggestion, for an author who has typed a question and not chosen one.
+   *
+   * A **suggestion**, never an automatic set. The same deterministic detector the importer uses on a
+   * file with no Topic column, from the same pure function, so the editor and the importer cannot
+   * disagree about what a question looks like — and no model is called (see
+   * `backend/src/lib/chapterDetection.ts` for why).
+   */
+  const [detected, setDetected] = useState<ChapterDetection | null>(null)
+  const [detecting, setDetecting] = useState(false)
+
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((c) => ({ ...c, [key]: value }))
+
+  /**
+   * Asks which chapter this question looks like it belongs to.
+   *
+   * Explicit rather than fired on every keystroke: a suggestion that changes under the author's
+   * hands while they type is noise, and this is a request per press rather than per character.
+   */
+  async function detectTopic() {
+    setDetecting(true)
+    setDetected(null)
+    try {
+      setDetected(
+        await api.get<ChapterDetection>(
+          `/admin/questions/detect-chapter?text=${encodeURIComponent(form.questionText)}`,
+        ),
+      )
+    } catch {
+      // A failed suggestion is not worth an error banner: the author can still pick a chapter.
+      setDetected({ outcome: 'none', match: null, between: [] })
+    } finally {
+      setDetecting(false)
+    }
+  }
 
   // --- Taxonomy dropdowns, cascading subject → topic → subtopic --------------
   useEffect(() => {
@@ -300,6 +335,54 @@ export default function QuestionForm() {
                   </option>
                 ))}
               </select>
+
+              {/*
+                Chapter detection, offered once there is enough question text to read. It suggests
+                and the author accepts — an automatic set would be a decision made on their behalf
+                about where a question is filed, and a question in the wrong chapter is served to
+                students practising something else.
+              */}
+              {form.questionText.trim().length >= 10 && (
+                <div className={styles.detectRow}>
+                  <button type="button" className={styles.detectButton} disabled={detecting} onClick={() => void detectTopic()}>
+                    {detecting ? 'Reading…' : 'Suggest a chapter from the question'}
+                  </button>
+
+                  {detected?.outcome === 'matched' && detected.match && (
+                    <span className={styles.detectResult}>
+                      Looks like <strong>{detected.match.topicName}</strong> (matched{' '}
+                      {detected.match.matchedWords.join(', ')}).{' '}
+                      {form.topic === detected.match.topicId ? (
+                        <em>Already selected.</em>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.detectAccept}
+                          onClick={() => {
+                            const chosen = detected.match!
+                            setForm((current) => ({ ...current, topic: chosen.topicId, subtopic: '' }))
+                          }}
+                        >
+                          Use it
+                        </button>
+                      )}
+                    </span>
+                  )}
+
+                  {/* Named rather than resolved: choosing between equal fits would be a coin toss. */}
+                  {detected?.outcome === 'ambiguous' && (
+                    <span className={styles.detectResult}>
+                      Could be {detected.between.join(' or ')} — pick the right one.
+                    </span>
+                  )}
+
+                  {detected?.outcome === 'none' && (
+                    <span className={styles.detectResult}>
+                      Nothing in the question named a chapter. Choose one above.
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="form-group">
               <label htmlFor="q-subtopic">Subtopic</label>

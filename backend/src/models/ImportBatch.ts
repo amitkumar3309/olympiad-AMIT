@@ -85,7 +85,21 @@ export interface ImportBatchDocument extends Document {
   // --- What the examiner asked to assume for rows that did not say ---
   defaultClassLevel: string;
   defaultDifficulty: string;
+  /**
+   * The fallback chapter, when the examiner chose one. **Null is normal** since the chapter
+   * became optional: a row's own `Topic` column, or `lib/chapterDetection.ts` reading the
+   * question, may supply it instead.
+   */
   defaultTopic: Types.ObjectId | null;
+  /**
+   * The subject the whole import was filed into.
+   *
+   * Stored rather than derived from `defaultTopic`, because that is now nullable and approval
+   * needs a subject regardless. Deriving it from a chapter that may not exist would make an
+   * import unapprovable for a reason the examiner could not act on. There is exactly one subject
+   * in this product, but recording *which* keeps the row self-describing.
+   */
+  subject: Types.ObjectId | null;
 
   // --- What came out ---
   status: ImportOutcomeStatus;
@@ -143,6 +157,7 @@ const importBatchSchema = new Schema<ImportBatchDocument>(
     defaultClassLevel: { type: String, required: true },
     defaultDifficulty: { type: String, required: true },
     defaultTopic: { type: Schema.Types.ObjectId, ref: 'Topic', default: null },
+    subject: { type: Schema.Types.ObjectId, ref: 'Subject', default: null },
 
     status: { type: String, enum: IMPORT_OUTCOMES, required: true, index: true },
     examined: { type: Number, default: 0, min: 0 },

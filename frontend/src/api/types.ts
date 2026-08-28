@@ -2354,3 +2354,39 @@ export interface PracticeAvailability {
   }>
   totalQuestions: number
 }
+
+// ---------------------------------------------------------------------------
+// Chapter detection and paper suggestions (Milestone 21)
+// ---------------------------------------------------------------------------
+
+/**
+ * What the detector made of a question's text.
+ *
+ * `ambiguous` names the candidates rather than picking one — the case where a guess is most likely
+ * to be wrong and least likely to be questioned. No model is involved; see
+ * `backend/src/lib/chapterDetection.ts` for why.
+ */
+export interface ChapterDetection {
+  outcome: 'matched' | 'ambiguous' | 'none'
+  match: { topicId: string; topicName: string; matchedWords: string[] } | null
+  between: string[]
+}
+
+/** One question a suggested paper offers. Published, and carrying its chapter for display. */
+export interface SuggestedQuestion {
+  id: string
+  questionText: string
+  type: QuestionType
+  classLevel: ClassLevel
+  difficulty: Difficulty
+  marks: number
+  negativeMarks: number
+  topicName: string | null
+}
+
+export interface PaperSuggestion {
+  classLevel: ClassLevel
+  /** What was asked for, so a page can say "4 of 20 found" rather than silently under-filling. */
+  requested: number
+  questions: SuggestedQuestion[]
+}

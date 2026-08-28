@@ -19,7 +19,13 @@ import { createQuestionSchema } from '../validation/questionSchemas';
 import { createQuestion, toQuestionContent } from './questionService';
 import { reasonFrom, screenEach, type ScreenEntry, type ScreenTarget } from './questionGeneratorService';
 import { inspectCandidates, type QualityWarning } from '../lib/questionQuality';
-import type { Actor } from './taxonomyService';
+import {
+  detectChapter,
+  detectionFailureReason,
+  detectionNote,
+  type DetectableChapter,
+} from '../lib/chapterDetection';
+import { requireImplicitSubject, type Actor } from './taxonomyService';
 import type {
   ImportDefaults,
   ImportFile,
@@ -190,6 +196,13 @@ interface TopicIndex {
    * "algebra", which is the taxonomy's data mangled by our own index.
    */
   displayNames: Map<string, string>;
+  /**
+   * The same chapters as a list, for `lib/chapterDetection.ts`.
+   *
+   * Built here rather than re-read, because detection runs **per candidate** and a two-hundred-row
+   * import would otherwise be two hundred reads of the same handful of chapters.
+   */
+  detectable: DetectableChapter[];
 }
 
 /**
@@ -201,11 +214,14 @@ interface TopicIndex {
  * questions under a chapter that has been withdrawn.
  */
 async function buildTopicIndex(subject: Types.ObjectId): Promise<TopicIndex> {
-  const rows = await Topic.find({ subject, status: 'active' }).select('name parent depth').lean();
+  const rows = await Topic.find({ subject, status: 'active' })
+    .select('name parent depth description')
+    .lean();
 
   const chapters = new Map<string, Types.ObjectId>();
   const subtopics = new Map<string, Types.ObjectId>();
   const displayNames = new Map<string, string>();
+  const detectable: DetectableChapter[] = [];
 
   for (const row of rows) {
     const id = row._id as Types.ObjectId;
@@ -215,10 +231,11 @@ async function buildTopicIndex(subject: Types.ObjectId): Promise<TopicIndex> {
       subtopics.set(`${String(row.parent)}::${key}`, id);
     } else {
       chapters.set(key, id);
+      detectable.push({ id: String(id), name: row.name, description: row.description ?? null });
     }
   }
 
-  return { chapters, subtopics, displayNames };
+  return { chapters, subtopics, displayNames, detectable };
 }
 
 /**
@@ -234,8 +251,9 @@ async function buildTopicIndex(subject: Types.ObjectId): Promise<TopicIndex> {
 function resolvePlacement(
   candidate: ImportedCandidate,
   defaults: ImportDefaults,
-  defaultTopic: Types.ObjectId,
+  defaultTopic: Types.ObjectId | null,
   index: TopicIndex,
+  notes: string[],
 ): { placement: ResolvedPlacement } | { reason: string } {
   const hint = candidate.taxonomy;
 
@@ -259,7 +277,20 @@ function resolvePlacement(
     difficulty = stated;
   }
 
-  let topic = defaultTopic;
+  /**
+   * Where the chapter comes from, in order: **what the file said**, then **what the question looks
+   * like**, then **the examiner's fallback**.
+   *
+   * That order is the point. A file that states a chapter is the most authoritative thing available,
+   * and an unresolvable statement stays an error rather than something to detect around. Detection
+   * only fills a genuine silence — and when it cannot, the row is reported rather than swept into a
+   * default, because a question in the wrong chapter is served to students practising something else
+   * and corrupts the topic analytics the recommendation engine reads.
+   */
+  // Declared without an initialiser on purpose: every branch below either assigns it or returns,
+  // so a placeholder `null` would be a value nothing ever reads.
+  let topic: Types.ObjectId;
+
   if (hint.topicName !== null) {
     const found = index.chapters.get(hint.topicName.trim().toLowerCase());
     if (!found) {
@@ -268,6 +299,20 @@ function resolvePlacement(
       };
     }
     topic = found;
+  } else {
+    // The author's own tags are often more explicit than the prose, so they are evidence too.
+    const haystack = [candidate.content.questionText, ...candidate.content.tags].join(' ');
+    const outcome = detectChapter(haystack, index.detectable);
+
+    if (outcome.kind === 'matched') {
+      topic = new Types.ObjectId(outcome.match.topicId);
+      // Announced, always. A detected chapter is exactly the thing a reviewer should check.
+      notes.push(detectionNote(outcome.match));
+    } else if (defaultTopic) {
+      topic = defaultTopic;
+    } else {
+      return { reason: detectionFailureReason(outcome) };
+    }
   }
 
   let subtopic: Types.ObjectId | null = null;
@@ -324,14 +369,14 @@ export interface PreviewImportInput {
   kind: ImportFileKind;
   files: Array<{ name: string; declaredType: string; data: Buffer }>;
   /**
-   * The chapter every row is filed under unless the row names its own.
+   * The chapter to fall back on. **Optional** — see `resolvePlacement()` for the precedence:
+   * what the file said, then what the question looks like, then this.
    *
-   * Required, and the **subject is derived from it** rather than supplied. A topic already
-   * knows its subject, so accepting both would create a pair that can disagree — and there is
-   * no user-facing subject to ask for (see the Milestone 21 ADR on the Mathematics-only
-   * scope). One less field also means one less thing for Phase J to remove.
+   * The subject is never supplied. With a chapter it is that chapter's own; with no chapter it is
+   * the platform's single active subject, because this is a mathematics olympiad and there is no
+   * user-facing subject to ask for. Taking it from a request would admit a pair that disagrees.
    */
-  topic: string;
+  topic?: string | null;
   subtopic?: string | null;
   classLevel: ClassLevel;
   difficulty: Difficulty;
@@ -399,7 +444,7 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
   const parser = resolveImportParser(input.kind);
   const startedAt = Date.now();
 
-  const { subject, topic } = await resolveDefaultTopic(input.topic, input.subtopic ?? null);
+  const { subject, topic } = await resolveImportTarget(input.topic ?? null, input.subtopic ?? null);
   const index = await buildTopicIndex(subject);
 
   const defaults: ImportDefaults = {
@@ -493,12 +538,17 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
   const placeable: Array<{ candidate: ImportedCandidate; placement: ResolvedPlacement }> = [];
 
   for (const [position, candidate] of candidates.entries()) {
-    const resolution = resolvePlacement(candidate, defaults, topic, index);
+    /**
+     * Detection notes join the candidate's own, so "this chapter was worked out" travels with the
+     * question it is about rather than becoming a batch remark nobody can attach to a row.
+     */
+    const notes = [...candidate.notes];
+    const resolution = resolvePlacement(candidate, defaults, topic, index, notes);
     if ('reason' in resolution) {
       rejected.push({ index: position + 1, reason: `${candidate.sourceRef}: ${resolution.reason}` });
       continue;
     }
-    placeable.push({ candidate, placement: resolution.placement });
+    placeable.push({ candidate: { ...candidate, notes }, placement: resolution.placement });
   }
 
   const against = await bankTextFor(placeable.map((entry) => entry.placement));
@@ -566,6 +616,7 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
     duplicates: screened.duplicates.length,
     rejectionReasons: allRejected.map((entry) => entry.reason).slice(0, 10),
     topic,
+    subject,
   });
 
   return {
@@ -591,16 +642,27 @@ function withFilePrefix(candidate: ImportedCandidate, fileName: string): Importe
 /**
  * The chapter the batch defaults to, and the subject it implies.
  *
- * The subject is **derived** from the topic rather than accepted alongside it: a topic already
- * records its subject, so taking both would admit a pair that disagrees, and there is no
- * user-facing subject to ask for. The depth check matters for the same reason it does in
- * `resolveTaxonomy()` — a subtopic in the `topic` position would produce questions no filter
- * could find.
+ * The subject is **derived**, never accepted: with a chapter it is that chapter's own, and with no
+ * chapter it is the platform's single active subject. Taking it from a request would admit a pair
+ * that disagrees, and there is no user-facing subject to ask for. The depth check matters for the
+ * same reason it does in `resolveTaxonomy()` — a subtopic in the `topic` position would produce
+ * questions no filter could find.
  */
-async function resolveDefaultTopic(
-  topicId: string,
+
+async function resolveImportTarget(
+  topicId: string | null,
   subtopicId: string | null,
-): Promise<{ subject: Types.ObjectId; topic: Types.ObjectId }> {
+): Promise<{ subject: Types.ObjectId; topic: Types.ObjectId | null }> {
+  if (!topicId) {
+    if (subtopicId) {
+      // A subtopic without its chapter is not a placement; it is half of one.
+      throw ApiError.badRequest('Choose the chapter that subtopic belongs to, or leave both blank.');
+    }
+    // `requireImplicitSubject()` rather than the tolerant variant: this is a *write* path, and
+    // filing questions under a guessed subject would make them invisible to every filter.
+    return { subject: await requireImplicitSubject(), topic: null };
+  }
+
   const topic = await Topic.findById(topicId).select('subject depth status');
   if (!topic) throw ApiError.badRequest('That chapter does not exist.');
   if (topic.depth !== 0) {
@@ -895,17 +957,31 @@ async function readImportOrigin(
   batchId: string,
 ): Promise<{ provenance: QuestionProvenance; subjectId: string }> {
   const row = await ImportBatch.findById(batchId)
-    .select('kind parserId extraction modelName defaultTopic createdAt')
+    .select('kind parserId extraction modelName defaultTopic subject createdAt')
     .lean();
   if (!row) {
     throw ApiError.badRequest('That import has expired or was never started. Upload the file again.');
   }
 
-  const topic = await Topic.findById(row.defaultTopic).select('subject').lean();
-  if (!topic) throw ApiError.badRequest('The chapter this import was filed under no longer exists.');
+  /**
+   * The subject comes from the batch row itself.
+   *
+   * It used to be derived from `defaultTopic`, which stopped working when the chapter became
+   * optional — an import that left the chapter to detection had no chapter to derive from, and
+   * would have been unapprovable for a reason the examiner could do nothing about. The fallback to
+   * the chapter's own subject covers rows written before this field existed.
+   */
+  let subjectId = row.subject ? String(row.subject) : null;
+  if (!subjectId && row.defaultTopic) {
+    const topic = await Topic.findById(row.defaultTopic).select('subject').lean();
+    subjectId = topic ? String(topic.subject) : null;
+  }
+  if (!subjectId) {
+    throw ApiError.badRequest('This import no longer records where its questions belong. Upload the file again.');
+  }
 
   return {
-    subjectId: String(topic.subject),
+    subjectId,
     provenance: {
       source: SOURCE_FOR_KIND[row.kind],
       generatorId: row.parserId,
@@ -932,7 +1008,10 @@ interface BatchOutcomeFields {
   rejected: number;
   duplicates: number;
   rejectionReasons: string[];
-  topic: Types.ObjectId;
+  /** The fallback chapter, or null when the examiner left it to detection. */
+  topic: Types.ObjectId | null;
+  /** The subject everything was filed into. Recorded because approval reads it back. */
+  subject: Types.ObjectId;
   error?: string;
 }
 
@@ -962,6 +1041,7 @@ async function writeBatch(
     defaultClassLevel: input.classLevel,
     defaultDifficulty: input.difficulty,
     defaultTopic: outcome.topic,
+    subject: outcome.subject,
     status: outcome.status,
     examined: outcome.examined,
     accepted: outcome.accepted,

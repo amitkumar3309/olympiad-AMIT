@@ -202,6 +202,59 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 **Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–I COMPLETE.**
 
+**Latest verified state: 1121 passing across 31 files.** `npm run lint`, `npm run compile` and the
+frontend `tsc -b` + `npm run build` are clean. (The one `npm run typecheck` failure is a concurrent
+session's analytics change, not this milestone's — see "What remains" below.)
+
+**Owner-requested additions after Phase I (2026-08-23), implemented and verified.** Four asks, one
+of which was already true:
+
+1. **No Subject in bulk upload** — already the case. The import page has never had a subject picker;
+   it resolves the chapter list internally and derives the subject from the chapter.
+2. **The chapter is now optional and detected from the question.** `lib/chapterDetection.ts` is a
+   **pure, deterministic** function of the question text and the chapter names — **no model**, for
+   the reason the Phase D ADR gives for `.docx`. Precedence: what the file states, then detection,
+   then the examiner’s fallback. It **suggests and never guesses**: `matched` carries a note naming
+   the words it matched, `ambiguous` **names the candidates** rather than choosing, and `none`
+   reports the row by its number. A question in the wrong chapter is served to a student practising
+   something else and corrupts the per-topic analytics. The **manual editor** uses the same
+   function, so the two cannot disagree about what a question looks like.
+3. **Chapter-wise** and **4. whole-syllabus** papers: `GET /admin/questions/paper-suggestion` plus a
+   *Fill from / How many* control in the mock-test author. The whole-syllabus option **spreads**
+   round-robin across every chapter that has published questions for the class — the top of the bank
+   is the most *recent* questions, which in a bank filled chapter by chapter is one or two chapters
+   and not a syllabus.
+
+> **Two real bugs were caught before shipping, both by the browser pass.** A whole-syllabus Class 12
+> paper came back containing **Physics** chapters, because the spread was scoped by class alone and
+> this database holds a legacy Physics subject; it is now scoped to the implicit subject via a new
+> shared `findImplicitSubject()` / `requireImplicitSubject()` pair in `taxonomyService.ts`, so the
+> endpoint is right **regardless of whether that data is ever deleted**. And the stemmer turned
+> `derivatives` into `derivativ` while `derivative` stayed whole, so the two never compared equal and
+> detection was leaning entirely on a loose prefix fallback.
+
+`ImportBatch` gained a `subject` field: approval used to derive the subject from `defaultTopic`,
+which broke the moment the chapter became optional — an import that left the chapter to detection
+had nothing to derive from and would have been unapprovable for a reason the examiner could not act
+on. There is a fallback to the old derivation for rows written before the field existed.
+
+**Phase G (making imported questions practisable) is implemented and verified.** From the Question
+Bank an administrator selects questions and publishes them in one action — which **is** how a
+question becomes practice content, because Practice samples what is published for the student’s own
+class. A class picker beside it shows what that class can now practise, read from the **same**
+`getPracticeAvailability()` the student picker uses so the preview cannot disagree with the thing it
+previews. `changeQuestionStatusBulk()` **loops** over `changeQuestionStatus()` rather than issuing an
+`updateMany`, and that is the point rather than a missing optimisation: a bulk write would skip
+`assertPublishable()`, which refuses a question with no solution or no resolvable answer key. It was
+1097 passing across 30 files at the end of it.
+
+**Phases H and I (mock test and daily challenge from a selection) are implemented and verified.**
+No backend change was needed — both APIs already accepted explicit question ids.
+`pages/Admin/questionHandoff.ts` owns the eligibility rules and returns either a URL or the *reason*
+the action is unavailable, so a disabled button explains itself. The browser pass found a
+**pre-existing race** in both question pickers, where an earlier response could overwrite a newer
+one — fixed, and recorded in [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
 **Phase F (the import review screen) is implemented and verified, which completes bulk import.**
 `npm test --prefix backend` is **1086 passing across 30 files** (882/26 before this milestone;
 944/27 after Phase B; 1001/28 after C; 1039/29 after D; 1078/30 after E), and `npm run lint`,

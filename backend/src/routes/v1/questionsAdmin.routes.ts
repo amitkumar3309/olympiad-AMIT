@@ -14,9 +14,12 @@ import {
   changeQuestionStatus,
   changeQuestionStatusBulk,
   deleteQuestion,
+  suggestPaper,
   toQuestionContent,
 } from '../../services/questionService';
 import { getPracticeAvailability } from '../../services/practiceService';
+import { Subject, Topic } from '../../models';
+import { detectChapter } from '../../lib/chapterDetection';
 import { actorFrom } from '../../services/taxonomyService';
 import {
   createQuestionSchema,
@@ -26,11 +29,15 @@ import {
   listQuestionsAdminQuerySchema,
   bulkQuestionStatusSchema,
   practiceAvailabilityQuerySchema,
+  paperSuggestionQuerySchema,
+  detectChapterQuerySchema,
   type CreateQuestionInput,
   type QuestionStatusInput,
   type ListQuestionsAdminQuery,
   type BulkQuestionStatusInput,
   type PracticeAvailabilityQuery,
+  type PaperSuggestionQuery,
+  type DetectChapterQuery,
 } from '../../validation/questionSchemas';
 
 const router = Router();
@@ -216,6 +223,145 @@ router.patch(
       respondToServiceError(res, err, {
         log: 'Failed to change question statuses in bulk',
         fallback: 'Could not update those questions. Please try again.',
+      });
+    }
+  },
+);
+
+/**
+ * A suggested paper: **chapter-wise**, or the **whole syllabus**.
+ *
+ * `?classLevel=…&count=…` spreads across every chapter that has published questions for that class;
+ * adding `&topic=…` draws from that chapter alone. One route for both, because the only difference
+ * is whether a chapter is named.
+ *
+ * The spread is the reason this exists rather than the author using the ordinary listing with a
+ * `limit`: forty questions off the top of the bank are the forty most recent, which in a bank filled
+ * chapter by chapter means one or two chapters and none of the rest. That is not a syllabus paper.
+ *
+ * It **writes nothing** and returns the author's own view of each question — the caller holds
+ * `questions:write` and can already read the whole bank, so this adds no disclosure surface. Every
+ * question is published, because a mock test may only be published with published questions and
+ * suggesting drafts would set the author up to fail at the last step.
+ */
+router.get(
+  '/admin/questions/paper-suggestion',
+  requirePermission('questions:write'),
+  validate({ query: paperSuggestionQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const query = req.query as unknown as PaperSuggestionQuery;
+      const questions = await suggestPaper({
+        classLevel: query.classLevel,
+        topic: query.topic ?? null,
+        difficulty: query.difficulty,
+        count: query.count,
+      });
+
+      /**
+       * `$sample` returns plain documents rather than hydrated ones, so the populated `topic` the
+       * admin view expects is not there. The chapter names are looked up in one read instead of
+       * populating inside the aggregation — the author needs to see which chapter each question came
+       * from, which is the whole point of a spread paper.
+       */
+      const topicIds = [...new Set(questions.map((question) => String(question.topic)))];
+      const names = new Map(
+        (await Topic.find({ _id: { $in: topicIds } }).select('name').lean()).map((row) => [
+          String(row._id),
+          row.name,
+        ]),
+      );
+
+      sendSuccess(res, 200, {
+        classLevel: query.classLevel,
+        requested: query.count,
+        // Fewer than asked for is not an error: the bank has what it has, and the page says so.
+        questions: questions.map((question) => ({
+          id: String(question._id),
+          questionText: question.questionText,
+          type: question.type,
+          classLevel: question.classLevel,
+          difficulty: question.difficulty,
+          marks: question.marks,
+          negativeMarks: question.negativeMarks,
+          topicName: names.get(String(question.topic)) ?? null,
+        })),
+      });
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to suggest a paper',
+        fallback: 'Could not put a paper together. Please try again.',
+      });
+    }
+  },
+);
+
+/**
+ * Which chapter a question looks like it belongs to.
+ *
+ * Serves the manual question editor, so an author typing a question can accept a chapter rather than
+ * hunting for it in a dropdown — the same detection the importer uses on a file with no `Topic`
+ * column, from the same pure function, so the editor and the importer can never disagree about what
+ * a question looks like.
+ *
+ * It **suggests**; it does not set. The response says what it matched on so the author can judge it,
+ * and `ambiguous` names the candidates rather than picking one — the case where a guess is most
+ * likely to be wrong and least likely to be questioned.
+ *
+ * No model is called. See `lib/chapterDetection.ts` for why.
+ */
+router.get(
+  '/admin/questions/detect-chapter',
+  requirePermission('questions:write'),
+  validate({ query: detectChapterQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const { text } = req.query as unknown as DetectChapterQuery;
+
+      /**
+       * The chapters of the one active subject.
+       *
+       * There is no user-facing subject in this product, so none is asked for. With more than one
+       * subject in legacy data, every active chapter is offered to the detector — a wrong *subject*
+       * cannot result, because the author still confirms the chapter and the write path checks that
+       * the chapter belongs to the subject.
+       */
+      const subjects = await Subject.find({ status: 'active' }).select('_id').lean();
+      const chapters = await Topic.find({
+        subject: { $in: subjects.map((subject) => subject._id) },
+        parent: null,
+        status: 'active',
+      })
+        .select('name description')
+        .lean();
+
+      const outcome = detectChapter(
+        text,
+        chapters.map((chapter) => ({
+          id: String(chapter._id),
+          name: chapter.name,
+          description: chapter.description ?? null,
+        })),
+      );
+
+      sendSuccess(res, 200, {
+        outcome: outcome.kind,
+        match:
+          outcome.kind === 'matched'
+            ? {
+                topicId: outcome.match.topicId,
+                topicName: outcome.match.topicName,
+                matchedWords: outcome.match.matchedWords,
+              }
+            : null,
+        between: outcome.kind === 'ambiguous' ? outcome.between : [],
+      });
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to detect a chapter',
+        fallback: 'Could not work out a chapter. Choose one yourself.',
       });
     }
   },

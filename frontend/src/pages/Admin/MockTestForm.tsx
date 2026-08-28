@@ -9,7 +9,9 @@ import {
   type Pagination,
   type ResultDisplayMode,
   type ReviewPolicy,
+  type PaperSuggestion,
   type Subject,
+  type Topic,
 } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
@@ -111,6 +113,18 @@ export default function MockTestForm() {
   const [handoffNote, setHandoffNote] = useState('')
   const [searchParams] = useSearchParams()
 
+  /**
+   * Filling the paper in one go (chapter-wise, or the whole syllabus).
+   *
+   * `topics` is the chapter list for the picker below; `fillTopic` empty means a whole-syllabus
+   * paper spread across every chapter that has published questions for this class.
+   */
+  const [topics, setTopics] = useState<Topic[]>([])
+  const [fillTopic, setFillTopic] = useState('')
+  const [fillCount, setFillCount] = useState(20)
+  const [filling, setFilling] = useState(false)
+  const [fillNote, setFillNote] = useState('')
+
   // The picker
   const [available, setAvailable] = useState<AdminQuestion[]>([])
   const [pickerLoading, setPickerLoading] = useState(false)
@@ -125,6 +139,20 @@ export default function MockTestForm() {
       .get<{ subjects: Subject[] }>('/subjects')
       .then((res) => setSubjects(res.subjects))
       .catch(() => setSubjects([]))
+  }, [])
+
+  /**
+   * Every active chapter, for the "fill the paper" control.
+   *
+   * Not filtered by subject: there is no user-facing subject in this product, and the picker below
+   * already scopes what can go on the paper by *class*, which is the thing that actually decides who
+   * a question is for.
+   */
+  useEffect(() => {
+    api
+      .get<{ topics: Topic[] }>('/topics?parent=root&status=active')
+      .then((res) => setTopics(res.topics))
+      .catch(() => setTopics([]))
   }, [])
 
   // Load the test being edited.
@@ -286,6 +314,54 @@ export default function MockTestForm() {
    * be rejected, and the banner above says why.
    */
   const paperLocked = attemptsCount > 0
+
+  /**
+   * Fills the paper from the bank in one action.
+   *
+   * With a chapter: a **chapter-wise** paper. Without: the **whole syllabus**, spread across every
+   * chapter that has published questions for this class — which is why this goes through
+   * `/admin/questions/paper-suggestion` rather than the ordinary listing with a limit. Forty
+   * questions off the top of the bank are the forty most recent, which in a bank filled chapter by
+   * chapter means one or two chapters and none of the rest.
+   *
+   * It **adds to** the paper rather than replacing it, and skips anything already on it, so an author
+   * can fill from two chapters in turn. Fewer than asked for is reported rather than hidden: the bank
+   * has what it has.
+   */
+  async function fillPaper() {
+    setFilling(true)
+    setError('')
+    setFillNote('')
+    try {
+      const params = new URLSearchParams({ classLevel, count: String(fillCount) })
+      if (fillTopic) params.set('topic', fillTopic)
+      const res = await api.get<PaperSuggestion>(`/admin/questions/paper-suggestion?${params.toString()}`)
+
+      const fresh = res.questions.filter((question) => !selectedIds.has(question.id))
+      setSelected((current) => [
+        ...current,
+        ...fresh.map((question) => ({
+          id: question.id,
+          questionText: question.questionText,
+          marks: question.marks,
+          negativeMarks: question.negativeMarks,
+        })),
+      ])
+
+      const scope = fillTopic ? topics.find((t) => t.id === fillTopic)?.name ?? 'that chapter' : 'the whole syllabus'
+      setFillNote(
+        fresh.length === 0
+          ? `No further published ${classLevel} questions found for ${scope}. Publish some first, or add them by hand.`
+          : fresh.length < res.requested
+            ? `Added ${fresh.length} of the ${res.requested} asked for from ${scope} — that is all the bank has for ${classLevel}.`
+            : `Added ${fresh.length} questions from ${scope}. Adjust the marks or reorder them below.`,
+      )
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not put a paper together.')
+    } finally {
+      setFilling(false)
+    }
+  }
 
   function add(question: AdminQuestion) {
     if (selectedIds.has(question.id)) return
@@ -574,6 +650,44 @@ export default function MockTestForm() {
 
           {/* What a Question Bank hand-off brought over, and anything it could not use. */}
           {handoffNote && <p className={styles.handoffHint}>{handoffNote}</p>}
+
+          {/* ----------------------------------------------------------------
+              Build the paper in one action — chapter-wise, or whole syllabus
+          ---------------------------------------------------------------- */}
+          {!paperLocked && (
+            <div className={styles.fillBar}>
+              <label>
+                <span>Fill from</span>
+                <select className="form-control" value={fillTopic} onChange={(e) => setFillTopic(e.target.value)}>
+                  <option value="">The whole syllabus</option>
+                  {topics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>
+                      {topic.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>How many</span>
+                <input
+                  className="form-control"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={fillCount}
+                  onChange={(e) => setFillCount(Number(e.target.value))}
+                />
+              </label>
+              <Button variant="outline" disabled={filling} onClick={() => void fillPaper()}>
+                {filling ? 'Choosing…' : 'Add to the paper'}
+              </Button>
+              <p className={styles.help}>
+                Published {classLevel} questions only. The whole syllabus spreads across every chapter
+                that has some, rather than taking the most recent.
+              </p>
+            </div>
+          )}
+          {fillNote && <p className={styles.handoffHint}>{fillNote}</p>}
 
           {selected.length === 0 ? (
             <p className={styles.help}>

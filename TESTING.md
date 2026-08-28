@@ -4,7 +4,7 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
-The backend has a working test suite: **1097 passing tests across 30 files** (`backend/tests/`), measured on 2026-08-23 after Milestone 21 Phase G (882/26 before the milestone; 944/27 after Phase B; 1001/28 after C; 1039/29 after D; 1078/30 after E; 1086/30 after F). Read the number from `npm test --prefix backend`, never from here. The frontend still has **no test suite**.
+The backend has a working test suite: **1121 passing tests across 31 files** (`backend/tests/`), measured on 2026-08-23 after the optional-chapter work (882/26 before Milestone 21; 1097/30 after Phase G).
 
 **One helper default worth knowing before writing a test** (Milestone 19): `registerVerifyLogin()` grants the account a captured entry-fee payment, because the fee gates practice, mock tests, the daily challenge and the exam — a test student who cannot practise would be asserting behaviour no real student reaches. Pass `{ paid: false }` as the third argument when *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants.
 
@@ -570,3 +570,31 @@ duplicated id and an empty selection both refused as 400; a 403 for a student on
 prefixes; that the preview counts only *published* questions; that it is scoped to the class
 asked for; that it **never returns question text or an answer key** (asserted by field name); and
 that an invalid class is a 400.
+
+---
+
+## `tests/chapterDetection.test.ts` — 24 tests
+
+The detector is a **pure function**, so most of this file needs no database — which is the point of
+keeping it pure. The tests that matter are the ones about **refusing to guess**.
+
+- **"finds nothing rather than guessing"** — a question with no topical overlap must not be filed.
+- **"refuses to choose between two chapters that fit equally well"** — returns `ambiguous` and
+  names them. Picking one would be a coin toss presented as a decision, and both look reasonable
+  to a reviewer skimming.
+- **"spreads a whole-syllabus paper across chapters instead of taking the newest"** — seeds a
+  second chapter *after* the first, so "the most recent N" would be all of it. This is the test
+  that justifies the endpoint existing at all.
+- **"never suggests an unpublished question"** — a mock test may only be published with published
+  questions, so suggesting drafts would set the author up to fail at the last step.
+
+The `stem` tests earn their place: one of them caught a real bug where `derivatives` stemmed to
+`derivativ` while `derivative` stayed whole, so the two never compared equal and detection was
+silently relying on the loose prefix fallback.
+
+### A fixture trap
+
+The test helper's `Taxonomy.subtopicId` is a plain `string`, and an **empty string is not a valid
+ObjectId** — passing one as `subtopic` is a 400, not "no subtopic". To publish a question under a
+second chapter, pass `{ subtopic: null }` explicitly: the fixture's subtopic belongs to the *first*
+chapter, and the write path rightly refuses a subtopic that is not under the chosen one.

@@ -2,6 +2,95 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-23 — Optional auto-detected chapters, and building a paper in one action
+
+Four owner requests, one of which was already true.
+
+### 1. No Subject in bulk upload — already the case
+
+The import page has never had a subject picker. It resolves the chapter list internally and the
+subject is derived from the chapter, so there was nothing to remove.
+
+### 2. Chapter is now optional, and detected from the question
+
+`lib/chapterDetection.ts` — a **pure, deterministic** detector. Precedence, in order: the file's
+own `Topic` column, then what the question text says, then the examiner's fallback. Leaving the
+chapter blank on the upload form is now a real choice.
+
+**No model is called**, for the reason the Phase D ADR gives for `.docx`: the signal is already in
+the text, so a model would add cost, latency, a third party and a credential dependency in a core
+authoring path — and a chapter guess is exactly what a model gets confidently wrong.
+
+**It suggests; it never decides.** Every detection carries a note naming the words it matched on,
+and the reviewer can change it. When two chapters fit equally well it returns `ambiguous` and
+**names them** rather than tossing a coin — that is the case where a guess is most likely to be
+wrong and least likely to be questioned, because both answers look reasonable to a reviewer
+skimming. When nothing matches and there is no fallback, the row is **reported with its number**.
+A question in the wrong chapter is served to students practising something else, and it corrupts
+the topic analytics the recommendation engine reads.
+
+The same detector serves the **manual editor**: type a question, press *"Suggest a chapter from the
+question"*, and accept or ignore it. One pure function, so the editor and the importer cannot
+disagree about what a question looks like.
+
+### 3 and 4. Chapter-wise and whole-syllabus papers
+
+`GET /admin/questions/paper-suggestion` and a **Fill from / How many / Add to the paper** control
+in the mock-test author. With a chapter it samples that chapter; without, it **spreads across
+every chapter that has published questions for the class**, round-robin.
+
+The spread is why this is an endpoint rather than the existing listing with a `limit`: forty
+questions off the top of the bank are the forty most *recent*, which in a bank filled chapter by
+chapter means one or two chapters and none of the rest. That is not a syllabus paper.
+
+It adds to the paper rather than replacing it and skips duplicates, so an author can fill from two
+chapters in turn; fewer than asked for is reported, not hidden.
+
+### A real bug the browser check caught
+
+A "whole syllabus" Class 12 paper came back containing **Physics** chapters — Ray Optics,
+Electromagnetic Induction, Electrostatic Potential — because the spread was scoped by *class*
+alone and this database still holds a legacy Physics subject.
+
+Fixed by scoping to the implicit subject via a new shared `findImplicitSubject()` /
+`requireImplicitSubject()` in `taxonomyService.ts`. The pair is deliberate: a **filter** degrades
+to unscoped when the subject is genuinely ambiguous (breaking a working feature over legacy data
+the examiner cannot see would be worse), while a **write** insists, because filing questions under
+a guessed subject makes them invisible to every filter a user can construct. The endpoint is now
+correct regardless of whether Physics is ever deleted.
+
+### A stemmer bug, caught by its own test
+
+`stem("derivatives")` returned `derivativ` while `stem("derivative")` stayed whole, so the two
+never compared equal and detection was leaning entirely on the loose 5-character prefix fallback.
+`-es` is only a two-letter plural after a sibilant (`boxes` → `box`), so it is now applied only
+there.
+
+### Added
+
+- `lib/chapterDetection.ts`; `GET /admin/questions/detect-chapter`;
+  `GET /admin/questions/paper-suggestion`; `suggestPaper()`; `findImplicitSubject()` /
+  `requireImplicitSubject()`; `ImportBatch.subject`.
+- `tests/chapterDetection.test.ts` — 24 tests. Suite total **1097 → 1121 across 31 files**.
+
+### Verified in a browser
+
+Detection against the real syllabus: *"inverse of the matrix"* → Matrices, *"probability of a sum
+of seven"* → Probability, *"derivative of $x^3$"* → Applications of Derivatives, *"dot product of
+two vectors"* → Vector Algebra (on two words), and the apples-and-profit question → **nothing**,
+correctly. A `.docx` uploaded with **no chapter at all** filed two questions automatically and
+reported the third by its question number. A 14-question whole-syllabus paper spread across 13
+mathematics chapters with **no Physics**.
+
+### One thing worth knowing about `ImportBatch`
+
+Approval used to derive the subject from `defaultTopic`, which broke the moment the chapter became
+optional — an import that left the chapter to detection had nothing to derive from and would have
+been unapprovable for a reason the examiner could not act on. The subject is now recorded on the
+batch, with a fallback to the old derivation for rows written before the field existed.
+
+---
+
 ## 2026-08-23 — Milestone 21, Phases H and I: mock tests and daily challenges from a selection
 
 From the Question Bank, a selection can now be taken straight into the Mock Test author or the

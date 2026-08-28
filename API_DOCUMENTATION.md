@@ -1623,3 +1623,50 @@ and uses the caller's own class. Returns **counts and names only** — no questi
 answer key — so it adds no disclosure surface, and there is a test asserting the response
 contains none of those field names. Counts only **published** questions, because that is what a
 student can actually practise.
+
+---
+
+## Chapter detection and paper suggestions (Milestone 21)
+
+Both gated on `questions:write`, and both declared **before** `/admin/questions/:id` — Express
+matches in declaration order and a literal path that looks like an id is otherwise swallowed and
+answered 400. There are regression tests.
+
+### `GET /admin/questions/detect-chapter?text=…`
+
+```json
+{ "success": true, "outcome": "matched", "match": { "topicId": "…", "topicName": "Matrices", "matchedWords": ["matrix"] }, "between": [] }
+```
+
+`outcome` is `matched`, `ambiguous` (with `between` naming the candidates) or `none`. It
+**suggests**; the author accepts. `matchedWords` exists so the suggestion can be judged rather
+than trusted.
+
+**No model is called** — see `lib/chapterDetection.ts`. The detector is a pure function of the
+text and the chapter names, shared with the importer, so the editor and the importer cannot
+disagree about what a question looks like.
+
+### `GET /admin/questions/paper-suggestion?classLevel=…&count=…&topic=…&difficulty=…`
+
+```json
+{ "success": true, "classLevel": "Class 9", "requested": 20, "questions": [{ "id": "…", "questionText": "…", "marks": 4, "negativeMarks": 1, "topicName": "Algebra" }] }
+```
+
+With `topic`: a **chapter-wise** paper sampled from that chapter. Without: the **whole syllabus**,
+round-robin across every chapter that has published questions for the class. That spread is the
+reason this exists rather than the ordinary listing with a `limit` — the top of the bank is the
+most *recent* questions, which is one or two chapters, not a syllabus.
+
+Only **published** questions, because a mock test may only be published with published questions
+and suggesting drafts would set the author up to fail at the last step. Scoped to the **implicit
+subject**: a Class 12 whole-syllabus paper was returning Physics chapters from legacy data before
+this was added. Fewer than `requested` is normal and not an error — `requested` is echoed so a page
+can say "4 of 20 found". `count` is capped at 100, the same limit a mock test holds, so a
+suggestion can never propose a paper the API would refuse.
+
+### The import chapter is now optional
+
+`POST /admin/questions/import/{kind}` takes `topic` as **nullable**. Precedence for each question:
+the file's own `Topic` column → detection from the question text → this fallback. A question that
+exhausts all three is **reported with its row or question number**, never filed by guesswork.
+With no chapter at all the subject is resolved as the platform's implicit one.
