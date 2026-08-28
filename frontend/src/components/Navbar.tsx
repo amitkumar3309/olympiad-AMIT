@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import ThemeToggle from './ThemeToggle'
 import logo from '../assets/logo.png'
+import { AMIT_FULL_FORM, AMIT_SHORT } from '../lib/brand'
 import styles from './Navbar.module.css'
 
 export default function Navbar() {
@@ -18,8 +19,23 @@ export default function Navbar() {
   return (
     <header className={styles.nav}>
       <div className={`container ${styles.inner}`}>
-        <Link to="/" className={styles.brand} onClick={() => setOpen(false)}>
-          <img src={logo} alt="A.M.I.T Olympiad" />
+        {/*
+          The wordmark stays four letters (Milestone 22, Phase D). The expansion belongs
+          where a visitor is asking what the letters mean — the hero, the About section and
+          the footer — not in the top bar of every page, where it would be repeated past
+          the point of being read.
+
+          It is carried on the image's `alt` and the link's `title` instead, so it is still
+          reachable by a screen reader, a search engine and a hover, at no cost to the
+          layout.
+        */}
+        <Link
+          to="/"
+          className={styles.brand}
+          title={`${AMIT_SHORT} Olympiad — ${AMIT_FULL_FORM}`}
+          onClick={() => setOpen(false)}
+        >
+          <img src={logo} alt={`${AMIT_SHORT} Olympiad — ${AMIT_FULL_FORM}`} />
           <span>A.M.I.T. OLYMPIAD</span>
         </Link>
 

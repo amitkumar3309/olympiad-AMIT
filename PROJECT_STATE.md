@@ -1,12 +1,82 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-18 (Milestone 20 — the official Gemini SDK, structured output and review tooling)._
+_Last updated: 2026-08-28 (Milestone 22, Phase B — the admin student directory and its Excel export)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
-**Verified counts, read from the code rather than carried forward** (2026-08-18, measured by running the suite): **882 tests passing across 26 files**, **26 Mongoose models** (Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **21 permissions** (3 student / 19 admin / 21 super admin — Milestone 19 added none, and the security audit added none), **49 frontend routes** (Milestone 19 added `/payment` and `/admin/payments`), 24 route modules under `routes/v1/`, **28 services**. The test count above **was measured on 2026-08-18** (`npm test --prefix backend`: 882 passing, 26 files), which also resolves the 2026-08-17 audit's unrun-changes warning — those changes run and pass. It was 830 across 25 files at the end of Milestone 19; Milestone 20 added 30 tests to `tests/questionGenerator.test.ts` and the audit added the 26th file. Re-read it from `npm test --prefix backend` rather than quoting this line later. Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true; if you are about to quote a number from here, the code is the authority.
+**Verified counts, read from the code rather than carried forward** (2026-08-28, measured): **1253 tests passing across 35 files**, **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **50 frontend routes** (Phase B added none — it widened `/admin/users`; Phase D added none — it added an `#about` section to the existing landing page), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`). Every number on this line was measured on 2026-08-28 by running `npm test --prefix backend` and counting the code; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
 
 ## Current Development Phase
+
+**Milestone 22 — Phase E: the Refer & Earn backend (2026-08-28): implemented and verified.**
+
+- **Every student has a referral code** — `AMIT` + six characters from a 31-symbol unambiguous alphabet, generated lazily so accounts predating the feature need no migration. Deliberately not `studentId`: ten thousand identifiers is a walk, and a code gets posted in WhatsApp groups.
+- **Attribution happens once, at registration, and is decided by a unique index** on `Referral.referred` — one referrer per registration, no duplicate attribution, no changing it afterwards, all without a read-then-write that could race. Self-referral is refused. A code that does not resolve **refuses the registration** and rolls the account back rather than silently dropping the credit.
+- **A referral converts on captured money**, from inside `capturePayment()`. Deliberately *not* `hasEntryEntitlement()`, which is true when the paywall is switched off — that would pay out on every registration.
+- **No reward rule was invented.** Nothing in this project has ever specified an amount or an eligibility condition, so the reward is **switched off and worth ₹0** until an administrator sets it, and every response says so rather than showing zero as though it were an offer. **This is the open owner decision in this milestone.** Tracking is complete regardless.
+- **A reward lifecycle with conditional writes**: `pending_conversion → no_reward | accrued → approved → paid`, or `rejected`. Paying is not reachable from `accrued` — approving and paying are two decisions. Two administrators pressing "mark paid" at once produce one payout and one 409. No request may supply an amount.
+- **`GET /me/referrals`** with real counts and totals, the referred students **masked** by `displayNameFor()`. **`GET /referrals/validate`** public and rate limited, publishing a masked name only.
+- **The student directory and its Excel export gained three referral columns** — promised in Phase B and held back until the data existed.
+- **One defect the tests caught, surfacing nowhere near its cause**: `Student.referralCode` was declared `unique + sparse` with `default: null`, which makes every document carry an explicit null and lets exactly one exist — eleven tests failed on the *root administrator's login*, the second document a fresh database creates. See `TROUBLESHOOTING.md`.
+- **39 new tests** (1253 across 35 files). Two new models, one new permission, two new audit actions, one new service, one new route module. No new dependency, and no frontend yet — Phases F and G.
+
+**Milestone 22 — Phase D: the A.M.I.T full form on the landing page (2026-08-28): implemented and verified.**
+
+- **A.M.I.T is the Advance Mathematics and Intelligence Test.** Owner-supplied, because it was recorded **nowhere** in this repository — not in the docs, the frontend, `index.html` or the certificate. It was asked for rather than guessed.
+- **Defined once**, in `frontend/src/lib/brand.ts`, and shown in **one** visible place: under the wordmark in the hero, set as a formal descriptor — uppercase, wide tracking, a gold hairline out to each side, so it reads as part of the logotype rather than as copy.
+- **A first attempt was rejected by the owner and removed.** It added an About section that broke the letters into boxes with two explanatory paragraphs, and repeated the full form in the footer. The instruction was: no boxes, no `and` hanging off the `I`, no explanation, keep it at the top. The section, the boxes, the paragraphs and the footer line are all gone; the footer carries the four-letter name as it did before. **A name is displayed, not glossed** — that is the rule to keep.
+- **Not in the navbar**, deliberately. It is on the logo's `alt` and the link's `title`, so assistive technology and search engines still reach it.
+- **SEO**: the expansion in `<title>`, a `<meta name="description">` (there was none before) and Open Graph tags. `index.html` is static and cannot import the constant — the one deliberate duplication, commented in both files.
+- Verified in a browser at 1280px and 375px: exactly one visible occurrence, and the line tightens rather than wrapping on a phone.
+
+**Milestone 22 — the content reset (owner request, 2026-08-28): implemented and verified.** Inserted between Phase C and Phase D at the owner's request, and deliberately not given a phase letter of its own so the A–H plan keeps its numbering.
+
+- **A Danger zone at the foot of four admin pages** — Question Bank, Mock Tests, Daily Challenges, Chapters — each with a reset that empties the area behind a bright blocking warning and a **typed confirmation phrase** (`RESET QUESTIONS`, and a different one per area so muscle memory cannot confirm the wrong one).
+- **`content:reset` is super admin only** (permissions 21 → 22), beside `users:delete`. A compromised *admin* session cannot empty the question bank. It **deliberately overrides** `deleteQuestion()`'s rule that a published question can never be hard-deleted, which is exactly why it is confined to one role, typed, and audited.
+- **It refuses rather than cascades.** A reset that would orphan rows answers **409 naming its blockers** and the area to reset first (daily challenges → mock tests → questions → chapters), re-checked at the moment of the write rather than only in the dialog. **The official exam is a blocker with no resolution** — there is no reset for it, and there must not be.
+- **What survives is stated, not just what goes.** Attempts go with their paper (an attempt whose test is gone cannot be rendered), but **XP is never taken back**, and practice sessions survive a full question-bank wipe because each snapshots its own answer key.
+- **Two wording defects fixed before shipping**, and for this feature the wording *is* the safety mechanism: "1 daily challenge **are** set…" and "1 scheduled daily **challenges**". The phrase is now built server-side where the count lives.
+- One new service, one new route module, one new audit action carrying per-collection counts, one shared frontend component. **No new model.** **22 tests.**
+
+Verified in a browser against the local database: the blocked path, the confirmation gating (disabled by default, still disabled on a near miss, enabled only on the exact phrase), a real reset, the dependency chain unblocking afterwards, the audit entry, and the leaderboard still ranking on XP that was not touched.
+
+**Milestone 22 — Phase C: the student invoice (2026-08-28): implemented and verified.**
+
+- **An invoice is a rendering of a captured `Payment`, not a record of one.** There is no `Invoice`
+  collection, and the number is derived — `AMIT-INV-<capture year>-<last 12 hex of the payment id>`.
+  That makes every property the feature needed structural: downloading is a pure read so it cannot
+  create anything twice, the number is a function of the transaction so it never changes, and the
+  amount is `Payment.amount` so re-pricing the fee cannot alter an invoice already issued.
+- **Only a captured payment has one.** An attempted, failed or refunded payment answers **409 naming
+  the state**, and the payments console offers a PDF link on captured rows only.
+- **Students** get a *Your receipts* section on `/payment` with a full preview before download, built
+  from the same data the PDF is. **Staff** get `GET /admin/payments/:paymentId/invoice` on
+  `students:read`. Ownership is in the query, so a changed id is a 404 rather than somebody else's
+  receipt.
+- **Nothing about tax is invented.** Six new optional env vars describe the issuer; with no
+  `INVOICE_GSTIN` the document is titled `INVOICE` and says nothing about tax at all.
+- **A trap that would have reached production**: `pdf-lib` throws on a character its standard font
+  cannot encode, and registration accepts names in any Indian script — every student named in
+  Devanagari would have met a 500 instead of their receipt. Sanitised, with a test.
+- **26 new tests** (1192 across 33 files). Verified in a browser end to end, including extracting the
+  generated PDF's own text and checking it line by line.
+
+**The entry fee is Rs.199** as of 2026-08-28 (owner decision, up from Rs.100). The price lives in the
+`PaymentSettings` document and is changed at `/admin/payments`; `DEFAULT_ENTRY_FEE_PAISE` was updated
+to match, and applies only where no settings document has been saved. Nobody who already paid is
+affected — `Payment.amount` is a snapshot, and a test re-prices the fee after a capture to prove it.
+
+**Milestone 22 — Phase B: the admin student directory and an Excel export (2026-08-28): implemented and verified.** Phase A (an audit of the existing architecture) found no referral and no invoice code anywhere in the product, and no recorded expansion of "AMIT" — the owner supplied it: **Advance Mathematics and Intelligence Test**.
+
+- **One assembly behind two surfaces.** `services/studentDirectoryService.ts` is the single place the directory is built; the listing and the export run the **same pipeline** and differ only in the renderer, so the file cannot disagree with the table the administrator pressed the button on. A test sends one set of filters to both and compares.
+- **Payment state is derived on read**, in the aggregation, from each student's own `Payment` rows: `paid` / `pending` / `failed` / `refunded` / `not_started`. Nothing is stored — the same rule that put no `hasPaid` flag on `Student`. There is deliberately no `cancelled`, because the platform has no such payment status.
+- **Nobody is filtered out for not having paid.** The payment filter is absent by default and must stay absent; `not_started` is a first-class state rather than an absence.
+- **New filters**: class, payment status, an inclusive registration-date range, eight sort orders, and school name added to the search. Plus phone and registration date as columns, and a payment cell carrying the amount, capture date and method — or the provider's own failure reason.
+- **`GET /admin/students/export`** returns an `.xlsx` (via `exceljs`, already a dependency) with 24 columns and a second sheet saying what the file contains, when, by whom, and what each payment state means. Dates are real dates and money is a real number in rupees, so the columns sort and sum. `scope=all` exports the whole roll; anything over **20,000 rows is refused with a message**, never truncated.
+- **Two things that would have been defects**: the export route is declared **before** `/admin/students/:studentId` (otherwise Express reads `export` as a student id and answers 400 — the `practice-availability` trap again, with a regression test), and an **aggregation bypasses `select: false`**, so every stage that reaches a response ends in an explicit `$project` allow-list.
+- Verified in a browser against a local database seeded with all five payment states. **1166 tests across 32 files** (28 new), typecheck, lint, compile and the frontend build all pass.
+
+**Still to come in Milestone 22**: Phase F (the student Refer & Earn page), Phase G (the admin referral console), Phase H (regression).
 
 **Milestone 20 — the AI question generator on the official SDK, with structured output and real review tooling (2026-08-18): implemented and verified.** The owner asked for the official Google GenAI SDK, structured JSON output, subtopic support, retries, rate limiting, per-question review and approval, and provenance on what gets saved.
 
@@ -37,7 +107,7 @@ Before that, **the complete security audit — 2026-08-17: five findings, five f
 Before that, **Milestone 19 — Payments, and the entry fee that gates the platform: implemented.** The last planned development milestone. Full detail is under "Current Payment State"; the shape of it:
 
 - **Razorpay Standard Checkout, verified server-side**, replacing a static QR image and an "I've Paid" button that recorded nothing, verified nothing, and created the account either way. Every student who registered was told something untrue, and the site had no idea whether anyone had paid.
-- **₹100, once, and it buys a seat in the Olympiad.** Practice, mock tests, the daily challenge and analytics are free — the fee is for the competition itself. The gate is **on by default**, and can be switched off entirely from `/admin/payments`.
+- **A one-off fee, and it buys a seat in the Olympiad.** (₹100 when Milestone 19 shipped; **₹199** since 2026-08-28.) Practice, mock tests, the daily challenge and analytics are free — the fee is for the competition itself. The gate is **on by default**, and can be switched off entirely from `/admin/payments`.
 - **The browser is never believed about money.** The order endpoint takes no body; the amount comes from the settings document and the student from the token; both capture paths verify an HMAC signature in constant time. Capture is a conditional write, so a duplicate confirmation changes nothing.
 - **Reconciliation instead of a webhook.** With no webhook secret configured, `POST /payments/reconcile` asks Razorpay directly what happened to the student's outstanding order — which is strictly more trustworthy than a webhook, because the answer comes from an authenticated call we initiated rather than an unauthenticated request claiming to be Razorpay. The trade is that it settles when something asks rather than within seconds.
 - **One gate, mounted not called.** `middleware/requireEntry.ts` answers 402 on the exam route and runs *before* the resource is looked up, so the paywall cannot report on what exists behind it. The entitlement rides on every auth response beside `permissions`, so the UI reads it rather than deriving it — and that flag is presentation only.
@@ -196,9 +266,26 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Last Completed Milestone
 
-**Milestone 20 — the AI question generator on the official Gemini SDK, with structured output and review tooling (2026-08-18).** Before it, the complete security audit (2026-08-17), which is a hardening pass rather than a milestone. Before that, **Milestone 19 — Payments, and the entry fee that gates the platform.** Preceded by Milestone 18 (generated questions need a human before they exist), Milestone 17 (AI question drafting), Milestone 16 (intelligent performance recommendations), Milestone 15 (performance analytics), Milestone 14 (the notification system), Milestone 13 (the official exam and the certificate system), Milestone 12 (Complete Admin Platform), Milestone 11 (Account administration and a real super-admin account), Milestone 10 (Leaderboards and Hall of Fame), Milestone 9 (Gamification Engine), Milestone 8 (Daily Challenge), Milestone 7 (Mock Test System), Milestone 6 (Practice Zone), Milestone 5 (student profile and dashboard), Milestone 4 (complete question bank), Milestone 3 (RBAC and user management), Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
+**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12 (2026-08-28), all phases A–L complete.** Before it, **Milestone 20 — the AI question generator on the official Gemini SDK, with structured output and review tooling (2026-08-18).** Before that, the complete security audit (2026-08-17), which is a hardening pass rather than a milestone. Before that, **Milestone 19 — Payments, and the entry fee that gates the platform.** Preceded by Milestone 18 (generated questions need a human before they exist), Milestone 17 (AI question drafting), Milestone 16 (intelligent performance recommendations), Milestone 15 (performance analytics), Milestone 14 (the notification system), Milestone 13 (the official exam and the certificate system), Milestone 12 (Complete Admin Platform), Milestone 11 (Account administration and a real super-admin account), Milestone 10 (Leaderboards and Hall of Fame), Milestone 9 (Gamification Engine), Milestone 8 (Daily Challenge), Milestone 7 (Mock Test System), Milestone 6 (Practice Zone), Milestone 5 (student profile and dashboard), Milestone 4 (complete question bank), Milestone 3 (RBAC and user management), Milestone 2 (complete authentication), Milestone 1 (backend & database foundation) and Phase 0 (repository audit).
 
 ## Current Milestone
+
+**Milestone 22 — Admin student directory, student invoices, AMIT branding, and Refer & Earn. PHASES A–E COMPLETE, plus the content reset; F–H NOT STARTED.**
+
+Phase B is described under "Current Development Phase" above. Two decisions are recorded and not yet
+built on:
+
+- **The AMIT full form is `Advance Mathematics and Intelligence Test`** (owner, 2026-08-28). It was
+  recorded nowhere in this repository, so it was asked for rather than guessed. **Phase D has written it
+  into the landing page**, defined once in `frontend/src/lib/brand.ts`.
+- **No referral reward amount or eligibility rule exists anywhere in the project.** Phase E built the
+  tracking and conversion machinery for real and shipped the reward **configurable and switched off**
+  (`ReferralSettings`, defaulting to `rewardEnabled: false` and ₹0), rather than inventing a business
+  rule. **Still an open owner decision**: set an amount and the terms sentence at
+  `/admin/referral-settings` when it is decided. Until then the programme tracks introductions and
+  reports honestly that no reward is configured.
+
+Milestone 21 is complete and is retained below for its migration warning.
 
 **Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. ALL PHASES A–L COMPLETE.**
 
@@ -569,7 +656,7 @@ literal at line 671.
   - Current-user endpoint, and frontend session restoration across a browser reload (tries `/auth/me`, falls back to one refresh).
   - Per-endpoint rate limiting on every sensitive route.
 - **Authorization (Milestone 3)** — permission-based and centralized:
-  - Three roles (`student` / `admin` / `superadmin`) and **21 named permissions** (3 / 19 / 21), mapped in exactly one place (`backend/src/lib/permissions.ts`). The super admin's set is defined as a superset of the admin's, so an admin is *structurally* weaker.
+  - Three roles (`student` / `admin` / `superadmin`) and **22 named permissions** (3 / 19 / 22), mapped in exactly one place (`backend/src/lib/permissions.ts`). The super admin's set is defined as a superset of the admin's, so an admin is *structurally* weaker.
   - Routes declare a permission via `requirePermission`; no handler compares a role to a literal. `requireAuth(...)` survives only for identity-only gates.
   - Privileged requests re-read `role`, `status` and `tokenVersion` from MongoDB, so a demotion or suspension is effective at once instead of surviving the access token's 15 minutes. Student-level requests remain stateless.
   - Frontend: `RequirePermission` route guard, a real `Unauthorized` state, and navigation filtered by the permission list the server sends (never a client-side copy of the rules).
@@ -776,7 +863,7 @@ Still missing: CSRF tokens (see [`SECURITY.md`](SECURITY.md)) — now with stude
 
 **Real, end-to-end, and the gate is on by default** (Milestone 19, 2026-08-16). Razorpay Standard Checkout, verified server-side. The static QR image and its "I've Paid" button are deleted.
 
-- **The fee is ₹100** (`DEFAULT_ENTRY_FEE_PAISE = 10_000`), and it is **administrator-editable** at `/admin/payments`, not an environment variable — it is business configuration, so changing it must not be a redeploy and must leave an audit entry naming who changed it and from what. Only the two Razorpay credentials and the webhook secret are env vars.
+- **The fee is ₹199** (`DEFAULT_ENTRY_FEE_PAISE = 19_900`, raised from ₹100 by the owner on 2026-08-28), and it is **administrator-editable** at `/admin/payments`, not an environment variable — it is business configuration, so changing it must not be a redeploy and must leave an audit entry naming who changed it and from what. Only the two Razorpay credentials and the webhook secret are env vars.
 - **What the fee buys: the official Olympiad, and nothing else** (owner decision, 2026-08-17). Practice, mock tests, the daily challenge, analytics, the dashboard, the leaderboard and rewards are **free** — a student prepares for free and pays only to compete. It briefly gated all four surfaces on 2026-08-16 and the owner reversed that the next day; the narrower scope is the product. **Paying later is the normal path**, so the fee appears on `/payment`, as a dashboard banner and as a card on `/profile`.
 - **The entitlement is derived, never stored.** "Has a captured `Payment` with purpose `olympiad_entry`" — there is deliberately no `hasPaid` flag on `Student`, for the reason XP, analytics and the leaderboard are all derived: a stored boolean is a second source of truth about money, and when it drifts somebody who paid is refused or somebody who did not is admitted.
 - **One gate: `middleware/requireEntry.ts`**, mounted on the exam attempt route alone. Routes never call `hasEntryEntitlement()` themselves, for the reason there is one grader and one reward engine — a surface that has to remember to ask will eventually forget, and a forgotten paywall looks exactly like a working one. It answers **402**, not 403: "not yet, and here is the button" is a different message from "never", and the frontend branches on it to show a pay page rather than a dead end.
@@ -1047,8 +1134,8 @@ Fixed in Milestone 2: the `studentId` collision risk (now uniquely indexed with 
    RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
    ```
    Restart the backend. `/admin/payments` will stop showing "Razorpay is not configured". **Never commit these.** For production, the same two keys from **Live mode**, set in the Vercel project's environment variables rather than in a file.
-2. **Drive one real test payment through a browser.** Register a student, verify the email, sign in, and check that the dashboard shows the ₹100 banner and that Practice / Mock Tests / Daily Challenge each show the locked panel. Pay with Razorpay's test card `4111 1111 1111 1111` (any future expiry, any CVV). The lock should lift on all three. Then, deliberately, **close the tab mid-payment** and reopen `/payment` — reconciliation should find the payment and confirm the entry. That last case is the one the whole reconcile path exists for and the only one a test cannot prove.
-3. **Decide whether the fee stays at ₹100 in production**, and set it at `/admin/payments`. The code default is ₹100; the settings document overrides it and is audited.
+2. **Drive one real test payment through a browser.** Register a student, verify the email, sign in, and check that the dashboard shows the entry-fee banner and that Practice / Mock Tests / Daily Challenge each show the locked panel. Pay with Razorpay's test card `4111 1111 1111 1111` (any future expiry, any CVV). The lock should lift on all three. Then, deliberately, **close the tab mid-payment** and reopen `/payment` — reconciliation should find the payment and confirm the entry. That last case is the one the whole reconcile path exists for and the only one a test cannot prove.
+3. **Set the fee at `/admin/payments` in production.** The owner raised it to **₹199** on 2026-08-28 and the code default now matches — but the code default applies **only where no `PaymentSettings` document exists**. If one was ever saved on this deployment, it still holds the old price and the console is the only place that changes it (with an audit entry). Check what `/admin/payments` reports before assuming.
 
 **Two things a future session must not be surprised by:**
 

@@ -119,6 +119,31 @@ export const AUDIT_ACTIONS = [
   /** An account holding an elevated role signed in. */
   'admin.session.started',
   /**
+   * A referral reward was approved, marked paid, or the referral rejected (Milestone 22).
+   *
+   * The three administrative acts in the referral programme, and the only ones: attribution
+   * and conversion happen without a human — the first at registration, where there is no
+   * authenticated actor to record, and the second inside payment capture. Both are recorded
+   * by the `Referral` document's own timestamps, which is a better record than an audit row
+   * because it is the thing the console actually reads.
+   *
+   * What belongs here is money leaving: `metadata` carries the amount, both parties to the
+   * introduction and, for a payout, its reference.
+   */
+  'referral.reward.changed',
+  /** The referral reward amount changed, or the programme was switched on or off. */
+  'referral.settings.updated',
+  /**
+   * A whole content area was emptied — the question bank, mock tests, the daily
+   * challenge or the chapter list (Milestone 22).
+   *
+   * The single most destructive action available, and the one whose entry matters most:
+   * it is what somebody reads when a question bank is unexpectedly empty. The metadata
+   * carries the per-collection counts, because after the delete there is nothing left to
+   * count and "a reset happened" answers nothing.
+   */
+  'content.reset',
+  /**
    * An authenticated user was refused a privileged permission. Recorded because a
    * burst of these is the signature of a privilege-escalation attempt.
    */
@@ -137,6 +162,7 @@ export const AUDIT_TARGET_TYPES = [
   'notification',
   'exam',
   'certificate',
+  'referral',
   'route',
   'system',
 ] as const;

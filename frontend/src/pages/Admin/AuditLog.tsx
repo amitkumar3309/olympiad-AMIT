@@ -40,6 +40,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'subject.changed': 'Subject changed',
   'topic.changed': 'Topic changed',
   'admin.session.started': 'Admin signed in',
+  'content.reset': 'Content area reset',
   'authz.denied': 'Permission denied',
 }
 

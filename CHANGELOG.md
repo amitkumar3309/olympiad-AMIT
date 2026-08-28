@@ -2,6 +2,287 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-28 — Milestone 22, Phase E: Refer & Earn, the backend
+
+Every student now has a referral code, every introduction is recorded, and every conversion is
+observed from a real captured payment.
+
+### No reward rule was invented
+
+Nothing in this project has ever specified a referral reward — not an amount, not an eligibility
+condition, not a payout method. So the reward is **switched off and worth ₹0** until an administrator
+sets it, and the API reports that plainly rather than showing zero as though it were an offer. The
+**tracking** is complete either way, which is the part that was genuinely asked for.
+
+### What the backend now does
+
+- **A code per student**: `AMIT` + six characters from a 31-symbol unambiguous alphabet, generated
+  lazily on first read so accounts predating the feature need no migration. Deliberately not
+  `studentId` — ten thousand identifiers is a walk, and a code gets posted in WhatsApp groups.
+- **Attribution at registration**, validated server-side. A code that does not resolve **refuses the
+  registration** and rolls the account back; a code from a suspended account stops resolving.
+- **`GET /referrals/validate`** so the register page can check a link before the form is filled —
+  public, rate limited, and publishing only a **masked** name.
+- **Conversion inside `capturePayment()`**, the one place money becomes real. Not
+  `hasEntryEntitlement()`, which is true when the paywall is off — that would pay out on every
+  registration.
+- **A reward lifecycle**: `pending_conversion → no_reward | accrued → approved → paid`, or
+  `rejected`. Each transition is a **conditional write**, so two administrators pressing "mark paid"
+  at once produce one payout and one 409.
+- **`GET /me/referrals`** with real counts and totals, the students listed **masked**.
+- **An admin console** on `students:read`, and the three acts that move money on a new
+  `referrals:write` (permissions 22 → 23).
+- **The student directory and its Excel export gained three referral columns** — promised in Phase B
+  and deliberately held back until the data existed.
+
+### The abuse rules are an index, not checks
+
+A unique index on `Referral.referred` enforces one referrer per registration, no duplicate
+attribution and no changing it afterwards — all at once, and without a read-then-write that could
+race. Self-referral is refused explicitly. No request may supply an amount: it is snapshotted at
+conversion, so re-pricing the reward cannot rewrite what somebody already earned.
+
+### One defect the tests caught, and it surfaced nowhere near its cause
+
+Eleven tests failed with a **500 on the root administrator's login** — nothing to do with referrals.
+`Student.referralCode` had been declared `unique + sparse` with **`default: null`**, and `sparse`
+skips *absent* fields, not null ones: every document carried an explicit null, the index treated them
+as equal, and the second document ever created failed on a duplicate key. In a fresh database the
+second document is the bootstrap super admin. The default is gone; there is a `TROUBLESHOOTING.md`
+entry.
+
+**39 new tests.** Two new models (`Referral`, `ReferralSettings` — 29 in total), one new permission,
+two new audit actions, one new service, one new route module. No new dependency.
+
+Phases F and G — the student page and the admin console UI — are next.
+
+## 2026-08-28 — Milestone 22, Phase D: A.M.I.T has a full form on the landing page
+
+**A.M.I.T is the Advance Mathematics and Intelligence Test.** Owner-supplied on 2026-08-28, because
+it was recorded **nowhere** in this repository — not in any of the thirteen root documents, not in
+the frontend, not in `index.html`, not in the certificate it prints on a child's award. The brand
+appeared only as four letters, and the founder being named "Amit Kumar" made it genuinely ambiguous
+whether it was an acronym at all. It was asked for rather than guessed.
+
+### It appears once, under the wordmark
+
+Set as a formal descriptor rather than as copy: uppercase, wide tracking, a gold hairline running
+out to each side. It reads as part of the logotype instead of as a sentence, so it does not compete
+with the tagline below it. `frontend/src/lib/brand.ts` holds the string, so the visible name and the
+page metadata cannot drift apart.
+
+### The first attempt was rejected, and what it got wrong
+
+The first version of this phase also added an **About section** — the four letters broken out into
+separate boxes, plus two paragraphs explaining the competition — and repeated the full form in the
+footer. The owner's response was that the boxes were unnecessary, that `and` hanging off the `I`
+looked wrong, that no explanation was wanted, and that the name belongs at the top.
+
+All of it was removed: the section, the boxes, the paragraphs and the footer line. The footer is back
+to the four-letter name it carried before. **One visible occurrence on the page**, counted in the
+browser.
+
+### SEO
+
+`index.html` gained the expansion in its `<title>`, a `<meta name="description">` (there was none at
+all before) and Open Graph title/description for when the site is shared into a chat. That file is
+static and cannot import the constant, so the name is spelled literally there — **the one deliberate
+duplication**, documented in both places.
+
+Verified in a browser at 1280px and 375px, where the line shortens its rules and tightens its
+tracking rather than wrapping.
+
+## 2026-08-28 — A reset button for each content area
+
+Owner request. The Question Bank, Mock Tests, Daily Challenges and Chapters each gained a **Danger
+zone** at the foot of the page with a reset that empties the area — with a bright, blocking warning
+and a typed confirmation, so it cannot happen by accident.
+
+### What stands between a click and an empty collection
+
+- **`content:reset` is super admin only**, beside `users:delete` on the line that table already
+  draws. A compromised *admin* session cannot empty the question bank. The panel is not even
+  rendered without the permission.
+- **Nothing happens on the first press.** The dialog fetches real counts first, so it says
+  "208 questions" rather than "this cannot be undone".
+- **The exact phrase must be typed** — `RESET QUESTIONS`, and a different one per area, so muscle
+  memory from one dialog cannot confirm another. Wrong case, near misses and a bare `POST` are all
+  refused.
+- **It refuses rather than cascades.** Deleting chapters beneath questions would leave every
+  question pointing at nothing, so a blocked reset shows **no confirmation field and no button** —
+  only what to reset first. Re-checked at the moment of the write, not just in the dialog.
+- **The official exam has no reset**, and appears as a blocker with no resolution: its results and
+  certificates are a permanent record.
+
+### What survives, and why the dialog says so
+
+Resetting mock tests or daily challenges deletes their attempts — an attempt whose paper is gone is
+a row the student's page cannot render. But **XP is never taken back**: it is a record of something
+that really happened, and removing it would re-rank the leaderboard against children who did nothing
+wrong. Practice sessions survive a full question-bank wipe too, because each one snapshots its own
+questions and answer key — the Milestone 6 snapshot rule paying off in a place it was not designed
+for.
+
+The dialog lists all of this. A warning that only threatens gets clicked through.
+
+### Two defects fixed before they shipped
+
+Both in the wording, which for this feature *is* the safety mechanism: "1 daily challenge **are**
+set from these questions" in the blocker text, and "1 scheduled daily **challenges**" in the delete
+list — the client had been joining a count to a plural label. The phrase is now built server-side
+where the count lives, and a test asserts the singular form.
+
+One new permission (21 → 22), one new audit action (`content.reset`, carrying per-collection counts
+because afterwards there is nothing left to count), one new service, one new route module, one shared
+frontend component. **No new model.** 22 tests.
+
+Verified in a browser against the local database: the blocked path on Chapters, the confirmation
+gating (disabled by default, still disabled on a near miss, enabled only on the exact phrase), a
+real reset of the daily challenges, the dependency chain unblocking afterwards, the audit entry, and
+the leaderboard still ranking its students on XP that was not touched.
+
+## 2026-08-28 — The entry fee is Rs.199
+
+Owner decision. Rs.100 to Rs.199, up from the Rs.100 set on 2026-08-16 (itself down from the Rs.499
+the feature shipped with).
+
+**No code decision was involved, which is the point of where the price lives.** `PaymentSettings` is an
+administrator-editable document changed at `/admin/payments`, with an audit entry naming who changed it
+and from what. `DEFAULT_ENTRY_FEE_PAISE` was updated to `19_900` to match — that constant applies
+**only where no settings document has been saved** (a fresh environment, a new local database, the test
+suite), and leaving it stale would mean a newly provisioned deployment silently charging last year's
+fee with nothing to warn about it.
+
+**Nobody who has already paid is affected.** `Payment.amount` is a snapshot of what was actually
+charged, so a student who paid Rs.100 keeps their entitlement and their invoice still reads Rs.100 —
+asserted by a test that re-prices the fee *after* a capture.
+
+Two tests were updated to the new default, and the fee was corrected in eight documentation files. The
+two Milestone 19 ADRs were left intact with a note added: they are the record of what was decided then,
+and everything they say about *where* the price lives is unchanged.
+
+## 2026-08-28 — Milestone 22, Phase C: the student invoice
+
+A student who paid had no receipt. Nothing in the product could produce one, and nothing in it had ever
+needed an invoice number.
+
+### An invoice is a rendering of a payment, not a record of one
+
+There is **no `Invoice` collection**. `services/invoiceService.ts` renders a captured `Payment` on
+demand, and the number is derived — `AMIT-INV-2026-9B736EA2AF39`, the capture year plus the last twelve
+hex characters of the payment's own `ObjectId`. Every property the feature needed falls out of that:
+downloading is a pure read so nothing can be created twice; the number is a function of the transaction
+so it never changes; uniqueness rests on the `ObjectId` rather than on a counter two readers could
+allocate twice; and the amount is `Payment.amount`, so raising the fee to Rs.199 the same day left every
+earlier invoice reading Rs.100.
+
+### What a student sees
+
+`/payment` gained a **Your receipts** section — one row per captured payment, with a full **preview**
+before downloading and a PDF link. The preview is built from the same `InvoiceData` the PDF is, so what
+is on screen cannot differ from what is in the file.
+
+The PDF is A4, rendered server-side with `pdf-lib` (already the certificate's library, so no new
+dependency): issuer block, billed-to block, invoice and payment dates, a one-line item table, the
+total, **the total in words** in Indian grouping — the conventional check against a tampered figure —
+a payment-details panel, and a footer quoting the invoice number for support.
+
+### Only a captured payment has one
+
+`created`, `attempted` and `failed` are attempts rather than transactions, and `refunded` would read as
+true of the present. All four answer **409 naming the state**, because "no invoice exists" sends a
+student to support to be told their payment never completed. The payments console shows a PDF link on
+captured rows only, and a dash on the rest.
+
+### Nothing about tax is invented
+
+Six new **optional** environment variables describe the issuer. With no `INVOICE_GSTIN` the document is
+titled `INVOICE` and says nothing about tax at all — no rate, no "inclusive of all taxes", no
+placeholder address. Each would be a legal claim about the owner's business. With a GSTIN set it
+becomes a `TAX INVOICE`.
+
+### One trap that would have reached production
+
+`pdf-lib` **throws** on a character its standard font cannot encode, and registration deliberately
+accepts a name in any Indian script. Without a sanitiser, every student named in Devanagari would have
+met a 500 instead of their receipt. There is a test with a real Devanagari name.
+
+Also: `GET /admin/payments/:paymentId/invoice` for staff reissue, gated on `students:read`; ownership
+in the query so a changed id is a 404 rather than somebody else's receipt.
+
+**26 new tests** (1192 across 33 files), typecheck, lint, compile and the frontend build. Verified in a
+browser end to end — the receipts list, the preview modal, the student download, the staff download,
+and the generated PDF's own text extracted and checked line by line.
+
+## 2026-08-28 — Milestone 22, Phase B: the admin student directory, and an Excel export
+
+The admin account list showed who had registered and knew nothing about whether any of them had
+paid. The payments console showed the money and could not be filtered by class. Neither could
+produce a file, so answering "send me the Class 8 registrations" meant reading a screen into a
+spreadsheet by hand.
+
+### One assembly behind both surfaces
+
+`services/studentDirectoryService.ts` is now the single place the directory is built, and
+`GET /admin/students` and the new `GET /admin/students/export` run the **same pipeline** — so the
+file cannot disagree with the table the administrator pressed the button on. A test sends one set
+of filters to both and compares the student ids.
+
+### Payment state, derived on read
+
+Each student now carries `paymentState`, rolled up in the aggregation from their own `Payment`
+rows: `paid`, `pending`, `failed`, `refunded`, `not_started`. **Nothing is stored** — the same
+rule that put no `hasPaid` flag on `Student`. `paid` outranks everything else on the row, so a
+student who failed twice and then paid is paid, and the payment shown is the capture rather than
+the latest write. There is deliberately no `cancelled`: the platform has no such payment status,
+and a state no code path can produce has no business on an administrator's screen.
+
+**Nobody is filtered out for not having paid.** The payment filter is absent by default and must
+stay absent: `not_started` is a first-class state, and a directory that quietly showed only paying
+students would look like a working one until somebody asked how many people had registered.
+
+### What was added to the screen
+
+Class, payment-status and inclusive registration-date filters; eight sort orders; school name in
+the search; a payment cell that shows the amount, capture date and method for a paid student and
+the provider's own failure reason for a failed one; phone and registration date as columns; and a
+line above the table stating exactly how many students the download will contain, with a second
+button for the whole roll when a filter is on. The nav item is now **All Students**.
+
+### The export
+
+`.xlsx` via `exceljs` (already a dependency — no new one), two sheets: 24 columns of registration
+and payment data with the header frozen and auto-filtered, and an `About this export` sheet saying
+what the file contains, when, by whom, and what each payment state means — because the file leaves
+the platform and gets opened months later by somebody who was not in the room. Dates are real
+dates and money is a real number in rupees, so the columns sort and sum.
+
+**Nothing sensitive can be in it**, structurally rather than carefully: the renderer has no
+database access and can only write what the shared view holds. Two tests search the whole listing
+body and every workbook cell for a hash, a token version and a payment signature.
+
+### Two things that would have been defects
+
+- **`GET /admin/students/export` is declared before `/admin/students/:studentId`.** Declared the
+  other way round, Express reads `export` as a student id and answers 400 — the same trap that
+  swallowed `practice-availability` and the reason `questionsImport` is mounted first. Regression
+  test added.
+- **An aggregation bypasses `select: false`.** The schema-level exclusion of `passwordHash`
+  protects `find()` and nothing else, so every stage that reaches a response ends in an explicit
+  `$project` allow-list.
+
+Also: `adminAccountView()` moved into the service and is now typed against a field interface
+rather than `StudentDocument`, so the aggregation's plain objects render through the *same* view
+— and the admin page merges account updates into a row rather than replacing it, because the
+status and role endpoints answer with the account half only and would otherwise blank the payment
+column of whichever student had just been acted on. `paymentView()` was widened the same way, so
+money is formatted in exactly one place for both the student's receipt and the console.
+
+Two indexes added to `Student`: `{ registeredAt: -1 }` and `{ classLevel: 1, registeredAt: -1 }`.
+
+Verified in a browser against a local database seeded with all five payment states, plus **1166
+backend tests across 32 files** (28 new), typecheck, lint, compile and the frontend build.
+
 ## 2026-08-28 — A file may name chapters that do not exist yet, and say so usefully
 
 Reported by the owner: a real **NCERT Class 9** paper was rejected row for row —

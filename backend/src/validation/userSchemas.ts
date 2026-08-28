@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { ACCOUNT_STATUSES, AUDIT_ACTIONS } from '../models';
 import { ASSIGNABLE_ROLES, ROLES } from '../lib/permissions';
+import { CLASS_LEVELS } from '../lib/classLevels';
+import { STUDENT_PAYMENT_STATES, STUDENT_SORT_KEYS } from '../services/studentDirectoryService';
 
 /**
  * Query params arrive as strings, and a repeated key still yields an array — the
@@ -13,9 +15,32 @@ const pagination = {
   limit: z.coerce.number().int().min(1).max(100).default(20),
 };
 
-export const listStudentsQuerySchema = z.object({
-  ...pagination,
-  /** Free-text match on name, email, mobile or student ID. */
+/**
+ * A calendar day from a date input, as an inclusive bound on `registeredAt`.
+ *
+ * `from` anchors to the start of the day and `to` to its end, in UTC. Both bounds being
+ * inclusive is what a human means by "registered between the 1st and the 7th" — a naive
+ * `$lte` against midnight would silently drop everybody who registered on the last day,
+ * which is the day an administrator is usually most interested in.
+ */
+const registeredBound = (end: boolean) =>
+  z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date in the form YYYY-MM-DD')
+    .transform((value) => new Date(`${value}T${end ? '23:59:59.999' : '00:00:00.000'}Z`))
+    .refine((date) => !Number.isNaN(date.getTime()), 'That is not a real date');
+
+/**
+ * The student directory's filters (Milestone 22).
+ *
+ * Shared by the listing and the export, deliberately: the export's whole promise is that
+ * it contains what the screen showed, and it cannot keep that promise if the two accept
+ * different parameters. Everything here is an enum, a bounded string or a parsed date
+ * before it reaches a Mongo stage.
+ */
+const directoryFilters = {
+  /** Free-text match on name, email, mobile, student ID or school. */
   search: z.string().trim().min(1).max(120).optional(),
   status: z.enum(ACCOUNT_STATUSES).optional(),
   // The full role list, not the assignable subset: the super admin now has a
@@ -23,8 +48,42 @@ export const listStudentsQuerySchema = z.object({
   // privileged account in the system from the person auditing it.
   role: z.enum(ROLES).optional(),
   verified: z.enum(['true', 'false']).optional(),
+  classLevel: z.enum(CLASS_LEVELS).optional(),
+  /**
+   * The **derived** entry-payment state — see `STUDENT_PAYMENT_STATES`. Optional, and
+   * absent by default on purpose: the directory's job is to show everyone who registered,
+   * so it must never default to the paid subset.
+   */
+  paymentState: z.enum(STUDENT_PAYMENT_STATES).optional(),
+  registeredFrom: registeredBound(false).optional(),
+  registeredTo: registeredBound(true).optional(),
+  sort: z.enum(STUDENT_SORT_KEYS).default('registeredAt'),
+  order: z.enum(['asc', 'desc']).default('desc'),
+};
+
+export const listStudentsQuerySchema = z.object({
+  ...pagination,
+  ...directoryFilters,
 });
 export type ListStudentsQuery = z.infer<typeof listStudentsQuerySchema>;
+
+/**
+ * The export (Milestone 22).
+ *
+ * Takes the same filters and no pagination — the file is the whole result set — plus one
+ * extra decision the administrator has to make explicitly.
+ *
+ * `scope: 'all'` **ignores every filter** and exports the entire roll. It is a separate
+ * parameter rather than "send no filters", because the two intentions are different and
+ * only one of them is safe to infer: a client that dropped its filters through a bug
+ * would otherwise silently download the whole database. Making it an explicit word means
+ * the request says which of the two it meant, and the response can say so back.
+ */
+export const exportStudentsQuerySchema = z.object({
+  ...directoryFilters,
+  scope: z.enum(['filtered', 'all']).default('filtered'),
+});
+export type ExportStudentsQuery = z.infer<typeof exportStudentsQuerySchema>;
 
 /**
  * Two namespaces, both four digits: `AMIT_xxxx` for entrants and `ADMIN_xxxx` for

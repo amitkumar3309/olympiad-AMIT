@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api, ApiError, API_BASE } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import type { AdminPaymentsResponse, PaymentRecord, PaymentSettingsResponse } from '../../api/types'
 import AdminShell from './AdminShell'
@@ -241,6 +241,7 @@ export default function AdminPayments() {
                       <th>Method</th>
                       <th>Order</th>
                       <th>When</th>
+                      <th>Invoice</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -260,6 +261,22 @@ export default function AdminPayments() {
                         <td>
                           {new Date(payment.capturedAt ?? payment.createdAt).toLocaleString()}
                           {!payment.capturedAt && <span className={styles.sub}>not captured</span>}
+                        </td>
+                        <td>
+                          {/*
+                            Offered only where it can succeed. An invoice exists for a
+                            **captured** payment and nothing else, so a link on an
+                            attempted or failed row would be an invitation to a 409 —
+                            and, worse, would suggest a receipt exists for money that
+                            was never taken.
+                          */}
+                          {payment.status === 'captured' ? (
+                            <a className={styles.invoiceLink} href={`${API_BASE}/admin/payments/${payment.id}/invoice`}>
+                              <i className="ph-bold ph-download-simple" /> PDF
+                            </a>
+                          ) : (
+                            <span className={styles.sub}>—</span>
+                          )}
                         </td>
                       </tr>
                     ))}

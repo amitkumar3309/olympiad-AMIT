@@ -29,3 +29,5 @@ export * from './GenerationLog';
 export * from './Payment';
 export * from './PaymentSettings';
 export * from './ImportBatch';
+export * from './Referral';
+export * from './ReferralSettings';

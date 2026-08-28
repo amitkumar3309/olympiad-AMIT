@@ -103,6 +103,7 @@ Rewritten in Milestone 3 from role checks to a permission model. `backend/src/li
 | `notifications:write` | — | yes | yes |
 | `users:role:write` | — | — | **yes** |
 | `users:delete` | — | — | **yes** |
+| `content:reset` | — | — | **yes** |
 
 **A certificate cannot be manufactured, by anybody.** There is no issuance endpoint: certificates are minted only as a side effect of releasing an official exam's results, from a graded attempt. No student and no administrator can nominate a recipient, which makes “the frontend must not manufacture certificate eligibility” true structurally rather than by validation — the frontend is never asked.
 
@@ -134,7 +135,7 @@ Note the rule order inside `emailAllowedFor()`: the **category** check runs befo
 
 **Staff do not hold competitor identifiers.** The bootstrap account's `studentId` is `ADMIN_xxxx`, not `AMIT_xxxx`. There are only ten thousand `AMIT_` numbers and they are what a child writes on an exam paper, so staff are not given one — and the namespace makes a staff actor obvious at a glance in the audit trail.
 
-**The line between `admin` and `superadmin` is reversibility.** Everything an admin may do can be undone — a suspension lifted, a status restored, a password reset again. The two withheld capabilities cannot be: `users:role:write` can mint another administrator, and `users:delete` destroys data. Confining escalation to the super admin is what stops a compromised admin session widening itself; confining deletion is what stops it erasing the evidence of having tried.
+**The line between `admin` and `superadmin` is reversibility.** Everything an admin may do can be undone — a suspension lifted, a status restored, a password reset again. The three withheld capabilities cannot be: `users:role:write` can mint another administrator, `users:delete` destroys an account, and `content:reset` (Milestone 22) empties a whole content area — the question bank included. Confining escalation to the super admin is what stops a compromised admin session widening itself; confining deletion is what stops it erasing the evidence of having tried.
 
 That relationship is **structural, not conventional**. `SUPERADMIN_PERMISSIONS` is defined as `[...ADMIN_PERMISSIONS, ...SUPERADMIN_ONLY_PERMISSIONS]`, so there is no second list to forget to update, and a test asserts the subset relation by reading the table rather than a copy of it.
 
@@ -329,7 +330,7 @@ Not done, and worth knowing: the image is **not** re-encoded or stripped of meta
 
 **The browser is never believed about money.** It may ask for an order and report back three ids; it can never assert that a payment succeeded, how much was paid, or what was bought.
 
-- **The amount is never accepted from a request.** `POST /payments/orders` has no request body at all: the amount comes from the `PaymentSettings` document and the student from the token's `sub`. A client-supplied amount is how a ₹100 fee gets paid as ₹1.
+- **The amount is never accepted from a request.** `POST /payments/orders` has no request body at all: the amount comes from the `PaymentSettings` document and the student from the token's `sub`. A client-supplied amount is how a ₹199 fee gets paid as ₹1.
 - **Both capture paths verify an HMAC-SHA256 signature** computed with `RAZORPAY_KEY_SECRET`, compared with `crypto.timingSafeEqual`. A `===` comparison leaks, through timing, how many leading characters an attacker guessed right, turning forgery into a character-at-a-time search; lengths are compared first because `timingSafeEqual` throws on a mismatch and a digest length is not a secret.
 - **A signature proves a payment is genuine, not that it is yours.** Ownership is checked separately against the token — without it, a student could verify somebody else's order and, since the entitlement is keyed on the row's `student`, hand *them* the entry while appearing to have paid. There is a test.
 - **The webhook verifies the raw request body**, which is why `app.ts` preserves it. `JSON.parse` followed by `JSON.stringify` does not reproduce the bytes Razorpay signed — key order, whitespace and unicode escaping all differ — so verifying against a re-serialised object fails for legitimate webhooks, and the predictable "fix" for that is to stop verifying. With no `RAZORPAY_WEBHOOK_SECRET` set, **every** webhook is refused: an unverifiable webhook is an anonymous request that grants entitlements.
@@ -576,6 +577,193 @@ Every XP grant in this backend goes through one function, `grantReward()`, and t
 - **Scripts print a redacted URI.** `redactUri()` in `lib/envGuard.ts` strips credentials before any script logs its target, so script output can be shared safely. `where-is-data.ts` and the three write scripts all use it.
 
 ---
+
+## Refer & Earn (Milestone 22, Phase E)
+
+A referral programme is a mechanism for paying money out, so it is an abuse surface by
+construction. Six things carry it.
+
+### The abuse rules are enforced by an index, not by checks
+
+A unique index on `Referral.referred` is what makes **one referrer per registration**, **no
+duplicate attribution** and **no changing who referred you afterwards** true at the same time.
+A handler check would be a read followed by a write, and on serverless those land in different
+invocations. There is also no route that re-attributes — attribution happens once, inside
+registration, and nothing else writes a `Referral`.
+
+### A referral converts on captured money, never on a registration
+
+The hook runs inside `capturePayment()`, the single place a payment becomes real, and its own
+update is conditional on the row still being `pending_conversion` — so a duplicate webhook, a
+reconcile and a browser return journey arriving in the same second cannot accrue two rewards.
+
+It deliberately does **not** call `hasEntryEntitlement()`, which returns `true` when the fee is
+switched off. That function answers "may this student compete?"; "did money arrive?" is a
+different question, and using the wrong one would pay out on every registration the moment an
+administrator switched the paywall off.
+
+### The code is not the student id
+
+`AMIT_0000`–`AMIT_9999` is ten thousand identifiers and walkable in an afternoon — which is
+exactly why the public result and certificate lookups had to be masked and rate limited. A
+referral code is posted in WhatsApp groups and typed by strangers, so it gets its own value: six
+characters from a 31-symbol alphabet, `crypto.randomInt`, ~30 bits.
+
+### The public validate endpoint publishes a masked name
+
+`GET /referrals/validate` has to be unauthenticated — the person following a referral link has
+no account yet. Two things keep that safe: the name comes from `displayNameFor()` (the
+leaderboard's masking, so "Rahul S."), and `publicLookupLimiter` bounds how fast codes can be
+tried from one address. Without the masking this would be an endpoint that converts codes into
+children's names.
+
+A code also stops resolving the moment its owner's account is no longer `active`: a code is a
+live invitation, and an account that has lost standing should not keep recruiting.
+
+### No request may supply an amount
+
+`rewardAmount` is snapshotted onto the referral at conversion, from the settings. The three
+administrative routes only move a row along a fixed path — they cannot create a reward, choose
+an amount, or pay somebody who was never introduced. A test sends `rewardAmount: 999999` to the
+approve route and asserts the stored amount does not move. This is the same rule that keeps XP,
+ranks and the entry fee out of request bodies.
+
+### Approving and paying are two acts, and both are conditional writes
+
+`accrued → approved → paid`, each a `findOneAndUpdate` naming the state it may move from. Two
+administrators pressing "mark paid" at once produce one payout and one 409. Paying is not
+reachable from `accrued`, so there is always one checkpoint between "this looks payable" and
+"money has left", and every act writes an audit entry carrying the amount.
+
+## The content reset (Milestone 22)
+
+A button that empties the question bank is the largest single piece of damage anybody can do
+through this application. Five things carry it, and they are deliberately of different kinds — one
+authorization, one integrity, three human-error.
+
+### `content:reset` is super admin only
+
+It sits beside `users:delete` in `SUPERADMIN_ONLY_PERMISSIONS`, on the line that table already
+draws: every other administrative act in this product is reversible and these are not. A
+**compromised admin session cannot empty the question bank**, which is the whole reason the
+permission exists rather than folding this into `questions:delete`. That permission removes one
+never-published question and refuses anything a student could have seen; this one removes published
+questions in bulk, and that is a different decision made by a different person.
+
+Note that this **deliberately overrides** `deleteQuestion()`'s rule that a published question can
+never be hard-deleted. Overriding a safety rule is exactly why the override is confined to one
+role, needs a typed phrase, and is audited.
+
+### It refuses rather than cascades
+
+A reset that would orphan rows is refused with a **409 naming its blockers**, re-checked against
+the database at the moment of the write rather than only in the dialog the administrator confirmed
+— which may be minutes old, and which another administrator may have invalidated. A cascade would
+be one click that destroyed four areas instead of one.
+
+### A typed phrase, per scope
+
+`RESET QUESTIONS`, `RESET MOCK TESTS`, `RESET DAILY CHALLENGES`, `RESET CHAPTERS` — compared exactly
+after trimming, wrong case refused, and **different per scope** so muscle memory from one dialog
+cannot confirm another. This is a guard against the wrong click and the wrong area, **not** an
+authorization check; the permission is. A bare `POST` with no body is a 400.
+
+### The dialog states real counts, and what survives
+
+`previewReset()` writes nothing and counts every collection involved, so the confirmation reads
+"208 questions" rather than "this cannot be undone". It also lists what is **preserved** — XP,
+practice history, certificates — because a warning that only threatens gets clicked through, and
+because the honest answer to "will this take the students' XP?" is what makes the feature usable
+rather than something staff avoid and work around.
+
+### Every reset is on the record
+
+A `content.reset` audit entry is written after the delete with the per-collection counts
+denormalised into it, because afterwards there is nothing left to count and an entry reading "a
+reset happened" answers none of the questions anybody will ask. The service also logs at `warn`,
+so it stands out in the platform log without a filter — this is the entry somebody goes looking for
+when a question bank is unexpectedly empty.
+
+## Student invoices (Milestone 22, Phase C)
+
+An invoice names a child, their school class, their contact details and what they paid. Four things
+carry it.
+
+### Ownership is in the query, not in a check
+
+`Payment.findOne({ _id, student })`. Changing the id in the URL returns **404, not 403** — the row is
+simply not found — which also means the endpoint cannot be used to discover which payment ids exist.
+This is the pattern every owner-scoped route in this product follows and the reason the 2026-08-17
+audit found no IDOR; the invoice routes were written to match it rather than to check afterwards.
+
+### There is no public or guessable invoice URL
+
+The only identifiers are Mongo `ObjectId`s behind an authenticated, owner-scoped route. The **invoice
+number** is derived from the payment id and printed on the document, but it is not an access key:
+nothing accepts it as input. Compare `Certificate`, where public verification is a *feature* and is
+therefore keyed on 80 bits of `crypto` randomness rather than on the readable serial.
+
+### Staff access is a separate, permissioned route
+
+`GET /admin/payments/:paymentId/invoice` requires `students:read` — the same gate as the payments
+console, because it discloses the same class of data. It is a different route rather than a role branch
+inside the student one, so "may I read my own?" and "may I read anyone's?" cannot be confused.
+
+### Nothing is invented on a financial document
+
+With no `INVOICE_GSTIN` and no `INVOICE_TAX_NOTE` the invoice carries no tax line, no rate and no
+"inclusive of all taxes". Each would be a legal claim about the owner's business that this codebase has
+no basis for. The same applies to the address: unset means absent, never a placeholder.
+
+One operational note: `pdf-lib` **throws** on a character its standard font cannot encode, and
+registration deliberately accepts names in any Indian script. Every string reaching the PDF therefore
+goes through a sanitiser; without it, every student with a Devanagari name would meet a 500 instead of
+their receipt. There is a test.
+
+## The admin student directory and its export (Milestone 22, Phase B)
+
+The directory publishes every registered account, with its entry-payment state, to anyone holding
+`students:read` — and the export puts the same data into a file that leaves the platform. Four things
+carry the security of it.
+
+### An aggregation bypasses `select: false`
+
+`Student.passwordHash` is excluded at the schema level. That protects `find()` and **nothing else** — an
+aggregation pipeline reads the raw document, so the schema guard is simply not in the path. Every stage
+that can reach a response therefore ends in an explicit `$project` **allow-list**
+(`ACCOUNT_PROJECTION` in `services/studentDirectoryService.ts`), and the joined payment rows are
+projected by name too, which is what keeps `razorpaySignature` out of both surfaces.
+
+It must stay an allow-list rather than becoming an exclusion list. With an exclusion list, a field added
+to `Student` later is published by default — and the field most likely to be added to a student record is
+another secret.
+
+Two tests assert this from the outside rather than field by field: the listing's whole JSON body and the
+workbook's cells are searched for `passwordHash`, `tokenVersion`, a bcrypt prefix and a signature.
+
+### The export can only write what the view holds
+
+There is no separate query behind the spreadsheet. `services/studentExportExcel.ts` renders
+`StudentDirectoryEntry` values and has no database access at all, so adding a secret to the file would
+take a deliberate change in two other files first. That is a structural property rather than a careful
+one, which is the only kind worth relying on for a file that gets emailed and filed.
+
+### It is bounded, and refuses rather than truncating
+
+`EXPORT_MAX_ROWS` (20,000) bounds the memory and time one request can spend inside a serverless
+function, and `exportLimiter` (30/hour per IP) bounds the repetition. The read-only admin listings are
+deliberately *not* limited — an administrator legitimately pages through hundreds of accounts — and this
+is the exception that shows why: a listing reads twenty rows, an export reads the whole result set.
+
+Exceeding the cap is a **413 naming the cap**, never a silent truncation. A spreadsheet quietly missing
+its last few thousand rows looks complete, gets filed, and is reconciled against months later.
+
+### Query parameters never reach Mongo unparsed
+
+Every filter is an enum, a bounded string or a date parsed by zod before a stage is built; the search
+term is regex-escaped; and `sort` is an **allow-list mapped to a field name**, never passed through — a
+raw sort value lets a caller order by any field, including unindexed ones, which is a cheap way to make
+the database do expensive work.
 
 ## Bulk question import — upload security (Milestone 21, Phase B)
 

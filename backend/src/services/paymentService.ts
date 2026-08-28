@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { Types } from 'mongoose';
 import { config } from '../config';
+import { onEntryPaymentCaptured } from './referralService';
 import { logger } from '../lib/logger';
 import { ApiError } from '../lib/ApiError';
 import {
@@ -10,6 +11,7 @@ import {
   type PaymentDocument,
   type PaymentPurpose,
   type PaymentSource,
+  type PaymentStatus,
 } from '../models';
 
 /**
@@ -323,6 +325,21 @@ export async function capturePayment(input: CaptureInput): Promise<CaptureResult
     { orderId: input.razorpayOrderId, source: input.source, student: String(updated.student) },
     'Payment captured',
   );
+
+  /**
+   * A referral converts here, and only here (Milestone 22, Phase E).
+   *
+   * Inside the `changed` branch on purpose: this is the one moment a payment *becomes*
+   * captured, so a duplicate webhook or a second verify call cannot convert the same
+   * referral twice — and the referral's own update is conditional as well, so neither can
+   * a race between them.
+   *
+   * Awaited but never able to throw: `onEntryPaymentCaptured()` swallows its own failures,
+   * because a referral is bookkeeping and this is money. The same promise the audit trail
+   * makes about never failing the action it describes.
+   */
+  await onEntryPaymentCaptured(updated.student, updated._id as Types.ObjectId);
+
   return { payment: updated, changed: true };
 }
 
@@ -498,8 +515,34 @@ export async function listPaymentsFor(student: Types.ObjectId): Promise<PaymentD
   return Payment.find({ student }).sort({ createdAt: -1 }).limit(50);
 }
 
+/**
+ * The payment fields `paymentView()` reads, and nothing more.
+ *
+ * Typed as an interface rather than as `PaymentDocument` so the admin student directory —
+ * which assembles its rows with an aggregation and therefore holds plain objects — renders
+ * money through this same function. A second formatter would eventually round differently
+ * from this one, and the two numbers would be a student's receipt and the console an
+ * administrator reconciles it against.
+ *
+ * Note what is **absent**: `razorpaySignature`. It is derived from the API secret, and
+ * publishing it would leak an oracle for whether a given order/payment pair is genuine.
+ */
+export interface PaymentViewFields {
+  _id: unknown;
+  purpose: PaymentPurpose;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  method: string | null;
+  razorpayOrderId: string;
+  razorpayPaymentId: string | null;
+  failureReason: string | null;
+  capturedAt: Date | null;
+  createdAt: Date;
+}
+
 /** What a student may see about their own payment. Never the signature. */
-export function paymentView(payment: PaymentDocument) {
+export function paymentView(payment: PaymentViewFields) {
   return {
     id: String(payment._id),
     purpose: payment.purpose,

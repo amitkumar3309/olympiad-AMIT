@@ -1,0 +1,277 @@
+/*
+ * The danger zone (Milestone 22).
+ *
+ * Deliberately the loudest thing on any admin page. Everything else in this product uses
+ * the royal-blue/gold palette; this uses red, a dashed border and an alarm band, because
+ * the one failure mode that matters here is somebody pressing it while thinking about
+ * something else.
+ */
+
+.zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 28px;
+  padding: 18px 20px;
+  border: 2px dashed var(--danger);
+  border-radius: var(--radius-sm);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.zoneHead h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: var(--danger);
+  letter-spacing: 0.02em;
+}
+
+.zoneHead p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.done {
+  margin-top: 8px !important;
+  color: var(--success) !important;
+  font-weight: 600;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/*
+ * The trigger is deliberately an outline rather than a filled red button. A filled one
+ * reads as the page's primary action; this is the action nobody should take by default,
+ * and it fills in only on hover.
+ */
+.trigger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* --- The dialog --- */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  /* Darker than the other modals in the product: this one should feel like a stop. */
+  background: rgba(2, 6, 23, 0.78);
+  overflow-y: auto;
+}
+
+.modal {
+  width: min(600px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+  border: 2px solid var(--danger);
+  border-radius: var(--radius-md, 12px);
+  background: var(--surface, #fff);
+  color: var(--text);
+}
+
+/* The alarm band, edge to edge at the top of the dialog. */
+.alarm {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 -24px 20px;
+  padding: 16px 24px;
+  background: var(--danger);
+  color: #fff;
+}
+
+.alarm i {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.alarm strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 3px;
+}
+
+.alarm span {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  opacity: 0.92;
+}
+
+.modalTitle {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+}
+
+.willDelete,
+.willKeep {
+  margin: 16px 0 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.deleteList,
+.keepList,
+.blocked ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.deleteList li {
+  padding: 9px 12px;
+  border-left: 3px solid var(--danger);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.note {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.keepList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.keepList i {
+  margin-top: 2px;
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+/* --- Blocked --- */
+
+.blocked {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.blockedLead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--warning);
+}
+
+.blocked li {
+  padding-left: 14px;
+  border-left: 3px solid var(--warning);
+}
+
+.blockedHint {
+  color: var(--text-muted);
+}
+
+.empty {
+  margin: 0;
+  padding: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* --- Confirmation --- */
+
+.confirmRow {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.confirmRow label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.confirmRow code {
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.cancel,
+.destroy {
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/*
+ * Cancel is the visually heavier of the two on purpose: it is the right answer in almost
+ * every case somebody has this dialog open by accident.
+ */
+.cancel {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.destroy {
+  border: none;
+  background: var(--danger);
+  color: #fff;
+}
+
+.destroy:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

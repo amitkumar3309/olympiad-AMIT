@@ -17,7 +17,7 @@ import styles from './Admin.module.css'
  */
 const NAV_ITEMS: Array<{ to: string; label: string; icon: string; permission?: Permission }> = [
   { to: '/admin', label: 'Dashboard', icon: 'ph-squares-four' },
-  { to: '/admin/users', label: 'User Management', icon: 'ph-users-three', permission: 'students:read' },
+  { to: '/admin/users', label: 'All Students', icon: 'ph-users-three', permission: 'students:read' },
   { to: '/admin/questions', label: 'Question Bank', icon: 'ph-list-checks', permission: 'questions:write' },
   { to: '/admin/questions/import', label: 'Bulk Import', icon: 'ph-upload-simple', permission: 'questions:write' },
   { to: '/admin/taxonomy', label: 'Chapters', icon: 'ph-tree-structure', permission: 'taxonomy:write' },

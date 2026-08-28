@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { CLASS_LEVELS } from '../lib/classLevels';
 import { MAX_PHOTO_BYTES } from '../models/StudentPhoto';
 import { imageDataUrl } from './imageSchemas';
+import { referralCode } from './referralSchemas';
 
 /** Indian-style 10-digit mobile, tolerant of spaces/dashes which we strip. */
 const mobile = z
@@ -111,6 +112,16 @@ export const registerSchema = z.object({
   email,
   password,
   photo,
+  /**
+   * The referral code from `?ref=` on the link they followed (Milestone 22, Phase E).
+   *
+   * Optional — most registrations have none — but **validated when present**, and the
+   * handler refuses the registration if it does not resolve. Silently dropping it would
+   * mean the referrer never gets credit and nobody ever finds out why; the register page
+   * checks the code from the link before the form is submitted, so in practice a student
+   * meets that refusal only if they typed one in by hand.
+   */
+  referralCode: referralCode.optional(),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

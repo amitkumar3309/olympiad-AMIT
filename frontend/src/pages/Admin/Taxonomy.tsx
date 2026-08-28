@@ -3,6 +3,7 @@ import { api, ApiError } from '../../api/client'
 import { loadImplicitSubject } from '../../api/implicitSubject'
 import type { Subject, TaxonomyStatus, Topic } from '../../api/types'
 import AdminShell from './AdminShell'
+import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import styles from './Taxonomy.module.css'
@@ -248,6 +249,7 @@ export default function Taxonomy() {
           })}
         </ul>
       )}
+      <ResetPanel scope="chapters" onDone={() => void load()} />
     </AdminShell>
   )
 }

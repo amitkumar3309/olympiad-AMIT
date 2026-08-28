@@ -4,6 +4,253 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-28 — Referral tracking is real; the reward is configuration, and defaults to nothing
+
+**Decision**: Refer & Earn is built end to end — a per-student code, server-validated attribution at
+registration, conversion driven by captured payments, and a full reward lifecycle with an audit
+trail. The **reward amount and whether it is paid at all are administrator-editable settings**, and
+they default to **off and ₹0**.
+
+**Reason**: nothing in this project has ever specified a referral reward — not an amount, not an
+eligibility condition, not a payout method. So none was invented. A plausible default (₹50, say)
+would be indistinguishable from a decision somebody made, and it would start accruing real
+liabilities against real students on the day it shipped. The tracking is what was genuinely asked
+for and is complete; the number is the owner's to set, and until they do every surface says the
+programme is not running rather than displaying ₹0 as though it were an offer.
+
+**Eligibility is deliberately NOT configurable.** A referral converts when the referred student's
+entry fee is actually captured, and that rule lives in code. An amount is a business decision; a
+rule about when money is owed is a correctness one, and a configurable version could quietly start
+paying out on registration alone — the one thing a referral programme must not do.
+
+**Two new models, and why neither is derived.** Almost everything else in this product is computed
+on read — the entitlement, analytics, invoices, the leaderboard. A referral cannot be: **"who
+introduced this student?" is not recoverable from any other collection**, and it has to survive the
+code changing, the fee changing and the reward rules changing. `ReferralSettings` mirrors
+`PaymentSettings` for the reason that one exists — a price needs an audit entry and must not be a
+redeploy.
+
+**What is still derived**: whether the referred student has paid. That is a query over `Payment`,
+exactly as the entitlement is; duplicating it on the referral would be a second source of truth
+about money. `convertedAt` records when the conversion was *observed*, and read paths reconcile a
+stale row against the payment record — the pull to match the hook's push, the same shape as
+`reconcileOrder()`.
+
+**A refused registration, and why that is right.** A referral code that does not resolve **fails the
+registration** and rolls the account back. Every other failure in that handler is best-effort, so
+this is the exception: the alternatives are dropping the attribution silently (the referrer never
+gets credit and nobody finds out why) or guessing (unthinkable). The register page validates the code
+from the link before the form is submitted, so a student meets this only if they typed one by hand.
+
+**One new permission, `referrals:write`, held by `admin` and `superadmin`.** Reading the console is
+`students:read` — it is student account data — while deciding money is owed is a financial act. A
+competition desk can chase referrals without being able to authorise payouts.
+
+---
+
+## 2026-08-28 — The brand's full form was asked for, not derived, and lives in one constant
+
+**Decision**: **A.M.I.T = Advance Mathematics and Intelligence Test**, owner-supplied. It is defined
+once in `frontend/src/lib/brand.ts` and displayed in exactly **one** visible place — under the
+wordmark in the landing page hero — plus `index.html`'s SEO metadata.
+
+**Reason it was asked for**: the expansion existed nowhere in the repository. A landing page is the
+most public surface the product has, and an invented organisation name there is not a bug that gets
+quietly fixed later — it is a false statement about somebody's business, printed under their own
+brand. The founder being named "Amit Kumar" made it genuinely possible that the four letters were a
+person's name rather than an acronym, so guessing had a real chance of being wrong in an
+embarrassing way.
+
+**Reason for a constant even with one on-screen use**: it is what stops the visible name and the
+page metadata drifting apart, and it is the single place to change if the wording is ever corrected.
+
+**Reason it is shown once and never explained.** The first implementation of this phase put the
+expansion in the hero, in a new About section that broke the letters into boxes with a paragraph
+about the competition, and again in the footer. The owner rejected all of it: the boxes were
+unnecessary, `and` hanging off the `I` looked wrong, no explanation was wanted, and the name belongs
+at the top. That is the durable rule — **a name is displayed, not glossed**. An acronym broken into
+per-letter cards reads as a teaching aid, which is the wrong register for a masthead; and a brand
+that explains itself on its own front page sounds unsure of itself.
+
+The navbar keeps the four-letter wordmark for the same reason, with the expansion on the logo's
+`alt` and the link's `title`, so nothing is lost to assistive technology or search.
+
+**The one duplication, accepted**: `index.html` is static and served before any JavaScript, so it
+spells the name out literally. Putting a page title behind a script would cost every visitor a render
+for a string that never changes. Both files carry a comment naming the other.
+
+**Deliberately not changed**: the certificate PDF and the invoice issuer default still read
+`A.M.I.T Maths Olympiad`. Those are documents students and parents keep, and redesigning them was not
+what was asked for — but if the expansion should appear on a certificate, that is a deliberate change
+to a printed record and worth deciding on its own.
+
+---
+
+## 2026-08-28 — The content reset refuses rather than cascades, and is super admin only
+
+**Decision**: four reset scopes (`questions`, `mock-tests`, `daily-challenges`, `chapters`), gated
+on a new **super-admin-only** permission `content:reset`, each requiring a **typed phrase** and each
+**refusing with a 409 that names its blockers** rather than cascading into the areas that depend on
+it. Owner request, 2026-08-28.
+
+**Reason the feature exists**: a platform loaded with trial data before launch has no way back.
+Deleting three thousand questions one at a time is not a path anybody takes, so in practice the
+trial data ships.
+
+**Reason it refuses rather than cascades**: `Question.topic` is `required`, so deleting chapters
+beneath questions leaves every question pointing at a chapter that no longer exists — invisible to
+every filter an administrator can construct, and unfixable through the interface. A cascade would
+make one click destroy four areas; refusing makes the dependency order visible and deliberate
+(daily challenges → mock tests → questions → chapters). The **official exam is a blocker with no
+resolution**: there is no reset for it and there must not be, because its results and certificates
+are a permanent record.
+
+**Reason for a new permission rather than reusing `questions:delete`**: that permission removes one
+never-published question and refuses anything a student could have seen. This one removes published
+questions in bulk, which **deliberately overrides** `deleteQuestion()`'s central rule. Overriding a
+safety rule is precisely what should be confined to the role that holds the other irreversible
+capabilities.
+
+**Reason attempts go with their paper but XP does not**: a `MockTestAttempt` whose `MockTest` is
+gone is a row the student's page cannot render, so it cannot sensibly outlive it. `StudentActivity`
+is different in kind — it is a record of something that really happened, and taking it back would
+re-rank the leaderboard against children who did nothing wrong. That asymmetry is stated in the
+dialog rather than left for somebody to discover.
+
+**Reason the dialog lists what survives**: a warning that only threatens gets clicked through. Half
+the hesitation at that moment is "will this take the students' XP?", and answering it plainly is
+what makes the button usable rather than something staff avoid and work around.
+
+**No transaction**, so deletes run **dependents first** within a scope. A partial failure then
+leaves the less broken state. This is the same constraint registration works under; if transactions
+ever become available, this is a place to use them.
+
+---
+
+## 2026-08-28 — An invoice is a rendering of a payment, not a record of one
+
+**Decision**: there is **no `Invoice` collection**. `services/invoiceService.ts` renders a captured
+`Payment` on demand, and the invoice number is **derived** —
+`AMIT-INV-<capture year>-<last 12 hex of the payment's ObjectId>`.
+
+**Reason**: every property the requirement asked for falls out of this rather than having to be
+maintained. *Idempotent*: downloading is a pure read, so nothing can be created twice. *Stable*: the
+number is a function of the transaction, so it is the same on every call, in any process, for ever.
+*Unique*: it rests on the `ObjectId`, which is unique by construction. *Correct about money*: the
+amount is `Payment.amount`, a snapshot of what was charged, so re-pricing the fee — which happened on
+2026-08-28, Rs.100 to Rs.199 — cannot alter an invoice already issued.
+
+**The alternative, and why it was rejected**: a sequential number (`…-000123`) is what people picture
+when they hear "invoice number", and it needs a counter. Allocating one at download time means a
+**write on a GET**, which is the idempotency rule inverted; allocating it at capture time means every
+payment already in the database has none, and a migration to invent numbers for historical
+transactions. Two concurrent readers could also allocate the same counter value, which is the one
+mistake an invoice register must never make.
+
+**Only a captured payment has an invoice**, and the refusal is a **409 naming the state** rather than a
+404. "No invoice exists" sends a student to support to be told their payment never completed — which
+the page could have said itself. `refunded` is refused too: the document would be true of the past and
+read as true of the present.
+
+**What is deliberately *not* snapshotted**: the buyer's name, class and contact come from the live
+`Student`. This is the opposite of `Certificate`, which freezes every printable field, and the
+asymmetry is the point — a certificate is a claim about a past event that must never change, an invoice
+is *addressed to a person*, and somebody who corrects a misspelt name wants the correction to appear.
+Every financial fact is a snapshot; only the address block is live.
+
+---
+
+## 2026-08-28 — Nothing about tax is invented, and the issuer block is environment configuration
+
+**Decision**: `INVOICE_GSTIN` and `INVOICE_TAX_NOTE` are optional and have **no defaults**. With them
+unset the document is titled `INVOICE` and carries no tax line, no rate and no "inclusive of all
+taxes". With a GSTIN set it is titled `TAX INVOICE` and the number is printed. The organisation name,
+email and phone default to what the platform already publishes in its own footer; the address is
+absent when unset.
+
+**Reason**: a tax rate, a registration number or the phrase "inclusive of all taxes" is a legal claim
+about the owner's business. Guessing one puts a false statement on a financial document a parent may
+present to an employer or a school. Absent is recoverable; wrong is not.
+
+**Why environment variables here, when the fee is deliberately a database document**: the fee is a
+*price* — it changes, needs an audit trail, and is decided by someone who should not need a redeploy.
+A registered address and a tax registration change roughly never, are decided once, and must be
+**absent rather than wrong**: an unset variable prints nothing, whereas an empty settings field would
+print an empty line on an invoice. If the owner ever wants to edit these from the admin panel, moving
+them into a settings document is a small change — the rule that must survive it is that unset stays
+absent.
+
+**One operational trap recorded here because it is invisible until it bites**: `pdf-lib` **throws** on
+a character its standard font cannot encode, and registration deliberately accepts names in any Indian
+script (the `\p{L}\p{M}` pattern in `authSchemas.ts`). Every string reaching the PDF goes through a
+sanitiser; without it, every student with a Devanagari name gets a 500 instead of their receipt.
+Embedding a Unicode font would fix it properly at the cost of a font binary in the repository — which
+the certificate already declined for the same reason. There is a test.
+
+---
+
+## 2026-08-28 — The student directory is one assembly, and payment state is derived
+
+**Decision**: `services/studentDirectoryService.ts` is the single place the admin student
+directory is built. `GET /admin/students` and `GET /admin/students/export` run the **same
+pipeline** with the same filters and differ only in the renderer. Each student's entry-payment
+state (`paid` / `pending` / `failed` / `refunded` / `not_started`) is **derived in the
+aggregation from their `Payment` rows on every read**, and is stored nowhere.
+
+**Reason for one assembly**: an export built from its own query is an export that quietly
+disagrees with the table the administrator was looking at when they pressed the button — and the
+person who finds the disagreement is whoever is reconciling the money, months later. Sharing the
+pipeline makes "the file contains what the screen showed" a structural property rather than a
+convention. There is a test that sends one set of filters to both endpoints and compares.
+
+**Reason for deriving**: it is the same rule that put no `hasPaid` flag on `Student` (Milestone
+19) and no `StudentAnalytics` collection (Milestone 15). A stored rollup is a second source of
+truth about money, and when it drifts a student who paid is shown as unpaid. Deriving it *in the
+database* rather than in JavaScript is what additionally makes the payment filter and the page
+totals correct — a filter applied after `$limit` returns short pages and a wrong total.
+
+**The cost, accepted**: a `$lookup` per page. It is bounded by the page size, indexed on
+`{ student, purpose, status }`, and the alternative costs correctness.
+
+**What must not be done to it**: do not add a `paymentState` field to `Student`; do not give the
+export its own query; do not default the payment filter to `paid`. The last is the one that would
+be easiest to justify and worst to ship — the directory exists to show **everyone who
+registered**, and `not_started` is a first-class state rather than an absence.
+
+**An aggregation bypasses `select: false`.** `passwordHash` is protected at the schema level,
+which covers `find()` and nothing else. Every stage that can reach a response ends in an explicit
+`$project` allow-list, and it must stay an allow-list rather than an exclusion list: with an
+exclusion list, a field added to `Student` later is published by default, and the field most
+likely to be added to a student record is another secret.
+
+---
+
+## 2026-08-28 — The Excel export renders; it does not query
+
+**Decision**: `services/studentExportExcel.ts` has no database access. It takes
+`StudentDirectoryEntry[]` and returns bytes. It is bounded by `EXPORT_MAX_ROWS` (20,000) and
+**refuses** beyond that with a 413 naming the cap, rather than truncating. `exceljs` is reused —
+already a dependency since Milestone 21 — and no new one was added.
+
+**Reason**: the security property is that the file can only contain what the shared view holds,
+so putting a secret into a spreadsheet that leaves the platform would take a deliberate change in
+two other files first. The refusal-over-truncation rule is the same one the importer follows for
+a row it cannot read: a spreadsheet quietly missing its last few thousand rows looks complete,
+gets filed, and is reconciled against months later.
+
+**Two sheets, not banner rows.** The data sheet starts at row 1 with the header, because the
+first thing anybody does to it is filter, sort or re-import it — and a title row above a header is
+exactly the shape that makes an importer read the title as the header, which is a defect this
+project has already had once, in `services/excelImportParser.ts`. The context (what the file
+contains, when, by whom, and what each payment state means) goes on a second sheet, because the
+file gets emailed and opened months later by somebody who was not in the room.
+
+**Types, not strings.** Dates are written as dates and money as a number in **rupees** with a
+number format. A column of `"₹100.00"` strings sorts alphabetically and sums to zero, and the
+first thing a competition desk does with this file is a pivot table.
+
+---
+
 ## 2026-08-28 — An importer still never creates chapters; the review screen offers to
 
 **Decision**: `previewImport()` returns `unknownChapters` — the distinct chapter names a file
@@ -1615,6 +1862,8 @@ Only `captured` counts. `authorized` means the money is held but not taken, and 
 ## 2026-08-16 — The entry fee is charged by default, and it gates the whole platform
 
 > **Partly superseded on 2026-08-17 by "The entry fee buys the Olympiad, not the platform" below.** The *default* half stands: `entryFeeEnabled` still defaults to `true`. The *scope* half was reversed by the owner after one day — practice, mock tests and the daily challenge are free again.
+>
+> **The amount is also out of date: the owner raised the fee to ₹199 on 2026-08-28.** The ₹100 below is a record of what was decided then. Everything this entry says about *where* the price lives — an administrator-editable settings document, never an environment variable — is unchanged, and is exactly why re-pricing needed no code decision.
 
 **Decision**: `entryFeeEnabled` defaults to **`true`**, and the fee entitles a student to **practice, mock tests, the daily challenge and the official Olympiad** — not the exam alone. The fee is **₹100**, stored in an administrator-editable settings document rather than an environment variable.
 

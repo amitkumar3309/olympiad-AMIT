@@ -70,6 +70,20 @@ export const PERMISSIONS = [
    * progress at once, which is worth being able to withhold on its own.
    */
   'rewards:write',
+  /**
+   * Approve, pay out or reject a **referral reward** (Milestone 22, Phase E).
+   *
+   * Separate from `students:read`, which is all it takes to *see* the referral console.
+   * Looking at who introduced whom is student account data; deciding that money is owed
+   * and marking it paid is a financial act, and the two should be grantable apart — a
+   * competition desk can chase referrals without being able to authorise payouts.
+   *
+   * It cannot invent a reward or choose an amount. The amount is snapshotted onto the
+   * referral when it converts, from the settings; these routes only move a row along a
+   * fixed path. That is deliberate, and it is what stops the console being a way to pay
+   * an arbitrary sum to an arbitrary person.
+   */
+  'referrals:write',
   /** Read the administrative audit trail. */
   'audit:read',
   /**
@@ -136,6 +150,22 @@ export const PERMISSIONS = [
    * registration rather than a competitor's history.
    */
   'users:delete',
+  /**
+   * Empty an entire content area — the question bank, mock tests, the daily challenge,
+   * or the chapter list (Milestone 22).
+   *
+   * Held by the super admin alone, on the same line `users:delete` is drawn on: this is
+   * irreversible, and it is the only capability in the product that destroys thousands of
+   * rows from one request. A compromised `admin` session can already do a great deal of
+   * damage; emptying the question bank an hour before an Olympiad is a different order of
+   * it, and it is worth being able to withhold on its own.
+   *
+   * Deliberately **not** folded into `questions:delete`. That permission removes one
+   * never-published question and refuses anything a student could have seen; this one
+   * removes published questions in bulk, which is a different decision made by a
+   * different person.
+   */
+  'content:reset',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -172,6 +202,7 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'mocktests:write',
   'challenges:write',
   'rewards:write',
+  'referrals:write',
   'audit:read',
 ];
 
@@ -181,7 +212,7 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
  * than a super admin" is structural — it cannot drift as permissions are added,
  * because there is no second place to add one.
  */
-const SUPERADMIN_ONLY_PERMISSIONS: readonly Permission[] = ['users:role:write', 'users:delete'];
+const SUPERADMIN_ONLY_PERMISSIONS: readonly Permission[] = ['users:role:write', 'users:delete', 'content:reset'];
 
 const SUPERADMIN_PERMISSIONS: readonly Permission[] = [
   ...ADMIN_PERMISSIONS,

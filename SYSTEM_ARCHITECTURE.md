@@ -4,6 +4,166 @@ _Last updated: 2026-08-15 (Milestone 16 — the recommendation engine seam). The
 
 Documents what **actually exists** in the repository today. Anything not literally in the code is marked `PLANNED`.
 
+## Refer & Earn — CURRENT (Milestone 22, Phase E; backend only)
+
+```
+Registration                             Payment capture
+  POST /auth/register { referralCode? }     capturePayment()  <- the ONE place money becomes real
+        |                                        |
+        v                                        v
+  attributeReferral()                      onEntryPaymentCaptured()
+    resolve code -> active Student only       conditional on rewardStatus = pending_conversion
+    refuse self-referral                      snapshot rewardAmount from ReferralSettings
+    Referral.create()                         -> 'accrued' if a reward is configured
+      ^ unique index on `referred`            -> 'no_reward' if not
+        = one referrer, no duplicates,        (never throws into the payment path)
+          never reassigned
+        |
+        v
+   Referral  ── read paths reconcile a stale `pending_conversion` row against Payment
+        |
+        +-- GET /me/referrals            (identity gate; referred students MASKED)
+        +-- GET /referrals/validate      (public, rate limited, masked name)
+        +-- GET /admin/referrals         (students:read; referredHasPaid DERIVED)
+        +-- POST /admin/referrals/:id/{approve,mark-paid,reject}
+                                         (referrals:write; conditional writes; audited)
+        +-- GET/PUT /admin/referral-settings   (read: students:read, write: referrals:write)
+```
+
+Three properties this shape exists for:
+
+1. **The abuse rules are an index, not checks.** One unique field enforces three of them at once,
+   and a read-then-write could not.
+2. **Conversion follows the money, not the registration.** It hangs off the single idempotent capture
+   point, and deliberately does not consult `hasEntryEntitlement()` — which is `true` when the
+   paywall is switched off, and would pay out on every registration.
+3. **The amount is a snapshot and no request may supply one.** The administrative routes move a row
+   along a fixed path; they cannot create a reward or choose its value.
+
+## Brand naming — CURRENT (Milestone 22, Phase D)
+
+`frontend/src/lib/brand.ts` is the only definition of the platform's name:
+
+```
+frontend/src/lib/brand.ts
+   AMIT_SHORT      'A.M.I.T'
+   AMIT_FULL_FORM  'Advance Mathematics and Intelligence Test'
+        |
+        +-- pages/Landing/Landing.tsx   the hero line — the ONLY visible use
+        +-- components/Navbar.tsx       alt + title only; the wordmark stays four letters
+        +-- components/Footer.tsx       AMIT_SHORT only
+
+frontend/index.html   <- the ONE literal copy: static, served before any JS runs.
+                         Both files carry a comment naming the other.
+```
+
+**A name is displayed, not glossed.** A first version broke the letters into boxes with explanatory
+paragraphs in an About section and repeated the full form in the footer; the owner rejected it. Do
+not reintroduce a per-letter breakdown or an explanation of the acronym without asking.
+
+The backend has no copy of the expansion. `INVOICE_ORG_NAME` and the certificate PDF still read
+`A.M.I.T Maths Olympiad`, deliberately: those are documents people keep, and changing what is printed
+on one is a decision of its own rather than a consequence of a landing-page edit.
+
+## The content reset — CURRENT (Milestone 22)
+
+```
+Admin page (Questions / MockTests / DailyChallenges / Taxonomy)
+   |
+   |  <ResetPanel scope="..." />        <- one shared component, four pages
+   |     hidden unless can('content:reset')
+   v
+GET /api/v1/admin/reset/:scope/preview   (writes nothing)
+   |
+   v
+services/contentResetService.ts
+   |  previewReset(scope)
+   |     counts every collection involved  -> deletes[]  (text agrees with its count)
+   |     counts what depends on the scope  -> blockers[] (+ the scope to reset first)
+   |     names what survives               -> preserves[]
+   v
+POST /api/v1/admin/reset/:scope   { confirm: "RESET CHAPTERS" }
+   |  requirePermission('content:reset')   <- SUPER ADMIN ONLY
+   |  adminActionLimiter
+   |  exact phrase compared in the route
+   v
+performReset(scope)
+   |  re-runs previewReset() and refuses on any blocker (409)   <- the dialog may be stale
+   |  deleteMany, DEPENDENTS FIRST (no transaction available)
+   v
+recordAudit('content.reset', { scope, totalDeleted, deleted: {...} })
+```
+
+The dependency order is the whole design: **daily challenges → mock tests → questions → chapters**.
+Each scope refuses while anything downstream of it exists, so emptying everything is four deliberate
+acts rather than one click with a cascade behind it. The official exam sits outside the graph — it is
+a blocker with no resolution, because its results and certificates are permanent.
+
+## Student invoices — CURRENT (Milestone 22, Phase C)
+
+```
+Student browser (/payment)            Admin browser (/admin/payments)
+   |  GET /me/invoices                    |  GET /admin/payments/:id/invoice
+   |  GET /me/invoices/:paymentId         |     (requirePermission 'students:read')
+   |  GET /me/invoices/:paymentId/download
+   v                                      v
+routes/v1/payments.routes.ts  ---- one sendInvoicePdf() helper (no-store headers)
+   |
+   v
+services/invoiceService.ts
+   |
+   |  Payment.findOne({ _id, student })   <- ownership IS the query, so a changed id is 404
+   |  status must be 'captured'           <- otherwise 409 naming the state
+   |  invoiceNumberFor(payment)           <- derived: AMIT-INV-<year>-<12 hex of _id>
+   |  buildInvoice(payment, student)      <- money from Payment (snapshot),
+   |                                         address block from live Student
+   |
+   +-- invoiceView()      -> JSON preview
+   +-- renderInvoicePdf() -> pdf-lib -> A4 PDF
+```
+
+There is **no `Invoice` collection**. Both outputs come from one `InvoiceData`, so the preview a
+student reads cannot differ from the file they keep — the same rule that puts one pipeline behind the
+student directory and its export.
+
+## Admin student directory — CURRENT (Milestone 22, Phase B)
+
+```
+Admin browser (/admin/users)
+   |
+   |  GET /api/v1/admin/students?classLevel=&paymentState=&registeredFrom=&sort=&page=
+   |  GET /api/v1/admin/students/export?<same filters>&scope=filtered|all
+   v
+routes/v1/users.routes.ts          <- export declared BEFORE /admin/students/:studentId
+   |                                  (Express matches in order; otherwise "export" is read as an id)
+   v
+services/studentDirectoryService.ts   ONE pipeline, both routes
+   |
+   |  $match (validated student filter)
+   |  $lookup payments  (purpose: olympiad_entry, newest first, projected by name)
+   |  $addFields        capturedPayments / refundedPayments
+   |  $addFields        paymentState (derived), payment (capture or latest), paymentAttempts
+   |  $match            paymentState, if the administrator asked for one
+   |  $sort             allow-listed field + _id tiebreaker
+   |
+   +-- listing:  $facet { rows: [$skip,$limit,$project], total: [$count] }
+   |                 -> directoryEntryView() -> adminAccountView() + paymentView()
+   |
+   +-- export:   $limit cap+1, $project
+                     -> services/studentExportExcel.ts (renders only; no DB access)
+                        -> .xlsx bytes
+```
+
+Three properties this shape exists for:
+
+1. **The export cannot disagree with the screen.** Same pipeline, same filters; only the renderer
+   differs. A test sends one filter set to both and compares the student ids.
+2. **Payment state is derived, in the database.** Nothing is stored (the rule that also governs the
+   entitlement, XP and analytics), and doing it in the pipeline rather than in JavaScript is what makes
+   the payment filter's pagination and totals correct.
+3. **The `$project` is an allow-list.** An aggregation reads the raw document, so `select: false` on
+   `passwordHash` is not in this path at all.
+
 ## Bulk question import — CURRENT (Milestone 21)
 
 ```

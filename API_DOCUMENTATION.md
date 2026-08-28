@@ -410,14 +410,28 @@ All require **`questions:write`** except the delete, which requires **`questions
 
 All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `requirePermission`, which re-reads the caller's role from the database before deciding — see [`DECISIONS.md`](DECISIONS.md).
 
-### `GET /api/v1/admin/students`
+### `GET /api/v1/admin/students` — the student directory (widened in Milestone 22)
 - **Permission**: `students:read` (admin, super admin).
-- **Query**: `page` (≥1, default 1), `limit` (1–100, default 20), `search` (1–120 chars), `status` (`active`/`suspended`/`deactivated`), `role` (`student`/`admin`), `verified` (`true`/`false`). All parsed by zod before any filter is built.
-- **Response 200**: `{ success, students: ManagedAccount[], pagination: { page, limit, total, totalPages } }`
-- `search` matches `fullName`, `email`, `mobile` or `studentId`, **case-insensitively and literally** — the term is regex-escaped, so `.*` matches nothing rather than everything (asserted by a test).
-- `ManagedAccount` is an explicit allow-list: `id`, `studentId`, `fullName`, `email`, `mobile`, `role`, `status`, `isEmailVerified`, `registeredAt`, `lastLoginAt`, `lockedUntil`, `roleUpdatedAt`, `roleUpdatedBy`, plus the Milestone 4 registration details (`firstName`, `middleName`, `lastName`, `fatherName`, `motherName`, `dateOfBirth`, `classLevel`, `schoolName`, `address`) — each `null` on an account created before Milestone 4. The photo is **not** included; fetch it from `GET /students/:studentId/photo`. A test asserts no password hash can appear in the response.
-- **Errors**: `400` bad query, `401`, `403`, `429`, `503`, `500`.
-- **Called by**: `Admin.tsx` (dashboard counts and recent list), `Users.tsx`.
+- **Query**: `page` (≥1, default 1), `limit` (1–100, default 20), `search` (1–120 chars), `status` (`active`/`suspended`/`blocked`/`deactivated`), `role` (`student`/`admin`/`superadmin`), `verified` (`true`/`false`), and — **new in Milestone 22** — `classLevel` (one of `CLASS_LEVELS`), `paymentState` (`paid`/`pending`/`failed`/`refunded`/`not_started`), `registeredFrom` / `registeredTo` (`YYYY-MM-DD`, **both inclusive**), `sort` (`registeredAt`/`fullName`/`classLevel`/`lastLoginAt`/`paymentState`/`paymentAmount`, default `registeredAt`) and `order` (`asc`/`desc`, default `desc`). All parsed by zod before any filter is built.
+- **Response 200**: `{ success, students: StudentDirectoryEntry[], pagination: { page, limit, total, totalPages } }`
+- **Every registered account is listed, whatever its payment state.** There is no default payment filter and there must never be one: `not_started` is a first-class value, and a directory that quietly showed only paying students would be indistinguishable from a working one until somebody asked how many people had registered.
+- `search` matches `fullName`, `email`, `mobile`, `studentId` **or `schoolName`** (the last added in Milestone 22), **case-insensitively and literally** — the term is regex-escaped, so `.*` matches nothing rather than everything (asserted by a test).
+- `StudentDirectoryEntry` is `ManagedAccount` plus `paymentState`, `paymentAttempts`, `hasPaid` and `payment` (the `PaymentRecord` view, or `null`). `ManagedAccount` is an explicit allow-list: `id`, `studentId`, `fullName`, `email`, `mobile`, `role`, `status`, `isEmailVerified`, `registeredAt`, `lastLoginAt`, `lockedUntil`, `roleUpdatedAt`, `roleUpdatedBy`, `mustChangePassword`, `passwordResetAt`, `passwordResetBy`, plus the Milestone 4 registration details (`firstName`, `middleName`, `lastName`, `fatherName`, `motherName`, `dateOfBirth`, `classLevel`, `schoolName`, `address`) — each `null` on an account created before Milestone 4. The photo is **not** included; fetch it from `GET /students/:studentId/photo`. A test asserts no password hash, token version or payment signature can appear in the response.
+- **`paymentState` is derived on every read** from the student's `Payment` rows for `purpose: 'olympiad_entry'`, in the aggregation — never stored, for the reason there is no `hasPaid` flag on `Student`. `paid` (a captured payment exists) outranks everything else on the row, then `refunded`, then `not_started` (no rows at all), then `failed` (latest attempt failed), else `pending`. There is deliberately **no `cancelled`**: the platform has no such payment status.
+- `payment` is the **captured** payment where one exists, otherwise the most recent attempt — so a student who failed twice and then paid shows the payment that succeeded.
+- **Errors**: `400` bad query (including a malformed date or a sort key that is not on the allow-list), `401`, `403`, `429`, `503`, `500`.
+- **Called by**: `Admin.tsx` (dashboard counts and recent list — unaffected, the response is a superset of what it was), `Users.tsx`.
+
+### `GET /api/v1/admin/students/export` (Milestone 22)
+- **Permission**: `students:read`. Rate limited by `exportLimiter` (30/hour per IP) — unlike a listing, this reads the whole result set and builds a workbook in memory.
+- **Declared before `/admin/students/:studentId`, and that ordering is load-bearing.** Express matches in declaration order, so with the parameterised route first this path is captured as a student id and answered `400`. Same trap as `GET /admin/questions/practice-availability` and as mounting `questionsImport` ahead of `questionsAdmin`. There is a regression test.
+- **Query**: every filter `GET /admin/students` accepts (no `page`/`limit`), plus `scope` (`filtered` — default — or `all`).
+- `scope=all` **ignores every filter** and exports the entire roll. It is an explicit word rather than "send no filters", because a client that dropped its filters through a bug would otherwise silently download the whole database.
+- **Response 200**: the `.xlsx` bytes. `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `Content-Disposition: attachment; filename="students-export-YYYY-MM-DD.xlsx"`, `Cache-Control: private, no-store`. One of the few routes that does **not** answer with the `{ success, ... }` envelope, for the same reason the certificate PDF does not: the response body is the file. Failures still do.
+- **Two sheets.** `Students` — 24 columns (Student ID, Full Name, Class, Email, Phone, School, Father's/Mother's Name, Date of Birth, Address, Registration Date, Account Status, Email Verified, Role, Payment Status, Payment Amount, Currency, Payment Date, Payment Method, Order ID, Payment ID, Payment Attempts, Failure Reason, Last Sign-in), header frozen and auto-filtered, dates written as real dates and money as a real number in **rupees** so the column sums. `About this export` — what the file contains, how many students, when, by whom, and what each payment state means.
+- **Nothing sensitive is exportable**, and structurally rather than carefully: this endpoint can only write what `StudentDirectoryEntry` holds, which is an allow-list built by a pipeline that projects fields by name. No password, hash, token, API key or Razorpay signature. Tested against both the column headings and the cell values.
+- **Errors**: `401`, `403`, `413` when the result exceeds `EXPORT_MAX_ROWS` (20,000) — **refused with a message naming the cap, never silently truncated** — `429`, `503`, `500`.
+- **Called by**: `Users.tsx` ("Download Excel" and "Download all students").
 
 ### `GET /api/v1/admin/students/:studentId`
 - **Permission**: `students:read`.
@@ -1111,7 +1125,7 @@ Middleware note: the gated student surfaces below carry an extra middleware, `re
 
 Creates a Razorpay order for the caller's own entry fee. `requireAuth()`.
 
-**Takes no request body at all.** The amount comes from the settings document and the student from the token — a client-supplied amount is how a ₹100 fee gets paid as ₹1, and the only thing a student can buy is their own entry.
+**Takes no request body at all.** The amount comes from the settings document and the student from the token — a client-supplied amount is how a ₹199 fee gets paid as ₹1, and the only thing a student can buy is their own entry.
 
 - **201** → `{ keyId, orderId, amount, currency, prefill: { name, email, contact } }`. `keyId` is the *public* key id, sent from the server rather than built into the bundle so the two cannot drift apart.
 - **409** if the fee is switched off, or already paid.
@@ -1194,6 +1208,176 @@ Every auth response (`/auth/login`, `/auth/admin/login`, `/auth/refresh`, `/auth
 It rides there for the same reason `permissions` does — so the frontend reads the answer rather than deriving it. It is **presentation only**; `requireEntry` re-derives it from the payment record on every gated request, so a tampered client gets a nicer-looking 402 and nothing more.
 
 ---
+
+## Refer & Earn (Milestone 22, Phase E)
+
+`backend/src/routes/v1/referrals.routes.ts`, served by `services/referralService.ts`.
+
+**No reward rule was invented.** Nothing in this project has ever specified an amount or an
+eligibility condition, so the reward defaults to **switched off and worth zero** and every surface
+says so. Tracking is complete regardless: every introduction is recorded and every conversion is
+observed from the actual payment.
+
+### The rules
+- **Attribution happens once, at registration, and is decided by a unique index** on
+  `Referral.referred` — which enforces one referrer per registration, no duplicate attribution, and
+  no changing it afterwards, all without a handler check that could race.
+- **A referral converts on captured money**, from inside `capturePayment()`. Deliberately *not*
+  `hasEntryEntitlement()`, which returns true when the fee is switched off: that answers "may this
+  student compete?", and "did money arrive?" is a different question.
+- **The reward amount is snapshotted at conversion.** Re-pricing never rewrites what was earned.
+- **No request may supply an amount.** The admin routes only move a row along a fixed path.
+
+### `GET /api/v1/referrals/validate?code=AMITXXXXXX`
+- **Public**, rate limited by `publicLookupLimiter` (60 / 15 min per IP). The person using a
+  referral link does not have an account yet — that is the point of the link.
+- **Response 200**: `{ success, valid, code, referrerName }`. The name is **masked** by
+  `displayNameFor()` — "Rahul S." — because a full legal name would make this an endpoint that turns
+  codes into children's names. An unknown code is `valid: false` with a 200, not a 404: this is a
+  question, and "no" is a successful answer.
+- A code stops resolving once its owner's account is not `active`. The referrals it already made are
+  untouched.
+- **Errors**: `400` malformed code, `429`, `503`, `500`.
+
+### `GET /api/v1/me/referrals`
+- **Auth**: `requireAuth()` — an identity gate, like `/me/certificates` and `/me/invoices`.
+- Generates the caller's code on first call (lazily, so accounts predating the feature need no
+  migration) and returns `{ code, link, settings, counts, rewards, referrals[] }`.
+- `link` is built from `FRONTEND_URL`, never a hardcoded domain.
+- **The students listed are masked**, by the same `displayNameFor()`: a referral list is a list of
+  children and the reader is not staff.
+- Rows still `pending_conversion` are **reconciled against `Payment` on read**, so a missed hook
+  heals rather than persisting as a referral that paid and does not say so.
+- **Errors**: `401`, `503`, `500`.
+
+### `POST /api/v1/auth/register` — the `referralCode` field
+- Optional, and validated when present. A code that does not resolve **refuses the registration with
+  a 400 naming it**, and the half-created account is rolled back. Silently dropping it would mean the
+  referrer never gets credit and nobody finds out why; the register page validates the code from the
+  link first, so a student meets this only if they typed one by hand.
+- Case-insensitive: a link shared in lower case still works.
+
+### `GET /api/v1/admin/referrals`
+- **Permission**: `students:read` — matching `/admin/payments`, because it exposes who introduced
+  whom, which is student account data. Approving a payout is a **separate** permission.
+- **Query**: `page`, `limit`, `rewardStatus`, `search` (a student id, an email or a referral code —
+  resolved to ids before any query, so nothing user-controlled reaches Mongo as a pattern).
+- **Response 200**: `{ referrals[], totals, pagination }`. Each row carries both parties (real names
+  here — this is the console that decides whether to pay), the code, both dates, `rewardStatus`,
+  the amount, and `referredHasPaid` **derived from the payment record at read time** so a stale row
+  is visible as such. `totals` are programme-wide, not page-wide: "what do we owe?" must not change
+  as somebody pages.
+
+### `POST /api/v1/admin/referrals/:id/approve` · `/mark-paid` · `/reject`
+- **Permission**: `referrals:write` (admin, super admin). Rate limited by `adminActionLimiter`.
+- Each is a **conditional write** naming the state it may move from, so two administrators pressing
+  "mark paid" at the same moment produce one payout and one 409.
+- `accrued → approved → paid`. **Paying is not reachable from `accrued`**: approving and paying are
+  two decisions, and collapsing them removes the only checkpoint between "this looks payable" and
+  "money has left". `mark-paid` requires a `payoutReference`; `reject` requires a `reason`; both are
+  terminal-ish (`paid` cannot be rejected).
+- All three write one `referral.reward.changed` audit entry, distinguished by `metadata.action` and
+  carrying the amount.
+- **Errors**: `400` bad id or missing reference/reason, `401`, `403`, `404`, `409` wrong state, `429`.
+
+### `GET`/`PUT /api/v1/admin/referral-settings`
+- Read on `students:read`; **write on `referrals:write`** — seeing what a referral is worth and
+  deciding it are different acts.
+- `{ rewardEnabled, rewardAmount (paise), currency, terms }`. **Eligibility is deliberately not
+  configurable**: a referral converts on a captured entry fee, and that rule lives in code, because a
+  deployment that could configure it could quietly start paying out on registration alone.
+- Both sides of a change are audited (`referral.settings.updated`).
+
+## The content reset (Milestone 22)
+
+`backend/src/routes/v1/contentReset.routes.ts`, served by `services/contentResetService.ts`.
+One endpoint per administrative area that empties it. **The most destructive capability in the
+product**, and the only one that deletes thousands of rows from a single request.
+
+Four scopes: `questions`, `mock-tests`, `daily-challenges`, `chapters`.
+
+### It refuses rather than cascades
+Deleting chapters while questions are filed under them would leave every question pointing at a
+chapter that no longer exists — invisible to every filter, unfixable through the interface. So a
+reset **names its blockers and refuses**, and the administrator resets in dependency order:
+daily challenges → mock tests → questions → chapters. A cascade would be one click that quietly
+destroyed four areas instead of the one that was asked for.
+
+The **official exam is a blocker with no resolution**: there is no reset for it, and there must not
+be — its results and certificates are a permanent record.
+
+### `GET /api/v1/admin/reset/:scope/preview`
+- **Permission**: `content:reset` — **super admin only**, on the same line `users:delete` is drawn on.
+- **Response 200**: `{ success, preview: { scope, label, confirmPhrase, deletes[], preserves[], blockers[], canReset, totalToDelete } }`
+- `deletes[]` carries `{ label, count, text, note? }` — `text` is the count already agreeing with its noun (`1 chapter` / `26 chapters`), built server-side because a client joining a count to a label produces "1 scheduled daily challenges", and this is the sentence somebody reads immediately before deleting data they cannot get back.
+- `blockers[]` carries `{ label, count, resolveWith }`, where `resolveWith` is the scope to reset first (or `null` for the official exam).
+- **Writes nothing.** Safe to load on arrival, which is the point: the counts should be visible *before* the decision.
+- **Errors**: `400` unknown scope, `401`, `403`, `503`, `500`.
+
+### `POST /api/v1/admin/reset/:scope`
+- **Permission**: `content:reset`. Rate limited by `adminActionLimiter` (60/hour).
+- **Request**: `{ confirm: "RESET QUESTIONS" }` — the scope's own phrase, compared **exactly** after trimming. Case is not forgiven, and the phrases differ per scope so one copied from another dialog cannot confirm this one.
+- **Response 200**: `{ success, scope, label, deleted[], totalDeleted }`
+- **Errors**: `400` missing/wrong/foreign confirmation phrase (naming the right one) or unknown scope; `401`; `403`; **`409` blocked**, listing every blocker — re-checked against the database at the moment of the write, not only in the dialog; `503`; `500`.
+- Writes a `content.reset` audit entry **after** the delete, carrying the per-collection counts, because afterwards there is nothing left to count.
+
+### What each scope deletes, and what it never touches
+
+| Scope | Deletes | Blocked by | Preserved |
+|---|---|---|---|
+| `questions` | every `Question`, **all statuses including published** | any `MockTest`, `DailyChallenge` or `Exam` | chapters; practice sessions (each snapshots its own questions and answer key, so it still opens and still marks correctly); XP; the official exam |
+| `mock-tests` | every `MockTest` **and** every `MockTestAttempt` | — | the questions; **XP already earned**; everything else |
+| `daily-challenges` | every `DailyChallenge` **and** every `DailyChallengeAttempt` | — | the questions; **XP and streaks**; everything else |
+| `chapters` | every `Topic` (chapters and subtopics) | any `Question` | the `Subject`, so new chapters can be created immediately |
+
+**XP is never taken back.** `StudentActivity` is a record of something that really happened, and
+removing it would re-rank the leaderboard against children who did nothing wrong.
+
+**There is no transaction** (the same constraint registration works under), so a scope that deletes
+two collections deletes **dependents first**: a mock test with no attempts is a paper nobody sat,
+whereas an attempt with no paper is a row the student's page cannot render.
+
+## Student invoices (Milestone 22, Phase C)
+
+All in `backend/src/routes/v1/payments.routes.ts`, served by `services/invoiceService.ts`.
+
+**There is no `Invoice` collection.** An invoice is a *rendering* of a captured `Payment`, which
+makes three of the four properties this feature needs structural rather than maintained: downloading
+is a pure read so it cannot create anything twice; the number is derived from the payment so it never
+changes; and the amount is `Payment.amount`, a snapshot of what was actually charged, so re-pricing
+the fee cannot alter an invoice already issued.
+
+**Only a captured payment has one.** `created`, `attempted` and `failed` are attempts rather than
+transactions, and `refunded` would read as true of the present. All four answer **409 naming the
+state**, not 404 — "no invoice exists" would send a student to support to be told their payment never
+completed, which the page could have said itself.
+
+### The invoice number
+`AMIT-INV-<capture year>-<last 12 hex of the payment's ObjectId, uppercased>`, e.g.
+`AMIT-INV-2026-9B736EA2AF39`. Derived, never allocated: uniqueness rests on the `ObjectId`, so there
+is no counter two concurrent readers could allocate twice, no write on a GET, and no migration needed
+for payments that predate the feature.
+
+### `GET /api/v1/me/invoices`
+- **Auth**: `requireAuth()` — an identity gate, like `/me/certificates`.
+- **Response 200**: `{ success, invoices: Invoice[] }` — one per captured payment, newest first, capped at 50. An empty array for a student who has not paid; that is not an error.
+
+### `GET /api/v1/me/invoices/:paymentId`
+- **Auth**: `requireAuth()`. **Ownership is part of the query**, so another student's id returns `404`, never `403` — which also means it cannot be used to discover which ids exist.
+- **Params**: `paymentId`, pinned to the shape of an `ObjectId`.
+- **Response 200**: `{ success, invoice }` — `invoiceNumber`, `invoiceDate` (the capture date), `title` (`Invoice`, or `Tax Invoice` where a GSTIN is configured), `issuer`, `buyer`, `item`, `totalPaise`, `totalDisplay`, `totalInWords`, `currency`, `payment`. Built from the **same `InvoiceData` the PDF is built from**, so the preview cannot differ from the file.
+- Never includes `razorpaySignature`.
+- **Errors**: `400` malformed id, `401`, `404` not the caller's, `409` not captured (message names the state), `503`, `500`.
+
+### `GET /api/v1/me/invoices/:paymentId/download`
+- Same auth and ownership rule. **Response 200**: the PDF bytes — `application/pdf`, `Content-Disposition: attachment; filename="AMIT-INV-….pdf"`, `Cache-Control: private, no-store`. Does not use the `{ success, ... }` envelope; failures still do.
+- Rendered server-side with `pdf-lib` from database values only. A4 portrait: issuer block, billed-to block, invoice/payment dates, a one-line item table, the total, **the total in words** (Indian grouping — the conventional check against a tampered figure), a payment-details panel, and a computer-generated-invoice footer.
+- **Tax appears only where it is configured.** With no `INVOICE_GSTIN` the document is titled `INVOICE` and says nothing about tax at all — no "Tax: ₹0.00", no "inclusive of all taxes". Both would be legal claims this codebase cannot make on the owner's behalf.
+
+### `GET /api/v1/admin/payments/:paymentId/invoice`
+- **Permission**: `students:read`, matching `/admin/payments` — it discloses who paid what, which is student account data.
+- Returns the same PDF for any student, for support and reissue. **Errors**: `401`, `403`, `404`, `409`, `503`, `500`.
+- **Called by**: the payments console, on captured rows only (an attempted row shows `—`, because a link there would promise a receipt for money never taken).
 
 ## Bulk question import (Milestone 21, Phase B)
 

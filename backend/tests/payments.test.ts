@@ -576,13 +576,19 @@ describe('the Olympiad entry gate', () => {
     expect(after.body.entitlements.olympiadEntry).toBe(true);
   });
 
-  it('defaults the fee to ₹100', async () => {
+  /**
+   * The code default, which applies only where no `PaymentSettings` document has been
+   * saved — a fresh environment, or this suite. Asserted against the literal rather than
+   * against `DEFAULT_ENTRY_FEE_PAISE` on purpose: a test written in terms of the constant
+   * agrees with whatever the constant becomes, including a typo, and this is money.
+   */
+  it('defaults the fee to ₹199', async () => {
     const { cookies } = await registerVerifyLogin(app, {}, { paid: false });
 
     const res = await request(app).get(`${API}/payments/status`).set('Cookie', cookieHeader(cookies)).expect(200);
 
-    expect(res.body.amount).toBe(10_000);
-    expect(res.body.amountDisplay).toBe('₹100.00');
+    expect(res.body.amount).toBe(19_900);
+    expect(res.body.amountDisplay).toBe('₹199.00');
     expect(res.body.entryFeeEnabled).toBe(true);
     expect(res.body.hasPaid).toBe(false);
   });

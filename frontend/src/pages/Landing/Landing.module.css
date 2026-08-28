@@ -284,3 +284,52 @@
   line-height: 1.65;
   color: var(--text-muted);
 }
+
+/* --------------------------------------------------------------------------
+ * The brand's full form (Milestone 22, Phase D)
+ * ----------------------------------------------------------------------- */
+
+/*
+ * One line under the wordmark, and the only place it appears on this page.
+ *
+ * Set as a formal descriptor rather than as a sentence: small caps-styled tracking with a
+ * gold hairline running out to each side, which is how a competition's full name is
+ * conventionally set beneath its mark. It reads as part of the logotype instead of as
+ * copy, so it does not compete with the tagline below it.
+ *
+ * `clamp()` on the rules rather than a media query, so they shorten smoothly on a narrow
+ * screen instead of wrapping the line.
+ */
+.fullForm {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 10px 0 18px;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.fullForm::before,
+.fullForm::after {
+  content: '';
+  flex: 0 0 auto;
+  height: 1px;
+  width: clamp(16px, 7vw, 64px);
+  background: linear-gradient(90deg, transparent, var(--gold));
+}
+
+.fullForm::after {
+  background: linear-gradient(90deg, var(--gold), transparent);
+}
+
+@media (max-width: 640px) {
+  .fullForm {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    gap: 10px;
+  }
+}

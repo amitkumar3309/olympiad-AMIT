@@ -25,6 +25,19 @@ export const verifyPaymentSchema = z.object({
 });
 export type VerifyPaymentInput = z.infer<typeof verifyPaymentSchema>;
 
+/**
+ * A payment id in the path (Milestone 22, invoices).
+ *
+ * Pinned to the shape of an `ObjectId` so a path parameter can never become a filter —
+ * the same reason `studentIdParamSchema` pins `AMIT_0000`.
+ */
+export const paymentIdParamSchema = z.object({
+  paymentId: z
+    .string()
+    .trim()
+    .regex(/^[a-f\d]{24}$/i, 'That is not a valid payment id'),
+});
+
 /** Administrator-editable fee settings. The amount is business config, never an env var. */
 export const paymentSettingsSchema = z.object({
   /** Paise. Razorpay refuses anything under 100, so accepting less only defers the error. */

@@ -21,6 +21,8 @@ import questionsImportRoutes from './questionsImport.routes';
 import taxonomyRoutes from './taxonomy.routes';
 import adminRoutes from './admin.routes';
 import usersRoutes from './users.routes';
+import contentResetRoutes from './contentReset.routes';
+import referralRoutes from './referrals.routes';
 import miscRoutes from './misc.routes';
 import paymentRoutes from './payments.routes';
 
@@ -57,6 +59,8 @@ router.use(questionsAdminRoutes);
 router.use(taxonomyRoutes);
 router.use(adminRoutes);
 router.use(usersRoutes);
+router.use(contentResetRoutes);
+router.use(referralRoutes);
 router.use(paymentRoutes);
 router.use(miscRoutes);
 

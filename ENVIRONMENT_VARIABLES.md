@@ -241,7 +241,7 @@ Never paste these values into a public repository, issue, or screenshot; `SMTP_P
 
 **Everything boots with all three unset.** The product runs, but no student can pay: the payment page says payment is unavailable, and `POST /payments/orders` returns 503 naming the missing variables. That is deliberate — "we chose to run this free" and "the keys are missing" are different situations, and the second must not silently admit everybody. To run genuinely free, switch the fee off at `/admin/payments`.
 
-**The fee itself is not an environment variable.** ₹100 is the code default; the live value lives in the `PaymentSettings` document and is changed at `/admin/payments`, with an audit entry. A price is business configuration, not a credential — in `.env` it would be a redeploy to change and would leave no record of who changed it.
+**The fee itself is not an environment variable.** ₹199 is the code default (raised from ₹100 on 2026-08-28); the live value lives in the `PaymentSettings` document and is changed at `/admin/payments`, with an audit entry. A price is business configuration, not a credential — in `.env` it would be a redeploy to change and would leave no record of who changed it.
 
 **No webhook secret is set, and that is a supported configuration.** `POST /payments/reconcile` asks Razorpay directly what happened to an order, which covers the case a webhook exists for. Setting the secret later makes settlement automatic with no code change. See [`DECISIONS.md`](DECISIONS.md).
 
@@ -259,7 +259,7 @@ Never paste these values into a public repository, issue, or screenshot; `SMTP_P
    ```
 7. Restart the backend (`npm run dev:local --prefix backend`).
 8. Sign in as an administrator and open **/admin/payments**. The warning "Razorpay is not configured" should be gone.
-9. Sign in as a student and open **/payment**. You should see **₹100.00** and a working **Pay ₹100.00** button.
+9. Sign in as a student and open **/payment**. You should see the current fee — **₹199.00** unless an administrator has saved a different one at `/admin/payments` — and a working **Pay** button for that amount.
 10. Pay with Razorpay's test card: **4111 1111 1111 1111**, any future expiry, any 3-digit CVV, any name. No money moves in Test Mode.
 11. Check that Practice, Mock Tests and the Daily Challenge lose their padlocks, and that the payment appears at **/admin/payments** with status `captured`.
 
@@ -276,6 +276,31 @@ Never paste these values into a public repository, issue, or screenshot; `SMTP_P
 `RAZORPAY_KEY_SECRET` is a live credential once you reach step 2: never paste it into a repository, an issue, a screenshot or a chat.
 
 ---
+
+## Invoices (Milestone 22, Phase C)
+
+What is printed at the top of a student's invoice PDF. **Every one is optional and the invoice works
+with none of them set** — the name, email and phone default to what the platform already publishes in
+its own footer.
+
+| Variable | Required? | What it does | Example (fake) |
+|---|---|---|---|
+| `INVOICE_ORG_NAME` | optional | The organisation name on the invoice. | `A.M.I.T Maths Olympiad` (the default) |
+| `INVOICE_ORG_ADDRESS` | optional | Registered address. **Lines separated by `\|`.** Omitted from the document entirely when unset — an invoice with a blank address line looks like one that failed to render. | `2nd Floor, 14 Example Road\|Jaipur, Rajasthan 302001` |
+| `INVOICE_ORG_EMAIL` | optional | Contact address printed on the invoice and quoted in its footer. | `support@amitolympiad.com` (the default) |
+| `INVOICE_ORG_PHONE` | optional | Contact number. | `+91 9782870716` (the default) |
+| `INVOICE_GSTIN` | optional | GST registration number. **Never defaulted.** With it set the document is titled `TAX INVOICE` and the number is printed; with it unset the document is titled `INVOICE` and says nothing about tax at all. | `29ABCDE1234F1Z5` |
+| `INVOICE_TAX_NOTE` | optional | One line of tax or legal wording, printed verbatim under the total. Free text, because only your accountant knows what is correct. | `Not registered for GST.` |
+
+**Nothing about tax is invented.** With `INVOICE_GSTIN` and `INVOICE_TAX_NOTE` unset the invoice
+carries no tax line, no rate and no "inclusive of all taxes" — each of which would be a legal claim
+the code is in no position to make on your behalf. Set them once you know what is right.
+
+**Why these are environment variables when the fee deliberately is not.** The fee is a *price*: it
+changes, needs an audit trail, and is decided by someone who should not need a redeploy — so it lives
+in an administrator-editable document. A registered address and a tax registration change roughly
+never, are decided once, and must be **absent** rather than wrong; an unset variable prints nothing,
+whereas an empty settings field would print an empty line on a financial document.
 
 ## Bulk question import (Milestone 21, Phase B)
 

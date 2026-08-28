@@ -99,6 +99,18 @@ export interface StudentDocument extends Document {
     announcements: boolean;
     results: boolean;
   };
+  /**
+   * This account's Refer & Earn code — `AMIT` plus six characters (Milestone 22, Phase E).
+   *
+   * Optional, and generated **lazily** the first time the student opens their referral
+   * page: every account that predates the feature needs one and there is no migration, and
+   * a code nobody has looked at costs nothing to not exist.
+   *
+   * Deliberately not `studentId`. `AMIT_0000`–`AMIT_9999` is ten thousand identifiers and
+   * walkable in an afternoon — a code that gets posted in WhatsApp groups and typed by
+   * strangers needs its own value. See `services/referralService.ts`.
+   */
+  referralCode?: string | null;
 }
 
 /**
@@ -170,7 +182,35 @@ const studentSchema = new Schema<StudentDocument>({
     announcements: { type: Boolean, default: true },
     results: { type: Boolean, default: true },
   },
+  /**
+   * `unique` with `sparse`, and **deliberately no `default`**.
+   *
+   * `sparse` skips documents where the field is **absent** — not documents where it is
+   * `null`. With `default: null` every document would carry an explicit null, the index
+   * would consider them all equal, and the *second* account ever created would fail with a
+   * duplicate key. That is not hypothetical: it was written that way first, and eleven
+   * tests failed on the root administrator's own provisioning, which is the second document
+   * a fresh database gets. See TROUBLESHOOTING.md.
+   */
+  referralCode: { type: String, unique: true, sparse: true, uppercase: true, trim: true },
 });
+
+/**
+ * The admin student directory's default order (Milestone 22), and the one every page of
+ * it is drawn from. It was an unindexed sort over the whole collection, which is fine at
+ * a few hundred accounts and is exactly the kind of thing that stops being fine without
+ * anybody changing a line of code.
+ */
+studentSchema.index({ registeredAt: -1 });
+
+/**
+ * The directory's class filter, with the default sort as its second key so a filtered page
+ * is served entirely from the index.
+ *
+ * `classLevel` was previously unindexed: nothing filtered on it, because the only place a
+ * class mattered was inside a question query. The directory made it a first-class filter.
+ */
+studentSchema.index({ classLevel: 1, registeredAt: -1 });
 
 /**
  * `fullName` is derived, never supplied. Keeping it in sync here rather than at

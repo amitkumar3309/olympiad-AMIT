@@ -6,6 +6,7 @@ import Button from '../../components/Button'
 import { useAuth, ApiError } from '../../context/AuthContext'
 import { api } from '../../api/client'
 import { CLASS_LEVELS, type ClassLevel, type LeaderboardRow, type PublicStats } from '../../api/types'
+import { AMIT_FULL_FORM } from '../../lib/brand'
 import styles from './Landing.module.css'
 
 /**
@@ -266,6 +267,8 @@ export default function Landing() {
         <div className={`container ${styles.heroInner}`}>
           <span className={styles.kicker}>🌟 National Level Mathematics Competition</span>
           <h1>AMIT MATHS OLYMPIAD 2027</h1>
+          {/* The expansion, directly under the name it expands. Nowhere else on this page. */}
+          <p className={styles.fullForm}>{AMIT_FULL_FORM}</p>
           <p className={styles.tagline}>Think Faster. Solve Smarter. Become a Champion.</p>
           <div className={styles.heroActions}>
             <Button onClick={() => document.getElementById('register')?.scrollIntoView({ behavior: 'smooth' })}>

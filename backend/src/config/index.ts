@@ -193,6 +193,26 @@ export const config = {
     /** Import requests per hour per IP, enforced by `importLimiter`. */
     importsPerHour: env.IMPORT_RATE_LIMIT_PER_HOUR,
   },
+  invoice: {
+    /**
+     * The issuer block on a student's invoice (Milestone 22).
+     *
+     * Name, email and phone default to what the platform already publishes in its footer,
+     * so an invoice is correct out of the box. The address, GSTIN and tax note have **no
+     * defaults and are never invented**: each is simply absent from the document when
+     * unset, because a wrong registered address or a made-up GST number on a financial
+     * document is worse than a missing one.
+     */
+    orgName: env.INVOICE_ORG_NAME,
+    orgAddressLines: (env.INVOICE_ORG_ADDRESS ?? '')
+      .split('|')
+      .map((line) => line.trim())
+      .filter(Boolean),
+    orgEmail: env.INVOICE_ORG_EMAIL,
+    orgPhone: env.INVOICE_ORG_PHONE,
+    gstin: env.INVOICE_GSTIN ?? null,
+    taxNote: env.INVOICE_TAX_NOTE ?? null,
+  },
   payments: {
     /** True only when an order can actually be created AND verified. */
     configured: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),

@@ -2,11 +2,191 @@
   padding: 20px;
 }
 
+/*
+ * Two rows of controls (Milestone 22): search / account status / role / Search on the
+ * first, then class / payment status / sort, with the date range spanning the rest.
+ *
+ * `auto-fit` rather than fixed tracks so the whole toolbar collapses to one control per
+ * row on a phone without a media query — an administrator checking a registration on a
+ * mobile is a real case at a competition desk.
+ */
 .filters {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr auto;
   gap: 10px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
+}
+
+@media (max-width: 900px) {
+  .filters {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The registration-date range, which needs its own row and its own labels. */
+.dateRange {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.dateRange input {
+  max-width: 170px;
+}
+
+.clearBtn {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.clearBtn:hover {
+  color: var(--text);
+  border-color: var(--royal-blue);
+}
+
+/* --- The export bar: what will be downloaded, and the buttons that do it. --- */
+
+.exportBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.exportSummary {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.exportSummary strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.exportActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.exportBtn,
+.exportSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exportBtn {
+  border: none;
+  background: var(--royal-blue);
+  color: #fff;
+}
+
+.exportSecondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.exportBtn:disabled,
+.exportSecondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* A "clear the filters" affordance inside a sentence in the empty state. */
+.linkBtn {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--royal-blue);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* --- The payment cell --- */
+
+.paymentCell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 150px;
+}
+
+.paymentDetail {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.pay_paid,
+.pay_pending,
+.pay_failed,
+.pay_refunded,
+.pay_not_started {
+  display: inline-block;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pay_paid {
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--success);
+}
+
+.pay_pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning);
+}
+
+.pay_failed {
+  background: rgba(239, 68, 68, 0.14);
+  color: var(--danger);
+}
+
+.pay_refunded {
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--royal-blue);
+}
+
+/*
+ * Deliberately the quietest chip of the five. "Registered and has not paid yet" is the
+ * ordinary state of most of this table, and colouring it as a problem would make the
+ * genuinely actionable states (failed, pending) harder to pick out rather than easier.
+ */
+.pay_not_started {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--text-muted);
 }
 
 .searchBtn {

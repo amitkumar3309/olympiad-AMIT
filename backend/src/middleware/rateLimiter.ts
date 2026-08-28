@@ -208,6 +208,24 @@ export const adminActionLimiter = limiter({
 });
 
 /**
+ * Downloading a bulk export (Milestone 22).
+ *
+ * The read-only admin *listings* are deliberately not limited, and this is the exception
+ * that proves why: a listing reads twenty rows, and an export reads the entire result set
+ * and builds a whole workbook in memory inside a serverless function. That is the same
+ * argument `importLimiter` rests on — the most expensive thing a request can ask this
+ * platform to do belongs behind its own bound, even when the caller is trusted, because
+ * the cost is paid whether the repetition was malicious or a stuck button.
+ *
+ * Generous enough that a real afternoon of slicing the roll by class never notices.
+ */
+export const exportLimiter = limiter({
+  windowMs: HOUR,
+  limit: 30,
+  message: 'Too many exports. Please wait a little before downloading another file.',
+});
+
+/**
  * The unauthenticated result and certificate lookups.
  *
  * `AMIT_0000`–`AMIT_9999` is only ten thousand identifiers, so these two routes can be

@@ -22,6 +22,7 @@ import {
 } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
+import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import MathText from '../../components/MathText'
 import Button from '../../components/Button'
@@ -751,6 +752,7 @@ export default function Questions() {
           </Button>
         </div>
       )}
+      <ResetPanel scope="questions" onDone={() => void load()} />
     </AdminShell>
   )
 }

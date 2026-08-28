@@ -4,7 +4,7 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
-The backend has a working test suite: **1121 passing tests across 31 files** (`backend/tests/`), measured on 2026-08-23 after the optional-chapter work (882/26 before Milestone 21; 1097/30 after Phase G).
+The backend has a working test suite: **1253 passing tests across 35 files** (`backend/tests/`), measured on 2026-08-28 after Milestone 22 Phase C and the content reset (1138/31 before the milestone; 882/26 before Milestone 21). Read the number from `npm test --prefix backend` rather than quoting this line later.
 
 **One helper default worth knowing before writing a test** (Milestone 19): `registerVerifyLogin()` grants the account a captured entry-fee payment, because the fee gates practice, mock tests, the daily challenge and the exam — a test student who cannot practise would be asserting behaviour no real student reaches. Pass `{ paid: false }` as the third argument when *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants.
 
@@ -285,6 +285,121 @@ Milestone 1 was additionally verified by running both servers together and exerc
 4. **Integration tests for future data features** (exam attempts, results) — the real-database harness now exists, so these are cheap to add.
 
 ---
+
+## `tests/referrals.test.ts` — 39 tests (Milestone 22, Phase E)
+
+**A referral programme is a way to pay money out, so most of this file is about the ways it must
+refuse to.** Self-referral, a code that does not resolve, a second attribution for the same
+registration (asserted against the unique index itself, not a handler), a reward accruing before the
+money arrives, the same reward accruing twice from a duplicate capture, a reward paid twice, a reward
+paid without being approved, a reward rejected after being paid, and an amount changing after it was
+earned.
+
+**Nothing is faked and no rule was invented.** Several tests assert that with nothing configured a
+converted referral accrues **zero** and reports `no_reward` — distinct from both "not converted" and
+"owed money". The settings tests assert the defaults are off/₹0, because a plausible default would
+have been indistinguishable from a decision somebody made.
+
+**Payments go through the real path.** `payFor()` calls `capturePayment()` rather than setting
+`status: 'captured'` by hand, because the referral hook lives *inside* it — a test that wrote the
+field directly would pass against a build where the hook had been deleted.
+
+Also: the code's shape and stability; two students getting different codes; the share link built from
+`FRONTEND_URL` rather than a hardcoded domain; a lower-case code from a shared link still working; a
+suspended referrer's code no longer resolving; masking on both the public validate endpoint and the
+student's own list (asserted by searching the whole response for the surname); read-time
+reconciliation healing a referral whose hook was missed; authorization on both URL prefixes; and the
+student directory showing a code and who introduced whom.
+
+**One defect this suite caught before it shipped**, and it surfaced nowhere near its cause: eleven
+tests failed with a 500 on the *root administrator's login*, because `Student.referralCode` had been
+declared `unique + sparse` **with `default: null`** — which makes every document carry an explicit
+null and lets exactly one exist. See `TROUBLESHOOTING.md`.
+
+## `tests/contentReset.test.ts` — 22 tests (Milestone 22)
+
+The most destructive capability in the product, so the file is weighted towards everything that
+should **stop** it rather than towards the deletion.
+
+**Authorization.** An *ordinary administrator* is refused, not merely a student — that is the whole
+safety argument for `content:reset` existing as its own permission. One test then asserts the thing
+a status-code-only test would miss: that a 403 **deleted nothing**, checked by counting the
+collection afterwards.
+
+**The confirmation phrase.** Missing (400, nothing deleted), wrong words (400, and the message names
+the right ones), **another scope's phrase** (400 — the phrases differ precisely so one dialog's
+confirmation cannot empty a different area), wrong case (400), and surrounding whitespace forgiven.
+An unknown scope is a 400 rather than falling through to one that exists.
+
+**Blockers.** Chapters refused while questions are filed under them, and the question bank refused
+while a mock test is built from it — each asserting the **409 message names what to reset first**,
+including singular verb agreement, and that the data is still there. Then the same three areas reset
+cleanly in dependency order once the blockers are cleared.
+
+**What must survive.** XP after mock tests are wiped (`StudentActivity` counted before and after),
+the chapters after the question bank is wiped, the questions after the daily challenge is wiped, and
+the `Subject` after the chapters are wiped — the last matters because `requireImplicitSubject()`
+refuses a write without one, so deleting it would leave an administrator unable to create the first
+replacement chapter.
+
+**The trail.** A `content.reset` entry exists afterwards, with the scope in `targetId` and the
+per-collection counts in its metadata.
+
+## `tests/invoices.test.ts` — 26 tests (Milestone 22, Phase C)
+
+Three properties, each of which fails silently in production:
+
+**A student reaches their own invoice and nobody else's.** The id is in the URL, so the test that
+matters is the one that changes it — asserting **404**, not 403, because ownership is part of the query.
+Plus a malformed id (400), a well-formed id that does not exist (404), a guest (401), and the staff
+route refused for a plain student on **both** URL prefixes.
+
+**The number is stable and the download creates nothing.** Four consecutive downloads must yield one
+number and leave the document count unchanged — which is the observable form of "there is no `Invoice`
+collection". `invoiceNumberFor()` is also asserted against a **literal** (`AMIT-INV-2026-E5F60718293A`)
+rather than against its own derivation, so a change to either half breaks a test instead of silently
+renumbering every invoice ever issued.
+
+**The money is the money that was taken.** One test captures a ₹100 payment, *then* raises the fee to
+₹199 through `PaymentSettings`, and asserts the invoice still reads ₹100 in figures and in words. A
+regression here hands a student a receipt for an amount they never paid.
+
+Also: a non-captured payment refused with **409 naming its state** (attempted, failed, and refunded with
+its own message); the signature absent from the preview JSON; `Invoice` vs `Tax Invoice` decided by
+whether a GSTIN is configured, with no tax wording invented when it is not; Class 3 and Class 12 alike;
+and **a name in Devanagari** — `pdf-lib` throws on a character its standard font cannot encode, and
+registration accepts names in any Indian script, so without the sanitiser that student's download is a
+500. `amountInWords()` has its own unit tests, including lakh/crore grouping, zero, and a paise
+remainder.
+
+## `tests/studentDirectory.test.ts` — 28 tests (Milestone 22, Phase B)
+
+The admin student directory and its Excel export. Three organising ideas, each aimed at a failure the
+happy path would not catch.
+
+**Most of the file is about students who did not pay.** A directory that quietly listed only paying
+students would be indistinguishable from a working one until somebody asked how many people had
+registered — so the fixture builds one student in *every* payment state the platform can produce
+(captured, failed, attempted, refunded, and no payment row at all) and asserts each appears in the
+default listing, by state. One test covers the ordering rule that matters most: a student who failed
+twice and then paid is `paid`, and the payment shown is the capture rather than the latest write.
+
+**The export is the listing.** One test sends the same filters to both endpoints and compares the sets
+of student ids, because an export built from its own query is an export that disagrees with the screen
+the administrator pressed the button on. Others assert the amount arrives as a real number in rupees
+(so the column sums), the payment date as a real `Date`, `scope=all` discarding every filter, and the
+cover sheet naming both the filters and the administrator who took the file.
+
+**What must never be in either.** The listing's whole JSON body and the workbook's cells are serialised
+and searched for `passwordHash`, `tokenVersion`, a bcrypt prefix and a payment signature — searched as
+text rather than field by field, because the hazard is a field nobody thought to check. `select: false`
+does not apply to an aggregation, so the projection is the only thing standing between a hash and a
+spreadsheet on somebody's desk.
+
+Plus: the route-ordering regression (`/admin/students/export` must not be answered `400` by
+`/admin/students/:studentId`), an inclusive date range whose upper bound is the *end* of the named day,
+a literal `.*` search matching nothing, a rejected sort key, correct totals when a page is filtered, and
+authorization for a plain student and a guest — on **both** URL prefixes.
 
 ## `tests/questionImport.test.ts` — 62 tests (Milestone 21, Phase B)
 

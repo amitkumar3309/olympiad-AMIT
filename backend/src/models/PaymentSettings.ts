@@ -59,13 +59,31 @@ export interface PaymentSettingsDocument extends Document {
 }
 
 /**
- * ₹100. Applies until an administrator saves anything else.
+ * ₹199. Applies **only until an administrator saves anything else** — which, on any
+ * deployment where somebody has already opened `/admin/payments`, they have.
  *
- * Set by the owner on 2026-08-16, down from the ₹499 the feature shipped with. It is a
- * price, so it lives here as a starting value and is changed from `/admin/payments` —
- * not by editing this line.
+ * Set by the owner on 2026-08-28, up from the ₹100 set on 2026-08-16, which was itself
+ * down from the ₹499 the feature shipped with.
+ *
+ * ## Editing this line is not how a price is changed
+ *
+ * It is the value a deployment with **no `PaymentSettings` document** falls back to: a
+ * fresh environment, a new local database, the test suite. The live price is the saved
+ * document, changed from `/admin/payments`, which is the only path that leaves an audit
+ * entry naming who changed it and from what.
+ *
+ * It is kept in step with the owner's current price anyway, and that is the whole
+ * reason: leaving it stale means a newly provisioned environment silently charges
+ * last year's fee, and nothing warns — the same class of quiet-wrong-default that the
+ * `.env` path resolution note in `config/env.ts` exists for.
+ *
+ * ## It cannot re-price anything already paid
+ *
+ * `Payment.amount` is a snapshot of what was actually charged, the discipline
+ * `StudentActivity.xpAwarded` follows. A student who paid ₹100 last week is entitled on
+ * that payment, and their invoice says ₹100 — for ever.
  */
-export const DEFAULT_ENTRY_FEE_PAISE = 10_000;
+export const DEFAULT_ENTRY_FEE_PAISE = 19_900;
 
 const paymentSettingsSchema = new Schema<PaymentSettingsDocument>(
   {

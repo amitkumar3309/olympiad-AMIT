@@ -45,6 +45,8 @@ import {
 import { buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email';
 import { enqueueEmail } from '../../services/emailOutbox';
 import { logger } from '../../lib/logger';
+import { respondToServiceError } from '../../lib/serviceError';
+import { attributeReferral } from '../../services/referralService';
 import { grantDailyVisit, grantReward } from '../../services/rewardService';
 import { hasEntryEntitlement } from '../../services/paymentService';
 
@@ -170,7 +172,7 @@ async function sendVerificationLink(student: StudentDocument): Promise<void> {
  * account.
  */
 router.post('/auth/register', registerLimiter, validate({ body: registerSchema }), ensureDb, async (req, res) => {
-  const { photo, password, ...details } = req.body as RegisterInput;
+  const { photo, password, referralCode, ...details } = req.body as RegisterInput;
 
   try {
     // The bootstrap super-admin address is not registrable. Without this, anyone
@@ -241,6 +243,37 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
       await Student.deleteOne({ _id: student._id });
       sendError(res, 500, 'Could not save your photo. Please try registering again.');
       return;
+    }
+
+    /**
+     * Who introduced them (Milestone 22, Phase E).
+     *
+     * **Not** best-effort, unlike the reward and the email below: a code that does not
+     * resolve throws, and the registration is rolled back and refused. That is deliberate
+     * and it is the opposite of how the rest of this handler treats a failure — because
+     * the alternatives are both worse. Keeping the account and dropping the attribution
+     * means the referrer silently never gets credit; keeping it and *guessing* is
+     * unthinkable. Refusing tells the student something they can act on, and the register
+     * page validates the code from their link long before they reach this point.
+     *
+     * Attribution itself is decided by a unique index on `Referral.referred`, so a retry
+     * cannot produce two referrers for one registration.
+     */
+    if (referralCode) {
+      try {
+        await attributeReferral({ code: referralCode, referred: studentObjectId(student) });
+      } catch (err) {
+        // The account and its photo are removed again, exactly as a failed photo write
+        // does above — there is no transaction here, and a half-registered account is
+        // worse than asking the student to submit the form once more.
+        await StudentPhoto.deleteOne({ student: studentObjectId(student) });
+        await Student.deleteOne({ _id: student._id });
+        respondToServiceError(res, err, {
+          log: 'Registration refused: the referral code did not resolve',
+          fallback: 'That referral code could not be used. Remove it and try again.',
+        });
+        return;
+      }
     }
 
     // The first entry on the student's activity feed, and the first XP they hold.

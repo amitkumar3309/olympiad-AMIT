@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
-import { api, ApiError } from '../../api/client'
+import { api, ApiError, API_BASE } from '../../api/client'
+import type { StudentInvoice } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import styles from './Payment.module.css'
 
@@ -96,6 +97,119 @@ function loadCheckout(): Promise<boolean> {
   })
 }
 
+/**
+ * The invoice, shown before it is downloaded.
+ *
+ * Rendered from the **same `InvoiceData` the PDF is built from**, fetched from the
+ * server — not reconstructed here from a payment record. That is the point: if this
+ * component assembled its own version, the figure a student reads on screen and the
+ * figure in the file they keep could differ, and the one they would quote back to
+ * support is whichever they saw last.
+ *
+ * Nothing on it is computed in the browser. The total, the amount in words, the invoice
+ * number and the date all arrive as strings the server produced.
+ */
+function InvoicePreview({ invoice, onClose }: { invoice: StudentInvoice; onClose: () => void }) {
+  return (
+    <div className={styles.invoiceBackdrop} role="dialog" aria-modal="true" aria-labelledby="invoice-title">
+      <div className={`card ${styles.invoiceModal}`}>
+        <div className={styles.invoiceHead}>
+          <div>
+            <h3 id="invoice-title">{invoice.issuer.name}</h3>
+            {invoice.issuer.addressLines.map((line) => (
+              <p key={line} className={styles.invoiceMuted}>
+                {line}
+              </p>
+            ))}
+            <p className={styles.invoiceMuted}>
+              {invoice.issuer.email} · {invoice.issuer.phone}
+            </p>
+            {/* Printed only when the deployment has configured one. Never invented. */}
+            {invoice.issuer.gstin && <p className={styles.invoiceMuted}>GSTIN: {invoice.issuer.gstin}</p>}
+          </div>
+          <div className={styles.invoiceTitle}>{invoice.title.toUpperCase()}</div>
+        </div>
+
+        <div className={styles.invoiceMeta}>
+          <div>
+            <span className={styles.invoiceLabel}>Billed to</span>
+            <p className={styles.invoiceStrong}>{invoice.buyer.name}</p>
+            <p className={styles.invoiceMuted}>{invoice.buyer.studentId}</p>
+            {invoice.buyer.classLevel && <p className={styles.invoiceMuted}>{invoice.buyer.classLevel}</p>}
+            <p className={styles.invoiceMuted}>{invoice.buyer.email}</p>
+            <p className={styles.invoiceMuted}>{invoice.buyer.mobile}</p>
+          </div>
+          <dl className={styles.invoiceFacts}>
+            <dt>Invoice number</dt>
+            <dd className={styles.invoiceMono}>{invoice.invoiceNumber}</dd>
+            <dt>Invoice date</dt>
+            <dd>{new Date(invoice.invoiceDate).toLocaleDateString()}</dd>
+            <dt>Status</dt>
+            <dd className={styles.invoicePaid}>PAID</dd>
+          </dl>
+        </div>
+
+        <table className={styles.invoiceTable}>
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>{invoice.item.description}</td>
+              <td className={styles.invoiceAmount}>{invoice.item.amountDisplay}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>Total paid</th>
+              <th className={styles.invoiceAmount}>{invoice.totalDisplay}</th>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p className={styles.invoiceWords}>{invoice.totalInWords}</p>
+        {invoice.issuer.taxNote && <p className={styles.invoiceMuted}>{invoice.issuer.taxNote}</p>}
+
+        <dl className={styles.invoicePayment}>
+          <dt>Payment method</dt>
+          <dd>{invoice.payment.method ?? 'Razorpay'}</dd>
+          <dt>Order ID</dt>
+          <dd className={styles.invoiceMono}>{invoice.payment.razorpayOrderId}</dd>
+          {invoice.payment.razorpayPaymentId && (
+            <>
+              <dt>Payment ID</dt>
+              <dd className={styles.invoiceMono}>{invoice.payment.razorpayPaymentId}</dd>
+            </>
+          )}
+          <dt>Received on</dt>
+          <dd>{new Date(invoice.payment.capturedAt).toLocaleString()}</dd>
+        </dl>
+
+        <div className={styles.invoiceActions}>
+          <button type="button" className={styles.invoiceClose} onClick={onClose}>
+            Close
+          </button>
+          {/*
+           * A plain link rather than a fetch: the response is a file, the request is
+           * same-origin in both environments, and the browser's own download handling is
+           * better than anything reimplemented here. The endpoint's authorization applies
+           * either way — this link is a convenience, never the gate.
+           */}
+          <a
+            className={styles.invoiceDownload}
+            href={`${API_BASE}/me/invoices/${invoice.payment.id}/download`}
+          >
+            <i className="ph-bold ph-download-simple" /> Download PDF
+          </a>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Payment() {
   const { can } = useAuth()
   // Staff see the operator-facing cause; a student never should.
@@ -105,9 +219,30 @@ export default function Payment() {
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
 
+  /** The student's own receipts — one per captured payment, or none. */
+  const [invoices, setInvoices] = useState<StudentInvoice[]>([])
+  const [previewing, setPreviewing] = useState<StudentInvoice | null>(null)
+
   const refresh = useCallback(async () => {
     const next = await api.get<PaymentStatus>('/payments/status')
     setStatus(next)
+
+    /**
+     * Loaded alongside the status rather than behind a click, because the whole question
+     * a paid student comes to this page with is "where is my receipt?" — and a section
+     * that only appears after pressing something is a section they will not find.
+     *
+     * A failure is swallowed on purpose: a missing receipts list must never take down the
+     * payment page around it, which is the surface a student needs when something has
+     * gone wrong with their money.
+     */
+    try {
+      const mine = await api.get<{ invoices: StudentInvoice[] }>('/me/invoices')
+      setInvoices(mine.invoices)
+    } catch {
+      setInvoices([])
+    }
+
     return next
   }, [])
 
@@ -291,6 +426,46 @@ export default function Payment() {
             </p>
           </div>
         )}
+
+        {/*
+         * Receipts. Shown whenever there is one, including when the fee has since been
+         * switched off — a student who paid keeps their receipt regardless of what the
+         * platform charges today.
+         */}
+        {invoices.length > 0 && (
+          <div className={`card ${styles.invoices}`}>
+            <h3>
+              <i className="ph-bold ph-receipt" /> Your receipts
+            </h3>
+            <p className={styles.invoicesLead}>
+              An invoice for every payment we have received from you. The amount shown is what was actually charged at
+              the time, so it does not change if the entry fee changes later.
+            </p>
+            <ul className={styles.invoiceList}>
+              {invoices.map((invoice) => (
+                <li key={invoice.invoiceNumber}>
+                  <div className={styles.invoiceRowMain}>
+                    <span className={styles.invoiceNumber}>{invoice.invoiceNumber}</span>
+                    <span className={styles.invoiceRowMeta}>
+                      {new Date(invoice.invoiceDate).toLocaleDateString()} · {invoice.totalDisplay}
+                      {invoice.payment.method ? ` · ${invoice.payment.method}` : ''}
+                    </span>
+                  </div>
+                  <div className={styles.invoiceRowActions}>
+                    <button type="button" className={styles.invoiceView} onClick={() => setPreviewing(invoice)}>
+                      View
+                    </button>
+                    <a className={styles.invoiceDownload} href={`${API_BASE}/me/invoices/${invoice.payment.id}/download`}>
+                      <i className="ph-bold ph-download-simple" /> PDF
+                    </a>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {previewing && <InvoicePreview invoice={previewing} onClose={() => setPreviewing(null)} />}
 
         <p className={styles.history}>
           <Link to="/dashboard">← Back to your dashboard</Link>

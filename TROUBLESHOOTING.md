@@ -1,5 +1,28 @@
 # TROUBLESHOOTING.md
 
+## A `sparse` unique index does nothing if the field has a `default: null`
+
+**Symptom (2026-08-28, caught by tests):** eleven referral tests failed with
+`expected 200 "OK", got 500` — all of them on `POST /auth/admin/login`, i.e. on the *root
+administrator's own provisioning*, which had nothing to do with referrals.
+
+**Cause:** `Student.referralCode` was declared `{ type: String, default: null, unique: true, sparse:
+true }`. `sparse` excludes documents where the field is **absent**; it does not exclude documents
+where the field is present and `null`. With a default, *every* document carries an explicit null, the
+index treats them as equal values, and the **second** document ever inserted fails with a duplicate
+key. In a fresh database the second document is the bootstrap super admin — so the failure surfaced
+somewhere unrelated to the feature that caused it.
+
+**Fix:** remove the `default`. The field is now genuinely absent until a code is generated, and
+`sparse` behaves as intended. Any code reading it must tolerate `undefined` as well as `null`, which
+is why `ensureReferralCode()` matches `$or: [{ $exists: false }, { referralCode: null }]`.
+
+**The general rule:** on a `unique` + `sparse` field, a `default` of any kind defeats the sparseness.
+If you want "at most one non-null value per document, unlimited documents without one", the field
+must be *absent*, not null.
+
+
+
 Log real problems + solutions here as they're encountered, so we don't re-solve them. This file starts with issues reconstructed from git history plus proactive notes from the Phase 0 audit — add to it going forward.
 
 ---

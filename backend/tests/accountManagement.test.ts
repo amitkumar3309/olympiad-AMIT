@@ -64,10 +64,16 @@ describe('an admin is strictly weaker than a super admin', () => {
     const admin = permissionsFor('admin');
     const withheld = PERMISSIONS.filter((permission) => !admin.includes(permission));
 
-    // Both of these destroy something: a role assignment can mint an administrator,
-    // and a deletion cannot be undone. Everything else an admin does is reversible,
-    // which is the line the two roles are drawn along.
-    expect([...withheld].sort()).toEqual(['users:delete', 'users:role:write']);
+    // Each of these destroys something: a role assignment can mint an administrator, a
+    // deletion cannot be undone, and a content reset empties a whole area of the product
+    // — the question bank included. Everything else an admin does is reversible, which is
+    // the line the two roles are drawn along.
+    //
+    // Pinned as an exact list on purpose. This test failed when Milestone 22 added
+    // `content:reset`, which is the behaviour that makes it worth having: widening the
+    // super-admin-only set has to be a deliberate edit here rather than something that
+    // happens quietly in the permission table.
+    expect([...withheld].sort()).toEqual(['content:reset', 'users:delete', 'users:role:write']);
     for (const permission of withheld) expect(isSuperadminOnly(permission)).toBe(true);
   });
 

@@ -210,6 +210,43 @@ const envSchema = z.object({
    * the wrong thing.
    */
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
+
+  // --- Invoices (Milestone 22, Phase C) ---
+  /**
+   * What is printed at the top of a student's invoice.
+   *
+   * These are **not credentials** — by the rule that put the entry fee in an
+   * administrator-editable document, business configuration does not belong in the
+   * environment. They are here anyway, and the distinction is worth stating: the fee is a
+   * *price*, which changes, needs an audit trail, and is decided by someone who should not
+   * need a redeploy. An organisation's registered address and tax registration change
+   * roughly never, are decided once, and are the kind of thing that must be **absent**
+   * rather than wrong. An unset variable prints nothing; an empty settings field would
+   * print an empty line on a financial document.
+   *
+   * The name, email and phone default to what the platform already publishes in its own
+   * footer, so an invoice is correct with no configuration at all.
+   */
+  INVOICE_ORG_NAME: z.string().min(1).default('A.M.I.T Maths Olympiad'),
+  /** Address lines separated by `|`. Omitted from the document entirely when unset. */
+  INVOICE_ORG_ADDRESS: z.string().min(1).optional(),
+  INVOICE_ORG_EMAIL: z.string().min(1).default('support@amitolympiad.com'),
+  INVOICE_ORG_PHONE: z.string().min(1).default('+91 9782870716'),
+  /**
+   * GST registration number. **Optional, and never defaulted to anything.**
+   *
+   * With it set the document is titled `TAX INVOICE` and the number is printed; with it
+   * unset the document is titled `INVOICE` and says nothing about tax at all. Inventing a
+   * GSTIN, a tax rate, or the phrase "inclusive of all taxes" would be a legal claim this
+   * codebase is in no position to make on the owner's behalf.
+   */
+  INVOICE_GSTIN: z.string().min(1).optional(),
+  /**
+   * One line of tax or legal wording, printed verbatim under the total when set — for
+   * example a statement that the organisation is not registered for GST. Free text
+   * because only the owner's accountant knows what is correct here.
+   */
+  INVOICE_TAX_NOTE: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

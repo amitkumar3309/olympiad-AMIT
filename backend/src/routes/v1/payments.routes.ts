@@ -24,8 +24,18 @@ import {
   reconcileOrder,
 } from '../../services/paymentService';
 import {
+  invoiceFilenameFor,
+  invoiceForStaff,
+  invoiceForStudent,
+  invoiceView,
+  listInvoicesFor,
+  renderInvoicePdf,
+  type InvoiceData,
+} from '../../services/invoiceService';
+import {
   verifyPaymentSchema,
   paymentSettingsSchema,
+  paymentIdParamSchema,
   type VerifyPaymentInput,
   type PaymentSettingsInput,
 } from '../../validation/paymentSchemas';
@@ -46,6 +56,24 @@ const router = Router();
 /** The student's own id, as an ObjectId. Every route here is owner-scoped by the token. */
 function callerId(req: Request): Types.ObjectId {
   return new Types.ObjectId(req.user!.sub);
+}
+
+/**
+ * Writes an invoice PDF to the response, with the headers a download needs.
+ *
+ * One helper for the student and the staff route so the two cannot drift on the one
+ * header that matters: `no-store`. An invoice is personal financial data behind an
+ * authorization check, and a shared cache must never be able to hand one student's
+ * receipt to another request. Like the certificate PDF, this route does **not** answer
+ * with the `{ success, ... }` envelope — the body is the file.
+ */
+async function sendInvoicePdf(res: Response, invoice: InvoiceData): Promise<void> {
+  const pdf = await renderInvoicePdf(invoice);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${invoiceFilenameFor(invoice)}"`);
+  res.setHeader('Content-Length', String(pdf.length));
+  res.setHeader('Cache-Control', 'private, max-age=0, no-store');
+  res.send(Buffer.from(pdf));
 }
 
 // ---------------------------------------------------------------------------
@@ -299,6 +327,97 @@ router.get('/payments/mine', requireAuth(), ensureDb, async (req: Request, res: 
     respondToServiceError(res, err, { log: 'Failed to list payments', fallback: 'Could not load your payments.' });
   }
 });
+
+// ---------------------------------------------------------------------------
+// Invoices (Milestone 22, Phase C)
+// ---------------------------------------------------------------------------
+
+/**
+ * The caller's own invoices — one per **captured** payment.
+ *
+ * An identity gate (`requireAuth()`), like `/me/certificates`: your receipts are yours
+ * because they are yours. There is no `Invoice` collection behind this; each entry is a
+ * rendering of a payment row that already exists, which is what makes the number stable
+ * and the download idempotent (see `services/invoiceService.ts`).
+ */
+router.get('/me/invoices', requireAuth(), ensureDb, async (req: Request, res: Response) => {
+  try {
+    const invoices = await listInvoicesFor(callerId(req));
+    sendSuccess(res, 200, { invoices: invoices.map(invoiceView) });
+  } catch (err) {
+    respondToServiceError(res, err, { log: 'Failed to list invoices', fallback: 'Could not load your invoices.' });
+  }
+});
+
+/**
+ * One invoice as JSON, so the page can show it before the student downloads anything.
+ *
+ * The preview and the PDF are built from **the same `InvoiceData`**, so what is shown on
+ * screen cannot differ from what is in the file — the same reason the student directory
+ * and its export share one pipeline.
+ */
+router.get(
+  '/me/invoices/:paymentId',
+  requireAuth(),
+  validate({ params: paymentIdParamSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const invoice = await invoiceForStudent(String(req.params.paymentId), callerId(req));
+      sendSuccess(res, 200, { invoice: invoiceView(invoice) });
+    } catch (err) {
+      respondToServiceError(res, err, { log: 'Failed to build an invoice', fallback: 'Could not load that invoice.' });
+    }
+  },
+);
+
+/**
+ * Downloads one of the caller's own invoices as a PDF.
+ *
+ * **Ownership is part of the query**, not a check after the read: changing the id in the
+ * URL returns 404 rather than somebody else's receipt, and it cannot be used to discover
+ * which ids exist. Rendered server-side from database values; the browser supplies an id
+ * and nothing else.
+ */
+router.get(
+  '/me/invoices/:paymentId/download',
+  requireAuth(),
+  validate({ params: paymentIdParamSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const invoice = await invoiceForStudent(String(req.params.paymentId), callerId(req));
+      await sendInvoicePdf(res, invoice);
+    } catch (err) {
+      respondToServiceError(res, err, { log: 'Failed to render an invoice', fallback: 'Could not produce that invoice.' });
+    }
+  },
+);
+
+/**
+ * Staff download of any student's invoice, for support and reissue.
+ *
+ * Gated on `students:read`, matching `/admin/payments`: it discloses who paid what, which
+ * is student account data, and the people who may already read a student's record are the
+ * ones who should be able to resend their receipt.
+ */
+router.get(
+  '/admin/payments/:paymentId/invoice',
+  requirePermission('students:read'),
+  validate({ params: paymentIdParamSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const invoice = await invoiceForStaff(String(req.params.paymentId));
+      await sendInvoicePdf(res, invoice);
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to render an invoice for staff',
+        fallback: 'Could not produce that invoice.',
+      });
+    }
+  },
+);
 
 /**
  * Every payment, for staff.

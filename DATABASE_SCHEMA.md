@@ -44,7 +44,9 @@ Purpose: one document per registered student; the sole source of truth for stude
 | `lastLoginAt` | Date \| null | no | `null` | |
 | `registeredAt` | Date | no | `Date.now` | |
 
-Indexes: unique on `mobile`, `email`, and `studentId`; non-unique on `role` (the admin listing filters by it, and the authorization freshness check reads it on every privileged request).
+Indexes: unique on `mobile`, `email`, and `studentId`; non-unique on `role` (the admin listing filters by it, and the authorization freshness check reads it on every privileged request); and, **added in Milestone 22** for the student directory, `{ registeredAt: -1 }` (its default order, previously an unindexed sort over the whole collection) and `{ classLevel: 1, registeredAt: -1 }` (its class filter with that order as the second key, so a filtered page is served entirely from the index). `classLevel` had never been indexed because nothing filtered on it — a class only ever mattered inside a question query.
+
+**There is no `paymentState` field here, and there must not be one.** A student's entry-payment state is rolled up from their `Payment` rows on every read by `services/studentDirectoryService.ts`, exactly as the entitlement itself is — see the note at the top of `models/Payment.ts`. A stored rollup would be a second source of truth about money, and when it drifted a student who had paid would be shown as unpaid.
 
 **"Required **on create**"** means `required: function () { return this.isNew }` — enforced when a document is created (registration, the only creation path, where zod has already rejected a missing field with a 400) but **not** when an existing one is saved. Without that scoping, an administrative `save()` on an account that predates Milestone 4 — suspending it, changing its role — would fail validation on nine fields the administrator never touched. Every API view of these fields is therefore explicitly nullable, and the admin table renders `—`. See the Milestone 4 ADR in [`DECISIONS.md`](DECISIONS.md).
 
@@ -573,7 +575,7 @@ The fee, as a single administrator-editable document. Pinned by a unique index o
 | Field | Type | Notes |
 |---|---|---|
 | `key` | `String` | Constant `'default'`, unique. |
-| `olympiadEntryFee` | `Number` | Integer paise. Default **10 000 (₹100)**. `min: 100` mirrors Razorpay's own floor — an order below one rupee is refused by their API, so accepting it here would only move the failure later. |
+| `olympiadEntryFee` | `Number` | Integer paise. Default **19 900 (₹199)** — raised from ₹10 000 (₹100) by the owner on 2026-08-28. The default applies only where **no settings document has been saved**; on a deployment where anyone has opened `/admin/payments`, the saved value is the price and this constant is unreachable. `min: 100` mirrors Razorpay's own floor — an order below one rupee is refused by their API, so accepting it here would only move the failure later. |
 | `currency` | `String` | Default `INR`. |
 | `entryFeeEnabled` | `Boolean` | Default **`true`** since 2026-08-16. Turning it off admits every student to everything. |
 | `updatedByLabel` | `String \| null` | Who last saved it. The `AuditLog` entry carries the before-and-after values. |
@@ -583,6 +585,101 @@ The fee, as a single administrator-editable document. Pinned by a unique index o
 **The fee is not an environment variable.** It is business configuration, not a credential: in `.env` it would be a redeploy to change, unchangeable by the person who decides it, and would leave no record of who changed it or when.
 
 ---
+
+## `Referral` (Milestone 22, Phase E) — ACTIVE
+
+Purpose: one document per referred registration — who introduced whom, and what became of the
+reward.
+
+| Field | Type | Required | Default | Notes |
+|---|---|---|---|---|
+| `referrer` | ObjectId → Student | **yes** | — | The account whose code was used. |
+| `referred` | ObjectId → Student | **yes** | — | **`unique`.** This one index enforces three of the abuse rules at once: one referrer per registration, no duplicate attribution, and no changing it afterwards. A handler check would be a read followed by a write, and on serverless those land in different invocations. |
+| `code` | String | **yes** | — | The code exactly as it was used, snapshotted — so "which code brought these forty students in?" is answerable from the row rather than from whatever the account holds today. |
+| `registeredAt` | Date | **yes** | `Date.now` | |
+| `convertedAt` | Date \| null | no | `null` | When the referred student's entry fee was **captured**. Records when we *observed* it; never a substitute for asking `Payment`, which is why a stale row can be reconciled on read. |
+| `payment` | ObjectId → Payment \| null | no | `null` | The payment that converted it, so the money is traceable both ways. |
+| `rewardStatus` | String enum | **yes** | `pending_conversion` | `pending_conversion` / `no_reward` / `accrued` / `approved` / `paid` / `rejected`. `no_reward` means **converted, with nothing configured at that moment** — kept distinct from "not converted", because they are different answers. |
+| `rewardAmount` | Number | **yes** | `0` | Paise, **snapshotted at conversion**. The discipline `Payment.amount` and `StudentActivity.xpAwarded` follow: re-pricing must never rewrite what somebody has already earned. |
+| `approvedAt` / `approvedBy` | Date \| null / String \| null | no | `null` | |
+| `paidAt` / `paidBy` / `payoutReference` | Date \| null / String \| null / String \| null | no | `null` | The reference is mandatory at the route: a payout nobody can trace is one nobody can verify happened. |
+| `rejectedAt` / `rejectedBy` / `rejectedReason` | Date \| null / String \| null / String \| null | no | `null` | A reason is mandatory. |
+
+Indexes: unique on `referred`; non-unique on `{ referrer, createdAt: -1 }` (the student's own
+dashboard), `{ rewardStatus, createdAt: -1 }` (the admin console) and `code`.
+
+**Deliberately no TTL**, like `Payment`, `AuditLog` and `StudentActivity`: expiring a row would
+delete the evidence behind a payment somebody can be asked about years later.
+
+**What is deliberately NOT stored here: whether the referred student has paid.** That is a query
+over `Payment`, exactly as the entitlement is — duplicating it would be a second source of truth
+about money. `convertedAt` records when the conversion was *observed*, and the read paths reconcile
+a `pending_conversion` row against the payment record.
+
+## `ReferralSettings` (Milestone 22, Phase E) — ACTIVE
+
+A single pinned document (`key: 'default'`, unique index), exactly like `PaymentSettings` and
+`RewardSettings`.
+
+| Field | Type | Default | Notes |
+|---|---|---|---|
+| `key` | String | `'default'` | Unique. One document, pinned. |
+| `rewardEnabled` | Boolean | **`false`** | The **opposite** default from `PaymentSettings.entryFeeEnabled`, for the opposite reason: a paywall that defaults off is not a paywall, and a reward that defaults *on* is a liability nobody agreed to. |
+| `rewardAmount` | Number | **`0`** | Paise, capped at ₹1,00,000 so a mistyped amount is refused rather than accrued. **Zero is not a placeholder** — no amount has ever been specified by anybody, and inventing a plausible one would be indistinguishable from a decision somebody made. |
+| `currency` | String | `'INR'` | |
+| `terms` | String \| null | `null` | What the student is told they get. Whoever sets an amount writes the sentence that goes with it. |
+| `updatedByLabel` | String \| null | `null` | |
+
+**Eligibility is not a field here, deliberately.** A referral converts when the referred student's
+entry fee is captured, and that rule is in code — an amount is a business decision, a rule about
+when money is owed is a correctness decision, and a configurable one could quietly start paying out
+on registration alone.
+
+## `Student.referralCode` (Milestone 22, Phase E)
+
+`AMIT` plus six characters from a 31-symbol unambiguous alphabet (`0`/`O` and `1`/`I`/`L` absent,
+because this gets read off a screenshot). `unique`, **`sparse`**, and with **no `default`** — see the
+warning below. Generated **lazily** on first read of `/me/referrals`, so accounts predating the
+feature need no migration.
+
+Deliberately not `studentId`: `AMIT_0000`–`AMIT_9999` is ten thousand identifiers and walkable in an
+afternoon, and a code posted in WhatsApp groups needs its own value.
+
+> **Migration warning — `sparse` does not mean "or null".** `sparse` skips documents where the field
+> is **absent**, not documents where it is `null`. This field was first written with
+> `default: null`; every document then carried an explicit null, the unique index considered them all
+> equal, and the **second account ever created** failed with a duplicate key — which in a fresh
+> database is the root administrator's own provisioning. Eleven tests caught it. Do not add a
+> default. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
+## The invoice — derived, with no collection behind it (Milestone 22, Phase C)
+
+There is **no `Invoice` model**, and there must not be one. An invoice is a *rendering* of a captured
+`Payment`: the amount, currency, date, method and both provider ids are already stored, already
+immutable, and already what the money is reconciled against. Writing them again under another name
+would create a second source of truth about a transaction — the failure `models/Payment.ts` opens by
+warning about, and the same reason there is no `hasPaid` flag and no `StudentAnalytics` cache.
+
+Three properties the product needed fall out of that decision rather than being maintained:
+
+- **Idempotent.** Downloading is a pure read. There is nothing to create, so nothing can be created
+  twice, and the count of documents in the database is identical after four downloads (there is a test).
+- **Stable.** The number is `AMIT-INV-<capture year>-<last 12 hex of the payment's `ObjectId`>`, so the
+  same transaction resolves to the same number for ever — with no counter to allocate (which would need
+  a write on a GET, or a value every payment already in the database would lack).
+- **Honest about money.** The amount is `Payment.amount`, a snapshot of what was actually charged, so
+  raising the fee from ₹100 to ₹199 leaves every earlier invoice reading ₹100.
+
+**Only a captured payment has one.** `created`, `attempted` and `failed` are attempts rather than
+transactions; `refunded` is refused too, because such an invoice would be true of the past and read as
+true of the present.
+
+**What is *not* snapshotted, stated rather than hidden**: the buyer's name, class, contact and address
+are read from the live `Student` at render time. This is the opposite of `Certificate`, which freezes
+everything printable, and the difference is deliberate — a certificate is a claim about a past event
+that must never change, whereas an invoice is *addressed to a person*, and somebody who corrects a
+misspelt name wants the correction to appear. Every **financial** fact on the document is a snapshot;
+only the address block is live.
 
 ## The entitlement — derived, with no collection behind it
 

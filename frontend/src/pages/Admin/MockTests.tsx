@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import { CLASS_LEVELS, type AdminMockTest, type MockTestStatus, type Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
+import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import styles from './MockTests.module.css'
@@ -278,6 +279,7 @@ export default function AdminMockTests() {
           )}
         </>
       )}
+      <ResetPanel scope="mock-tests" onDone={() => void load()} />
     </AdminShell>
   )
 }

@@ -3,17 +3,24 @@ import { Router, type Request, type Response } from 'express';
 import { requireAuth, requirePermission, callerCan, callerCanFresh } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
-import { adminActionLimiter } from '../../middleware/rateLimiter';
-import { AuditLog, Student, StudentPhoto, type AccountStatus, type AuditAction, type StudentDocument } from '../../models';
-import type { Role } from '../../lib/permissions';
+import { adminActionLimiter, exportLimiter } from '../../middleware/rateLimiter';
+import { AuditLog, Student, StudentPhoto, type AuditAction, type StudentDocument } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { recordAudit } from '../../lib/audit';
 import { revokeAllRefreshTokens } from '../../lib/tokens';
 import { hashPassword } from '../../lib/password';
 import { logger } from '../../lib/logger';
 import { notifyAccountRoleChanged, notifyAccountStatusChanged } from '../../services/systemNotifier';
+import { adminAccountView, collectStudentDirectory, listStudentDirectory } from '../../services/studentDirectoryService';
+import {
+  buildStudentExportWorkbook,
+  describeExport,
+  studentExportFilename,
+  EXPORT_MAX_ROWS,
+} from '../../services/studentExportExcel';
 import {
   listStudentsQuerySchema,
+  exportStudentsQuerySchema,
   studentIdParamSchema,
   updateStatusSchema,
   updateRoleSchema,
@@ -21,6 +28,7 @@ import {
   deleteAccountSchema,
   listAuditLogsQuerySchema,
   type ListStudentsQuery,
+  type ExportStudentsQuery,
   type UpdateStatusInput,
   type UpdateRoleInput,
   type AccountActionInput,
@@ -37,14 +45,10 @@ const router = Router();
  * user-controlled query params, and a narrow type is what guarantees only these
  * fields — never an operator object smuggled in from `req.query` — can reach Mongo.
  * (`any` is forbidden on the backend; see CLAUDE.md "TypeScript Rules".)
+ *
+ * The student listing's own filter moved to `services/studentDirectoryService.ts` in
+ * Milestone 22, because the export has to build the identical one.
  */
-interface StudentFilter {
-  status?: AccountStatus;
-  role?: Role;
-  isEmailVerified?: boolean;
-  $or?: Array<{ fullName?: RegExp } | { email?: RegExp } | { mobile?: RegExp } | { studentId?: RegExp }>;
-}
-
 interface AuditFilter {
   action?: AuditAction;
   outcome?: 'success' | 'denied';
@@ -55,49 +59,12 @@ interface AuditFilter {
 // ---------------------------------------------------------------------------
 
 /**
- * The shape of an account as an administrator sees it. Wider than the student's
- * own `publicStudent` view (it adds role, activity and lock state) but still an
- * explicit allow-list — `passwordHash` is `select: false` and nothing here would
- * pick it up even if that guard were lost.
+ * `adminAccountView()` lives in `services/studentDirectoryService.ts` as of Milestone 22
+ * and is imported above. It moved because the directory aggregation returns plain objects
+ * rather than documents and had to render through the *same* view — two views of an
+ * account would eventually disagree about what staff may see, and the more generous one
+ * would win.
  */
-function adminAccountView(account: StudentDocument) {
-  return {
-    id: String(account._id),
-    studentId: account.studentId,
-    fullName: account.fullName ?? null,
-    email: account.email,
-    mobile: account.mobile,
-    role: account.role,
-    status: account.status,
-    isEmailVerified: account.isEmailVerified,
-    registeredAt: account.registeredAt,
-    lastLoginAt: account.lastLoginAt ?? null,
-    lockedUntil: account.lockedUntil ?? null,
-    roleUpdatedAt: account.roleUpdatedAt ?? null,
-    roleUpdatedBy: account.roleUpdatedBy ?? null,
-    // Staff need to see that a reset is outstanding: an account sitting on a
-    // temporary password looks identical to a working one otherwise.
-    mustChangePassword: account.mustChangePassword === true,
-    passwordResetAt: account.passwordResetAt ?? null,
-    passwordResetBy: account.passwordResetBy ?? null,
-    // Milestone 4 registration details. Nullable throughout because accounts
-    // created before Milestone 4 do not have them (see DATABASE_SCHEMA.md).
-    firstName: account.firstName ?? null,
-    middleName: account.middleName ?? null,
-    lastName: account.lastName ?? null,
-    fatherName: account.fatherName ?? null,
-    motherName: account.motherName ?? null,
-    dateOfBirth: account.dateOfBirth ? account.dateOfBirth.toISOString().slice(0, 10) : null,
-    classLevel: account.classLevel ?? null,
-    schoolName: account.schoolName ?? null,
-    address: account.address ?? null,
-  };
-}
-
-/** Escapes a user-supplied string so it is matched literally, never as a pattern. */
-function escapeRegex(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function objectId(account: StudentDocument): mongoose.Types.ObjectId {
   return account._id as mongoose.Types.ObjectId;
@@ -177,6 +144,18 @@ async function terminateSessions(account: StudentDocument): Promise<void> {
 // Student / account listing
 // ---------------------------------------------------------------------------
 
+/**
+ * The student directory: **every** registered account, whatever its payment state.
+ *
+ * Widened in Milestone 22 from a `find()` over `Student` to the aggregation in
+ * `services/studentDirectoryService.ts`, which rolls up each student's entry payment so
+ * the console can show and filter on it. The response is a superset of what it was —
+ * `students` and `pagination` are unchanged in shape, so the admin dashboard's three
+ * count calls keep working untouched.
+ *
+ * **Nothing is filtered out for not having paid.** `paymentState` narrows the list only
+ * when an administrator explicitly asks for a state.
+ */
 router.get(
   '/admin/students',
   requirePermission('students:read'),
@@ -184,34 +163,88 @@ router.get(
   ensureDb,
   async (req: Request, res: Response) => {
     try {
-      const { page, limit, search, status, role, verified } = req.query as unknown as ListStudentsQuery;
+      const { page, limit, ...filters } = req.query as unknown as ListStudentsQuery;
 
-      // Built field by field from validated values only — no part of req.query is
-      // ever spread into the filter, so no operator object can reach Mongo.
-      const filter: StudentFilter = {};
-      if (status) filter.status = status;
-      if (role) filter.role = role;
-      if (verified) filter.isEmailVerified = verified === 'true';
-      if (search) {
-        const pattern = new RegExp(escapeRegex(search), 'i');
-        filter.$or = [{ fullName: pattern }, { email: pattern }, { mobile: pattern }, { studentId: pattern }];
-      }
-
-      const [accounts, total] = await Promise.all([
-        Student.find(filter)
-          .sort({ registeredAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(limit),
-        Student.countDocuments(filter),
-      ]);
+      const { entries, total } = await listStudentDirectory(filters, page, limit);
 
       sendSuccess(res, 200, {
-        students: accounts.map(adminAccountView),
+        students: entries,
         pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
       });
     } catch (err) {
       logger.error({ err }, 'Failed to list students');
       sendError(res, 500, 'Could not load the student list. Please try again.');
+    }
+  },
+);
+
+/**
+ * The student directory as an `.xlsx` file.
+ *
+ * **Declared before `/admin/students/:studentId`, and that is load-bearing.** Express
+ * matches in declaration order, so with the parameterised route first this path is
+ * captured as a student id and answered 400 — the exact trap that swallowed
+ * `GET /admin/questions/practice-availability`, and the reason `questionsImport` is
+ * mounted ahead of `questionsAdmin`. There is a regression test.
+ *
+ * Not gated on a new permission: it publishes what the listing above already publishes, to
+ * the same people, and a capability that says "you may read this, but not in a file" is a
+ * distinction without a difference. It is **rate limited**, because unlike the listing it
+ * reads the whole result set and builds a workbook in memory — an unbounded repeat of that
+ * is the cheapest way to exhaust a serverless function.
+ *
+ * One of the few routes that does not answer with the `{ success, ... }` envelope, for the
+ * same reason the certificate PDF does not: the response body is the file. Failures still
+ * do, because a failure has no file to be.
+ */
+router.get(
+  '/admin/students/export',
+  requirePermission('students:read'),
+  exportLimiter,
+  validate({ query: exportStudentsQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const { scope, ...filters } = req.query as unknown as ExportStudentsQuery;
+
+      /**
+       * `scope: 'all'` discards the filters rather than the caller omitting them, so the
+       * request states which of the two it meant — see the schema.
+       */
+      const query = scope === 'all' ? { sort: filters.sort, order: filters.order } : filters;
+
+      const { entries, overflowed } = await collectStudentDirectory(query, EXPORT_MAX_ROWS);
+
+      if (overflowed) {
+        // Refused, never truncated. A spreadsheet quietly missing its last few thousand
+        // rows looks complete, gets filed, and is reconciled against months later.
+        sendError(
+          res,
+          413,
+          `That export would contain more than ${EXPORT_MAX_ROWS.toLocaleString('en-IN')} students, which is more than one file can carry. Narrow it with a class, a payment status or a registration date range and download it in parts.`,
+        );
+        return;
+      }
+
+      const generatedAt = new Date();
+      const workbook = await buildStudentExportWorkbook(entries, {
+        description: describeExport(scope, filters),
+        generatedAt,
+        // The account id, never a name or an address — the same identifier the audit
+        // trail uses, so the two can be read side by side.
+        generatedBy: req.user?.studentId ?? req.user?.email ?? 'unknown',
+      });
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${studentExportFilename(generatedAt)}"`);
+      res.setHeader('Content-Length', String(workbook.length));
+      // Personal data behind an authorization check: a shared cache must never hand one
+      // administrator's export to another request.
+      res.setHeader('Cache-Control', 'private, max-age=0, no-store');
+      res.send(workbook);
+    } catch (err) {
+      logger.error({ err }, 'Failed to export the student directory');
+      sendError(res, 500, 'Could not build that export. Please try again.');
     }
   },
 );

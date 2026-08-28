@@ -138,3 +138,259 @@
   flex-wrap: wrap;
   font-size: 0.88rem;
 }
+
+/* --------------------------------------------------------------------------
+ * Receipts (Milestone 22, Phase C)
+ * ----------------------------------------------------------------------- */
+
+.invoices {
+  margin-top: 22px;
+  padding: 22px;
+  text-align: left;
+}
+
+.invoices h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.invoicesLead {
+  margin: 0 0 16px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.invoiceList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.invoiceList li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.invoiceRowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.invoiceNumber {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.invoiceRowMeta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.invoiceRowActions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.invoiceView,
+.invoiceDownload,
+.invoiceClose {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.invoiceView,
+.invoiceClose {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.invoiceDownload {
+  border: none;
+  background: var(--royal-blue);
+  color: #fff;
+}
+
+/* --- The preview dialog --- */
+
+.invoiceBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.62);
+  overflow-y: auto;
+}
+
+.invoiceModal {
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 26px;
+  text-align: left;
+}
+
+.invoiceHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--gold);
+}
+
+.invoiceHead h3 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+}
+
+.invoiceTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.invoiceMuted {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.invoiceStrong {
+  margin: 0 0 2px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.invoiceMono {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.invoiceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 0;
+}
+
+.invoiceLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.invoiceFacts,
+.invoicePayment {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.invoiceFacts dt,
+.invoicePayment dt {
+  color: var(--text-muted);
+}
+
+.invoiceFacts dd,
+.invoicePayment dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.invoicePayment {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+
+.invoicePaid {
+  color: var(--success);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.invoiceTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.invoiceTable th,
+.invoiceTable td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.invoiceTable thead th {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.invoiceTable tfoot th {
+  font-size: 0.95rem;
+  border-bottom: none;
+}
+
+.invoiceAmount {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.invoiceWords {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.invoiceActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}

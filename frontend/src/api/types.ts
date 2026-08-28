@@ -35,6 +35,7 @@ export type Permission =
   | 'users:sessions:revoke'
   | 'users:role:write'
   | 'users:delete'
+  | 'content:reset'
 
 /**
  * Mirrors `CLASS_LEVELS` in `backend/src/lib/classLevels.ts`. Like the permission
@@ -162,6 +163,63 @@ export interface AdminPaymentsResponse {
   collectedDisplay: string
 }
 
+/**
+ * The organisation block on an invoice (Milestone 22).
+ *
+ * `addressLines`, `gstin` and `taxNote` are configured per deployment and are **absent
+ * rather than invented** when they are not — the page must render without them, and must
+ * not substitute anything of its own.
+ */
+export interface InvoiceIssuer {
+  name: string
+  addressLines: string[]
+  email: string
+  phone: string
+  website: string
+  gstin: string | null
+  taxNote: string | null
+}
+
+/**
+ * One invoice, from `GET /me/invoices` or `GET /me/invoices/:paymentId` (Milestone 22).
+ *
+ * There is no `Invoice` collection behind this: it is a rendering of a **captured**
+ * `Payment`, so the number is derived and stable and viewing one creates nothing. Every
+ * amount is a snapshot of what was charged — re-pricing the fee cannot change an invoice
+ * already issued.
+ */
+export interface StudentInvoice {
+  invoiceNumber: string
+  /** The capture date. An invoice is dated when the money was taken. */
+  invoiceDate: string
+  /** `Invoice`, or `Tax Invoice` where a GSTIN is configured. Decided by the server. */
+  title: string
+  issuer: InvoiceIssuer
+  buyer: {
+    name: string
+    studentId: string
+    email: string
+    mobile: string
+    classLevel: ClassLevel | null
+    schoolName: string | null
+    address: string | null
+  }
+  item: { description: string; amount: number; amountDisplay: string }
+  totalPaise: number
+  totalDisplay: string
+  totalInWords: string
+  currency: string
+  payment: {
+    id: string
+    status: 'captured'
+    method: string | null
+    razorpayOrderId: string
+    razorpayPaymentId: string | null
+    capturedAt: string
+    createdAt: string
+  }
+}
+
 /** `GET`/`PUT /admin/payment-settings`. */
 export interface PaymentSettingsResponse {
   olympiadEntryFee: number
@@ -203,6 +261,33 @@ export interface ManagedAccount {
   address: string | null
 }
 
+/**
+ * A student's rolled-up entry-payment state (Milestone 22).
+ *
+ * **Derived on the server from their `Payment` rows on every read**, never stored — the
+ * same rule the entitlement itself follows. `not_started` is a first-class value: a
+ * student who has never opened a checkout is a normal, expected member of the directory,
+ * not an absence.
+ */
+export type StudentPaymentState = 'paid' | 'pending' | 'failed' | 'refunded' | 'not_started'
+
+/**
+ * One row of `GET /admin/students` (Milestone 22).
+ *
+ * A `ManagedAccount` plus what the platform knows about that student's entry fee. The
+ * account half is the identical shape the other account endpoints return, which is why
+ * this extends rather than restates it — the two came apart once and the payment half was
+ * silently dropped from a row after a status change.
+ */
+export interface StudentDirectoryEntry extends ManagedAccount {
+  paymentState: StudentPaymentState
+  /** How many times this student has tried to pay. `0` for a student who never started. */
+  paymentAttempts: number
+  hasPaid: boolean
+  /** The captured payment if there is one, otherwise the latest attempt. */
+  payment: PaymentRecord | null
+}
+
 export interface Pagination {
   page: number
   limit: number
@@ -240,6 +325,7 @@ export type AuditAction =
   | 'subject.changed'
   | 'topic.changed'
   | 'admin.session.started'
+  | 'content.reset'
   | 'authz.denied'
 
 export interface AuditEntry {
