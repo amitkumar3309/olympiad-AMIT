@@ -95,7 +95,7 @@ export default function DailyChallengeCard() {
       </div>
 
       <p className={styles.challengeTaxonomy}>
-        {[question.subject?.name, question.topic?.name, question.subtopic?.name].filter(Boolean).join(' › ')}
+        {[question.topic?.name, question.subtopic?.name].filter(Boolean).join(' › ')}
       </p>
 
       <div className={styles.challengeQuestion}>

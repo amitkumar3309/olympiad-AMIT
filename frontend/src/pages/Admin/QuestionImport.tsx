@@ -4,6 +4,7 @@ import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
 import { api, ApiError, API_BASE } from '../../api/client'
+import { loadChapters } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
   DIFFICULTIES,
@@ -20,7 +21,6 @@ import {
   type ImportWarning,
   type ImportedQuestion,
   type QuestionType,
-  type Subject,
   type Topic,
 } from '../../api/types'
 import styles from './QuestionImport.module.css'
@@ -176,18 +176,12 @@ export default function QuestionImport() {
    * the examiner to pick it.
    */
   useEffect(() => {
-    api
-      .get<{ subjects: Subject[] }>('/subjects?status=active')
-      .then((res) => {
-        const first = res.subjects[0]
-        if (!first) {
-          setTopics([])
-          return
-        }
-        return api
-          .get<{ topics: Topic[] }>(`/topics?subject=${first.id}&parent=root&status=active`)
-          .then((r) => setTopics(r.topics))
-      })
+    // Via the shared resolver rather than `subjects[0]`, which was this page's own bug: taking the
+    // first active subject ignores the maths-named preference the server applies, so on a database
+    // holding a legacy second subject the chapter list here could be scoped to Physics while
+    // `requireImplicitSubject()` filed the import under Mathematics.
+    loadChapters()
+      .then(setTopics)
       .catch(() => setTopics([]))
   }, [])
 

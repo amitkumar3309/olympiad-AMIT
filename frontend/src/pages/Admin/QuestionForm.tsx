@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
+import { loadChapters } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
   DIFFICULTIES,
@@ -133,9 +134,8 @@ export default function QuestionForm() {
    * the old subject → topic cascade is gone with the dropdown that drove it.
    */
   useEffect(() => {
-    api
-      .get<{ topics: Topic[] }>('/topics?parent=root&status=active')
-      .then((res) => setTopics(res.topics))
+    loadChapters()
+      .then(setTopics)
       .catch(() => setTopics([]))
   }, [])
 

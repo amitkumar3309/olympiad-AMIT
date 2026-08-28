@@ -330,7 +330,13 @@ export default function Dashboard() {
                     {data.challenges.map((challenge) => (
                       <li key={challenge.subjectId}>
                         <div>
-                          <span className={styles.challengeName}>{challenge.subjectName}</span>
+                          {/*
+                            The class, not the subject. This row is per-subject in the API and there
+                            is exactly one, so printing its name told a student "Mathematics" on a
+                            mathematics olympiad's dashboard. The class is the fact that actually
+                            varies between two students looking at this tile.
+                          */}
+                          <span className={styles.challengeName}>{data.student.classLevel}</span>
                           <span className={styles.challengeMeta}>{challenge.difficulties.join(' · ')}</span>
                         </div>
                         <span className={styles.challengeCount}>

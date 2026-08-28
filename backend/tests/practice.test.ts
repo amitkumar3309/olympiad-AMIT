@@ -202,6 +202,31 @@ describe('GET /practice/options', () => {
     expect(res.body.subjects).toEqual([]);
   });
 
+  /**
+   * The Mathematics-only scope, enforced where it is served rather than where it is displayed.
+   *
+   * Milestone 21 Phase J removed the subject dropdown, and the practice page now flattens every
+   * subject's chapters into one list. On a database still holding a legacy second subject that
+   * turned a stray Physics chapter into an offer of maths practice. Hiding it in the browser would
+   * not have been enough — the session endpoint would still serve the questions.
+   */
+  it('does not offer another subject’s chapters now that nobody picks a subject', async () => {
+    const { adminCookies } = await seedBank();
+    const physics = await createTaxonomy(app, adminCookies, {
+      subject: 'Physics',
+      topic: 'Semiconductor Electronics',
+    });
+    await createPublishedQuestion(app, adminCookies, physics);
+
+    const { cookies } = await registerVerifyLogin(app);
+    const res = await request(app).get(`${API}/practice/options`).set('Cookie', cookieHeader(cookies)).expect(200);
+
+    expect(res.body.subjects).toHaveLength(1);
+    expect(res.body.subjects[0].subjectName).toBe('Mathematics');
+    const topicNames = res.body.subjects[0].topics.map((topic: { topicName: string }) => topic.topicName);
+    expect(topicNames).not.toContain('Semiconductor Electronics');
+  });
+
   it('refuses a guest', async () => {
     await request(app).get(`${API}/practice/options`).expect(401);
   });
@@ -273,6 +298,27 @@ describe('POST /practice/sessions', () => {
 
     const byTopic = await startSession(cookies, { topicId: taxonomy.topicId, questionCount: 10 });
     expect(byTopic.questions).toHaveLength(2);
+  });
+
+  /**
+   * The one that actually decides what a child is marked on: mixed practice must mean mixed
+   * *mathematics*. The picker sends no `subjectId` at all since Phase J, so without this the draw
+   * ran over every subject in the database and the answer-key snapshot would make a Physics
+   * question a real mark on a maths report.
+   */
+  it('draws mixed practice from the implicit subject only', async () => {
+    const { adminCookies } = await seedBank([{}, {}]);
+    const physics = await createTaxonomy(app, adminCookies, {
+      subject: 'Physics',
+      topic: 'Semiconductor Electronics',
+    });
+    for (let i = 0; i < 5; i += 1) await createPublishedQuestion(app, adminCookies, physics);
+
+    const { cookies } = await registerVerifyLogin(app);
+    const session = await startSession(cookies, { questionCount: 20 });
+
+    // Seven published questions exist for this class; only the two mathematics ones may be dealt.
+    expect(session.questions).toHaveLength(2);
   });
 
   it('rejects a malformed subject id instead of searching for it', async () => {

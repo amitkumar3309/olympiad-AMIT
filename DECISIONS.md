@@ -4,6 +4,62 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-28 — Every student-facing question path is scoped to the implicit subject
+
+**Decision**: `getPracticeAvailability()`, `startPracticeSession()`, `pickAutomaticQuestion()` and
+`getAvailableChallenges()` all filter by `findImplicitSubject()`. The two admin screens that choose
+what a child is served — the mock-test paper builder and the daily-challenge scheduler — pass
+`subject=<implicit>` to `/admin/questions`. The **Question Bank is deliberately left unscoped**.
+
+**Reason**: Phase J removed the subject picker, so the practice page stopped sending a `subjectId`
+and those queries became unfiltered across subjects. On a database holding a legacy Physics subject
+that meant a mathematics olympiad dealing Physics questions in mixed practice — and because a
+session snapshots its answer key at serve time, that is a real mark on a real report, not a display
+bug. The dashboard advertised them and the daily challenge could pin one for a whole class.
+
+**Why in the service, not the page**: the practice page flattens the API’s subject grouping into
+one chapter list, so it *could* have filtered there. But the guarantee wanted is that the product
+**serves** mathematics, not that one screen hides the rest — the session endpoint would still have
+dealt the questions to anything that asked.
+
+**Why the Question Bank stays unscoped**: it is where an administrator finds and manages legacy
+data. Hiding a published question from the only people who can unpublish it is worse than showing
+it. The two *pickers* are a different job and are scoped.
+
+**`null` leaves the query unscoped**, matching `suggestPaper()`: refusing to serve any practice
+because legacy data is ambiguous would break a working feature over a condition a student can
+neither see nor fix.
+
+**Consequences**: `scripts/retire-extra-subjects.ts` is the way to retire the legacy subject now
+that the interface has no subject management. Archiving is enough — every availability pipeline
+already matches `subjectDoc.status: 'active'`, and with one active subject the implicit resolution
+stops depending on a name match. Adding a genuine second subject later means revisiting this ADR,
+not deleting it: the scoping is what would need a per-student or per-paper subject choice.
+
+---
+
+## 2026-08-28 — One frontend resolver for the implicit subject
+
+**Decision**: `frontend/src/api/implicitSubject.ts` is the only place the browser decides which
+subject the product is. It mirrors `findImplicitSubject()` exactly, **including returning null**
+when several subjects exist and none is named for mathematics.
+
+**Reason**: five screens had no resolution at all and listed every subject’s chapters; a sixth used
+`subjects[0]`, which ignores the maths-named preference the server applies and could therefore have
+scoped a bulk import to Physics while the server filed it under Mathematics. Three answers to one
+question is how a chapter list comes to disagree with what the page writes.
+
+**Why it mirrors the null rather than falling back to the first subject**: a fallback would show an
+examiner chapters the server would then refuse to write to. An empty list that explains itself is
+better than a populated one that fails on save.
+
+**Consequences**: keep the two in step — if `findImplicitSubject()` changes, this changes with it.
+A new chapter picker should call `loadChapters()`; a screen that also needs to filter questions
+should call `loadChapterScope()`, which returns the id and the chapters together so it cannot
+filter by one subject while listing another’s chapters.
+
+---
+
 ## 2026-08-28 — Classes run 3–12, and the three Class 12 streams collapse into one
 
 **Decision**: `CLASS_LEVELS` becomes a flat ten — `Class 3` … `Class 12`. Class 3 and 4 are new;

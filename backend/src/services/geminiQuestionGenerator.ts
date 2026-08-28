@@ -611,8 +611,13 @@ export const geminiQuestionGenerator: QuestionGenerator = {
     id: GEMINI_GENERATOR_ID,
     label: 'Google Gemini',
     kind: 'model',
+    // "the subject" was dropped from this sentence in Milestone 21 Phase J: the examiner no longer
+    // chooses one, so naming it as something they picked described a control that is not on the
+    // screen. The prompt still *tells* the model the subject — that is information it needs — and
+    // the injection fence further up must go on naming it among the things a preference cannot
+    // override. What changed is only who chose it.
     basis:
-      'Written by Google Gemini from the subject, chapters, class and difficulty you chose. ' +
+      'Written by Google Gemini from the chapters, class and difficulty you chose. ' +
       'No student data is sent. Every question is checked by the same rules as a hand-written ' +
       'one, and nothing is saved until you approve it.',
   },

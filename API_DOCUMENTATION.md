@@ -896,8 +896,12 @@ All six routes are gated on `requireAuth()` and resolve the caller's own account
 ### `GET /api/v1/practice/options`
 Real availability for the caller's class: subjects → topics with per-topic question counts and only the difficulties that actually exist. An empty bank returns `{ subjects: [] }`; an account with no class returns `reason: 'no-class'`. The picker is built from this, so a combination with nothing behind it can never be selected.
 
+**Scoped to the implicit subject** since Milestone 21 Phase L, so the response holds at most one subject entry. Before Phase J the page had a subject dropdown; it now flattens the grouping into one chapter list, which on a database holding a legacy second subject offered "Semiconductor Electronics" as maths practice. The grouped shape is kept because a genuine second subject would make it meaningful again. Where no subject resolves (none exist, or several with none named for mathematics) the filter is dropped rather than returning nothing.
+
 ### `POST /api/v1/practice/sessions`
 Body: optional `subjectId`, `topicId`, `difficulty`; `questionCount` (1–50, default 10). **`classLevel` is not accepted** — the paper is always drawn for the student's own class, so a Class 6 student cannot request the Class 12 paper (asserted by test).
+
+**With no `subjectId` the implicit subject is applied**, so "mixed practice" means mixed *mathematics*. A caller that names one is trusted and left alone — that is a deliberate narrowing, not the absence of one. This matters more than the availability scope above, because a session snapshots its answer key at serve time: an unfiltered draw made a Physics question a real mark on a maths report.
 
 Draws with `$sample`, so repeating the same filters gives fresh questions — the opposite of the daily challenge, which is deterministic on purpose. Fewer questions than asked for is not an error. Returns **409** when nothing published matches, rather than opening an empty session. Rate limited (120/hour).
 

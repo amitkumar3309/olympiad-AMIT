@@ -4,6 +4,46 @@ Log real problems + solutions here as they're encountered, so we don't re-solve 
 
 ---
 
+## Physics chapters, or another subject’s questions, appearing in a mathematics olympiad
+
+### A chapter picker lists chapters nobody recognises
+
+**Cause**: the database holds more than one `Subject`, and the screen is not scoping by the
+implicit one. Every chapter picker must go through `loadChapters()` (or `loadChapterScope()`) from
+`frontend/src/api/implicitSubject.ts` — a raw `api.get('/topics?parent=root')` returns **every**
+subject’s chapters.
+
+**Fix**: use the resolver. If the list is empty instead, that is the resolver reporting it cannot
+tell which subject is meant — see below.
+
+### Practice offers fewer questions than the bank contains
+
+**Expected, since Phase L.** Practice, the daily challenge and the dashboard tile are scoped to the
+implicit subject, so questions filed under any other subject are counted in the Question Bank but
+never served. That is the point: they are not mathematics.
+
+Run `npm run retire:subjects --prefix backend` to see the split — it prints every active subject
+with its chapter and question counts and changes nothing.
+
+### "No subject could be resolved" on the Chapters page
+
+**Cause**: either the database has no subject at all (first run), or it has several and none is
+named for mathematics. The resolver returns `null` in both cases rather than guessing, and the
+server refuses the same case for the same reason — so nothing on the page would save.
+
+**Fix**: rename the subject the chapters belong under to `Mathematics`. The product resolves its
+one implicit subject by that name (`/^(math|maths|mathematics)$/i`). Then run
+`npm run retire:subjects --prefix backend -- --write` to archive the rest.
+
+### The Question Bank still lists another subject’s questions
+
+**Intended.** The Question Bank is deliberately **not** subject-scoped: it is where an
+administrator finds and manages legacy data, and hiding a published question from the only people
+who can unpublish it would be worse than showing it. The two pickers that decide what a child is
+served — the mock-test paper builder and the daily-challenge scheduler — *are* scoped.
+
+---
+
 ## After the Class 12 merge: a duplicate-key error, or a class that no longer exists
 
 ### `E11000 duplicate key` on `dailychallenges` during the migration

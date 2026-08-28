@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
+import { loadChapters } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
   DIFFICULTIES,
@@ -109,17 +110,19 @@ export default function Questions() {
   const navigate = useNavigate()
 
   /**
-   * Every chapter, loaded once.
+   * The implicit subject's chapters, loaded once.
    *
-   * There is **no subject filter** any more: AMIT is a mathematics olympiad, so the subject is
-   * implicit and a one-item dropdown was a control nobody could get wrong and everybody had to
-   * touch. The chapters endpoint takes no subject, so the cascade it used to require is gone with
-   * it — the list simply loads.
+   * There is **no subject dropdown** any more: AMIT is a mathematics olympiad, so the subject is
+   * implicit and a one-item control was one nobody could get wrong and everybody had to touch.
+   *
+   * The subject filter did not go away with it, though — `Topic` is still scoped by subject, and a
+   * database may hold a legacy second one. `loadChapters()` resolves which subject that is exactly
+   * as the server does, because a filter listing another subject's chapters on a screen that no
+   * longer mentions subjects is unexplainable to whoever reads it.
    */
   useEffect(() => {
-    api
-      .get<{ topics: Topic[] }>('/topics?parent=root&status=active')
-      .then((res) => setTopics(res.topics))
+    loadChapters()
+      .then(setTopics)
       .catch(() => setTopics([]))
   }, [])
 

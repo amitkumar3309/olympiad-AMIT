@@ -588,9 +588,20 @@ export async function getStudentAnalytics(student: Types.ObjectId): Promise<Stud
   }
 
   // --- Strong and weak areas ---
+  /**
+   * Chapters and difficulties, but **not subjects** (Milestone 21 Phase J).
+   *
+   * With a single implicit subject, a subject-scope area is arithmetically the overall figure with
+   * a name on it — so the page told a child their weak area was "Mathematics", which is the whole
+   * product and not something anyone can act on. It is the same reason the "By subject" table was
+   * removed from the page: one subject makes it a restatement dressed as a finding.
+   *
+   * `subjectCounts` is still assembled and still returned as `bySubject`, because the shape is part
+   * of the response and a second subject would make it meaningful again. What is dropped is only
+   * its promotion into *advice*.
+   */
   const areaCandidates: AreaRow[] = [
     ...[...topicCounts.entries()].map(([id, entry]) => ({ scope: 'topic' as const, id, name: entry.name, counts: entry.counts })),
-    ...[...subjectCounts.entries()].map(([id, entry]) => ({ scope: 'subject' as const, id, name: entry.name, counts: entry.counts })),
     ...[...difficultyCounts.entries()].map(([id, counts]) => ({ scope: 'difficulty' as const, id, name: id, counts })),
   ]
     .filter((candidate) => candidate.counts.answered >= MIN_AREA_SAMPLE)

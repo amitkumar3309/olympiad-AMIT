@@ -180,8 +180,35 @@ These are backend capabilities, not user-facing features. `TESTED` here means co
 | Auth state restoration | IMPLEMENTED | NOT_STARTED | `AuthContext` tries `/auth/me`, then one `/auth/refresh`, before concluding "guest". Verified by a real browser reload, not by automated test. |
 | Transparent token refresh (frontend) | IMPLEMENTED | NOT_STARTED | `api/client.ts` retries once after a 401, de-duplicating concurrent refreshes through a shared promise so rotation cannot trip theft detection. Verified manually. |
 
+## Mathematics-only scope (Milestone 21, Phases J and L) — ENFORCED, not just hidden
+
+Phase J removed every user-facing Subject control. Phase L found that removing the *control* had
+left the *queries* unfiltered, and closed that.
+
+| Surface | State |
+| --- | --- |
+| Practice availability (`/practice/options`) | Scoped to the implicit subject |
+| Practice session draw (`POST /practice/sessions`) | Scoped when the caller names no subject |
+| Daily challenge automatic pick | Scoped |
+| Dashboard "Available practice" tile | Scoped |
+| Chapter pickers (6 screens) | Scoped, via one shared frontend resolver |
+| Mock-test paper builder — question picker | Scoped (`subject=<implicit>`) |
+| Daily-challenge scheduler — question picker | Scoped (`subject=<implicit>`) |
+| **Question Bank (`/admin/questions`)** | **Deliberately unscoped** — legacy data must stay manageable |
+| Analytics strengths/weaknesses | No subject-scope findings |
+| Any subject name rendered to a user | None |
+
+What is **not** done, and is deliberate: there is no second-subject product. `Subject`, `/subjects`
+and `Question.subject` all still exist and the architecture is still open to one, but nothing seeds
+one, nothing offers a choice, and adding one back means revisiting the two Phase L ADRs rather than
+flipping a flag.
+
+Retiring legacy subject data is `npm run retire:subjects --prefix backend` (report-only until
+`--write`). **Not yet run against production.**
+
 ## Summary counts
 
+- **New in Milestone 21**: bulk question import from Excel, Word and photographs (two-phase, nothing written until approval); deterministic chapter detection; chapter-wise and whole-syllabus paper building; classes narrowed to **3–12** with the three Class-12 streams collapsed; and the **Mathematics-only scope**, which Phase L turned from a hidden control into an enforced query (see the table above). Two new dependencies (`exceljs`, `mammoth`), one new model (`ImportBatch`), two new scripts (`migrate:classes`, `retire:subjects`), **no new permission** (it reuses `questions:write`).
 - **New in Milestone 20**: the AI generator on the official `@google/genai` SDK with structured output; subtopic support; a dry-run validation endpoint; a rejection-recording endpoint; per-question selection and approval; advisory quality warnings (`lib/questionQuality.ts`, pure); `Question.provenance` and a `source` filter on the admin listing; `GenerationLog.rejectedByReviewer`; a `generationLimiter`; four new optional env vars; and `npm run verify:gemini`. **One new dependency** (`@google/genai`, free, official, owner-instructed), **no new model**, **no new permission** (it reuses `questions:write`), **no new page**.
 - **New in Milestone 16**: performance recommendations (five kinds, on `/analytics`), and the swappable engine seam behind them. No new model, no new permission, no new dependency, no new page — one new endpoint and one new environment variable with a working default.
 - IMPLEMENTED end-to-end (user-facing): Registration (the full entrant record), Email verification, Login, Logout, Forgot password, Reset password, Admin auth (root + promoted), RBAC, Student management, Admin dashboard, Audit logs, Photo upload/storage, Question bank, Deployment config, Student profile, Account settings, Student dashboard, XP, Levels, Streaks, Achievements, Badges, Journey map, the reward engine, Practice Zone, Mock tests, Daily challenge, Leaderboards, Hall of Fame, Gallery, in-app Notifications, platform Analytics, the official exam, published Results, Certificates and public certificate verification — and, **new in Milestone 14, system notifications, email notifications on a non-blocking outbox, notification preferences and an email delivery console**.

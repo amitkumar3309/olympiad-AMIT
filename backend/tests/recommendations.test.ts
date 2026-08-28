@@ -398,16 +398,20 @@ describe('practice recommendations', () => {
     const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
     const { studentId } = await registerVerifyLogin(app);
     const seen = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
-    const unseen = await createTaxonomy(app, adminCookies, { subject: 'Physics', topic: 'Optics' });
+    // Both chapters under the one subject. This used to file the unseen one under "Physics" purely
+    // to make it distinct, which stopped being a neutral choice once practice availability became
+    // scoped to the implicit subject — a second subject's chapter is now correctly unreachable, so
+    // the fixture was asserting the recommendation of something a student could never practise.
+    const unseen = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Mensuration' });
     const seenIds = await publishMany(adminCookies, seen, 10);
     await publishMany(adminCookies, unseen, 7);
 
     await seedTopicRecord(studentId, seenIds, 20, 15);
 
     const result = await recommendationsFor(studentId);
-    const gap = result.practice.find((entry) => entry.title.includes('Optics'))!;
+    const gap = result.practice.find((entry) => entry.title.includes('Mensuration'))!;
 
-    expect(gap.title).toBe('You have not tried Optics');
+    expect(gap.title).toBe('You have not tried Mensuration');
     expect(gap.detail).toContain('7 published questions');
     // A statement about which questions were served, counted exactly — not a sample.
     expect(gap.confidence).toBe('high');

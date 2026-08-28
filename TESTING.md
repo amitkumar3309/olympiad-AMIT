@@ -618,3 +618,34 @@ empty, and `Class` alone. Each asserts `not.toBe(500)` as well as the 400.
 
 **If you change the class range again**, the only test that should need editing is the one that
 asserts the range. If others break, they are asserting a copy.
+
+---
+
+## Phase L: what a green backend suite did not catch
+
+Phase L ran the full gate and it was green — and then found **seven defects** by driving the
+product in a browser. Every one lived in the frontend, which has no test suite, or in a service
+path no test exercised with more than one subject in the database.
+
+That is the lesson worth keeping: **most fixtures create exactly one subject**, so a bug whose
+precondition is "two subjects exist" is invisible to almost the whole suite. The four new tests
+all deliberately create a second one:
+
+- `practice.test.ts` — options do not offer another subject’s chapters
+- `practice.test.ts` — mixed practice draws from the implicit subject only (seven published
+  questions for the class, of which only two may be dealt)
+- `dailyChallenge.test.ts` — the automatic pick never lands on another subject (eleven Physics
+  against one maths, so an unscoped pick fails by weight rather than by luck of the seed)
+- `dashboard.test.ts` — the availability tile does not advertise another subject’s questions
+
+### `createTaxonomy()` now reuses an existing subject
+
+It used to `.expect(201)` on subject creation, so calling it twice with the same subject name
+died on the unique index with a bare 409. A test that wants **two chapters of one subject** has
+to call it twice, and since Phase J that is the ordinary case — reaching for a second subject
+name to get a distinct chapter now means asserting on something a student can never reach.
+
+One recommendations fixture was doing exactly that (`Physics/Optics` as "a topic never served")
+and had to move onto a second mathematics chapter. If a fixture of yours starts failing after a
+scoping change, check whether it is using a second *subject* where it only needed a second
+*chapter*.

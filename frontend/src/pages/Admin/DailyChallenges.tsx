@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
+import { loadImplicitSubject } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
   type AdminDailyChallenge,
@@ -60,6 +61,20 @@ export default function AdminDailyChallenges() {
 
   const [classFilter, setClassFilter] = useState<ClassLevel | ''>('')
 
+  /**
+   * The subject the question picker filters by.
+   *
+   * A challenge is served to a whole class, so this screen must not offer a question from a legacy
+   * subject the rest of the product no longer serves. The Question Bank stays unscoped so that data
+   * remains manageable; the screens that decide what a child sees do not.
+   */
+  const [pickerSubject, setPickerSubject] = useState<string | null>(null)
+  useEffect(() => {
+    loadImplicitSubject()
+      .then((subject) => setPickerSubject(subject?.id ?? null))
+      .catch(() => setPickerSubject(null))
+  }, [])
+
   // The scheduling form
   const [day, setDay] = useState('')
   const [classLevel, setClassLevel] = useState<ClassLevel>('Class 9')
@@ -103,6 +118,9 @@ export default function AdminDailyChallenges() {
       setPickerLoading(true)
       try {
         const params = new URLSearchParams({ status: 'published', classLevel, limit: '50' })
+        // Only the implicit subject's questions may be scheduled. Omitted while it is still
+        // resolving rather than sent empty, which the schema would refuse as a malformed id.
+        if (pickerSubject) params.set('subject', pickerSubject)
           if (appliedSearch) params.set('search', appliedSearch)
         const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
         if (isCurrent()) setAvailable(res.questions)
@@ -112,7 +130,7 @@ export default function AdminDailyChallenges() {
         if (isCurrent()) setPickerLoading(false)
       }
     },
-    [classLevel, appliedSearch],
+    [classLevel, appliedSearch, pickerSubject],
   )
 
   /**
@@ -299,7 +317,7 @@ export default function AdminDailyChallenges() {
                   <div className={styles.bankStem}>
                     <MathText>{question.questionText.slice(0, 120)}</MathText>
                     <span className={styles.bankMeta}>
-                      {question.subject?.name ?? '—'} · {question.difficulty} · {question.marks} marks
+                      {question.topic?.name ?? '—'} · {question.difficulty} · {question.marks} marks
                     </span>
                   </div>
                   <button

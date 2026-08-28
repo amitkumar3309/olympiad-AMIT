@@ -200,7 +200,7 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Current Milestone
 
-**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–K COMPLETE; only L (full regression) remains.**
+**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. ALL PHASES A–L COMPLETE.**
 
 **Phase J (Classes 3–12, and Subject out of the interface) is implemented and verified.**
 
@@ -233,7 +233,45 @@ Verified in a browser: every page offers Class 3–12 and shows no Subject contr
 Chapters page has no trace of subject management, and a question was created through the API with
 **no subject sent at all** — derived from its chapter, filed under Class 3.
 
-**Suite: 1125 passing across 31 files.**
+**Phase L (full regression) is complete, and it was not a formality.**
+
+The gate was green before it started and stayed green throughout — the regression was run by
+driving the whole product in a browser against the local database, as a student and as an
+administrator. It found **seven defects**, every one of them in the frontend (which has no test
+suite) or in a service path no test had ever exercised with more than one subject in the database.
+
+All seven trace to one cause: Phase J removed the **subject picker** from every screen, but `Topic`
+is still scoped by subject and a database may still hold a legacy second subject. Six screens went
+from "the student picked Mathematics, so they see mathematics" to no filter at all.
+
+- **A mathematics olympiad was serving Physics.** Practice availability, practice session draws,
+  the daily challenge’s automatic pick and the dashboard tile all filtered by class and status and
+  **not by subject**. Mixed practice therefore drew from every subject in the database — and a
+  practice session snapshots its answer key at serve time, so a Physics question dealt to a child
+  became a real mark on a real report. On this project’s own seeded database that was **104
+  published Physics questions** in the pool. All four are now scoped in the *service*.
+- **Five screens listed every subject’s chapters** (26 instead of 13), and a sixth scoped by
+  `subjects[0]` rather than the maths-named preference the server applies. All six now go through
+  one resolver, `frontend/src/api/implicitSubject.ts`.
+- **The two admin pickers that decide what a child is served** now pass `subject=<implicit>`. The
+  Question Bank stays unscoped on purpose — it is where legacy data is managed.
+- **Analytics told a child their weak area was "Mathematics"** — a subject-scope finding is the
+  overall accuracy wearing a name. Dropped from the advice; `bySubject` is still returned.
+- **Seven places printed a subject name to a user**, mostly as a `Mathematics ›` breadcrumb prefix.
+
+Also verified end to end in the browser: registration offers exactly Class 3–12; the Excel template
+round-trips (download → upload → 5/5 accepted, all five question types → dry run agrees with
+approval → saved as **drafts** with `source: excel_import`, `generatorKind: deterministic` and the
+subject **derived from the chapter**); a practice session serves **no answer-key field** in progress
+and reveals the key only after submission; and the review page grades correctly.
+
+> **`npm run retire:subjects --prefix backend` is new and is the owner’s to run.** Phase J left no
+> way to retire a legacy subject once subject management was removed from the interface. It is
+> report-only until `--write`, archives and nothing else — no question is deleted, edited,
+> unpublished or moved — and **refuses** if no subject is named for mathematics rather than
+> archiving them all. Verified locally: 2 active → 1 archived, 208 questions untouched.
+
+**Suite: 1129 passing across 31 files.**
 
 **Latest verified state: 1121 passing across 31 files.** `npm run lint`, `npm run compile` and the
 frontend `tsc -b` + `npm run build` are clean. (The one `npm run typecheck` failure is a concurrent

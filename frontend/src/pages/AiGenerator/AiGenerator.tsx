@@ -4,6 +4,7 @@ import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import MathText from '../../components/MathText'
 import { api, ApiError } from '../../api/client'
+import { loadChapters } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
   DIFFICULTIES,
@@ -120,9 +121,8 @@ export default function AiGenerator() {
      * `generateQuestionsSchema`. The prompt still *names* the subject, because "write me a
      * Mathematics question" is information the model needs; what changed is that nobody chooses it.
      */
-    api
-      .get<{ topics: Topic[] }>('/topics?parent=root&status=active')
-      .then((res) => setTopics(res.topics))
+    loadChapters()
+      .then(setTopics)
       .catch(() => setTopics([]))
     api
       .get<QuestionGeneratorStatus>('/admin/question-generator')

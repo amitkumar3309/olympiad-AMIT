@@ -2,6 +2,123 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-28 — Milestone 21, Phase L: the regression pass, and what it found
+
+Phase L was meant to be "run everything and confirm it is green". The backend suite was already
+green and stayed green; what the pass actually found was **seven defects in the frontend**, which
+has no test suite at all. Every one was introduced or exposed by Phase J, and none was visible
+from the backend.
+
+The common cause is worth stating once: Phase J removed the **subject picker** from every screen,
+but `Topic` is still scoped by subject and a database may still hold a legacy second subject. Six
+screens went from "the student picked Mathematics, so they see mathematics" to "no filter at all".
+
+### A mathematics olympiad was serving Physics
+
+The most serious of them. `getPracticeAvailability()`, `startPracticeSession()`,
+`pickAutomaticQuestion()` (the daily challenge) and `getAvailableChallenges()` (the dashboard tile)
+all filtered by class and status and **not by subject**. Since Phase J the practice page sends no
+`subjectId` at all, so:
+
+- the practice picker listed "Semiconductor Electronics" among the calculus;
+- **mixed practice drew from every subject in the database**, and because a practice session
+  snapshots its answer key at serve time, a Physics question dealt to a child became a real mark
+  on a real report;
+- the daily challenge could pin one for a whole class — worse, because a challenge is *pinned*
+  and would stand as that day’s record for everyone;
+- the dashboard advertised "Physics · 104 questions".
+
+On this project’s own seeded database that was **104 published Physics questions** in the pool.
+
+All four are now scoped to the implicit subject, in the service rather than in the browser: the
+guarantee wanted is that the product *serves* mathematics, not that one screen happens to hide the
+rest. `null` (genuinely ambiguous) still leaves the query unscoped, matching `suggestPaper()` —
+refusing to serve any practice at all because legacy data is ambiguous would break a working
+feature over a condition a student can neither see nor fix.
+
+### Five screens listed every subject’s chapters
+
+`Chapters`, the question editor, the Question Bank filter, the mock-test paper builder and the AI
+generator all fetched `/topics?parent=root` **unscoped**, so they listed all 26 chapters of both
+subjects in one undifferentiated list — on screens that have deliberately stopped mentioning
+subjects, so nothing explained why "Alternating Current" was there. Filing a question under one
+would have placed it outside the pool every student practises from.
+
+A sixth, the bulk importer, scoped correctly but by `subjects[0]` — ignoring the maths-named
+preference the server applies, so it could have scoped to Physics while the server filed under
+Mathematics.
+
+All six now go through **one** resolver, `frontend/src/api/implicitSubject.ts`, which mirrors
+`findImplicitSubject()` exactly **including its null**: none → null, one → that one, otherwise the
+maths-named one and null if there is not one. It deliberately does *not* fall back to the first
+subject, because that would show an examiner chapters the server would refuse to write to.
+
+### The two pickers that decide what a child is served
+
+The mock-test paper builder and the daily-challenge scheduler list questions from
+`/admin/questions`, which is **not** subject-scoped — correctly, because the Question Bank is where
+an administrator finds and manages legacy data, and hiding it from the only people who can fix it
+would be worse. But those two screens are not managing the bank; they are choosing what to serve.
+Both now pass `subject=<implicit>`. The Question Bank itself is untouched.
+
+### "Your weak area is Mathematics"
+
+Analytics promoted a **subject-scope** area into strengths and weaknesses. With one subject that is
+the overall accuracy wearing a name, so the page told a child their weak area was the entire
+product. Dropped from `areaCandidates` — the same reasoning that removed the "By subject" table in
+Phase J. `bySubject` is still assembled and still returned; what is dropped is only its promotion
+into *advice*.
+
+Alongside it, the recommendation copy read "8 published questions in Integrals **(Mathematics)**"
+on every line, and the generator’s own description claimed questions were written "from the
+**subject**, chapters, class and difficulty you chose" — a control that is no longer on the screen.
+The prompt still *tells* the model the subject, and the injection fence still names it among the
+things an examiner’s preference cannot override; what changed is only who chose it.
+
+### Seven more places printed the subject to a user
+
+The practice runner, the mock-test runner, the daily-challenge page and card, the dashboard tile,
+and the two admin question pickers all rendered `subject.name` — mostly as a `Mathematics ›`
+breadcrumb prefix. All now show the chapter, which is the fact that actually varies. The dashboard
+tile shows the **class** instead, for the same reason.
+
+### `scripts/retire-extra-subjects.ts`
+
+Phase J removed subject management from the interface, which left no way to retire a legacy
+subject — so this is that screen. `npm run retire:subjects`, report-only until `--write`, guarded
+by `assertConfiguredForWrites()` like every other script here.
+
+It sets `Subject.status = 'archived'` and **nothing else**: no question is deleted, edited,
+unpublished or moved. Archiving is what the aggregations already understand — they match
+`subjectDoc.status: 'active'` — and it is what makes `findImplicitSubject()` stop depending on a
+*name* matching `/^(math|maths|mathematics)$/`. If no subject is named for mathematics it **stops
+without archiving anything**, because the alternative is archiving every subject and leaving the
+product with no taxonomy; renaming one field is the cheaper fix.
+
+Verified against the local database: 2 active → 1 archived, all 208 questions still present and
+still published.
+
+### Tests
+
+Four regression tests, each pinning a path the browser found and the suite did not:
+
+- practice options do not offer another subject’s chapters;
+- **mixed practice draws from the implicit subject only** — seven published questions for the
+  class, of which only the two mathematics ones may be dealt;
+- the daily challenge never picks another subject’s question (eleven Physics against one maths,
+  so an unscoped pick would land on Physics by weight rather than by luck of the seed);
+- the dashboard tile does not advertise another subject’s questions.
+
+`createTaxonomy()` now **reuses** an existing subject instead of insisting on a 201. A test wanting
+two chapters of the same subject has to call it twice, and since Phase J that is the ordinary case
+— reaching for a second subject name to get a distinct chapter now means testing something a
+student can never reach. One recommendations fixture was doing exactly that and had to be moved
+onto a second mathematics chapter.
+
+**1129 tests across 31 files.**
+
+---
+
 ## 2026-08-28 — Milestone 21, Phase J: Classes 3–12, and Subject leaves the interface
 
 ### Classes 3 to 12

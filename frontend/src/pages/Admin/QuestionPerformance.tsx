@@ -283,8 +283,11 @@ export default function QuestionPerformance() {
                       <tr key={row.id}>
                         <td className={styles.preview}>{row.preview}</td>
                         <td className={styles.muted}>
+                          {/*
+                            The chapter alone. The subject used to sit under it as a sub-label, which
+                            with one implicit subject printed "Mathematics" on every row of the table.
+                          */}
                           {row.topicName ?? '—'}
-                          {row.subjectName && <span className={styles.sub}>{row.subjectName}</span>}
                         </td>
                         <td className={styles.muted}>{row.difficulty}</td>
                         <td>{row.served}</td>

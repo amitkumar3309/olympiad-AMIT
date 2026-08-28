@@ -193,6 +193,31 @@ describe('today’s challenge', () => {
     expect(await DailyChallenge.countDocuments({})).toBe(1);
   });
 
+  /**
+   * The automatic pick is scoped to the implicit subject for the reason practice is — but it matters
+   * more here, because a challenge is **pinned** once served. An unscoped pick would not be one
+   * student's odd session; it would stand as the whole class's record for that day.
+   *
+   * Eleven Physics questions against one mathematics one, so an unscoped pick would land on Physics
+   * with high probability rather than by luck of the seed.
+   */
+  it('never picks another subject’s question as the day’s maths challenge', async () => {
+    const { adminCookies } = await seedBank([{ questionText: 'The only maths one?' }]);
+    const physics = await createTaxonomy(app, adminCookies, {
+      subject: 'Physics',
+      topic: 'Semiconductor Electronics',
+    });
+    for (let i = 0; i < 11; i += 1) {
+      await createPublishedQuestion(app, adminCookies, physics, { questionText: `Physics filler ${i}?` });
+    }
+
+    const { cookies } = await registerVerifyLogin(app);
+    const today = await getToday(cookies);
+
+    expect(today.status).toBe(200);
+    expect(today.body.challenge.question.questionText).toBe('The only maths one?');
+  });
+
   it('serves the same pinned question to every student in the class', async () => {
     await seedBank([{}, {}, {}, {}, {}]);
     const { cookies: a } = await registerVerifyLogin(app);

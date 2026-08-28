@@ -1,6 +1,7 @@
 import type { PipelineStage, Types } from 'mongoose';
 import type { ClassLevel } from '../lib/classLevels';
 import { Question, STUDENT_VISIBLE_STATUSES } from '../models';
+import { findImplicitSubject } from './taxonomyService';
 
 /**
  * What a student can actually practise, derived from the published question bank.
@@ -36,9 +37,21 @@ interface SubjectChallengeRow {
  * `STUDENT_VISIBLE_STATUSES` rather than a literal `'published'`, so this can never
  * drift from what the student-facing question endpoints will actually serve.
  */
-function availabilityPipeline(classLevel: ClassLevel): PipelineStage[] {
+function availabilityPipeline(classLevel: ClassLevel, subject: Types.ObjectId | null): PipelineStage[] {
+  const match: Record<string, unknown> = { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } };
+
+  /**
+   * Scoped to the implicit subject, like practice availability and the daily challenge.
+   *
+   * Here it is not merely tidiness. Once `getPracticeAvailability()` and `startPracticeSession()`
+   * became subject-scoped, an unscoped row on this tile advertised practice the student could not
+   * then start — the dashboard offered "Physics · 104 questions" and the practice page had nothing
+   * to show for it. A promise the next screen cannot keep is worse than an absent one.
+   */
+  if (subject) match.subject = subject;
+
   return [
-    { $match: { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } } },
+    { $match: match },
     {
       $group: {
         _id: '$subject',
@@ -58,7 +71,8 @@ function availabilityPipeline(classLevel: ClassLevel): PipelineStage[] {
 }
 
 export async function getAvailableChallenges(classLevel: ClassLevel): Promise<SubjectChallenge[]> {
-  const rows = await Question.aggregate<SubjectChallengeRow>(availabilityPipeline(classLevel));
+  const subject = await findImplicitSubject();
+  const rows = await Question.aggregate<SubjectChallengeRow>(availabilityPipeline(classLevel, subject));
 
   return rows.map((row) => ({
     subjectId: String(row._id),

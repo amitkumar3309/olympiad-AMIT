@@ -551,6 +551,37 @@ describe('available challenges', () => {
     expect(dashboard.challenges[0].difficulties).toEqual(['Hard', 'Medium']);
   });
 
+  /**
+   * The tile must not advertise practice the practice page then refuses to start.
+   *
+   * `getPracticeAvailability()` and `startPracticeSession()` became subject-scoped in Milestone 21
+   * Phase J, so an unscoped tile here offered "Physics · 104 questions" against a practice page with
+   * nothing to show for it. A promise the next screen cannot keep is worse than an absent one.
+   */
+  it('does not advertise another subject’s questions', async () => {
+    const { cookies: adminCookies } = await createAdminSession(app, {
+      firstName: 'Staff',
+      lastName: 'Member',
+      mobile: '9000000001',
+      email: 'staff@example.com',
+    });
+    const maths = await createTaxonomy(app, adminCookies);
+    await createPublishedQuestion(app, adminCookies, maths, { classLevel: 'Class 9' });
+
+    const physics = await createTaxonomy(app, adminCookies, {
+      subject: 'Physics',
+      topic: 'Semiconductor Electronics',
+    });
+    await createPublishedQuestion(app, adminCookies, physics, { classLevel: 'Class 9' });
+
+    const { cookies } = await registerVerifyLogin(app, { ...otherStudent, classLevel: 'Class 9' });
+    const dashboard = await loadDashboard(cookies);
+
+    expect(dashboard.challenges).toHaveLength(1);
+    expect(dashboard.challenges[0].subjectName).toBe('Mathematics');
+    expect(dashboard.challenges[0].questionCount).toBe(1);
+  });
+
   it('does not offer questions written for a different class', async () => {
     const { cookies: adminCookies } = await createAdminSession(app, {
       firstName: 'Staff',

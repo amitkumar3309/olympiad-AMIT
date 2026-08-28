@@ -13,6 +13,7 @@ import {
 } from '../models';
 import { refView, studentQuestionView } from './questionView';
 import { gradeEntries, gradeEntry, isAnswered, type GradeOutcome } from './grading';
+import { findImplicitSubject } from './taxonomyService';
 
 /**
  * The marking rules moved to `services/grading.ts` in Milestone 7, when mock tests
@@ -83,9 +84,28 @@ interface AvailabilityRow {
  * list and the page says so. Archived subjects and topics are excluded even when
  * published questions still reference them — they are not on offer.
  */
-function availabilityPipeline(classLevel: ClassLevel): PipelineStage[] {
+function availabilityPipeline(classLevel: ClassLevel, subject: Types.ObjectId | null): PipelineStage[] {
+  const match: Record<string, unknown> = { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } };
+
+  /**
+   * Scoped to the implicit subject — AMIT is a mathematics olympiad, and this is the list a child
+   * chooses what to practise from.
+   *
+   * Before Milestone 21 Phase J the picker had a subject dropdown, so a legacy second subject in the
+   * database was merely an odd extra entry a student would not pick. Phase J removed the dropdown
+   * and the page now flattens every subject's chapters into one list, which turned that stray data
+   * into "Semiconductor Electronics" offered as maths practice. The fix belongs here rather than in
+   * the flattening, because the guarantee wanted is that the product *serves* mathematics, not that
+   * one screen happens to hide the rest.
+   *
+   * `null` (no subject, or several with none named for mathematics) leaves it unscoped, matching
+   * `suggestPaper()`: refusing to offer any practice at all because legacy data is ambiguous would
+   * break a working feature over a condition the student cannot see or fix.
+   */
+  if (subject) match.subject = subject;
+
   return [
-    { $match: { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } } },
+    { $match: match },
     {
       $group: {
         _id: { subject: '$subject', topic: '$topic' },
@@ -117,7 +137,8 @@ function sortDifficulties(values: Difficulty[]): Difficulty[] {
 }
 
 export async function getPracticeAvailability(classLevel: ClassLevel): Promise<SubjectAvailability[]> {
-  const rows = await Question.aggregate<AvailabilityRow>(availabilityPipeline(classLevel));
+  const subject = await findImplicitSubject();
+  const rows = await Question.aggregate<AvailabilityRow>(availabilityPipeline(classLevel, subject));
 
   // Folded in memory rather than with a second `$group`, because the shape wanted is
   // nested and the row count here is bounded by subjects × topics.
@@ -235,6 +256,23 @@ export async function startPracticeSession(input: StartPracticeInput): Promise<P
   // Safe to construct: the request schema has already required 24-character hex.
   if (input.subjectId) filter.subject = new Types.ObjectId(input.subjectId);
   if (input.topicId) filter.topic = new Types.ObjectId(input.topicId);
+
+  /**
+   * With no subject named, the implicit one — so "mixed practice" means mixed *mathematics*.
+   *
+   * This is the paper itself rather than the menu, so it matters more than the availability scope
+   * above: since Phase J the student picker sends no `subjectId` at all, which left an unfiltered
+   * draw over every subject in the database. A student asking for mixed practice could be dealt a
+   * Physics question in a mathematics olympiad, and the answer-key snapshot would make it a real
+   * mark against them.
+   *
+   * A caller that *does* name a subject is trusted and left alone — that is a deliberate narrowing,
+   * not the absence of one.
+   */
+  if (!input.subjectId) {
+    const implicit = await findImplicitSubject();
+    if (implicit) filter.subject = implicit;
+  }
   if (input.difficulty) filter.difficulty = input.difficulty;
 
   const available = await Question.countDocuments(filter);

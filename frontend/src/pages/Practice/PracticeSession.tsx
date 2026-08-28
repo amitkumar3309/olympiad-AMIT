@@ -193,7 +193,7 @@ export default function PracticeSessionPage() {
   }
 
   const scope =
-    session.filters.topic?.name ?? session.filters.subject?.name ?? `Mixed practice · ${session.filters.classLevel}`
+    session.filters.topic?.name ?? `Mixed practice · ${session.filters.classLevel}`
 
   // -------------------------------------------------------------------------
   // Review
@@ -281,7 +281,7 @@ export default function PracticeSessionPage() {
       <div className={styles.runner}>
         <div className="card">
           <p className={styles.qMeta}>
-            {[question.subject?.name, question.topic?.name].filter(Boolean).join(' › ')} · {question.difficulty} ·{' '}
+            {question.topic?.name} · {question.difficulty} ·{' '}
             {question.marks} {question.marks === 1 ? 'mark' : 'marks'}
             {question.negativeMarks > 0 ? ` · −${question.negativeMarks} if wrong` : ''}
           </p>

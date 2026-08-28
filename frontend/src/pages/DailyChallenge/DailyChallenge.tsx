@@ -201,7 +201,7 @@ export default function DailyChallengePage() {
         <div className="card">
           <div className={styles.questionHead}>
             <span className={styles.taxonomy}>
-              {[question?.subject?.name, question?.topic?.name].filter(Boolean).join(' › ')}
+              {question?.topic?.name}
             </span>
             <span className={styles.badge}>
               {question?.difficulty} · {today.challenge.question.marks}{' '}
@@ -310,7 +310,7 @@ export default function DailyChallengePage() {
                     {entry.questionText ? (
                       <MathText>{entry.questionText.slice(0, 90)}</MathText>
                     ) : (
-                      (entry.subject?.name ?? 'Challenge')
+                      'Challenge'
                     )}
                   </span>
                 </div>

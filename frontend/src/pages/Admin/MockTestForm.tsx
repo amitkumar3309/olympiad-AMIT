@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
+import { loadChapterScope } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
   type AdminMockTest,
@@ -119,6 +120,12 @@ export default function MockTestForm() {
    * paper spread across every chapter that has published questions for this class.
    */
   const [topics, setTopics] = useState<Topic[]>([])
+  /**
+   * The subject the pickers filter by. See `loadChapterScope()` — the Question Bank stays unscoped
+   * so legacy data remains manageable, but a paper must not be built from another subject's
+   * questions.
+   */
+  const [pickerSubject, setPickerSubject] = useState<string | null>(null)
   const [fillTopic, setFillTopic] = useState('')
   const [fillCount, setFillCount] = useState(20)
   const [filling, setFilling] = useState(false)
@@ -140,9 +147,11 @@ export default function MockTestForm() {
    * a question is for.
    */
   useEffect(() => {
-    api
-      .get<{ topics: Topic[] }>('/topics?parent=root&status=active')
-      .then((res) => setTopics(res.topics))
+    loadChapterScope()
+      .then(({ subjectId, chapters }) => {
+        setPickerSubject(subjectId)
+        setTopics(chapters)
+      })
       .catch(() => setTopics([]))
   }, [])
 
@@ -262,6 +271,9 @@ export default function MockTestForm() {
       setPickerError('')
       try {
         const params = new URLSearchParams({ status: 'published', classLevel, limit: '50', sort: 'createdAt' })
+        // Only the implicit subject's questions may go on a paper. Omitted while it is still
+        // resolving rather than sent empty, which the schema would refuse as a malformed id.
+        if (pickerSubject) params.set('subject', pickerSubject)
           if (appliedSearch) params.set('search', appliedSearch)
         const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
         if (isCurrent()) setAvailable(res.questions)
@@ -271,7 +283,7 @@ export default function MockTestForm() {
         if (isCurrent()) setPickerLoading(false)
       }
     },
-    [classLevel, appliedSearch],
+    [classLevel, appliedSearch, pickerSubject],
   )
 
   /**
@@ -789,7 +801,7 @@ export default function MockTestForm() {
                   <div className={styles.bankStem}>
                     <MathText>{question.questionText.slice(0, 140)}</MathText>
                     <span className={styles.bankMeta}>
-                      {question.subject?.name ?? '—'} · {question.difficulty} · {question.marks} marks
+                      {question.topic?.name ?? '—'} · {question.difficulty} · {question.marks} marks
                     </span>
                   </div>
                   <button

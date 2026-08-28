@@ -493,8 +493,14 @@ describe('weak and strong areas', () => {
 
     const scopes = new Set(analytics.weakAreas.map((area) => area.scope));
     expect(scopes.has('topic')).toBe(true);
-    expect(scopes.has('subject')).toBe(true);
     expect(scopes.has('difficulty')).toBe(true);
+    /**
+     * Not a subject. With one implicit subject a subject-scope finding is the overall accuracy
+     * wearing a name, and the page rendered it as "your weak area is Mathematics" — true, useless,
+     * and not something a child can practise. `bySubject` is still in the response; what changed is
+     * that it is no longer promoted into advice.
+     */
+    expect(scopes.has('subject')).toBe(false);
     expect(analytics.weakAreas.find((area) => area.scope === 'difficulty')).toMatchObject({
       name: 'Hard',
       accuracyPercent: 0,

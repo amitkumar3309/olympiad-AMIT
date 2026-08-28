@@ -234,8 +234,11 @@ function weakTopics(analytics: StudentAnalytics, bank: BankTopic[]): Recommendat
         kind: 'weak_topic' as const,
         title: row.name,
         detail:
+          // The subject used to be appended in brackets. With one implicit subject that read
+          // "Integrals (Mathematics)" on every line of a mathematics olympiad's advice — noise that
+          // named the only thing it could ever name. Phase J.
           `You have answered ${fraction(row.correct, row.answered)} correctly in ${row.name}` +
-          `${row.subjectName ? ` (${row.subjectName})` : ''} — ${row.accuracyPercent}%. ` +
+          ` — ${row.accuracyPercent}%. ` +
           `Allowing for the size of that sample, your accuracy here is very likely below ` +
           `${interval.upperPercent}%.`,
         priority: clampPriority((100 - interval.upperPercent) * CONFIDENCE_WEIGHT[confidence]),
@@ -452,7 +455,7 @@ function practiceRecommendations(facts: RecommendationFacts, bank: BankTopic[], 
       title: analytics.hasData ? `You have not tried ${topic.topicName}` : `Start with ${topic.topicName}`,
       detail:
         `${topic.questionCount} published question${topic.questionCount === 1 ? '' : 's'} in ` +
-        `${topic.topicName} (${topic.subjectName}) for ${className}, and you have not answered any of them.`,
+        `${topic.topicName} for ${className}, and you have not answered any of them.`,
       // Below any measured weakness: a gap in coverage is worth less than a
       // demonstrated difficulty, and a bigger bank is worth slightly more.
       priority: clampPriority(20 + Math.min(15, topic.questionCount)),

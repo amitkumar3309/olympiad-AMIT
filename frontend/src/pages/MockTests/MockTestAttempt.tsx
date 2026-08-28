@@ -411,7 +411,7 @@ export default function MockTestAttempt() {
       <div className={styles.runner}>
         <div className="card">
           <p className={styles.qMeta}>
-            {[question.subject?.name, question.topic?.name].filter(Boolean).join(' › ')} · {question.marks}{' '}
+            {question.topic?.name} · {question.marks}{' '}
             {question.marks === 1 ? 'mark' : 'marks'}
             {question.negativeMarks > 0 ? ` · −${question.negativeMarks} if wrong` : ''}
           </p>

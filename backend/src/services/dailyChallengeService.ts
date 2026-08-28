@@ -14,7 +14,7 @@ import {
   type DailyChallengeDocument,
   type QuestionDocument,
 } from '../models';
-import type { Actor } from './taxonomyService';
+import { findImplicitSubject, type Actor } from './taxonomyService';
 import { gradeEntry, isAnswered } from './grading';
 import { refView, studentQuestionView } from './questionView';
 
@@ -84,7 +84,19 @@ async function pickAutomaticQuestion(
   classLevel: ClassLevel,
   day: DayKey,
 ): Promise<QuestionDocument | null> {
-  const filter = { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } };
+  const filter: Record<string, unknown> = { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } };
+
+  /**
+   * Scoped to the implicit subject, for the reason practice is: nobody chooses a subject any more,
+   * so an unscoped automatic pick could hand a whole class a Physics question as the day's maths
+   * challenge — and unlike practice, a challenge is *pinned* once served, so the wrong pick would
+   * stand as that day's record for every student in the class.
+   *
+   * `null` (ambiguous) leaves it unscoped rather than serving no challenge at all.
+   */
+  const subject = await findImplicitSubject();
+  if (subject) filter.subject = subject;
+
   const available = await Question.countDocuments(filter);
   if (available === 0) return null;
 

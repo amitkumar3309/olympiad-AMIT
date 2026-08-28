@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../../api/client'
+import { loadImplicitSubject } from '../../api/implicitSubject'
 import type { Subject, TaxonomyStatus, Topic } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
@@ -40,22 +41,33 @@ export default function Taxonomy() {
     setLoading(true)
     setError('')
     try {
-      const query = showArchived ? '' : '?status=active'
-      const [subjectRes, topicRes] = await Promise.all([
-        api.get<{ subjects: Subject[] }>('/subjects?status=active'),
-        api.get<{ topics: Topic[] }>(`/topics${query}`),
-      ])
+      /**
+       * The one subject, resolved rather than chosen — by the shared resolver, so this page and
+       * every chapter picker in the product agree with the server about where a chapter belongs.
+       */
+      const resolved = await loadImplicitSubject()
+      setSubject(resolved)
+
+      if (!resolved) {
+        setTopics([])
+        return
+      }
 
       /**
-       * The one subject, resolved rather than chosen.
+       * Scoped to the resolved subject, which is why this cannot run in parallel with the call
+       * above: the filter is the subject we just worked out.
        *
-       * Prefers one actually named for mathematics, because legacy data may still hold a second —
-       * the backend's `findImplicitSubject()` makes the same choice for the same reason, and the two
-       * must agree about where a new chapter goes.
+       * It matters on any deployment whose database still holds a second subject — a legacy Physics
+       * one, say. Unscoped, this page listed every chapter of every subject in one undifferentiated
+       * list, on a screen that has deliberately stopped mentioning subjects at all, so there was
+       * nothing to tell an examiner why "Alternating Current" was sitting among the calculus. Worse,
+       * a new chapter is filed under `resolved`, so the list would disagree with what the page
+       * actually writes.
        */
-      const subjects = subjectRes.subjects
-      const maths = subjects.find((entry) => /^(math|maths|mathematics)$/i.test(entry.name.trim()))
-      setSubject(maths ?? subjects[0] ?? null)
+      const query = showArchived ? '' : '&status=active'
+      const topicRes = await api.get<{ topics: Topic[] }>(
+        `/topics?subject=${encodeURIComponent(resolved.id)}${query}`,
+      )
       setTopics(topicRes.topics)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not load the chapters.')
@@ -172,10 +184,12 @@ export default function Taxonomy() {
         </div>
       ) : !subject ? (
         <div className={styles.empty}>
-          <p>This deployment has no subject set up.</p>
+          <p>No subject could be resolved, so there is nothing to file chapters under.</p>
           <p className={styles.emptyHint}>
-            A chapter has to belong to something. This is a first-run condition rather than anything you can fix here —
-            seed the database, or ask whoever set it up.
+            A chapter has to belong to something. Either the database has no subject at all — a first-run condition — or
+            it has several and none of them is named for mathematics, which leaves nothing to choose implicitly. Either
+            way it is not fixable from this page: seed the database, or ask whoever set it up. The server refuses the
+            same case with the same reasoning, so nothing here would save.
           </p>
         </div>
       ) : chapters.length === 0 ? (
