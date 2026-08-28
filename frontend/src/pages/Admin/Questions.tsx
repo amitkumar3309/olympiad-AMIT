@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import {
   CLASS_LEVELS,
@@ -25,6 +25,7 @@ import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import MathText from '../../components/MathText'
 import Button from '../../components/Button'
+import { dailyChallengeHandoff, mockTestHandoff } from './questionHandoff'
 import styles from './Questions.module.css'
 
 interface QuestionListResponse {
@@ -107,6 +108,8 @@ export default function Questions() {
   const [previewClass, setPreviewClass] = useState<ClassLevel | ''>('')
   const [availability, setAvailability] = useState<PracticeAvailability | null>(null)
   const [availabilityBusy, setAvailabilityBusy] = useState(false)
+
+  const navigate = useNavigate()
 
   // Subjects are needed for the filter dropdown; topics narrow to the chosen
   // subject so the list cannot offer a combination that matches nothing.
@@ -234,6 +237,22 @@ export default function Questions() {
       setBulkBusy(false)
     }
   }
+
+  /**
+   * Where the selection can be taken next (Milestone 21, Phases H and I).
+   *
+   * Derived rather than stored, so it can never disagree with the selection. Each is either a URL or
+   * the reason the action is unavailable — and the reason is **shown**, because a disabled button
+   * with no explanation is the thing that makes an admin panel feel broken. The rules themselves
+   * live in `questionHandoff.ts` beside the URL builders, so a button's tooltip and the
+   * destination's validation are derived from one statement of them.
+   */
+  const selectedQuestions = useMemo(
+    () => questions.filter((question) => selected.includes(question.id)),
+    [questions, selected],
+  )
+  const toMockTest = useMemo(() => mockTestHandoff(selectedQuestions), [selectedQuestions])
+  const toDailyChallenge = useMemo(() => dailyChallengeHandoff(selectedQuestions), [selectedQuestions])
 
   /** Asks the backend what a student of this class would find, using the picker's own function. */
   const loadAvailability = useCallback(async (classLevel: ClassLevel) => {
@@ -479,12 +498,56 @@ export default function Questions() {
                 <Button variant="outline" disabled={bulkBusy} onClick={() => void bulkStatus('archived')}>
                   Archive
                 </Button>
+
+                {/*
+                  Phase H. The paper is prefilled from the selection; the destination still
+                  validates it, and the class is carried across because a mock test is for one
+                  class and `classLevel` is the only thing that says who a question is for.
+                */}
+                <Button
+                  variant="outline"
+                  disabled={bulkBusy || 'reason' in toMockTest}
+                  title={'reason' in toMockTest ? toMockTest.reason : 'Start a mock test from these questions'}
+                  onClick={() => {
+                    if ('url' in toMockTest) navigate(toMockTest.url)
+                  }}
+                >
+                  Create mock test
+                </Button>
+
+                {/* Phase I. One question, and it has to be published — a student may only ever be
+                    served a published question. */}
+                <Button
+                  variant="outline"
+                  disabled={bulkBusy || 'reason' in toDailyChallenge}
+                  title={
+                    'reason' in toDailyChallenge
+                      ? toDailyChallenge.reason
+                      : 'Schedule this question as a daily challenge'
+                  }
+                  onClick={() => {
+                    if ('url' in toDailyChallenge) navigate(toDailyChallenge.url)
+                  }}
+                >
+                  Schedule daily challenge
+                </Button>
                 <button type="button" className={styles.linkAction} onClick={() => setSelected([])}>
                   Clear
                 </button>
               </div>
             )}
           </div>
+
+          {/*
+            Why an action is unavailable, in words. A tooltip alone is not discoverable on touch and
+            invisible to a keyboard user, and "the button is greyed out" is the commonest way an
+            admin panel wastes somebody's afternoon.
+          */}
+          {selected.length > 0 && 'reason' in toMockTest && 'reason' in toDailyChallenge && (
+            <p className={styles.handoffHint}>
+              {toMockTest.reason === toDailyChallenge.reason ? toMockTest.reason : `${toMockTest.reason} ${toDailyChallenge.reason}`}
+            </p>
+          )}
 
           {/*
             A partial success is the normal outcome, so the refusals are shown rather than

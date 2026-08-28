@@ -328,3 +328,38 @@ No payment gateway SDK/dependency in either `package.json`. The registration flo
 The answer key never leaves the server before submission: `sessionInProgressView()` composes the answer-stripped `studentQuestionView`, and `sessionReviewView()` — the only function that reveals an answer — throws unless the session is `submitted`. Grading is therefore not something the browser could tamper with, because the browser is never given the means.
 
 **Official exam / Results / Certificates**: still no data flow. The endpoints and pages are real and wired, but nothing writes an `ExamAttempt` or a `Result`, so each renders an honest empty state. That is the next milestone.
+
+---
+
+## Hand-offs between admin screens — CURRENT (Milestone 21, Phases G–I)
+
+```
+Question Bank  (/admin/questions)
+  select N questions  (held by id, cleared when filters/sort/page change)
+    |
+    +-- Publish N  ------------> PATCH /admin/questions/bulk-status
+    |                              loops changeQuestionStatus() so assertPublishable() runs
+    |                              => the questions are now practice content (Phase G)
+    |
+    +-- Check a class ---------> GET /admin/questions/practice-availability?classLevel=…
+    |                              same getPracticeAvailability() the student picker uses
+    |
+    +-- Create mock test ------> /admin/mock-tests/new?classLevel=…&questions=id,id
+    |     requires: one shared class, <=100                       (Phase H)
+    |
+    +-- Schedule daily --------> /admin/daily-challenges?classLevel=…&questionId=id
+          requires: exactly one, published                        (Phase I)
+```
+
+**`pages/Admin/questionHandoff.ts` owns both rules and both URLs.** Each function returns either
+a URL or the *reason* the action is unavailable, so a button's explanation and the destination's
+validation come from one statement of the rule rather than two that can drift.
+
+**A query string, not router state.** Router state does not survive a refresh and both
+destinations are forms an administrator reloads while filling in. Question ids are not secrets.
+
+**No backend was added for H or I.** `createMockTestSchema.questions` and
+`scheduleChallengeSchema.questionId` already took explicit ids; the destinations still validate
+everything they always did, and the hand-off is only a way of arriving with the form filled in.
+
+---

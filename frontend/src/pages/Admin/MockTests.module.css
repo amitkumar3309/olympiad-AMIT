@@ -541,3 +541,21 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/*
+ * A hand-off between admin screens (Milestone 21, Phases G–I).
+ *
+ * Says in words what a selection brought over, or why an action is unavailable. A greyed-out
+ * button with only a tooltip is not discoverable on touch and invisible to a keyboard user — and
+ * "the button does nothing" is the commonest way an admin panel wastes somebody's afternoon.
+ */
+.handoffHint {
+  margin: 8px 0 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--text-main);
+  font-size: 13px;
+  line-height: 1.6;
+}

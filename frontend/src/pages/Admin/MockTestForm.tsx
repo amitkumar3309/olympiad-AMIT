@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import {
   CLASS_LEVELS,
@@ -107,6 +107,9 @@ export default function MockTestForm() {
    */
   const [reviewPolicy, setReviewPolicy] = useState<ReviewPolicy>('immediate')
   const [selected, setSelected] = useState<Selected[]>([])
+  /** What a hand-off from the Question Bank could not use, and why. Shown, never swallowed. */
+  const [handoffNote, setHandoffNote] = useState('')
+  const [searchParams] = useSearchParams()
 
   // The picker
   const [available, setAvailable] = useState<AdminQuestion[]>([])
@@ -166,25 +169,113 @@ export default function MockTestForm() {
     }
   }, [id])
 
-  /** Only published questions for the chosen class are ever offered. */
-  const loadQuestions = useCallback(async () => {
-    setPickerLoading(true)
-    setPickerError('')
-    try {
-      const params = new URLSearchParams({ status: 'published', classLevel, limit: '50', sort: 'createdAt' })
-      if (subjectId) params.set('subject', subjectId)
-      if (appliedSearch) params.set('search', appliedSearch)
-      const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
-      setAvailable(res.questions)
-    } catch (err) {
-      setPickerError(err instanceof ApiError ? err.message : 'Could not load the question bank.')
-    } finally {
-      setPickerLoading(false)
-    }
-  }, [classLevel, subjectId, appliedSearch])
-
+  /**
+   * Prefills the paper from a Question Bank selection (Milestone 21, Phase H).
+   *
+   * `?questions=<ids>&classLevel=<class>`, built by `questionHandoff.ts`. Runs **only when
+   * creating** — a hand-off into an existing test would silently rewrite a paper somebody may
+   * already have sat, and the API freezes the questions once anybody has.
+   *
+   * Two things it does rather than trusting the URL. It **fetches each question** instead of taking
+   * the ids on faith, because the paper shows the text and the marks and because a stale link could
+   * name a question that has since been archived. And anything it cannot use is **reported by
+   * name** — a mock test's questions must all be of the test's own class, so a link carrying a
+   * mismatch must say so rather than quietly dropping rows and leaving the author to notice a
+   * paper is short.
+   */
   useEffect(() => {
-    void loadQuestions()
+    if (id) return
+    const ids = (searchParams.get('questions') ?? '').split(',').map((v) => v.trim()).filter(Boolean)
+    if (ids.length === 0) return
+
+    const wantedClass = searchParams.get('classLevel')
+    if (wantedClass && (CLASS_LEVELS as readonly string[]).includes(wantedClass)) {
+      setClassLevel(wantedClass as ClassLevel)
+    }
+
+    let cancelled = false
+    void (async () => {
+      const found: Selected[] = []
+      const problems: string[] = []
+
+      for (const questionId of ids) {
+        try {
+          const res = await api.get<{ question: AdminQuestion }>(`/admin/questions/${questionId}`)
+          const question = res.question
+          if (wantedClass && question.classLevel !== wantedClass) {
+            problems.push(`"${question.questionText.slice(0, 40)}…" is for ${question.classLevel}`)
+            continue
+          }
+          found.push({
+            id: question.id,
+            questionText: question.questionText,
+            marks: question.marks,
+            negativeMarks: question.negativeMarks,
+          })
+        } catch {
+          problems.push(`one question could not be loaded (${questionId.slice(0, 8)}…)`)
+        }
+      }
+
+      if (cancelled) return
+      // Order is preserved: the ids arrive in the order they were selected, and the author can
+      // reorder afterwards.
+      setSelected(found)
+      setHandoffNote(
+        problems.length === 0
+          ? `${found.length} question${found.length === 1 ? '' : 's'} brought over from the question bank. Give the test a title and a duration.`
+          : `${found.length} of ${ids.length} questions brought over. Left out: ${problems.join('; ')}.`,
+      )
+    })()
+
+    return () => {
+      cancelled = true
+    }
+    // Deliberately keyed on the search string only: re-running this on every `classLevel` change
+    // would fight the author, who is allowed to change the class and clear the paper.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, searchParams])
+
+  /** Only published questions for the chosen class are ever offered. */
+  const loadQuestions = useCallback(
+    async (isCurrent: () => boolean) => {
+      setPickerLoading(true)
+      setPickerError('')
+      try {
+        const params = new URLSearchParams({ status: 'published', classLevel, limit: '50', sort: 'createdAt' })
+        if (subjectId) params.set('subject', subjectId)
+        if (appliedSearch) params.set('search', appliedSearch)
+        const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
+        if (isCurrent()) setAvailable(res.questions)
+      } catch (err) {
+        if (isCurrent()) setPickerError(err instanceof ApiError ? err.message : 'Could not load the question bank.')
+      } finally {
+        if (isCurrent()) setPickerLoading(false)
+      }
+    },
+    [classLevel, subjectId, appliedSearch],
+  )
+
+  /**
+   * Guarded against an out-of-order response.
+   *
+   * `loadQuestions` re-runs whenever the class, subject or search changes, and nothing stopped an
+   * *earlier* request from resolving *later* and overwriting the list with results for a filter the
+   * user has already moved off. That produced a picker reading "No published questions for Class 7"
+   * while the API was returning two of them — which is how the Phase I hand-off surfaced it: it sets
+   * the class immediately after mount, so the default-class request and the real one were always in
+   * flight together.
+   *
+   * A `cancelled` flag rather than an `AbortController` because the stale response is harmless
+   * once ignored, and this keeps the fix to the one line that was actually wrong: **only the newest
+   * request may write to state.**
+   */
+  useEffect(() => {
+    let cancelled = false
+    void loadQuestions(() => !cancelled)
+    return () => {
+      cancelled = true
+    }
   }, [loadQuestions])
 
   const selectedIds = useMemo(() => new Set(selected.map((entry) => entry.id)), [selected])
@@ -480,6 +571,9 @@ export default function MockTestForm() {
           <h3>
             The paper — {selected.length} question{selected.length === 1 ? '' : 's'}, {totalMarks} marks
           </h3>
+
+          {/* What a Question Bank hand-off brought over, and anything it could not use. */}
+          {handoffNote && <p className={styles.handoffHint}>{handoffNote}</p>}
 
           {selected.length === 0 ? (
             <p className={styles.help}>

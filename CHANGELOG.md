@@ -2,6 +2,79 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-23 — Milestone 21, Phases H and I: mock tests and daily challenges from a selection
+
+From the Question Bank, a selection can now be taken straight into the Mock Test author or the
+Daily Challenge scheduler. **No backend change was needed** — `createMockTestSchema.questions`
+and `scheduleChallengeSchema.questionId` already accept explicit ids — so this is entirely an
+affordance over the APIs that existed.
+
+### The rules live next to the URL, not in the button
+
+`pages/Admin/questionHandoff.ts` decides whether a selection *can* go somewhere and returns
+either a URL or **the reason it cannot**. Both destinations refuse things the Question Bank could
+otherwise offer:
+
+- a mock test's paper must be all **one class** (`classLevel` is the only thing that says who a
+  question is for, so a mixed paper would reach the wrong children);
+- a daily challenge is **one published question** (a student may only ever be served a published
+  one).
+
+So the buttons explain themselves — *"A mock test is for one class, and this selection spans
+Class 7, Class 8. Filter by class first."* — rather than navigating somewhere that then rejects
+the selection. The reason is rendered as text as well as a `title`, because a greyed-out button
+with only a tooltip is invisible to a keyboard user and undiscoverable on touch.
+
+### A query string rather than router state
+
+`navigate(path, { state })` is tidier and wrong here: it does not survive a page refresh, and both
+destinations are forms an administrator will reload while filling in. A query string survives and
+is linkable. Question ids are not secrets, and 100 of them is about 2.4 KB.
+
+The mock-test hand-off **fetches each question** rather than trusting the ids, because the paper
+shows the text and marks and because a stale link could name something since archived — and
+anything it cannot use is **reported by name** rather than dropped, so an author never silently
+gets a short paper. It runs only when *creating*: a hand-off into an existing test would rewrite
+a paper somebody may already have sat.
+
+The daily-challenge hand-off deliberately does **not** prefill the day. A date is a decision, and
+guessing "tomorrow" is the kind of helpfulness that ends with a challenge on a day nobody meant.
+
+### A real race condition, found by verifying in the browser
+
+The Daily Challenge picker showed **"No published questions for Class 7"** while the API was
+returning two of them.
+
+`loadQuestions()` re-runs whenever the class, subject or search changes, and nothing stopped an
+*earlier* request from resolving *later* and overwriting the list with results for a filter the
+user had already moved off. The hand-off exposed it because it sets the class immediately after
+mount, so the default-class request and the real one were always in flight together — but the bug
+was pre-existing and reachable by anyone changing the class filter quickly.
+
+Fixed in **both** pickers (Daily Challenge and Mock Test, which had the same shape and the same
+latent race) with a `cancelled` guard: only the newest request may write to state.
+
+### Added
+
+- `pages/Admin/questionHandoff.ts` — `mockTestHandoff()`, `dailyChallengeHandoff()`,
+  `sharedClassLevel()`.
+- **Create mock test** and **Schedule daily challenge** in the Question Bank bulk bar.
+- Prefill in `MockTestForm` (`?questions=&classLevel=`) and `DailyChallenges`
+  (`?questionId=&classLevel=`), each announcing what came over.
+
+### Verified in a browser
+
+One published Class 7 question → both actions offered. Two → mock test offered, daily challenge
+refused ("select exactly one"). Adding a Class 8 one → mock test refused, naming both classes.
+Then the real click-through: **"2 questions brought over… The paper — 2 questions, 8 marks"** with
+the class carried across, and a daily challenge scheduled to **"Scheduled for Class 7 on Sat, Aug
+29"** and appearing in the list. Seed rows deleted afterwards.
+
+**No new tests.** These phases add no backend behaviour, and the frontend has no test suite —
+which is why the browser pass was the verification, and why it found the race.
+
+---
+
 ## 2026-08-23 — Milestone 21, Phase G: making imported questions practisable
 
 From the Question Bank, an administrator can now select questions and **publish them in one

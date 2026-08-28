@@ -200,7 +200,7 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Current Milestone
 
-**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–G COMPLETE.**
+**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–I COMPLETE.**
 
 **Phase F (the import review screen) is implemented and verified, which completes bulk import.**
 `npm test --prefix backend` is **1086 passing across 30 files** (882/26 before this milestone;
@@ -377,9 +377,14 @@ asked for in the same brief:
   every such path has to re-implement the answer-key snapshot rules. The affordance is
   `PATCH /admin/questions/bulk-status`, plus a preview read from the student picker’s own
   `getPracticeAvailability()`. See the Phase G ADR in [`DECISIONS.md`](DECISIONS.md).
-- **Phase H — Mock Test assignment** and **Phase I — Daily Challenge assignment.** Both already
-  accept explicit question ids (`createMockTestSchema.questions`, `scheduleChallengeSchema.questionId`),
-  so these are frontend affordances over existing APIs rather than new architecture.
+- ~~**Phase H — Mock Test assignment** and **Phase I — Daily Challenge assignment.**~~ **Done
+  (2026-08-23).** From the Question Bank, **Create mock test** and **Schedule daily challenge**
+  hand a selection to the existing authors through a query string. **No backend change was
+  needed** — both APIs already accepted explicit question ids. `pages/Admin/questionHandoff.ts`
+  owns the eligibility rules and returns either a URL or the *reason* the action is unavailable, so
+  a disabled button explains itself. The browser pass found a **pre-existing race** in both
+  question pickers (an earlier response overwriting a newer one) — fixed, and recorded in
+  [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
 - **Phase J — Classes 3–12 and removing the user-facing Subject concept.** The class change is one
   file (`lib/classLevels.ts`) plus its frontend mirror, plus a migration for the three Class-12
   stream values the owner chose to collapse. The Subject removal touches eight frontend surfaces;

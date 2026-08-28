@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import {
   CLASS_LEVELS,
@@ -64,6 +65,9 @@ export default function AdminDailyChallenges() {
   const [day, setDay] = useState('')
   const [classLevel, setClassLevel] = useState<ClassLevel>('Class 9')
   const [questionId, setQuestionId] = useState('')
+  /** Set when the question was chosen in the Question Bank rather than in the picker below. */
+  const [handoffNote, setHandoffNote] = useState('')
+  const [searchParams] = useSearchParams()
   const [saving, setSaving] = useState(false)
 
   const [subjects, setSubjects] = useState<Subject[]>([])
@@ -103,23 +107,44 @@ export default function AdminDailyChallenges() {
   }, [])
 
   /** Only published questions of the class being scheduled can ever be chosen. */
-  const loadQuestions = useCallback(async () => {
-    setPickerLoading(true)
-    try {
-      const params = new URLSearchParams({ status: 'published', classLevel, limit: '50' })
-      if (subjectId) params.set('subject', subjectId)
-      if (appliedSearch) params.set('search', appliedSearch)
-      const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
-      setAvailable(res.questions)
-    } catch {
-      setAvailable([])
-    } finally {
-      setPickerLoading(false)
-    }
-  }, [classLevel, subjectId, appliedSearch])
+  const loadQuestions = useCallback(
+    async (isCurrent: () => boolean) => {
+      setPickerLoading(true)
+      try {
+        const params = new URLSearchParams({ status: 'published', classLevel, limit: '50' })
+        if (subjectId) params.set('subject', subjectId)
+        if (appliedSearch) params.set('search', appliedSearch)
+        const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
+        if (isCurrent()) setAvailable(res.questions)
+      } catch {
+        if (isCurrent()) setAvailable([])
+      } finally {
+        if (isCurrent()) setPickerLoading(false)
+      }
+    },
+    [classLevel, subjectId, appliedSearch],
+  )
 
+  /**
+   * Guarded against an out-of-order response.
+   *
+   * `loadQuestions` re-runs whenever the class, subject or search changes, and nothing stopped an
+   * *earlier* request from resolving *later* and overwriting the list with results for a filter the
+   * user has already moved off. That produced a picker reading "No published questions for Class 7"
+   * while the API was returning two of them — which is how the Phase I hand-off surfaced it: it sets
+   * the class immediately after mount, so the default-class request and the real one were always in
+   * flight together.
+   *
+   * A `cancelled` flag rather than an `AbortController` because the stale response is harmless
+   * once ignored, and this keeps the fix to the one line that was actually wrong: **only the newest
+   * request may write to state.**
+   */
   useEffect(() => {
-    void loadQuestions()
+    let cancelled = false
+    void loadQuestions(() => !cancelled)
+    return () => {
+      cancelled = true
+    }
   }, [loadQuestions])
 
   /** Which of the upcoming days already have something for the chosen class. */
@@ -130,6 +155,31 @@ export default function AdminDailyChallenges() {
     }
     return set
   }, [data, classLevel])
+
+  /**
+   * Prefills the scheduler from a Question Bank selection (Milestone 21, Phase I).
+   *
+   * `?questionId=…&classLevel=…`, built by `questionHandoff.ts`. The class travels with the
+   * question because a challenge is scheduled per class and the service refuses a question from
+   * another one — carrying it means the examiner does not have to notice.
+   *
+   * It sets the id **without fetching the question**, unlike the mock-test hand-off, and the
+   * difference is deliberate: the picker below is already loading the published questions for this
+   * class and will show this one as chosen, so a second read would be the same request twice. The
+   * day is deliberately **not** prefilled — a date is a decision, and guessing "tomorrow" is the
+   * kind of helpfulness that ends with a challenge scheduled on a day nobody meant.
+   */
+  useEffect(() => {
+    const wanted = searchParams.get('questionId')
+    if (!wanted) return
+
+    const wantedClass = searchParams.get('classLevel')
+    if (wantedClass && (CLASS_LEVELS as readonly string[]).includes(wantedClass)) {
+      setClassLevel(wantedClass as ClassLevel)
+    }
+    setQuestionId(wanted)
+    setHandoffNote('Question brought over from the question bank. Choose a date to schedule it.')
+  }, [searchParams])
 
   async function schedule() {
     setSaving(true)
@@ -288,6 +338,7 @@ export default function AdminDailyChallenges() {
           )}
 
           <div className={styles.formActions}>
+            {handoffNote && <p className={styles.handoffHint}>{handoffNote}</p>}
             <Button onClick={() => void schedule()} disabled={saving || !day || !questionId || scheduledDays.has(day)}>
               {saving ? 'Scheduling…' : 'Schedule this challenge'}
             </Button>

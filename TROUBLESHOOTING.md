@@ -4,6 +4,34 @@ Log real problems + solutions here as they're encountered, so we don't re-solve 
 
 ---
 
+## A question picker says "no published questions" while the API is returning them
+
+**Symptom**: the Daily Challenge scheduler showed *"No published questions for Class 7. A
+question must be published before it can be set as a challenge…"* — while
+`GET /admin/questions?status=published&classLevel=Class%207` returned two of them, in the same
+browser session.
+
+**Cause**: an **out-of-order response**. `loadQuestions()` is a `useCallback` keyed on the class,
+subject and search, and its effect re-ran when the class changed — but nothing stopped the
+*earlier* request from resolving *later* and calling `setAvailable()` with results for a filter
+the user had already moved off. The picker was showing the answer to a question nobody was asking
+any more.
+
+It surfaced via the Phase I hand-off, which sets the class immediately after mount so the
+default-class request and the real one are always in flight together. It was **pre-existing** and
+reachable by anyone flipping the class filter faster than the network.
+
+**Fix**: a `cancelled` flag in the effect, passed into the loader as `isCurrent()`, so **only the
+newest request may write to state**. Applied to the Mock Test picker too, which had the identical
+shape and the identical latent race.
+
+**Where else to look**: any `useCallback`-and-`useEffect` fetch pair in this codebase whose
+dependencies a user can change quickly. An `AbortController` would also work; the flag was chosen
+because a stale response is harmless once ignored, and it keeps the change to the one thing that
+was wrong.
+
+---
+
 ## An admin page renders "undefined" where a count should be
 
 **Symptom**: the bulk-import review screen reported *"Saved undefined questions as drafts"* after
