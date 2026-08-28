@@ -10,6 +10,7 @@ import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/health.routes';
 import v1Routes from './routes/v1';
 import { MAX_PHOTO_BYTES } from './models/StudentPhoto';
+import { MAX_IMPORT_REQUEST_BYTES } from './validation/uploadSchemas';
 
 /**
  * Two routes carry a photo as a base64 data URL, which inflates the binary by about
@@ -31,6 +32,28 @@ const PHOTO_UPLOAD_PATHS = [
   '/api/me/photo',
 ];
 
+/**
+ * The bulk question importer needs a much larger body still: up to twenty files, of which
+ * twenty photographed exam pages is the realistic worst case (Milestone 21).
+ *
+ * Granted to the **import paths only**, on the same reasoning as the photo allowance above:
+ * every other endpoint keeps body-parser's 100 KB default, so a large-payload flood has a
+ * countable number of doors to knock on and all of them are rate-limited — these by
+ * `importLimiter`, which is mounted ahead of the permission check precisely because an upload is
+ * the most expensive request in the product.
+ *
+ * The prefix is matched rather than each format being listed, because `express.json()` mounted
+ * on a path applies to everything beneath it: that covers `/excel`, `/docx`, `/images` and the
+ * approval route in one line, and a format added later cannot be forgotten here. Both `/api/v1`
+ * and `/api` appear because the unversioned prefix is an alias for the same router, and a limit
+ * that held on only one of them would be bypassed by using the other.
+ *
+ * `MAX_IMPORT_REQUEST_BYTES` is the decoded ceiling; base64 inflates it by about a third, and
+ * the schema re-checks the decoded total so the two cannot drift.
+ */
+const MAX_IMPORT_BODY_BYTES = Math.ceil(MAX_IMPORT_REQUEST_BYTES * 1.4);
+const IMPORT_UPLOAD_PATHS = ['/api/v1/admin/questions/import', '/api/admin/questions/import'];
+
 export function createApp() {
   const app = express();
 
@@ -41,6 +64,7 @@ export function createApp() {
   // Mounted first so it wins for these paths; body-parser marks the request as
   // read, so the general parser below then skips it.
   app.use(PHOTO_UPLOAD_PATHS, express.json({ limit: MAX_PHOTO_BODY_BYTES }));
+  app.use(IMPORT_UPLOAD_PATHS, express.json({ limit: MAX_IMPORT_BODY_BYTES }));
   /**
    * The default parser, with a copy of the raw bytes kept for webhook verification.
    *

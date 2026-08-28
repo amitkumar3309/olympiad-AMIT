@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. **Twenty-six models** — Milestone 20 added no collection: it extended `Question` with an embedded **`provenance`** subdocument and `GenerationLog` with `rejectedByReviewer`. Twenty-six as of Milestone 19, which added **`Payment`** and **`PaymentSettings`** — the transaction record and the administrator-editable entry fee. Twenty-four as of Milestone 18, which added `GenerationLog`. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Twenty-seven models** — Milestone 21 (Phase B) added **`ImportBatch`**, the record of one bulk question import, and extended `Question.provenance.source` with three import values. Before that, **twenty-six models** — Milestone 20 added no collection: it extended `Question` with an embedded **`provenance`** subdocument and `GenerationLog` with `rejectedByReviewer`. Twenty-six as of Milestone 19, which added **`Payment`** and **`PaymentSettings`** — the transaction record and the administrator-editable entry fee. Twenty-four as of Milestone 18, which added `GenerationLog`. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 **That default is a trap worth knowing about.** Because it exists, a script or process with no `.env` loaded connects to a *local* database and works perfectly, writing to somewhere nobody is looking. This happened: a seed run from the wrong directory published 208 questions to localhost while production stayed empty. `config/env.ts` now anchors the `.env` lookup to the package root, and every write script calls `assertConfiguredForWrites()`. Use `npx tsx scripts/where-is-data.ts` to see which database is actually connected and what every collection really holds.
 
@@ -770,3 +770,62 @@ These feed the progress trend, the pace trend and accuracy-by-day (bucketed into
 **Grading reads the snapshot; analytics joins the live taxonomy.** A mark is a historical fact about one paper, so `services/grading.ts` reads the answer-key snapshot on the attempt and never the live `Question` — absolutely. But "how am I doing in Trigonometry?" is a question about the taxonomy *as it stands now*, so the analytics aggregations `$lookup` the current `topic`, `subject` and `difficulty`.
 
 The honest cost, recorded in the Milestone 15 ADR: recategorising a question moves historical breakdowns, and deleting one drops its answers out of them. That is the right trade — the alternative, snapshotting the taxonomy onto every answer, would freeze a typo in a subject name into thousands of rows and describe a filing system nobody uses any more.
+
+---
+
+## `ImportBatch` — ACTIVE (Milestone 21, Phase B)
+
+File: `backend/src/models/ImportBatch.ts`. One record per bulk question import: what was uploaded, what
+came out of it, and what the reviewer then did with it.
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `actor` / `actorLabel` | `ObjectId \| null` / `String` | Who uploaded. The label is denormalised so history reads standalone. |
+| `kind` | `String` enum | `excel` / `docx` / `image`. Indexed. |
+| `parserId` | `String` | Which registered parser read the files. |
+| `extraction` | `String` | `deterministic` or `model`. **A statement of fact**, inherited by `Question.provenance.generatorKind`. Only the image path is `model`. |
+| `modelName` | `String \| null` | The exact model, image path only. `null` for Excel and DOCX, because no model read them. |
+| `files[]` | subdocument | Per file: `name`, `size`, `examined`, `extracted`, `failed`, `error`. |
+| `defaultClassLevel` / `defaultDifficulty` / `defaultTopic` | `String` / `String` / `ObjectId` | What the examiner asked to assume for rows that did not say. `defaultTopic` is also **where the subject is recovered from** at approval. |
+| `status` | `String` enum | `succeeded` / `failed`. Indexed. |
+| `examined` / `accepted` / `rejected` / `duplicates` | `Number` | Counts. |
+| `rejectionReasons[]` | `String` | The first ten reasons, so a bad template is diagnosable without the file. |
+| `approved` | `Number` | How many the reviewer went on to save. |
+| `rejectedByReviewer` | `Number` | How many they discarded — the one fact nothing else could recover. |
+| `durationMs` | `Number` | |
+| `error` | `String \| null` | The whole-import failure. Carries no credential. |
+
+Indexes: `{ createdAt: -1 }`, `{ actor: 1, createdAt: -1 }`. **No TTL**, deliberately — the same
+reasoning as `AuditLog`, `StudentActivity` and `GenerationLog`. A question may be traced back to its
+import years later, which is exactly what somebody will eventually ask about exam content nobody typed.
+
+**Why it is not `GenerationLog`.** The same *kind* of record — "why did the extractor behave like
+that?", as against `AuditLog`'s "who changed the bank" — but `GenerationLog` is thoroughly
+model-shaped: a model name, a language, a Bloom's level, a requested count, a prompt-instruction flag,
+none of which means anything for a spreadsheet. Reusing it would have produced a row of nulls whose
+reader could not tell an absent field from an inapplicable one.
+
+**Why it has to exist at all.** `Question.provenance` must be able to say how a question entered the
+bank, and `source` is the one field worth lying about — a client that could set it could file questions
+a model read off a photograph as hand-written ones. So approval reads the provenance facts **and the
+subject** back from this row, using the id we ourselves issued. The browser supplies only that id.
+A missing batch is therefore a hard 400 rather than a degraded stamp, unlike the generator's
+equivalent: without the row there is nowhere to file the questions and nothing to fall back to that
+would not be a guess.
+
+**Stores no uploaded bytes and no question text.** Files are parsed in memory and discarded; keeping
+copies would turn a diagnostic row into an unbounded blob store on a 512 MB free tier. Extracted
+questions are either approved (and then live in `Question`, with their own history) or discarded.
+
+### `Question.provenance.source` gained three values (Milestone 21, Phase B)
+
+`QUESTION_SOURCES` is now `human`, `ai_assisted`, `excel_import`, `docx_import`, `image_import`.
+Lowercase snake_case to match what is already stored — the product spec named these in upper case, and
+renaming the two existing values to match would have been a migration over every question in the bank
+for a cosmetic gain.
+
+`source` and `generatorKind` answer **different** questions, and both are kept. An image import is
+`source: image_import` **and** `generatorKind: model` with a `modelName`, because a model really did
+read the photograph. An Excel import is `source: excel_import` with `generatorKind: deterministic` and a
+null model. Collapsing the two into one field would lose either "a model produced this text" or "this
+came from a spreadsheet", and both are things somebody will need to ask.

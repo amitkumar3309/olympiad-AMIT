@@ -126,7 +126,7 @@ Recommendations themselves use **no AI** and never will without a further decisi
 
 | Variable | Required | Purpose | Where to get it | Example |
 |---|---|---|---|---|
-| `GEMINI_API_KEY` | **optional** | Lets Google Gemini write first drafts on the admin **AI Question Generator** page. **A secret.** | Google AI Studio — see below. | `AIzaSy…` |
+| `GEMINI_API_KEY` | **optional** | Lets Google Gemini write first drafts on the admin **AI Question Generator** page, and — since Milestone 21 Phase E — read questions off **uploaded photographs** in the bulk importer. Those are the only two uses. **A secret.** Without it both are unavailable and everything else, including Excel and Word import, works normally. | Google AI Studio — see below. | `AIzaSy…` |
 | `GEMINI_MODEL` | optional (default `gemini-flash-latest`) | Which model to call. **Leave it as the rolling alias** unless you need a pinned version — Google retires exact model names on their own schedule, and a pinned one will eventually stop working with "this model is no longer available". The page has a **"Which models can my key use?"** button that asks your key directly, so the name never has to be guessed. | — | `gemini-flash-latest` |
 | `QUESTION_GENERATOR` | optional (default `auto`) | Which registered generator the button uses. `auto` = "the first configured provider". Only set this if a second provider has been registered in code. | — | `auto` |
 | `GEMINI_MAX_RETRIES` | optional (default `1`, max `3`) | How many **extra** attempts a *transient* failure earns. Only 429, 5xx and timeouts are retried; an expired key, a blocked prompt and a retired model name are not, because repeating them spends quota to receive the same refusal. `0` disables retrying. | — | `1` |
@@ -274,3 +274,26 @@ Never paste these values into a public repository, issue, or screenshot; `SMTP_P
 5. Confirm the fee at `/admin/payments` before announcing anything, and make one small real payment yourself to check the whole path end to end.
 
 `RAZORPAY_KEY_SECRET` is a live credential once you reach step 2: never paste it into a repository, an issue, a screenshot or a chat.
+
+---
+
+## Bulk question import (Milestone 21, Phase B)
+
+Two optional variables, both with working defaults. **Neither is a secret**, and there is no new
+credential: the image importer reuses `GEMINI_API_KEY` and `GEMINI_MODEL` rather than introducing a
+second one.
+
+| Variable | Required? | What it does | Where to get it | Example |
+| --- | --- | --- | --- | --- |
+| `IMPORT_MAX_QUESTIONS` | optional (default `200`, max `500`) | The most questions one bulk import may offer for review. Lower it on a smaller serverless plan. The *ceiling on the ceiling* is `IMPORT_HARD_MAX` in code, because a review step nobody can realistically finish is not a review step. | — | `200` |
+| `IMPORT_RATE_LIMIT_PER_HOUR` | optional (default `20`) | Import uploads allowed per hour, per IP. | — | `20` |
+
+**Why the second one matters more than it looks.** An upload is the most expensive request in the
+product on two counts: it decompresses an archive and validates hundreds of rows, and the **image** path
+spends Gemini quota *per file* — so one request carrying ten photographs is ten model calls. That is the
+same property `GENERATION_RATE_LIMIT_PER_HOUR` exists for. If you are watching a free-tier quota, this
+is the knob that bounds an afternoon of importing.
+
+Neither needs to be set for the feature to work. Add them to Vercel only if you want to change a
+default, and — as with every backend variable — **never to the frontend project**, which reads no
+environment variables at all.

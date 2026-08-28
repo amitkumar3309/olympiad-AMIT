@@ -17,6 +17,7 @@ import examsAdminRoutes from './examsAdmin.routes';
 import certificatesRoutes from './certificates.routes';
 import questionsRoutes from './questions.routes';
 import questionsAdminRoutes from './questionsAdmin.routes';
+import questionsImportRoutes from './questionsImport.routes';
 import taxonomyRoutes from './taxonomy.routes';
 import adminRoutes from './admin.routes';
 import usersRoutes from './users.routes';
@@ -44,6 +45,14 @@ router.use(examsRoutes);
 router.use(examsAdminRoutes);
 router.use(certificatesRoutes);
 router.use(questionsRoutes);
+/**
+ * **Before** `questionsAdminRoutes`, and the order is load-bearing.
+ *
+ * That router owns `GET /admin/questions/:id`, whose `:id` would otherwise capture the literal
+ * segment `import` and answer 400 ("Question id must be a valid id") for every one of these
+ * routes. Express matches in mount order, so the specific paths have to be registered first.
+ */
+router.use(questionsImportRoutes);
 router.use(questionsAdminRoutes);
 router.use(taxonomyRoutes);
 router.use(adminRoutes);

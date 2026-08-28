@@ -164,6 +164,29 @@ const envSchema = z.object({
    */
   GENERATION_RATE_LIMIT_PER_HOUR: z.coerce.number().int().min(1).max(1000).default(60),
 
+  // --- Bulk question import (Milestone 21) ---
+  /**
+   * The most questions one bulk import may offer for review.
+   *
+   * A cost and usability control rather than a correctness rule, which is why it is
+   * configuration: a deployment on a smaller serverless plan can lower it without a code
+   * change. The *ceiling on the ceiling* is `IMPORT_HARD_MAX` in
+   * `services/questionImportService.ts`, because a review step nobody can realistically
+   * finish is not a review step — the same argument that caps a generated batch at 20, with a
+   * much higher number because moving an existing collection is the whole point of importing.
+   */
+  IMPORT_MAX_QUESTIONS: z.coerce.number().int().min(1).max(500).default(200),
+  /**
+   * Import requests allowed per hour, per IP.
+   *
+   * Lower than the general limiter for two different reasons depending on the format. Every
+   * import decompresses an archive and validates hundreds of rows, which is the most CPU any
+   * route in this product spends; and the **image** path additionally spends provider quota
+   * per file, so ten photographs is ten model calls — the same argument that put
+   * `generationLimiter` in front of the one metered route.
+   */
+  IMPORT_RATE_LIMIT_PER_HOUR: z.coerce.number().int().min(1).max(500).default(20),
+
   // --- Payments (Milestone 19) ---
   /**
    * Razorpay credentials. **Only these two, plus the webhook secret, are env vars** —

@@ -4,6 +4,55 @@ _Last updated: 2026-08-15 (Milestone 16 — the recommendation engine seam). The
 
 Documents what **actually exists** in the repository today. Anything not literally in the code is marked `PLANNED`.
 
+## Bulk question import — CURRENT (Milestone 21)
+
+```
+browser                          backend
+-------                          -------
+file picker                      POST /admin/questions/import/{excel|docx|image}
+  |  FileReader -> base64          |  importLimiter  (ahead of the permission check)
+  |  data URL in the JSON body     |  requirePermission("questions:write")
+  +------------------------------->|  validate(previewImportSchema(kind))
+                                   |    magic bytes + extension + size + count
+                                   |  previewImport()
+                                   |    resolveImportParser(kind)   <- 503 if unconfigured
+                                   |    parser.parse() per file, each in its own try
+                                   |      excel  -> exceljs        (deterministic)
+                                   |      docx   -> mammoth        (deterministic)
+                                   |      image  -> requestGeminiJson()  (model, 1 call/image)
+                                   |    ImportedCandidate[]  (one canonical shape)
+                                   |    resolvePlacement() per candidate  <- names, never ids
+                                   |    screenEach()  <- THE shared screener
+                                   |    inspectCandidates()  <- advisory only
+                                   |  writes ImportBatch, NO questions
+  <--------------------------------+  { batchId, questions, rejected, duplicates,
+  |                                     failures, batchWarnings, files, truncated }
+  |
+review screen  (candidates live HERE — no staging collection)
+  |  edit text / options / answer / solution / class / chapter / difficulty / type
+  |
+  |  POST .../import/validate   -> screenEach() again, writes nothing
+  |  POST .../import/approve    -> THE ONLY WRITER
+  |                                 re-validates from scratch
+  |                                 provenance read back from ImportBatch
+  |                                 creates status: "draft"
+  |                                 publish only via changeQuestionStatus()
+  |  POST .../import/reject     -> counts discards against the batch
+```
+
+**Three properties this shape exists to hold.** Uploading **writes nothing** — the only row is
+the `ImportBatch`. There is **no staging collection**: candidates live in the browser, so the
+bank cannot fill with machine-read text nobody read. And **nothing touches the filesystem** at
+either end — uploads are base64 in the JSON body, parsed from a `Buffer` — which is why
+temp-file cleanup and path traversal are absent risks here rather than mitigated ones.
+
+**One screener, one candidate.** `screenEach()` in `services/questionGeneratorService.ts` is the
+only implementation of "validate, then de-duplicate", shared with the AI generator;
+`ImportedCandidate` composes `GeneratedCandidate` verbatim. A format per validator would mean
+the weakest one deciding what reached the bank.
+
+---
+
 ## High-Level Topology — CURRENT
 
 ```

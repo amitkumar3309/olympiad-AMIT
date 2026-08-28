@@ -4,6 +4,176 @@ Log real problems + solutions here as they're encountered, so we don't re-solve 
 
 ---
 
+## An admin page renders "undefined" where a count should be
+
+**Symptom**: the bulk-import review screen reported *"Saved undefined questions as drafts"* after
+a successful approval. The questions really were saved; only the message was wrong.
+
+**Cause**: the page read `result.created` from `POST /admin/questions/import/approve`, which
+returns `{ questions, rejected, published, publishFailures }` and **no `created` count**. The
+field was assumed rather than checked, and TypeScript could not catch it because the response
+type was declared inline at the call site — so the declaration was wrong in exactly the same way
+as the code.
+
+**Fix**: `questions.length`, with the response shape written out as a named interface next to the
+call so the next reader can see what the endpoint actually promises.
+
+**The more useful thing it exposed.** Fixing the count revealed that `published` and
+`publishFailures` were being ignored, so "Approve & publish" would have said *"published them"*
+for questions that in fact stayed as drafts — a question with no solution **saves but cannot be
+published**, because the editorial bar is that a published question must be explainable to a
+student. Saving and publishing are two outcomes and a client that conflates them misreports what
+happened.
+
+**How to avoid it**: when a page consumes a new endpoint, read the route's `sendSuccess(...)`
+call rather than inferring the shape from the service that feeds it. Neither bug was reachable
+from the backend suite — both were assumptions the *client* made — and with no frontend test
+suite, a browser pass is the only thing that checks the contract from the consuming side.
+
+---
+
+## A Word import loses the formulas, or merges every question into one
+
+Two separate causes, both of which **look like success**, which is why the importer warns about
+each explicitly rather than leaving them to be discovered.
+
+### "Any affected question will be missing its formula"
+
+**Symptom**: questions import and look complete, but a formula is simply absent from the middle of
+a sentence — "Solve  for x" with a gap where the equation was.
+
+**Cause**: the equations were created with **Word's equation editor**, which stores them as OMML
+(`m:oMath`). `mammoth` drops OMML silently — it is not text, and there is no sensible plain-text
+rendering of it.
+
+**Fix**: retype the mathematics as `$…$` LaTeX (`$x^2 + 5x + 6 = 0$`) and upload again, which is
+what the rest of this product uses everywhere. `containsWordEquations()` detects the markup, so
+the upload reports this in `batchWarnings` before anybody wonders why the questions read oddly.
+
+### "No question numbers were found in the text"
+
+**Symptom**: questions are split in the wrong places — two questions merged, or a solution
+attached to the following question.
+
+**Cause**: the questions were numbered with **Word's automatic numbering** (the toolbar), so the
+digits live in `numbering.xml` and the extracted text contains none of them. The parser falls back
+to splitting on `Answer:` lines, which is right often enough to be worth doing and not always
+right.
+
+**Fix**: type the numbers in manually — `Q1.`, `Q2.` — and upload again. The upload says which
+strategy it used, so this is diagnosable from the response rather than by comparing output against
+the original document.
+
+**Do not "fix" this by making the parser read `numbering.xml`.** It is technically possible and it
+is a rabbit hole — restart-at, multi-level lists, and per-paragraph overrides all have to be
+resolved to produce a number — and the fallback plus a clear warning solves the actual problem,
+which is that the examiner needs to know the boundaries might be wrong.
+
+---
+
+## An Excel import turns a prose sheet into questions (header detection matched one column)
+
+**Symptom**: importing the project's own template produced five questions **and twelve
+failures**, all from the template's *Instructions* sheet. The failures read like real rows
+("No correct answer given") for a sheet that contains no questions at all.
+
+**Cause**: `findHeaderRow()` identified a header row by finding a **`Question` column**, and the
+Instructions sheet's glossary has `Question` as the first cell of its second row — it is the
+entry explaining that column. So row 2 was read as a header and the twelve rows of prose beneath
+it were parsed as questions.
+
+This was never only about our template. Any workbook with a "what each column means" sheet, a
+legend, or a covering note listing the columns has exactly the same shape, and an examiner would
+have seen it on their own files.
+
+**Fix**: a header row now needs **two** matches — a `question` column **plus** either an option
+column or one of `Correct Answer` / `Solution` / `Type` / `Class` / `Marks` / `Difficulty`
+(`HEADER_COMPANIONS`). A sheet of questions always has somewhere to put the answer; a glossary
+never does, so it is a reliable discriminator.
+
+**If you see this again**: the giveaway is that the failing `sourceRef` names a sheet you did not
+think of as data. The sheet is now skipped as **one** named failure saying what a question table
+needs, which is the right outcome — do not "fix" that by matching one column again.
+
+---
+
+## A test that mangles a marker in a zip passes for the wrong reason
+
+**Symptom**: a test built a workbook, replaced `xl/workbook.xml` with something else to make it
+"not a workbook", and then asserted `looksLikeWorkbook()` returned `false`. It returned `true`.
+
+**Cause**: a ZIP stores every entry name **twice** — once in that entry's local file header and
+once in the central directory at the end of the archive. `String.prototype.replace()` with a
+**string** pattern replaces only the first occurrence, so the copy in the central directory
+survived and the marker was still present. Use `split(marker).join(replacement)`.
+
+**The related trap**, hit in the same suite: truncating a real workbook at its midpoint to
+simulate corruption usually removes the `xl/workbook.xml` entry altogether, so the test exercises
+the "that is not a workbook" branch instead of the "that workbook could not be opened" one. To
+reach the second, build a buffer that claims to be a workbook and is not readable:
+`PK\x03\x04` + `xl/workbook.xml` + junk.
+
+---
+
+## A rejected file upload answers 500 instead of 400 (zod 4 runs a parent check after a child failed)
+
+**Symptom**: every invalid import upload — wrong magic bytes, unsupported extension, oversized file —
+returned **500 "Internal Server Error"** instead of a 400 naming what was wrong. The per-file validation
+itself was correct; the examiner just never saw its message.
+
+**Cause**: in zod 4, a check attached to an **array** still runs when one of its *elements* failed
+validation, and the failed element arrives in the callback as `undefined`. The total-size check in
+`importFilesSchema()` did `files.reduce((sum, file) => sum + file.data.length, 0)`, which threw
+`TypeError: Cannot read properties of undefined (reading 'length')`. The global error handler turned
+that into a 500, discarding the perfectly good validation issue the element had already reported.
+
+This is easy to miss because the types say it cannot happen: the callback parameter is typed as the
+**parsed** element type, so TypeScript sees `DecodedUpload[]` and no `undefined` in sight.
+
+**Fix**: bail out of the parent check when any element is missing — its own issue is already reported, so
+there is nothing to add.
+
+```ts
+const decoded = files.filter((file): file is DecodedUpload => Boolean(file) && 'data' in file);
+if (decoded.length !== files.length) return;
+```
+
+**Where else this is waiting**: any `z.array(...).superRefine(...)` or `.refine(...)` whose callback
+dereferences an element. Caught here only because a test asserted the *status code* (`expect(400)`)
+rather than merely that the request failed — which is the reason `TESTING.md` insists on assertions that
+name the status they forbid.
+
+---
+
+## A patch script silently injected 790 lines of a file into itself (`$` in a `String.replace` replacement)
+
+**Symptom**: a Node patch script reported success, and the target file then failed to parse with
+`Expected ',' or '}' but found Identifier`. The file had grown by ~790 lines, and its own opening
+`import` block appeared in the middle of a template literal.
+
+**Cause**: `String.prototype.replace()` treats `$` specially **in the replacement string**. `$&` is the
+whole match, `` $` `` is *everything before the match*, `$'` is everything after, and `$$` is a literal
+`$`. The replacement text contained a LaTeX-ish `` ...$` `` sequence, so `` $` `` expanded to the entire
+preceding contents of the file and pasted them in. Nothing warned, because from `replace()`'s point of
+view it did exactly what it was told.
+
+**Fix**: pass a **replacer function**, whose return value is used verbatim with no `$` interpretation.
+
+```js
+// Wrong: any $ in newStr is a substitution pattern.
+text = text.replace(oldStr, newStr);
+// Right:
+text = text.replace(oldStr, () => newStr);
+```
+
+**Why it matters here specifically**: this codebase is full of `$`. Every piece of question content uses
+`$…$` LaTeX islands, and Mongo aggregation stages are `$match` / `$group` / `$sum`. Any script that
+rewrites source or test files touching either is one `` $` `` or `$&` away from this. Combined with the
+existing note about long heredocs, the rule is: **write patch scripts to a file, and always use a
+replacer function.**
+
+---
+
 ## Generation fails with "this model is no longer available" or "is not found"
 
 **Symptom**: the AI generator page reports a 502 whose message names a model — e.g. *"This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.6-flash"*. Nothing changed in the code; it worked last week.

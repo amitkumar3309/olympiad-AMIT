@@ -180,6 +180,19 @@ export const config = {
     /** Generation requests per hour per IP, enforced by `generationLimiter`. */
     generationsPerHour: env.GENERATION_RATE_LIMIT_PER_HOUR,
   },
+  imports: {
+    /**
+     * Cost controls on one bulk import (Milestone 21).
+     *
+     * `maxQuestions` is bounded again in code by `IMPORT_HARD_MAX` in
+     * `services/questionImportService.ts`, because a review step nobody can realistically
+     * finish is not a review step — the same argument that caps a generated batch, with a much
+     * higher number because moving an existing collection is the point of importing at all.
+     */
+    maxQuestions: env.IMPORT_MAX_QUESTIONS,
+    /** Import requests per hour per IP, enforced by `importLimiter`. */
+    importsPerHour: env.IMPORT_RATE_LIMIT_PER_HOUR,
+  },
   payments: {
     /** True only when an order can actually be created AND verified. */
     configured: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),

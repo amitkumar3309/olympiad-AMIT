@@ -377,6 +377,8 @@ export interface StudentAnalytics {
   progressTrend: AttemptPoint[]
   paceTrend: PacePoint[]
   minimumAreaSample: number
+  strongAreaMinAccuracy: number
+  weakAreaMaxAccuracy: number
   notes: string[]
 }
 
@@ -2197,4 +2199,116 @@ export interface VerificationResponse {
   }
   revokedAt?: string | null
   revokedReason?: string | null
+}
+
+// ---------------------------------------------------------------------------
+// Bulk question import (Milestone 21)
+// ---------------------------------------------------------------------------
+
+/** Mirrors `IMPORT_FILE_KINDS` in `backend/src/lib/importTypes.ts`. */
+export const IMPORT_FILE_KINDS = ['excel', 'docx', 'image'] as const
+export type ImportFileKind = (typeof IMPORT_FILE_KINDS)[number]
+
+/**
+ * How a parser describes itself. `extraction` is a statement of fact the page prints
+ * verbatim, not a label — only the image path is `'model'`.
+ */
+export interface ImportParserInfo {
+  id: string
+  label: string
+  kind: ImportFileKind
+  extraction: 'deterministic' | 'model'
+  basis: string
+  available: boolean
+}
+
+export interface ImportStatus {
+  parsers: ImportParserInfo[]
+  templates: { excel: string }
+  limits: {
+    maxQuestions: number
+    maxFiles: number
+    maxFileBytes: Record<ImportFileKind, number>
+    maxRequestBytes: number
+  }
+}
+
+/** An advisory finding. Never a reason a question was refused. */
+export interface ImportWarning {
+  code: string
+  message: string
+}
+
+/** Something the parser could not turn into a question, named by where it was. */
+export interface ImportFailure {
+  sourceRef: string
+  reason: string
+}
+
+/** A candidate refused by the shared screener, or as a near-duplicate. */
+export interface ImportRejection {
+  index: number
+  reason: string
+}
+
+/** How one uploaded file fared, so a single bad photograph is visibly one failure. */
+export interface ImportFileOutcome {
+  name: string
+  size: number
+  examined: number
+  extracted: number
+  failed: number
+  error: string | null
+}
+
+/** One question offered for review. Nothing is stored — these live in the browser. */
+export interface ImportedQuestion {
+  clientId: string
+  sourceRef: string
+  questionText: string
+  type: QuestionType
+  options: Array<{ text: string; isCorrect: boolean }>
+  booleanAnswer: boolean | null
+  numericAnswer: number | null
+  tolerance: number | null
+  acceptedAnswers: string[]
+  solution: string | null
+  marks: number
+  negativeMarks: number
+  tags: string[]
+  /** Per-question placement, because a spreadsheet files row 3 and row 40 differently. */
+  topic: string
+  topicName: string
+  subtopic: string | null
+  classLevel: ClassLevel
+  difficulty: Difficulty
+  warnings: ImportWarning[]
+}
+
+export interface ImportPreview {
+  batchId: string
+  kind: ImportFileKind
+  parser: Omit<ImportParserInfo, 'available'>
+  questions: ImportedQuestion[]
+  rejected: ImportRejection[]
+  duplicates: ImportRejection[]
+  failures: ImportFailure[]
+  batchWarnings: ImportWarning[]
+  files: ImportFileOutcome[]
+  examined: number
+  truncated: boolean
+}
+
+/** The dry run's answer for one question. */
+export interface ImportVerdict {
+  index: number
+  ok: boolean
+  reason: string | null
+  warnings: ImportWarning[]
+}
+
+export interface ImportValidation {
+  verdicts: ImportVerdict[]
+  batchWarnings: ImportWarning[]
+  wouldSave: number
 }

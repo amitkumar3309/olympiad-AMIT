@@ -393,11 +393,41 @@ export interface ScreenOutcome {
  * first.
  */
 export function screenCandidates(candidates: GeneratedCandidate[], target: ScreenTarget): ScreenOutcome {
+  return screenEach(candidates.map((candidate) => ({ candidate, target })));
+}
+
+/** One candidate together with where it would be filed. */
+export interface ScreenEntry {
+  candidate: GeneratedCandidate;
+  target: ScreenTarget;
+}
+
+/**
+ * The screener itself, with a target **per candidate** rather than one for the batch.
+ *
+ * Added in Milestone 21 for the bulk importer, and the generalisation rather than a second
+ * function is the point. A generated batch is filed in one place by construction, so
+ * `screenCandidates()` above passes the same target for every candidate and is unchanged in
+ * behaviour. An imported batch is not: a spreadsheet legitimately carries a `Class` and a
+ * `Topic` column, so row 3 and row 40 may belong to different chapters and must be checked
+ * against the questions already in *their own* chapter.
+ *
+ * Writing a second screener for that case is precisely what the one-screener rule forbids —
+ * two would eventually disagree about what may become a question, and the more permissive
+ * one would decide. So there is still exactly one implementation of "validate, then
+ * de-duplicate", and both callers reach it here.
+ *
+ * Batch-internal duplicate detection still works across the whole upload because this is one
+ * loop over every entry: row 40 is compared against row 3 even though they are filed apart.
+ * That is deliberate — the same question pasted into two chapters of one spreadsheet is a
+ * copy-paste slip, not two questions.
+ */
+export function screenEach(entries: readonly ScreenEntry[]): ScreenOutcome {
   const accepted: ScreenOutcome['accepted'] = [];
   const rejected: RejectedCandidate[] = [];
   const duplicates: RejectedCandidate[] = [];
 
-  for (const [position, candidate] of candidates.entries()) {
+  for (const [position, { candidate, target }] of entries.entries()) {
     const index = position + 1;
     const parsed = createQuestionSchema.safeParse({
       ...candidate,
@@ -695,8 +725,15 @@ async function writeLog(
   }
 }
 
-/** Turns a zod failure into one sentence an examiner can act on. */
-function reasonFrom(error: unknown): string {
+/**
+ * Turns a zod failure into one sentence an examiner can act on.
+ *
+ * Exported since Milestone 21 so the bulk importer phrases a rejection the same way: an
+ * examiner reading "options: A single-choice question needs exactly one correct option"
+ * should not have to learn two dialects depending on whether the question came from a model
+ * or a spreadsheet.
+ */
+export function reasonFrom(error: unknown): string {
   if (error && typeof error === 'object' && 'issues' in error) {
     const issues = (error as { issues: Array<{ path: Array<string | number>; message: string }> }).issues;
     return issues

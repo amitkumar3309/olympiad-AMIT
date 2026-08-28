@@ -200,7 +200,197 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Current Milestone
 
-None in progress. Milestone 20 is complete.
+**Milestone 21 — Bulk question import, Mathematics-only scope, Classes 3–12. PHASES A–F COMPLETE: bulk import is finished and usable.**
+
+**Phase F (the import review screen) is implemented and verified, which completes bulk import.**
+`npm test --prefix backend` is **1086 passing across 30 files** (882/26 before this milestone;
+944/27 after Phase B; 1001/28 after C; 1039/29 after D; 1078/30 after E), and `npm run lint`,
+`npm run compile` and the frontend `tsc -b` + `npm run build` are all clean.
+
+**An administrator can now do the whole thing from the admin panel**: open **Bulk Import**
+(`/admin/questions/import`), pick Excel / Word / Photographs, download the Excel template, set
+the defaults, upload, read exactly what was and was not extracted, correct anything, check it,
+and approve as drafts or publish. Phases C–E built the parsers; this is the page that makes them
+reachable by somebody who does not use `curl`.
+
+One page with a tab per format over **one** review screen, because every parser normalises into
+the same candidate — three review screens would be three places for the approve payload to drift
+out of step with the backend. Phase F also added **`POST /admin/questions/import/validate`**, the
+dry run, which calls the same `screenEach()` approval calls so its answer *is* the answer
+approval will give.
+
+> **Two client-side bugs were found by driving the page in a browser, and neither was reachable
+> from the backend suite.** The page rendered *"Saved undefined questions"* because it assumed a
+> `created` count the approve route does not return; fixing that revealed `published` and
+> `publishFailures` were being ignored, so "Approve & publish" would have claimed to publish
+> questions that stayed as drafts for want of a solution. Both fixed, both recorded in
+> [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md). The lesson is in `TESTING.md`: **the frontend has
+> no test suite, so a browser pass is not optional for a new admin page** — it is the only thing
+> that checks the response contract from the consuming side.
+
+The browser verification ran against the **local dev database** (`npm run dev:local`, never
+`npm start`) and its rows were deleted afterwards, so nothing was left behind.
+
+**Phase E (image import) is implemented and verified.** It was 1078 passing across 30 files at
+the end of it.
+
+> **One typecheck error is outstanding and it is not from this milestone.** A concurrent session
+> is editing student analytics (adding `STRONG_AREA_MIN_ACCURACY` / `WEAK_AREA_MAX_ACCURACY` and
+> two new required fields on `StudentAnalytics`), and `tests/recommendations.test.ts` — which that
+> session has not touched — still builds the old shape. `npm run typecheck` therefore reports
+> `TS2739` in that file. `npm run compile` is clean because it excludes tests, and the whole suite
+> passes at runtime. It was deliberately **not** fixed here: it is mid-flight work in another
+> session's files, and editing them would only create a conflict. Whoever finishes that change
+> needs to add the two fields to the analytics literal in that test.
+
+Phase E added `services/imageImportParser.ts` and — the more structural change —
+**`requestGeminiJson()`**, extracted from `geminiQuestionGenerator.generate()` so that there is
+now literally **one function in the codebase that calls a language model**. What it owns is the
+set of things already got wrong once and documented: the client via `clientFactory` (the test
+seam, so no test can reach the network), the credential check, `attemptGenerate()` and its single
+shared deadline, `describeFailure()`, `redact()`, and the blocked-prompt and `MAX_TOKENS` cases.
+The generator's 52 tests pass unchanged, which is the evidence the extraction was behaviour-neutral.
+
+**The model transcribes; our own code decides what the answer means.** The response schema asks
+for what is *printed* — the question, the options, and the answer **as written** — and
+deliberately carries no `isCorrect`, `booleanAnswer`, `numericAnswer` or `marks`. Those are
+derived by `lib/importAnswerText.ts`, the same readers a spreadsheet and a Word file go through,
+so this phase needed **no new answer reading at all**. Asking a model to fill in typed answer
+fields would make it the authority on what counts as correct, which is the one thing that must
+not be wrong.
+
+**A question with no printed answer is refused, never given one** — a calculated answer is
+indistinguishable from a printed one, and children would be marked against it. `marks`, `class`
+and `topic` come from the upload defaults only, never off the page. Every image import carries a
+standing warning that OCR of mathematical notation is where transcription is least reliable; that
+is not boilerplate, it is the only control besides the mandatory review.
+
+**Phase D (the DOCX importer) is implemented and verified.** It was 1039 passing across 29 files
+at the end of it.
+
+**What an administrator can do at the end of Phase D: import an `.xlsx` or a `.docx`, through the
+API only.** There is still **no page** — that is Phase F — so it is exercisable with `curl` or
+Postman and not from the admin panel, and **the feature is not usable by a non-technical
+administrator yet.** The image route still answers **503**. Do not report this milestone as "bulk
+import works".
+
+Phase D added `services/docxImportParser.ts`, plus two shared modules extracted from the Excel
+parser: **`lib/importAnswerText.ts`** (the one reading of a human-written answer — "the answer is
+B" must mean the same thing in a spreadsheet cell and on an `Answer: B` line) and
+**`lib/ooxml.ts`** (which OOXML file this is, answered without inflating it). Also
+`ParseOutcome.notes`, a file-level advisory channel surfaced in `batchWarnings`, and
+`tests/docxImport.test.ts` (38 tests) with `tests/helpers/docx.ts`, which builds real `.docx` files
+from `jszip` — already present as `mammoth`'s own dependency, so nothing new was installed.
+
+DOCX extraction is **deterministic and deliberately AI-free** (see the Milestone 21 ADR): a `.docx`
+is text we already have, and a model would add cost, latency, a third party on every import, and a
+credential dependency in a *core* format. What absorbs the reduced capability is that it **never
+guesses quietly** — every interpretation is a note, every unusable block is a failure naming its
+question number, and a document that yields nothing says what was looked for.
+
+**Two Word failure modes look like success and are warned about explicitly.** Word's automatic
+numbering does not survive text extraction, so a document numbered from the toolbar would merge
+into one question — there is an `Answer:`-terminated fallback that announces itself. And Word
+equation objects are dropped silently by `mammoth`, so an affected question imports with its
+formula missing mid-sentence. Both are in [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
+Three defects were found by the new tests and fixed: `Q.1` and `Q1` were not recognised as markers
+(the terminator is now optional when the `Q` prefix is present); a document containing a **single**
+question kept `Q1.` glued to its text, because marker mode needed two markers; and a file of
+ordinary prose came back as one enormous "question", because the answer-terminated fallback did not
+check that any answer line existed.
+
+**Phase C (the Excel importer) is implemented and verified.** It was 1001 passing across 28 files
+at the end of it.
+
+Phase C added `services/excelImportParser.ts` and `GET /admin/questions/import/excel/template`, plus
+`tests/excelImport.test.ts` (57 tests, building **real** `.xlsx` files and pushing them through the
+real route). The parser is a **shape adapter**, not a gate: a row that cannot become a candidate is a
+failure naming its row number, a row that becomes a bad candidate is left to the one shared screener,
+and a row we interpreted carries an advisory note. It is deliberately tolerant of the *file* (any
+column order, loose headings, a title row above the header, every sheet read) and strict about the
+*data* (a `Class` of 13, an unknown chapter or a non-numeric `Marks` is reported with its row number,
+never defaulted).
+
+Two defects were found by the new tests and fixed. **The template's own Instructions sheet was being
+imported as twelve questions**, because a header detector needing one matching column read that
+sheet's glossary — whose first cell is the word `Question` — as a header; any workbook with a legend
+has that shape. And **the example rows named chapters that exist only in this project's seed data**,
+so an examiner's first import would have opened with five rejected rows. Both are in
+[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
+**Phase B (shared bulk-import infrastructure and validation) is implemented and verified.** It was
+944 passing across 27 files at the end of it.
+
+What exists: `lib/importTypes.ts` (the seam), `validation/uploadSchemas.ts` (magic bytes, sizes,
+filenames), `validation/importSchemas.ts`, `models/ImportBatch.ts` (the 27th model),
+`services/questionImportService.ts` (preview → approve, approval being the only writer),
+`routes/v1/questionsImport.routes.ts` (five endpoints on `questions:write`), `importLimiter`, two env
+vars, three new `QUESTION_SOURCES` values, the `questions.imported` audit action, and
+`tests/questionImport.test.ts` (62 tests).
+
+Two dependencies landed for Phases C and D: **`exceljs`** and **`mammoth`**, both free. Images need
+neither. See the Milestone 21 dependency ADR for the `exceljs` → `uuid` advisory and why it is not
+reachable.
+
+Three defects were found by the new tests and fixed — the important one being that **every rejected
+upload answered 500 instead of 400**, because zod 4 runs an array-level check even after a child failed
+and hands it `undefined`. Logged in [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md), along with a patch-script
+trap (`$` in a `String.replace` replacement) that is worth knowing in a codebase full of `$…$` LaTeX and
+`$match` pipelines.
+
+### Phase A findings, unchanged and still the map
+
+The owner asked for bulk question import from Excel (`.xlsx`), Word (`.docx`) and images, a unified review-before-import screen, assignment of imported questions to Practice / Mock Tests / Daily Challenges, a class range of **3–12**, and the removal of **Subject** as a user-facing concept (Mathematics becomes the implicit domain). The work is being done in the phases the owner specified (A–L), stopping for approval after each.
+
+
+Measured against the code on 2026-08-18, with a green baseline established first (**882 tests / 26 files passing**, backend typecheck + lint clean, frontend `tsc -b` clean, oxlint warnings only, working tree clean at `7978e4a`).
+
+1. **Class validation is already centralised and does not need rebuilding.** `backend/src/lib/classLevels.ts` is the single definition, mirrored (as a list only, never as enforcement) in `frontend/src/api/types.ts`. No `'Class N'` literal exists anywhere else in `backend/src/`; every schema and model imports `CLASS_LEVELS`. The spec's "centralize class validation" is therefore already satisfied — what changes is the *contents* of that list, not its location.
+2. **The current class list is neither 3–12 nor flat.** It is `'Class 5'`–`'Class 11'` plus **three Class-12 streams** (`'Class 12 - Science'`, `'- Commerce'`, `'- Humanities'`), which exist because the code records that the competition paper differs by stream. Owner decision (2026-08-18): **keep the string format**, extend to `'Class 3'`–`'Class 12'`, and **collapse the three streams into one `'Class 12'`**. Numeric 3–12 was rejected as too large a migration — `classLevel` is a stored enum on eight collections, plus roughly 160 test literals.
+3. **There is no import infrastructure of any kind**, and no `multer` / `xlsx` / `docx` dependency. Uploads in this product travel as **base64 data URLs inside the JSON body**, validated by **magic bytes** (`validation/imageSchemas.ts`) under a per-path body limit in `app.ts` — the registration photo and the event gallery both work this way. Bulk import should follow that precedent, because it means **nothing is ever written to disk**: temporary-file cleanup, safe filenames and path traversal stop being risks by construction rather than by care.
+4. **The AI generator’s architecture is the right skeleton for import and should be reused, not paralleled.** `services/questionGeneratorService.ts` already implements the exact shape the import spec describes: propose → screen (`screenCandidates()`, one shared gate) → dry-run validate → **approve is the only writer**, re-validating from scratch. `GeneratedCandidate` (`lib/questionGeneratorTypes.ts`) is a provider-agnostic candidate carrying **no taxonomy**, so an Excel row, a DOCX block and an OCR’d image should all normalise into it. Duplicate detection already exists (`similarity()`, Jaccard over stop-word-filtered fingerprints, threshold `0.8`), already checks the batch *and* the bank, and already reports rather than silently dropping.
+5. **The question lifecycle the spec asks for already exists and must not be duplicated.** `QUESTION_STATUSES` is `draft → in_review → published → archived`, with a transition table in `questionService.ts`. The spec’s `IMPORTED → REVIEW_REQUIRED → APPROVED → AVAILABLE` maps onto it with **no new states**: nothing is stored before approval (as with generation), approval creates a `draft`, and publishing stays the separate explicit act it already is.
+6. **Source tracking exists but is narrower than the spec.** `Question.provenance.source` is `QUESTION_SOURCES = ['human', 'ai_assisted']`; the spec wants `EXCEL_IMPORT` / `DOCX_IMPORT` / `IMAGE_IMPORT` alongside `MANUAL` / `AI_GENERATED`. That is an additive enum change on an embedded subdocument (no new model). Note that `provenance` is deliberately **a parameter of `createQuestion()` rather than part of any request body** — a client must not be able to file machine-written questions as hand-written ones. Extend that mechanism; do not add a body field.
+7. **“Assign to Practice” has nothing to assign to.** Practice is **student-initiated**: `startPracticeSession()` `$sample`s published questions matching a class / topic / difficulty filter the *student* chose. There is no `PracticeSet` entity and no admin curation anywhere. So “select 30 approved questions → create a Practice Set” would be **new architecture**, not reuse — and the spec forbids a second Practice system. The honest reading is that a question **becomes** practice content by being published with the right class and topic. Mock Tests and Daily Challenges are different: both already accept explicit question ids (`createMockTestSchema.questions`, `scheduleChallengeSchema.questionId`), so assignment there is a frontend affordance over existing APIs. **This needs the owner’s agreement before Phase G.**
+8. **A user-facing Subject concept is present in eight frontend surfaces**, most substantially `pages/Admin/Taxonomy.tsx` (a full subject-management UI, 77 references), the student `pages/Practice/Practice.tsx` picker (47), `Admin/QuestionForm.tsx`, `Admin/Questions.tsx`, `AiGenerator/AiGenerator.tsx`, `Admin/MockTestForm.tsx`, `Admin/DailyChallenges.tsx`, and `Analytics/Analytics.tsx` (which reports subject-scoped strengths and weaknesses). The `Subject` **model, the `/subjects` routes and `Question.subject` all stay** — `Topic` is scoped by subject, and removing the field would break the taxonomy — resolved instead to a fixed internal Mathematics value.
+9. **A `Physics` subject exists in the seed data** (`scripts/data/class12Physics.ts`, seeded by `scripts/seed-class12.ts`). Owner decision (2026-08-18): **remove Physics completely**, with other subjects to be added in future, so the internal extensibility stays. Note the constraint this runs into: a **published** question cannot be hard-deleted (`deleteQuestion()` refuses anything carrying a `publishedAt`, because an attempt may reference it), so published Physics questions must be **archived**, not destroyed. Removal needs a report-only script calling `assertConfiguredForWrites()` behind an explicit `--delete` flag, run by the owner.
+10. **Image import cannot store diagrams.** The bank has no image field (question images/diagrams are listed as not started in [`FEATURE_STATUS.md`](FEATURE_STATUS.md)), and the generation prompt explicitly forbids referring to a figure. Image import therefore means **OCR to text + LaTeX**; a question whose meaning depends on a diagram cannot be imported, and must be reported to the examiner as such rather than imported half-complete.
+11. **Gemini must not be cloned.** `services/geminiQuestionGenerator.ts` owns the only client, behind a swappable `clientFactory` (the test seam), together with `redact()`, `isTransient()`, `describeFailure()` and the shared-deadline `attemptGenerate()`. Image extraction is a *different capability* (multimodal input, extracting rather than inventing) and so needs its own seam beside `QuestionGenerator` — but it must reuse that client and that plumbing, and `GEMINI_API_KEY` / `GEMINI_MODEL` rather than a second credential.
+
+### Owner decisions taken (2026-08-18)
+
+| Question | Decision |
+| --- | --- |
+| Class representation | Keep the string format; `'Class 3'`–`'Class 12'`; collapse the three Class-12 streams into a single `'Class 12'`. |
+| Import dependencies | `exceljs` (MIT) for `.xlsx`, `mammoth` (BSD) for `.docx`. Both free and offline. Images need **no** new dependency — the already-installed `@google/genai` accepts inline image bytes. |
+| Physics | Remove the subject completely. Other subjects may be added in future, so internal extensibility stays. |
+
+### What remains in this milestone
+
+Bulk import itself is **done**. The remaining phases are the surrounding scope changes the owner
+asked for in the same brief:
+
+- **Phase G — Practice assignment.** Blocked on an owner decision, and has been since Phase A
+  (finding 7): Practice is student-initiated and there is **no admin-curated practice set to
+  assign to**. Either publishing a question with the right class and chapter is accepted as the
+  assignment mechanism — which is what the architecture already does — or a genuinely new
+  `PracticeSet` collection is in scope, which the brief's "do not create a second Practice
+  system" rule appears to forbid.
+- **Phase H — Mock Test assignment** and **Phase I — Daily Challenge assignment.** Both already
+  accept explicit question ids (`createMockTestSchema.questions`, `scheduleChallengeSchema.questionId`),
+  so these are frontend affordances over existing APIs rather than new architecture.
+- **Phase J — Classes 3–12 and removing the user-facing Subject concept.** The class change is one
+  file (`lib/classLevels.ts`) plus its frontend mirror, plus a migration for the three Class-12
+  stream values the owner chose to collapse. The Subject removal touches eight frontend surfaces;
+  the model, the routes and `Question.subject` stay.
+- **Phase K — drop Subject from the AI generator** and **Phase L — full regression.**
+
+Also outstanding, and **not** from this milestone: `tests/recommendations.test.ts` fails
+`npm run typecheck` because a concurrent session added two required fields to `StudentAnalytics`.
+`npm run compile` is clean (it excludes tests) and the suite passes at runtime. Whoever finishes
+that change needs to add `strongAreaMinAccuracy` and `weakAreaMaxAccuracy` to the analytics
+literal at line 671.
 
 > **The 2026-08-17 audit's unverified-changes warning is resolved.** Milestone 20 ran the whole gate on 2026-08-18: `npm test --prefix backend` (**882 passing, 26 files**), `npm run typecheck`, `npm run lint`, `npm run compile`, and `tsc -b` + `npm run build` in the frontend. The audit's changes — `tests/security.audit.test.ts`, the amended `dashboard.test.ts` assertions and the `Certificate.tsx` switch — all pass. `npm audit` was **still not run** in either app, and remains open in [`SECURITY.md`](SECURITY.md).
 >

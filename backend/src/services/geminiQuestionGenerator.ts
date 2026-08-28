@@ -622,56 +622,109 @@ export const geminiQuestionGenerator: QuestionGenerator = {
   },
 
   async generate(request: GenerationRequest): Promise<GeneratedCandidate[]> {
-    const apiKey = config.ai.geminiApiKey;
-    if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
-
-    const client = clientFactory(apiKey);
     // The examiner's choice wins; the configured value is the fallback.
     const model = request.model ?? config.ai.geminiModel;
 
-    const params: GenerateContentParameters = {
+    const text = await requestGeminiJson({
       model,
       contents: buildPrompt(request),
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: responseSchemaFor(request),
-        // Some variety between runs: an examiner who generates twice wants two different
-        // sets, not the same one twice.
-        temperature: 0.9,
-        maxOutputTokens: outputBudget(request.count),
-        // No `abortSignal` here on purpose: `attemptGenerate()` mints one per attempt from a
-        // budget shared across all of them. See the note there.
-      },
-    };
-
-    const response = await attemptGenerate(client, params, model);
-
-    if (response.promptFeedback?.blockReason) {
-      throw new Error(`Gemini blocked the request (${response.promptFeedback.blockReason}).`);
-    }
-
-    const first = response.candidates?.[0];
-    const text = response.text ?? first?.content?.parts?.[0]?.text;
-
-    if (!text) {
-      const reason = first?.finishReason;
-      throw new Error(
-        reason === 'MAX_TOKENS'
-          ? 'Gemini ran out of room before it finished. Ask for fewer questions at once, or choose a flash model.'
-          : `Gemini returned no content${reason ? ` (${reason})` : ''}.`,
-      );
-    }
-
-    if (first?.finishReason === 'MAX_TOKENS') {
-      logger.warn(
-        { requested: request.count, model },
-        'Gemini hit its output limit — expect fewer questions than requested',
-      );
-    }
+      responseSchema: responseSchemaFor(request),
+      // Some variety between runs: an examiner who generates twice wants two different sets,
+      // not the same one twice.
+      temperature: 0.9,
+      maxOutputTokens: outputBudget(request.count),
+      truncationHint: 'Ask for fewer questions at once, or choose a flash model.',
+    });
 
     return extractCandidates(text).map((value) => toCandidate(value, request));
   },
 };
+
+// ---------------------------------------------------------------------------
+// The one Gemini call, shared by every caller
+// ---------------------------------------------------------------------------
+
+export interface GeminiJsonRequest {
+  model: string;
+  /**
+   * The prompt, or a multi-part payload. `GenerateContentParameters['contents']` covers both a
+   * bare string and the parts array the image path needs for `inlineData`.
+   */
+  contents: GenerateContentParameters['contents'];
+  responseSchema: Schema;
+  temperature: number;
+  maxOutputTokens: number;
+  /** What to suggest when the reply was cut off, since the remedy differs per caller. */
+  truncationHint: string;
+}
+
+/**
+ * Asks Gemini for JSON and returns the raw text, or throws with the provider's own words.
+ *
+ * **This is the only place in the codebase that calls a language model**, and it was extracted
+ * from `generate()` in Milestone 21 Phase E when image extraction became a second caller. The
+ * extraction rather than a second implementation is the whole point: what lives here is not the
+ * prompt or the schema — those are properly per-caller — but the things that are easy to get
+ * subtly wrong and must not be got wrong twice.
+ *
+ *  - the **client**, via `clientFactory`, so `setGeminiClientFactory()` still swaps out every call
+ *    the suite makes and no test can reach the network;
+ *  - the **credential check**, so a missing key is one message rather than two;
+ *  - **`attemptGenerate()`** and its single shared deadline, which is the trap documented at
+ *    length there: a signal built outside the retry loop reports "timed out" for a real 503, and a
+ *    fresh full-length signal per attempt outlives a serverless invocation;
+ *  - **`describeFailure()`** and `redact()`, so a provider error reaches the examiner verbatim and
+ *    verbatim can never contain the API key;
+ *  - the **blocked-prompt** and **empty-reply** cases, including `MAX_TOKENS`, which arrives as an
+ *    empty response rather than as an error and would otherwise look like "the model returned
+ *    nothing" to whichever caller forgot to check.
+ *
+ * A second copy of this would eventually differ on one of those, and the difference would surface
+ * as a mysterious failure on one feature and not the other.
+ */
+export async function requestGeminiJson(request: GeminiJsonRequest): Promise<string> {
+  const apiKey = config.ai.geminiApiKey;
+  if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
+
+  const client = clientFactory(apiKey);
+
+  const params: GenerateContentParameters = {
+    model: request.model,
+    contents: request.contents,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: request.responseSchema,
+      temperature: request.temperature,
+      maxOutputTokens: request.maxOutputTokens,
+      // No `abortSignal` here on purpose: `attemptGenerate()` mints one per attempt from a budget
+      // shared across all of them. See the note there.
+    },
+  };
+
+  const response = await attemptGenerate(client, params, request.model);
+
+  if (response.promptFeedback?.blockReason) {
+    throw new Error(`Gemini blocked the request (${response.promptFeedback.blockReason}).`);
+  }
+
+  const first = response.candidates?.[0];
+  const text = response.text ?? first?.content?.parts?.[0]?.text;
+
+  if (!text) {
+    const reason = first?.finishReason;
+    throw new Error(
+      reason === 'MAX_TOKENS'
+        ? `Gemini ran out of room before it finished. ${request.truncationHint}`
+        : `Gemini returned no content${reason ? ` (${reason})` : ''}.`,
+    );
+  }
+
+  if (first?.finishReason === 'MAX_TOKENS') {
+    logger.warn({ model: request.model }, 'Gemini hit its output limit — expect a truncated result');
+  }
+
+  return text;
+}
 
 /**
  * One call, retried only while the failure is transient.

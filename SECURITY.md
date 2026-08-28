@@ -4,6 +4,37 @@ _Last updated: 2026-08-17 (complete security audit)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.
 
+## Image import and the model boundary (Milestone 21, Phase E)
+
+The image path is the only importer that sends anything to a third party, so what it sends is
+worth stating precisely: **one image the examiner chose, plus a fixed instruction.** Nothing
+else. No student data, no account identifiers, no question bank contents — there is a test that
+registers a real student and then asserts the request body contains none of their fields.
+
+The same three rules the question generator follows apply unchanged, and they are enforced in
+shared code rather than restated here: the key travels as a header and never in a URL, every
+message leaving the module passes through `redact()`, and the call goes through the one
+`requestGeminiJson()` so there is no second client with its own habits.
+
+**The image is untrusted input, and nothing in it is treated as an instruction.** A photograph
+could contain text saying "ignore your instructions" — the defence is not prompt engineering, it
+is that **nothing the model returns is trusted**: every transcription goes through
+`createQuestionSchema` and the shared screener exactly as a hand-authored question does, and a
+human approves each one before anything is written. There is no examiner-supplied free text in
+this prompt at all, so the injection ordering the generator has to manage does not arise here.
+
+**Cost is a security property on this route.** One model call **per image**, so a twenty-image
+request is twenty calls — which is why `importLimiter` is mounted ahead of the permission check
+(cheapest rejection first, and an unauthenticated flood must not reach the database read that
+authorization performs) and why `MAX_IMPORT_FILES` and `MAX_IMPORT_REQUEST_BYTES` are bounded.
+
+**What is deliberately not claimed**: the transcription is not verified. OCR of mathematical
+notation fails quietly — a dropped exponent, a minus read as a hyphen — producing a question that
+reads plausibly and is wrong. Every image import carries a standing warning saying so, and the
+mandatory human review is the control. Nothing in the UI or the API may imply otherwise.
+
+---
+
 ## The 2026-08-17 audit, in one page
 
 The whole application — backend and frontend — was reviewed against authentication, authorization bypass, IDOR, privilege escalation, JWT handling, refresh tokens, password storage, CORS, CSRF, XSS, NoSQL injection, input validation, rate limiting, brute force, mass assignment, information and error leakage, file upload, payment and webhook handling, secret exposure, and administrative endpoint protection.
@@ -543,3 +574,108 @@ Every XP grant in this backend goes through one function, `grantReward()`, and t
 
 - **Never paste a connection string into a chat, an issue or a screenshot.** It grants full read/write access to production data. If one is exposed, rotate it immediately: Atlas → Database Access → Edit → Edit Password → Autogenerate, then update `backend/.env` **and** the Vercel environment variable, which are configured independently of each other.
 - **Scripts print a redacted URI.** `redactUri()` in `lib/envGuard.ts` strips credentials before any script logs its target, so script output can be shared safely. `where-is-data.ts` and the three write scripts all use it.
+
+---
+
+## Bulk question import — upload security (Milestone 21, Phase B)
+
+The importer accepts `.xlsx`, `.docx`, `.jpg`, `.jpeg`, `.png` and `.webp` from an administrator. That
+makes it the third upload surface after the registration photo and the event gallery, and the first that
+accepts a **container format** rather than an image.
+
+### Nothing is written to disk, which removes a whole class of risk
+
+Uploads travel as **base64 data URLs inside the JSON body** — the same route the registration photo and
+the gallery take (see the Milestone 4 ADR) — and are parsed from a `Buffer`. There is no temporary
+file, no upload directory and no filename ever joined onto a path. So **path traversal, temporary-file
+cleanup and unsafe filenames are absent risks here rather than mitigated ones**, and no uploaded file is
+ever in a position to be executed.
+
+The filename is kept only as a *label* — echoed into the error report and stored on `ImportBatch` so an
+examiner can tell which of ten photographs failed. It is still validated (no path separator, no
+Windows-reserved character, no control character including NUL, not `.` or `..`), because a name that
+contains one is either a client bug or an attempt at something, and neither should be stored and
+displayed to staff.
+
+### The declared MIME type is not evidence
+
+Three signals are checked, in ascending order of how much they are trusted:
+
+1. **The bytes.** `.xlsx` and `.docx` are both ZIP archives, so both must begin with the local-file-header
+   signature `50 4B 03 04`; images are checked against their own signatures. This is the only signal a
+   client cannot forge without actually supplying a file of that shape. `PK\x05\x06` (empty archive) and
+   `PK\x07\x08` (spanned) are refused — neither can be a valid workbook, and letting them through would
+   only move the failure into the decompressor.
+2. **The extension**, from an allow-list, which is what selects the parser. `.xls` is deliberately absent:
+   the legacy binary format is not OOXML and would produce a confusing parse failure rather than the
+   clear "save it as .xlsx" the examiner needs.
+3. **The declared MIME type**, checked against a permissive allow-list and trusted least. Permissive on
+   purpose — real browsers send the canonical OOXML type when the OS knows it and `application/octet-stream`
+   when it does not, and refusing the second would reject genuine files over a signal that proves nothing.
+
+The **authoritative** check is none of these three: it is that the parser finds the OOXML part it
+needs, and both halves now exist in `lib/ooxml.ts`. `looksLikeWorkbook()` and
+`looksLikeWordDocument()` search the bytes for the `xl/workbook.xml` / `word/document.xml` **entry
+name** — stored uncompressed in every ZIP — so they answer **without inflating anything**. That
+ordering is worth keeping: a decompression bomb that is not the format we expected is refused
+before `exceljs` or `mammoth` is ever handed the file. Each route also tells a misdirected file
+what it is ("that is a Word document — use the Word import"), since the magic bytes cannot.
+
+A byte search can in principle be fooled the other way — a `.docx` containing a *file named*
+`xl/workbook.xml` would pass — but that only earns a clear parse error from the real library a
+moment later. It is a cheap early discriminator, **not a security boundary**; the boundary is that
+nothing a parser returns is trusted.
+
+### Server-side limits, and why the total matters as much as the per-file one
+
+| Limit | Value | Enforced by |
+| --- | --- | --- |
+| Per file | 5 MB office, 6 MB image | `importFileSchema()` |
+| Per request, decoded | 24 MB | `importFilesSchema()` **and** the body-parser limit in `app.ts` |
+| Files per request | 20 | `importFilesSchema()` |
+| Questions per import | `IMPORT_MAX_QUESTIONS` (200) under `IMPORT_HARD_MAX` (500) in code | `questionImportService` |
+| Uploads per hour per IP | `IMPORT_RATE_LIMIT_PER_HOUR` (20) | `importLimiter` |
+
+A per-file limit alone is not a limit: twenty 6 MB images is 120 MB, which no serverless invocation
+survives. The large body allowance is granted to the **import path prefix only**, exactly as the photo
+allowance is — every other endpoint keeps body-parser's 100 KB default, so a large-payload flood has a
+countable number of doors and all of them are rate limited. Both `/api/v1` and `/api` are listed,
+because the unversioned prefix is an alias for the same router and a limit holding on only one would be
+bypassed by using the other.
+
+`importLimiter` is mounted **ahead of the permission check**, like `generationLimiter`: the cheapest
+possible rejection is the right one when a request costs money, and an unauthenticated flood should not
+reach the database read that authorization performs.
+
+### Authorization
+
+Every import route is gated on **`questions:write`**, which is an *elevated* permission — so each
+request re-reads the caller's role from the database and a demoted or suspended administrator loses
+access at once rather than at token expiry. No new permission was added: importing produces exactly the
+rows the editor produces. A test asserts a student receives **403** on all five routes across **both**
+URL prefixes.
+
+### The trust boundary is unchanged
+
+A parser is never trusted. Every candidate passes `createQuestionSchema` — the same schema, and the same
+`validateMathContent()`, a hand-authored question passes — and **approval re-validates from scratch**,
+because what it receives is whatever the review screen sent after the examiner corrected it. A bad
+candidate is **rejected and reported, never repaired**. Nothing is stored before a human approves it,
+and questions are created as `draft`: importing is not publishing.
+
+A parser also cannot supply an id — it reports the taxonomy it read as *names*, resolved server-side —
+so **an importer cannot create taxonomy rows**. One bad spreadsheet cannot reshape the syllabus; an
+unknown chapter is an error reported against that row.
+
+### Open, and deliberately not attempted
+
+1. **No decompression-bomb defence beyond a size cap.** A small ZIP can expand enormously, and neither
+   `exceljs` nor `mammoth` exposes a limit on what it will inflate. The mitigations are the input size
+   cap, the independent bound on how many rows a parser may return, and the hard memory ceiling of a
+   serverless invocation. Recorded here as a residual risk rather than treated as solved.
+2. **No malware scanning and no re-encoding** — the same open gap already recorded for the registration
+   photo.
+3. **`exceljs` carries one transitive advisory** (`uuid` < 11.1.1, a missing buffer bounds check in
+   v3/v5/v6 when `buf` is supplied). It is **not reachable**: exceljs calls only `uuid.v4()` and never
+   passes `buf`, verified by reading `node_modules/exceljs/lib`. Worth re-checking if exceljs is ever
+   upgraded or its usage changes.

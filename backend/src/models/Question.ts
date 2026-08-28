@@ -44,13 +44,31 @@ export type QuestionStatus = (typeof QUESTION_STATUSES)[number];
 export const STUDENT_VISIBLE_STATUSES: readonly QuestionStatus[] = ['published'];
 
 /**
- * Who wrote a question — a person at a keyboard, or a model a person then approved.
+ * How a question came to exist.
  *
  * `human` is the default and covers every question created before Milestone 20 as well as
  * every one typed into the editor, so the absence of a provenance block never has to be
  * interpreted.
+ *
+ * The three `*_import` values arrived with the bulk importer in Milestone 21. They record
+ * the **route into the bank**, which is a different fact from whether a model was involved:
+ * an image import is `image_import` *and* carries `generatorKind: 'model'` and a
+ * `modelName`, because a model really did read the photograph, while an Excel import is
+ * deterministic and carries neither. Collapsing the two facts into one field would mean
+ * either losing "a model produced this text" or losing "this came from a spreadsheet", and
+ * both are things somebody will eventually need to ask about machine-read exam content.
+ *
+ * Lowercase snake_case to match the values already stored. The product spec named these in
+ * upper case (`EXCEL_IMPORT`); renaming the two existing values to match would have been a
+ * data migration on every question in the bank for a cosmetic gain.
  */
-export const QUESTION_SOURCES = ['human', 'ai_assisted'] as const;
+export const QUESTION_SOURCES = [
+  'human',
+  'ai_assisted',
+  'excel_import',
+  'docx_import',
+  'image_import',
+] as const;
 export type QuestionSource = (typeof QUESTION_SOURCES)[number];
 
 /**

@@ -4,6 +4,319 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-23 — Image import uses a model; it transcribes, and our own code reads the answer
+
+**Decision**: `services/imageImportParser.ts` calls Google Gemini to read questions off a
+photograph — and asks it for **a transcription of what is printed**, not for an answer key. The
+response schema carries `questionText`, `options` as printed, and `answer` **as written** in a
+plain string. It deliberately contains no `isCorrect`, no `booleanAnswer`, no `numericAnswer` and
+no `marks`. Those are derived afterwards by `lib/importAnswerText.ts`, the same readers a
+spreadsheet cell and an `Answer: B` line in Word go through.
+
+**Reason for using a model at all**: the Phase D ADR declined AI for `.docx` because a Word file
+*is text we already have*. A photograph is the opposite: there is no text, and OCR is the only way
+in. This is not a reversal of that decision, it is the case it was drawn around — and it is why
+the image path is the only importer that is non-deterministic, spends quota, and reports
+`extraction: 'model'`.
+
+**Reason for the transcribe-only schema**, which is the more interesting half. Asking a model to
+fill in typed answer fields would make it the authority on **what counts as correct**, in a
+product where that is the one thing that must not be wrong. Asking it only what the page *says*
+keeps its job to the thing it is good at (reading pixels) and keeps the judgement in code that a
+human can read. Two further properties fall out of it: **what is not in the schema cannot come
+back** to be misinterpreted, and the phase needed **no new answer reading at all**, which is
+exactly what extracting `lib/importAnswerText.ts` in Phase D was for.
+
+**The refusal that matters most**: a question with **no printed answer is refused, never given
+one.** The prompt forbids the model from working an answer out, and an empty `answer` becomes a
+named failure. A calculated answer would be indistinguishable from a printed one, and children
+would be marked against it.
+
+**Consequences**: `marks`, `class`, `topic` and `difficulty` come from the upload defaults only —
+reading "(4 marks)" or a "Class 8" page header off a photograph is precisely the plausible
+misreading that changes a score or files a question for the wrong cohort. Temperature is 0.1,
+not the generator's 0.9, because transcription has one right answer. Every image import carries a
+standing warning that mathematical notation is where OCR is least reliable; that warning is not
+boilerplate and must not be trimmed. And **no other format may depend on a model credential** —
+with `GEMINI_API_KEY` absent, Excel and DOCX stay available and only this route answers 503.
+
+---
+
+## 2026-08-23 — There is exactly one Gemini call: `requestGeminiJson()`
+
+**Decision**: the provider call was extracted out of `geminiQuestionGenerator.generate()` into
+`requestGeminiJson()`, and image extraction calls that rather than building its own request.
+Per-caller concerns — the prompt, the response schema, the temperature, the output budget, the
+remedy to suggest on truncation — are parameters.
+
+**Reason**: the alternative was a second call site, and what would have been duplicated is exactly
+the set of things this codebase has already got wrong once and documented at length. The shared
+**deadline** in `attemptGenerate()` is the sharpest example: a signal built outside the retry loop
+made a real 503 report as "timed out", and a fresh full-length signal per attempt outlives a
+serverless invocation — there is a `TROUBLESHOOTING.md` entry about it. Alongside that: the client
+via `clientFactory` (so `setGeminiClientFactory()` still intercepts **every** call the suite
+makes and no test can reach the network), the credential check, `redact()` so a provider error
+surfaced verbatim can never carry the API key, and the empty-reply and `MAX_TOKENS` cases —
+which arrive as an empty response rather than as an error, and would look like "the model
+returned nothing" to whichever caller forgot to check.
+
+A second copy would eventually differ on one of those, and the difference would surface as a
+mysterious failure on one feature and not the other.
+
+**Consequences**: the generator's 52 tests pass unchanged, which is the evidence the extraction
+was behaviour-neutral. Adding a third model-backed feature is now a prompt and a schema rather
+than a client. The rule in CLAUDE.md stands and is now structural rather than aspirational:
+**there is one Gemini client, and one function that calls it.**
+
+---
+
+## 2026-08-19 — DOCX extraction is deterministic; no AI is used for it
+
+**Decision**: `services/docxImportParser.ts` reads Word documents by **reading them** —
+`mammoth` to text, then conventions for numbering, options, answers, solutions and metadata. No
+language model is involved, even though the product specification explicitly permits
+"AI-assisted extraction for complex DOCX structures behind a provider abstraction".
+
+**Reason**: a `.docx` is *text we already have.* The structure is genuinely recoverable by reading
+it, which makes a model a way of paying money and latency for something arithmetic-adjacent —
+exactly the objection Milestone 16 raised against an LLM for recommendations. Three further costs
+settle it: it would send an examiner's file to a third party on every import; it would make a
+**core format depend on a credential the product is required to work without** (the rule that
+`GEMINI_API_KEY` absent must never disable anything but question drafting); and a model's
+confident misreading of a paper is much harder for a reviewer to spot than a heuristic's obvious
+one.
+
+The image path in Phase E is a genuinely different case, and the difference is the whole reason
+this ADR is narrow: there is no text to read off a photograph, so OCR is the only way in at all.
+
+**Consequences**: DOCX extraction is reproducible — the same document always yields the same
+questions — and costs nothing. It is also **less capable**, and the design absorbs that rather
+than hiding it: every interpretation is a note on the candidate, every unusable block is a failure
+naming its question number, and a document that cannot be read at all is told what the parser
+looked for. If a future document defeats it, the honest fix is better conventions in the document
+or a hand-authored question, not a model.
+
+---
+
+## 2026-08-19 — Reading an answer is shared by every import format
+
+**Decision**: the readers for a human-written answer — option letters, `TRUE`/`FALSE`, accepted
+answers, a question type name, type inference — moved out of the Excel parser into
+`lib/importAnswerText.ts`. Format detection moved to `lib/ooxml.ts`. Both parsers now call them.
+
+**Reason**: the same argument that keeps one grader, one screener and one ranking service.
+**"The answer is B" has to mean the same thing** whether it was written in a spreadsheet cell or
+on an `Answer: B` line in Word. Two implementations would drift, and the drift would be invisible:
+the same question imported from two formats would carry two different answer keys, and nobody
+would find out until a correct answer was marked wrong.
+
+It also concentrates the decisions that are easy to get subtly wrong in one reviewable place —
+the type-inference order (options, then true/false, then number, because `1` is a boolean
+spelling), and the `|` separator for accepted answers (because `1,000` is one answer containing a
+comma).
+
+**Consequences**: everything in that module is a **pure function of a string**, like
+`lib/questionQuality.ts` and the reward catalogues, so every reading is reproducible and testable
+without a fixture file. The inference note is now phrased for any format rather than mentioning a
+spreadsheet column, which broke two Excel assertions that were asserting the wording — stale
+rather than wrong, and fixed. Adding a third format should require **no new answer reading at
+all**.
+
+---
+
+## 2026-08-18 — The Excel template uses one `Correct Answer` column, read per question type
+
+**Decision**: the import template has a single `Correct Answer` column rather than a column per
+answer shape. Its contents are interpreted according to the row's question type — an option
+letter or letters for a choice question, `TRUE`/`FALSE` for `true_false`, a plain number for
+`numeric`, and a **bar-separated** list of accepted spellings for `fill_blank`. A blank `Type`
+column is inferred from the row and always carries a note.
+
+**Reason**: the alternative — `Correct Option`, `Boolean Answer`, `Numeric Answer`, `Accepted
+Answers`, `Tolerance` as five separate columns — is what the `Question` model looks like
+internally, and it would put four permanently-empty columns in front of an examiner filling in
+a sheet of MCQs. A template is a human interface, and a column somebody will never fill in is a
+column that makes the ones that matter harder to find. The per-type reading is not ambiguous
+because the type is either stated or inferable from the row's own shape.
+
+**The bar separator is the load-bearing detail.** `fill_blank` accepted answers are separated by
+`|`, not `,`, because **`1,000` is one answer containing a comma** — as are `2, 3 and 5` and any
+coordinate pair. A comma-separated list would silently split real answers into wrong ones, and
+the failure would be invisible: the question would import, look right on the review screen, and
+mark a correct answer wrong months later. The same reasoning as `normalizeAnswerText()`
+forgiving case and nothing else — a grader that guesses is worse than one that refuses.
+
+**Type inference order** is options → true/false → number → fill-in-the-blank, and the
+true/false-before-number step matters: `1` and `0` are boolean spellings, and a bare `1` in an
+answer column is far more often "true" than the number one. Every inference carries a note,
+because an inference is exactly the thing a reviewer should check.
+
+**Consequences**: the template is readable by somebody who has never seen the data model. Adding
+a question type means teaching `readAnswerFor()` and `inferType()` about it, on top of everything
+already listed in CLAUDE.md — which is one more reason that list is long.
+
+---
+
+## 2026-08-18 — The import template is generated per request, not checked in
+
+**Decision**: `GET /admin/questions/import/excel/template` builds the `.xlsx` with `exceljs` on
+every request and serves it `no-store`, rather than serving a file committed to the repository.
+
+**Reason**: its `Class`, `Type` and `Difficulty` columns carry **Excel dropdowns generated from
+`CLASS_LEVELS`, `QUESTION_TYPES` and `DIFFICULTIES`**, and its Instructions sheet lists those
+same values in prose. A checked-in file would be correct on the day it was committed and wrong
+afterwards — and the class list is about to change in Phase J, which would have made the
+template advertise classes the API refuses. **A template that offers an invalid value is worse
+than no template**, because the examiner only finds out after filling in two hundred rows.
+
+Generating it also makes the strongest available test possible: the template is pushed through
+the product's own parser and its example rows must import cleanly. That test caught both Phase C
+defects, and it cannot be written against a static asset without the asset going stale.
+
+**Consequences**: a few hundred milliseconds of CPU per download, which is nothing for a route an
+examiner hits once. The route is the only `GET` in the importer that does not return the
+`{ success, ... }` envelope, which is the certificate-PDF precedent. Its path is advertised by the
+status endpoint so no page hardcodes it. The class dropdown degrades to a free-text cell if the
+class list ever exceeds Excel's 255-character inline-list limit, rather than emitting a broken
+dropdown.
+
+---
+
+## 2026-08-18 — Bulk import reuses the AI generator’s pipeline instead of getting its own
+
+**Decision**: the bulk question importer is built on the two-phase shape
+`services/questionGeneratorService.ts` already uses — parse/propose, then a separate approval that is the
+only writer — and it reuses that module's screener rather than having one of its own.
+`screenCandidates()` gained a sibling, `screenEach()`, which takes a screening target **per candidate**;
+the original now delegates to it and is unchanged in behaviour. `ImportedCandidate` composes
+`GeneratedCandidate` **verbatim** for its content half, so there is exactly one canonical candidate
+representation in the codebase.
+
+**Reason**: the product spec asked for "one canonical question representation" and explicitly forbade an
+`ExcelQuestion` / `DocxQuestion` / `ImageQuestion` per format. The stronger reason is the one behind the
+one-grader and one-ranking-service rules: a second implementation of "may this become a question?" would
+eventually disagree with the first, and **the more permissive of the two would decide what got into the
+bank**. What imports genuinely needed was not a different screener but a per-row target, because a
+spreadsheet legitimately carries a `Class` and a `Topic` column and row 3 may belong to a different
+chapter from row 40. Generalising one function is a smaller change than a parallel path, and it keeps
+batch-internal duplicate detection spanning the whole upload — so the same question pasted into two
+chapters of one file is still caught.
+
+**Consequences**: adding a format is implementing `ImportParser` and calling `registerImportParser()`.
+Nothing about the routes, the validation, the duplicate detection, the review screen or the approval path
+changes. Anyone touching `screenEach()` is now changing the gate for **both** the generator and the
+importer, which is the intended pressure.
+
+---
+
+## 2026-08-18 — Uploaded files travel as base64 in the JSON body, and nothing touches the filesystem
+
+**Decision**: `.xlsx`, `.docx` and image uploads arrive as base64 data URLs inside the JSON body, are
+validated by magic bytes in `validation/uploadSchemas.ts`, and are parsed from a `Buffer`. No multipart
+parser (`multer` or otherwise) was added, and no file is ever written to disk. The large body allowance
+is granted to the import path prefix only, on both URL prefixes.
+
+**Reason**: it is the pattern the registration photo and the event gallery already use (Milestone 4 ADR),
+so it needs no new dependency and works with the existing `validate` middleware and `{ success, ... }`
+envelope. The decisive argument is what it removes: the spec asked for safe temporary filenames,
+temp-file cleanup and path-traversal prevention, and **with nothing on disk all three stop being risks
+to get right and become risks that do not exist.** No uploaded file is ever in a position to be executed,
+and there is no upload directory to leak or traverse. The filename is kept only as a label for error
+reports, and validated anyway.
+
+**Consequences**: base64 inflates the payload by about a third, so the body-parser limit is 1.4× the
+decoded ceiling and the schema re-checks the decoded total. Very large imports have to be split across
+requests — acceptable, since a batch has to stay reviewable by one human regardless. A **decompression
+bomb is not defended against** beyond the size cap; recorded as a residual risk in `SECURITY.md`.
+
+---
+
+## 2026-08-18 — `ImportBatch` is a new collection rather than a reuse of `GenerationLog`
+
+**Decision**: bulk imports get their own `ImportBatch` model (the 27th), and `Question.provenance.source`
+gains `excel_import`, `docx_import` and `image_import` alongside `human` and `ai_assisted`.
+
+**Reason**: two things had to be true at once. `Question.provenance` must be able to say how a question
+entered the bank, and **`source` is the one field worth lying about** — a client that could set it could
+file questions a model read off a photograph as hand-written ones. So the facts have to be read back from
+a row we wrote, using an id we issued, exactly as `approveQuestions()` reads them from `GenerationLog`.
+But `GenerationLog` is thoroughly model-shaped — a model name, a language, a Bloom's level, a requested
+count, a prompt-instruction flag — and reusing it for a spreadsheet would have produced a row of nulls
+whose reader could not tell an absent field from an inapplicable one.
+
+It is also genuinely read, not just written: approval reads provenance **and the subject** from it, which
+is what keeps it from being the sort of write-only model Milestone 15 deleted.
+
+**Consequences**: a missing batch row is a hard 400 rather than a degraded stamp, unlike the generator's
+equivalent — without it there is nowhere to file the questions and nothing to fall back to that would not
+be a guess. `source` and `generatorKind` are kept as **separate** facts: an image import is
+`image_import` *and* `generatorKind: model` with a model name, while an Excel import is `excel_import`
+with `deterministic` and no model. Collapsing them would lose one of the two things worth knowing. The
+new values are lowercase snake_case to match what is already stored; renaming the existing two to the
+spec's upper case would have been a migration over the whole bank for a cosmetic gain.
+
+---
+
+## 2026-08-18 — An importer suggests a taxonomy by name; it never supplies an id, and never creates one
+
+**Decision**: `ImportedCandidate.taxonomy` is an `ImportedTaxonomyHint` of **names as the file wrote
+them** (class, chapter, subtopic, difficulty), all nullable. `services/questionImportService.ts` resolves
+those names against the live taxonomy, falling back to the examiner's per-upload defaults when a row is
+silent, and **reporting an error against that row** when a row names something that does not resolve. No
+importer can create a `Topic`.
+
+**Reason**: this is the closest the importer comes to relaxing the generator's rule that a candidate
+carries no taxonomy at all, so the difference is worth stating. That rule exists because a *model* must
+not be able to file questions where it was not asked to. A spreadsheet with a `Class` column is a
+different thing: it is the examiner's own data, and a file of two hundred questions spanning six chapters
+is the normal case rather than an attack. What survives unchanged is that **an id is never accepted from
+the extraction side** — a name is a request to look something up, and the lookup is ours.
+
+The asymmetry between "silent" and "wrong" is the important half. A missing `Class` column is a file the
+examiner has already answered for with a default. A `Class` column saying `13` is a **mistake in the
+data**, and silently replacing it with the default would file a question under the wrong cohort and serve
+it to the wrong children. So one defaults and the other is refused with its row number.
+
+**Consequences**: name matching forgives capitalisation and spacing, and reads a class as `8`, `8th`,
+`Grade 8` or `Class 8` — because that is what a real workbook contains. It is **not** fuzzy beyond that:
+`Clss 8` is refused, on the same principle as `normalizeAnswerText()` forgiving case and nothing else.
+An unknown chapter means the examiner creates it under Chapters first, or corrects the spelling; **one
+bad spreadsheet cannot reshape the syllabus.** At approval, each question does carry its own placement as
+ids — safe for a different reason: a human picked them on the review screen, and `resolveTaxonomy()`
+still refuses a topic outside the subject, a subtopic outside the topic and an archived either. A client
+can choose an existing placement; it cannot invent one.
+
+---
+
+## 2026-08-18 — `exceljs` and `mammoth` are added; images need no new dependency
+
+**Decision**: two dependencies for the importer — `exceljs` (MIT) to read and write `.xlsx`, and
+`mammoth` (BSD) to extract text from `.docx`. Image extraction adds **nothing**: the already-installed
+`@google/genai` accepts inline image bytes, so the image path reuses the existing Gemini client,
+`GEMINI_API_KEY` and `GEMINI_MODEL` rather than introducing a second provider or a second credential.
+Approved by the owner on 2026-08-18.
+
+**Reason**: both are free, offline, widely used, and need no external account, so the ₹0 constraint holds
+— Razorpay remains the only paid service. `exceljs` does both halves of the Excel job, which matters
+because the spec asks for a downloadable template as well as parsing. Hand-rolling DOCX (a ZIP of XML)
+was considered and rejected: hand-written ZIP and XML handling over untrusted files is exactly where
+malformed-file and zip-bomb bugs live, and `mammoth` is a smaller risk than a bespoke unzipper.
+
+**On the advisory**, because it will show up in `npm audit` and should not be re-investigated from
+scratch: `exceljs@4.4.0` depends on `uuid` < 11.1.1, which carries a moderate advisory for a missing
+buffer bounds check in **v3/v5/v6 when a `buf` argument is supplied**. It is **not reachable here** —
+exceljs calls only `uuid.v4()`, with no `buf`, in one file
+(`lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js`). Verified by reading the installed source rather
+than assumed. The other ten advisories in that report predate this work and all descend from
+`@vercel/node`. `exceljs` is also no longer actively maintained, which is the real thing to watch: if a
+maintained replacement appears, or if our usage grows to touch conditional formatting, re-check this.
+
+**Consequences**: the serverless bundle grows. Both libraries are `require`-able CommonJS, so neither
+repeats the `@google/genai` packaging problem. The importer stays behind `ImportParser`, so replacing
+either library is a change to one file.
+
+---
+
 ## 2026-08-17 — CSRF is defended by verifying the request's origin, not by a token
 
 **Decision**: `backend/src/middleware/csrf.ts` refuses any `POST`/`PUT`/`PATCH`/`DELETE` under `/api` whose `Origin` (or, if absent, `Referer`) names a host outside the CORS allow-list and outside the request's own host. A request carrying neither header is allowed. No CSRF token, cookie or header is issued.

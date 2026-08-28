@@ -84,6 +84,51 @@ _**Verified counts** (read from the code, not carried forward, 2026-08-16): **26
 | Security (baseline hardening) | N/A | IMPLEMENTED | IMPLEMENTED | IN_PROGRESS | Milestone 1 headers/CORS/validation; Milestone 2 token rotation with theft detection, hashed token storage, single-use email tokens, bcrypt cost 12, per-endpoint rate limits, account lockout, no enumeration; Milestone 3 permission-based authorization with database-fresh role checks, immediate session revocation on demotion/suspension, regex-escaped admin search, and an audit trail that records refusals. **The 2026-08-17 audit closed five findings**: CSRF (an `Origin`/`Referer` check mounted once for the whole API — this row's long-standing "top open gap" is no longer open), `localhost:5173` as a production CORS origin, full legal names on the two public lookups, no security headers on the frontend deployment, and no rate limit on the payment routes or the credential-issuing admin routes. Rate limiting, headers and CORS are still not asserted by tests; the CSRF check **is**, by `tests/security.audit.test.ts`. Still `IN_PROGRESS` rather than done: `npm audit` was not run in the audit session, `trust proxy` is unset so every per-IP limit is effectively one shared bucket on serverless, and there is no 2FA. See [`SECURITY.md`](SECURITY.md). |
 | Deployment | IMPLEMENTED | IMPLEMENTED | N/A | NOT_STARTED | Both apps have working Vercel configs; production builds verified locally. **Deploy the backend before the frontend.** Milestone 2 adds two prerequisites: set the `SMTP_*` vars (or students get no verification email) and set `FRONTEND_URL` (or emailed links point at localhost). Deploying also **signs everyone out**, because the cookie names changed. Not verified live. |
 
+## Bulk question import (Milestone 21) — IMPLEMENTED end-to-end and usable by an administrator
+
+| Capability | Status | Notes |
+| --- | --- | --- |
+| Import pipeline (parse → place → screen → preview → approve) | **IMPLEMENTED, TESTED** | `services/questionImportService.ts`. 62 tests. |
+| Upload validation (magic bytes, MIME, extension, size, count, filename) | **IMPLEMENTED, TESTED** | `validation/uploadSchemas.ts`. Nothing written to disk. |
+| Duplicate detection (in-file, cross-file, against the bank) | **IMPLEMENTED, TESTED** | Reuses the generator's `similarity()` and the one shared screener. |
+| Question validation for imports | **IMPLEMENTED, TESTED** | The *same* `createQuestionSchema` a hand-authored question passes. No second validator. |
+| Class validation for imports | **IMPLEMENTED, TESTED** | Centralised in `lib/classLevels.ts`, already the single source. Still `Class 5`–`Class 11` + three Class-12 streams — **the 3–12 range is Phase J**. |
+| Approve / reject, with provenance and audit | **IMPLEMENTED, TESTED** | Approval is the only writer; questions are created as `draft`. |
+| Admin authorization on import routes | **IMPLEMENTED, TESTED** | `questions:write`, asserted 403 for a student on both URL prefixes. |
+| Rate limiting + server-side bulk limits | **IMPLEMENTED**, not asserted | `importLimiter` (limiters are disabled under test, as everywhere). |
+| **Excel parsing** | **IMPLEMENTED, TESTED** | Phase C. `services/excelImportParser.ts`, 57 tests against real `.xlsx` files. All five question types; any column order; loose headings; every sheet; per-row class/chapter/difficulty. |
+| **Excel template download** | **IMPLEMENTED, TESTED** | Phase C. `GET /admin/questions/import/excel/template`, generated per request so its dropdowns cannot go stale. A test asserts its own examples import cleanly. |
+| **DOCX parsing** | **IMPLEMENTED, TESTED** | Phase D. `services/docxImportParser.ts`, 38 tests against real `.docx` files. Six numbering styles, four option styles, per-question metadata, wrapped paragraphs rejoined. Deterministic — **no AI**, deliberately. Warns about Word auto-numbering and Word equation objects, the two failures that look like success. |
+| **Image extraction via Gemini** | **IMPLEMENTED, TESTED** | Phase E. `services/imageImportParser.ts`, 39 tests, none touching the network. The model **transcribes what is printed**; `lib/importAnswerText.ts` derives the answer key, so no new answer reading was needed. One model call per image. Needs `GEMINI_API_KEY` — without it this format alone reports unavailable and Excel and Word carry on. A question with no printed answer is refused, never given one. |
+| **Import review UI** | **IMPLEMENTED, verified in a browser** | Phase F. `/admin/questions/import` with a **Bulk Import** sidebar entry. One page, three format tabs, one review screen. Counts strip, per-file table, failures/rejections/duplicates named with their row numbers, CSV problem list, per-card editing including class/chapter/difficulty/type, dry-run "Check before saving", approve as drafts or publish. **No frontend tests exist** — verified by driving it against the local dev database, which found two client-side bugs. |
+| **Practice / Mock Test / Daily Challenge assignment** | **NOT STARTED** | Phases G–I. See the Phase A finding: Practice has no admin-curated set to assign to, and that needs the owner's decision. |
+| **Removing user-facing Subject; classes 3–12** | **NOT STARTED** | Phase J. |
+
+**What an administrator can actually do at the end of Phase F: the whole thing, from the admin
+panel.** Open **Bulk Import**, choose Excel / Word / Photographs, download the Excel template,
+set what the questions should be filed under, upload, read exactly what was and was not
+extracted, correct anything, check it, and approve as drafts or publish. Imported questions are
+ordinary questions from that point on — a published one appears in Practice for its class.
+
+Verified by driving it in a browser against the local dev database, because **the frontend has no
+test suite**: a five-row workbook (three good rows, one with no answer, one claiming `Class 13`)
+reported 5 examined / 3 usable / 1 invalid / 1 unreadable, named both problems with their row
+numbers, and saved three `draft` rows stamped `excel_import`. That pass found two client-side
+bugs the 1,086 backend tests could not — see `TROUBLESHOOTING.md`.
+
+Three limits are **permanent rather than pending**, and belong here rather than in a release note:
+
+- **Equations built with Word's equation editor cannot be read** — `mammoth` drops them, and they
+  must be retyped as `$…$`. The importer warns when it sees the markup.
+- **Nothing a diagram carries can be imported, in any format**, because `Question` has no image
+  field. That remains on the "not started at all" list. An image import flags such a question
+  rather than importing it half-complete.
+- **An image transcription is not verified.** OCR of mathematical notation fails quietly, so every
+  image import carries a standing warning and the human review step is the only control. A
+  question with no printed answer is refused rather than given one.
+
+---
+
 ## Infrastructure / foundation (Milestone 1)
 
 These are backend capabilities, not user-facing features. `TESTED` here means covered by `backend/tests/`.

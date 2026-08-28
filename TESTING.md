@@ -4,7 +4,7 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
-The backend has a working test suite: **882 passing tests across 26 files** (`backend/tests/`), measured on 2026-08-18. The frontend still has **no test suite**.
+The backend has a working test suite: **1086 passing tests across 30 files** (`backend/tests/`), measured on 2026-08-23 after Milestone 21 Phase F (882/26 before the milestone; 944/27 after Phase B; 1001/28 after C; 1039/29 after D; 1078/30 after E). Read the number from `npm test --prefix backend`, never from here. The frontend still has **no test suite**.
 
 **One helper default worth knowing before writing a test** (Milestone 19): `registerVerifyLogin()` grants the account a captured entry-fee payment, because the fee gates practice, mock tests, the daily challenge and the exam — a test student who cannot practise would be asserting behaviour no real student reaches. Pass `{ paid: false }` as the third argument when *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants.
 
@@ -283,3 +283,264 @@ Milestone 1 was additionally verified by running both servers together and exerc
 2. **Rate-limit assertions** — would need a limiter that can be enabled per test rather than switched off wholesale.
 3. **CI** — nothing runs these commands automatically yet; they are manual.
 4. **Integration tests for future data features** (exam attempts, results) — the real-database harness now exists, so these are cheap to add.
+
+---
+
+## `tests/questionImport.test.ts` — 62 tests (Milestone 21, Phase B)
+
+The bulk-import pipeline. Three organising ideas, and most of the file serves them:
+
+1. **Nothing is saved by uploading.** Several tests assert the question collection is still *empty*
+   after a successful preview — the property the whole feature rests on, and the one that would silently
+   regress into "imported as drafts".
+2. **A parser is never trusted, including on the way back.** A test takes a candidate that parsed
+   cleanly, breaks it the way a reviewer really would (unticking the only correct option), and asserts it
+   is refused with a reason rather than saved.
+3. **A failure in one file must not lose the others.** Three files, the middle one throwing, and the
+   assertion is two questions plus one named file error.
+
+### The fake parser is the point
+
+No real spreadsheet is read here — the format parsers arrive in Phases C–E. A **fake parser** registered
+through the same `registerImportParser()` seam a real one uses is what makes the pipeline testable now,
+and more usefully it is what makes the *failure* paths testable at all: a parser that throws, one that
+returns a row naming a class that does not exist, one that returns two identical questions. None of those
+can be produced on demand from a real file. `resetImportParsers()` in `afterEach` keeps them isolated.
+
+The same argument as `setGeminiClientFactory()`: the interesting paths are the failing ones.
+
+### Classes 3 and 4 are deliberately not exercised yet
+
+They are not valid classes until Phase J extends `CLASS_LEVELS`, so a test asserting today that `"3"` is
+refused would have to be inverted then. What is asserted is the classes that really exist (`5`–`12`,
+including the bare-number, ordinal and `Grade` spellings a spreadsheet actually contains) plus the values
+that stay invalid either way: **`2`, `13`, `0`, `-5`, `99`, `Class 13`, `nursery`, and empty**. Phase J
+adds the 3 and 4 cases and flips nothing else.
+
+Also asserted: that normalisation is **not** fuzzy beyond case and spacing (`Clss 8` and `eight` are
+both `null`), because a class silently coerced to something plausible is a question served to the wrong
+children.
+
+### What else is covered
+
+- **Upload validation**: bytes that are not really a workbook however labelled; an unsupported
+  extension; a `.docx` posted to the Excel route; a bogus MIME type; three shapes of path separator in a
+  filename; an oversized file; 21 files; two files of the same name; an empty list.
+- **Taxonomy resolution**: defaults applied when a row is silent; a row overriding class, chapter and
+  difficulty; an unresolvable class reported *with its row number* rather than defaulted; an unknown
+  chapter reported **and asserted not to have been created**; a subtopic under the wrong chapter; a
+  subtopic passed in the chapter field; an archived chapter.
+- **Screening**: the shared schema rejecting two correct options on a single-choice question; unbalanced
+  LaTeX; duplicates within a file, across two files, and against the existing bank; a parser note
+  arriving as an advisory warning rather than a rejection.
+- **Limits**: the configured ceiling honoured and reported as `truncated`; the remaining allowance passed
+  to each successive file; the code ceiling capping a configured value of 100,000.
+- **Approval**: drafts not published; provenance stamped from our row while the request *claims*
+  `source: human`; re-validation refusing a broken correction; a mixed batch saving the good one and
+  reporting the bad one; a forged `batchId`; the approval counter; `publish: true` blocked by the
+  missing-solution rule and honoured when the question is publishable; the audit entry.
+- **Authorization**: a student refused **403** on all five routes across **both** URL prefixes, an
+  anonymous caller refused 401, and — so the negative assertions are about the gate rather than a
+  missing route — the admin reaching the status route successfully.
+
+One assertion worth keeping in mind when adding to this file: the duplicate detector compares
+**vocabulary**, not digits. An early version of the truncation test generated `Question number 0 asks
+about $0 + 0$`, `… 1 … $1 + 1$` and so on, and got one question back instead of three —
+`fingerprint()` drops single-character tokens, so every row reduced to the same five words and the
+de-duplicator was right to refuse them. Give generated fixtures genuinely different words.
+
+---
+
+## `tests/excelImport.test.ts` — 57 tests (Milestone 21, Phase C)
+
+Unlike the Phase B suite, this one builds **real `.xlsx` files** with `exceljs` and pushes them
+through the real route. That is the point of it: the interesting bugs in a spreadsheet parser are
+all about what a real workbook actually contains, and none of them can be reached with a
+hand-written fixture object.
+
+**`cellText` gets a test per value shape exceljs really returns** — a plain string, a number, a
+boolean, rich text, a formula with a cached result, a hyperlink, an error cell, and empty. Missing
+one of these does not fail loudly; the cell silently reads as empty and the row is reported as
+"no question text" for a row that plainly has some. That is why the list is exhaustive rather
+than representative.
+
+**The strongest single assertion in the file** is that the template the product hands out imports
+cleanly through the product's own parser, into a deployment with nothing set up but one chapter.
+A template whose examples the parser refuses is worse than no template, and that test is what
+caught both Phase C defects.
+
+### What else is covered
+
+- **All five question types** from one sheet, with the answer key asserted per type.
+- **Tolerance of the file**: any column order; loosely-matched headings (`Q`, `Ans`,
+  `Explanation`, `Chapter`, `Penalty`); extra columns ignored; a header row below a title row; two
+  sheets both read and named in `sourceRef`; a prose sheet skipped without losing the workbook;
+  trailing blank rows ignored rather than reported as fifty failures.
+- **Strictness about data**: a missing correct answer, an answer letter matching no option, an
+  unsupported type named with the valid ones, a word in `Marks`, a gap in the option columns, a
+  question-less row that has other values ("did a column shift?"), a `true_false` answer that is
+  neither.
+- **Notes**: an inferred type, a missing solution, options on a numeric row — each offered as a
+  candidate with a warning rather than refused.
+- **The screener still judging the question**: two correct options, unbalanced LaTeX, negative
+  marks above the marks, and duplicate rows — all reported by the shared gate, in the words an
+  author would read.
+- **Per-row taxonomy from a real file**: a `Class` of `10` and `9th` honoured, a `Class` of `13`
+  reported with its row number while the rest import, an unknown chapter reported **and asserted
+  not created**, a chapter matched case-insensitively and shown back in the taxonomy's own
+  spelling.
+- **Corrupt files**: a zip that is not a workbook, and a workbook that cannot be opened — each a
+  named failure on that file, never a 500 and never a lost batch.
+- **Approval end to end**, including that an imported-and-published question then appears in a
+  student's practice availability. That last one is the proof the whole feature is for: an
+  imported question is an ordinary question, not a second-class row.
+
+### A fixture trap worth knowing
+
+A ZIP names each entry **twice** — once in the local header, once in the central directory. A test
+that mangles a marker with `String.replace(...)` and a string pattern rewrites only the first
+occurrence, so the marker survives and the assertion passes for the wrong reason. Use
+`split(...).join(...)`. Relatedly, truncating a real workbook at its midpoint usually removes the
+`xl/workbook.xml` entry entirely, so it exercises the "not a workbook" branch rather than the
+"cannot be opened" one; to get the latter, build `PK\x03\x04` + `xl/workbook.xml` + junk.
+
+---
+
+## `tests/docxImport.test.ts` — 38 tests (Milestone 21, Phase D)
+
+A `.docx` has no schema, so this parser is a heuristic over document conventions — which makes
+these tests a different kind of thing from the Excel ones. **Each is a statement about one
+convention an examiner might really use**, and the fixtures are built inline by
+`tests/helpers/docx.ts` so the document a test describes is readable next to its assertion.
+
+That helper builds a real `.docx` with `jszip` — already present as `mammoth`'s own dependency, so
+nothing new was installed. It deliberately emits the *minimum* OOXML `mammoth` will read: a parser
+that needed more would be relying on parts a "Save As → .docx" from another program might not
+produce.
+
+### The two cases that matter most
+
+Both are failures that **look like success**, which is why each has its own fixture capability:
+
+- **`{ numbered: true }`** renders a paragraph as a Word auto-numbered list item, so the number
+  lives in the list definitions and *not* in the text. That is what the toolbar produces, and it
+  is what would otherwise merge every question in a document into one.
+- **`{ equation: true }`** inserts an `m:oMath` element, which `mammoth` silently drops. The test
+  asserts the question still imports **and** that the loss is reported, because otherwise a
+  question arrives looking complete with its formula missing from the middle of a sentence.
+
+### What else is covered
+
+- **`splitIntoBlocks` directly**: six numbering styles; a title dropped; the answer-terminated
+  fallback; a solution kept with its own question; prose reported as nothing found; and that
+  "Was 2020 a leap year?" is not read as question 2020.
+- **All five question types** from one document, with the answer key asserted per type.
+- **Option and label variety**: `a)`, `(1)`, `A.`; `Ans -`, `Correct option:`; `Explanation:`,
+  `Working:`.
+- **Wrapped paragraphs** rejoined into one stem and one option.
+- **Metadata** applied per question and kept out of the question text — and a `Ravi says:` line
+  left *in* it, because swallowing an unknown label would truncate the stem.
+- **Failures**: no questions found (with the conventions in the message), a question with no
+  answer named by its number, an answer matching no option, an `.xlsx` posted to this route, and a
+  broken document beside a good one.
+- **Notes**: an inferred type, a missing solution, and an unusually long stem — the symptom of a
+  boundary the parser got wrong.
+- **The shared gates**: two correct options, an invalid class reported with its question number, an
+  unknown chapter asserted **not created**, and duplicate detection.
+- **Provenance**: `docx_import`, `generatorKind: deterministic`, `modelName: null` — no model read
+  a Word file, so nothing may claim one did.
+
+### A note for whoever adds Phase E
+
+Three assertions in the earlier suites broke when this phase landed, all of them stale rather than
+wrong: two Excel tests asserted the *wording* of the type-inference note (which moved to
+`lib/importAnswerText.ts` and is now phrased for every format, since a Word file has no "Type
+column"), and one Phase B test asserted the parser registry had exactly **one** entry. That last
+one is now written as "find the Excel entry" instead, precisely so Phase E does not have to edit a
+count that never said anything useful.
+
+---
+
+## `tests/imageImport.test.ts` — 39 tests (Milestone 21, Phase E)
+
+**Nothing here touches the network.** `setGeminiClientFactory()` is the same test-only hook the
+generator's suite uses, and it throws outside the test environment — so the whole image path is
+exercised, failing branches included, with no key and no request leaving the machine.
+
+That matters more here than for the generator. The cases worth testing are a blurred page, a page
+with no printed answer key, a transcribed answer letter matching no option, prose where JSON was
+asked for, a blocked prompt, and a truncated reply — and **none of them can be produced on demand
+against a real provider**, or at all in a suite that must run offline.
+
+### The assertions that carry the most weight
+
+- **A question with no printed answer is refused, not answered.** The single most consequential
+  behaviour in the feature: a calculated answer is indistinguishable from a printed one, and real
+  children would be marked against it. Asserted both ways — that the prompt forbids it, and that
+  an empty `answer` becomes a named failure while the page's other questions still import.
+- **The schema asks for a transcription, never an answer key.** Asserted negatively:
+  `isCorrect`, `booleanAnswer`, `numericAnswer` and `marks` must all be **absent** from the
+  schema sent to the provider. What is not in the schema cannot come back to be misinterpreted.
+- **The answer key is derived by the shared readers.** `(b)`, `A and C`, `TRUE`, `60`,
+  `3.14 | 3.14 approx` all read exactly as they do from a spreadsheet — evidence that this phase
+  added no new answer reading, which is what `lib/importAnswerText.ts` was extracted to make true.
+- **No student data is sent.** A real student is registered first, so the assertion is about what
+  is *sent* rather than about an empty database.
+- **No other format depends on a model credential.** With `GEMINI_API_KEY` unset, the image parser
+  reports itself unavailable while Excel and DOCX stay available.
+- **One call per image**, asserted directly, because that is the cost an owner needs to know.
+- **Provenance cannot be forged**: a request sending `source: "human"` alongside its questions is
+  ignored, and the row is stamped `image_import` with `generatorKind: 'model'`.
+
+### A trap worth knowing, hit while writing this suite
+
+The spy originally exposed only `JSON.stringify(contents)`, and an assertion about the most
+important instruction in the prompt failed **while the instruction was present and correct** —
+because `JSON.stringify` renders a real newline as the two characters `\` and `n`, so a pattern
+spanning a wrapped line can never match. The spy now exposes `prompt` separately, pulled out of
+the parts array. If you assert on prompt text, assert on the prompt, not on its serialisation.
+
+### One earlier assertion changed meaning, correctly
+
+`questionImport.test.ts`'s "accepts an image only on the image route" asserted a 503 saying *not
+available* (no parser registered). A parser is now registered and reports itself *not configured*,
+which is the more useful message. Both are the same answer to "the examiner is not at fault"; the
+test asserts the current one.
+
+---
+
+## Phase F: the dry run, and what only a browser could catch
+
+Seven tests were added to `tests/questionImport.test.ts` for `POST .../import/validate`. The one
+worth copying if you add another gate sends **one batch to both the dry run and approval** and
+asserts the refusal reasons match string-for-string, rather than asserting each against a
+hand-written expectation — which is how two gates drift apart while both look tested.
+
+The others pin: a clean batch saying `wouldSave: 1`; that it writes **neither a question nor an
+`ImportBatch` row** (an examiner may press it on every keystroke); that a question added to the
+bank *since* the preview is still caught, because the bank is re-read rather than trusted; that
+a stray `batchId` cannot reach the handler; and a 403 for a student on both URL prefixes.
+
+### A fixture trap in `similarity()` worth knowing
+
+A duplicate-detection test failed with the obvious fixture `"What is $2 + 2$?"`. That is not a
+bug: the shared fingerprint drops stop words and single characters, so that text reduces to the
+**empty set**, and an empty fingerprint scores 0 against everything. **Very short questions are
+not duplicate-checked at all** — acceptable, because the failure the check exists for is a model
+or a spreadsheet re-emitting the same *worded* question — but it makes a two-digit arithmetic
+question useless as a fixture. Use text with real topical words.
+
+### The frontend still has no test suite, and this is what that costs
+
+The review page was verified by driving it in a browser against the local dev database. **That
+pass found a bug 1,086 backend tests could not**: the page rendered *"Saved undefined
+questions"*, because it assumed the approve endpoint returns a `created` count. It does not.
+
+Fixing it surfaced a second gap the first bug had been hiding — `published` and
+`publishFailures` were ignored, so "Approve & publish" would have reported success for questions
+that stayed as drafts because they had no solution.
+
+Neither is reachable from the backend suite: both are assumptions the *client* makes about a
+response shape. Until a frontend suite exists, **a browser pass is not optional for a new admin
+page** — it is the only thing that checks the contract from the consuming side. Adding a
+frontend test framework still needs a `DECISIONS.md` entry first.

@@ -1,0 +1,537 @@
+/*
+ * Bulk import (Milestone 21, Phase F).
+ *
+ * Follows the AI generator's review styling closely on purpose: the two screens do the same job —
+ * candidates, warnings, per-card verdicts, approve — and an examiner who has learned one should
+ * recognise the other. Variables only, so both themes work without a second palette.
+ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 860px;
+}
+
+.hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 6px 0 0;
+}
+
+/* ---------------------------------------------------------------- format tabs */
+
+.formats h3,
+.uploadCard h3,
+.counts h3,
+.reviewBar h3,
+.warnBox h3,
+.savedBox h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab[data-active='true'] {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--primary);
+}
+
+.tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.offTag {
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.basis {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* A model really did read the file, so the page says so plainly. */
+.modelTag {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.offNotice {
+  margin: 10px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.templateRow {
+  margin: 14px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.conventions {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.conventions code {
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+
+/* ---------------------------------------------------------------- upload form */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.fileList {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------------- the counts strip */
+
+.countGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 10px;
+}
+
+.count {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.count strong {
+  display: block;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.count span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.count[data-tone='good'] {
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.count[data-tone='bad'] {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.count[data-tone='warn'] {
+  border-color: var(--warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.truncated {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--warning, #f59e0b);
+}
+
+.fileTable {
+  width: 100%;
+  margin-top: 14px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.fileTable th,
+.fileTable td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.fileTable th {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.fileTable tr[data-failed='true'] td {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.fileError {
+  color: var(--danger);
+}
+
+/* ---------------------------------------------------------------- problems */
+
+.problems {
+  font-size: 14px;
+}
+
+.problems summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.problems h4 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.problems ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.warnBox {
+  border-color: var(--warning, #f59e0b);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.warnBox ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.errorBox {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- review bar */
+
+.reviewBar {
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.selectRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.linkAction {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.reviewActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.checkOk {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+.checkBad {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.secondary {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.danger {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--danger);
+  background: transparent;
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.secondary:disabled,
+.danger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------- one candidate */
+
+.qCard[data-picked='true'] {
+  border-color: var(--primary);
+}
+
+/* A question the dry run says would be refused. Unmissable on purpose. */
+.qCard[data-refused='true'] {
+  border-color: var(--danger);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.qHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+}
+
+.qIndex {
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Where in the upload this came from — "paper.xlsx — Row 14". */
+.source {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qType {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.editedTag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--warning, #f59e0b);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.qMarks {
+  margin-left: auto;
+  color: var(--text-muted);
+}
+
+.refusedLine {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.warnList {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--warning, #f59e0b);
+}
+
+.qText {
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.options {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.options li {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.correct {
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.08);
+  font-weight: 600;
+}
+
+.tick {
+  margin-left: auto;
+  color: var(--success);
+}
+
+.optionEdit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.answerLine {
+  margin: 10px 0 0;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.solution {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.solution summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- placement */
+
+.placement {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.placement label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.placement span {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.qActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------- saved */
+
+.savedBox {
+  border-color: var(--success);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.rejectedList {
+  margin: 8px 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+@media (max-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reviewBar {
+    flex-direction: column;
+  }
+}

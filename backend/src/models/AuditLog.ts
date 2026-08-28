@@ -43,6 +43,17 @@ export const AUDIT_ACTIONS = [
   'student.password.changed',
   /** Questions were written to the bank in bulk by the generator route. */
   'questions.generated',
+  /**
+   * Questions were written to the bank in bulk by the **importer** (Milestone 21) — read out
+   * of a spreadsheet, a Word file or a photograph, and then approved by a human.
+   *
+   * A separate action from `questions.generated` rather than a shared "bulk" one, because the
+   * question an auditor asks is "where did this batch come from?", and a single action with a
+   * `source` in its metadata answers that only for whoever remembers to look. The upload itself
+   * writes no audit entry at all: nothing changed until the approval, exactly as generating
+   * writes none.
+   */
+  'questions.imported',
   /** A single question was authored. */
   'question.created',
   /** A question's content was edited (its revision was bumped). */

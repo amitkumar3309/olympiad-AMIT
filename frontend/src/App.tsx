@@ -21,6 +21,7 @@ import AdminAuditLog from './pages/Admin/AuditLog'
  */
 const AdminQuestions = lazy(() => import('./pages/Admin/Questions'))
 const AdminQuestionForm = lazy(() => import('./pages/Admin/QuestionForm'))
+const AdminQuestionImport = lazy(() => import('./pages/Admin/QuestionImport'))
 const AdminTaxonomy = lazy(() => import('./pages/Admin/Taxonomy'))
 const AiGenerator = lazy(() => import('./pages/AiGenerator/AiGenerator'))
 /** Same reasoning: the session runner renders question content through KaTeX. */
@@ -232,6 +233,20 @@ export default function App() {
             element={
               <RequirePermission permission="questions:write">
                 <AdminQuestionForm />
+              </RequirePermission>
+            }
+          />
+          {/* Bulk import. Gated on `questions:write` rather than a permission of its own,
+              because importing *is* authoring: it produces exactly the rows the editor
+              produces, and anybody who can import can also simply type a question in.
+              Registered **before** `/admin/questions/:id/edit` for the same reason the
+              backend mounts `questionsImport` ahead of `questionsAdmin` — otherwise the
+              `:id` route matches first and eats the word "import". */}
+          <Route
+            path="/admin/questions/import"
+            element={
+              <RequirePermission permission="questions:write">
+                <AdminQuestionImport />
               </RequirePermission>
             }
           />

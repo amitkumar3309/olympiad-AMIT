@@ -1179,3 +1179,389 @@ Every auth response (`/auth/login`, `/auth/admin/login`, `/auth/refresh`, `/auth
 ```
 
 It rides there for the same reason `permissions` does — so the frontend reads the answer rather than deriving it. It is **presentation only**; `requireEntry` re-derives it from the payment record on every gated request, so a tampered client gets a nicer-looking 402 and nothing more.
+
+---
+
+## Bulk question import (Milestone 21, Phase B)
+
+Five routes, all under `/api/v1/admin/questions/import` and all gated on **`questions:write`** — the
+permission that already means "may author questions". Importing *is* authoring: it produces exactly the
+rows the editor produces, and a separate permission would suggest the two could be held apart when
+anybody who can import can also simply type a question in.
+
+**No format parser is registered yet** (Phases C–E), so every upload route currently answers **503**
+naming the format. The pipeline, the validation and the approval path are real.
+
+### The two-phase shape
+
+Uploading **writes no questions**. Approval is the only writer, and it re-validates from scratch. There
+is no staging collection: candidates live in the browser between the two calls, exactly as generated
+ones do.
+
+### `GET /admin/questions/import`
+
+What this deployment can read, and the limits on one upload. Makes no network call, so it is **not**
+rate limited.
+
+```json
+{
+  "success": true,
+  "parsers": [
+    { "id": "excel", "label": "Excel workbook", "kind": "excel",
+      "extraction": "deterministic", "basis": "…", "available": true }
+  ],
+  "limits": {
+    "maxQuestions": 200,
+    "maxFiles": 20,
+    "maxFileBytes": { "excel": 5242880, "docx": 5242880, "image": 6291456 },
+    "maxRequestBytes": 25165824
+  }
+}
+```
+
+`available` is per format because they fail independently: Excel and DOCX are deterministic and always
+work, while the image path needs a model credential and reports itself unconfigured without one.
+
+### `POST /admin/questions/import/excel` · `/docx` · `/image`
+
+Rate limited by **`importLimiter`** (`IMPORT_RATE_LIMIT_PER_HOUR`, default 20/hour/IP), mounted **ahead
+of the permission check** — these are the two most expensive routes in the product alongside generation:
+each decompresses an archive and validates up to 500 rows, and the image path spends provider quota
+*per file*.
+
+A route per format rather than a `:kind` parameter, so each carries the file schema for its own format.
+That is what lets a `.docx` posted to the Excel endpoint be refused by name ("that is not an Excel
+workbook") instead of failing obscurely inside a parser — both are ZIPs, so the byte signature cannot
+tell them apart.
+
+Request:
+
+```json
+{
+  "topic": "<chapter ObjectId>",
+  "subtopic": null,
+  "classLevel": "Class 8",
+  "difficulty": "Medium",
+  "questionType": null,
+  "marks": 4,
+  "negativeMarks": 1,
+  "files": [{ "name": "class8-algebra.xlsx", "content": "data:application/vnd…sheet;base64,UEsDBB…" }]
+}
+```
+
+**There is no `subject` field, deliberately.** The chapter already records which subject it belongs to,
+so accepting both would admit a pair that can disagree — and there is no user-facing subject in this
+product. `topic` is required and must be a **top-level, active** chapter; a subtopic in that position is
+a 400. `questionType: null` means "infer it per row".
+
+Files travel as **base64 data URLs inside the JSON body**, like the registration photo and the event
+gallery, not as multipart. Validation: extension allow-list, a permissive MIME allow-list, and **magic
+bytes** — `.xlsx` and `.docx` must begin `50 4B 03 04`. Per-file ceilings are 5 MB (office) / 6 MB
+(image), at most 20 files, and at most 24 MB decoded per request.
+
+Response `200`:
+
+```json
+{
+  "success": true,
+  "batchId": "<ImportBatch id>",
+  "kind": "excel",
+  "parser": { "id": "excel", "extraction": "deterministic", "…": "…" },
+  "questions": [{
+    "clientId": "m1a2-3", "sourceRef": "class8-algebra.xlsx — Row 14",
+    "questionText": "…", "type": "single_choice", "options": [], "solution": "…",
+    "marks": 4, "negativeMarks": 1, "tags": [],
+    "topic": "<id>", "topicName": "Algebra", "subtopic": null,
+    "classLevel": "Class 8", "difficulty": "Medium",
+    "warnings": [{ "code": "extraction_uncertain", "message": "…" }]
+  }],
+  "rejected":   [{ "index": 3, "reason": "paper.xlsx — Row 21: \"13\" is not a class this platform runs…" }],
+  "duplicates": [{ "index": 7, "reason": "Too similar to an existing question: \"…\"" }],
+  "failures":   [{ "sourceRef": "paper.xlsx — Row 45", "reason": "No question text in column A." }],
+  "batchWarnings": [],
+  "files": [{ "name": "class8-algebra.xlsx", "size": 20481, "examined": 20, "extracted": 18, "failed": 2, "error": null }],
+  "examined": 20,
+  "truncated": false
+}
+```
+
+Four different failure lists, because they need four different fixes: `rejected` failed validation or
+could not be placed in the taxonomy, `duplicates` are too close to the batch or the bank, `failures` are
+items the parser could not use at all, and a file-level `error` means that whole file could not be read.
+**Nothing is ever silently dropped.** `truncated` says the upload held more than `maxQuestions` and the
+tail was not read.
+
+A failure in one file does not lose the others: each is parsed inside its own `try`, so ten photographs
+with an unreadable third produce nine questions and one named file error.
+
+`503` when no parser is registered for the format, or when one is registered but unconfigured — a
+deployment fact, not a bad request, so the message names what to fix. `400` for any file that fails
+validation, naming the file and what was wrong with it.
+
+### `POST /admin/questions/import/approve`
+
+**The only route here that writes a question.** Not rate limited by `importLimiter`: it is an ordinary
+database write whose cost does not scale with a third party.
+
+```json
+{
+  "batchId": "<from the upload response>",
+  "publish": false,
+  "questions": [{
+    "questionText": "…", "type": "single_choice", "options": [{ "text": "…", "isCorrect": true }],
+    "solution": "…", "marks": 4, "negativeMarks": 1, "tags": [],
+    "topic": "<id>", "subtopic": null, "classLevel": "Class 8", "difficulty": "Medium",
+    "edited": true
+  }]
+}
+```
+
+Each question carries **its own** placement, unlike the generator's approval where the taxonomy arrives
+once for the batch. The two differ for a reason rather than by a relaxed rule: there, one batch-wide
+taxonomy is what stops a *model* scattering questions across the syllabus; here a human reviewer picked
+each row's chapter on the review screen, and every id is still checked by `resolveTaxonomy()` at write
+time — which refuses a topic outside the subject, a subtopic outside the topic, and an archived either.
+A client can choose an existing placement; it cannot invent one.
+
+**`batchId` is the only thing the client says about provenance.** Everything else — the source, the
+parser, whether a model was involved, which model, and the subject — is read back from our own
+`ImportBatch` row. `source` is the field worth lying about: a client that could set it could file
+questions a model read off a photograph as hand-written ones. A `batchId` that names no row is a **400**
+(`"That import has expired or was never started"`), not a degraded stamp, because the row is also where
+the subject comes from.
+
+`edited` is the review screen's own report that the examiner changed the question. Recorded as a display
+fact, never trusted, and it grants nothing.
+
+Response `201`:
+
+```json
+{
+  "success": true,
+  "questions": [{ "id": "…", "questionText": "…", "type": "single_choice", "classLevel": "Class 8", "status": "draft" }],
+  "rejected": [{ "index": 2, "reason": "options: A choice question needs at least 2 options." }],
+  "published": 0,
+  "publishFailures": []
+}
+```
+
+**Questions are created as `draft`.** Importing is not publishing. `publish: true` is honoured as a
+second, separate act that goes through `changeQuestionStatus()` — the service where "a published
+question must be explainable to a student" lives — so a question with no solution is **saved as a draft
+and reported in `publishFailures`** rather than published. An import must not be able to route around a
+rule the editor enforces.
+
+`201` is returned even when every question was refused (`questions: []`, `rejected` populated), matching
+the generator's approval route. The status describes the request having been processed; the body says
+what happened. Partial success is normal and reported per question — never all-or-nothing, never
+silently dropped.
+
+Writes an audit entry: **`questions.imported`**, with the batch id and the submitted/created/rejected/
+published counts.
+
+### `POST /admin/questions/import/reject`
+
+```json
+{ "batchId": "<id>", "count": 180 }
+```
+
+**Deletes nothing, because nothing was stored** — rejecting a candidate is genuinely just not approving
+it. It increments a counter on the batch and returns `{ "success": true, "recorded": 180 }`. It exists
+because "the examiner threw a hundred and eighty of two hundred away" is the only honest measure of
+whether a template or a batch of photographs is usable, and it is invisible everywhere else in the
+system. No audit entry: the bank did not change.
+
+### Route ordering
+
+`questionsImport.routes.ts` is mounted **before** `questionsAdmin.routes.ts` in `routes/v1/index.ts`,
+and the order is load-bearing: that router owns `GET /admin/questions/:id`, whose `:id` would otherwise
+capture the literal segment `import` and answer 400 for every route above.
+
+---
+
+## `GET /admin/questions/import/excel/template` (Milestone 21, Phase C)
+
+The downloadable `.xlsx` template. Gated on `questions:write`. Responds with the **file**, not
+the `{ success, ... }` envelope — the same exception the certificate PDF takes, for the same
+reason.
+
+```
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Disposition: attachment; filename="amit-question-import-template.xlsx"
+Cache-Control: private, max-age=0, no-store
+```
+
+**Generated per request, never served from disk.** Its `Class`, `Type` and `Difficulty` dropdowns are built from `CLASS_LEVELS`, `QUESTION_TYPES` and `DIFFICULTIES`, so a static file
+would advertise a class the API refuses the moment those lists change — which the class list is
+about to, in Phase J. That is also why it is `no-store`. Building it is pure CPU, so the route is
+not rate limited and needs no `ensureDb`. Its path is advertised by
+`GET /admin/questions/import` under `templates.excel`, so a page never hardcodes it.
+
+The workbook has two sheets: **Questions** (headers, plus one worked example per question type)
+and **Instructions** (what each column means and what the valid values are).
+
+### The Excel format, as the parser reads it
+
+| Column | Required? | Notes |
+| --- | --- | --- |
+| `Question` | **Yes** | LaTeX between single `$`. No diagrams — the bank stores text only. |
+| `Type` | No | One of the five `QUESTION_TYPES`. Blank is **inferred** from the row, with a note. `MCQ`, `T/F`, `Numerical`, `Fill in the blank` and similar are understood. |
+| `Option A`–`Option H` | For choice questions | Also matched as `A`, `Option 1`, `Choice A`. A **gap** (A and C filled, B empty) is an error, not something to close — closing it would turn "the answer is C" into "the answer is B". Trailing blanks are simply unused. |
+| `Correct Answer` | **Yes** | Read per type — see below. |
+| `Solution` | To publish | Blank imports fine as a draft and carries a note; publishing needs one. |
+| `Class` | No | A real class, or a bare number (`8`), ordinal (`8th`) or `Grade 8`. Blank uses the upload default. **An unrecognised value is reported, not guessed at.** |
+| `Difficulty` | No | `Easy` / `Medium` / `Hard`, case-insensitive. |
+| `Marks`, `Negative Marks` | No | Blank uses the upload default. A **non-numeric** value is a failure, not a default — marks are what a score is computed from. |
+| `Topic`, `Subtopic` | No | Chapter names as they appear under Chapters, matched case-insensitively. A chapter that does not exist is reported; **importing never creates one.** |
+| `Tags` | No | Comma-separated, at most 20. |
+| `Tolerance` | For numeric | Only read for `numeric`. |
+
+**`Correct Answer` per type.** Choice: the option letter (`A`), letters (`A, C` / `A and C` /
+`A;C` / `A/C` / `A + C`), or the exact option text. `true_false`: `TRUE`/`FALSE`, also `T`/`F`,
+`Yes`/`No`, `1`/`0`. `numeric`: a plain number, with the unit stated in the question text.
+`fill_blank`: every accepted spelling separated by a **vertical bar** — `3.14 | 3.14 approx`. A
+bar rather than a comma, because `1,000` is one answer containing a comma and a
+comma-separated list would split real answers into wrong ones.
+
+**What the parser tolerates**: any column order, loosely-matched headings (`Chapter` = `Topic`,
+`Penalty` = `Negative Marks`, `Ans` = `Correct Answer`, `Explanation` = `Solution`), extra
+columns, a header row below a title row, and **every sheet in the workbook** — so a sheet per
+class works, and a sheet reference appears in `sourceRef` when there is more than one. A sheet
+with no question table is skipped as one named failure rather than losing the workbook.
+
+**What it does not tolerate**: `.xls`. The legacy binary format is not OOXML; the message says to
+save as `.xlsx`.
+
+---
+
+## The DOCX format, as the parser reads it (Milestone 21, Phase D)
+
+`POST /admin/questions/import/docx` takes the same body as the Excel route. A `.docx` has no
+schema, so what follows is a set of **conventions**, not a specification — and the parser reports
+everything it had to interpret rather than guessing quietly.
+
+| Element | Written as | Notes |
+| --- | --- | --- |
+| Question boundary | `Q1.`, `1.`, `1)`, `Q.1`, `Question 1:`, `Ques 1 -` | The document's own number appears in `sourceRef`. A title above the first question is dropped. |
+| Options | `(a)`, `a)`, `A.`, `(1)` — each on its own line | A bare `1.` is read as a *question* marker, not an option; parenthesised `(1)`–`(8)` are options. |
+| Answer | `Answer: B`, `Ans - B`, `Correct option: (b)`, `Key: B` | Required. The option letter, a `(1)`-style number, or the exact option text. |
+| Solution | `Solution:`, `Explanation:`, `Working:` | Optional; following lines belong to it. Absent means a note and no publishing. |
+| Metadata | `Class: 8`, `Topic: Algebra`, `Subtopic: …`, `Difficulty: Hard`, `Marks: 6`, `Negative Marks: 2`, `Type: multiple_choice`, `Tags: a, b` | Per question. Anything matching the shape but not a known key stays in the question text. |
+
+A stem or option that Word wrapped across paragraphs is rejoined. `Type` blank is inferred with a
+note. `Class`/`Topic` follow the same rules as Excel: unresolvable values are **reported with the
+question number**, never defaulted, and importing never creates a chapter.
+
+### Two file-level warnings, in `batchWarnings`
+
+**No question numbers found.** Word's automatic numbering lives in `numbering.xml` and does not
+survive text extraction, so questions were separated by their `Answer:` lines instead. This is the
+case most likely to have split a question in the wrong place, and the warning names the one-step
+fix (type the numbers in manually).
+
+**Word equation objects present.** `mammoth` drops OMML, so an affected question imports with its
+formula missing from the middle of a sentence — worse than a failure, because it looks like
+success. Mathematics must be typed as `$…$`. Said once per upload however many documents carry it.
+
+### What cannot be imported from a Word file
+
+**Equations built with Word's equation editor**, and **anything a diagram carries** — `Question`
+has no image field, and the bank stores text and LaTeX only. A question whose meaning depends on a
+figure cannot be imported; retype the mathematics or author it by hand.
+
+An `.xlsx` posted here is refused by name and pointed at the Excel route (both are ZIPs, so only
+the OOXML part inside distinguishes them).
+
+---
+
+## `POST /admin/questions/import/image` (Milestone 21, Phase E)
+
+Same body as the other two upload routes. `files` carries `.jpg` / `.jpeg` / `.png` / `.webp`
+as base64 data URLs, up to 6 MB each and 20 per request.
+
+**One model call per image.** Ten photographs is ten calls — the only route in the importer with
+a per-file third-party cost, which is why `importLimiter` sits ahead of the permission check.
+
+Answers **503 naming `GEMINI_API_KEY`** when no key is configured. Excel and DOCX stay available
+without one: **no format may depend on a model credential**, and there is a test asserting it.
+
+### What the model is asked for, and what it is not
+
+A **transcription**: `questionNumber`, `questionText` (mathematics as `$…$`), `options` as printed
+without their markers, `answer` **exactly as printed** on the page, `solution`,
+`referencesFigure`, `unreadable`, and `uncertainty`.
+
+It is **not** asked which option is correct, nor for `booleanAnswer` / `numericAnswer` / `marks`.
+Those are conclusions, drawn afterwards by `lib/importAnswerText.ts` — the same readers a
+spreadsheet and a Word file go through. `marks`, `class`, `topic` and `difficulty` come from the
+upload defaults only: reading "(4 marks)" or a "Class 8" page header off a photograph is exactly
+the plausible misreading that changes a score or files a question for the wrong cohort.
+
+Temperature is **0.1**, not the generator's 0.9. Transcription has one right answer.
+
+### Per-question outcomes
+
+| Condition | Result |
+| --- | --- |
+| `unreadable: true` | **Failure** — "cut off, blurred or obscured. Re-photograph the page." |
+| `answer` empty | **Failure** — no answer is printed, so there is nothing to mark against. Never invented. |
+| Answer letter matches no option | **Failure**, naming the letter. |
+| `uncertainty` non-empty | Candidate, with the model's own doubt as a note. |
+| `referencesFigure: true` | Candidate, with a note that it cannot be imported complete. |
+| No printed solution | Candidate, with a note that it cannot be published until one is added. |
+| Nothing read at all | **Failure** — "check the page is in focus, right way up…". |
+
+### `batchWarnings` always carries the OCR warning
+
+Every image import reports that a model read the images and that **mathematical notation is where
+that is least reliable**, asking the reviewer to check each question against the original. Said
+once per upload however many images carry it. It is not boilerplate to be trimmed: OCR failures
+are the quiet kind, and this is the only thing standing between a photograph and a wrong answer
+key.
+
+### Provenance
+
+`source: 'image_import'` **and** `generatorKind: 'model'` with the model's name and
+`generatorId: 'gemini-vision'`. Two separate facts, both needed: how the question entered the
+bank, and that a model produced its text. Read back from the `ImportBatch` row, never from the
+request body — a test asserts that a client sending `source: "human"` is ignored.
+
+---
+
+## `POST /admin/questions/import/validate` (Milestone 21, Phase F)
+
+A dry run over the reviewer's corrections. Gated on `questions:write`. **Writes nothing.**
+
+```json
+{ "questions": [ /* the same shape the approve route takes, minus batchId */ ] }
+```
+
+```json
+{
+  "success": true,
+  "verdicts": [{ "index": 1, "ok": false, "reason": "options: A single-choice question needs exactly one correct option (you marked 0).", "warnings": [] }],
+  "batchWarnings": [],
+  "wouldSave": 0
+}
+```
+
+Calls the **same `screenEach()`** the approval path calls, which is the entire point: its answer
+*is* the answer approval will give, and a check that passed where the save would fail would be
+worse than no check. A test sends one batch to both endpoints and asserts the reasons match
+string-for-string.
+
+`verdicts` is **positional** over the questions sent. A client holding them must key them to its
+own rows at send time — indexing by a question's *current* position in a selection is wrong the
+moment the user ticks anything, and would show one question's rejection against another.
+
+No `batchId`: nothing is written, so there is nothing to attribute. Deliberately **not** rate
+limited — it spends no provider quota, makes no network call and writes not even a log row, so
+an examiner should be able to check as often as they like.
+
+### A note on the approve response, which is easy to get wrong
+
+`POST /admin/questions/import/approve` returns `{ questions, rejected, published, publishFailures }`
+and **no `created` count** — the first version of the review page assumed one and rendered "Saved
+undefined questions". Saving and publishing are separate outcomes: a question with no solution
+**saves as a draft and is refused publication**, so `questions.length` and `published` can
+legitimately differ and a client that conflates them will misreport what happened.

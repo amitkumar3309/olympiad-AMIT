@@ -28,3 +28,4 @@ export * from './EmailOutbox';
 export * from './GenerationLog';
 export * from './Payment';
 export * from './PaymentSettings';
+export * from './ImportBatch';

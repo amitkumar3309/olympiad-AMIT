@@ -2,6 +2,394 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-23 — Milestone 21, Phase F: the import review screen
+
+**Bulk import is now usable by an administrator.** Phases C–E built three parsers that were
+only reachable with `curl`; this is the page. `/admin/questions/import`, with a **Bulk Import**
+entry in the admin sidebar.
+
+### One page, three formats, one review screen
+
+A tab per format — Excel, Word, Photographs — over **one** review screen. Every parser
+normalises into the same candidate, so a spreadsheet row, a Word paragraph and a photographed
+question are edited, checked and approved by identical code. Three review screens would be
+three places for the approve payload to drift out of step with the backend.
+
+Each format tab prints its parser's own `basis` **verbatim** and says plainly when a language
+model reads the file. An unconfigured image parser reports itself unavailable and names
+`GEMINI_API_KEY`, while the other two carry on.
+
+### Nothing is hidden
+
+The counts strip — examined, usable, invalid, duplicates, unreadable — is visible without
+clicking anything, because the spec's rule is "do not silently skip invalid rows" and the honest
+reading is that an examiner should see how many questions their file *did not* produce. Beneath
+it: a per-file table (so one bad photograph is visibly one failure, not ten), an expandable
+breakdown of every failure, rejection and duplicate **with its row number**, the batch warnings,
+and a **CSV of the problem list** built in the browser from data already on the page.
+
+### Editing, and the dry run
+
+Each card can be edited in place — text, options, correct answer, solution — and its
+**placement** changed: class, chapter, difficulty and type, per question, because a spreadsheet
+legitimately files row 3 and row 40 under different chapters and the reviewer has to be able to
+correct a row the file got wrong.
+
+**Check before saving** calls a new dry-run endpoint that runs the same `screenEach()` approval
+runs. Its whole value is that its answer *is* the answer approval will give — a check that
+passed where the save would fail would be worse than no check. It writes nothing at all, not
+even a batch counter, so it is not rate limited and an examiner may press it freely rather than
+pressing Approve to find out.
+
+### Added
+
+- **`POST /admin/questions/import/validate`** and `validateImport()` — the dry run. No
+  `batchId`, because nothing is attributed to a batch.
+- **`frontend/src/pages/Admin/QuestionImport.tsx`** + its CSS module, the `/admin/questions/import`
+  route (registered **before** `/admin/questions/:id/edit`, or `:id` eats the word "import" —
+  the same ordering trap the backend router has), and the sidebar entry.
+- Import DTOs in `frontend/src/api/types.ts`.
+- 7 tests for the dry run in `tests/questionImport.test.ts`. Suite total **1080 → 1086**.
+
+### Verified in a browser, not just by tests
+
+Driven end to end against the local dev database: a five-row workbook with three good rows, one
+with no answer and one claiming `Class 13`. The page reported **5 examined, 3 usable, 1 invalid,
+1 unreadable**, named both problems with their row numbers, the dry run said "all 3 would save",
+and approval put three `draft` rows in the bank stamped `excel_import` / `deterministic` /
+`modelName: null` under the chosen chapter. The verification rows were then deleted from the
+local database.
+
+**That browser pass found a bug the test suite could not**: the page printed *"Saved undefined
+questions"*, because it assumed a `created` count the approve endpoint does not return. Fixing
+it surfaced a second, more useful gap — `published` and `publishFailures` were being ignored, so
+"Approve & publish" would have claimed to publish questions that in fact stayed as drafts
+because they had no solution. Both are fixed, and the response shape is now written out in the
+page rather than guessed at.
+
+### Not done in this phase
+
+Phases G–I (assigning imported questions to Practice, Mock Tests and Daily Challenges), J (the
+Class 3–12 range and removing the user-facing Subject concept) and K (dropping Subject from the
+AI generator) remain. **Phase G still needs an owner decision** — Practice has no
+admin-curated set to assign to.
+
+---
+
+## 2026-08-23 — Milestone 21, Phase E: importing questions from photographs
+
+All three formats now read a file. An administrator can upload photographs of a question paper
+and get the questions onto the review screen.
+
+### Why a model here, when DOCX deliberately refuses one
+
+Phase D declined AI for Word documents because a `.docx` *is text we already have*. A photograph
+is the opposite case: there is no text at all, and OCR is the only way in. This is not a reversal
+of that decision — it is the case that decision was drawn around.
+
+So the image path is the **only** importer that is non-deterministic, spends provider quota, and
+reports `extraction: 'model'`. All three are stated rather than smoothed over.
+
+### The model transcribes; our own code decides what the answer means
+
+This is the design decision the phase rests on. The response schema asks for **what is printed on
+the page** — the question, the option texts, and the answer *as written* (`"B"`, `"TRUE"`, `"60"`)
+as a plain string. It does **not** ask the model for `isCorrect` flags, `booleanAnswer` or
+`numericAnswer`; those are conclusions.
+
+The conclusions are drawn by `lib/importAnswerText.ts` — the same readers a spreadsheet cell and
+an `Answer: B` line in Word go through. So this phase needed **no new answer reading at all**,
+which is exactly what that module was extracted to make possible. It also narrows the model to
+the one thing it is good at (reading pixels) and keeps the thing that must not be wrong (what
+counts as correct) in code.
+
+### The refusal that matters most
+
+**A question with no printed answer never acquires one.** The prompt forbids the model from
+working an answer out, and a transcription that comes back with an empty answer is refused with
+an actionable message. A calculated answer would be indistinguishable from a printed one, and
+real children would be marked against it.
+
+### Honest about what OCR cannot promise
+
+Every image import carries a **standing warning**, without exception: mathematical notation is
+where transcription is least reliable, and its failures are quiet — a dropped exponent, a minus
+read as a hyphen, a fraction flattened. The result reads plausibly and is wrong, which is the
+exact failure the review step exists to catch, and a reviewer who has not been told will skim.
+Per-question notes carry the model's own uncertainty; a question needing a diagram is flagged,
+because `Question` has no image field in any format.
+
+### Added
+
+- **`services/imageImportParser.ts`** — the parser, the transcription schema, the prompt,
+  `OCR_STANDING_WARNING`, `mimeTypeFor()` and `IMAGE_GUIDANCE`.
+- **`requestGeminiJson()`** in `services/geminiQuestionGenerator.ts` — extracted from
+  `generate()`, and **the only place a language model is called**. What lives there is not the
+  prompt or the schema (properly per-caller) but the things that must not be got wrong twice: the
+  client via `clientFactory` (so the test seam still intercepts every call), the credential check,
+  `attemptGenerate()` and its single shared deadline, `describeFailure()` and `redact()`, and the
+  blocked-prompt and `MAX_TOKENS` cases. The generator's 52 tests pass unchanged, which is the
+  evidence the extraction was behaviour-neutral.
+- **`tests/imageImport.test.ts`** — 39 tests, none touching the network. Suite total **1039 →
+  1078 across 30 files**.
+
+### Not done in this phase
+
+There is still **no frontend** — Phase F — so all three importers are exercisable only through the
+API, and the feature is not usable by a non-technical administrator. The class range is still
+`Class 5`–`Class 11` plus the three Class-12 streams; 3–12 is Phase J.
+
+---
+
+## 2026-08-19 — Milestone 21, Phase D: the DOCX importer
+
+An administrator can now upload a `.docx` of questions. Word joins Excel; the image route still
+answers 503.
+
+### A Word file has no schema, so the design is about being unsure honestly
+
+A spreadsheet at least tells you which column is the answer. A `.docx` is prose with conventions,
+and every examiner's conventions differ — so this parser is unavoidably a heuristic, and the real
+decision is what it does when it cannot be certain. **It never guesses quietly:**
+
+- anything it had to interpret becomes a **note** on that candidate, so a human compares it
+  against the original (a DOCX-extracted question almost always carries at least one);
+- anything it could not use becomes a **failure naming where it was** ("Question 7");
+- if it cannot find questions at all it says **what it looked for**, rather than returning one
+  enormous candidate containing the whole file.
+
+### What it understands
+
+Question numbering as `Q1.`, `1.`, `1)`, `Q.1`, `Question 1:` or `Ques 1 -`. Options as `(a)`,
+`a)`, `A.` or `(1)`. Answers as `Answer:`, `Ans -`, `Correct option:` or `Key:`. Solutions as
+`Solution:`, `Explanation:` or `Working:`. Optional per-question metadata lines — `Class: 8`,
+`Topic: Algebra`, `Difficulty: Hard`, `Marks: 6`, `Type: multiple_choice`, `Tags: …`. A title above
+the first question is dropped, and a stem or option that Word wrapped across paragraphs is
+rejoined.
+
+A line matching the metadata *shape* but not a known key — `Ravi says: the answer is four.` —
+stays in the question text. Swallowing it would silently truncate the stem.
+
+### The two failures that would otherwise look like success
+
+**Word's automatic numbering does not survive text extraction.** If an examiner numbered the
+questions with the toolbar, the digits live in `numbering.xml` and the extracted text has none —
+so a marker-only parser sees one giant question. There is a fallback that splits on `Answer:`
+lines instead, and it **says so**, because that is the case most likely to have put a boundary in
+the wrong place; the warning names the cause and the one-step fix.
+
+**Word equation objects are dropped silently by `mammoth`.** A question built with Word's equation
+editor imports looking complete with the formula simply *missing* from the middle of a sentence.
+`containsWordEquations()` detects the markup and the file reports it, naming the fix (retype as
+`$…$`). Said once per upload, not once per document.
+
+### No AI, and that is a decision
+
+The spec permits AI-assisted extraction for complex documents behind a provider abstraction. It is
+not used: a `.docx` is *text we already have*, the structure is genuinely recoverable by reading
+it, and a model would add cost, latency and a third party to every import — and make a core
+format depend on a credential the product is required to work without. The image path is
+different, because there OCR is the only way in.
+
+### Added
+
+- **`services/docxImportParser.ts`** — the parser, `splitIntoBlocks()`, `readBlock()`, and
+  `DOCX_CONVENTIONS` (exported as data so the upload page and the parser cannot drift).
+- **`lib/importAnswerText.ts`** — the answer readers, moved out of the Excel parser. Same argument
+  as one grader and one screener: **"the answer is B" must mean the same thing** whether it was
+  written in a spreadsheet cell or on an `Answer: B` line. Pure functions of a string.
+- **`lib/ooxml.ts`** — `looksLikeWorkbook()`, `looksLikeWordDocument()`, `containsWordEquations()`.
+- **`ParseOutcome.notes`** — a file-level advisory channel, surfaced in `batchWarnings`. The
+  equation warning is one fact about a file, not fifty facts about fifty questions.
+- **`tests/docxImport.test.ts`** (38 tests) and **`tests/helpers/docx.ts`**, which builds real
+  `.docx` files in memory with `jszip` — already present as `mammoth`'s own dependency, so nothing
+  new was installed. Suite total **1001 → 1039 across 29 files**.
+
+### Three defects found by the tests, all fixed
+
+1. **`Q.1` and `Q1` were not recognised** as question markers, because the terminator after the
+   digit was required. It is now optional when the `Q` prefix is present, which is already
+   unambiguous. Well-numbered papers were falling through to the answer-splitting fallback.
+2. **A document containing a single question kept `Q1.` glued to its text.** Marker mode required
+   *two* markers, so one question fell to the fallback — which does not strip the marker. One is
+   now enough.
+3. **A file of ordinary prose came back as one enormous "question".** The fallback now requires at
+   least one `Answer:` line somewhere, since it is answer-terminated and has nothing to work with
+   otherwise. Prose is reported as "no questions could be found", with the conventions.
+
+### Not done in this phase
+
+Images (Phase E) still answer 503. There is still **no frontend** — Phase F — so both importers are
+exercisable only through the API. Class range is still `Class 5`–`Class 11` plus the three
+Class-12 streams; 3–12 is Phase J.
+
+---
+
+## 2026-08-18 — Milestone 21, Phase C: the Excel importer
+
+An administrator can now upload an `.xlsx` file of questions and get them onto the review
+screen. The pipeline was Phase B; this is the first format that actually reads a file, so the
+Excel upload route stops answering 503.
+
+### The division of labour, which is what makes the errors useful
+
+The parser is a **shape adapter**, in the same sense `toCandidate()` is in the Gemini generator.
+It turns a row into a candidate and does not decide whether that candidate is any good:
+
+- a row that **cannot become a candidate** is a failure naming its row number — no question
+  text, no correct answer, a `Marks` column containing "four";
+- a row that becomes a **bad candidate** goes to the one shared screener, which rejects it in the
+  same words a hand-authoring examiner would read — two correct options on a single-choice
+  question, unbalanced LaTeX, negative marks above the marks;
+- a row we had to **interpret** carries a note, which never blocks anything.
+
+### Tolerant of the file, strict about the data
+
+Column **order does not matter**, headings are matched loosely (`Negative Marks`,
+`negative_marks` and `Penalty` are one column; `Chapter` is `Topic`; `Ans` is `Correct
+Answer`), extra columns are ignored, the header row may sit below a title row, and **every sheet
+is read** so a sheet per class works. That is not politeness — an examiner exports from whatever
+they already have, and a parser demanding byte-exact headers is one nobody can use.
+
+The **data** is not treated tolerantly. A `Class` of `13`, a chapter that does not exist, or a
+`Marks` cell containing a word is reported with its row number rather than quietly defaulted,
+because a question filed under the wrong cohort is served to the wrong children.
+
+### One `Correct Answer` column, read per type
+
+Rather than a column per question type. A choice row takes the option letter (`A`), letters
+(`A, C` / `A and C` / `A;C`) or the exact option text; `true_false` takes `TRUE`/`FALSE` (and `T`,
+`Yes`, `1`); `numeric` takes a plain number; `fill_blank` takes every accepted spelling separated
+by a **vertical bar**. A bar rather than a comma because `1,000` and `2, 3 and 5` are single
+answers containing commas, and a comma-separated list would silently split real answers into
+wrong ones.
+
+A blank `Type` column is **inferred** from the row and always carries a note, since an inference
+is exactly what a reviewer should check. Options are decisive; after that a true/false word beats
+a number, because `1` and `0` are boolean spellings and a bare `1` in an answer column is far
+more often "true" than the number one.
+
+### Added
+
+- **`services/excelImportParser.ts`** — the parser, plus the pure helpers the tests exercise
+  directly (`cellText`, `readCorrectOptions`, `readBoolean`, `readAcceptedAnswers`,
+  `readQuestionType`, `inferType`, `findHeaderRow`, `looksLikeWorkbook`).
+- **`GET /admin/questions/import/excel/template`** — the downloadable template, **generated per
+  request** so its `Class`, `Type` and `Difficulty` dropdowns come from `CLASS_LEVELS`,
+  `QUESTION_TYPES` and `DIFFICULTIES`. A checked-in file would go stale the moment the class
+  range changes, which it is about to in Phase J. Two sheets: the table, and an Instructions
+  sheet explaining every column.
+- **`tests/excelImport.test.ts`** — 57 tests, building **real `.xlsx` files** with `exceljs` and
+  pushing them through the real route. Suite total **944 → 1001 across 28 files**.
+
+### The authoritative format check now exists
+
+`.xlsx` and `.docx` are both ZIPs beginning `50 4B 03 04`, so the magic-byte test in
+`uploadSchemas.ts` cannot tell them apart. `looksLikeWorkbook()` searches the bytes for the
+`xl/workbook.xml` entry name — which a ZIP stores uncompressed — so it answers without inflating
+anything, and a decompression bomb that is not a workbook is refused before `exceljs` touches
+it. A `.docx` posted here is told what it is and pointed at the Word import.
+
+### Two defects found by the tests, both fixed
+
+1. **The template's own Instructions sheet was imported as twelve questions.** Its glossary's
+   first column reads `Question`, and a header detector needing one match read that row as a
+   header. `findHeaderRow()` now requires a question column **plus** an option column or one of
+   `Correct Answer` / `Solution` / `Type` / `Class` / `Marks` / `Difficulty`. Any workbook with a
+   "what each column means" sheet had the same shape, so this was not just our template.
+2. **The example rows named chapters that only exist in this project.** `Algebra` and `Geometry`
+   are in our seed data and nobody else's, so an examiner's very first import would have opened
+   with five rejected rows. The examples now leave `Topic` blank, which means "use the chapter I
+   chose when uploading".
+
+### Not done in this phase
+
+DOCX (Phase D) and image (Phase E) still answer 503. There is still **no frontend at all** —
+Phase F — so this is exercisable only through the API. The class range is still `Class 5`–`Class
+11` plus the three Class-12 streams; 3–12 is Phase J.
+
+---
+
+## 2026-08-18 — Milestone 21, Phase B: shared bulk-import infrastructure
+
+The pipeline every question importer plugs into. **No format parser yet** — Excel, DOCX and image
+arrive in Phases C, D and E — so no real file can be imported at the end of this phase. What exists is
+the part that decides whether what a parser read may become a question, which is the part worth getting
+right first.
+
+### The shape, and why it is the generator's shape
+
+Two phases with nothing stored between them: **uploading writes no questions, and only approval
+writes.** That is `services/questionGeneratorService.ts` exactly, and for the same reason — candidates
+live in the reviewer's browser so the bank cannot fill with machine-read text nobody looked at.
+Approval re-validates from scratch, because what it receives is whatever the review screen sent after
+the examiner corrected it.
+
+### One screener, generalised rather than copied
+
+`screenCandidates()` grew a sibling: `screenEach()`, which takes a target **per candidate** instead of
+one for the batch. A spreadsheet legitimately files row 3 and row 40 under different chapters, so
+imports needed per-row placement — but writing a second screener for that is exactly what the
+one-screener rule forbids, since two would eventually disagree about what may become a question and the
+more permissive one would decide. `screenCandidates()` now delegates to it and is unchanged in
+behaviour. Batch-internal duplicate detection still spans the whole upload, so the same question pasted
+into two chapters of one file is still caught.
+
+### Added
+
+- **`lib/importTypes.ts`** — THE importer seam. `ImportedCandidate` composes `GeneratedCandidate`
+  **verbatim** for its content half, so there is exactly one canonical candidate representation and no
+  `ExcelQuestion` / `DocxQuestion` / `ImageQuestion`. A parser reports the taxonomy it read as
+  **names** (`ImportedTaxonomyHint`) and never sees an id.
+- **`ImportBatch`** (the 27th model) — what was uploaded, what came of it, and what the reviewer then
+  did. Per-file outcomes, so one unreadable photograph reads as one named failure rather than as a
+  failed batch. Stores **no uploaded bytes and no question text**. It is what approval reads provenance
+  back from, using the id we issued.
+- **`validation/uploadSchemas.ts`** — magic-byte validation extended to OOXML (both `.xlsx` and `.docx`
+  must begin `50 4B 03 04`), per-file and per-request size ceilings, a file-count cap, and filename
+  validation. Uploads travel as base64 inside the JSON body like the registration photo, so **nothing
+  touches the filesystem** — temp-file cleanup, safe filenames and path traversal are absent risks
+  rather than mitigated ones.
+- **`services/questionImportService.ts`** — the parser registry, `previewImport()` (parse → place →
+  screen → report, writing no questions), `approveImport()` (the only writer) and
+  `recordImportRejections()`.
+- **`routes/v1/questionsImport.routes.ts`** — five endpoints under `/admin/questions/import`, every one
+  gated on `questions:write`.
+- **`importLimiter`**, plus `IMPORT_MAX_QUESTIONS` and `IMPORT_RATE_LIMIT_PER_HOUR`.
+- Three new `QUESTION_SOURCES` values (`excel_import`, `docx_import`, `image_import`) and the
+  `questions.imported` audit action.
+- **`tests/questionImport.test.ts`** — 62 tests. Suite total **882 → 944 across 27 files**.
+
+### Two dependencies, both free
+
+`exceljs` (MIT) for `.xlsx` and `mammoth` (BSD) for `.docx`, installed ready for Phases C and D. Images
+need neither — the already-installed `@google/genai` accepts inline image bytes. `npm audit` reports one
+transitive advisory against `exceljs` (`uuid` < 11.1.1: a missing buffer bounds check in v3/v5/v6 when
+`buf` is supplied) and it is **not reachable**, because exceljs calls only `uuid.v4()` and never passes
+`buf`. Verified by reading `node_modules/exceljs/lib`, not assumed. The other ten advisories in that
+report predate this phase and all come from `@vercel/node`.
+
+### Three defects the tests found, all fixed
+
+1. **Every rejected upload answered 500 instead of 400.** In zod 4 a check on an *array* still runs
+   when a child failed, and the failed child arrives as `undefined`; reading `.data` off it threw a
+   `TypeError`. So a bad signature, a wrong extension and an oversized file all reported "internal
+   server error" instead of saying what was wrong. See [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+2. **The review screen was shown a mangled chapter name.** The lookup index is lowercased so a
+   spreadsheet's `ALGEBRA` finds `Algebra`, and the display name was being read back out of those keys
+   — so the reviewer saw `algebra`. Display names are kept separately now.
+3. **"is not a Excel workbook."** The article was written at the call site rather than carried with the
+   label.
+
+### Not done in this phase, deliberately
+
+No parser, so no real file imports yet. No review UI (Phase F). No frontend change at all. The class
+range is **still `Class 5`–`Class 11` plus the three Class-12 streams** — extending it to 3–12 is Phase
+J, which is why the new suite exercises the classes that exist today rather than asserting a range that
+does not.
+
+---
+
 ## 2026-08-18 — Milestone 20: the official Gemini SDK, structured output, and review tooling
 
 Not a new feature so much as the AI question generator finally being built the way it should

@@ -166,6 +166,28 @@ export const generationLimiter = limiter({
 });
 
 /**
+ * Uploading a file to the bulk question importer.
+ *
+ * The most expensive route in the product on two separate counts, which is why it is not left
+ * to the general `/api` limiter. Every call **decompresses an archive** and validates up to five
+ * hundred rows — more CPU than anything else here spends — and the image path additionally
+ * **spends provider quota per file**, so one request carrying ten photographs is ten model calls.
+ * That second property is the one `generationLimiter` exists for, and it is why this limiter is
+ * mounted **ahead of the permission check**: the cheapest possible rejection is the right one
+ * when a request costs money, and an unauthenticated flood should never reach the database read
+ * that authorization performs.
+ *
+ * Configurable (`IMPORT_RATE_LIMIT_PER_HOUR`) because the right number is a property of the
+ * deployment quota and plan rather than of the code. Generous enough by default that a real
+ * afternoon of importing — twenty uploads — never notices.
+ */
+export const importLimiter = limiter({
+  windowMs: HOUR,
+  limit: config.imports.importsPerHour,
+  message: 'Too many imports. Please wait a while before uploading more files.',
+});
+
+/**
  * Administrative acts on somebody else's account.
  *
  * These sat behind the general `/api` limiter alone, which was recorded as an open gap
