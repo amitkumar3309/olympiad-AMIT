@@ -2,6 +2,58 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-28 — Milestone 22, Phase H: the regression pass
+
+All thirteen areas the brief named, driven in a real browser against a real backend, plus the full
+suite. **No regression was found.**
+
+| Area | How it was checked |
+|---|---|
+| Registration | A fresh registration with **no** referral code, plus two through referral links |
+| Login | Student and root-admin sign-in throughout the pass |
+| Student dashboard | Real figures; the entry-fee prompt reads **₹199.00** |
+| Admin dashboard | 12 accounts, recent registrations, both charts |
+| Payment | Status, `/payment`, invoices; "temporarily unavailable" reported honestly with no local Razorpay keys |
+| Question Bank | 104 questions over 11 pages, filters, status actions |
+| Practice | 13 chapters / 104 questions; a session **started, answered, submitted and graded** (score −1 with negative marking), plus resume |
+| Mock Tests | Authored → published → visible to the right class with marks, duration and attempts |
+| Daily Challenge | Auto-generated a real question with +15 XP after the reset removed the old one |
+| AI generation | Page renders with the live chapter list; generation itself correctly unavailable with no key |
+| Bulk import | All three formats render; the Excel template builds (11,650 bytes, correct content type) |
+| Analytics | Renders, with the honest empty state before any submission |
+| Recommendations | Renders, labelled `STATISTICAL RULES` — still not claiming to be AI |
+
+Also swept: leaderboard, Hall of Fame, gallery, certificate verification, audit log, chapters, the
+student directory, invoices, and both referral surfaces. **No console error on any page.**
+
+### The answer-key rule, checked in both directions
+
+An in-progress practice session serves `key`/`text` options and **no** `correctAnswer`, `explanation`,
+`outcome`, `solution`, `isCorrect`, `booleanAnswer`, `numericAnswer` or `tolerance`. The same session
+once submitted **does** carry `correctAnswer`, `explanation` and `outcome`. That is exactly the
+documented behaviour, and it is worth re-verifying by hand because it is the rule this codebase has
+broken twice.
+
+### Four false alarms, all mine
+
+Every "finding" in this pass turned out to be a wrong assumption in the probe rather than a defect:
+`/practice/availability` (the route is `/practice/options`), `/rewards/me` (it is `/me/rewards`),
+saving an answer with `POST` (it is `PUT`), and looking for a `solution` field in a review view that
+calls it `correctAnswer`. A fifth — "the Question Bank renders no rows" — was a `table tbody tr`
+selector on a page that lays questions out as cards. Recorded because the lesson generalises: when a
+hand-written probe disagrees with a well-tested backend, check the probe first.
+
+### One real consequence, and it was self-inflicted
+
+The **local dev database** had its question bank and chapters emptied during this session's
+verification of the content reset — the audit trail shows the three resets. That is what made
+Practice, the Daily Challenge and Analytics look empty at the start of this pass. Re-seeded with
+`npx tsx scripts/seed-class12.ts --local --write` (104 questions, 13 chapters), after which every
+one of them worked. **Production was never touched**: the dev server runs `dev:local`, which forces
+`MONGO_URI` at localhost, and the write guard refused the seed until `--local` was given explicitly.
+
+**1253 tests across 35 files**, typecheck, lint, compile and the frontend build all green.
+
 ## 2026-08-28 — Milestone 22, Phase G: the admin referral console
 
 `/admin/referrals`. Two jobs on one page, deliberately: **what is owed**, and **what a referral is

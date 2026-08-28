@@ -8,6 +8,16 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 
 ## Current Development Phase
 
+**Milestone 22 — Phase H: the regression pass (2026-08-28): complete. No regression found.**
+
+All thirteen areas the brief named were driven **in a browser against a real backend**, not just asserted from the suite: registration (with and without a referral code), login, the student dashboard, the admin dashboard, payment, the question bank, practice (a session started, answered, submitted and graded), mock tests (authored → published → visible), the daily challenge (auto-generated after the reset removed the old one), AI generation, bulk import, analytics and recommendations. Plus the leaderboard, Hall of Fame, gallery, certificate verification, audit log, chapters, the student directory, invoices and both referral surfaces. **No console error on any page.**
+
+- **The answer-key rule was re-verified in both directions** — an in-progress practice session carries no `correctAnswer`/`explanation`/`outcome` and options of only `key`/`text`; the same session once submitted carries all three. It is checked by hand because it is the rule this codebase has broken twice.
+- **Four "findings" were false alarms, all of them wrong assumptions in the probe** rather than defects (`/practice/availability` vs `/practice/options`, `/rewards/me` vs `/me/rewards`, `POST` vs `PUT` for saving an answer, and a review field named `correctAnswer` rather than `solution`). The lesson generalises: when a hand-written probe disagrees with a well-tested backend, suspect the probe.
+- **One real consequence, self-inflicted**: the **local** dev database had its questions and chapters emptied during this session's verification of the content reset (the audit trail shows all three resets). Re-seeded with `npx tsx scripts/seed-class12.ts --local --write` — 104 questions, 13 chapters. **Production was never touched**: `dev:local` forces localhost, and `assertConfiguredForWrites()` refused the seed until `--local` was given.
+
+**1253 tests across 35 files**, typecheck, lint, compile and the frontend build all green.
+
 **Milestone 22 — Phase G: the admin referral console (2026-08-28): implemented and verified.**
 
 - **`/admin/referrals`**, gated on `students:read` like the payments console. Four counted figures (accrued / approved / paid / referrals recorded), **programme-wide rather than page-wide** — "what do we owe?" must not change as somebody pages.
@@ -94,7 +104,7 @@ affected — `Payment.amount` is a snapshot, and a test re-prices the fee after 
 - **Two things that would have been defects**: the export route is declared **before** `/admin/students/:studentId` (otherwise Express reads `export` as a student id and answers 400 — the `practice-availability` trap again, with a regression test), and an **aggregation bypasses `select: false`**, so every stage that reaches a response ends in an explicit `$project` allow-list.
 - Verified in a browser against a local database seeded with all five payment states. **1166 tests across 32 files** (28 new), typecheck, lint, compile and the frontend build all pass.
 
-**Still to come in Milestone 22**: Phase H — the regression pass over registration, login, the dashboards, payments, the question bank, practice, mock tests, the daily challenge, AI generation, bulk import, analytics and recommendations.
+**Milestone 22 is complete.** The two things still waiting on the owner are decisions rather than work: the **referral reward amount** (settable at `/admin/referrals`; until then the programme tracks introductions and pays nothing, and says so) and **confirming the entry fee reads ₹199** at `/admin/payments`, since a settings document saved earlier on production would still hold ₹100.
 
 **Milestone 20 — the AI question generator on the official SDK, with structured output and real review tooling (2026-08-18): implemented and verified.** The owner asked for the official Google GenAI SDK, structured JSON output, subtopic support, retries, rate limiting, per-question review and approval, and provenance on what gets saved.
 
@@ -288,7 +298,7 @@ Before that, **Milestone 3 — RBAC and User Management Foundation: implemented 
 
 ## Current Milestone
 
-**Milestone 22 — Admin student directory, student invoices, AMIT branding, and Refer & Earn. PHASES A–G COMPLETE, plus the content reset; H (the regression pass) NOT STARTED.**
+**Milestone 22 — Admin student directory, student invoices, AMIT branding, and Refer & Earn. ALL PHASES A–H COMPLETE, plus the content reset.**
 
 Phase B is described under "Current Development Phase" above. Two decisions are recorded and not yet
 built on:

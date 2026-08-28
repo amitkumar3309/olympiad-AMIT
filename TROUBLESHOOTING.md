@@ -1,5 +1,37 @@
 # TROUBLESHOOTING.md
 
+## The local database is empty after using the content reset
+
+**Symptom:** Practice says "No questions have been published for your class yet", the Daily Challenge
+says "No challenge today", and Analytics has nothing to measure — on a database that had questions
+an hour ago.
+
+**Cause:** somebody used the content reset (`/admin/questions` → Danger zone, or Chapters). It does
+exactly what it says. `/admin/audit-log` filtered to **Content area reset** shows what was deleted,
+when, by whom, and the per-collection counts — that entry exists precisely so this question has an
+answer.
+
+**Fix on a local/dev database**, which is where this normally happens:
+
+```
+cd backend
+MONGO_URI="mongodb://127.0.0.1:27017/amit-olympiad-local" npx tsx scripts/seed-class12.ts --local --write
+```
+
+The seed is report-only without `--write`, idempotent (re-running skips what already exists), and
+recreates the subject and chapters as well as 104 published Class 12 questions.
+
+**Note the two guards you must pass deliberately, and do not disable either.** Without `--write` it
+only reports. Without `--local` `assertConfiguredForWrites()` refuses, because a `MONGO_URI` pointing
+at localhost is more often an accident than a choice — that guard exists because a seed once wrote
+208 questions into a local database while reporting success and leaving production empty.
+
+**On production there is no seed to run.** The reset is irreversible and there is no backup in the
+application; restoring means a database-level restore from Atlas. That is why the permission is
+super-admin-only and the dialog demands a typed phrase.
+
+
+
 ## A `sparse` unique index does nothing if the field has a `default: null`
 
 **Symptom (2026-08-28, caught by tests):** eleven referral tests failed with
