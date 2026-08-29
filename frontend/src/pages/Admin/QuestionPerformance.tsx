@@ -14,6 +14,11 @@ import {
 } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Table,
+  TableScroll,
+} from '../../components/ui'
 import styles from './QuestionPerformance.module.css'
 
 type Sort = 'hardest' | 'easiest' | 'most-served' | 'most-skipped'
@@ -137,7 +142,7 @@ export default function QuestionPerformance() {
           the official exam. An unfinished attempt contributes nothing — its blanks are not wrong answers.
         </p>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {/* ------------------------------------------------------------
             Papers
@@ -149,8 +154,8 @@ export default function QuestionPerformance() {
           ) : tests.tests.length === 0 ? (
             <p className={styles.muted}>No paper has been attempted yet, so there is nothing to compare.</p>
           ) : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
+            <TableScroll label="Question performance">
+              <Table density="compact">
                 <thead>
                   <tr>
                     <th>Paper</th>
@@ -168,8 +173,8 @@ export default function QuestionPerformance() {
                     <TestRow key={`${row.kind}:${row.id}`} row={row} />
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableScroll>
           )}
         </div>
 
@@ -264,8 +269,8 @@ export default function QuestionPerformance() {
             </p>
           ) : (
             <>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
+              <TableScroll label="Paper performance">
+                <Table density="compact">
                   <thead>
                     <tr>
                       <th>Question</th>
@@ -304,8 +309,8 @@ export default function QuestionPerformance() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
+              </TableScroll>
 
               {result.pagination.totalPages > 1 && <Pager pagination={result.pagination} onChange={setPage} />}
             </>

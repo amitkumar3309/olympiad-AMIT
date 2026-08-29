@@ -25,6 +25,8 @@ import {
   type Topic,
   type ValidateQuestionsResponse,
 } from '../../api/types'
+import AdminShell from '../Admin/AdminShell'
+import { Alert, Icon, Steps } from '../../components/ui'
 import styles from './AiGenerator.module.css'
 
 /**
@@ -71,6 +73,13 @@ interface EditableQuestion extends ProposedQuestion {
   /** Set once the reviewer has changed something, so the UI can say so. */
   edited?: boolean
 }
+
+/** Generated is not saved: the middle step is a review, and the bank is untouched until it ends. */
+const GENERATOR_STEPS = [
+  { id: 'configure', label: 'Configure' },
+  { id: 'review', label: 'Review' },
+  { id: 'saved', label: 'Saved' },
+]
 
 const DEFAULT_COUNT = 5
 
@@ -355,18 +364,22 @@ export default function AiGenerator() {
     return checked.verdicts[position] ?? null
   }
 
+  /**
+   * Where the examiner is. Derived, like the importer's: a screen of drafts that have been
+   * *generated* has written nothing to the bank, and that is the distinction the header has
+   * to carry.
+   */
+  const stage = saved ? 'saved' : batch && batch.length > 0 ? 'review' : 'configure'
+
   return (
-    <div className={styles.wrap}>
-      <div className="container">
-        <Link to="/admin" className={styles.back}>
-          ← Back to Admin
-        </Link>
-        <h1>AI Question Generator</h1>
+    <AdminShell title="AI Question Generator">
+      <div className={styles.wrap}>
+        <Steps steps={GENERATOR_STEPS} current={stage} label="Drafting steps" />
 
         {status && (
           <div className={`card ${styles.status}`} data-kind={ready ? 'model' : 'off'}>
             <span className={styles.statusBadge}>
-              <i className={`ph-bold ${ready ? 'ph-sparkle' : 'ph-warning'}`} /> {status.generator.label}
+              <Icon name={ready ? 'ph-sparkle' : 'ph-warning'} weight="bold" /> {status.generator.label}
             </span>
             <p>{status.generator.basis}</p>
             {!ready && (
@@ -378,7 +391,7 @@ export default function AiGenerator() {
           </div>
         )}
 
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {/* ----------------------------------------------------------------
             Configuration
@@ -602,7 +615,7 @@ export default function AiGenerator() {
         {batchWarnings.length > 0 && (
           <div className={`card ${styles.warnBox}`}>
             <h3>
-              <i className="ph-bold ph-warning-circle" /> Worth a look before you save
+              <Icon name="ph-warning-circle" weight="bold" /> Worth a look before you save
             </h3>
             <ul>
               {batchWarnings.map((warning) => (
@@ -717,12 +730,14 @@ export default function AiGenerator() {
               </ul>
             )}
             <p>
-              <Link to="/admin/questions">Open the question bank →</Link>
+              <Link to="/admin/questions" className="link">
+                Open the question bank
+              </Link>
             </p>
           </div>
         )}
       </div>
-    </div>
+    </AdminShell>
   )
 }
 
@@ -786,7 +801,7 @@ function QuestionCard({
       {/* The rule this question breaks, from the dry run. Approving would refuse it. */}
       {verdict?.ok === false && verdict.reason && (
         <p className={styles.refusedLine}>
-          <i className="ph-bold ph-x-circle" /> Would not save: {verdict.reason}
+          <Icon name="ph-x-circle" weight="bold" /> Would not save: {verdict.reason}
         </p>
       )}
 
@@ -798,7 +813,7 @@ function QuestionCard({
         <ul className={styles.warnList}>
           {warnings.map((warning) => (
             <li key={warning.code}>
-              <i className="ph-bold ph-warning" /> {warning.message}
+              <Icon name="ph-warning" weight="bold" /> {warning.message}
             </li>
           ))}
         </ul>
@@ -839,7 +854,7 @@ function QuestionCard({
               ) : (
                 <>
                   <MathText>{option.text}</MathText>
-                  {option.isCorrect && <i className={`ph-bold ph-check ${styles.tick}`} />}
+                  {option.isCorrect && <Icon name="ph-check" weight="bold" className={styles.tick} />}
                 </>
               )}
             </li>

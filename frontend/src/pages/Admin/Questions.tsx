@@ -23,10 +23,9 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
 import ResetPanel from '../../components/ResetPanel'
-import Spinner from '../../components/Spinner'
 import MathText from '../../components/MathText'
-import Button from '../../components/Button'
 import { dailyChallengeHandoff, mockTestHandoff } from './questionHandoff'
+import { Alert, Button, ButtonLink, Icon, Spinner } from '../../components/ui'
 import styles from './Questions.module.css'
 
 interface QuestionListResponse {
@@ -308,9 +307,9 @@ export default function Questions() {
           <strong>published</strong> state. Mathematics is written as LaTeX between dollar signs, e.g.{' '}
           <code>$x^2 + 1$</code>.
         </p>
-        <Link to="/admin/questions/new">
-          <Button>+ New question</Button>
-        </Link>
+        <ButtonLink to="/admin/questions/new" icon="ph-plus">
+          New question
+        </ButtonLink>
       </div>
 
       <form
@@ -411,18 +410,25 @@ export default function Questions() {
             ))}
           </select>
         </label>
-        <button type="button" className={styles.orderToggle} onClick={() => setOrder((o) => (o === 'asc' ? 'desc' : 'asc'))}>
-          {order === 'asc' ? '↑ Ascending' : '↓ Descending'}
+        {/* An icon and a word, never the glyph alone: `↑` on its own is announced as
+            "upwards arrow" and tells a screen-reader user nothing about the order. */}
+        <button
+          type="button"
+          className={styles.orderToggle}
+          onClick={() => setOrder((o) => (o === 'asc' ? 'desc' : 'asc'))}
+        >
+          <Icon name={order === 'asc' ? 'ph-sort-ascending' : 'ph-sort-descending'} weight="bold" size="sm" />
+          <span>{order === 'asc' ? 'Ascending' : 'Descending'}</span>
         </button>
         {pagination && <span className={styles.count}>{pagination.total} question{pagination.total === 1 ? '' : 's'}</span>}
       </div>
 
-      {notice && <p className={styles.notice}>{notice}</p>}
-      {error && <p className="error-text">{error}</p>}
+      {notice && <Alert tone="success">{notice}</Alert>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
       {loading ? (
         <div className={styles.centered}>
-          <Spinner />
+          <Spinner label="Loading the question bank" />
           <p>Loading the question bank…</p>
         </div>
       ) : questions.length === 0 ? (
@@ -441,9 +447,9 @@ export default function Questions() {
                 Create a chapter under <Link to="/admin/taxonomy">Chapters</Link> first, then add your
                 first question.
               </p>
-              <Link to="/admin/questions/new">
-                <Button>+ New question</Button>
-              </Link>
+              <ButtonLink to="/admin/questions/new" icon="ph-plus">
+                New question
+              </ButtonLink>
             </>
           )}
         </div>
@@ -478,7 +484,7 @@ export default function Questions() {
             {selected.length > 0 && (
               <div className={styles.bulkActions}>
                 <Button variant="outline" disabled={bulkBusy} onClick={() => void bulkStatus('published')}>
-                  {bulkBusy ? 'Working…' : `Publish ${selected.length} → available to practise`}
+                  {bulkBusy ? 'Working…' : `Publish ${selected.length} for practice`}
                 </Button>
                 <Button variant="outline" disabled={bulkBusy} onClick={() => void bulkStatus('archived')}>
                   Archive
@@ -643,7 +649,7 @@ export default function Questions() {
               */}
               {question.provenance?.source === 'ai_assisted' && (
                 <p className={styles.provenance}>
-                  <i className="ph-bold ph-sparkle" /> Drafted by{' '}
+                  <Icon name="ph-sparkle" weight="bold" /> Drafted by{' '}
                   <strong>{question.provenance.modelName ?? 'a language model'}</strong>
                   {question.provenance.reviewedByLabel && <> · approved by {question.provenance.reviewedByLabel}</>}
                   {question.provenance.editedByReviewer && <> · edited before saving</>}
@@ -741,14 +747,14 @@ export default function Questions() {
 
       {pagination && pagination.totalPages > 1 && (
         <div className={styles.pager}>
-          <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            ← Previous
+          <Button variant="outline" icon="ph-arrow-left" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Previous
           </Button>
           <span>
             Page {pagination.page} of {pagination.totalPages}
           </span>
-          <Button variant="outline" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>
-            Next →
+          <Button variant="outline" iconAfter="ph-arrow-right" disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>
+            Next
           </Button>
         </div>
       )}

@@ -1,0 +1,60 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-4);
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.ring {
+  display: block;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  animation: spinner-spin 0.75s linear infinite;
+}
+
+.sm {
+  width: 16px;
+  height: 16px;
+}
+
+.md {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.lg {
+  width: 44px;
+  height: 44px;
+  border-width: 3px;
+}
+
+/* The inline variant takes its size from the surrounding text rather than a step, so
+   it matches whatever it sits beside. */
+.inline .ring {
+  width: 1em;
+  height: 1em;
+  border-width: 2px;
+  border-top-color: currentColor;
+}
+
+.label {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+@keyframes spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

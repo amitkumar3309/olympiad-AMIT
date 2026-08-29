@@ -14,6 +14,7 @@ import {
   type LeaderboardResponse,
   type LeaderboardScope,
 } from '../../api/types'
+import { Icon } from '../../components/ui'
 import styles from './Leaderboard.module.css'
 
 /**
@@ -31,9 +32,26 @@ import styles from './Leaderboard.module.css'
  * get a gold medal, which is what sharing a rank means.
  */
 
-const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
 
 const PAGE_SIZE = 20
+
+/**
+ * The top three get a medal *icon* beside their rank, not an emoji in place of it.
+ *
+ * The number is what a reader needs — "#4" and "#3" have to be comparable — so the rank
+ * is always printed, and the icon is `aria-hidden` decoration on top of it. Emoji
+ * medals rendered differently on every platform, replaced the rank rather than
+ * decorating it, and were read out mid-name by a screen reader.
+ */
+function RankMark({ rank }: { rank: number }) {
+  const medal = rank <= 3
+  return (
+    <span className={styles.rank}>
+      {medal && <Icon name="ph-medal" weight="bold" size="sm" className={styles[`medal${rank}`]} />}
+      <span>#{rank}</span>
+    </span>
+  )
+}
 
 export default function Leaderboard() {
   const { state } = useAuth()
@@ -222,7 +240,7 @@ export default function Leaderboard() {
           </div>
         ) : !data || data.leaderboard.length === 0 ? (
           <div className={styles.centered}>
-            <i className={`ph-bold ph-trophy ${styles.emptyIcon}`} />
+            <Icon name="ph-trophy" weight="bold" className={styles.emptyIcon} />
             <p>
               {period === 'all_time'
                 ? 'Nobody has earned XP here yet.'
@@ -241,7 +259,7 @@ export default function Leaderboard() {
                   className={row.studentId === ownStudentId ? styles.rowMine : styles.row}
                   aria-current={row.studentId === ownStudentId ? 'true' : undefined}
                 >
-                  <span className={styles.rank}>{MEDALS[row.rank] ?? `#${row.rank}`}</span>
+                  <RankMark rank={row.rank} />
                   <span className={styles.who}>
                     <span className={styles.name}>
                       {row.displayName}
@@ -281,7 +299,9 @@ export default function Leaderboard() {
       <p className={styles.footNote}>
         Equal XP shares a rank, so a board can read 1, 2, 2, 4. Where two students are level, the one who reached the
         total first is listed above. Accounts that are suspended or deactivated do not appear.{' '}
-        <Link to="/hall-of-fame">See the Hall of Fame →</Link>
+        <Link to="/hall-of-fame" className="link">
+          See the Hall of Fame
+        </Link>
       </p>
     </StudentShell>
   )

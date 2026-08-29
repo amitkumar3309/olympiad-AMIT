@@ -6,6 +6,7 @@ import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
+import { Icon, Table, TableScroll } from '../../components/ui'
 import styles from './MockTests.module.css'
 
 /**
@@ -102,7 +103,7 @@ export default function MockTestResults() {
 
       {stats.attemptsStarted === 0 ? (
         <div className={`card ${styles.empty}`}>
-          <i className="ph-bold ph-users-three" />
+          <Icon name="ph-users-three" weight="bold" />
           <h3>Nobody has sat this test yet</h3>
           <p>
             {test.status === 'published'
@@ -161,8 +162,8 @@ export default function MockTestResults() {
 
           <div className="card">
             <h3>Attempts</h3>
-            <div className={styles.tableScroll}>
-              <table className={styles.table}>
+            <TableScroll label="Attempts">
+              <Table density="compact">
                 <thead>
                   <tr>
                     <th>Rank</th>
@@ -202,8 +203,8 @@ export default function MockTestResults() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableScroll>
           </div>
 
           <div className="card">

@@ -1,0 +1,213 @@
+/**
+ * The overlay is a grid, which is what makes the two layouts a one-line difference:
+ * `end` on a phone puts the dialog at the bottom of the screen (a sheet), `center`
+ * from 640px puts it in the middle (a dialog).
+ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: end center;
+  padding: 0;
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay);
+  border: none;
+  padding: 0;
+  /* Kept below the dialog in the same stacking context rather than in a lower one,
+     so a dialog can never be painted under its own backdrop. */
+  z-index: 0;
+  animation: modal-fade var(--dur) var(--ease-out);
+}
+
+.dialog {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  /* `dvh`, not `vh`. On mobile Safari `vh` counts the area behind the browser's own
+     toolbars, so a `90vh` sheet has its footer — its buttons — underneath them. */
+  max-height: 92dvh;
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-xl);
+  animation: modal-sheet-in var(--dur-slow) var(--ease-out);
+}
+
+@media (min-width: 640px) {
+  .overlay {
+    place-items: center;
+    padding: var(--space-6) var(--gutter);
+  }
+
+  .dialog {
+    max-height: min(88dvh, 760px);
+    border-bottom: var(--border-width) solid var(--border);
+    border-radius: var(--radius-md);
+    animation: modal-dialog-in var(--dur) var(--ease-out);
+  }
+
+  .sm {
+    max-width: 420px;
+  }
+
+  .md {
+    max-width: 560px;
+  }
+
+  .lg {
+    max-width: 820px;
+  }
+}
+
+/* ---------- header ------------------------------------------------------ */
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.iconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.iconDanger {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.headerText {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.description {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+}
+
+.close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: -6px -6px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+@media (pointer: coarse) {
+  .close {
+    width: var(--tap-target);
+    height: var(--tap-target);
+  }
+}
+
+/* ---------- body -------------------------------------------------------- */
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-5);
+  overflow-y: auto;
+  /* Stops a scroll gesture that reaches the end of the dialog from continuing into
+     the page behind it — the mobile behaviour that makes a sheet feel broken. */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-body);
+}
+
+.body > :last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- footer -----------------------------------------------------
+   `column-reverse` on a phone: the caller puts the primary action last (correct
+   reading order on desktop, and correct DOM/tab order everywhere), and the
+   reversal floats it to the top of the stack where the thumb is. */
+
+.footer {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5) calc(var(--space-5) + env(safe-area-inset-bottom, 0px));
+  border-top: var(--border-width) solid var(--border-subtle);
+  background: var(--surface);
+}
+
+.footer > * {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .footer > * {
+    width: auto;
+  }
+}
+
+/* ---------- motion ------------------------------------------------------ */
+
+@keyframes modal-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-sheet-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes modal-dialog-in {
+  from {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+}

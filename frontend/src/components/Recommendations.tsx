@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Confidence, Recommendation, RecommendationSet } from '../api/types'
+import { Icon } from './ui'
 import styles from './Recommendations.module.css'
 
 /**
@@ -69,7 +70,7 @@ function Card({ item, tone }: { item: Recommendation; tone: 'weak' | 'strong' | 
       <div className={styles.cardFoot}>
         {item.action && (
           <Link className={styles.action} to={item.action.href}>
-            {item.action.label} <i className="ph-bold ph-arrow-right" />
+            {item.action.label} <Icon name="ph-arrow-right" weight="bold" />
           </Link>
         )}
         <button type="button" className={styles.basisToggle} onClick={() => setShowBasis((open) => !open)}>
@@ -137,7 +138,7 @@ function Section({
   return (
     <div className={styles.section}>
       <h4 className={styles.sectionTitle}>
-        <i className={`ph-bold ${icon}`} /> {title}
+        <Icon name={icon} weight="bold" /> {title}
       </h4>
       {items.length === 0 ? (
         <p className={styles.empty}>{emptyMessage}</p>
@@ -171,7 +172,7 @@ export default function Recommendations({ data }: { data: RecommendationSet }) {
           guess, and nothing here is labelled AI unless a model really produced it.
         */}
         <span className={styles.engine} data-kind={engine.kind}>
-          <i className={`ph-bold ${engine.kind === 'model' ? 'ph-brain' : 'ph-function'}`} />
+          <Icon name={engine.kind === 'model' ? 'ph-brain' : 'ph-function'} weight="bold" />
           {engine.label}
         </span>
       </div>

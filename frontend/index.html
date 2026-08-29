@@ -27,12 +27,38 @@
     />
     <meta property="og:type" content="website" />
 
+    <!--
+      Fonts (Milestone 23, Phase A).
+
+      Inter for the interface, Poppins for headings and the brand voice, JetBrains Mono
+      for figures, Cinzel for the printed certificate and nothing else.
+
+      Inter is requested as a **variable** range, so 400–800 is one file rather than
+      five. Poppins' 300 and 400 weights were dropped: nothing in the product sets
+      either, because Poppins now applies to headings only. Net effect is fewer font
+      files than before despite the extra family.
+    -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Cinzel:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=Poppins:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Cinzel:wght@600;700&display=swap"
       rel="stylesheet"
     />
+    <!--
+      Phosphor is the product's single icon library (~87 distinct glyphs across the
+      application), used as a webfont: `<i class="ph-bold ph-target" />`, and always
+      through `components/ui/Icon.tsx`.
+
+      **Only these two weights are loaded.** `ph-fill`, `ph-light`, `ph-thin` and
+      `ph-duotone` have no stylesheet here, so a class naming one of them renders an
+      invisible glyph rather than a fallback — which is why `Icon` accepts `regular`
+      and `bold` and nothing else.
+
+      `preconnect` was added because the icon font is declared `font-display: block`
+      upstream: the browser hides the glyphs until the file arrives, so the round trip
+      to open the connection is time the icons are missing.
+    -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin />
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
     <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css" />
   </head>

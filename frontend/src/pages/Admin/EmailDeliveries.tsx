@@ -4,6 +4,7 @@ import type { DrainOutcome, EmailCategory, EmailDelivery, EmailStatus, OutboxSta
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
+import { Alert, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './EmailDeliveries.module.css'
 
 interface ListResponse {
@@ -131,7 +132,7 @@ export default function EmailDeliveries() {
           below — the row says "sent" — so it is called out here, above everything. */}
       {linkBase && !linkBase.configured && (
         <div className={`card ${styles.linkWarning}`}>
-          <i className="ph-bold ph-warning-circle" />
+          <Icon name="ph-warning-circle" weight="bold" />
           <div>
             <strong>Every link in these emails points at {linkBase.url}</strong>
             <p>
@@ -206,7 +207,7 @@ export default function EmailDeliveries() {
           </button>
         </div>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
         {notice && <p className={styles.notice}>{notice}</p>}
 
         {loading ? (
@@ -218,8 +219,8 @@ export default function EmailDeliveries() {
               : 'No email has been queued yet. Messages appear here as soon as anything is sent.'}
           </p>
         ) : (
-          <div className={styles.tableWrap}>
-            <table className={styles.table}>
+          <TableScroll label="Email deliveries">
+            <Table density="compact">
               <thead>
                 <tr>
                   <th>To</th>
@@ -255,8 +256,8 @@ export default function EmailDeliveries() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
         )}
 
         {pagination && pagination.totalPages > 1 && (

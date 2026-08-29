@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ButtonLink, Icon } from './ui'
 import styles from './EntryFeeRequired.module.css'
 
 /**
@@ -16,16 +17,16 @@ import styles from './EntryFeeRequired.module.css'
 export default function EntryFeeRequired({ feature }: { feature: string }) {
   return (
     <div className={`card ${styles.wrap}`}>
-      <i className={`ph-bold ph-lock-simple ${styles.icon}`} />
+      <Icon name="ph-lock-simple" weight="bold" size="xl" className={styles.icon} />
       <h2 className={styles.title}>{feature} unlocks when you enter</h2>
       <p className={styles.body}>
         The Olympiad entry fee is a single payment for your seat in the national competition. Practice, mock tests and
         the daily challenge are free — you can keep preparing either way, and pay whenever you are ready to compete.
       </p>
 
-      <Link to="/payment" className={styles.cta}>
-        Pay the entry fee →
-      </Link>
+      <ButtonLink to="/payment" size="lg" icon="ph-currency-inr" className={styles.cta}>
+        Pay the entry fee
+      </ButtonLink>
 
       <p className={styles.foot}>
         Already paid? <Link to="/payment">Open the payment page</Link> and we will check with the provider and confirm

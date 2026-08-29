@@ -1,0 +1,142 @@
+/**
+ * Anchored to the bottom in both layouts — full width on a phone (where a thumb is),
+ * a fixed column at the right on a desktop.
+ *
+ * `--bottom-nav-offset` is read but not set here. Phase B introduces the mobile
+ * bottom navigation and sets it on `:root` for the screens that have one, which lifts
+ * the stack clear of it without this file needing to know whether it exists.
+ */
+.region {
+  position: fixed;
+  z-index: var(--z-toast);
+  left: 0;
+  right: 0;
+  bottom: calc(var(--space-4) + var(--bottom-nav-offset, 0px) + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2);
+  padding: 0 var(--gutter);
+  /* The stack must not swallow taps meant for the page behind it; each toast turns
+     pointer events back on for itself. */
+  pointer-events: none;
+}
+
+@media (min-width: 640px) {
+  .region {
+    left: auto;
+    right: var(--space-5);
+    bottom: var(--space-5);
+    width: 380px;
+    max-width: calc(100vw - var(--space-8));
+    padding: 0;
+  }
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  animation: toast-in var(--dur-slow) var(--ease-out);
+}
+
+/* The tone is carried by an icon and a border, not by a coloured background: a
+   tinted panel behind body text is where contrast quietly fails, and these appear
+   over arbitrary content. */
+.success {
+  border-left-color: var(--success);
+}
+
+.success .icon {
+  color: var(--success-text);
+}
+
+.error {
+  border-left-color: var(--danger);
+}
+
+.error .icon {
+  color: var(--danger-text);
+}
+
+.warning {
+  border-left-color: var(--warning);
+}
+
+.warning .icon {
+  color: var(--warning-text);
+}
+
+.info {
+  border-left-color: var(--info);
+}
+
+.info .icon {
+  color: var(--info-text);
+}
+
+.icon {
+  margin-top: 1px;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+}
+
+.message {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+.detail {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+  overflow-wrap: break-word;
+}
+
+.close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -2px -6px 0 0;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+@media (pointer: coarse) {
+  .close {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+}

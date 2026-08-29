@@ -1,0 +1,121 @@
+.card {
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  /* A card in a flex or grid row must be allowed to be narrower than its content,
+     or a table inside it pushes the page sideways. This one line prevents most
+     horizontal-overflow bugs in a card layout. */
+  min-width: 0;
+}
+
+.sunken {
+  background: var(--surface-sunken);
+  box-shadow: none;
+}
+
+.plain {
+  box-shadow: none;
+}
+
+/* Padding is fluid: 16px on a small phone, 24px once there is room. */
+.pad-none {
+  padding: 0;
+}
+
+.pad-sm {
+  padding: clamp(var(--space-3), 2.5vw, var(--space-4));
+}
+
+.pad-md {
+  padding: clamp(var(--space-4), 3vw, var(--space-6));
+}
+
+.pad-lg {
+  padding: clamp(var(--space-5), 4vw, var(--space-8));
+}
+
+.interactive {
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.interactive:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.interactive:focus-within {
+  border-color: var(--primary);
+}
+
+/* ---------- header ------------------------------------------------------
+   Column by default (mobile first) and a row from 560px, so an action never
+   squeezes a title into two words on a narrow screen. */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.titleSm {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.description {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (min-width: 560px) {
+  .header {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .actions {
+    flex-shrink: 0;
+  }
+}
+
+.body {
+  min-width: 0;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+}

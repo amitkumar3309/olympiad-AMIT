@@ -1,0 +1,6 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  min-height: 70vh;
+  padding: var(--space-10) 0;
+}

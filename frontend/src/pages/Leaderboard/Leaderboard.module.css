@@ -259,3 +259,28 @@
     font-size: 13px;
   }
 }
+
+/* ==========================================================================
+   Medal marks (Milestone 23, Phase D)
+
+   Gold, silver and bronze as *tints on an icon* beside the rank number, which is
+   always printed. The colour is decoration: the rank is the information.
+   ========================================================================== */
+
+.rank {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.medal1 {
+  color: var(--accent-strong);
+}
+
+.medal2 {
+  color: var(--text-subtle);
+}
+
+.medal3 {
+  color: var(--gold-600);
+}

@@ -1,0 +1,116 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.summary {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.summary strong {
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.arrow:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+}
+
+.arrow:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* The compact form is the mobile default; the numbers replace it from 560px. */
+.compact {
+  margin: 0;
+  min-width: 12ch;
+  text-align: center;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.numbers {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 560px) {
+  .wrap {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .compact {
+    display: none;
+  }
+
+  .numbers {
+    display: flex;
+  }
+}
+
+.page,
+.pageActive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.page:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.pageActive {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-on);
+}
+
+.gap {
+  padding: 0 var(--space-1);
+  color: var(--text-subtle);
+  user-select: none;
+}

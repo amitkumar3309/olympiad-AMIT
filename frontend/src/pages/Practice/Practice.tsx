@@ -1,9 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import Button from '../../components/Button'
-import Spinner from '../../components/Spinner'
-import { api, ApiError } from '../../api/client'
+import {
+  Alert,
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  CardHeader,
+  EmptyState,
+  ErrorState,
+  Field,
+  Select,
+  SkeletonCards,
+} from '../../components/ui'
+import { humanizeError } from '../../lib/errors'
+import { api } from '../../api/client'
 import {
   DIFFICULTIES,
   type Difficulty,
@@ -62,7 +74,7 @@ export default function Practice() {
 
   const [options, setOptions] = useState<PracticeOptionsResponse | null>(null)
   const [history, setHistory] = useState<PracticeHistoryEntry[] | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<unknown>(null)
 
   const [topicId, setTopicId] = useState('')
   const [difficulty, setDifficulty] = useState<Difficulty | ''>('')
@@ -81,7 +93,7 @@ export default function Practice() {
       setOptions(opts)
       setHistory(hist.sessions)
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'Could not load the Practice Zone.')
+      setLoadError(err)
     }
   }, [])
 
@@ -172,7 +184,7 @@ export default function Practice() {
       const res = await api.post<StartResponse>('/practice/sessions', body)
       navigate(`/practice/${res.session.id}`)
     } catch (err) {
-      setStartError(err instanceof ApiError ? err.message : 'Could not start practice. Please try again.')
+      setStartError(humanizeError(err, { fallback: 'Could not start practice. Please try again.' }))
       setStarting(false)
     }
   }
@@ -184,82 +196,69 @@ export default function Practice() {
       title="Practice Zone"
       subtitle={options?.classLevel ? `Published questions for ${options.classLevel}` : undefined}
     >
-      {loadError && (
-        <div className={`card ${styles.centered}`}>
-          <h3>Could not load the Practice Zone</h3>
-          <p className="error-text">{loadError}</p>
-          <Button onClick={() => void load()}>Try again</Button>
-        </div>
-      )}
+      {loadError !== null && <ErrorState error={loadError} onRetry={() => void load()} />}
 
-      {!options && !loadError && (
-        <div className={styles.centered}>
-          <Spinner />
-          <p>Loading what you can practise…</p>
-        </div>
-      )}
+      {!options && loadError === null && <SkeletonCards count={2} label="Loading what you can practise" />}
 
-      {options && !loadError && (
-        <>
+      {options && loadError === null && (
+        <div className={styles.page}>
           {/* An unfinished session is the most useful thing to offer first. */}
           {openSession && (
-            <div className={`card ${styles.resume}`}>
-              <div>
-                <h3>You have an unfinished session</h3>
-                <p>
-                  {openSession.totalQuestions} questions, started {formatWhen(openSession.startedAt)}. Your answers were
-                  saved as you went.
-                </p>
-              </div>
-              <Link to={`/practice/${openSession.id}`}>
-                <Button>Resume</Button>
-              </Link>
-            </div>
+            <Alert
+              tone="info"
+              icon="ph-play-circle"
+              title="You have an unfinished session"
+              actions={
+                <ButtonLink to={`/practice/${openSession.id}`} size="sm" icon="ph-arrow-right">
+                  Resume it
+                </ButtonLink>
+              }
+            >
+              {openSession.totalQuestions} questions, started {formatWhen(openSession.startedAt)}. Your answers were
+              saved as you went.
+            </Alert>
           )}
 
           {subjects.length === 0 ? (
-            <div className={`card ${styles.empty}`}>
-              <i className="ph-bold ph-books" />
-              <h3>Nothing to practise yet</h3>
-              <p>
-                {options.reason === 'no-class'
-                  ? 'Add your class to your profile and the questions published for it will appear here.'
-                  : `No questions have been published for ${options.classLevel} yet. This page fills in as soon as the question bank has content for your class.`}
-              </p>
-              {options.reason === 'no-class' && (
-                <Link to="/profile">
-                  <Button variant="outline">Go to my profile</Button>
-                </Link>
-              )}
-            </div>
+            <Card>
+              <EmptyState
+                icon="ph-books"
+                title="Nothing to practise yet"
+                description={
+                  options.reason === 'no-class'
+                    ? 'Add your class to your profile and the questions published for it will appear here.'
+                    : `No questions have been published for ${options.classLevel} yet. This page fills in as soon as the question bank has content for your class.`
+                }
+                action={
+                  options.reason === 'no-class' ? (
+                    <ButtonLink to="/profile" variant="secondary" icon="ph-user-circle">
+                      Go to my profile
+                    </ButtonLink>
+                  ) : undefined
+                }
+              />
+            </Card>
           ) : (
-            <div className="card">
-              <h3>🎯 Start a practice session</h3>
+            <Card>
+              <CardHeader
+                title="Start a practice session"
+                description="Every option below is a real count of published questions for your class."
+              />
 
               <div className={styles.pickers}>
-
-                <div className="form-group">
-                  <label htmlFor="practice-topic">Topic</label>
-                  <select
-                    id="practice-topic"
-                    className="form-control"
-                    value={topicId}
-                    onChange={(e) => chooseTopic(e.target.value)}
-                  >
-                    <option value="">All topics</option>
+                <Field label="Chapter" hint="All chapters, or one to focus on.">
+                  <Select value={topicId} onChange={(e) => chooseTopic(e.target.value)}>
+                    <option value="">All chapters</option>
                     {topics.map((entry) => (
                       <option key={entry.topicId} value={entry.topicId}>
                         {entry.topicName} ({entry.questionCount})
                       </option>
                     ))}
-                  </select>
-                </div>
+                  </Select>
+                </Field>
 
-                <div className="form-group">
-                  <label htmlFor="practice-difficulty">Difficulty</label>
-                  <select
-                    id="practice-difficulty"
-                    className="form-control"
+                <Field label="Difficulty">
+                  <Select
                     value={difficulty}
                     onChange={(e) => setDifficulty(e.target.value as Difficulty | '')}
                     disabled={availableDifficulties.length === 0}
@@ -270,50 +269,58 @@ export default function Practice() {
                         {level}
                       </option>
                     ))}
-                  </select>
-                </div>
+                  </Select>
+                </Field>
 
-                <div className="form-group">
-                  <label htmlFor="practice-count">Questions</label>
-                  <select
-                    id="practice-count"
-                    className="form-control"
-                    value={questionCount}
-                    onChange={(e) => setQuestionCount(Number(e.target.value))}
-                  >
+                <Field label="Questions">
+                  <Select value={questionCount} onChange={(e) => setQuestionCount(Number(e.target.value))}>
                     {QUESTION_COUNTS.map((count) => (
                       <option key={count} value={count}>
                         {count}
                       </option>
                     ))}
-                  </select>
-                </div>
+                  </Select>
+                </Field>
               </div>
 
               <p className={styles.availability}>
-                {availableCount === 0
-                  ? 'No questions match that selection.'
-                  : `${availableCount} question${availableCount === 1 ? '' : 's'} available — you will be served ${Math.min(questionCount, availableCount)}.`}
+                {availableCount === 0 ? (
+                  'No questions match that selection.'
+                ) : (
+                  <>
+                    <Badge tone="primary">{availableCount} available</Badge> You will be served{' '}
+                    <strong>{Math.min(questionCount, availableCount)}</strong>, drawn at random.
+                  </>
+                )}
               </p>
 
-              {startError && <p className="error-text">{startError}</p>}
+              {startError && <Alert tone="danger">{startError}</Alert>}
 
-              <Button onClick={() => void start()} disabled={starting || availableCount === 0}>
-                {starting ? 'Preparing your questions…' : 'Start practice'}
+              <Button
+                size="lg"
+                fullWidth
+                icon="ph-play"
+                loading={starting}
+                disabled={availableCount === 0}
+                onClick={() => void start()}
+              >
+                {starting ? 'Preparing your questions' : 'Start practice'}
               </Button>
-            </div>
+            </Card>
           )}
 
           {/* Real history only. A student who has never practised gets an empty state. */}
-          <div className="card">
-            <h3>🕘 Recent practice</h3>
+          <Card>
+            <CardHeader title="Recent practice" size="sm" as="h2" />
             {history === null ? (
-              <Spinner />
+              <SkeletonCards count={2} label="Loading your practice history" />
             ) : history.length === 0 ? (
-              <div className={styles.empty}>
-                <i className="ph-bold ph-clock-counter-clockwise" />
-                <p>You haven’t practised yet. Your sessions and scores will be listed here.</p>
-              </div>
+              <EmptyState
+                size="sm"
+                icon="ph-clock-counter-clockwise"
+                title="No sessions yet"
+                description="Once you finish a session it appears here with its score, so you can go back over what you got wrong."
+              />
             ) : (
               <ul className={styles.history}>
                 {history.map((entry) => (
@@ -335,27 +342,29 @@ export default function Practice() {
                     </div>
                     {entry.status === 'submitted' ? (
                       <>
-                        <span className={styles.historyScore}>
+                        <Badge tone="success">
                           {entry.score}/{entry.maxMarks}
-                        </span>
-                        <Link to={`/practice/${entry.id}`} className={styles.historyLink}>
+                        </Badge>
+                        <ButtonLink to={`/practice/${entry.id}`} size="sm" variant="secondary">
                           Review
-                        </Link>
+                        </ButtonLink>
                       </>
                     ) : (
                       <>
-                        <span className={styles.historyOpen}>Unfinished</span>
-                        <Link to={`/practice/${entry.id}`} className={styles.historyLink}>
+                        <Badge tone="warning" icon="ph-clock">
+                          Unfinished
+                        </Badge>
+                        <ButtonLink to={`/practice/${entry.id}`} size="sm">
                           Resume
-                        </Link>
+                        </ButtonLink>
                       </>
                     )}
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </>
+          </Card>
+        </div>
       )}
     </StudentShell>
   )

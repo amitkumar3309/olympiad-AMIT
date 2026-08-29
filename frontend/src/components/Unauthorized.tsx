@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Icon } from './ui'
 import styles from './Unauthorized.module.css'
 
 /**
@@ -16,7 +17,7 @@ export default function Unauthorized({
   return (
     <div className={styles.wrap} role="alert" aria-live="polite">
       <div className={`card ${styles.card}`}>
-        <i className={`ph-bold ph-lock-key ${styles.icon}`} aria-hidden="true" />
+        <Icon name="ph-lock-key" weight="bold" className={styles.icon} />
         <h2>{title}</h2>
         <p>{detail}</p>
         <Link to="/" className={styles.link}>

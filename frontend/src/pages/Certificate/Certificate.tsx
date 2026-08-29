@@ -7,6 +7,7 @@ import { api, ApiError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import type { Certificate as CertificateRecord } from '../../api/types'
 import logo from '../../assets/logo.png'
+import { Icon } from '../../components/ui'
 import styles from './Certificate.module.css'
 
 /**
@@ -61,7 +62,7 @@ export default function Certificate() {
             filled-in specimen with a placeholder name on it. */}
         {!student && (
           <div className={`card ${styles.pending}`}>
-            <i className="ph-bold ph-certificate" />
+            <Icon name="ph-certificate" weight="bold" />
             <h2>Sign in to see your certificates</h2>
             <p>
               Certificates are issued to registered students after the Olympiad has been held and results are
@@ -75,7 +76,7 @@ export default function Certificate() {
 
         {student && certificates?.length === 0 && (
           <div className={`card ${styles.pending}`}>
-            <i className="ph-bold ph-certificate" />
+            <Icon name="ph-certificate" weight="bold" />
             <h2>No certificate yet</h2>
             <p>
               A certificate is issued once you have sat the Olympiad and your result has been published. The exam has
@@ -123,7 +124,7 @@ export default function Certificate() {
 
             <div className={styles.actions}>
               <Button variant="outline" onClick={() => window.print()}>
-                <i className="ph ph-printer" /> Download / Print
+                <Icon name="ph-printer" /> Download / Print
               </Button>
             </div>
           </div>

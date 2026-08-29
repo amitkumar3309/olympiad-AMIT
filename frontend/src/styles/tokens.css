@@ -1,0 +1,471 @@
+/**
+ * DESIGN TOKENS — the single source of truth for colour, type, space, radius,
+ * shadow, motion and layering in this application (Milestone 23, Phase A).
+ *
+ * ## How to use this file
+ *
+ * Nothing in `src/` may hardcode a colour, a radius, a shadow or a duration. Reach
+ * for a token here instead, and if none fits, add one *here* rather than inventing a
+ * value in a component — that is the whole mechanism by which twenty-nine pages stay
+ * recognisably one product.
+ *
+ * ## Three layers, in order
+ *
+ *  1. **Palette** (`--blue-600`, `--slate-200`, …) — raw ramps. A component must
+ *     **never** reference these directly; they exist so the semantic layer below can
+ *     be re-pointed in one place.
+ *  2. **Semantic** (`--surface`, `--text-muted`, `--danger-soft`, …) — what a value
+ *     *means*. This is the layer components use, and the only layer the dark theme
+ *     redefines.
+ *  3. **Legacy aliases** (`--royal-blue`, `--gold`, `--text-main`) — the names the
+ *     pre-Milestone-23 CSS modules already reference, 144 times for `--royal-blue`
+ *     alone. They are kept working deliberately: retokenising 12,450 lines of CSS in
+ *     one commit would be a rewrite disguised as a refactor. New code uses the
+ *     semantic names; the aliases disappear as each page is redesigned.
+ *
+ * ## Dark mode
+ *
+ * `ThemeContext` puts `.theme-dark` on `document.documentElement` — the same element
+ * `:root` matches. Both selectors have identical specificity (0,1,0), so **source
+ * order is what makes dark mode win**: the `.theme-dark` block must stay *below*
+ * `:root`. Anything added to one needs a counterpart in the other, or it is simply
+ * missing in the theme that lacks it.
+ *
+ * Dark mode redefines the semantic layer only. Because the legacy aliases point at
+ * semantic tokens, they follow automatically.
+ *
+ * ## Breakpoints (documented here, declared in each module)
+ *
+ * CSS custom properties cannot be used in a media query, so the breakpoints are a
+ * convention rather than a token. **Mobile is the base case — no media query.** The
+ * queries below are `min-width`, added only to *widen* a layout that already works:
+ *
+ *   - `480px`  — large phones (two-up tiles become possible)
+ *   - `768px`  — tablets; the point at which drawers become permanent sidebars
+ *   - `1024px` — small laptops
+ *   - `1280px` — desktop; the container reaches its maximum
+ *
+ * A `max-width` query is still correct for one job — hiding a desktop-only affordance
+ * — and the pre-existing modules are written that way throughout.
+ */
+
+:root {
+  /* ==================================================================
+     1. PALETTE — raw ramps. Do not reference these from a component.
+     ================================================================== */
+
+  /* Neutral. Slate, chosen because the values the product already used
+     (#f8fafc, #64748b, #e2e8f0, #1e293b) are exactly this ramp — so the
+     redesign changes intent without shifting the greys underfoot. */
+  --slate-25: #fbfcfe;
+  --slate-50: #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-150: #eaeff5;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --slate-950: #0b1220;
+
+  /* Brand blue. A deeper, less electric royal blue than the original #0052ff:
+     #2f43e0 carries 7.0:1 against white, which means the *same* token can be a
+     filled button and a body-text link in light mode. */
+  --blue-50: #eef3ff;
+  --blue-100: #dde5ff;
+  --blue-200: #bccdff;
+  --blue-300: #94adff;
+  --blue-400: #6b86fb;
+  --blue-500: #4a63f2;
+  --blue-600: #2f43e0;
+  --blue-700: #2434c4;
+  --blue-800: #1f2c9e;
+  --blue-900: #1d2a7c;
+  --blue-950: #141b4d;
+
+  /* Gold. The brand's second colour. #ffd700 is 1.9:1 on white — unusable as text —
+     so the ramp keeps a bright step for decoration and a dark step for words. */
+  --gold-50: #fff9e6;
+  --gold-100: #fff1c2;
+  --gold-200: #ffe485;
+  --gold-300: #f7d34a;
+  --gold-400: #eabb1c;
+  --gold-500: #c99700;
+  --gold-600: #a67a00;
+  --gold-700: #7c5b00;
+
+  --green-50: #ecfdf5;
+  --green-100: #d1fae5;
+  --green-300: #6ee7b7;
+  --green-500: #10b981;
+  --green-600: #059669;
+  --green-700: #047857;
+
+  --amber-50: #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-300: #fcd34d;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --amber-700: #a1620a;
+
+  --red-50: #fef2f2;
+  --red-100: #fee2e2;
+  --red-300: #fca5a5;
+  --red-500: #ef4444;
+  --red-600: #dc2626;
+  --red-700: #b91c1c;
+
+  --sky-50: #eff6ff;
+  --sky-100: #dbeafe;
+  --sky-300: #93c5fd;
+  --sky-500: #3b82f6;
+  --sky-600: #2563eb;
+  --sky-700: #1d4ed8;
+
+  /* ==================================================================
+     2. TYPOGRAPHY
+     ================================================================== */
+
+  /* Inter for the interface, Poppins for headings. The pairing is deliberate rather
+     than decorative: this product is half dense tables and numeric cells, where
+     Poppins' geometric forms read poorly at 13px, and half marketing surface, where
+     Poppins carries the brand. Poppins was the pre-existing family and is kept for
+     exactly that reason. JetBrains Mono is the tabular/numeric face. Cinzel is
+     loaded for one surface only — the printed certificate. */
+  --font-body:
+    'Inter', 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-heading:
+    'Poppins', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
+
+  /* A ramp, not a free-for-all. `--text-base` is 15px because that is what every
+     input and table cell in the product already uses. The three largest steps are
+     fluid, so a hero headline never has to be shrunk by a media query — the
+     `clamp()` floor is the phone size and is the value that matters most. */
+  --text-2xs: 0.6875rem; /* 11px — uppercase micro-labels only */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.8125rem; /* 13px */
+  --text-base: 0.9375rem; /* 15px — default UI text */
+  --text-md: 1rem; /* 16px — body copy */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.3125rem; /* 21px */
+  --text-2xl: clamp(1.375rem, 1.22rem + 0.75vw, 1.75rem);
+  --text-3xl: clamp(1.625rem, 1.35rem + 1.4vw, 2.25rem);
+  --text-4xl: clamp(1.875rem, 1.45rem + 2.2vw, 3rem);
+
+  --leading-none: 1;
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.55;
+  --leading-relaxed: 1.7;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-black: 800;
+
+  --tracking-tight: -0.012em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-caps: 0.06em; /* uppercase micro-labels need the air */
+
+  /* ==================================================================
+     3. SPACING — a 4px base. Steps are named by size, not by ordinal, so
+        `--space-6` is always 24px however the ramp grows.
+     ================================================================== */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ==================================================================
+     4. RADIUS, BORDER, SHADOW
+     ================================================================== */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 999px;
+
+  --border-width: 1px;
+
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-sm:
+    0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md:
+    0 4px 14px rgba(15, 23, 42, 0.07), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg:
+    0 14px 36px rgba(15, 23, 42, 0.1), 0 4px 10px rgba(15, 23, 42, 0.05);
+  --shadow-xl: 0 26px 64px rgba(15, 23, 42, 0.16);
+
+  /* ==================================================================
+     5. MOTION. Every duration in the product comes from here, which is what
+        lets `prefers-reduced-motion` be honoured in exactly one place.
+     ================================================================== */
+  --dur-fast: 120ms;
+  --dur: 180ms;
+  --dur-slow: 260ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ==================================================================
+     6. LAYERING. One ladder, so a drawer cannot end up above a modal.
+        The drawer pair (55/60) matches what the student and admin shells
+        already used, so no existing stacking changes.
+     ================================================================== */
+  --z-base: 0;
+  --z-raised: 10;
+  --z-sticky: 20;
+  --z-header: 30;
+  --z-drawer-backdrop: 55;
+  --z-drawer: 60;
+  --z-modal-backdrop: 69;
+  --z-modal: 70;
+  --z-toast: 90;
+  --z-tooltip: 100;
+
+  /* ==================================================================
+     7. LAYOUT
+     ================================================================== */
+  --container-width: 1200px;
+  --container-narrow: 760px;
+  --container-wide: 1440px;
+  --gutter: clamp(16px, 4vw, 24px);
+  /* The minimum comfortable touch target. Every interactive element the product
+     ships must reach this on a coarse pointer; `base.css` enforces it. */
+  --tap-target: 44px;
+  --sidebar-width: 264px;
+  --header-height: 60px;
+  --bottom-nav-height: 60px;
+
+  /* ==================================================================
+     8. SEMANTIC — the layer components use.
+     ================================================================== */
+
+  /* Surfaces */
+  --bg: var(--slate-50);
+  --bg-subtle: var(--slate-100);
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: var(--slate-50);
+  --surface-hover: var(--slate-100);
+  --surface-active: var(--slate-150);
+  --overlay: rgba(15, 23, 42, 0.45);
+
+  /* Lines */
+  --border: var(--slate-200);
+  --border-subtle: var(--slate-150);
+  --border-strong: var(--slate-300);
+
+  /* Text. `--text` is the heading/emphasis colour, `--text-body` is paragraph copy
+     (10.4:1 on white), `--text-muted` is secondary (4.76:1 — AA, and the floor:
+     nothing lighter may carry words). `--text-subtle` is for non-text glyphs only. */
+  --text: var(--slate-800);
+  --text-body: var(--slate-700);
+  --text-muted: var(--slate-500);
+  --text-subtle: var(--slate-400);
+  --text-inverse: #ffffff;
+
+  /* Primary. In light mode one value serves as both fill and text (7.0:1 either
+     way). Dark mode has to split them — see the note in `.theme-dark`. */
+  --primary: var(--blue-600);
+  --primary-hover: var(--blue-700);
+  --primary-active: var(--blue-800);
+  --primary-on: #ffffff;
+  --primary-text: var(--blue-600);
+  --primary-soft: var(--blue-50);
+  --primary-soft-hover: var(--blue-100);
+  --primary-border: var(--blue-200);
+
+  /* Accent (gold). `--accent` is the decorative fill, `--accent-text` the readable
+     one — never use the fill for words. */
+  --accent: var(--gold-300);
+  --accent-strong: var(--gold-400);
+  /* `--gold-700`, not `-600`: on the `--accent-soft` tint a gold badge measured
+     3.69:1 with -600, which fails AA for the 12px bold label a badge actually uses.
+     Gold is the colour where this goes wrong most easily — it is light at every step
+     that still looks gold. */
+  --accent-text: var(--gold-700);
+  --accent-soft: var(--gold-50);
+  --accent-border: var(--gold-200);
+
+  /* Status. Four tokens each, and the reason there are four is accessibility: a
+     status is communicated by `-soft` fill + `-text` words + an icon, never by
+     colour alone. `--x` is the solid fill for a button or a bar. */
+  --success: var(--green-500);
+  --success-solid: var(--green-600);
+  --success-text: var(--green-700);
+  --success-soft: var(--green-50);
+  --success-border: var(--green-100);
+
+  --warning: var(--amber-500);
+  --warning-solid: var(--amber-600);
+  --warning-text: var(--amber-700);
+  --warning-soft: var(--amber-50);
+  --warning-border: var(--amber-100);
+
+  --danger: var(--red-500);
+  --danger-solid: var(--red-600);
+  --danger-text: var(--red-700);
+  --danger-soft: var(--red-50);
+  --danger-border: var(--red-100);
+
+  --info: var(--sky-500);
+  --info-solid: var(--sky-600);
+  --info-text: var(--sky-700);
+  --info-soft: var(--sky-50);
+  --info-border: var(--sky-100);
+
+  --neutral-soft: var(--slate-100);
+  --neutral-text: var(--slate-600);
+  --neutral-border: var(--slate-200);
+
+  /* Focus. One ring, everywhere, and it must never be removed — only re-styled. */
+  --focus-ring: 0 0 0 3px rgba(47, 67, 224, 0.35);
+  --focus-ring-danger: 0 0 0 3px rgba(239, 68, 68, 0.35);
+  --focus-ring-width: 2px;
+
+  /* A tooltip inverts against the page in light mode and lifts off it in dark mode,
+     so it gets its own tokens rather than a per-theme rule inside the component —
+     a CSS Module cannot name `.theme-dark` without `:global`, and a component that
+     knows which theme it is in is a component that will be wrong in the next one. */
+  --tooltip-bg: var(--slate-900);
+  --tooltip-text: var(--slate-50);
+  --tooltip-border: transparent;
+
+  color-scheme: light;
+}
+
+/**
+ * DARK THEME.
+ *
+ * Must stay below `:root` — identical specificity, so order decides (see the header).
+ *
+ * The one asymmetry worth knowing about: in dark mode no single blue can be both a
+ * filled button and body text. White on a blue needs the blue to be *dark* (≥4.5:1),
+ * blue text on a dark canvas needs it to be *light* — the two requirements do not
+ * intersect. So `--primary` stays the fill (5.6:1 with white on it) and
+ * `--primary-text` becomes a much lighter blue (7.5:1 on a card). Use the right one:
+ * `--primary` for a background, `--primary-text` for a word or an icon.
+ */
+.theme-dark {
+  --bg: var(--slate-950);
+  --bg-subtle: #0d1526;
+  --surface: #161f33;
+  --surface-raised: #1c2740;
+  --surface-sunken: #101827;
+  --surface-hover: #1e2942;
+  --surface-active: #25314e;
+  --overlay: rgba(3, 7, 18, 0.66);
+
+  --border: #2a3550;
+  --border-subtle: #202a42;
+  --border-strong: #3a4767;
+
+  --text: #eef2f8;
+  --text-body: #dbe2ee;
+  --text-muted: #9aa8bf;
+  --text-subtle: #7a8699;
+  --text-inverse: var(--slate-900);
+
+  --primary: #4356e8;
+  --primary-hover: #5b6cf0;
+  --primary-active: #6d7cf3;
+  --primary-on: #ffffff;
+  --primary-text: #a5b6ff;
+  --primary-soft: rgba(107, 134, 251, 0.16);
+  --primary-soft-hover: rgba(107, 134, 251, 0.24);
+  --primary-border: rgba(148, 173, 255, 0.32);
+
+  --accent: var(--gold-300);
+  --accent-strong: var(--gold-200);
+  --accent-text: var(--gold-200);
+  --accent-soft: rgba(234, 187, 28, 0.14);
+  --accent-border: rgba(234, 187, 28, 0.3);
+
+  --success: var(--green-500);
+  --success-solid: var(--green-600);
+  --success-text: #6ee7b7;
+  --success-soft: rgba(16, 185, 129, 0.15);
+  --success-border: rgba(16, 185, 129, 0.3);
+
+  --warning: var(--amber-500);
+  --warning-solid: var(--amber-600);
+  --warning-text: #fcd34d;
+  --warning-soft: rgba(245, 158, 11, 0.15);
+  --warning-border: rgba(245, 158, 11, 0.3);
+
+  --danger: var(--red-500);
+  --danger-solid: var(--red-600);
+  --danger-text: #fca5a5;
+  --danger-soft: rgba(239, 68, 68, 0.16);
+  --danger-border: rgba(239, 68, 68, 0.32);
+
+  --info: var(--sky-500);
+  --info-solid: var(--sky-600);
+  --info-text: #93c5fd;
+  --info-soft: rgba(59, 130, 246, 0.16);
+  --info-border: rgba(59, 130, 246, 0.32);
+
+  --neutral-soft: rgba(148, 163, 184, 0.14);
+  --neutral-text: #b6c2d6;
+  --neutral-border: rgba(148, 163, 184, 0.28);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 26px 64px rgba(0, 0, 0, 0.6);
+
+  --focus-ring: 0 0 0 3px rgba(148, 173, 255, 0.45);
+  --focus-ring-danger: 0 0 0 3px rgba(252, 165, 165, 0.4);
+
+  --tooltip-bg: var(--surface-raised);
+  --tooltip-text: var(--text);
+  --tooltip-border: var(--border-strong);
+
+  color-scheme: dark;
+}
+
+/**
+ * LEGACY ALIASES.
+ *
+ * Every name the CSS modules written before Milestone 23 reference. Declared last so
+ * they resolve against whichever theme block ran, and defined for both themes at
+ * once — that is the point of pointing them at semantic tokens.
+ *
+ * `--royal-blue` is the interesting one. It is used 144 times: 67 as `color`, 43 on a
+ * border, 25 as a `background`. No dark-mode blue satisfies both a white-on-blue fill
+ * and blue-on-dark text, so the alias takes the compromise value that clears 3.5:1 in
+ * both directions — better than the #4f46e5 it replaces, which was 2.9:1 as text —
+ * while new components use the correct `--primary` / `--primary-text` pair. The alias
+ * retires page by page as each is redesigned.
+ */
+:root,
+.theme-dark {
+  --text-main: var(--text);
+  --royal-blue: var(--primary);
+  --royal-blue-dark: var(--primary-hover);
+  --gold: var(--accent);
+}
+
+.theme-dark {
+  --royal-blue: #5b76f7;
+  --royal-blue-dark: #6d85f9;
+}

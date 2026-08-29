@@ -1,4 +1,5 @@
 import { useTheme } from '../context/ThemeContext'
+import { Icon } from './ui'
 import styles from './ThemeToggle.module.css'
 
 /**
@@ -27,7 +28,7 @@ export default function ThemeToggle({ compact = false }: { compact?: boolean }) 
       aria-label={label}
       aria-pressed={theme === 'dark'}
     >
-      <i className={`ph-bold ${goingDark ? 'ph-moon' : 'ph-sun'}`} aria-hidden="true" />
+      <Icon name={goingDark ? 'ph-moon' : 'ph-sun'} weight="bold" />
       {!compact && <span>{goingDark ? 'Dark' : 'Light'}</span>}
     </button>
   )

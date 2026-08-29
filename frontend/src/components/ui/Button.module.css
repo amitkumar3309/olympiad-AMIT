@@ -1,0 +1,196 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-none);
+  letter-spacing: var(--tracking-normal);
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ---------- sizes ---------------------------------------------------------
+   `min-height` rather than padding alone, so a button holding only an icon is
+   the same height as one holding a label. On a touch screen every size grows to
+   the 44px target — the compact size exists for dense desktop tables, and on a
+   phone that density is not a saving, it is a mis-tap. */
+
+.sm {
+  min-height: 34px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  gap: var(--space-1);
+}
+
+.md {
+  min-height: 42px;
+  padding: 0 var(--space-5);
+  font-size: var(--text-base);
+}
+
+.lg {
+  min-height: 50px;
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
+}
+
+@media (pointer: coarse) {
+  .sm,
+  .md {
+    min-height: var(--tap-target);
+  }
+
+  .sm {
+    padding: 0 var(--space-4);
+  }
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.pill {
+  border-radius: var(--radius-pill);
+}
+
+/* An icon-only button is square, so it reads as a control rather than as a
+   truncated label. */
+.iconOnly {
+  padding: 0;
+  aspect-ratio: 1;
+}
+
+.iconOnly.sm {
+  width: 34px;
+}
+
+.iconOnly.md {
+  width: 42px;
+}
+
+.iconOnly.lg {
+  width: 50px;
+}
+
+@media (pointer: coarse) {
+  .iconOnly.sm,
+  .iconOnly.md {
+    width: var(--tap-target);
+  }
+}
+
+/* ---------- variants ----------------------------------------------------- */
+
+.primary {
+  background: var(--primary);
+  color: var(--primary-on);
+  box-shadow: var(--shadow-xs);
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.primary:active:not(:disabled) {
+  background: var(--primary-active);
+}
+
+/* A solid, bordered surface — the standard partner to a primary action. */
+.secondary {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+}
+
+.secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+/* Kept as its own variant because thirty-seven pre-existing call sites pass
+   `variant="outline"`. Transparent rather than surface-filled, which is the only
+   thing that distinguishes it from `secondary`. */
+.outline {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.outline:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary-text);
+  background: var(--primary-soft);
+}
+
+/* A tinted action: more presence than a ghost, less than a primary. */
+.subtle {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.subtle:hover:not(:disabled) {
+  background: var(--primary-soft-hover);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.danger {
+  background: var(--danger-solid);
+  color: #fff;
+  box-shadow: var(--shadow-xs);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--danger-text);
+}
+
+.danger:focus-visible {
+  outline-color: var(--danger);
+}
+
+/* ---------- loading -----------------------------------------------------
+   `currentColor` means one spinner works on every variant, including the two
+   with a dark fill. */
+
+.spinner {
+  width: 1em;
+  height: 1em;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  opacity: 0.85;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

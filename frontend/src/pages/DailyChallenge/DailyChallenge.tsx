@@ -1,8 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import Button from '../../components/Button'
-import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  CardHeader,
+  EmptyState,
+  ErrorState,
+  Icon,
+  SkeletonText,
+  StatTile,
+} from '../../components/ui'
 import MathText from '../../components/MathText'
 import { api, ApiError } from '../../api/client'
 import type {
@@ -132,11 +142,7 @@ export default function DailyChallengePage() {
   if (loadError) {
     return (
       <StudentShell title="Daily Challenge">
-        <div className={`card ${styles.centered}`}>
-          <h3>Could not load today’s challenge</h3>
-          <p className="error-text">{loadError}</p>
-          <Button onClick={() => void load()}>Try again</Button>
-        </div>
+        <ErrorState error={loadError} title="Could not load today’s challenge" onRetry={() => void load()} />
       </StudentShell>
     )
   }
@@ -144,10 +150,9 @@ export default function DailyChallengePage() {
   if (!today) {
     return (
       <StudentShell title="Daily Challenge">
-        <div className={styles.centered}>
-          <Spinner />
-          <p>Loading today’s challenge…</p>
-        </div>
+        <Card>
+          <SkeletonText lines={4} label="Loading today’s challenge" />
+        </Card>
       </StudentShell>
     )
   }
@@ -157,56 +162,58 @@ export default function DailyChallengePage() {
   return (
     <StudentShell title="Daily Challenge" subtitle={`One question a day · ${formatDay(today.today)}`}>
       <section className={styles.statRow}>
-        <div className="card">
-          <div className={styles.statValue}>{streak.current}</div>
-          <div className={styles.statLabel}>Day streak</div>
-        </div>
-        <div className="card">
-          <div className={styles.statValue}>{streak.longest}</div>
-          <div className={styles.statLabel}>Best streak</div>
-        </div>
-        <div className="card">
-          <div className={styles.statValue}>{today.completedCount ?? history?.completedCount ?? 0}</div>
-          <div className={styles.statLabel}>Answered</div>
-        </div>
-        <div className="card">
-          <div className={styles.statValue}>
-            {today.reward ? `+${today.reward.xp}` : '—'}
-            <span> XP</span>
-          </div>
-          <div className={styles.statLabel}>{today.reward?.claimed ? 'Claimed today' : 'For answering today'}</div>
-        </div>
+        <StatTile icon="ph-flame" tone="warning" label="Day streak" value={streak.current} />
+        <StatTile icon="ph-trophy" tone="neutral" label="Best streak" value={streak.longest} />
+        <StatTile
+          icon="ph-check-circle"
+          tone="success"
+          label="Answered"
+          value={today.completedCount ?? history?.completedCount ?? 0}
+        />
+        <StatTile
+          icon="ph-star"
+          label="XP"
+          // `null` when there is no reward configured — an em dash, never a zero that
+          // would read as an offer of nothing.
+          value={today.reward ? `+${today.reward.xp}` : null}
+          hint={today.reward?.claimed ? 'Claimed today' : 'For answering today'}
+        />
       </section>
 
       {!today.challenge ? (
-        <div className={`card ${styles.empty}`}>
-          <i className="ph-bold ph-dice-five" />
-          <h3>No challenge today</h3>
-          <p>
-            {today.reason === 'no-class'
-              ? 'Add your class to your profile and a daily challenge will be set for it.'
-              : 'Nothing has been published for your class yet. This page fills in as soon as it is.'}
-          </p>
-          {today.reason === 'no-class' ? (
-            <Link to="/profile">
-              <Button variant="outline">Go to my profile</Button>
-            </Link>
-          ) : (
-            <Link to="/practice">
-              <Button variant="outline">Practise in the meantime</Button>
-            </Link>
-          )}
-        </div>
+        <Card>
+          <EmptyState
+            icon="ph-dice-five"
+            title="No challenge today"
+            description={
+              today.reason === 'no-class'
+                ? 'Add your class to your profile and a daily challenge will be set for it.'
+                : 'Nothing has been published for your class yet. This page fills in as soon as it is.'
+            }
+            action={
+              today.reason === 'no-class' ? (
+                <ButtonLink to="/profile" variant="secondary" icon="ph-user-circle">
+                  Go to my profile
+                </ButtonLink>
+              ) : (
+                <ButtonLink to="/practice" variant="secondary" icon="ph-target">
+                  Practise in the meantime
+                </ButtonLink>
+              )
+            }
+          />
+        </Card>
       ) : (
-        <div className="card">
+        <Card>
           <div className={styles.questionHead}>
-            <span className={styles.taxonomy}>
-              {question?.topic?.name}
-            </span>
-            <span className={styles.badge}>
-              {question?.difficulty} · {today.challenge.question.marks}{' '}
+            {question?.topic?.name && <Badge tone="neutral">{question.topic.name}</Badge>}
+            <Badge tone="neutral" uppercase size="sm">
+              {question?.difficulty}
+            </Badge>
+            <Badge tone="primary" size="sm">
+              {today.challenge.question.marks}{' '}
               {today.challenge.question.marks === 1 ? 'mark' : 'marks'}
-            </span>
+            </Badge>
           </div>
 
           <div className={styles.questionText}>
@@ -271,11 +278,17 @@ export default function DailyChallengePage() {
                 </div>
               )}
 
-              {submitError && <p className="error-text">{submitError}</p>}
+              {submitError && <Alert tone="danger">{submitError}</Alert>}
 
               <div className={styles.submitRow}>
-                <Button onClick={() => void submit()} disabled={!canSubmit || submitting}>
-                  {submitting ? 'Marking…' : 'Submit answer'}
+                <Button
+                  size="lg"
+                  icon="ph-check"
+                  loading={submitting}
+                  disabled={!canSubmit}
+                  onClick={() => void submit()}
+                >
+                  {submitting ? 'Marking' : 'Submit answer'}
                 </Button>
                 <span className={styles.submitNote}>
                   One answer a day. A wrong answer is never penalised — the XP is for taking part.
@@ -285,24 +298,31 @@ export default function DailyChallengePage() {
           ) : (
             <ChallengeResult attempt={attempt} question={today.challenge.question} justEarned={justEarned} />
           )}
-        </div>
+        </Card>
       )}
 
-      <div className="card">
-        <h3>🕘 Your past challenges</h3>
+      <Card>
+        <CardHeader title="Your past challenges" size="sm" as="h2" />
         {!history ? (
-          <Spinner />
+          <SkeletonText lines={3} label="Loading your past challenges" />
         ) : history.attempts.length === 0 ? (
-          <div className={styles.empty}>
-            <i className="ph-bold ph-clock-counter-clockwise" />
-            <p>Nothing yet. Every challenge you answer is listed here, right or wrong.</p>
-          </div>
+          <EmptyState
+            size="sm"
+            icon="ph-clock-counter-clockwise"
+            title="Nothing yet"
+            description="Every challenge you answer is listed here, right or wrong, with the mark it earned."
+          />
         ) : (
           <ul className={styles.history}>
             {history.attempts.map((entry) => (
               <li key={entry.id}>
                 <span className={`${styles.verdictDot} ${entry.isCorrect ? styles.dotCorrect : styles.dotWrong}`}>
-                  <i className={`ph-bold ${entry.isCorrect ? 'ph-check' : 'ph-x'}`} />
+                  <Icon
+                    name={entry.isCorrect ? 'ph-check' : 'ph-x'}
+                    weight="bold"
+                    size="xs"
+                    label={entry.isCorrect ? 'Correct' : 'Incorrect'}
+                  />
                 </span>
                 <div className={styles.historyMain}>
                   <span className={styles.historyDay}>{formatDay(entry.day)}</span>
@@ -321,7 +341,7 @@ export default function DailyChallengePage() {
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     </StudentShell>
   )
 }
@@ -361,8 +381,10 @@ function ChallengeResult({
 
   return (
     <div className={styles.result}>
+      {/* The verdict carries an icon, a word and a mark — three channels, so it never
+          depends on telling green from red. */}
       <div className={`${styles.verdict} ${attempt.isCorrect ? styles.verdictCorrect : styles.verdictWrong}`}>
-        <i className={`ph-bold ${attempt.isCorrect ? 'ph-check-circle' : 'ph-x-circle'}`} />
+        <Icon name={attempt.isCorrect ? 'ph-check-circle' : 'ph-x-circle'} weight="bold" size="md" />
         <span>{attempt.isCorrect ? 'Correct' : 'Not quite'}</span>
         <span className={styles.verdictMarks}>
           {attempt.awardedMarks}/{attempt.marks}
@@ -372,12 +394,14 @@ function ChallengeResult({
       {/* Only what this submission actually earned. A repeat submission earns nothing
           and says nothing, rather than repeating the first one's reward. */}
       {justEarned !== null && justEarned > 0 && (
-        <p className={styles.xpNote}>
-          <i className="ph-bold ph-star" /> +{justEarned} XP earned for today’s challenge.
-        </p>
+        <Alert tone="success" icon="ph-star" className={styles.xpNote}>
+          +{justEarned} XP earned for today’s challenge.
+        </Alert>
       )}
       {justEarned === 0 && (
-        <p className={styles.xpNote}>You had already answered today — your first answer is the one that counts.</p>
+        <Alert tone="info" className={styles.xpNote}>
+          You had already answered today — your first answer is the one that counts.
+        </Alert>
       )}
 
       {question.options.length > 0 && (
@@ -392,8 +416,12 @@ function ChallengeResult({
               >
                 <span className={styles.optionKey}>{option.key.toUpperCase()}</span>
                 <MathText>{option.text}</MathText>
-                {correct && <i className={`ph-bold ph-check ${styles.optIcon}`} aria-label="correct answer" />}
-                {chosen && !correct && <i className={`ph-bold ph-x ${styles.optIcon}`} aria-label="your answer" />}
+                {correct && (
+                  <Icon name="ph-check" weight="bold" className={styles.optIcon} label="Correct answer" />
+                )}
+                {chosen && !correct && (
+                  <Icon name="ph-x" weight="bold" className={styles.optIcon} label="Your answer" />
+                )}
               </li>
             )
           })}
@@ -426,7 +454,8 @@ function ChallengeResult({
       )}
 
       <p className={styles.tomorrow}>
-        <i className="ph-bold ph-sun-horizon" /> A new challenge is set for your class every day.
+        <Icon name="ph-sun-horizon" weight="bold" size="sm" />
+        <span>A new challenge is set for your class every day.</span>
       </p>
     </div>
   )

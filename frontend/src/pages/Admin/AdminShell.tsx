@@ -1,99 +1,59 @@
-import { useState, type ReactNode } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import ThemeToggle from '../../components/ThemeToggle'
-import type { Permission } from '../../api/types'
-import styles from './Admin.module.css'
+import AppShell from '../../components/layout/AppShell'
+import { ADMIN_NAV, visibleGroups } from '../../components/layout/navigation'
+import styles from './AdminShell.module.css'
 
 /**
- * Chrome shared by every administrative page, and the one place the admin
- * navigation is defined.
+ * Chrome for every administrative page.
  *
- * Navigation is permission-aware: each item declares the permission it needs and
- * is simply absent for anyone who does not hold it, so an admin never sees a link
- * that would only greet them with an error. The list comes from the permission
- * array the backend sent, not from a role name, so it cannot drift from what the
- * API will actually allow.
+ * Since Milestone 23 Phase B this is a thin wrapper: the layout lives in
+ * `components/layout/AppShell` (shared with the student area) and the navigation in
+ * `components/layout/navigation.ts`. Sharing the shell is what makes the two halves of
+ * the product behave identically on a phone — they had drifted apart, because each had
+ * its own copy of the drawer.
+ *
+ * **Navigation is permission-aware**, and that filtering is the one piece of logic
+ * left here. Each item declares the permission it needs and is simply absent for
+ * anyone who does not hold it, so an administrator never follows a link that greets
+ * them with an error. The permissions come from the array the backend sent, never from
+ * a role name, so this cannot drift from what the API will actually allow.
  */
-const NAV_ITEMS: Array<{ to: string; label: string; icon: string; permission?: Permission }> = [
-  { to: '/admin', label: 'Dashboard', icon: 'ph-squares-four' },
-  { to: '/admin/users', label: 'All Students', icon: 'ph-users-three', permission: 'students:read' },
-  { to: '/admin/questions', label: 'Question Bank', icon: 'ph-list-checks', permission: 'questions:write' },
-  { to: '/admin/questions/import', label: 'Bulk Import', icon: 'ph-upload-simple', permission: 'questions:write' },
-  { to: '/admin/taxonomy', label: 'Chapters', icon: 'ph-tree-structure', permission: 'taxonomy:write' },
-  { to: '/admin/mock-tests', label: 'Mock Tests', icon: 'ph-exam', permission: 'mocktests:write' },
-  { to: '/admin/exams', label: 'Official Exam', icon: 'ph-certificate', permission: 'exam:write' },
-  { to: '/admin/certificates', label: 'Certificates', icon: 'ph-medal', permission: 'certificates:write' },
-  { to: '/admin/daily-challenges', label: 'Daily Challenge', icon: 'ph-dice-five', permission: 'challenges:write' },
-  { to: '/admin/standings', label: 'Standings & Rewards', icon: 'ph-ranking', permission: 'students:read' },
-  { to: '/admin/reward-settings', label: 'Reward Settings', icon: 'ph-trophy', permission: 'rewards:write' },
-  { to: '/admin/payments', label: 'Payments', icon: 'ph-currency-inr', permission: 'students:read' },
-  { to: '/admin/referrals', label: 'Referrals', icon: 'ph-share-network', permission: 'students:read' },
-  { to: '/admin/analytics', label: 'Analytics', icon: 'ph-chart-line-up', permission: 'analytics:read:any' },
-  { to: '/admin/performance', label: 'Performance', icon: 'ph-target', permission: 'analytics:read:any' },
-  { to: '/admin/gallery', label: 'Event Gallery', icon: 'ph-images', permission: 'gallery:write' },
-  { to: '/admin/notifications', label: 'Notifications', icon: 'ph-megaphone', permission: 'notifications:write' },
-  { to: '/admin/email-deliveries', label: 'Email delivery', icon: 'ph-paper-plane-tilt', permission: 'notifications:write' },
-  { to: '/admin/audit-log', label: 'Audit Log', icon: 'ph-scroll', permission: 'audit:read' },
-  { to: '/ai-generator', label: 'AI Question Generator', icon: 'ph-sparkle', permission: 'questions:write' },
-]
 
-export default function AdminShell({ title, children }: { title: string; children: ReactNode }) {
-  const { state, can, logout } = useAuth()
-  const navigate = useNavigate()
-  const { pathname } = useLocation()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+interface AdminShellProps {
+  title: string
+  /** Optional line under the heading. */
+  subtitle?: ReactNode
+  /** Page-level actions, beside the title. */
+  actions?: ReactNode
+  children: ReactNode
+}
+
+export default function AdminShell({ title, subtitle, actions, children }: AdminShellProps) {
+  const { state, can } = useAuth()
 
   const role = state.status === 'student' || state.status === 'admin' ? state.role : null
-  const identity =
+  const identityName =
     state.status === 'admin' ? state.admin.email : state.status === 'student' ? state.student.studentId : ''
 
-  async function handleLogout() {
-    await logout()
-    navigate('/')
-  }
-
   return (
-    // The theme is global (see ThemeContext) rather than forced dark here, so the
-    // admin area matches whatever the rest of the app is set to.
-    <div className={styles.shell}>
-      <aside className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
-        <div className={styles.sidebarBrand}>A.M.I.T Admin</div>
-        <nav>
-          {NAV_ITEMS.filter((item) => !item.permission || can(item.permission)).map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={pathname === item.to ? styles.menuItemActive : styles.menuItem}
-              onClick={() => setSidebarOpen(false)}
-            >
-              <i className={`ph-bold ${item.icon}`} /> {item.label}
-            </Link>
-          ))}
-        </nav>
-        {role && (
+    <AppShell
+      variant="admin"
+      groups={visibleGroups(ADMIN_NAV, can)}
+      brand={{ label: 'A.M.I.T Admin', to: '/admin' }}
+      title={title}
+      subtitle={subtitle}
+      actions={actions}
+      identity={
+        role ? (
           <div className={styles.identity}>
             <span className={styles.identityRole}>{role}</span>
-            <span className={styles.identityName}>{identity}</span>
+            <span className={styles.identityName}>{identityName}</span>
           </div>
-        )}
-        <div className={styles.sidebarFooter}>
-          <ThemeToggle />
-          <button className={styles.logoutBtn} onClick={handleLogout}>
-            <i className="ph-bold ph-sign-out" /> Logout
-          </button>
-        </div>
-      </aside>
-
-      <div className={styles.main}>
-        <header className={styles.topbar}>
-          <button className={styles.burger} onClick={() => setSidebarOpen((o) => !o)} aria-label="Toggle menu">
-            <i className="ph ph-list" />
-          </button>
-          <h2>{title}</h2>
-        </header>
-        {children}
-      </div>
-    </div>
+        ) : undefined
+      }
+    >
+      {children}
+    </AppShell>
   )
 }

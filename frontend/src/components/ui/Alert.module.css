@@ -1,0 +1,119 @@
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.icon {
+  /* Optically aligned with the first line of text rather than the box. */
+  margin-top: 1px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  color: inherit;
+}
+
+/* A title *and* a body needs a gap; a body alone must not inherit one. */
+.title + .body {
+  margin-top: var(--space-1);
+}
+
+.body {
+  color: inherit;
+}
+
+.body p {
+  margin: 0 0 var(--space-2);
+  color: inherit;
+}
+
+.body p:last-child {
+  margin-bottom: 0;
+}
+
+.body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.close {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: -2px -4px 0 0;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-xs);
+  color: inherit;
+  opacity: 0.7;
+}
+
+.close:hover {
+  opacity: 1;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+/* On a coarse pointer the dismiss control is the one thing here that gets tapped,
+   so it grows to a real target. */
+@media (pointer: coarse) {
+  .close {
+    width: var(--tap-target);
+    height: var(--tap-target);
+    margin: calc(var(--space-2) * -1) calc(var(--space-3) * -1) 0 0;
+  }
+}
+
+/* ---------- tones ------------------------------------------------------ */
+
+.info {
+  background: var(--info-soft);
+  border-color: var(--info-border);
+  color: var(--info-text);
+}
+
+.success {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+.warning {
+  background: var(--warning-soft);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.danger {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.neutral {
+  background: var(--surface-sunken);
+  border-color: var(--border);
+  color: var(--text-body);
+}

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute, RequirePermission, RequirePaidEntry } from './components/ProtectedRoute'
 import ForcePasswordChange from './components/ForcePasswordChange'
+import ToastProvider from './components/ui/ToastProvider'
 import Spinner from './components/Spinner'
 import Landing from './pages/Landing/Landing'
 import Payment from './pages/Payment/Payment'
@@ -24,6 +25,7 @@ const AdminQuestionForm = lazy(() => import('./pages/Admin/QuestionForm'))
 const AdminQuestionImport = lazy(() => import('./pages/Admin/QuestionImport'))
 const AdminTaxonomy = lazy(() => import('./pages/Admin/Taxonomy'))
 const AiGenerator = lazy(() => import('./pages/AiGenerator/AiGenerator'))
+const NotFound = lazy(() => import('./pages/NotFound/NotFound'))
 /** Same reasoning: the session runner renders question content through KaTeX. */
 const PracticeSessionPage = lazy(() => import('./pages/Practice/PracticeSession'))
 /**
@@ -79,6 +81,17 @@ const VerifyCertificate = lazy(() => import('./pages/Certificates/Verify'))
 const AdminExams = lazy(() => import('./pages/Admin/Exams'))
 const AdminCertificates = lazy(() => import('./pages/Admin/Certificates'))
 const HallOfFame = lazy(() => import('./pages/HallOfFame/HallOfFame'))
+/**
+ * The design-system reference (Milestone 23, Phase A) — **development only**.
+ *
+ * `import.meta.env.DEV` is statically `false` in a production build, so the dead
+ * branch and its dynamic import are removed by the bundler: no route, no chunk, and
+ * nothing for a visitor to find. It exists so that the primitives can be seen
+ * together, in both themes and at every breakpoint, while the twenty-nine pages are
+ * migrated across phases C to F — which is the only way a design system stays
+ * consistent once more than one page is using it.
+ */
+const DesignSystem = import.meta.env.DEV ? lazy(() => import('./pages/DesignSystem/DesignSystem')) : null
 import Analytics from './pages/Analytics/Analytics'
 import Dashboard from './pages/Dashboard/Dashboard'
 import Profile from './pages/Profile/Profile'
@@ -113,6 +126,10 @@ export default function App() {
     <AuthProvider>
       <SessionGate>
       <BrowserRouter>
+      {/* The toast host, mounted once. Inside the router deliberately: a toast may
+          carry a link, and a portal keeps React context from where it is declared
+          rather than from where it lands in the DOM. */}
+      <ToastProvider>
         {/* One boundary around every route: only the lazily-loaded ones can suspend,
             and a single fallback is simpler than wrapping each of them. */}
         <Suspense
@@ -511,8 +528,17 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          {/* Development only — see the note beside the import. */}
+          {DesignSystem && <Route path="/design-system" element={<DesignSystem />} />}
+          {/*
+            The catch-all. Without it React Router renders nothing for an unmatched path,
+            which is a blank white page — indistinguishable from a crash, and exactly what
+            every generated referral link produced before `/register` was declared.
+          */}
+          <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
+      </ToastProvider>
       </BrowserRouter>
       </SessionGate>
     </AuthProvider>

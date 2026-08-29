@@ -1,12 +1,216 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-28 (Milestone 22, Phase B — the admin student directory and its Excel export)._
+_Last updated: 2026-08-29 (Milestone 23, Phase E — the admin experience: 24 pages plus the AI generator)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
-**Verified counts, read from the code rather than carried forward** (2026-08-28, measured): **1253 tests passing across 35 files**, **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **53 frontend routes** (Phase G added `/admin/referrals`; Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`). Every number on this line was measured on 2026-08-28 by running `npm test --prefix backend` and counting the code; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
+**Verified counts, read from the code rather than carried forward** (2026-08-28, measured): **1253 tests passing across 35 files**, **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **54 frontend routes in production** (Milestone 23 Phase E added **one** — the `/*` catch-all rendering `NotFound`, so that an address nobody declared stops rendering a blank page; Phase A added **none**: its `/design-system` reference page is behind `import.meta.env.DEV` and is statically absent from a production build, confirmed in `dist/`; Phase G added `/admin/referrals`; Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`), and — new in Milestone 23 Phase A — **20 design-system primitives** in `frontend/src/components/ui`. Every number on this line was measured on 2026-08-28 by running `npm test --prefix backend` and counting the code; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
 
 ## Current Development Phase
+
+**Milestone 23 — the complete UI/UX modernisation and mobile-first responsive redesign. Phases A
+(the design system), B (the global layout), C (authentication), D (the student experience) and E
+(the admin experience): complete. Phases F–H not started; the milestone stops after each phase for
+the owner's instruction.**
+
+### Phase E — the admin experience (2026-08-29)
+
+Twenty-four admin pages plus the AI generator, frontend only, **no API call added, removed or
+changed** and no backend file touched.
+
+- **Fifteen bare tables became `TableScroll` + `Table`.** The widest of them, on `/admin/analytics`,
+  pushed the *whole page* 445px past a 375px viewport — so the header, the navigation and every
+  other element could be dragged off screen sideways. The overflow now lives in the table's own
+  keyboard-reachable scroller and **no column was dropped** to make anything fit. `/admin/users`,
+  whose rows are records rather than comparisons, additionally becomes **one card per student below
+  768px**, carrying all thirteen fields.
+- **`/ai-generator` rejoined the admin area.** It is in the admin navigation but rendered its own
+  page frame with a `← Back to Admin` text link, so arriving from the drawer dropped you out of the
+  shell entirely. It is now inside `AdminShell`, and its configuration grid is one column on a phone
+  instead of a hardcoded two.
+- **The two multi-step flows say where you are.** Bulk import and AI drafting are state machines an
+  examiner has to hold in their head, and a screen of *parsed* rows looks exactly like a screen of
+  *saved* ones. Both now carry a step indicator (Upload → Review → Saved; Configure → Review →
+  Saved) whose current step is **derived from what exists** rather than tracked in its own state, so
+  it cannot disagree with the screen. Registration's hand-built row became the shared `ui/Steps`
+  primitive on the way — three flows, one spelling.
+- **An unmatched address is no longer a blank page.** There was no catch-all route, and React Router
+  renders nothing when nothing matches, so a typo or a stale bookmark produced a white page
+  indistinguishable from a crash. `/*` now renders `pages/NotFound`, which names the path that did
+  not resolve.
+- **Fifty-four hand-written `<i className="ph-...">` icons became `Icon`**, across 25 files, admin
+  and student alike. That is the rule Phase A wrote down and could not yet enforce: a weight outside
+  `regular`/`bold` renders an *invisible* glyph rather than falling back, and `Icon` is the one place
+  that and `aria-hidden` are decided. The remaining bare glyphs — two pagers' `←`/`→`, the
+  mock-test reorder arrows, the question editor's `✕` — are icons. The audit log's `old → new` is
+  deliberately kept: it is data describing a changed field, not a control.
+- **Also**: a permission-filtered quick-actions grid on `/admin`; pagination, a skeleton table and
+  per-row action menus (working in both layouts) on the student directory; twenty-two raw
+  `error-text` divs became `Alert`s; tick boxes are 18px rather than the browser's 13px default.
+- **Verified in a browser** against a real backend as the root super admin, at 375px and 1280px,
+  across twenty-one admin routes: no page overflow, no element escaping its container, no dangling
+  ARIA reference, no unlabelled control, no emoji, no console error. The drawer was re-checked
+  end-to-end and the directory's filters driven down to their empty state against real data. Both
+  themes were measured; one finding was fixed (a completed step's tick at 3.77:1, now 5.2:1 light /
+  8.4:1 dark).
+- **Known remaining**: the landing page still carries five emojis (`🥇🥈🥉`, `🌟`, `🏆`) — it is
+  Phase F's subject and was deliberately left alone.
+
+### Phase D — the student experience (2026-08-29)
+
+Nine surfaces, frontend only, **no API call added, removed or changed** and no backend file touched.
+
+- **The dashboard leads with what to do.** It opened with four figures and ended, seven cards later,
+  with the actions — below three screens of scrolling on a phone. Now: *Jump back in* (practice,
+  mock tests, today's challenge) → progress → the record. The counts on those cards come from the
+  payload the page already had; **no request was added**, which is also why the recommendations
+  panel stayed on `/analytics` rather than joining the most-loaded route in the product.
+- **The three runners share one shape**: 56px option rows at full card width, a chosen state carried
+  by border *and* tint *and* a filled key circle, 44px palette buttons, stacked navigation on a
+  phone. The mock test's **countdown is sticky** and its **submission is a dialog** — it used to be
+  a panel in the palette, which on a phone sits below the fold.
+- **Progress is always real.** Every bar is a `Progress` with a true `value`/`max`; `null` still
+  renders an em dash (the daily challenge's XP tile with no reward configured, the rank tile when
+  unranked) rather than a zero that would read as a result.
+- **Charts follow the theme.** `ChartCard` carried three hex literals and stayed light-mode blue on
+  a dark page; it now resolves tokens at render time, takes a semantic `tone`, caps its axis ticks
+  for a 375px screen, and carries `role="img"` with a summary.
+- **A table becomes cards on a phone** where the rows are records (recent tests, referrals), and
+  keeps `TableScroll` where the columns are a comparison (the analytics breakdowns). No column is
+  dropped in either case.
+- **Emojis are gone from every student surface**, including the medal emojis on the leaderboard and
+  Hall of Fame, which are now an icon *beside* the rank rather than in place of it. What remains is
+  the landing page (Phase F) and the admin pages (Phase E).
+- **Verified** at 390px and 1280px against a real backend, signed in as a student, across eleven
+  routes including a live practice session: no page overflow, nothing escaping its container, no
+  dangling ARIA, no emoji, no unlabelled field, no console error. Three sub-16px controls were found
+  and raised.
+
+
+### Phase C — authentication (2026-08-29)
+
+Frontend only; no backend file touched. Sign-in, registration, password recovery, email
+verification, the forced password change, and the administrator's sign-in.
+
+- **The forms came out of the landing page.** `Landing.tsx` was 749 lines holding a marketing page,
+  a thirteen-field registration wizard and a hand-rolled sign-in overlay with their state
+  interleaved; it is now **256 lines**, and the forms are `pages/Auth/RegisterForm.tsx` and
+  `pages/Auth/LoginDialog.tsx`. The page keeps the `?ref=` check, the `/register` scroll and the
+  `#login` hash, which are genuinely its own.
+- **Every field reports its own error.** Registration used to validate into one string — the first
+  problem found, at the top of a form two screens long on a phone. One pass now finds everything,
+  each message renders on its field, and a summary lists the problems as buttons that move focus to
+  the field they name. `Field` gained an optional explicit `id` to make that possible without
+  breaking the label association.
+- **`PasswordInput`** joined the design system (show/hide with `aria-pressed`), and every field
+  gained the `autoComplete` value that makes a password manager and mobile autofill work.
+- **The administrator's sign-in had two unlabelled fields** — `<label>` with no `htmlFor`, `<input>`
+  with no `id` — found in Phase A and fixed here.
+- **Four defects found in the browser**: a raw zod aggregate printed as the sign-in error; a wrong
+  password answered with "Your session has ended" (fixed by a sign-in-specific
+  `humanizeSignInError()`); the Sign in link dying after one use because closing the dialog left
+  `#login` in the URL; and a dangling `aria-controls` on the public burger.
+- **Emojis are gone from every auth surface**, and `AuthForms.module.css` was deleted in favour of a
+  shared `AuthLayout`.
+- **Verified** at 375px and 1280px against a real backend: failed *and* successful sign-in for both
+  a student and the root administrator, registration validation and focus movement, the reveal
+  toggle, the dialog's focus/Escape/scroll-lock contract, and all four recovery screens. No page
+  overflow, no unlabelled field, no control under 16px, no dangling ARIA references.
+
+
+### Phase B — the global layout (2026-08-29)
+
+Frontend only, no backend file touched, and **no page's content redesigned** — that is Phases C to F.
+
+- **One shell for both signed-in areas.** `components/layout/AppShell` replaces two near-identical
+  copies of a sidebar, a drawer and a topbar; `StudentShell` and `AdminShell` are thin wrappers
+  holding only what each half knows (the unread count and the entry-fee padlock; the permission
+  filter and the identity block). The navigation is **data** in `components/layout/navigation.ts`,
+  behind all four surfaces at once — desktop sidebar, drawer, mobile bottom bar, permission filter.
+- **Grouped, not flat.** Prepare / My progress / The Olympiad / Account for students; Students /
+  Question bank / Assessments / Insights / Communication / Settings for staff. Two absences are
+  deliberate: there is no admin *Practice* item (practice is student-initiated; the administrative
+  act is bulk-publishing in the Question Bank) and no general *Settings* page, so that group holds
+  the settings that exist.
+- **`/exam` is in the student navigation for the first time.** The official Olympiad has existed
+  since Milestone 13 and was reachable only from the dashboard — and the `paid` padlock the nav
+  model had always described had therefore never rendered. It does now.
+- **Three layouts**: a bottom bar (Home · Practice · Tests · Challenge · More) for students below
+  768px, a burger from 768px, a permanent sidebar from **1024px** — moved up from 768px because the
+  admin area is wide tables. A timed paper drops the bottom bar and keeps the burger.
+- **The drawer depends on no event.** The sidebar is `display: none` below 1024px and the drawer is
+  a separate element **mounted only while open**. Two earlier implementations were written and both
+  were wrong: a `visibility`-hidden drawer cannot be focused until a style recalculation has
+  happened, and the `inert` that fixes that has to be *removed* on a desktop by a JavaScript media
+  query — whose change event is delivered with the rendering steps, which a non-compositing tab
+  never runs, and which therefore left the **permanent desktop sidebar `inert`**. See the ADR; the
+  general rule is that anything delivered with the rendering steps may never arrive.
+- **The public header carries four destinations**; the result and certificate lookups and the
+  administrator's door moved to a four-column footer. **A Sign in button was added** — the login
+  form is a panel on the landing page, so a visitor elsewhere previously had no way to ask for it;
+  it links to `/#login`, which the landing page now opens.
+- **Also**: a shared counted `ui/scrollLock.ts` (the modal and the drawer can both hold the page
+  still), a **skip link** as the first focusable element on every signed-in page, and a
+  `<main id="main-content">` for it to reach.
+- **Four defects found in the browser**, three in code written this phase: the admin had no burger
+  on a phone; focus did not move into the drawer; `inert` left the desktop sidebar unreachable; a
+  dark-mode group label measured 4.46:1.
+- **Verified** against a real backend on the local database, as a student and as the root
+  administrator, at 375/390/414/768/1265/1425px in both themes: no page overflow anywhere, one
+  `Main navigation` landmark at any width, the full drawer contract (focus in, trap, Escape,
+  backdrop, route change, focus back, scroll release), and longest-prefix matching marking exactly
+  one current item.
+- **One pre-existing defect found and left for Phase E**: `/admin/analytics` renders a bare 445px
+  `<table>` with no scroll container, so it overflows a 375px screen. The page's own markup; it
+  needs `TableScroll`.
+
+### Phase A — the design system (2026-08-29)
+
+Frontend only, and **no page redesigned**. It built the layer the remaining phases are made of, and
+modernised what all 29 existing pages inherit. No backend file was touched: **1253 tests across 35
+files, unchanged.** No new dependency.
+
+- **The token layer.** `styles/theme.css` (207 lines: thirteen colours, four radii, two shadows, one
+  `.card`) is now `tokens.css` + `base.css` + `utilities.css`, with `theme.css` surviving as the three
+  `@import`s so `main.tsx` is untouched. Three layers in `tokens.css` — palette → semantic → legacy
+  aliases — and **a component may only reference the middle one**.
+- **`components/ui`: twenty-one primitives** (Phase E added `Steps`), all domain-agnostic. The boundary is the point: `Badge` does
+  not know what a payment state is, `Table` does not know what a student is. `EntryFeeBanner`,
+  `Recommendations`, `MathText` and the two shells stay in `components/`.
+- **Nothing under the old pages was deleted.** `.card`, `.form-control`, `.form-group`, `.error-text`
+  and `.success-text` are kept and modernised; `components/Button.tsx`, `Spinner.tsx` and
+  `StatTile.tsx` became re-exports, so **88 existing imports picked up the redesign untouched**. This
+  is what makes the milestone eight reviewable phases instead of one unreviewable commit.
+- **Why there was a system to build**: 52 separately-declared `.status` badges, 66 `.table`s across 21
+  pages, 16 `.notice`s, 8 `.modal`s — **none of which trapped focus or restored it on close**. They
+  mostly agreed, which is worse than disagreeing: nobody could tell whether a difference was a
+  decision.
+- **The icon library was already Phosphor** (~87 glyphs, 40 files) and stays, behind one `Icon`
+  component; no dependency added. Self-hosting was tried and reverted (its `@font-face` drags a 3 MB
+  SVG font into the bundle). **Only `regular` and `bold` stylesheets are loaded**, so the type admits
+  those two weights and no more — `ph-fill` renders an invisible glyph rather than falling back.
+- **Typography**: Inter for the interface (variable, one file), Poppins kept for headings and the brand
+  voice, Poppins' unused 300/400 dropped — **fewer font files than before** despite the extra family.
+- **Four defects found by driving the browser rather than reading the code**, all in code written this
+  phase: the modal never moved focus (it used `requestAnimationFrame`, which does not fire in a
+  non-compositing tab); `Tabs` emitted `aria-controls` pointing at panels that were not in the document
+  (fixed by a `mode="filter"` for the "All / Draft / Published" case plus emitting the attribute only
+  for the selected tab); `TableScroll` kept a stale overflow measurement on resize, losing keyboard
+  access to its own columns; and a gold badge measured 3.69:1, below AA for its size.
+- **Verified in both themes at 320 / 375 / 390 / 768 / 1280 px**: no page overflow and no element
+  escaping its container, on the reference page and on `/`, `/admin` and `/leaderboard` against a real
+  backend. Twelve contrast pairs measured per theme, all passing AA for their size. Zero dangling ARIA
+  IDREFs.
+- **`/design-system` is development-only** — `import.meta.env.DEV`, statically dead in production, and
+  confirmed absent from `dist/`. It exists because this frontend has no test suite, so the only way the
+  system stays consistent across six phases of migration is to be able to see all of it at once.
+
+**Known and deliberately left for later phases**: every page still uses its own CSS module and the
+legacy global classes (Phases C–F migrate them); the emoji sweep is not done (12 in the landing page, 7
+in the dashboard, plus Rewards, HallOfFame, Leaderboard, the two auth pages and the daily-challenge
+card); `ThemeToggle` is 38px tall on touch and the navigation chrome is Phase B; and the `/admin`
+sign-in inputs have no `<label>`, which is Phase C.
+
 
 **Milestone 22 — Phase H: the regression pass (2026-08-28): complete. No regression found.**
 

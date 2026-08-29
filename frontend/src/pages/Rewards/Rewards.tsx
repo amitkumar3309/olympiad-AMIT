@@ -5,6 +5,7 @@ import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { api, ApiError } from '../../api/client'
 import type { BadgeTier, EvaluatedBadge, JourneyStage, RewardsResponse } from '../../api/types'
+import { Icon } from '../../components/ui'
 import styles from './Rewards.module.css'
 
 /**
@@ -138,7 +139,7 @@ export default function Rewards() {
       {/* --- Journey map -------------------------------------------------- */}
       <section className="card">
         <div className={styles.sectionHead}>
-          <h3>🗺️ Your journey</h3>
+          <h3>Your journey</h3>
           <span className={styles.sectionMeta}>
             {journey.completedCount} of {journey.total} stages
           </span>
@@ -158,7 +159,7 @@ export default function Rewards() {
       {/* --- Badges ------------------------------------------------------- */}
       <section className="card">
         <div className={styles.sectionHead}>
-          <h3>🎖️ Badges</h3>
+          <h3>Badges</h3>
           <span className={styles.sectionMeta}>
             {badges.heldCount} of {badges.total} held
           </span>
@@ -178,7 +179,7 @@ export default function Rewards() {
       {/* --- Achievements -------------------------------------------------- */}
       <section className="card">
         <div className={styles.sectionHead}>
-          <h3>🏅 Achievements</h3>
+          <h3>Achievements</h3>
           <span className={styles.sectionMeta}>
             {achievements.earnedCount} of {achievements.total} earned
           </span>
@@ -187,14 +188,14 @@ export default function Rewards() {
         <ul className={styles.achievementList}>
           {[...achievements.earned, ...achievements.next].map((achievement) => (
             <li key={achievement.code} className={achievement.earned ? styles.earned : styles.locked}>
-              <i className={`ph-bold ${achievement.icon}`} />
+              <Icon name={achievement.icon} weight="bold" />
               <div className={styles.achievementMain}>
                 <span className={styles.achievementName}>{achievement.name}</span>
                 <span className={styles.achievementDescription}>{achievement.description}</span>
               </div>
               {achievement.earned ? (
                 <span className={styles.tickMark}>
-                  <i className="ph-bold ph-check" />
+                  <Icon name="ph-check" weight="bold" />
                 </span>
               ) : (
                 <span className={styles.achievementProgress}>
@@ -225,7 +226,7 @@ function JourneyRow({ stage }: { stage: JourneyStage }) {
   return (
     <li className={`${styles.stage} ${styles[state]}`}>
       <span className={styles.stageMarker}>
-        <i className={`ph-bold ${stage.complete ? 'ph-check' : stage.icon}`} />
+        <Icon name={stage.complete ? 'ph-check' : stage.icon} weight="bold" />
       </span>
       <div className={styles.stageMain}>
         <span className={styles.stageTitle}>
@@ -251,7 +252,7 @@ function BadgeCard({ badge }: { badge: EvaluatedBadge }) {
   return (
     <article className={`${styles.badge} ${held ? styles[`tier_${badge.tier}`] : styles.tier_none}`}>
       <span className={styles.badgeIcon}>
-        <i className={`ph-bold ${badge.icon}`} />
+        <Icon name={badge.icon} weight="bold" />
       </span>
       <span className={styles.badgeName}>{badge.name}</span>
       <span className={styles.badgeTier}>{held ? TIER_LABELS[badge.tier!] : 'Not yet'}</span>

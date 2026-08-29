@@ -3,6 +3,11 @@ import { api, ApiError } from '../../api/client'
 import type { AuditAction, AuditEntry, Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Table,
+  TableScroll,
+} from '../../components/ui'
 import styles from './AuditLog.module.css'
 
 const ACTION_LABELS: Record<AuditAction, string> = {
@@ -141,7 +146,7 @@ export default function AuditLog() {
           </select>
         </div>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {loading ? (
           <Spinner label="Loading the audit trail..." />
@@ -150,8 +155,8 @@ export default function AuditLog() {
             No entries recorded yet. Administrative actions will appear here as they happen.
           </p>
         ) : (
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
+          <TableScroll label="Audit log">
+            <Table density="compact">
               <thead>
                 <tr>
                   <th>When</th>
@@ -181,8 +186,8 @@ export default function AuditLog() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
         )}
 
         {pagination && pagination.totalPages > 1 && (

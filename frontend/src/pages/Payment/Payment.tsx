@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import Button from '../../components/Button'
-import Spinner from '../../components/Spinner'
+import { Alert, Button, ButtonLink, Card, CardHeader, Icon, SkeletonCards } from '../../components/ui'
 import { api, ApiError, API_BASE } from '../../api/client'
 import type { StudentInvoice } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
@@ -202,7 +200,7 @@ function InvoicePreview({ invoice, onClose }: { invoice: StudentInvoice; onClose
             className={styles.invoiceDownload}
             href={`${API_BASE}/me/invoices/${invoice.payment.id}/download`}
           >
-            <i className="ph-bold ph-download-simple" /> Download PDF
+            <Icon name="ph-download-simple" weight="bold" /> Download PDF
           </a>
         </div>
       </div>
@@ -348,28 +346,34 @@ export default function Payment() {
   return (
     <StudentShell title="Olympiad entry fee" subtitle="Pay once to enter the national competition">
       <div className={styles.wrap}>
-        {!status && !error && <Spinner label="Checking your payment status..." />}
-        {error && <p className="error-text">{error}</p>}
-        {notice && <p className={styles.notice}>{notice}</p>}
+        {!status && !error && <SkeletonCards count={2} label="Checking your payment status" />}
+        {error && <Alert tone="danger">{error}</Alert>}
+        {notice && <Alert tone="success">{notice}</Alert>}
 
         {status?.hasPaid && (
-          <div className={`card ${styles.paid}`}>
-            <i className="ph-bold ph-seal-check" />
-            <h3>You are entered</h3>
-            <p>
+          <Card className={styles.paid}>
+            <span className={styles.paidIcon}>
+              <Icon name="ph-seal-check" weight="bold" size="xl" />
+            </span>
+            <h2 className={styles.paidTitle}>You are entered</h2>
+            <p className={styles.paidLead}>
               {status.entryFeeEnabled
                 ? 'Your entry fee is paid, so your seat in the official Olympiad is booked. You can sit it when it opens.'
                 : 'No entry fee is being charged at the moment, so your place is confirmed.'}
             </p>
             <div className={styles.unlockedLinks}>
-              <Link to="/exam">Go to the Olympiad →</Link>
-              <Link to="/practice">Keep practising →</Link>
+              <ButtonLink to="/exam" icon="ph-graduation-cap">
+                Go to the Olympiad
+              </ButtonLink>
+              <ButtonLink to="/practice" variant="secondary" icon="ph-target">
+                Keep practising
+              </ButtonLink>
             </div>
-          </div>
+          </Card>
         )}
 
         {status && !status.hasPaid && (
-          <div className={`card ${styles.payBox}`}>
+          <Card className={styles.payBox}>
             <p className={styles.amountLabel}>Entry fee</p>
             <p className={styles.amount}>{status.amountDisplay}</p>
             <p className={styles.what}>
@@ -377,13 +381,16 @@ export default function Payment() {
             </p>
             <ul className={styles.unlocks}>
               <li>
-                <i className="ph-bold ph-check" /> Your place in the official Olympiad exam
+                <Icon name="ph-check" weight="bold" size="sm" />
+                <span>Your place in the official Olympiad exam</span>
               </li>
               <li>
-                <i className="ph-bold ph-check" /> Your rank against the whole cohort when results are released
+                <Icon name="ph-check" weight="bold" size="sm" />
+                <span>Your rank against the whole cohort when results are released</span>
               </li>
               <li>
-                <i className="ph-bold ph-check" /> Your certificate
+                <Icon name="ph-check" weight="bold" size="sm" />
+                <span>Your certificate</span>
               </li>
             </ul>
             <p className={styles.freeNote}>
@@ -421,10 +428,13 @@ export default function Payment() {
             )}
 
             <p className={styles.secure}>
-              <i className="ph-bold ph-lock-simple" /> Payments are handled by Razorpay. We never see your card details,
-              and every payment is confirmed on our server before your entry is granted.
+              <Icon name="ph-lock-simple" weight="bold" size="sm" />
+              <span>
+                Payments are handled by Razorpay. We never see your card details, and every payment is confirmed on
+                our server before your entry is granted.
+              </span>
             </p>
-          </div>
+          </Card>
         )}
 
         {/*
@@ -433,42 +443,52 @@ export default function Payment() {
          * platform charges today.
          */}
         {invoices.length > 0 && (
-          <div className={`card ${styles.invoices}`}>
-            <h3>
-              <i className="ph-bold ph-receipt" /> Your receipts
-            </h3>
-            <p className={styles.invoicesLead}>
-              An invoice for every payment we have received from you. The amount shown is what was actually charged at
-              the time, so it does not change if the entry fee changes later.
-            </p>
+          <Card className={styles.invoices}>
+            <CardHeader
+              title="Your receipts"
+              size="sm"
+              as="h2"
+              description="An invoice for every payment we have received from you. The amount shown is what was actually charged at the time, so it does not change if the entry fee changes later."
+            />
             <ul className={styles.invoiceList}>
               {invoices.map((invoice) => (
                 <li key={invoice.invoiceNumber}>
                   <div className={styles.invoiceRowMain}>
                     <span className={styles.invoiceNumber}>{invoice.invoiceNumber}</span>
                     <span className={styles.invoiceRowMeta}>
-                      {new Date(invoice.invoiceDate).toLocaleDateString()} · {invoice.totalDisplay}
+                      {new Date(invoice.invoiceDate).toLocaleDateString('en-IN')} · {invoice.totalDisplay}
                       {invoice.payment.method ? ` · ${invoice.payment.method}` : ''}
                     </span>
                   </div>
                   <div className={styles.invoiceRowActions}>
-                    <button type="button" className={styles.invoiceView} onClick={() => setPreviewing(invoice)}>
+                    <Button size="sm" variant="secondary" icon="ph-eye" onClick={() => setPreviewing(invoice)}>
                       View
-                    </button>
-                    <a className={styles.invoiceDownload} href={`${API_BASE}/me/invoices/${invoice.payment.id}/download`}>
-                      <i className="ph-bold ph-download-simple" /> PDF
+                    </Button>
+                    {/*
+                      A plain anchor, not a fetch: the browser's own download is what
+                      makes this work on a phone, and the endpoint is a pure read that
+                      creates nothing (see the invoice ADR).
+                    */}
+                    <a
+                      className={styles.invoiceDownload}
+                      href={`${API_BASE}/me/invoices/${invoice.payment.id}/download`}
+                    >
+                      <Icon name="ph-download-simple" weight="bold" size="sm" />
+                      <span>PDF</span>
                     </a>
                   </div>
                 </li>
               ))}
             </ul>
-          </div>
+          </Card>
         )}
 
         {previewing && <InvoicePreview invoice={previewing} onClose={() => setPreviewing(null)} />}
 
         <p className={styles.history}>
-          <Link to="/dashboard">← Back to your dashboard</Link>
+          <ButtonLink to="/dashboard" variant="ghost" icon="ph-arrow-left">
+            Back to your dashboard
+          </ButtonLink>
         </p>
       </div>
     </StudentShell>

@@ -1,11 +1,21 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
 import StudentShell from '../../components/StudentShell'
-import Spinner from '../../components/Spinner'
-import StatTile from '../../components/StatTile'
 import ChartCard from '../../components/ChartCard'
 import Recommendations from '../../components/Recommendations'
-import { api, ApiError } from '../../api/client'
+import {
+  Alert,
+  ButtonLink,
+  Card,
+  CardHeader,
+  EmptyState,
+  ErrorState,
+  SkeletonCards,
+  StatTile,
+  Table,
+  TableScroll,
+} from '../../components/ui'
+import { api } from '../../api/client'
+import { humanizeError } from '../../lib/errors'
 import { useAuth } from '../../context/AuthContext'
 import {
   SURFACE_LABELS,
@@ -56,26 +66,39 @@ import styles from './Analytics.module.css'
 export default function Analytics() {
   const { state } = useAuth()
   const [result, setResult] = useState<AnalyticsResponse | null>(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<unknown>(null)
   const [recommendations, setRecommendations] = useState<RecommendationSet | null>(null)
   const [recommendationError, setRecommendationError] = useState('')
 
-  useEffect(() => {
+  /**
+   * Extracted from the effect so the error state can offer a retry that actually
+   * retries. Both requests are issued together and settle independently — see the note
+   * above on why the advice is a separate call.
+   */
+  const load = useCallback(() => {
     if (state.status !== 'student') return
     const { studentId } = state.student
+    setError(null)
+    setRecommendationError('')
 
     api
       .get<AnalyticsResponse>(`/analytics/${studentId}`)
       .then(setResult)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Failed to load analytics.'))
+      .catch(setError)
 
     api
       .get<RecommendationsResponse>(`/analytics/${studentId}/recommendations`)
       .then((res) => setRecommendations(res.recommendations))
       .catch((err) =>
-        setRecommendationError(err instanceof ApiError ? err.message : 'Could not work out your recommendations.'),
+        setRecommendationError(
+          humanizeError(err, { fallback: 'Could not work out your recommendations.' }),
+        ),
       )
   }, [state])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const analytics = result?.analytics ?? null
   const xpByDay = result?.xpByDay ?? []
@@ -95,10 +118,10 @@ export default function Analytics() {
   function BreakdownTable({ title, rows }: { title: string; rows: NamedPerformanceRow[] }) {
     if (rows.length === 0) return null
     return (
-      <div className="card">
-        <h3>{title}</h3>
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
+      <Card>
+        <CardHeader title={title} size="sm" as="h2" />
+        <TableScroll label={title}>
+          <Table density="compact">
             <thead>
               <tr>
                 <th>Chapter</th>
@@ -126,9 +149,9 @@ export default function Analytics() {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
-      </div>
+          </Table>
+        </TableScroll>
+      </Card>
     )
   }
 
@@ -145,8 +168,8 @@ export default function Analytics() {
 
   function AreaList({ title, areas, tone }: { title: string; areas: AreaRow[]; tone: 'strong' | 'weak' }) {
     return (
-      <div className="card">
-        <h3>{title}</h3>
+      <Card>
+        <CardHeader title={title} size="sm" as="h2" />
         {areas.length === 0 ? (
           <p className={styles.muted}>
             {/* Two different reasons for an empty list, and saying the wrong one is
@@ -172,7 +195,7 @@ export default function Analytics() {
             ))}
           </ul>
         )}
-      </div>
+      </Card>
     )
   }
 
@@ -192,24 +215,30 @@ export default function Analytics() {
   return (
     <StudentShell title="Performance Analysis" subtitle="Worked out from the questions you have actually answered">
       <div className={styles.wrap}>
-        {error && <p className="error-text">{error}</p>}
-        {!result && !error && <Spinner label="Working out your performance..." />}
+        {error !== null && <ErrorState error={error} onRetry={load} />}
+        {!result && error === null && <SkeletonCards count={4} label="Working out your performance" />}
 
         {analytics && !analytics.hasData && (
-          <div className={`card ${styles.pending}`}>
-            <i className="ph-bold ph-chart-line" />
-            <h3>Nothing to measure yet</h3>
-            <p>
-              Your accuracy, strongest and weakest topics and progress over time are all worked out from questions you
-              have answered — and you have not submitted anything yet. Start a{' '}
-              <Link to="/practice">practice session</Link>, try today’s{' '}
-              <Link to="/daily-challenge">daily challenge</Link>, or sit a <Link to="/mock-tests">mock test</Link>, and
-              this page fills in by itself.
-            </p>
+          <Card>
+            <EmptyState
+              icon="ph-chart-line"
+              title="Nothing to measure yet"
+              description="Your accuracy, strongest and weakest chapters and progress over time are all worked out from questions you have answered — and you have not submitted anything yet. This page fills in by itself once you do."
+              action={
+                <ButtonLink to="/practice" icon="ph-target">
+                  Start practising
+                </ButtonLink>
+              }
+              secondaryAction={
+                <ButtonLink to="/daily-challenge" variant="secondary" icon="ph-dice-five">
+                  Today’s challenge
+                </ButtonLink>
+              }
+            />
             <p className={styles.pendingNote}>
               We would rather show you nothing than a made-up number, so none of these panels are filled with samples.
             </p>
-          </div>
+          </Card>
         )}
 
         {/* ------------------------------------------------------------
@@ -218,10 +247,10 @@ export default function Analytics() {
             both cases the first actionable thing on the page.
         ------------------------------------------------------------ */}
         {recommendationError && !recommendations && (
-          <div className="card">
-            <h3>What to work on next</h3>
-            <p className="error-text">{recommendationError}</p>
-          </div>
+          <Card>
+            <CardHeader title="What to work on next" size="sm" as="h2" />
+            <Alert tone="danger">{recommendationError}</Alert>
+          </Card>
         )}
         {recommendations && <Recommendations data={recommendations} />}
 
@@ -271,7 +300,7 @@ export default function Analytics() {
                   title="Score per sitting"
                   type="line"
                   label="Score %"
-                  color="#4f46e5"
+                  tone="info"
                   labels={analytics.progressTrend.map((point) => point.label)}
                   data={analytics.progressTrend.map((point) => point.scorePercent ?? 0)}
                 />
@@ -284,7 +313,7 @@ export default function Analytics() {
                   title="Seconds per question, per sitting"
                   type="line"
                   label="Seconds"
-                  color="#0ea5e9"
+                  tone="success"
                   labels={analytics.paceTrend.map((point) => point.label)}
                   data={analytics.paceTrend.map((point) => point.secondsPerQuestion)}
                 />
@@ -294,10 +323,10 @@ export default function Analytics() {
             {/* ----------------------------------------------------------
                 Breakdowns
             ---------------------------------------------------------- */}
-            <div className="card">
-              <h3>By difficulty</h3>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
+            <Card>
+              <CardHeader title="By difficulty" size="sm" as="h2" />
+              <TableScroll label="Accuracy by difficulty">
+                <Table density="compact">
                   <thead>
                     <tr>
                       <th>Difficulty</th>
@@ -318,9 +347,9 @@ export default function Analytics() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
-            </div>
+                </Table>
+              </TableScroll>
+            </Card>
 
             {/*
               Chapters only.
@@ -333,10 +362,10 @@ export default function Analytics() {
             */}
             <BreakdownTable title="By chapter" rows={analytics.byTopic} />
 
-            <div className="card">
-              <h3>Where your answers came from</h3>
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
+            <Card>
+              <CardHeader title="Where your answers came from" size="sm" as="h2" />
+              <TableScroll label="Accuracy by where the questions were answered">
+                <Table density="compact">
                   <thead>
                     <tr>
                       <th>Surface</th>
@@ -350,8 +379,8 @@ export default function Analytics() {
                       <SurfaceRow key={row.surface} row={row} />
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
+              </TableScroll>
               {analytics.notes.includes('pace-unavailable-daily-challenge-has-no-clock') && (
                 <p className={styles.muted}>
                   The daily challenge is not timed, so it counts toward your accuracy but not toward your pace.
@@ -363,7 +392,7 @@ export default function Analytics() {
                   but no longer appear under a topic.
                 </p>
               )}
-            </div>
+            </Card>
           </>
         )}
 

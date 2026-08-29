@@ -394,3 +394,97 @@
   gap: 10px;
   margin-top: 22px;
 }
+
+/* ==========================================================================
+   Milestone 23, Phase D — additions and overrides
+   ========================================================================== */
+
+.paidIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: var(--space-3);
+  border-radius: 50%;
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.paidTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xl);
+}
+
+.paidLead {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+}
+
+/* Stacks on a phone so both actions are full-width targets. */
+.unlockedLinks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.unlockedLinks > * {
+  width: 100%;
+}
+
+@media (min-width: 480px) {
+  .unlockedLinks {
+    flex-direction: row;
+    justify-content: center;
+  }
+
+  .unlockedLinks > * {
+    width: auto;
+  }
+}
+
+.unlocks li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.secure {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+/* The receipt rows: the number and its meta on one line, the two actions beside them
+   once there is room and underneath on a phone. */
+.invoiceRowActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.invoiceDownload {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--primary-text);
+  text-decoration: none;
+}
+
+.invoiceDownload:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.history {
+  margin-top: var(--space-6);
+  text-align: center;
+}

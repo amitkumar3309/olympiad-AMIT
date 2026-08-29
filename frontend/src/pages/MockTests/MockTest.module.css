@@ -1,3 +1,10 @@
+/* The listing's page column (Milestone 23, Phase D). */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
 /*
   Shared by the mock-test list and the attempt runner / review.
 
@@ -43,30 +50,29 @@
    The list of tests
 --------------------------------------------------------------------------- */
 
+/* One column on a phone; two once a card can hold its four facts in a row. */
 .testGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: var(--space-4);
 }
-
 .testCard {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
 }
-
 .testHead {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .testHead h3 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--text-lg);
+  overflow-wrap: anywhere;
 }
-
 .badgeOpen {
   flex-shrink: 0;
   font-size: 10.5px;
@@ -80,75 +86,84 @@
 }
 
 .testDescription {
-  margin: 8px 0 0;
-  font-size: 13.5px;
-  line-height: 1.6;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
   color: var(--text-muted);
 }
-
+/* Four facts, two-up on the narrowest phone and four-up when there is room. A
+   `dl` because each is a label and its value, which is what a screen reader then
+   reads them as. */
 .testFacts {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin: 16px 0 0;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
 }
 
 .testFacts dt {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-caps);
   color: var(--text-muted);
 }
 
 .testFacts dd {
-  margin: 3px 0 0;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 15px;
+  margin: 2px 0 0;
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
-
 .window {
-  margin: 14px 0 0;
-  font-size: 12.5px;
-  color: var(--text-muted);
   display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
 }
-
 .blocked {
-  margin: 10px 0 0;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--warning);
+  margin: 0;
 }
-
 .testActions {
-  margin-top: 16px;
+  margin-top: auto;
 }
-
 .attemptList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
   list-style: none;
-  padding: 14px 0 0;
-  margin: 16px 0 0;
-  border-top: 1px solid var(--border);
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
+/* Wraps rather than squeezing: the date, the score and the action each keep their
+   own line on a narrow card. */
 .attemptList li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  font-size: 12.5px;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
+.attemptList li:last-child {
+  border-bottom: none;
+}
 .attemptWhen {
   flex: 1;
-  min-width: 0;
+  min-width: 12rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
-
 .attemptScore {
   font-family: var(--font-mono);
   font-weight: 700;
@@ -162,41 +177,52 @@
 }
 
 .history {
-  list-style: none;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
   padding: 0;
-  margin: 8px 0 0;
+  list-style: none;
 }
 
 .history li {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
 .history li:last-child {
   border-bottom: none;
 }
-
 .historyMain {
-  flex: 1;
-  min-width: 0;
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
+@media (min-width: 620px) {
+  .history li {
+    grid-template-columns: 1fr auto auto;
+  }
+
+  .historyMain {
+    grid-column: auto;
+  }
+}
 .historyTitle {
-  font-weight: 600;
-  font-size: 14px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+  overflow-wrap: anywhere;
 }
-
 .historyMeta {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
-
 .historyScore {
   font-family: var(--font-mono);
   font-weight: 700;
@@ -207,188 +233,245 @@
    The runner
 --------------------------------------------------------------------------- */
 
+/**
+ * Sticky, unlike practice's. The countdown is the one thing that must stay reachable
+ * while a student scrolls a long question — a timer you have to scroll up to read is
+ * a timer nobody reads.
+ */
 .runnerHead {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) 0;
+  background: var(--bg);
 }
 
+@media (min-width: 560px) {
+  .runnerHead {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-5);
+  }
+}
+
+.runnerProgress {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
 .progressText {
-  font-size: 13px;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
   color: var(--text-muted);
-  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
-
 .timer {
-  font-family: var(--font-mono);
-  font-size: 20px;
-  font-weight: 700;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 12px;
-  border-radius: var(--radius-sm);
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-pill);
   background: var(--surface);
-  border: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
-
 /* The last two minutes. Colour is not the only signal — the warning line below the
    clock says the same thing in words. */
+/* Running out: colour *and* weight *and* the warning banner underneath, so the state
+   is never carried by red alone. */
 .timerLow {
-  color: var(--danger);
-  border-color: var(--danger);
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger-text);
 }
-
 .timeWarning {
-  margin: 0 0 14px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background: rgba(239, 68, 68, 0.08);
-  border-left: 3px solid var(--danger);
-  font-size: 13px;
-  line-height: 1.55;
+  margin-bottom: var(--space-4);
 }
-
 .runner {
   display: grid;
-  grid-template-columns: 1fr 260px;
-  gap: 20px;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
   align-items: start;
 }
 
+@media (min-width: 1024px) {
+  .runner {
+    grid-template-columns: minmax(0, 1fr) 260px;
+  }
+}
 .qMeta {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 0 0 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
-
 .qText {
-  font-size: 15px;
-  line-height: 1.7;
-  overflow-wrap: anywhere;
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--text);
+  margin-bottom: var(--space-5);
+  overflow-x: auto;
 }
-
 .hint {
-  font-size: 12.5px;
+  margin: calc(var(--space-3) * -1) 0 var(--space-4);
+  font-size: var(--text-xs);
   color: var(--text-muted);
-  margin: 10px 0 0;
-  font-style: italic;
 }
-
 .options {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: 16px 0 0;
+  gap: var(--space-3);
 }
-
 .option {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--space-3);
   width: 100%;
-  text-align: left;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 2px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text-main);
-  font: inherit;
-  font-size: 14px;
-  cursor: pointer;
-  overflow-wrap: anywhere;
+  background: var(--surface);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text);
+  text-align: left;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
 }
 
 .option:hover {
-  border-color: var(--royal-blue);
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
 }
-
 .optionChosen {
-  border-color: var(--royal-blue);
-  background: rgba(37, 99, 235, 0.1);
-  font-weight: 600;
+  border-color: var(--primary);
+  background: var(--primary-soft);
 }
 
+.optionChosen .optionKey {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-on);
+}
 .optionKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--border-strong);
   border-radius: 50%;
-  background: rgba(148, 163, 184, 0.2);
-  font-size: 11.5px;
-  font-weight: 800;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--text-muted);
 }
-
 .numericRow {
-  margin-top: 16px;
-  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 22rem;
 }
 
 .numericRow label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
 }
-
 .navRow {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 20px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
 }
 
+.navRow > button {
+  width: 100%;
+}
+
+@media (min-width: 560px) {
+  .navRow {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .navRow > button {
+    width: auto;
+  }
+}
 .savingNote {
-  font-size: 12px;
+  order: -1;
+  font-size: var(--text-xs);
   color: var(--text-muted);
+  text-align: center;
 }
 
+@media (min-width: 560px) {
+  .savingNote {
+    order: 0;
+  }
+}
 .palette {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 8px;
-  margin: 10px 0 12px;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
-
 .paletteBtn {
-  aspect-ratio: 1;
-  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: var(--border-width) solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--surface);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   color: var(--text-muted);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
+  font-variant-numeric: tabular-nums;
 }
 
+.paletteBtn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
 .paletteAnswered {
-  background: var(--success);
-  border-color: var(--success);
-  color: #fff;
+  background: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success-text);
 }
-
 .paletteCurrent {
-  outline: 2px solid var(--royal-blue);
-  outline-offset: 1px;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-soft);
+  color: var(--primary-text);
 }
-
 .paletteNote {
-  font-size: 12px;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
   color: var(--text-muted);
-  line-height: 1.5;
-  margin: 0 0 12px;
 }
-
 /* Submitting a mock test ends the only attempt most tests allow, so it is confirmed
    rather than instant — unlike practice, which can be repeated freely. */
 .confirm {
@@ -412,41 +495,28 @@
 --------------------------------------------------------------------------- */
 
 .autoNote {
-  margin: 0 0 16px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  background: rgba(245, 158, 11, 0.1);
-  border-left: 3px solid var(--warning);
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  margin-bottom: var(--space-4);
 }
-
 /* A score the test does not release yet. Said in words, never shown as a zero. */
 .withheld {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  padding: 32px 20px;
-  margin-bottom: 16px;
-}
-
-.withheld i {
-  font-size: 32px;
+  gap: var(--space-2);
   color: var(--text-muted);
-  opacity: 0.6;
 }
 
 .withheld h3 {
-  margin: 10px 0 8px;
+  margin: 0;
+  color: var(--text);
 }
 
 .withheld p {
-  margin: 0 auto;
-  max-width: 56ch;
-  line-height: 1.6;
-  color: var(--text-muted);
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--text-sm);
 }
-
 .reviewPending {
   font-size: 13px;
   color: var(--text-muted);
@@ -457,33 +527,26 @@
 
 .summaryRow {
   display: grid;
-  grid-template-columns: 1.4fr repeat(5, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
-
-.summaryRow .card {
-  padding: 16px;
-  text-align: center;
-}
-
 .summaryCard {
-  text-align: center;
+  margin-bottom: var(--space-4);
 }
-
 .summaryScore {
-  font-family: var(--font-mono);
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1.1;
-  color: var(--royal-blue);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-none);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .summaryScore span {
-  font-size: 16px;
+  font-size: var(--text-xl);
   color: var(--text-muted);
 }
-
 .summaryLabel,
 .tileLabel {
   font-size: 11px;
@@ -665,22 +728,6 @@
 
 /* --------------------------------------------------------------------------- */
 
-@media (max-width: 1024px) {
-  .summaryRow {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .runner {
-    grid-template-columns: 1fr;
-  }
-
-  .palette {
-    grid-template-columns: repeat(10, 1fr);
-  }
-}
-
 @media (max-width: 560px) {
   .summaryRow {
     grid-template-columns: 1fr 1fr;
@@ -693,4 +740,22 @@
   .palette {
     grid-template-columns: repeat(6, 1fr);
   }
+}
+
+
+/* ---------- palette card ------------------------------------------------ */
+
+.paletteCard {
+  position: sticky;
+  top: 84px;
+}
+
+.paletteTitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-2xs);
+  font-family: var(--font-body);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
 }

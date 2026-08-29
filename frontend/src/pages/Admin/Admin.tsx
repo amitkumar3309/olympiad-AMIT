@@ -1,13 +1,29 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import Button from '../../components/Button'
-import StatTile from '../../components/StatTile'
+import {
+  Alert,
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  CardHeader,
+  EmptyState,
+  Field,
+  Icon,
+  Input,
+  PasswordInput,
+  SkeletonCards,
+  Spinner,
+  StatTile,
+  Table,
+  TableScroll,
+} from '../../components/ui'
 import ChartCard from '../../components/ChartCard'
-import Spinner from '../../components/Spinner'
 import Unauthorized from '../../components/Unauthorized'
 import { useAuth, ApiError } from '../../context/AuthContext'
+import { humanizeSignInError } from '../../lib/errors'
 import { api } from '../../api/client'
-import type { AdminStats, ManagedAccount, Pagination } from '../../api/types'
+import type { AdminStats, ManagedAccount, Pagination, Permission } from '../../api/types'
 import AdminShell from './AdminShell'
 import styles from './Admin.module.css'
 
@@ -24,6 +40,44 @@ function shortDay(day: string): string {
     timeZone: 'UTC',
   })
 }
+
+/**
+ * The tasks an administrator actually arrives to do.
+ *
+ * Permission-filtered like the navigation, from the same array the backend sent — a
+ * shortcut to a page somebody may not open is worse than no shortcut. Deliberately
+ * short: this is the top of the page, not a second copy of the menu.
+ */
+const QUICK_ACTIONS: Array<{ to: string; label: string; description: string; icon: string; permission: Permission }> = [
+  {
+    to: '/admin/questions/new',
+    label: 'Add a question',
+    description: 'Write one by hand',
+    icon: 'ph-plus-circle',
+    permission: 'questions:write',
+  },
+  {
+    to: '/admin/questions/import',
+    label: 'Bulk import',
+    description: 'Excel, Word or a photograph',
+    icon: 'ph-upload-simple',
+    permission: 'questions:write',
+  },
+  {
+    to: '/admin/users',
+    label: 'Students',
+    description: 'Search, filter and export',
+    icon: 'ph-users-three',
+    permission: 'students:read',
+  },
+  {
+    to: '/admin/mock-tests',
+    label: 'Mock tests',
+    description: 'Author and publish papers',
+    icon: 'ph-exam',
+    permission: 'mocktests:write',
+  },
+]
 
 interface Overview {
   total: number
@@ -99,45 +153,66 @@ export default function Admin() {
     try {
       await adminLogin(email.trim(), password)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Login failed.')
+      setError(humanizeSignInError(err))
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (state.status === 'loading') return <Spinner label="Loading admin portal..." />
+  if (state.status === 'loading') return <Spinner label="Loading the admin portal" />
 
   if (state.status === 'guest') {
     return (
       // Follows the global theme rather than forcing dark, which used to make this
       // form dark while the navbar above it stayed light.
       <div className={styles.loginWrap}>
-        <form className={`card ${styles.loginCard}`} onSubmit={handleLogin}>
-          <h2>Enterprise Admin Portal</h2>
-          <p>Sign in to manage students, questions, and analytics.</p>
-          {error && <p className="error-text">{error}</p>}
-          <div className="form-group">
-            <label>Email or mobile number</label>
-            <input className="form-control" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </div>
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              className="form-control"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
-          <Button type="submit" fullWidth disabled={submitting}>
-            {submitting ? 'Signing in...' : 'Login'}
-          </Button>
+        <main id="main-content" className={styles.loginCard}>
+          <span className={styles.loginIcon}>
+            <Icon name="ph-shield-check" weight="bold" size="lg" />
+          </span>
+          <h1 className={styles.loginTitle}>Administrator sign in</h1>
+          <p className={styles.loginLead}>Manage students, the question bank, assessments and analytics.</p>
+
+          {error && (
+            <Alert tone="danger" title="We could not sign you in" className={styles.loginAlert}>
+              {error}
+            </Alert>
+          )}
+
+          {/*
+            Both fields were previously a `<label>` with no `htmlFor` beside an `<input>`
+            with no `id` — so neither was labelled for a screen reader, and tapping the
+            label did not focus the field. `Field` makes that association impossible to
+            forget (Milestone 23, Phase C).
+          */}
+          <form className={styles.loginForm} onSubmit={handleLogin} noValidate>
+            <Field label="Email or mobile number" required>
+              <Input
+                autoComplete="username"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Field>
+
+            <Field label="Password" required>
+              <PasswordInput
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </Field>
+
+            <Button type="submit" fullWidth size="lg" loading={submitting} icon="ph-sign-in">
+              {submitting ? 'Signing in' : 'Sign in'}
+            </Button>
+          </form>
+
           <p className={styles.loginHint}>
-            Use your normal account details. Administrators promoted from a student account sign in here with the
-            same email or mobile number and password they use on the <Link to="/">home page</Link>.
+            Administrators promoted from a student account sign in here with the same email or mobile number and
+            password they use on the <Link to="/">home page</Link>.
           </p>
-        </form>
+        </main>
       </div>
     )
   }
@@ -153,32 +228,66 @@ export default function Admin() {
   }
 
   return (
-    <AdminShell title="Dashboard Overview">
-      {overviewError && <p className="error-text">{overviewError}</p>}
+    <AdminShell title="Dashboard" subtitle="Every figure here is counted from a collection">
+      {overviewError && <Alert tone="danger">{overviewError}</Alert>}
+
+      {/*
+        The operational shortcuts, first. An administrator arrives with a task — a
+        question to add, a paper to publish, an import to review — and the figures
+        below are context for it rather than the reason they opened the page.
+      */}
+      <nav className={styles.quickGrid} aria-label="Common tasks">
+        {QUICK_ACTIONS.filter((action) => can(action.permission)).map((action) => (
+          <Link key={action.to} to={action.to} className={styles.quickCard}>
+            <span className={styles.quickIcon}>
+              <Icon name={action.icon} weight="bold" size="md" />
+            </span>
+            <span className={styles.quickText}>
+              <span className={styles.quickTitle}>{action.label}</span>
+              <span className={styles.quickMeta}>{action.description}</span>
+            </span>
+            <Icon name="ph-caret-right" size="sm" className={styles.quickChevron} />
+          </Link>
+        ))}
+      </nav>
 
       {loadingOverview ? (
-        <Spinner label="Loading account figures..." />
+        <SkeletonCards count={3} label="Loading account figures" />
       ) : (
         overview && (
           <>
             <div className={styles.statRow}>
-              <StatTile icon="ph-users" value={String(overview.total)} label="Accounts Registered" />
-              <StatTile icon="ph-shield-check" value={String(overview.admins)} label="Administrator Accounts" />
-              <StatTile icon="ph-prohibit" value={String(overview.suspended)} label="Suspended Accounts" />
+              <StatTile icon="ph-users" value={overview.total} label="Accounts registered" />
+              <StatTile icon="ph-shield-check" value={overview.admins} label="Administrator accounts" />
+              <StatTile
+                icon="ph-prohibit"
+                tone={overview.suspended > 0 ? 'warning' : 'neutral'}
+                value={overview.suspended}
+                label="Suspended accounts"
+              />
             </div>
 
-            <div className={`card ${styles.tableCard}`}>
-              <div className={styles.tableHead}>
-                <h3>Recently Registered</h3>
-                <Link to="/admin/users" className={styles.tableLink}>
-                  Manage all accounts →
-                </Link>
-              </div>
+            <Card className={styles.tableCard}>
+              <CardHeader
+                title="Recently registered"
+                size="sm"
+                as="h2"
+                actions={
+                  <ButtonLink to="/admin/users" size="sm" variant="secondary" iconAfter="ph-arrow-right">
+                    Manage all accounts
+                  </ButtonLink>
+                }
+              />
               {overview.recent.length === 0 ? (
-                <p className={styles.emptyRow}>No accounts have registered yet.</p>
+                <EmptyState
+                  size="sm"
+                  icon="ph-users"
+                  title="No accounts yet"
+                  description="Registrations appear here as students sign up. The figures above are counted from the same collection."
+                />
               ) : (
-                <div className={styles.tableScroll}>
-                  <table className={styles.table}>
+                <TableScroll label="Recent registrations">
+                  <Table density="compact">
                     <thead>
                       <tr>
                         <th>Student ID</th>
@@ -192,15 +301,32 @@ export default function Admin() {
                         <tr key={account.id}>
                           <td>{account.studentId}</td>
                           <td>{account.fullName ?? '—'}</td>
-                          <td>{account.role}</td>
-                          <td>{account.status}</td>
+                          <td>
+                            <Badge tone={account.role === 'student' ? 'neutral' : 'primary'} size="sm">
+                              {account.role}
+                            </Badge>
+                          </td>
+                          <td>
+                            <Badge
+                              tone={
+                                account.status === 'active'
+                                  ? 'success'
+                                  : account.status === 'suspended' || account.status === 'blocked'
+                                    ? 'danger'
+                                    : 'neutral'
+                              }
+                              size="sm"
+                            >
+                              {account.status}
+                            </Badge>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
+                  </Table>
+                </TableScroll>
               )}
-            </div>
+            </Card>
           </>
         )
       )}
@@ -215,6 +341,7 @@ export default function Admin() {
             title="New registrations per day (last 14 days)"
             type="bar"
             label="Registrations"
+            tone="primary"
             labels={stats.registrationsByDay.map((point) => shortDay(point.day))}
             data={stats.registrationsByDay.map((point) => point.count)}
           />

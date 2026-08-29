@@ -1,0 +1,163 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.wrap {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-8) var(--gutter) var(--space-16);
+}
+
+@media (min-width: 768px) {
+  .wrap {
+    align-items: center;
+    padding-top: var(--space-12);
+  }
+}
+
+.card {
+  width: 100%;
+  /* A measure, not a breakpoint: 30rem is about 60 characters of the lead paragraph,
+     and the form fields inside are full width at every size. */
+  max-width: 30rem;
+  padding: clamp(var(--space-5), 5vw, var(--space-8));
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-2xl);
+}
+
+.lead {
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+}
+
+/* ---------- status ------------------------------------------------------
+   Centred, unlike the forms. A single outcome with one action reads better
+   centred; a column of labelled fields does not, which is why the old shared
+   `text-align: center` had to be undone by the form. */
+
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+}
+
+.statusIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+
+.success {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.warning {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
+
+.danger {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.statusTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.statusBody {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-body);
+}
+
+.statusBody p {
+  margin: 0 0 var(--space-2);
+}
+
+.statusBody p:last-child {
+  margin-bottom: 0;
+}
+
+.statusActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+@media (min-width: 480px) {
+  .statusActions {
+    flex-direction: row;
+    justify-content: center;
+  }
+}
+
+/* A status followed by a form — the failed-verification page offers a resend below
+   the bad news. */
+.status + .form {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+/* A page-level failure, above the form it belongs to. */
+.alert {
+  margin-bottom: var(--space-4);
+}
+
+/* ---------- form ------------------------------------------------------- */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  text-align: left;
+}
+
+.formFooter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1) var(--space-4);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+
+.formFooter a {
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  /* A footer link on a phone is a real target, not a line of text. */
+  padding: var(--space-1) 0;
+}
+
+.formFooter a:hover {
+  color: var(--primary-hover);
+}

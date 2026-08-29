@@ -4,6 +4,11 @@ import { CLASS_LEVELS, type AdminLeaderboardRow, type Pagination, type RewardsOv
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Table,
+  TableScroll,
+} from '../../components/ui'
 import styles from './Standings.module.css'
 
 interface BoardResponse {
@@ -120,7 +125,7 @@ export default function Standings() {
           </select>
         </div>
 
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {loading ? (
           <Spinner label="Ranking..." />
@@ -130,8 +135,8 @@ export default function Standings() {
             rather than padded.
           </p>
         ) : (
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
+          <TableScroll label="Standings">
+            <Table density="compact">
               <thead>
                 <tr>
                   <th>#</th>
@@ -158,8 +163,8 @@ export default function Standings() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
         )}
 
         {pagination && pagination.totalPages > 1 && (
@@ -184,7 +189,7 @@ export default function Standings() {
             How the catalogue is actually landing — the evidence worth having before re-pricing the XP table.
           </p>
 
-          {overviewError && <p className="error-text">{overviewError}</p>}
+          {overviewError && <Alert tone="danger">{overviewError}</Alert>}
           {!overview && !overviewError ? (
             <Spinner label="Counting holders..." />
           ) : (
@@ -222,8 +227,8 @@ export default function Standings() {
                 </div>
 
                 <h4 className={styles.subheading}>Achievement holders</h4>
-                <div className={styles.tableScroll}>
-                  <table className={styles.table}>
+                <TableScroll label="Class standings">
+                  <Table density="compact">
                     <thead>
                       <tr>
                         <th>Achievement</th>
@@ -250,8 +255,8 @@ export default function Standings() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
+                  </Table>
+                </TableScroll>
                 <p className={styles.note}>
                   “Not counted” means the condition is a <em>consecutive-day streak</em>, which an aggregation cannot
                   answer — “answered five challenges” and “answered on five consecutive days” are different facts. A

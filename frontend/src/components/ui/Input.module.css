@@ -1,0 +1,272 @@
+/**
+ * One control style, shared by input, textarea and select, so the three cannot drift
+ * apart. It intentionally matches the global `.form-control` class in
+ * `styles/utilities.css` — that class is what the un-migrated pages use, and the two
+ * must look identical while both exist.
+ */
+.control {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 14px;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-snug);
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
+}
+
+/**
+ * 16px on a touch device, and not for taste: mobile Safari zooms the whole viewport
+ * when a focused field's text is smaller than 16px, and it does not zoom back out.
+ * That single behaviour is responsible for more "the layout broke on my iPhone"
+ * reports than any other.
+ */
+@media (pointer: coarse) {
+  .control {
+    font-size: var(--text-md);
+    min-height: var(--tap-target);
+  }
+}
+
+.control::placeholder {
+  color: var(--text-subtle);
+}
+
+.control:hover:not(:disabled):not(:read-only) {
+  border-color: var(--border-strong);
+}
+
+.control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--focus-ring);
+}
+
+.control:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.control:read-only:not(:focus) {
+  background: var(--surface-sunken);
+}
+
+.invalid {
+  border-color: var(--danger);
+}
+
+.invalid:focus {
+  border-color: var(--danger);
+  box-shadow: var(--focus-ring-danger);
+}
+
+.textarea {
+  min-height: 96px;
+  line-height: var(--leading-normal);
+  /* Horizontal resizing inside a responsive layout is how a textarea escapes its
+     card; vertical is genuinely useful for a long solution. */
+  resize: vertical;
+}
+
+/* ---------- adornments -------------------------------------------------- */
+
+.wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.leadingIcon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+
+.hasIcon {
+  padding-left: 38px;
+}
+
+.suffix {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.hasSuffix {
+  padding-right: 44px;
+}
+
+/* ---------- select ------------------------------------------------------ */
+
+.selectWrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+.caret {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* ---------- search ----------------------------------------------------- */
+
+.search::-webkit-search-cancel-button {
+  /* Replaced by our own clear button, which can be sized for a thumb and given an
+     accessible name. */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-hover);
+  color: var(--text-muted);
+}
+
+.clear:hover {
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+@media (pointer: coarse) {
+  .clear {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* ---------- checkbox ---------------------------------------------------- */
+
+.checkRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  /* The label row is the tap target, so it gets real padding rather than relying on
+     the 16px box being findable with a thumb. */
+  padding: var(--space-2) 0;
+  cursor: pointer;
+}
+
+/**
+ * On a touch screen the *row* is the target, not the 22px box — which is why the
+ * label wraps the input rather than sitting beside it. The floor is on the row for
+ * that reason: inflating the box itself to 44px would give a checkbox the visual
+ * weight of a button.
+ */
+@media (pointer: coarse) {
+  .checkRow {
+    min-height: var(--tap-target);
+    align-items: center;
+  }
+}
+
+.checkbox {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.checkbox:focus-visible {
+  outline: var(--focus-ring-width) solid var(--primary-text);
+  outline-offset: 2px;
+}
+
+.checkbox:disabled {
+  cursor: not-allowed;
+}
+
+.checkbox:disabled + .checkText {
+  opacity: 0.6;
+}
+
+.checkText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.checkLabel {
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  color: var(--text);
+  line-height: var(--leading-snug);
+}
+
+.checkDescription {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+}
+
+/* ---------- password reveal -------------------------------------------- */
+
+.reveal {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.reveal:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+@media (pointer: coarse) {
+  .reveal {
+    width: 40px;
+    height: 40px;
+  }
+}

@@ -4,15 +4,41 @@ import {
   CLASS_LEVELS,
   type AccountStatus,
   type ManagedAccount,
-  type Pagination,
+  // The API's pagination *shape*, aliased because the design system exports a
+  // component of the same name and both are used on this page.
+  type Pagination as PaginationMeta,
   type StudentDirectoryEntry,
   type StudentPaymentState,
 } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
-import Button from '../../components/Button'
-import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Badge,
+  Button,
+  DataCard,
+  DataCardList,
+  DataRow,
+  EmptyState,
+  Pagination,
+  SkeletonTable,
+  Table,
+  TableScroll,
+  type BadgeTone,
+} from '../../components/ui'
 import styles from './Users.module.css'
+
+/** The listing's page size. Named because the pager needs the same number to work
+ *  out which rows it is showing — "1–20 of 138" is wrong the moment they diverge. */
+const PAGE_SIZE = 20
+
+/** Tone per account status, decided beside the words rather than at the call site. */
+const STATUS_TONES: Record<AccountStatus, BadgeTone> = {
+  active: 'success',
+  suspended: 'danger',
+  blocked: 'danger',
+  deactivated: 'neutral',
+}
 
 const STATUS_LABELS: Record<AccountStatus, string> = {
   active: 'Active',
@@ -71,7 +97,7 @@ const STATUS_HELP: Record<AccountStatus, string> = {
 
 interface StudentListResponse {
   students: StudentDirectoryEntry[]
-  pagination: Pagination
+  pagination: PaginationMeta
 }
 
 /**
@@ -82,6 +108,18 @@ interface StudentListResponse {
  * capture date sit under a paid chip, and the provider's own failure reason under a failed
  * one. The order id is on the `title`, because it is what support asks for and it is far
  * too long to put in a column.
+ */
+/**
+ * The actions on one account, rendered identically in the desktop table and the mobile
+ * card.
+ *
+ * Extracted in Milestone 23 Phase E, when the directory gained its card layout: two
+ * copies of six permission-gated buttons is two places for a capability check to drift,
+ * and this is the screen where a wrong one means offering to delete a child's account.
+ *
+ * Every button here is *offered* on the same condition the backend will *accept* it —
+ * the super administrator is unmanageable through the API, and a verified account
+ * cannot be deleted, so neither is shown rather than answering with an error.
  */
 function PaymentCell({ entry }: { entry: StudentDirectoryEntry }) {
   const { payment, paymentState } = entry
@@ -273,7 +311,7 @@ function DeleteAccountDialog({
           </button>
           <button
             type="button"
-            className={styles.dangerBtn}
+            className={styles.confirmDelete}
             disabled={busy || typed.trim() !== account.studentId}
             onClick={() => onConfirm(typed.trim())}
           >
@@ -294,7 +332,7 @@ export default function Users() {
   const canDelete = can('users:delete')
 
   const [accounts, setAccounts] = useState<StudentDirectoryEntry[]>([])
-  const [pagination, setPagination] = useState<Pagination | null>(null)
+  const [pagination, setPagination] = useState<PaginationMeta | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -348,7 +386,7 @@ export default function Users() {
     try {
       const params = filterParams()
       params.set('page', String(page))
-      params.set('limit', '20')
+      params.set('limit', String(PAGE_SIZE))
 
       const res = await api.get<StudentListResponse>(`/admin/students?${params.toString()}`)
       setAccounts(res.students)
@@ -525,6 +563,97 @@ export default function Users() {
     setPage(1)
   }
 
+  /**
+   * The actions on one account, rendered identically in the desktop table and the
+   * mobile card.
+   *
+   * Declared here rather than at module scope because it closes over the permission
+   * flags and the handlers — and defined *once* because two copies of six
+   * permission-gated buttons is two places for a capability check to drift, on the one
+   * screen where a wrong one means offering to delete a child's account.
+   *
+   * Every button is offered on the same condition the backend will accept it: the super
+   * administrator is unmanageable through the API, and a verified account cannot be
+   * deleted, so neither is shown rather than answering with an error.
+   */
+  function AccountActions({ account }: { account: StudentDirectoryEntry }) {
+    if (account.role === 'superadmin') {
+      return (
+        <span className={styles.muted} title="Managed through the deployment environment, not the app">
+          Protected
+        </span>
+      )
+    }
+
+    const busy = busyId === account.studentId
+    const nothingOffered = !canWriteStatus && !canWriteRole && !canResetPassword && !canRevokeSessions
+
+    return (
+      <div className={styles.actions}>
+        {canWriteStatus && (
+          <select
+            className={styles.actionSelect}
+            value={account.status}
+            disabled={busy}
+            onChange={(e) => void changeStatus(account, e.target.value as AccountStatus)}
+            aria-label={`Change status for ${account.studentId}`}
+            title={STATUS_HELP[account.status]}
+          >
+            {(Object.keys(STATUS_LABELS) as AccountStatus[]).map((status) => (
+              <option key={status} value={status} title={STATUS_HELP[status]}>
+                {STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
+        )}
+        {canWriteRole && (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void changeRole(account, account.role === 'admin' ? 'student' : 'admin')}
+          >
+            {account.role === 'admin' ? 'Revoke admin' : 'Make admin'}
+          </Button>
+        )}
+        {canResetPassword && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => void resetPassword(account)}
+            title="Issues a one-time password and signs the account out everywhere"
+          >
+            Reset password
+          </Button>
+        )}
+        {canRevokeSessions && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => void revokeSessions(account)}
+            title="Ends every active session without changing anything else"
+          >
+            Sign out
+          </Button>
+        )}
+        {canDelete && !account.isEmailVerified && (
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={busy}
+            onClick={() => setPendingDelete(account)}
+            title="Permanently deletes this unverified account"
+          >
+            Delete
+          </Button>
+        )}
+        {nothingOffered && <span className={styles.muted}>View only</span>}
+      </div>
+    )
+  }
+
   return (
     <AdminShell title="All Students">
       {issued && (
@@ -667,9 +796,9 @@ export default function Users() {
               aria-label="Registered on or before"
             />
             {anyFilter && (
-              <button type="button" className={styles.clearBtn} onClick={clearFilters}>
+              <Button type="button" size="sm" variant="ghost" icon="ph-x" onClick={clearFilters}>
                 Clear filters
-              </button>
+              </Button>
             )}
           </div>
         </form>
@@ -690,55 +819,112 @@ export default function Users() {
             )}
           </div>
           <div className={styles.exportActions}>
-            <button
+            <Button
               type="button"
-              className={styles.exportBtn}
+              icon="ph-download-simple"
+              loading={exporting === 'filtered'}
               disabled={exporting !== null || !pagination}
               onClick={() => void downloadExcel('filtered')}
               title="Downloads exactly the students listed below, with the filters you have applied"
             >
-              <i className="ph-bold ph-download-simple" />{' '}
               {exporting === 'filtered'
-                ? 'Building…'
+                ? 'Building the file'
                 : anyFilter
                   ? `Download Excel (${pagination?.total ?? 0} filtered)`
                   : 'Download Excel'}
-            </button>
+            </Button>
             {anyFilter && (
-              <button
+              <Button
                 type="button"
-                className={styles.exportSecondary}
+                variant="secondary"
+                loading={exporting === 'all'}
                 disabled={exporting !== null}
                 onClick={() => void downloadExcel('all')}
                 title="Ignores every filter and exports every registered student"
               >
-                {exporting === 'all' ? 'Building…' : 'Download all students'}
-              </button>
+                {exporting === 'all' ? 'Building the file' : 'Download all students'}
+              </Button>
             )}
           </div>
         </div>
 
         {notice && <p className={styles.notice}>{notice}</p>}
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {loading ? (
-          <Spinner label="Loading accounts..." />
+          <SkeletonTable rows={6} columns={6} label="Loading accounts" />
         ) : accounts.length === 0 ? (
-          <p className={styles.empty}>
-            {anyFilter ? 'No accounts match these filters.' : 'No accounts have been registered yet.'}
-            {anyFilter && (
-              <>
-                {' '}
-                <button type="button" className={styles.linkBtn} onClick={clearFilters}>
+          <EmptyState
+            icon={anyFilter ? 'ph-magnifying-glass' : 'ph-users'}
+            title={anyFilter ? 'No students match these filters' : 'No accounts yet'}
+            description={
+              anyFilter
+                ? 'Everyone else is hidden by a filter rather than missing. Clearing them shows the whole roll.'
+                : 'Registrations appear here as students sign up.'
+            }
+            action={
+              anyFilter ? (
+                <Button variant="secondary" icon="ph-x" onClick={clearFilters}>
                   Clear the filters
-                </button>{' '}
-                to see everyone.
-              </>
-            )}
-          </p>
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
+          <>
+          {/*
+            One record per card below 768px. Thirteen columns scrolled sideways on a
+            375px screen is technically readable and practically unusable — and
+            dropping columns to make it fit would mean the information only exists on a
+            desktop. Every field and every action is here.
+          */}
+          <DataCardList className={styles.mobileOnly}>
+            {accounts.map((account) => (
+              <DataCard
+                key={account.id}
+                title={account.fullName ?? account.studentId}
+                subtitle={account.studentId}
+                status={
+                  <Badge tone={STATUS_TONES[account.status]} size="sm" title={STATUS_HELP[account.status]}>
+                    {STATUS_LABELS[account.status]}
+                  </Badge>
+                }
+                actions={<AccountActions account={account} />}
+              >
+                <DataRow label="Class">{account.classLevel ?? '—'}</DataRow>
+                <DataRow label="School">{account.schoolName ?? '—'}</DataRow>
+                <DataRow label="Email">
+                  {account.email}
+                  {!account.isEmailVerified && (
+                    <>
+                      {' '}
+                      <Badge tone="warning" size="sm">
+                        unverified
+                      </Badge>
+                    </>
+                  )}
+                </DataRow>
+                <DataRow label="Phone">{account.mobile}</DataRow>
+                <DataRow label="Payment">
+                  <PaymentCell entry={account} />
+                </DataRow>
+                <DataRow label="Registered">
+                  {new Date(account.registeredAt).toLocaleDateString('en-IN')}
+                </DataRow>
+                <DataRow label="Role">
+                  <Badge tone={account.role === 'student' ? 'neutral' : 'primary'} size="sm">
+                    {account.role === 'superadmin' ? 'super admin' : account.role}
+                  </Badge>
+                </DataRow>
+                <DataRow label="Last sign-in">
+                  {account.lastLoginAt ? new Date(account.lastLoginAt).toLocaleDateString('en-IN') : 'Never'}
+                </DataRow>
+              </DataCard>
+            ))}
+          </DataCardList>
+
+          <TableScroll label="Registered students" className={styles.desktopOnly}>
+            <Table density="compact">
               <thead>
                 <tr>
                   <th>Photo</th>
@@ -765,11 +951,20 @@ export default function Users() {
                     <td className={styles.mono}>{account.studentId}</td>
                     <td>
                       {account.fullName ?? '—'}
-                      {!account.isEmailVerified && <span className={styles.unverified}>unverified</span>}
+                      {!account.isEmailVerified && (
+                        <Badge tone="warning" size="sm" className={styles.rowBadge}>
+                          unverified
+                        </Badge>
+                      )}
                       {account.mustChangePassword && (
-                        <span className={styles.pendingReset} title="A temporary password is outstanding">
+                        <Badge
+                          tone="info"
+                          size="sm"
+                          className={styles.rowBadge}
+                          title="A temporary password is outstanding"
+                        >
                           reset pending
-                        </span>
+                        </Badge>
                       )}
                     </td>
                     <td className={styles.muted}>{account.classLevel ?? '—'}</td>
@@ -781,12 +976,14 @@ export default function Users() {
                     </td>
                     <td className={styles.muted}>{new Date(account.registeredAt).toLocaleDateString()}</td>
                     <td>
-                      <span className={account.role === 'student' ? styles.roleStudent : styles.roleAdmin}>
+                      <Badge tone={account.role === 'student' ? 'neutral' : 'primary'} size="sm">
                         {account.role === 'superadmin' ? 'super admin' : account.role}
-                      </span>
+                      </Badge>
                     </td>
                     <td>
-                      <span className={styles[`status_${account.status}`]}>{STATUS_LABELS[account.status]}</span>
+                      <Badge tone={STATUS_TONES[account.status]} size="sm" title={STATUS_HELP[account.status]}>
+                        {STATUS_LABELS[account.status]}
+                      </Badge>
                     </td>
                     <td className={styles.muted}>
                       {account.lastLoginAt ? new Date(account.lastLoginAt).toLocaleDateString() : 'Never'}
@@ -795,97 +992,25 @@ export default function Users() {
                       {/* The super administrator is not manageable through the API at
                           all — the backend refuses every one of these. Offering the
                           buttons anyway would just be a row of guaranteed errors. */}
-                      {account.role === 'superadmin' ? (
-                        <span className={styles.muted} title="Managed through the deployment environment, not the app">
-                          Protected
-                        </span>
-                      ) : (
-                      <div className={styles.actions}>
-                        {canWriteStatus && (
-                          <select
-                            className={styles.actionSelect}
-                            value={account.status}
-                            disabled={busyId === account.studentId}
-                            onChange={(e) => void changeStatus(account, e.target.value as AccountStatus)}
-                            aria-label={`Change status for ${account.studentId}`}
-                            title={STATUS_HELP[account.status]}
-                          >
-                            {(Object.keys(STATUS_LABELS) as AccountStatus[]).map((status) => (
-                              <option key={status} value={status} title={STATUS_HELP[status]}>
-                                {STATUS_LABELS[status]}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                        {/* Only rendered for a super admin — and the backend refuses it
-                            for anyone else regardless of what the UI shows. */}
-                        {canWriteRole && (
-                          <button
-                            className={styles.roleBtn}
-                            disabled={busyId === account.studentId}
-                            onClick={() => void changeRole(account, account.role === 'admin' ? 'student' : 'admin')}
-                          >
-                            {account.role === 'admin' ? 'Revoke admin' : 'Make admin'}
-                          </button>
-                        )}
-                        {canResetPassword && (
-                          <button
-                            className={styles.actionBtn}
-                            disabled={busyId === account.studentId}
-                            onClick={() => void resetPassword(account)}
-                            title="Issues a one-time password and signs the account out everywhere"
-                          >
-                            Reset password
-                          </button>
-                        )}
-                        {canRevokeSessions && (
-                          <button
-                            className={styles.actionBtn}
-                            disabled={busyId === account.studentId}
-                            onClick={() => void revokeSessions(account)}
-                            title="Ends every active session without changing anything else"
-                          >
-                            Sign out
-                          </button>
-                        )}
-                        {/* Deletion is offered only where it can actually succeed: a
-                            verified account is refused by the backend, so showing the
-                            button would be an invitation to a 409. */}
-                        {canDelete && !account.isEmailVerified && (
-                          <button
-                            className={styles.dangerBtn}
-                            disabled={busyId === account.studentId}
-                            onClick={() => setPendingDelete(account)}
-                            title="Permanently deletes this unverified account"
-                          >
-                            Delete
-                          </button>
-                        )}
-                        {!canWriteStatus && !canWriteRole && !canResetPassword && !canRevokeSessions && (
-                          <span className={styles.muted}>View only</span>
-                        )}
-                      </div>
-                      )}
+                      <AccountActions account={account} />
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
+          </>
         )}
 
-        {pagination && pagination.totalPages > 1 && (
-          <div className={styles.pager}>
-            <button disabled={pagination.page <= 1} onClick={() => setPage((p) => p - 1)}>
-              Previous
-            </button>
-            <span>
-              Page {pagination.page} of {pagination.totalPages} · {pagination.total} accounts
-            </span>
-            <button disabled={pagination.page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)}>
-              Next
-            </button>
-          </div>
+        {pagination && (
+          <Pagination
+            page={pagination.page}
+            pageCount={pagination.totalPages}
+            total={pagination.total}
+            pageSize={PAGE_SIZE}
+            label="Student pages"
+            onChange={setPage}
+          />
         )}
       </div>
     </AdminShell>

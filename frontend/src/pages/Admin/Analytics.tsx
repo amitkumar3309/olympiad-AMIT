@@ -5,6 +5,11 @@ import AdminShell from './AdminShell'
 import ChartCard from '../../components/ChartCard'
 import StatTile from '../../components/StatTile'
 import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Table,
+  TableScroll,
+} from '../../components/ui'
 import styles from './Analytics.module.css'
 
 /** `2026-08-10` → `10 Aug`, for a readable chart axis. */
@@ -52,7 +57,7 @@ export default function Analytics() {
   if (error)
     return (
       <AdminShell title="Analytics">
-        <p className="error-text">{error}</p>
+        <Alert tone="danger">{error}</Alert>
       </AdminShell>
     )
   if (!analytics) return null
@@ -154,7 +159,10 @@ export default function Analytics() {
 
       <h3 className={styles.heading}>By class</h3>
       <div className={`card ${styles.classCard}`}>
-        <table className={styles.table}>
+        {/* The one table in the product with no scroll wrapper at all, so it pushed a
+            375px screen sideways — found in the Phase B browser pass, fixed here. */}
+        <TableScroll label="Registrations and activity by class">
+          <Table density="compact">
           <thead>
             <tr>
               <th>Class</th>
@@ -177,7 +185,8 @@ export default function Analytics() {
               </tr>
             ))}
           </tbody>
-        </table>
+          </Table>
+        </TableScroll>
         <p className={styles.note}>
           Every offered class is listed, including those with nobody in them — a missing row would read as missing data,
           whereas a zero is a fact about the cohort.

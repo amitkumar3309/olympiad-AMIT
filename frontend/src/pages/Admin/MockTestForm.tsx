@@ -17,6 +17,7 @@ import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
+import { Alert, Icon } from '../../components/ui'
 import styles from './MockTests.module.css'
 
 /**
@@ -447,7 +448,7 @@ export default function MockTestForm() {
 
   return (
     <AdminShell title={editing ? `Edit: ${existing?.title ?? 'mock test'}` : 'New mock test'}>
-      {error && <p className="error-text">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
       {paperLocked ? (
         <p className={styles.warn}>
@@ -736,7 +737,7 @@ export default function MockTestForm() {
                       disabled={index === 0 || paperLocked}
                       aria-label="Move up"
                     >
-                      ↑
+                      <Icon name="ph-arrow-up" weight="bold" size="sm" />
                     </button>
                     <button
                       type="button"
@@ -745,7 +746,7 @@ export default function MockTestForm() {
                       disabled={index === selected.length - 1 || paperLocked}
                       aria-label="Move down"
                     >
-                      ↓
+                      <Icon name="ph-arrow-down" weight="bold" size="sm" />
                     </button>
                     <button
                       type="button"
@@ -783,7 +784,7 @@ export default function MockTestForm() {
             </Button>
           </form>
 
-          {pickerError && <p className="error-text">{pickerError}</p>}
+          {pickerError && <Alert tone="danger">{pickerError}</Alert>}
 
           {pickerLoading ? (
             <div className={styles.centered}>

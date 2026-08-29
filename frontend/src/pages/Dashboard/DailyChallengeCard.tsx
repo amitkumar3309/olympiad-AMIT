@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import MathText from '../../components/MathText'
-import Button from '../../components/Button'
-import { api, ApiError } from '../../api/client'
+import { Badge, ButtonLink, Card, CardHeader, EmptyState, SkeletonText } from '../../components/ui'
+import { humanizeError } from '../../lib/errors'
+import { api } from '../../api/client'
 import type { DailyChallengeToday } from '../../api/types'
 import styles from './Dashboard.module.css'
 
@@ -35,7 +35,7 @@ export default function DailyChallengeCard() {
         if (!cancelled) setState(res)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load today’s challenge.')
+        if (!cancelled) setError(humanizeError(err, { fallback: 'Could not load today’s challenge.' }))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -47,38 +47,37 @@ export default function DailyChallengeCard() {
 
   if (loading) {
     return (
-      <div className="card">
-        <h3>🎲 Today’s challenge</h3>
-        <p className={styles.challengeLoading}>Loading…</p>
-      </div>
+      <Card>
+        <CardHeader title="Today's challenge" size="sm" as="h3" />
+        <SkeletonText lines={3} label="Loading today's challenge" />
+      </Card>
     )
   }
 
   if (error) {
     return (
-      <div className="card">
-        <h3>🎲 Today’s challenge</h3>
-        <div className={styles.empty}>
-          <i className="ph-bold ph-warning-circle" />
-          <p>{error}</p>
-        </div>
-      </div>
+      <Card>
+        <CardHeader title="Today's challenge" size="sm" as="h3" />
+        <EmptyState size="sm" icon="ph-warning-circle" title="Could not be loaded" description={error} />
+      </Card>
     )
   }
 
   if (!state?.challenge) {
     return (
-      <div className="card">
-        <h3>🎲 Today’s challenge</h3>
-        <div className={styles.empty}>
-          <i className="ph-bold ph-dice-five" />
-          <p>
-            {state?.reason === 'no-class'
+      <Card>
+        <CardHeader title="Today's challenge" size="sm" as="h3" />
+        <EmptyState
+          size="sm"
+          icon="ph-dice-five"
+          title={state?.reason === 'no-class' ? 'We need your class first' : 'No challenge today'}
+          description={
+            state?.reason === 'no-class'
               ? 'Add your class to your profile and a daily challenge will be set for it.'
-              : 'No challenge today — nothing has been published for your class yet. Check back soon.'}
-          </p>
-        </div>
-      </div>
+              : 'Nothing has been published for your class yet. A challenge appears here as soon as one is.'
+          }
+        />
+      </Card>
     )
   }
 
@@ -86,17 +85,23 @@ export default function DailyChallengeCard() {
   const answered = state.attempt !== null
 
   return (
-    <div className="card">
-      <div className={styles.challengeHead}>
-        <h3>🎲 Today’s challenge</h3>
-        <span className={styles.challengeBadge}>
-          {question.difficulty} · {question.marks} {question.marks === 1 ? 'mark' : 'marks'}
-        </span>
-      </div>
+    <Card>
+      <CardHeader
+        title="Today's challenge"
+        size="sm"
+        as="h3"
+        actions={
+          <Badge tone="neutral" uppercase size="sm">
+            {question.difficulty} · {question.marks} {question.marks === 1 ? 'mark' : 'marks'}
+          </Badge>
+        }
+      />
 
-      <p className={styles.challengeTaxonomy}>
-        {[question.topic?.name, question.subtopic?.name].filter(Boolean).join(' › ')}
-      </p>
+      {[question.topic?.name, question.subtopic?.name].filter(Boolean).length > 0 && (
+        <p className={styles.challengeTaxonomy}>
+          {[question.topic?.name, question.subtopic?.name].filter(Boolean).join(' › ')}
+        </p>
+      )}
 
       <div className={styles.challengeQuestion}>
         <MathText>{question.questionText}</MathText>
@@ -117,11 +122,13 @@ export default function DailyChallengeCard() {
       )}
 
       <div className={styles.challengeActions}>
-        <Link to="/daily-challenge">
-          <Button variant={answered ? 'outline' : 'primary'}>
-            {answered ? 'See your answer' : 'Answer today’s challenge'}
-          </Button>
-        </Link>
+        <ButtonLink
+          to="/daily-challenge"
+          variant={answered ? 'secondary' : 'primary'}
+          icon={answered ? 'ph-eye' : 'ph-pencil-simple'}
+        >
+          {answered ? 'See your answer' : 'Answer today’s challenge'}
+        </ButtonLink>
         <span className={styles.challengeNote}>
           {answered
             ? state.attempt?.isCorrect
@@ -132,6 +139,6 @@ export default function DailyChallengeCard() {
               }`}
         </span>
       </div>
-    </div>
+    </Card>
   )
 }

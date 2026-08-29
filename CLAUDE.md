@@ -31,7 +31,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 
 ## Technology Stack
 
-- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind). Linter: `oxlint`.
+- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the twenty-one primitives in `src/components/ui` (Phase E added `Steps`). Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`; **no icon library is installed as a dependency**. Fonts: Inter (interface), Poppins (headings/brand), JetBrains Mono (figures), Cinzel (the printed certificate only). Linter: `oxlint`.
 - **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. One AI dependency: **`@google/genai`** (question drafting only — see the Milestone 20 ADR, which supersedes Milestone 17's decision against an SDK; it is `require`d rather than `import`ed for a packaging reason documented at the top of `services/geminiQuestionGenerator.ts`). Modular structure since Milestone 1 (`config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/`). Uses `zod` (validation), `pino` (logging), `helmet`, `express-rate-limit`. Linter: `eslint` + `typescript-eslint`. Tests: `vitest` + `supertest`.
 - **Database**: MongoDB via Mongoose.
 - **Auth**: short-lived access JWT + rotating opaque refresh token, both in `httpOnly` cookies; passwords hashed with `bcryptjs` (cost 12). Email via `nodemailer` over SMTP.
@@ -42,11 +42,34 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 
 ```
 /frontend                  React SPA (Vite)
+  src/styles/theme.css      THE single global entry (main.tsx imports only this):
+                            three @imports, in a load-bearing order
+  src/styles/tokens.css     THE design tokens — palette -> semantic -> legacy
+                            aliases. Nothing in src/ may hardcode a colour,
+                            radius, shadow, duration or z-index (M23 A)
+  src/styles/base.css       element defaults, the one global focus ring,
+                            prefers-reduced-motion honoured once
+  src/styles/utilities.css  six layout utilities + the five pre-existing global
+                            classes (.card, .form-control, ...), kept working
+  src/components/ui/        THE design system: 21 domain-agnostic primitives +
+                            index.ts barrel. A component belongs here only if it
+                            knows nothing about this product (M23 A)
   src/pages/<Page>/         one folder per route, colocated .module.css
-  src/components/           shared presentational components
+  src/pages/DesignSystem/   the primitive reference — DEVELOPMENT ONLY, absent
+                            from a production build
+  src/pages/NotFound/       the catch-all (M23 E). Without it an unmatched path
+                            renders NOTHING, which looks like a crash
+  src/pages/Auth/           sign-in + registration (rendered BY the landing page)
+                            and the four pages reached from an email (M23 C)
+  src/components/layout/    THE app shell + THE navigation model (M23 B):
+                            AppShell.tsx renders the chrome for BOTH signed-in
+                            areas; navigation.ts is the menus as data
+  src/components/           shared components that DO know the domain
+                            (EntryFeeBanner, MathText, Navbar, Footer, ...)
   src/context/AuthContext.tsx   session state (loading/guest/student/admin)
   src/api/client.ts         fetch wrapper (credentials: 'include')
   src/api/types.ts          shared response DTOs
+  src/lib/errors.ts         humanizeError() — a 5xx message never reaches a user
   vercel.json               rewrites /api/* to the deployed backend URL
   vite.config.ts            dev-only proxy of /api -> localhost:8081
 
@@ -197,6 +220,150 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - Auth state is read via `useAuth()` from `AuthContext` — never re-implement session state locally in a page.
 - Route guards: `ProtectedRoute` (requires a student account) and `RequirePermission` (requires a capability) in `src/components/ProtectedRoute.tsx`. `AdminRoute` was **removed** in Milestone 3 — use `RequirePermission permission="..."`, which renders the `Unauthorized` component for a signed-in user rather than silently redirecting.
 - Read permissions with `can('...')` from `useAuth()`. The permission list arrives from the backend on every auth response; **never** reimplement the role → permission mapping on the frontend, and never branch on `state.status` to decide whether something administrative is allowed (`status` says which *kind* of account is signed in, not what it may do — a promoted admin has `status: 'student'`). Wrap new authenticated pages in these rather than checking `state.status` ad hoc in the page body (existing pages do check `state.status` for conditional rendering, e.g. to show a preview vs. real data — that's fine; the *route-level* gate should still use the wrapper).
+
+## Design System (Milestone 23, Phase A)
+
+- **There is exactly one design system: `frontend/src/components/ui`**, over one token layer:
+  `styles/tokens.css` (palette → semantic → legacy aliases) → `styles/base.css` (element defaults) →
+  `styles/utilities.css` (global classes). `styles/theme.css` is the single entry `main.tsx` imports
+  and is nothing but those three `@import`s, in that order — utilities must be able to override a
+  base element rule. **Do not add a fourth global stylesheet**: a global rule is a rule that can
+  reach a page nobody was thinking about.
+- **No colour, radius, shadow, duration, z-index or breakpoint value may be hardcoded in `src/`.** If
+  no token fits, add one to `tokens.css`. A component references the **semantic** layer only
+  (`--primary`, `--danger-soft`, `--surface`) — never a palette step (`--blue-600`), which exists so
+  the semantic layer can be re-pointed in one place.
+- **`.theme-dark` must stay *below* `:root` in `tokens.css`.** Both selectors match
+  `document.documentElement` with identical specificity (0,1,0), so **source order is the only reason
+  dark mode wins**. Anything added to one needs a counterpart in the other. A CSS Module cannot name
+  `.theme-dark` without `:global` and should not want to: if a component needs a per-theme value, that
+  is a token (see `--tooltip-bg`).
+- **The legacy aliases and the five global classes are load-bearing, not leftovers.** `--royal-blue`
+  (144 references), `--text-main`, `--gold`, `.card`, `.form-control`, `.form-group`, `.error-text`
+  and `.success-text` are what let 29 un-migrated pages inherit the redesign without being edited, and
+  `components/Button.tsx`, `Spinner.tsx` and `StatTile.tsx` are re-exports keeping 88 imports working.
+  Retire them **page by page** as each is redesigned; do not delete one while a page still uses it, and
+  do not build new code on them.
+- **A component belongs in `ui/` only if it knows nothing about this product.** `Badge` does not know
+  what a payment state is; `Table` does not know what a student is. `EntryFeeBanner`,
+  `Recommendations`, `MathText`, `ResetPanel` and the two shells stay in `components/`. That line is
+  what stops the design system becoming a second home for business rules.
+- **Icons are Phosphor, via `ui/Icon.tsx`, and only `regular` and `bold` exist.** `index.html` loads
+  those two stylesheets; `ph-fill`, `ph-light`, `ph-thin` and `ph-duotone` match no `@font-face` and
+  render an **invisible glyph** rather than falling back, which is why the type admits two weights.
+  Never write the `<i className="ph-...">` by hand in new code. **No icon may be the only carrier of
+  meaning** — partly accessibility, partly because the font comes from a CDN at runtime. Do not add a
+  second icon library, and do not "fix" the CDN by installing `@phosphor-icons/web`: its `@font-face`
+  lists four formats including a 3 MB SVG font, all of which the bundler then emits (this was tried
+  and reverted — see the ADR).
+- **Rules the types enforce, so review does not have to.** A `Field` cannot be constructed without a
+  `label` (a placeholder is not a label — it disappears when anybody types). An icon-only `Button`
+  cannot be constructed without an `aria-label`. A `Badge` always carries words, so a payment state can
+  never be rendered as a bare coloured dot. `EmptyState` requires a `description`, because "why is this
+  empty" is what decides whether a reader thinks the product is broken. Do not loosen any of these to
+  make a call site shorter.
+- **No invented progress.** `Progress` is determinate only with a real `value` out of a real `max`
+  (questions answered, rows validated, marks scored); anything whose length is unknown must pass
+  `indeterminate`, which omits `aria-valuenow` — the ARIA way of saying the value is unknown. A bar
+  that eases to 90% and waits is a fiction, and the same rule as `StatTile`'s applies to figures:
+  **`null` renders an em dash, never `0`.**
+- **A 5xx message is never shown to a user.** Route every caught error through `humanizeError()` in
+  `lib/errors.ts` (or hand the error itself to `ErrorState`). A 4xx message *is* passed through, because
+  this product's 4xx copy is written for the reader; a 5xx message is whatever fell out of the server.
+- **A toast is not an error state.** `useToast()` confirms something that just finished. A validation
+  failure belongs beside its field (`Field`'s `error`), a caveat about the page belongs on the page
+  (`Alert`), a destructive confirmation belongs in a `Modal`. A screen that toasts on every interaction
+  trains people to dismiss them.
+- **`Tabs` has two modes and picking the wrong one is a defect.** `mode="tabs"` is the ARIA tabs
+  pattern and **requires a `TabPanel` per item**; `mode="filter"` is for "All / Draft / Published" above
+  a list, and renders a labelled group with `aria-pressed`. `role="tab"` obliges an `aria-controls`
+  naming a panel that exists — a filter used as a tablist points at nothing, which is what this
+  component did on its first outing. Nothing may emit an ARIA IDREF at an element not in the document.
+- **Mobile is the base case.** Write the phone layout with no media query and use `min-width` queries
+  only to *widen* it. Breakpoints are 480 / 768 / 1024 / 1280 (documented at the top of `tokens.css`);
+  a `max-width` query is still right for hiding a desktop-only affordance. A table gets **either**
+  `TableScroll` (contained horizontal scroll — the page must never be draggable off its edge) **or**
+  `DataCardList` (one card per record). Do not drop a column to make a table fit: that means the
+  information exists only on a desktop.
+- **16px is the minimum font size for a focused input.** Mobile Safari zooms the viewport when a
+  focused field's text is smaller and does not zoom back out — it looks exactly like a broken layout.
+  Both `ui/Input` and the legacy `.form-control` carry the rule under `@media (pointer: coarse)`.
+- **`requestAnimationFrame` and `ResizeObserver` do not run while a tab is not compositing**, so
+  neither may be the only path to a correctness-relevant effect. The modal focused inside a frame and
+  therefore never moved focus in a hidden tab; `TableScroll` needed a `window.resize` listener beside
+  its observer to keep keyboard access to its own overflow. Both are fixed; the trap is waiting for the
+  next component that reaches for either. It is also why a CSS transition or animation can leave a
+  computed style reporting its *start* value in a hidden preview — a measurement artifact, not a bug.
+- **There is one app shell: `components/layout/AppShell`**, over one navigation model in
+  `components/layout/navigation.ts`. `StudentShell` and `AdminShell` are wrappers around it and
+  must stay that way — they were copies of each other before Milestone 23 Phase B, and the copies
+  had already drifted. Add a destination by adding it to the model, not to a page: the desktop
+  sidebar, the drawer, the mobile bottom bar and the admin permission filter all read from it.
+  **Every entry must point at a route that exists and a feature that is built** — there is
+  deliberately no admin *Practice* item and no general *Settings* page.
+- **Anything delivered with the browser's rendering steps may never arrive.** `requestAnimationFrame`,
+  `ResizeObserver`, a `MediaQueryList` change event and a CSS transition's completion all stop in a
+  tab that is not compositing — a background tab, a hidden preview, a headless run. Fine as an
+  optimisation; **never the only path to a correctness-relevant effect.** Phase B lost two
+  implementations of the drawer to this rule (a `visibility`-hidden panel cannot be focused until a
+  style recalculation happens; `inert` removed by a media query left the whole desktop sidebar
+  unreachable). The shape that works is **mounting**: the drawer exists only while it is open, and
+  the sidebar is `display: none` below 1024px.
+- **The mobile bottom bar is student-only, and the burger is what the admin area has instead.** If
+  you change one, check the other: hiding the burger below 768px (where the bottom bar replaces it)
+  left an administrator on a phone with no way to open the menu at all.
+- **A form reports every problem, on the field it belongs to.** One validation pass, a message
+  under each field (`Field`'s `error`, which also sets `aria-invalid` and the described-by
+  wiring), and — on a long form — a summary at the top whose entries **move focus** to the field
+  they name. Registration used to show the first problem only, as one string at the top of a
+  two-screen form; that is what this rule exists to prevent. Give `Field` an explicit `id` when
+  something outside has to focus it; never put the `id` on the control instead, which breaks the
+  label's `htmlFor`.
+- **Every credential field carries `autoComplete`**, and the sign-in identifier is `username`
+  (it takes a mobile number *or* an email, so telling a password manager it is an email makes it
+  offer the wrong value). Passwords use `ui/PasswordInput`, which has the show/hide toggle.
+- **A sign-in form uses `humanizeSignInError()`, not `humanizeError()`.** The ordinary humanizer
+  rewrites a 401 as "your session has ended", which is right for a page whose data was refused and
+  nonsense on the form you are signing in with — where a 401 means the credentials were wrong, and
+  the backend's message is deliberately identical for an unknown account and a wrong password. The
+  sign-in **400** is the opposite case: it is a zod aggregate rather than curated copy, so it is
+  replaced rather than printed. Both reached a real screen before this existed.
+- **A student-facing figure that is unknown renders an em dash, never a zero.** `StatTile` takes
+  `null` for exactly this, and the rule reaches the UI from the data layer: "not ranked yet" and
+  "ranked last", "no reward configured" and "a reward of zero", are different facts. The same goes
+  for `Progress` — a bar needs a real `value` out of a real `max`, and anything else is
+  `indeterminate`.
+- **The three question runners are one design, in three files.** Practice, the mock test and the
+  daily challenge share the option row (56px minimum, full width, chosen state carried by border
+  *and* tint *and* a filled key circle), the 44px palette button and the stacked mobile navigation.
+  They do not share a stylesheet, so changing one means changing the others — two runners that look
+  different are two runners a student has to learn.
+- **A chart may not name a colour.** `ChartCard` resolves its colours from the tokens at render time
+  and re-reads them when the theme changes; callers pass a semantic `tone`. Chart.js draws on a
+  canvas and cannot use a CSS variable, which is why the three charts had hex literals in them and
+  stayed light-mode blue on a dark page. A canvas is also an image to a screen reader, so every
+  chart carries `role="img"` and a summary, and the same numbers are always in a table nearby.
+- **There is a catch-all route, and it must stay.** React Router renders **nothing** when no path
+  matches, which is a blank white page — indistinguishable from a crash, and exactly what every
+  generated referral link produced before `/register` was declared. `<Route path="*">` at the end of
+  the table renders `pages/NotFound`, which **names the path that did not resolve** rather than
+  guessing where the reader meant to go. Do not remove it to "clean up" the route table, and do not
+  make it redirect: a silent redirect hides the typo that caused it.
+- **`Steps` is a state display, not a control, and its middle step is the honest one.** Three flows
+  are multi-step — registration, bulk import, AI drafting — and all three now use `ui/Steps` rather
+  than three spellings of a row of numbered chips. The current step is **derived from what exists**
+  (`saved ? … : batch?.length ? 'review' : 'upload'`) rather than tracked in its own state, because a
+  second copy of the state is a second thing that can disagree with the screen. A step is `done` only
+  once the work behind it is finished: an import that has been *previewed* has written **nothing**,
+  and calling that step anything but Review would be a claim the database does not support.
+- **Every admin page lives inside `AdminShell`.** `/ai-generator` did not: it rendered its own frame
+  with a `← Back to Admin` text link, so reaching it from the admin drawer dropped the reader out of
+  the shell — no navigation, no current-page marker, one way back. It is in the admin *navigation*,
+  which is what makes that a defect rather than a choice. If you add an admin route, render the shell.
+- **`/design-system` is development-only** (`import.meta.env.DEV`, statically dead in a production
+  build). Keep it current as primitives change: with no frontend test suite it is the only place the
+  whole system can be checked in both themes at every width. It must contain **no product data and
+  make no API call**.
 
 ## Backend Conventions
 

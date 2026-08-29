@@ -6,6 +6,7 @@ import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
+import { Icon } from '../../components/ui'
 import styles from './Verify.module.css'
 
 /**
@@ -105,7 +106,7 @@ export default function Verify() {
             <div className={styles.verdict}>
               {result.valid ? (
                 <>
-                  <span className={styles.tick}>✓</span>
+                  <Icon name="ph-check" weight="bold" size="sm" className={styles.tick} />
                   <div>
                     <h2>This certificate is genuine</h2>
                     <p>Issued by A.M.I.T Maths Olympiad and not withdrawn.</p>

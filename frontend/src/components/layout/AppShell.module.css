@@ -1,0 +1,581 @@
+/**
+ * Chrome for both signed-in areas. Mobile is the base case: what is written here with
+ * no media query is the phone, and the two `min-width` queries only widen it.
+ *
+ *   base        the sidebar is an off-screen drawer; a bottom bar (student) or a
+ *               burger (admin) opens it
+ *   ≥ 768px     a burger in the topbar, no bottom bar
+ *   ≥ 1024px    the sidebar is permanent and the burger disappears
+ */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  /* `dvh` so a phone's collapsing browser chrome does not leave a gap at the bottom
+     of a short page. `100vh` is kept above as the fallback. */
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text-body);
+}
+
+/* Room for the bottom bar, so the last row of a page is not underneath it. */
+.withBottomNav .content {
+  padding-bottom: calc(var(--bottom-nav-height) + var(--space-6) + env(safe-area-inset-bottom, 0px));
+}
+
+/**
+ * The skip link. Visually hidden until focused, then a real button at the top of the
+ * page — 30-odd navigation links otherwise stand between a keyboard user and the
+ * content on every single page.
+ */
+.skipLink {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-tooltip);
+  transform: translateY(-200%);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--primary-on);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  box-shadow: var(--shadow-lg);
+  transition: transform var(--dur) var(--ease);
+}
+
+.skipLink:focus-visible {
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   SIDEBAR AND DRAWER
+
+   The same panel in two places. The sidebar is `display: none` below 1024px —
+   CSS, so it cannot be stale, and `display: none` removes it from the
+   accessibility tree as well as from view. The drawer is only in the document
+   while it is open, so it needs no hiding mechanism at all. See the note in
+   `AppShell.tsx` for the two implementations this replaced.
+   ========================================================================== */
+
+.sidebar {
+  display: none;
+}
+
+.drawer {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: var(--z-drawer);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--sidebar-width), 86vw);
+  background: var(--surface);
+  border-right: var(--border-width) solid var(--border);
+  box-shadow: var(--shadow-xl);
+  animation: shell-slide-in var(--dur-slow) var(--ease);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-drawer-backdrop);
+  background: var(--overlay);
+  animation: shell-fade var(--dur) var(--ease-out);
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  font-family: var(--font-heading);
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.brand span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.closeDrawer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.closeDrawer:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* The nav scrolls independently, so the brand stays put and sign-out stays reachable
+   however long the list is. */
+.panelScroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3) var(--space-3) var(--space-4);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.groupLabel {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-3);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item,
+.itemActive {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  /* 44px on every device, not only on a touch screen: a twenty-item menu is easier to
+     hit with a mouse at this height too. */
+  min-height: var(--tap-target);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.item:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/**
+ * The current page. A tinted background *and* a heavier weight *and* a left marker —
+ * the previous treatment was a solid blue fill, which read as a button rather than as
+ * a position, and left the row's own hover state nowhere to go.
+ */
+.itemActive {
+  position: relative;
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+}
+
+.itemActive::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 3px;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+  background: var(--primary);
+}
+
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemTrailing {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.panelFoot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.panelActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panelActions > *:first-child {
+  flex-shrink: 0;
+}
+
+.logout {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+}
+
+.logout:hover {
+  border-color: var(--danger);
+  color: var(--danger-text);
+  background: var(--danger-soft);
+}
+
+@keyframes shell-slide-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+/* ==========================================================================
+   CONTENT COLUMN
+   ========================================================================== */
+
+.column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/**
+ * Sticky on a phone only. There it carries the page title and the notification bell
+ * and costs 56px; on a desktop the sidebar is already permanent and a second fixed
+ * band would just take height from the tables.
+ */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 56px;
+  padding: var(--space-2) var(--gutter);
+  background: var(--surface);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+/**
+ * Present at every width below 1024px **except** where the bottom bar's More button
+ * already opens the same drawer — that is, the student area on a phone.
+ *
+ * It was the other way round at first (hidden by default, shown from 768px), which
+ * left an administrator on a 375px screen with no way to open the menu at all: the
+ * bottom bar that replaces it is student-only.
+ */
+.burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  margin-left: calc(var(--space-2) * -1);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+}
+
+.burger:hover {
+  background: var(--surface-hover);
+}
+
+/* The student bottom bar carries its own way in to the drawer, so the topbar's burger
+   would be a second control for the same thing. */
+.withBottomNav .burger {
+  display: none;
+}
+
+/* A timed paper drops the bottom bar, so its burger is the only way out and must be
+   present at every width below the permanent sidebar. */
+.burgerAlways {
+  display: inline-flex;
+}
+
+.titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+  color: var(--text);
+  overflow-wrap: break-word;
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+  overflow-wrap: break-word;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.bell:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* The dot is not the only signal — the drawer item carries the actual count, and the
+   bell's own accessible name says how many. */
+.bellDot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  border: 2px solid var(--surface);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-5) var(--gutter) var(--space-12);
+}
+
+.content:focus-visible {
+  outline: none;
+}
+
+/* ==========================================================================
+   BOTTOM BAR — student, below 768px
+   ========================================================================== */
+
+.bottomNav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-header);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: stretch;
+  height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--surface);
+  border-top: var(--border-width) solid var(--border);
+  /* Sits above the page but below a dialog and below a toast. */
+  box-shadow: var(--shadow-md);
+}
+
+.bottomItem,
+.bottomItemActive {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: var(--space-1) 2px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.bottomItem > span:last-child,
+.bottomItemActive > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottomItemActive {
+  color: var(--primary-text);
+}
+
+/* The current tab is marked by a bar at the top of its cell as well as by colour, so
+   the state is not carried by hue alone. */
+.bottomItemActive::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 28px;
+  height: 3px;
+  border-radius: 0 0 var(--radius-pill) var(--radius-pill);
+  background: var(--primary);
+}
+
+.bottomItem,
+.bottomItemActive {
+  position: relative;
+}
+
+.bottomMore {
+  position: relative;
+  display: inline-flex;
+}
+
+@keyframes shell-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   ≥ 768px — a burger instead of the bottom bar
+   ========================================================================== */
+
+@media (min-width: 768px) {
+  /* The bottom bar is gone from here up, so the burger comes back for the student
+     area too. */
+  .withBottomNav .burger {
+    display: inline-flex;
+  }
+
+  /* A tablet is not held one-handed, so the thumb-zone argument for a bottom bar does
+     not apply — and the burger it would duplicate is now in the topbar. */
+  .bottomNav {
+    display: none;
+  }
+
+  .withBottomNav .content,
+  .content {
+    padding: var(--space-6) var(--space-6) var(--space-16);
+  }
+}
+
+/* ==========================================================================
+   ≥ 1024px — the sidebar is permanent
+   ========================================================================== */
+
+@media (min-width: 1024px) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    width: var(--sidebar-width);
+    background: var(--surface);
+    border-right: var(--border-width) solid var(--border);
+  }
+
+  /* Belt and braces: the drawer is not mounted at this width, but if it somehow is
+     — opened on a phone and the window then widened — it must not cover the page. */
+  .drawer,
+  .backdrop,
+  .burger,
+  .burgerAlways {
+    display: none;
+  }
+
+  .topbar {
+    position: static;
+    min-height: 0;
+    padding: var(--space-6) var(--space-8) 0;
+    background: transparent;
+    border-bottom: none;
+  }
+
+  .titles {
+    padding-right: var(--space-4);
+  }
+
+  .title {
+    font-size: var(--text-2xl);
+  }
+
+  .subtitle {
+    font-size: var(--text-sm);
+  }
+
+  .content {
+    padding: var(--space-5) var(--space-8) var(--space-16);
+  }
+
+  /* The bell belongs to the compact header; on a desktop the sidebar item carries the
+     count, which is the more informative of the two. */
+  .bell {
+    display: none;
+  }
+}

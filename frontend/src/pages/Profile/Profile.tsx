@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import Button from '../../components/Button'
-import Spinner from '../../components/Spinner'
+import { Alert, Button, ErrorState, Icon, SkeletonCards, Spinner } from '../../components/ui'
 import { api, ApiError } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -289,10 +288,7 @@ export default function Profile() {
   if (loading) {
     return (
       <StudentShell title="My profile">
-        <div className={styles.centered}>
-          <Spinner />
-          <p>Loading your profile…</p>
-        </div>
+        <SkeletonCards count={3} label="Loading your profile" />
       </StudentShell>
     )
   }
@@ -300,11 +296,12 @@ export default function Profile() {
   if (loadError || !profile) {
     return (
       <StudentShell title="My profile">
-        <div className={`card ${styles.centered}`}>
-          <h2>Could not load your profile</h2>
-          <p className="error-text">{loadError ?? 'Please try again.'}</p>
-          <Button onClick={() => void load()}>Try again</Button>
-        </div>
+        <ErrorState
+          error={loadError}
+          title="Could not load your profile"
+          message={loadError ?? 'Please try again.'}
+          onRetry={() => void load()}
+        />
       </StudentShell>
     )
   }
@@ -339,7 +336,7 @@ export default function Profile() {
               />
             ) : (
               <div className={styles.photoEmpty}>
-                <i className="ph-bold ph-user" />
+                <Icon name="ph-user" weight="bold" size="xl" />
                 <p>No photo on file yet.</p>
               </div>
             )}
@@ -362,7 +359,7 @@ export default function Profile() {
                 </Button>
               </div>
             )}
-            {photoError && <p className="error-text">{photoError}</p>}
+            {photoError && <Alert tone="danger">{photoError}</Alert>}
           </section>
 
           {/* ---------------------------------------------------------------
@@ -372,9 +369,9 @@ export default function Profile() {
             <div className={styles.sectionHead}>
               <h2>Student details</h2>
               {!editing && (
-                <button type="button" className={styles.editBtn} onClick={() => setEditing(true)}>
-                  <i className="ph-bold ph-pencil-simple" /> Edit
-                </button>
+                <Button size="sm" variant="secondary" icon="ph-pencil-simple" onClick={() => setEditing(true)}>
+                  Edit
+                </Button>
               )}
             </div>
 
@@ -411,7 +408,7 @@ export default function Profile() {
               </dl>
             ) : (
               <form onSubmit={handleSave} className={styles.form}>
-                {formError && <p className="error-text">{formError}</p>}
+                {formError && <Alert tone="danger">{formError}</Alert>}
 
                 <div className={styles.row}>
                   <label>
@@ -510,7 +507,7 @@ export default function Profile() {
                   {profile.email}{' '}
                   {profile.isEmailVerified ? (
                     <span className={styles.verified}>
-                      <i className="ph-bold ph-seal-check" /> Verified
+                      <Icon name="ph-seal-check" weight="bold" size="sm" /> Verified
                     </span>
                   ) : (
                     <span className={styles.unverified}>Not verified</span>
@@ -540,7 +537,7 @@ export default function Profile() {
 
             <h3>Change password</h3>
             <form onSubmit={handlePasswordChange} className={styles.form}>
-              {passwordError && <p className="error-text">{passwordError}</p>}
+              {passwordError && <Alert tone="danger">{passwordError}</Alert>}
               {passwordMessage && <p className={styles.successText}>{passwordMessage}</p>}
 
               <label>
@@ -593,7 +590,7 @@ export default function Profile() {
               trust.
             </p>
             <button type="button" className={styles.secondaryBtn} onClick={() => void logoutEverywhere()}>
-              <i className="ph-bold ph-sign-out" /> Sign out everywhere
+              <Icon name="ph-sign-out" weight="bold" /> Sign out everywhere
             </button>
 
             <hr className={styles.divider} />
@@ -608,7 +605,7 @@ export default function Profile() {
               message.
             </p>
 
-            {prefsError && <p className="error-text">{prefsError}</p>}
+            {prefsError && <Alert tone="danger">{prefsError}</Alert>}
 
             {prefs === null ? (
               <Spinner label="Loading your preferences..." />

@@ -4,6 +4,400 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-29 — An address nobody declared gets a page, not a blank screen
+
+**Context.** This app had no catch-all route. React Router renders nothing when no path matches, so
+`/admin/studnets`, an old bookmark or a link from an email produced a **blank white page** — no
+header, no navigation, no message. It is indistinguishable from a crashed bundle, and the reader's
+only recovery is to retype the address they already got wrong.
+
+This is not a hypothetical failure. `referralLinkFor()` generates `<app>/register?ref=<code>`, and
+`/register` was not a declared route until Milestone 22 Phase F — so **every referral link the
+product had ever sent was a blank page**, and nothing in 1,086 backend tests could see it.
+
+**Decision.** `<Route path="*" element={<NotFound />} />`, last in the table. The page **names the
+path that did not resolve** and offers the two destinations anybody can reach without knowing which
+kind of account is signed in.
+
+**Rejected: redirecting to `/` instead.** A redirect hides the typo that caused it — the reader ends
+up somewhere plausible and never learns why. It also makes a genuinely broken link
+indistinguishable from a working one, which is how the `/register` gap survived.
+
+**Rejected: guessing the intended route.** "Did you mean /admin/students?" needs a route table with
+edit distances and would confidently propose a page the reader has no permission for. Naming the
+path is the fact that helps; a guess is a second thing that can be wrong.
+
+**Consequence.** The route count is now 54 rather than 53. A future route added *after* the
+catch-all will never match — put new routes above it.
+
+## 2026-08-29 — A step indicator says what has happened, not how far along you are
+
+**Context.** Bulk import and AI drafting are both state machines: configure/upload, then review, then
+save. Neither said so. An examiner looking at a screen of parsed questions had **no way to tell
+whether anything had been written to the question bank** — which is precisely the distinction those
+two features are built around, since uploading and generating are deliberately non-writing
+operations and approval is the only writer.
+
+**Decision.** One shared `ui/Steps`, used by both and by registration (whose hand-built version it
+was extracted from). Three properties:
+
+1. **The current step is derived, never stored.** `saved ? 'saved' : batch?.length ? 'review' :
+   'upload'`. A separate `stage` state would be a second source of truth about the screen, and the
+   two would eventually disagree — the same reason there is no `hasPaid` flag on `Student`.
+2. **The middle step is called Review, not "Imported" or "Generated".** A previewed file has been
+   *read*. Naming that step after the work would assert something the database cannot confirm.
+3. **It is not navigation.** The steps are not links; a step you have not reached does not exist yet.
+   `aria-current="step"` marks the position, which is how a screen reader is told.
+
+**Rejected: a percentage bar.** The rule from Phase A applies — `Progress` is determinate only with a
+real value out of a real max. "60% through an import" is a fiction, and the honest indeterminate
+form says nothing about *which part* is done.
+
+**Consequence.** Adding a fourth multi-step flow means reusing this, not building a fourth row of
+chips. A completed step is drawn with a soft fill rather than a solid one: white on
+`--success-solid` measures 3.77:1, which passes SC 1.4.11 for a graphic but is a poor signal for the
+one state that says a stage is finished.
+
+## 2026-08-29 — The dashboard opens with what to do, not with what has happened
+
+**Decision**: the student dashboard leads with three actions — Practice, Mock tests,
+Daily challenge — then progress, then the record. The "Quick actions" card that used to
+sit at the bottom is gone; its links are the top of the page.
+
+**Reason**: it opened with four figures and ended, seven cards later, with the actions.
+On a 390px screen that put the thing a student came to do below three screens of
+scrolling, and XP and rank — which are *consequences* of practising — above the practice
+button. Nothing was removed and no request was added: the counts in the action cards come
+from the same `GET /me/dashboard` payload the page already had.
+
+**No recommendation panel was added here.** The brief lists "recommended practice" as a
+dashboard priority, and it exists — on `/analytics`, from a separate engine with its own
+latency. Putting it on the page every student opens would add a second request to the
+most-loaded route in the product for advice that is one tap away. What the dashboard shows
+instead is the availability it already knows: how many published questions are waiting for
+that student's class.
+
+---
+
+## 2026-08-29 — A table becomes cards on a phone, and no column is ever dropped
+
+**Decision**: the listings that are *records* — recent test performance, referrals — render
+as a `DataCardList` below 768px and as a `Table` above it. Both render every field.
+
+**Reason**: five numeric columns on a 375px screen is five illegible columns, and the
+usual fix — hiding the least important two — means the information only exists on a
+desktop. A card per record keeps the label beside the value, where a phone has room for
+exactly one pair per line.
+
+The alternative, `TableScroll`, is still right where the columns are a *comparison* rather
+than a record: the analytics breakdowns keep it, because reading "accuracy by difficulty"
+means reading down a column.
+
+---
+
+## 2026-08-29 — Charts take their colours from the tokens, and follow the theme
+
+**Decision**: `ChartCard` resolves `--primary`, `--text-muted`, `--border-subtle` and the
+tooltip tokens at render time, and re-reads them when the theme changes. Callers pass a
+semantic `tone` (`primary`, `info`, `success`), never a colour.
+
+**Reason**: Chart.js draws on a canvas and cannot use a CSS variable, so the three charts
+carried hex literals — `#0052ff`, `#4f46e5`, `#0ea5e9` — which is both a violation of the
+token rule and the reason a chart stayed light-mode blue with grey axes on a dark page.
+Reading the resolved value keeps one source of truth for colour.
+
+**A canvas is an image to a screen reader**, so each chart carries `role="img"` and a
+summary naming the series and its range. The numbers themselves are always in a table on
+the same page, which is the honest fallback rather than a promise the canvas cannot keep.
+
+---
+
+## 2026-08-29 — Registration and sign-in are components, not part of the landing page
+
+**Decision**: the registration wizard and the sign-in panel moved out of
+`pages/Landing/Landing.tsx` into `pages/Auth/RegisterForm.tsx` and
+`pages/Auth/LoginDialog.tsx`. The landing page renders both and keeps the orchestration
+that is genuinely its own — the `?ref=` check, the `/register` scroll, the `#login` hash.
+
+**Reason**: 749 lines held a marketing page, a three-step form with thirteen fields and
+a photo uploader, and a hand-rolled modal, with their state interleaved. Neither half
+could be read without the other, and the form's problems were invisible inside it. The
+split is also what Phase F needs: the landing page can be redesigned without touching a
+registration flow that works.
+
+**The dialog is a dialog now.** The sign-in overlay had no focus trap, no Escape, no
+scroll lock, and a backdrop click handler that also fired for clicks bubbling out of the
+form. `ui/Modal` owns all four, and on a phone it is a bottom sheet.
+
+**Sign-in stays a dialog rather than becoming a `/login` route.** It has never been a
+route, the header and footer address it through `/#login`, and a second copy of the form
+on a page of its own is a second thing to keep correct.
+
+---
+
+## 2026-08-29 — Every field reports its own error, and the summary moves focus
+
+**Decision**: the registration form validates every field in one pass and renders each
+message **on the field it belongs to**, with a summary at the top listing the problems as
+buttons that focus the field they name. The same shape is used on the reset-password and
+forced-password-change forms.
+
+**Reason**: it validated into a single string — the first problem found, printed at the
+top of a form that is two screens long on a phone. A student with three mistakes was sent
+round three times, scrolling up each time to read a message that never said which field it
+meant. That is the single worst thing about the pre-Milestone-23 product on a phone, and
+it sat in front of the only door into it.
+
+The rules did not change and are still convenience: the server's zod schema remains the
+authority. What changed is that a mistake is now reported where the eye already is.
+
+**The summary is not decoration.** With twelve problems on a 375px screen, a list of
+names is only useful if pressing one takes you there — which is why `Field` gained an
+optional explicit `id`. Passing an `id` to the control instead would have broken the
+label's `htmlFor`; doing it on the field replaces the generated id everywhere at once.
+
+---
+
+## 2026-08-29 — A sign-in form needs its own error humanizer
+
+**Decision**: `humanizeSignInError()` in `lib/errors.ts`, used by the student dialog and
+the administrator's form. A 401 or 423 passes its message through; a 400 is replaced;
+everything else defers to `humanizeError`.
+
+**Reason**: both halves of this were found by typing a wrong password in a browser, and
+neither is visible in the code.
+
+`humanizeError` rewrites a 401 as *"Your session has ended. Please sign in again."* That
+is right for a page whose data request was refused, and nonsense on the form you would be
+signing in **with** — it told somebody who mistyped their password that their session had
+expired. On a sign-in form the 401 **is** the answer, and the backend's message is
+deliberately identical for an unknown account and a wrong password, so passing it through
+is both clearer and keeps the non-enumeration property.
+
+The 400 goes the other way. This product's 4xx copy is written for the reader, which is
+why `humanizeError` passes it through — but the sign-in 400 is a zod aggregate
+(`identifier: Enter your mobile number or email; password: Password…`), a schema talking
+to a machine. It reached the screen once. Empty fields are now caught client-side so it is
+rare, and replaced when it happens anyway.
+
+---
+
+## 2026-08-29 — One shell for both signed-in areas, and one navigation model
+
+**Decision**: `components/layout/AppShell` renders the chrome for the student area *and*
+the admin area, over one data model in `components/layout/navigation.ts`.
+`StudentShell` and `AdminShell` survive as thin wrappers holding the parts only their
+half knows — the unread count and the entry-fee padlock; the permission filter and the
+identity block.
+
+**Reason**: they were copies. Two sidebars, two drawers, two topbars, two active-item
+comparisons, and the drift you would predict: the student drawer had a backdrop and the
+admin one did not, neither trapped focus, and both left twenty links in the tab order
+while off-screen. A navigation *model* rather than JSX is what lets four surfaces — the
+desktop sidebar, the drawer, the bottom bar and the permission filter — agree by
+construction.
+
+**Grouping is part of the decision.** Sixteen student links and twenty admin links in a
+flat column is a search task. Five student groups (Prepare / My progress / The Olympiad
+/ Account) and six admin ones (Students / Question bank / Assessments / Insights /
+Communication / Settings) make it a choice. The grouping is by what the reader came to
+do, not by which milestone built the page.
+
+**Two things are deliberately absent**, and both look like omissions until you know the
+product: there is **no admin "Practice"** item, because practice is student-initiated
+and there is no `PracticeSet` to curate (the Milestone 21 Phase G ADR) — the
+administrative act is bulk-publishing in the Question Bank; and there is **no general
+admin "Settings" page**, so that group holds the settings that actually exist.
+
+**One thing was added**: `/exam`, the official Olympiad, which has existed since
+Milestone 13 and was reachable only from the dashboard. The thing the product is named
+after was missing from its own navigation, which is also why the `paid` padlock the nav
+model had always described was dead code.
+
+---
+
+## 2026-08-29 — Mobile navigation: a bottom bar for students, a drawer for staff
+
+**Decision**: three layouts rather than one that shrinks. Below 768px the student area
+gets a **bottom bar** — Home, Practice, Tests, Challenge, More — and the admin area gets
+a burger. From 768px both use a burger in the topbar. From 1024px the sidebar is
+permanent.
+
+**Reason**: the brief allows either a bottom bar or a compact header with a drawer, and
+the two halves of this product have different users. A student opens four destinations
+over and over on a phone, and a bottom bar puts them where a thumb already is; **More**
+lives in the bar rather than as a burger in the top-left corner, which is the least
+reachable part of a phone held one-handed. An administrator has twenty destinations and
+opens them from a desk or a tablet; a bottom bar of four would be arbitrary.
+
+**The permanent sidebar moved from 768px to 1024px.** The admin area is wide tables, and
+a 264px sidebar on a 768px screen leaves 500px for them.
+
+**A timed paper drops the bottom bar** (`focus`). It sits exactly where the answer
+buttons are, and a mis-tap during an exam navigates away from the paper. The burger
+stays at every width, because a student must always be able to leave.
+
+---
+
+## 2026-08-29 — The drawer is mounted, not hidden — because correctness must not depend on an event
+
+**Decision**: the permanent sidebar is `display: none` below 1024px, and the mobile
+drawer is a **separate element mounted only while it is open**. The same navigation is
+rendered into whichever exists. No `visibility` toggle, no `inert`, no JavaScript media
+query in the correctness path.
+
+**Reason**: two earlier implementations were written and both were wrong, and neither
+was visible by reading the code — the browser pass found both.
+
+1. **One element that slides.** A drawer translated off-screen keeps all twenty links in
+   the tab order and the accessibility tree. Adding `visibility: hidden` fixes that and
+   breaks something else: `focus()` on an element the browser still considers invisible
+   is a **silent no-op**, so moving focus into the newly-opened drawer depended on a
+   style recalculation having already happened. It intermittently did nothing, and
+   nothing announced that the menu had opened.
+2. **`inert` instead.** It solves both — but it then has to be *removed* on a desktop,
+   which needs `matchMedia` in JavaScript. A media-query change is delivered as part of
+   the browser's style recalculation, which a tab that is not rendering never performs.
+   A stale reading left the **permanent desktop sidebar `inert`**: the entire navigation
+   unreachable by keyboard and absent from the accessibility tree. The worst failure the
+   component could have, produced by its least reliable signal.
+
+The general rule this is an instance of, and the one worth keeping: **anything delivered
+with the rendering steps — `requestAnimationFrame`, `ResizeObserver`, `MediaQueryList`
+change, a CSS transition's completion — may simply never arrive.** It is fine as an
+optimisation and unusable as the only path to a correctness-relevant effect. Mounting is
+not a signal; it either happened or it did not.
+
+The one place a media query survives is closing an open drawer when the window is
+widened past 1024px, and if that listener never fires the CSS has already hidden it.
+
+---
+
+## 2026-08-29 — The public header carries four destinations; the footer carries the utilities
+
+**Decision**: the public navbar shows Leaderboard, Hall of Fame, Gallery and Verify a
+certificate, plus a theme toggle and one call to action. The result and certificate
+lookups moved to the footer, along with the administrator's door. A **Sign in** button
+was added.
+
+**Reason**: it carried eight links in one row, which meant nothing was primary — and one
+of the eight was **Admin**, so a marketing page was advertising its own staff entrance to
+every visitor. The two lookups are utilities: things somebody arrives already intending
+to use, which is what a footer is for. Nothing became unreachable, and the footer gained
+real structure in the process.
+
+**The Sign in button is a genuine gap being closed**, not a redesign. The login form is a
+panel on the landing page rather than a route, so a visitor reading the leaderboard had
+no way to ask for it. It links to `/#login`, and the landing page opens the panel on that
+hash — the smallest change that works, and cheaper than inventing a `/login` route with a
+second copy of the form.
+
+**A promoted admin sees both Admin and Dashboard.** They hold `students:read` *and* have
+a student record with their own progress, so "which did they mean?" has no single answer.
+The root administrator has no student progress and gets Admin alone.
+
+---
+
+## 2026-08-29 — There is one design system, in `components/ui`, and one token layer under it
+
+**Decision**: Milestone 23 Phase A introduces `frontend/src/components/ui` — twenty domain-agnostic
+primitives — and splits the 207-line `styles/theme.css` into `tokens.css` (custom properties only),
+`base.css` (element defaults) and `utilities.css` (global classes + the pre-existing compatibility
+ones). `theme.css` survives as the three `@import`s, so `main.tsx` is unchanged. **No colour, radius,
+shadow, duration or z-index may be hardcoded in `src/` again**; if no token fits, one is added to
+`tokens.css`.
+
+**Reason**: the product had grown 12,450 lines of CSS Modules across 29 pages, and the shared layer
+under them was thirteen colours, four radii, two shadows and a `.card` class. Everything else was
+re-described per page: **52 separately-declared `.status` badges, 66 `.table`s, 16 `.notice`s, 8
+`.modal`s**, three private notions of a stat tile. They mostly agreed — which is worse than
+disagreeing, because nobody could tell whether a difference was a decision. None of the eight modals
+trapped focus or restored it on close. That is not a styling problem, it is the absence of a system.
+
+**The seam is the domain boundary, not the file type.** A component belongs in `ui/` only if it has
+no knowledge of this product: `Badge` does not know what a payment state is, `Table` does not know
+what a student is. `EntryFeeBanner`, `Recommendations`, `MathText` and the two shells stay in
+`components/`, where they are allowed to talk about entry fees and answer keys. Without that line the
+design system becomes a second home for business rules.
+
+**Three token layers, and components may only touch the middle one.** Palette (`--blue-600`) →
+semantic (`--primary`, `--danger-soft`) → legacy aliases (`--royal-blue`, `--text-main`, `--gold`).
+The palette exists so the semantic layer can be re-pointed once; the aliases exist because 144
+`--royal-blue` references across the un-migrated pages must keep working. Retokenising all of it in
+one commit would be a rewrite disguised as a refactor.
+
+**Nothing was deleted from under the old pages.** `.card`, `.form-control`, `.form-group`,
+`.error-text` and `.success-text` are kept *and modernised*, and `components/Button.tsx`,
+`Spinner.tsx` and `StatTile.tsx` became re-exports of the new ones. Those 88 imports pick up the
+redesign without being touched, and no page breaks while it waits for its phase. The aliases and the
+compatibility classes retire page by page, which is the only version of this change that can be done
+in eight reviewable phases rather than one unreviewable commit.
+
+---
+
+## 2026-08-29 — Phosphor stays, as a webfont, from the CDN it already used
+
+**Decision**: keep the existing icon library (Phosphor 2.1.1, `regular` and `bold` only, loaded from
+unpkg in `index.html`) and put **one** `Icon` component in front of it. No new dependency.
+
+**Reason**: the project already had a single consistent icon library — roughly 87 distinct glyphs
+across 40 files, written as raw `<i className="ph-bold ph-target" />`. The brief's instruction is to
+reuse an existing library, and the alternatives were both worse: `@phosphor-icons/react` would mean
+rewriting several hundred call sites and maintaining a name→component map (a typo then renders
+nothing), and self-hosting the webfont was tried and **reverted** — the package's `@font-face` lists
+woff2, woff, ttf **and a 3 MB SVG font**, all four of which the bundler then emits as assets, for a
+file the browser was already fetching from a CDN with a good cache hit rate.
+
+**What the component earns.** Accessibility becomes structural rather than remembered: an icon with a
+`label` is `role="img"`, one without is `aria-hidden`, and the default is the safe one. And the weight
+type admits **only `regular` and `bold`**, because only those two stylesheets are loaded — `ph-fill`
+matches no `@font-face` and renders an *invisible* glyph rather than falling back, so the failure is
+silent and had to be made unrepresentable.
+
+**The known cost, recorded honestly**: the icons depend on unpkg at runtime, and unpkg is a
+development CDN rather than a production one. The mitigation is a rule rather than infrastructure —
+**no icon is ever the only carrier of meaning** (which is an accessibility requirement anyway), so
+the product stays readable if the font never arrives. A `preconnect` was added because the upstream
+`@font-face` is `font-display: block`, which hides the glyphs until the file lands. If this ever
+needs fixing properly, the answer is vendoring the two woff2 files plus their glyph CSS into
+`public/`, not the npm package.
+
+---
+
+## 2026-08-29 — Inter joins Poppins: the interface reads, the brand speaks
+
+**Decision**: `--font-body` becomes Inter (variable, 400–800, one file); Poppins stays as
+`--font-heading` and keeps the brand voice. Poppins' 300 and 400 weights were dropped, so the page
+requests **fewer** font files than before despite the extra family.
+
+**Reason**: the brief says to improve typography without needlessly replacing the stack, and this
+keeps what the stack was *for*. Poppins is a geometric display face — good for a hero and a wordmark,
+poor at 13px in a dense admin table, and half of this product is dense admin tables of names, marks
+and money. Inter was designed for exactly that and has proper tabular figures. Nothing in the product
+set Poppins at 300 or 400, because Poppins now applies only to headings, so those two files were pure
+waste.
+
+Cinzel remains loaded for **one** surface, the printed certificate, and JetBrains Mono for figures.
+
+---
+
+## 2026-08-29 — The design-system reference page is development-only
+
+**Decision**: `/design-system` renders every primitive in every variant, with a live viewport
+read-out, and is gated behind `import.meta.env.DEV`. It is statically dead in a production build, so
+there is no route and **no chunk** — verified by grepping `dist/`.
+
+**Reason**: this frontend has no test suite (adding one needs its own ADR), so the only way a design
+system stays consistent across 29 pages migrated over six phases is to be able to see all of it at
+once, in both themes, at any width. A style guide that ships to visitors would be placeholder content
+in production, which the brief forbids; one that does not exist at all means each phase re-derives
+what a badge looks like. Dev-only is the version with the benefit and neither cost.
+
+It contains **no product data and makes no API call** — its sample rows are labelled as samples, so
+nothing on it can be mistaken for a real figure.
+
+---
+
 ## 2026-08-28 — Referral tracking is real; the reward is configuration, and defaults to nothing
 
 **Decision**: Refer & Earn is built end to end — a per-student code, server-validated attribution at

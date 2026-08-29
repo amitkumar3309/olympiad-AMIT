@@ -6,23 +6,6 @@
   padding: 0 4px 40px;
 }
 
-.errorCard {
-  padding: 24px;
-  text-align: center;
-}
-
-.retry {
-  margin-top: 10px;
-  padding: 8px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
 /* --------------------------------------------------------------------------
  * The code and the link — the reason the page exists
  * ----------------------------------------------------------------------- */
@@ -46,12 +29,14 @@
  * from a screenshot — the same reason the alphabet omits O/0 and I/1/L.
  */
 .code {
-  margin: 0 0 20px;
+  margin: 0 0 var(--space-5);
   font-family: var(--font-mono);
   font-size: clamp(1.6rem, 6vw, 2.3rem);
-  font-weight: 800;
+  font-weight: var(--weight-black);
   letter-spacing: 0.14em;
-  color: var(--royal-blue);
+  /* `--primary-text`, not `--primary`: this is a word, and in dark mode the fill blue
+     is too dark to read against the card. */
+  color: var(--primary-text);
 }
 
 .linkRow {
@@ -65,13 +50,27 @@
 .linkInput {
   flex: 1 1 320px;
   min-width: 0;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
+  padding: 11px 14px;
+  border: var(--border-width) solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text-muted);
+  background: var(--surface-sunken);
+  color: var(--text-body);
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: var(--text-sm);
+}
+
+/**
+ * 16px on a touch device, like every other field in the product.
+ *
+ * It is read-only and selects itself on focus, but mobile Safari zooms the viewport on
+ * *any* focused field whose text is under 16px and does not zoom back — and this one is
+ * tapped deliberately, to copy a link, on exactly the devices that do it.
+ */
+@media (pointer: coarse) {
+  .linkInput {
+    font-size: var(--text-md);
+    min-height: var(--tap-target);
+  }
 }
 
 .shareRow {
@@ -81,34 +80,32 @@
   justify-content: center;
 }
 
+/* Sized to match `ui/Button`, which sits beside them in the same row. */
 .copyBtn,
-.shareBtn,
 .shareWhatsapp {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 18px;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 42px;
+  padding: 0 var(--space-5);
   border-radius: var(--radius-sm);
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
   text-decoration: none;
   white-space: nowrap;
 }
 
+@media (pointer: coarse) {
+  .copyBtn,
+  .shareWhatsapp {
+    min-height: var(--tap-target);
+  }
+}
+
 .copyBtn,
-.shareBtn {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-}
-
 .copyBtn:hover,
-.shareBtn:hover {
-  border-color: var(--royal-blue);
-  color: var(--royal-blue);
-}
-
 /* WhatsApp's own green, because the button is recognised by its colour first. */
 .shareWhatsapp {
   border: none;
@@ -122,9 +119,8 @@
  * ----------------------------------------------------------------------- */
 
 .rewardCard {
-  margin-top: 18px;
-  padding: 20px 22px;
-  border-left: 3px solid var(--gold);
+  margin-top: var(--space-5);
+  border-left: 3px solid var(--accent-strong);
 }
 
 /*
@@ -158,9 +154,9 @@
 
 .tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  margin-top: 18px;
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-5);
 }
 
 .tiles > :global(.card) {
@@ -168,81 +164,12 @@
   text-align: center;
 }
 
-.tileValue {
-  font-family: var(--font-mono);
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--royal-blue);
-}
-
-.tileLabel {
-  margin-top: 4px;
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 /* --------------------------------------------------------------------------
  * The list
  * ----------------------------------------------------------------------- */
 
 .listCard {
-  margin-top: 18px;
-  padding: 22px;
-}
-
-.listCard h3 {
-  margin: 0 0 14px;
-  font-size: 1rem;
-}
-
-.empty {
-  padding: 28px 10px;
-  text-align: center;
-  color: var(--text-muted);
-}
-
-.empty i {
-  font-size: 2rem;
-  color: var(--border);
-}
-
-.empty p {
-  margin: 8px 0 0;
-  font-size: 0.9rem;
-}
-
-.emptyHint {
-  font-size: 0.8rem !important;
-  max-width: 40ch;
-  margin: 6px auto 0 !important;
-}
-
-.tableScroll {
-  overflow-x: auto;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.table th {
-  padding: 8px 10px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.table td {
-  padding: 11px 10px;
-  border-bottom: 1px solid var(--border);
+  margin-top: var(--space-5);
 }
 
 .name {
@@ -262,52 +189,34 @@
 
 /* --- Status chips. One per `ReferralRewardStatus`. --- */
 
-.status_pending_conversion,
-.status_no_reward,
-.status_accrued,
-.status_approved,
-.status_paid,
-.status_rejected {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
 /* Signed up but not paid — the ordinary state of most rows, so it stays quiet. */
-.status_pending_conversion {
-  background: rgba(148, 163, 184, 0.16);
-  color: var(--text-muted);
-}
-
 /* Converted, nothing owed. A success, not a problem — so blue rather than grey. */
-.status_no_reward {
-  background: rgba(56, 189, 248, 0.16);
-  color: var(--royal-blue);
-}
-
-.status_accrued,
-.status_approved {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
-}
-
-.status_paid {
-  background: rgba(16, 185, 129, 0.14);
-  color: var(--success);
-}
-
-.status_rejected {
-  background: rgba(239, 68, 68, 0.14);
-  color: var(--danger);
-}
-
 .footNote {
-  margin-top: 18px;
-  font-size: 0.8rem;
-  line-height: 1.65;
+  margin-top: var(--space-5);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
   color: var(--text-muted);
   text-align: center;
+}
+
+/* ==========================================================================
+   One table, two presentations (Milestone 23, Phase D)
+   ========================================================================== */
+
+.mobileOnly {
+  display: flex;
+}
+
+.desktopOnly {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: block;
+  }
 }

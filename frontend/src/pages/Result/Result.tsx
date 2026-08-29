@@ -4,6 +4,7 @@ import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import { api, ApiError } from '../../api/client'
 import type { PublishedResult, ResultResponse } from '../../api/types'
+import { Icon } from '../../components/ui'
 import styles from './Result.module.css'
 
 /**
@@ -71,14 +72,14 @@ export default function Result() {
             aria-label="Student ID"
           />
           <Button type="submit" disabled={searching}>
-            {searching ? 'Searching…' : 'Search'} <i className="ph ph-magnifying-glass" />
+            {searching ? 'Searching…' : 'Search'} <Icon name="ph-magnifying-glass" />
           </Button>
         </form>
         {error && <p className="error-text">{error}</p>}
 
         {notPublished && (
           <div className={`card ${styles.notPublished}`}>
-            <i className="ph-bold ph-clock-countdown" />
+            <Icon name="ph-clock-countdown" weight="bold" />
             <h2>No result published yet</h2>
             <p>
               Results are published here once the Olympiad has been held and marking is complete. Nothing has been
@@ -130,7 +131,7 @@ export default function Result() {
             )}
             <div className={styles.actions}>
               <Button variant="outline" onClick={() => window.print()}>
-                <i className="ph ph-printer" /> Download / Print Card
+                <Icon name="ph-printer" /> Download / Print Card
               </Button>
               <Button
                 variant="outline"
@@ -141,7 +142,7 @@ export default function Result() {
                   })
                 }
               >
-                <i className="ph ph-share-network" /> Share
+                <Icon name="ph-share-network" /> Share
               </Button>
             </div>
           </div>

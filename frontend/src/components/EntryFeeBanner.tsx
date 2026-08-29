@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../api/client'
 import type { PaymentStatusResponse } from '../api/types'
+import { Icon } from './ui'
 import styles from './EntryFeeBanner.module.css'
 
 /**
@@ -48,7 +49,7 @@ export default function EntryFeeBanner() {
   return (
     <section className={`card ${styles.banner}`}>
       <div className={styles.left}>
-        <i className={`ph-bold ph-trophy ${styles.icon}`} />
+        <Icon name="ph-trophy" weight="bold" className={styles.icon} />
         <div>
           <h3 className={styles.title}>Book your seat in the national Olympiad</h3>
           <p className={styles.body}>

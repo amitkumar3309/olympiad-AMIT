@@ -1,0 +1,29 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.links {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.links a,
+.inlineLink {
+  display: inline-flex;
+  align-items: center;
+  /* Comfortable to tap: this sits directly under a password field, where a mis-tap
+     means retyping it. */
+  min-height: 36px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--primary-text);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.links a:hover,
+.inlineLink:hover {
+  color: var(--primary-hover);
+}

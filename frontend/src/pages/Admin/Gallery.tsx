@@ -4,6 +4,9 @@ import type { GalleryItem, GalleryStatus, Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
+import {
+  Alert,
+} from '../../components/ui'
 import styles from './Gallery.module.css'
 
 interface GalleryListResponse {
@@ -241,7 +244,7 @@ export default function Gallery() {
         </form>
 
         {notice && <p className={styles.notice}>{notice}</p>}
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {loading ? (
           <Spinner label="Loading the gallery..." />

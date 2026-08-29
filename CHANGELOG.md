@@ -2,6 +2,401 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-29 — Milestone 23, Phase E: the admin experience
+
+Twenty-four admin pages plus the AI generator. **Frontend only; no backend file was
+touched** (1253 tests across 35 files, unchanged), and no API call was added, removed or
+changed.
+
+### Every admin table can be read on a phone
+
+Fifteen tables across the admin area were bare `<table>` elements in a page-width `<div>`.
+On a 375px screen the widest of them — the platform analytics table — pushed the **whole
+page** 445px wider than the viewport, so the header, the sidebar and every other page
+element could be dragged off screen sideways. They are now `TableScroll` + `Table`: the
+overflow is contained in the table's own scroller, which is keyboard-reachable and
+announced, and **no column was dropped to make anything fit**. The student directory, whose
+rows are records rather than comparisons, additionally becomes **one card per student below
+768px** carrying all thirteen fields.
+
+### The generator was outside the admin area
+
+`/ai-generator` is in the admin navigation but rendered its own page frame with a
+`← Back to Admin` text link, so reaching it from the drawer dropped you out of the shell —
+no navigation, no way back except that one link. It is now inside `AdminShell` like every
+other admin route, and its configuration grid is one column on a phone rather than a fixed
+two.
+
+### The two multi-step flows say where you are
+
+Bulk import and AI drafting are both state machines an examiner has to hold in their head,
+and **a screen of parsed rows looks exactly like a screen of saved ones**. Both now carry a
+step indicator — Upload → Review → Saved, Configure → Review → Saved — derived from what
+actually exists rather than tracked separately, so it cannot disagree with the screen. The
+middle step is deliberately named *Review*, because nothing has been written at that point.
+
+Registration's hand-built version became the shared `ui/Steps` primitive on the way, so
+three flows now say the same thing the same way.
+
+### An unmatched address is no longer a blank page
+
+There was no catch-all route, and React Router renders **nothing** when nothing matches — a
+mistyped address, a stale bookmark or an old link produced a blank white page
+indistinguishable from a crash. This is not hypothetical: every referral link the backend
+generated pointed at `/register`, and every one of them was blank until that route was
+added in Milestone 22 Phase F. `/*` now renders a `NotFound` page that names the path that
+did not resolve.
+
+### Emojis and hand-written glyphs
+
+No emoji was left in the admin area after Phase D, but **fifty-four hand-written
+`<i className="ph-...">` icons** were still spread across 25 files, admin and student
+alike — each one a place where a weight that renders an *invisible glyph*, or a missing
+`aria-hidden`, could be introduced without review noticing. All of them now go through
+`ui/Icon`, which is the rule Phase A wrote down and could not yet enforce. The remaining bare glyphs became
+icons: the two pagers' `← Previous` / `Next →`, the mock-test reorder arrows, the question
+editor's `✕`. The audit log's `old → new` is deliberately **kept**: it is data describing a
+changed field, not a control.
+
+### Also
+
+`/admin` gained a permission-filtered quick-actions grid; the student directory gained
+pagination, a skeleton table and per-row action menus that work in both layouts; twenty-two
+raw `error-text` divs became `Alert`s; tick boxes are 18px rather than the browser's 13px
+default (every one sits inside its own `<label>`, so the label was already the real target).
+
+### Verified
+
+In a browser against a real backend, signed in as the root super admin, at 375px and
+1280px, across twenty-one admin routes including the dashboard, the student directory, the
+question bank, bulk import, the question editor, chapters, mock tests, daily challenges,
+analytics, question performance, standings, the exam, certificates, the gallery,
+notifications, email delivery, the audit log, payments, referrals, reward settings and the
+AI generator. Every one: **no page overflow, no element escaping its container, no dangling
+ARIA reference, no unlabelled control**, and no emoji. The drawer was re-checked
+end-to-end (opens, labelled, focus moves in, scroll locked, current page marked, Escape
+closes, focus returns to the burger), the directory's filters were driven against real data
+down to their empty state, and both themes were measured: every text token is above 4.5:1
+on its surface. One contrast finding was fixed — a completed step's white tick on
+`--success-solid` measured 3.77:1 and is now a soft fill at 5.2:1 (light) and 8.4:1 (dark).
+
+## 2026-08-29 — Milestone 23, Phase D: the student experience
+
+Nine surfaces: the dashboard, practice (picker and runner), mock tests (listing and
+runner), the daily challenge, analytics, recommendations, Refer & Earn, the profile and
+the invoice section. **Frontend only; no backend file was touched** (1253 tests across 35
+files, unchanged), and no API call was added, removed or changed.
+
+### The dashboard was reordered
+
+It opened with four figures and ended, seven cards later, with the actions — so on a phone
+the thing a student came to do was below three screens of scrolling. It now opens with
+**Jump back in** (practice, mock tests, today's challenge), then progress, then the record.
+The counts on those cards come from the payload the page already had; no request was added.
+
+### Every runner is the same runner
+
+Practice, the mock test and the daily challenge each had their own answer options, their
+own palette and their own navigation. They now share a shape: **56px minimum option rows**
+the full width of the card, a chosen state carried by a border *and* a tint *and* a filled
+key circle, 44px palette buttons, and stacked navigation on a phone where three controls
+on one row had left "Previous" as an ellipsis.
+
+Two things specific to a timed paper: the mock test's **countdown bar is sticky**, so it
+cannot scroll out of reach on a long question, and **submission is a dialog** rather than a
+panel inside the palette — which on a phone appeared below the fold, at the bottom of the
+page a student had just scrolled away from.
+
+### Real progress, never invented
+
+The level meter, the questions-answered bars and the score bars are all `Progress` with a
+real `value` out of a real `max`. `null` still renders an em dash: the daily challenge's XP
+tile shows one when no reward is configured, and the dashboard's rank tile shows one when
+the student is not ranked — never a zero that would read as a result.
+
+### Charts
+
+`ChartCard` was carrying three hex literals and did not follow the theme. It now resolves
+its colours from the tokens at render time and re-reads them on a theme change, takes a
+semantic `tone` rather than a colour, caps its axis ticks so labels stay legible at 375px,
+is shorter on a phone, and carries `role="img"` with a summary — a canvas is an image to a
+screen reader.
+
+### Emojis
+
+Gone from every student surface: the dashboard's seven headings and its `👋`, the
+`🕘` on three history panels, the `🗺️ 🎖️ 🏅` on Rewards, and the `🥇 🥈 🥉` medals on the
+leaderboard and the Hall of Fame — which are now a medal *icon beside the rank number*
+rather than in place of it, because "#4" and "#3" have to be comparable and an emoji medal
+was read out mid-name by a screen reader. The `← Previous` / `Next →` glyphs in both
+runners are icons. What is left is in the landing page (Phase F) and the admin pages
+(Phase E).
+
+### Obsolete CSS removed
+
+The page stylesheets carried their own badges, tables, stat tiles, empty states and error
+cards — the duplication the design system exists to end. Removed from Referrals (16
+classes), Practice (18 blocks), and replaced in place across the mock-test, daily-challenge
+and dashboard sheets, all now on the token layer.
+
+### Verified
+
+In a browser against a real backend, signed in as a student, at 390px and 1280px: the
+dashboard, practice picker, **a live practice session**, mock tests, the daily challenge,
+analytics, Refer & Earn, the profile, rewards, the leaderboard and the payment/invoice
+page. Every one: **no page overflow, no element escaping its container, no dangling ARIA
+reference, no emoji, no unlabelled field**, and no console error. Three controls under
+16px were found and raised (a referral link input, and two file pickers).
+
+
+
+Sign-in, registration, password recovery, email verification, the forced password change
+and the administrator's sign-in. **Frontend only; no backend file was touched** (1253
+tests across 35 files, unchanged).
+
+### The forms came out of the landing page
+
+`Landing.tsx` was 749 lines holding a marketing page, a thirteen-field registration wizard
+and a hand-rolled sign-in overlay, with their state interleaved. It is now **256 lines**,
+and the two forms are `pages/Auth/RegisterForm.tsx` and `pages/Auth/LoginDialog.tsx`. The
+page keeps what is genuinely its own: the `?ref=` check, the `/register` scroll, the
+`#login` hash.
+
+### Every field reports its own error
+
+Registration validated into **one string** — the first problem found, at the top of a form
+two screens long on a phone. A student with three mistakes was sent round three times.
+
+Now one pass finds everything, each message renders **on its own field**, and a summary at
+the top lists the problems as buttons that move focus to the field they name. Verified: an
+empty submit produces 12 per-field messages, 12 `aria-invalid` controls, a summary of 12
+entries, focus on the first, and **zero dangling `aria-describedby` references**. The same
+shape is now on the reset-password and forced-password-change forms.
+
+### Four defects found by driving the browser
+
+1. **A raw zod aggregate reached the screen.** Signing in with empty fields printed
+   `identifier: Enter your mobile number or email; password: Password…`. Empty fields are
+   now caught client-side, and a 400 is replaced rather than printed.
+2. **A wrong password said "Your session has ended."** `humanizeError` rewrites 401 for
+   pages whose data was refused; on the form you sign in *with*, the 401 is the answer.
+   New `humanizeSignInError()` passes 401 and 423 through — keeping the backend's
+   deliberately non-enumerating wording — and defers everything else.
+3. **The sign-in link died after one use.** With `#login` in the URL, closing the dialog
+   left the hash in place, so the next press of Sign in was not a change and nothing
+   opened. Closing now clears the hash.
+4. **A dangling `aria-controls`** on the public burger, naming a panel that only exists
+   while open — the same defect `Tabs` had in Phase A, found on the auth pages by the
+   accessibility sweep.
+
+### The rest
+
+- **The administrator's sign-in had two `<label>`s with no `htmlFor` and two `<input>`s
+  with no `id`** — neither field was labelled for a screen reader, and tapping a label
+  focused nothing. Found in Phase A, fixed here.
+- **`PasswordInput`** joined the design system: a show/hide toggle with `aria-pressed`,
+  which on a phone is the difference between retyping a password and reading it. Used on
+  all six password fields.
+- **`autoComplete` everywhere** — `username`, `current-password`, `new-password`,
+  `given-name`, `family-name`, `bday`, `tel-national`, `email`, `street-address` — which
+  is what makes a password manager and mobile autofill work at all. The mobile field uses
+  `inputMode="numeric"` rather than `type="number"`.
+- **Emojis gone** from every auth surface: the ⚠️/✅ status glyphs, the 📧 on the
+  registration success step, and the 🔑/➔ on the hero's buttons.
+- **`AuthLayout`** replaces three copies of the same centred card, including a
+  `text-align: center` that also centred the form labels.
+- `AuthForms.module.css` deleted.
+
+### Verified
+
+At 375px and 1280px, in a browser against a real backend: registration validation and
+focus movement, the password reveal toggle, the sign-in dialog (focus into the first
+field, trap, Escape, scroll lock, bottom sheet on a phone, centred at 1280), a **failed
+and then successful student sign-in** landing on `/dashboard`, a failed and then
+successful administrator sign-in, forgot-password, reset-password with and without a
+token, and verify-email without one. No page overflow at either width; no unlabelled
+field; no control under 16px; no dangling ARIA references; no emoji left in any auth page.
+
+## 2026-08-29 — Milestone 23, Phase B: the global layout
+
+The app shell, both navigations, the public header and the footer. **Frontend only; no
+backend file was touched** (1253 tests across 35 files, unchanged), and no page's content
+was redesigned — that is Phases C to F.
+
+### One shell instead of two copies
+
+`StudentShell` and `pages/Admin/AdminShell` were near-identical implementations of a
+sidebar, a drawer, a topbar and an active-item comparison. They are now thin wrappers over
+`components/layout/AppShell`, with the navigation as **data** in
+`components/layout/navigation.ts` — one model behind the desktop sidebar, the drawer, the
+mobile bottom bar and the admin permission filter.
+
+The flat lists became groups: **Prepare / My progress / The Olympiad / Account** for
+students, **Students / Question bank / Assessments / Insights / Communication / Settings**
+for staff.
+
+**`/exam` joined the student navigation.** The official Olympiad has existed since
+Milestone 13 and was reachable only from the dashboard — the thing the product is named
+after was missing from its own menu, which is also why the `paid` padlock the nav model
+had always described had never once rendered. It does now, on that item, for a student who
+has not paid.
+
+### Three layouts, not one that shrinks
+
+| Width | Student | Admin |
+|---|---|---|
+| `< 768px` | Bottom bar: Home · Practice · Tests · Challenge · **More** | Burger |
+| `768–1023px` | Burger in the topbar | Burger in the topbar |
+| `≥ 1024px` | Permanent sidebar | Permanent sidebar |
+
+The permanent sidebar moved from 768px to 1024px: the admin area is wide tables, and a
+264px sidebar on a 768px screen leaves 500px for them. A timed paper passes `focus`, which
+drops the bottom bar — it sits exactly where the answer buttons are — while keeping the
+burger at every width, because a student must always be able to leave.
+
+### Four defects found in the browser, three of them in code written this phase
+
+1. **The admin had no way to open the menu on a phone.** The burger was hidden below
+   768px, where the bottom bar replaces it — and the bottom bar is student-only.
+2. **Focus did not move into the drawer.** It was hidden with `visibility`, and `focus()`
+   on an element the browser still considers invisible is a silent no-op; it depended on a
+   style recalculation that had not necessarily happened.
+3. **`inert`, the fix for that, left the desktop sidebar inert.** Removing it on a desktop
+   needs a JavaScript media query, and a media-query change is delivered with the
+   rendering steps, which a tab that is not compositing never runs. The whole navigation
+   became unreachable by keyboard and absent from the accessibility tree.
+   **The final design depends on no event at all**: the sidebar is `display: none` below
+   1024px, and the drawer is a separate element *mounted only while open*.
+4. **A group label measured 4.46:1** in dark mode — just under AA. Moved from
+   `--text-subtle` to `--text-muted` (6.83:1), here and in the footer.
+
+### The public header and footer
+
+Eight links in one row became four destinations, a theme toggle and one call to action.
+The result and certificate lookups moved to the footer — utilities belong there — and so
+did the **Admin** link, which a marketing page had been advertising to every visitor.
+
+**A Sign in button was added**, closing a real gap: the login form is a panel on the
+landing page, so a visitor on the leaderboard had no way to ask for it. It links to
+`/#login`, which the landing page now opens on that hash.
+
+The mobile panel is mounted only while open, so there is no hidden second copy of the
+navigation in the accessibility tree. The footer became four labelled columns with the
+helpline and support address as real `tel:` and `mailto:` links.
+
+### Also
+
+A shared, counted `ui/scrollLock.ts` — the modal and the drawer can now both hold the page
+still without either releasing the other's lock. A **skip link** as the first focusable
+element on every signed-in page, and a `<main id="main-content">` landmark for it to reach.
+`components/StudentShell.module.css` and fourteen shell classes in `Admin.module.css` were
+deleted; `AdminShell.module.css` holds only the identity block.
+
+### Verified
+
+Against a real backend on the local database, signed in as a student and as the root
+administrator, at 375 / 390 / 414 / 768 / 1265 / 1425px in both themes:
+
+- **No page overflow and no element escaping its container** on nine student destinations
+  and four admin ones, at every width tested.
+- The drawer: mounts, moves focus to its close button, traps Tab, closes on Escape, on the
+  backdrop, on choosing an item and on a route change, returns focus to the control that
+  opened it, and releases the scroll lock. Zero links reachable while closed.
+- Exactly **one** `Main navigation` landmark at any width — the hidden copy problem the
+  mount-only drawer exists to avoid.
+- Longest-prefix matching: `/admin/questions/import` marks **Bulk Import**, not Question
+  Bank, and exactly one item is `aria-current="page"`.
+- The padlock renders on Official Olympiad for an unpaid student; `focus` mode drops the
+  bottom bar on a real practice session.
+
+One pre-existing defect found and **left for Phase E**: `/admin/analytics` renders a bare
+445px `<table>` with no scroll container, so it overflows a 375px screen. It is the page's
+own markup, not the shell's, and `TableScroll` from Phase A is what it needs.
+
+## 2026-08-29 — Milestone 23, Phase A: the design system
+
+The first phase of the UI/UX modernisation. **Frontend only, and no page was redesigned yet** — this
+phase builds the layer the next six phases are made of, and modernises what every existing page
+inherits from it.
+
+### What was there before
+
+12,450 lines of CSS Modules across 29 pages, over a shared layer of thirteen colours, four radii, two
+shadows and a `.card` class. Everything else had been re-described per page:
+
+| Duplicated pattern | Independent declarations found |
+|---|---|
+| Status badge (`.status`, `.pill`, `.tag`, `.chip`, `.levelBadge`, …) | 52 `.status` alone |
+| Table (`.table` + `.tableScroll`) | 66 tables, 13 scrollers, across 21 pages |
+| Inline notice (`.notice`) | 16 |
+| Modal (`.modal`, `.dialog`) | 8 — **none trapped focus or restored it on close** |
+| Stat tile (`.total`, `.totalValue`, `.tile`) | 3 private versions |
+
+### The token layer
+
+`styles/theme.css` (207 lines) became four files, with `theme.css` surviving as the three `@import`s
+so `main.tsx` is untouched:
+
+- **`tokens.css`** — palette → semantic → legacy aliases. Colour, type scale (three steps fluid via
+  `clamp()`), spacing, radius, shadow, motion, a single z-index ladder, layout, `--tap-target`.
+- **`base.css`** — element defaults, one global focus ring, `prefers-reduced-motion` honoured once.
+- **`utilities.css`** — six layout utilities plus the pre-existing global classes, kept and modernised.
+
+**Every legacy token name still resolves**, which is what let 29 un-migrated pages pick up the new
+surfaces, radii and focus treatment without being edited. `--royal-blue` (144 references) now points
+at the new primary; in dark mode it takes a compromise value clearing 3.5:1 as both a fill and text,
+where it had been **2.9:1 as text** before.
+
+### Twenty primitives, in `components/ui`
+
+`Icon` · `Button` + `ButtonLink` · `Card` (+ `CardHeader`/`Body`/`Footer`) · `Badge` · `Alert` ·
+`Field` · `Input`/`Textarea`/`Select`/`Checkbox`/`SearchInput` · `Modal` · `ToastProvider` +
+`useToast` · `Tabs` + `TabPanel` · `Pagination` · `Skeleton` (+ 4 presets) · `Table`/`TableScroll` +
+`DataCardList`/`DataCard`/`DataRow` · `EmptyState` · `ErrorState` · `Spinner` · `Progress` ·
+`Tooltip` · `StatTile`, plus `lib/errors.ts`.
+
+Rules that are enforced by the types rather than by review: a `Field` cannot exist without a label; an
+icon-only `Button` cannot exist without an `aria-label`; a `Badge` always carries words, so a payment
+state can never be a bare coloured dot; a determinate `Progress` requires a real `value`, and anything
+whose length is unknown must say `indeterminate`; `EmptyState` requires a *description*, because
+"why is this empty" is the question that decides whether a reader thinks the product is broken.
+
+### Four defects found by verifying rather than reading
+
+1. **The modal never moved focus.** It focused inside `requestAnimationFrame`, which does not fire at
+   all while a tab is not compositing — so in a background or hidden tab, focus stayed on the page
+   behind the dialog. Now synchronous, which is correct *and* testable.
+2. **`aria-controls` pointed at nothing.** `Tabs` emitted it for every tab while `TabPanel` renders
+   only the active one, and a filter used as tabs has no panels at all. Fixed twice over: a new
+   `mode="filter"` renders a labelled group with `aria-pressed` (because "All / Draft / Published"
+   above a list is not a tab), and in tabs mode the attribute is emitted only for the selected tab,
+   whose panel is in the document. The page now has **zero dangling ARIA IDREFs**.
+3. **`TableScroll` kept a stale measurement** on resize: a `ResizeObserver` is delivered with the
+   browser's rendering steps, which a non-rendering tab does not run, so a table laid out wide and
+   then narrowed lost keyboard access to its own overflow. It now also listens to `window.resize`.
+4. **A gold badge measured 3.69:1** — below AA for its 12px bold label. `--accent-text` moved a step
+   darker. Gold is the colour this happens to, because it is light at every step that still looks gold.
+
+Plus two touch-target sizes raised, and the 16px-on-touch input rule (mobile Safari zooms a focused
+field under 16px and does not zoom back) applied to the **legacy** `.form-control` as well as the new
+`Input` — those are the fields being used on phones today.
+
+### Verified
+
+Both themes, at 320 / 375 / 390 / 768 / 1280 px: **no page overflow and no element escaping its
+container** at any width, on the reference page and on `/`, `/admin` and `/leaderboard` against a real
+backend. Contrast measured programmatically for twelve token pairs per theme; all now pass AA for
+their size. Modal focus trap, Escape, focus restore and scroll-lock release; toast live-region roles
+(`status`/polite, `alert`/assertive for errors); tabs arrow-key navigation and roving tabindex; the
+scroll region taking its focus stop only while it overflows; the bottom-sheet layout at 390px.
+
+Screenshots were not available — the browser pane could not composite — so everything above was
+measured from the DOM and computed styles instead, which is how the four defects were found.
+
+**1253 tests across 35 files (unchanged — no backend file was touched), typecheck, lint and the
+production build all pass.** No new dependency. The dev-only `/design-system` page is absent from the
+production bundle, verified in `dist/`.
+
 ## 2026-08-28 — Milestone 22, Phase H: the regression pass
 
 All thirteen areas the brief named, driven in a real browser against a real backend, plus the full

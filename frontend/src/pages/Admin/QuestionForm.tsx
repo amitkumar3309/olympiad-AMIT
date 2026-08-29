@@ -19,6 +19,7 @@ import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
+import { Alert, Icon } from '../../components/ui'
 import styles from './QuestionForm.module.css'
 
 /** A blank option row. Keys are assigned by the server, so none is held here. */
@@ -267,7 +268,7 @@ export default function QuestionForm() {
     return (
       <AdminShell title="Edit question">
         <div className={styles.centered}>
-          <p className="error-text">{loadError}</p>
+          <Alert tone="danger">{loadError}</Alert>
           <div className={styles.centeredActions}>
             <Button variant="outline" onClick={() => void loadQuestion()}>
               Try again
@@ -290,7 +291,7 @@ export default function QuestionForm() {
             inline, <code>$$…$$</code> for a centred block. The preview updates as you type.
           </p>
 
-          {error && <p className="error-text">{error}</p>}
+          {error && <Alert tone="danger">{error}</Alert>}
 
           <h3 className={styles.sectionTitle}>Classification</h3>
           <div className={styles.grid}>
@@ -452,7 +453,7 @@ export default function QuestionForm() {
                       onClick={() => setForm((c) => ({ ...c, options: c.options.filter((_, i) => i !== index) }))}
                       aria-label={`Remove option ${index + 1}`}
                     >
-                      ✕
+                      <Icon name="ph-x" weight="bold" size="sm" />
                     </button>
                   )}
                 </div>

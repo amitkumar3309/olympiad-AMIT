@@ -15,6 +15,7 @@ import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
+import { Alert, Icon } from '../../components/ui'
 import styles from './DailyChallenges.module.css'
 
 /**
@@ -231,7 +232,7 @@ export default function AdminDailyChallenges() {
       </p>
 
       {notice && <p className={styles.notice}>{notice}</p>}
-      {error && <p className="error-text">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
       <div className={styles.layout}>
         {/* ---------------------------------------------------------------- */}
@@ -366,7 +367,7 @@ export default function AdminDailyChallenges() {
             </div>
           ) : (data?.challenges.length ?? 0) === 0 ? (
             <div className={styles.empty}>
-              <i className="ph-bold ph-dice-five" />
+              <Icon name="ph-dice-five" weight="bold" />
               <p>
                 Nothing yet. A day appears here once it has been scheduled, or once the first student of that class
                 asks for it and it is filled automatically.

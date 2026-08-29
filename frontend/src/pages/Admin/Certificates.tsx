@@ -4,6 +4,11 @@ import type { Certificate, CertificateTier, Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Table,
+  TableScroll,
+} from '../../components/ui'
 import styles from './Certificates.module.css'
 
 interface ListResponse {
@@ -130,7 +135,7 @@ export default function Certificates() {
         </form>
 
         {notice && <p className={styles.notice}>{notice}</p>}
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {loading ? (
           <Spinner label="Loading certificates..." />
@@ -141,8 +146,8 @@ export default function Certificates() {
               : 'No certificates have been issued yet. They appear here when an official exam’s results are released.'}
           </p>
         ) : (
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
+          <TableScroll label="Issued certificates">
+            <Table density="compact">
               <thead>
                 <tr>
                   <th>Certificate no.</th>
@@ -202,8 +207,8 @@ export default function Certificates() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
         )}
 
         {pagination && pagination.totalPages > 1 && (

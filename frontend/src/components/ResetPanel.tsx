@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
+import { Icon } from './ui'
 import styles from './ResetPanel.module.css'
 
 /**
@@ -164,13 +165,13 @@ export default function ResetPanel({ scope, onDone }: ResetPanelProps) {
     <section className={styles.zone} aria-labelledby={`danger-${scope}`}>
       <div className={styles.zoneHead}>
         <h3 id={`danger-${scope}`}>
-          <i className="ph-bold ph-warning-octagon" /> Danger zone
+          <Icon name="ph-warning-octagon" weight="bold" /> Danger zone
         </h3>
         <p>{SCOPE_BLURBS[scope]}</p>
         {done && <p className={styles.done}>{done}</p>}
       </div>
       <button type="button" className={styles.trigger} onClick={() => setOpen(true)}>
-        <i className="ph-bold ph-trash" /> {SCOPE_TITLES[scope]}
+        <Icon name="ph-trash" weight="bold" /> {SCOPE_TITLES[scope]}
       </button>
 
       {open && (
@@ -179,7 +180,7 @@ export default function ResetPanel({ scope, onDone }: ResetPanelProps) {
             {/* The loudest thing on the screen, and it says what happens rather than
                 "are you sure?" — which is the question people answer without reading. */}
             <div className={styles.alarm}>
-              <i className="ph-bold ph-warning" />
+              <Icon name="ph-warning" weight="bold" />
               <div>
                 <strong id={`reset-title-${scope}`}>This permanently deletes data. It cannot be undone.</strong>
                 <span>There is no backup, no undo and no recycle bin. Read the list below before you continue.</span>
@@ -198,7 +199,7 @@ export default function ResetPanel({ scope, onDone }: ResetPanelProps) {
                      would invite somebody to type the phrase and then meet a 409. */
                   <div className={styles.blocked}>
                     <p className={styles.blockedLead}>
-                      <i className="ph-bold ph-prohibit" /> This reset is blocked, because it would leave data
+                      <Icon name="ph-prohibit" weight="bold" /> This reset is blocked, because it would leave data
                       pointing at things that no longer exist.
                     </p>
                     <ul>
@@ -237,7 +238,7 @@ export default function ResetPanel({ scope, onDone }: ResetPanelProps) {
                     <ul className={styles.keepList}>
                       {preview.preserves.map((item) => (
                         <li key={item}>
-                          <i className="ph-bold ph-check" /> {item}
+                          <Icon name="ph-check" weight="bold" /> {item}
                         </li>
                       ))}
                     </ul>

@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import Button from '../../components/Button'
-import Spinner from '../../components/Spinner'
+import { Alert, Badge, Button, ButtonLink, Card, EmptyState, ErrorState, Icon, Modal, Progress, SkeletonText, StatTile } from '../../components/ui'
 import MathText from '../../components/MathText'
 import { api, ApiError } from '../../api/client'
 import {
@@ -249,11 +248,11 @@ export default function MockTestAttempt() {
   if (loadError) {
     return (
       <StudentShell title="Mock test">
-        <div className={`card ${styles.centered}`}>
-          <h3>Could not load that attempt</h3>
-          <p className="error-text">{loadError}</p>
-          <Button onClick={() => navigate('/mock-tests')}>Back to mock tests</Button>
-        </div>
+        <ErrorState
+          error={loadError}
+          title="Could not load that attempt"
+          onRetry={() => navigate('/mock-tests')}
+        />
       </StudentShell>
     )
   }
@@ -261,10 +260,9 @@ export default function MockTestAttempt() {
   if (!attempt) {
     return (
       <StudentShell title="Mock test">
-        <div className={styles.centered}>
-          <Spinner />
-          <p>Loading your test…</p>
-        </div>
+        <Card>
+          <SkeletonText lines={5} label="Loading your test" />
+        </Card>
       </StudentShell>
     )
   }
@@ -284,47 +282,55 @@ export default function MockTestAttempt() {
     return (
       <StudentShell title={title} subtitle={`Attempt ${attempt.attemptNumber} · submitted`}>
         {attempt.autoSubmitted && (
-          <p className={styles.autoNote}>
-            <i className="ph-bold ph-timer" /> Your time ran out, so the answers you had saved were submitted
-            automatically and marked.
-          </p>
+          <Alert tone="warning" icon="ph-timer" className={styles.autoNote}>
+            Your time ran out, so the answers you had saved were submitted automatically and marked.
+          </Alert>
         )}
 
         {scored ? (
-          <section className={styles.summaryRow}>
-            <div className={`card ${styles.summaryCard}`}>
-              <div className={styles.summaryScore}>
+          <>
+            <Card className={styles.summaryCard}>
+              <p className={styles.summaryScore}>
                 {attempt.score}
                 <span>/{attempt.maxMarks}</span>
-              </div>
-              <div className={styles.summaryLabel}>Score ({percent}%)</div>
-            </div>
-            <div className="card">
-              <div className={styles.tileValue}>{attempt.correctCount}</div>
-              <div className={styles.tileLabel}>Correct</div>
-            </div>
-            <div className="card">
-              <div className={styles.tileValue}>{attempt.incorrectCount}</div>
-              <div className={styles.tileLabel}>Incorrect</div>
-            </div>
-            <div className="card">
-              <div className={styles.tileValue}>{attempt.unansweredCount}</div>
-              <div className={styles.tileLabel}>Unanswered</div>
-            </div>
-            <div className="card">
-              <div className={styles.tileValue}>{attempt.accuracy}%</div>
-              <div className={styles.tileLabel}>Accuracy (of answered)</div>
-            </div>
-            <div className="card">
-              <div className={styles.tileValue}>{formatDuration(attempt.timeTakenSeconds)}</div>
-              <div className={styles.tileLabel}>Time taken</div>
-            </div>
-          </section>
+              </p>
+              <Progress
+                value={Math.max(0, attempt.score)}
+                max={attempt.maxMarks}
+                aria-label="Score"
+                valueText={`${percent}%`}
+                tone={percent >= 60 ? 'success' : percent >= 35 ? 'warning' : 'danger'}
+              />
+            </Card>
+
+            <section className={styles.summaryRow}>
+              <StatTile icon="ph-check-circle" tone="success" label="Correct" value={attempt.correctCount} />
+              <StatTile icon="ph-x-circle" tone="danger" label="Incorrect" value={attempt.incorrectCount} />
+              <StatTile
+                icon="ph-minus-circle"
+                tone="neutral"
+                label="Unanswered"
+                value={attempt.unansweredCount}
+              />
+              <StatTile
+                icon="ph-target"
+                label="Accuracy"
+                value={`${attempt.accuracy}%`}
+                hint="Of the questions you answered"
+              />
+              <StatTile
+                icon="ph-clock"
+                tone="neutral"
+                label="Time taken"
+                value={formatDuration(attempt.timeTakenSeconds)}
+              />
+            </section>
+          </>
         ) : (
           /* The test withholds the score for now. Said plainly, rather than shown as a
              zero that would read as a result. */
           <div className={`card ${styles.withheld}`}>
-            <i className="ph-bold ph-lock-key" />
+            <Icon name="ph-lock-key" weight="bold" size="xl" />
             <h3>Your answers are in</h3>
             <p>
               {disclosure?.reason === 'awaiting-close'
@@ -336,7 +342,7 @@ export default function MockTestAttempt() {
 
         {xpAwarded !== null && xpAwarded > 0 && (
           <p className={styles.xpNote}>
-            <i className="ph-bold ph-star" /> +{xpAwarded} XP earned for completing a mock test today.
+            <Icon name="ph-star" weight="bold" /> +{xpAwarded} XP earned for completing a mock test today.
           </p>
         )}
 
@@ -375,11 +381,18 @@ export default function MockTestAttempt() {
   if (!question) {
     return (
       <StudentShell title={title}>
-        <div className={`card ${styles.centered}`}>
-          <h3>This paper has no questions</h3>
-          <p>Please tell your administrator. Nothing you do here will be marked against you.</p>
-          <Button onClick={() => navigate('/mock-tests')}>Back to mock tests</Button>
-        </div>
+        <Card>
+          <EmptyState
+            icon="ph-warning-circle"
+            title="This paper has no questions"
+            description="Please tell your administrator. Nothing you do here will be marked against you."
+            action={
+              <ButtonLink to="/mock-tests" variant="secondary" icon="ph-arrow-left">
+                Back to mock tests
+              </ButtonLink>
+            }
+          />
+        </Card>
       </StudentShell>
     )
   }
@@ -387,34 +400,55 @@ export default function MockTestAttempt() {
   const low = remaining !== null && remaining <= WARN_AT_SECONDS
 
   return (
-    <StudentShell title={title} subtitle={`Attempt ${attempt.attemptNumber} · ${attempt.maxMarks} marks`}>
+    <StudentShell title={title} subtitle={`Attempt ${attempt.attemptNumber} · ${attempt.maxMarks} marks`} focus>
+      {/*
+        The clock is the one thing that must never scroll out of reach on a phone, so
+        this bar is sticky under the topbar. The countdown itself is a *display* of
+        `secondsRemaining` from the server — the browser is never asked what time it is
+        (see the backend note on who owns the clock).
+      */}
       <div className={styles.runnerHead}>
-        <span className={styles.progressText}>
-          Question {current + 1} of {attempt.totalQuestions} · {answeredCount} answered
-        </span>
+        <div className={styles.runnerProgress}>
+          <Progress
+            value={answeredCount}
+            max={attempt.totalQuestions}
+            size="sm"
+            aria-label="Questions answered"
+          />
+          <span className={styles.progressText}>
+            Question {current + 1} of {attempt.totalQuestions} · {answeredCount} answered
+          </span>
+        </div>
         <span
           className={`${styles.timer} ${low ? styles.timerLow : ''}`}
           role="timer"
           aria-live={low ? 'polite' : 'off'}
         >
-          <i className="ph-bold ph-timer" /> {remaining === null ? '—' : formatClock(remaining)}
+          <Icon name="ph-timer" weight="bold" size="sm" />
+          {remaining === null ? '—' : formatClock(remaining)}
         </span>
       </div>
 
       {low && (
-        <p className={styles.timeWarning}>
+        <Alert tone="danger" icon="ph-timer" className={styles.timeWarning}>
           Less than {Math.ceil(WARN_AT_SECONDS / 60)} minutes left. Your paper is submitted automatically when the
           time runs out — everything you have answered is already saved.
-        </p>
+        </Alert>
       )}
 
       <div className={styles.runner}>
         <div className="card">
-          <p className={styles.qMeta}>
-            {question.topic?.name} · {question.marks}{' '}
-            {question.marks === 1 ? 'mark' : 'marks'}
-            {question.negativeMarks > 0 ? ` · −${question.negativeMarks} if wrong` : ''}
-          </p>
+          <div className={styles.qMeta}>
+            {question.topic?.name && <Badge tone="neutral">{question.topic.name}</Badge>}
+            <Badge tone="primary" size="sm">
+              {question.marks} {question.marks === 1 ? 'mark' : 'marks'}
+            </Badge>
+            {question.negativeMarks > 0 && (
+              <Badge tone="danger" size="sm">
+                −{question.negativeMarks} if wrong
+              </Badge>
+            )}
+          </div>
 
           <div className={styles.qText}>
             <MathText>{question.questionText}</MathText>
@@ -492,21 +526,22 @@ export default function MockTestAttempt() {
 
           <div className={styles.navRow}>
             <Button variant="outline" onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={current === 0}>
-              ← Previous
+              Previous
             </Button>
             <span className={styles.savingNote}>{saving ? 'Saving…' : 'Answers save as you go'}</span>
             <Button
+              iconAfter="ph-arrow-right"
               onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))}
               disabled={current >= questions.length - 1}
             >
-              Next →
+              Next
             </Button>
           </div>
         </div>
 
         {/* Palette: jump to any question, see which are answered. */}
-        <aside className="card">
-          <h4>Questions</h4>
+        <aside className={`card ${styles.paletteCard}`}>
+          <h2 className={styles.paletteTitle}>Questions</h2>
           <div className={styles.palette}>
             {questions.map((entry, index) => (
               <button
@@ -527,29 +562,43 @@ export default function MockTestAttempt() {
             penalised.
           </p>
 
-          {/* Submitting ends the attempt, and a mock test usually allows only one — so
-              it asks first, unlike practice. */}
-          {confirmingSubmit ? (
-            <div className={styles.confirm}>
-              <p>
-                Submit for marking? {attempt.totalQuestions - answeredCount > 0
-                  ? `${attempt.totalQuestions - answeredCount} question(s) are still unanswered, and you cannot come back to this attempt.`
-                  : 'You cannot come back to this attempt.'}
-              </p>
-              <Button variant="danger" fullWidth onClick={() => void submit()} disabled={submitting}>
-                {submitting ? 'Marking…' : 'Yes, submit now'}
-              </Button>
-              <Button variant="outline" fullWidth onClick={() => setConfirmingSubmit(false)} disabled={submitting}>
-                Keep working
-              </Button>
-            </div>
-          ) : (
-            <Button variant="danger" fullWidth onClick={() => setConfirmingSubmit(true)} disabled={submitting}>
-              Submit for marking
-            </Button>
-          )}
+          <Button variant="danger" fullWidth icon="ph-check" onClick={() => setConfirmingSubmit(true)}>
+            Submit for marking
+          </Button>
         </aside>
       </div>
+
+      {/*
+        Submitting ends the attempt, and a mock test usually allows only one — so it
+        asks first, unlike practice. A dialog rather than a panel inside the palette:
+        it takes focus, it cannot be scrolled past, and on a phone the palette sits
+        below the paper where a confirmation would appear off-screen.
+      */}
+      <Modal
+        open={confirmingSubmit}
+        onClose={() => setConfirmingSubmit(false)}
+        title="Submit for marking?"
+        description="You cannot come back to this attempt."
+        tone="danger"
+        icon="ph-warning"
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirmingSubmit(false)} disabled={submitting}>
+              Keep working
+            </Button>
+            <Button variant="danger" icon="ph-check" loading={submitting} onClick={() => void submit()}>
+              {submitting ? 'Marking' : 'Yes, submit now'}
+            </Button>
+          </>
+        }
+      >
+        <p>
+          {attempt.totalQuestions - answeredCount > 0
+            ? `${attempt.totalQuestions - answeredCount} of ${attempt.totalQuestions} questions are still unanswered. Unanswered questions score zero and are never penalised.`
+            : `All ${attempt.totalQuestions} questions are answered.`}
+        </p>
+      </Modal>
     </StudentShell>
   )
 }
@@ -609,8 +658,8 @@ function ReviewQuestion({ entry }: { entry: MockReviewQuestion }) {
               >
                 <span className={styles.optionKey}>{option.key.toUpperCase()}</span>
                 <MathText>{option.text}</MathText>
-                {correct && <i className={`ph-bold ph-check ${styles.optIcon}`} aria-label="correct answer" />}
-                {chosen && !correct && <i className={`ph-bold ph-x ${styles.optIcon}`} aria-label="your answer" />}
+                {correct && <Icon name="ph-check" weight="bold" className={styles.optIcon} label="correct answer" />}
+                {chosen && !correct && <Icon name="ph-x" weight="bold" className={styles.optIcon} label="your answer" />}
               </li>
             )
           })}

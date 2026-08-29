@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import Button from '../../components/Button'
-import Spinner from '../../components/Spinner'
-import { api, ApiError } from '../../api/client'
+import {
+  Alert,
+  Badge,
+  Button,
+  ButtonLink,
+  Card,
+  CardHeader,
+  EmptyState,
+  ErrorState,
+  Icon,
+  SkeletonCards,
+} from '../../components/ui'
+import { humanizeError } from '../../lib/errors'
+import { api } from '../../api/client'
 import type { MockAttemptSummary, MockTestListResponse, MockTestSummary, Pagination } from '../../api/types'
 import styles from './MockTest.module.css'
 
@@ -65,7 +76,7 @@ export default function MockTests() {
 
   const [data, setData] = useState<MockTestListResponse | null>(null)
   const [history, setHistory] = useState<MockAttemptSummary[] | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<unknown>(null)
   const [startingId, setStartingId] = useState<string | null>(null)
   const [startError, setStartError] = useState<string | null>(null)
 
@@ -79,7 +90,7 @@ export default function MockTests() {
       setData(tests)
       setHistory(attempts.attempts)
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'Could not load your mock tests.')
+      setLoadError(err)
     }
   }, [])
 
@@ -101,7 +112,7 @@ export default function MockTests() {
       const res = await api.post<{ attempt: { id: string } }>(`/mock-tests/${test.id}/attempts`, {})
       navigate(`/mock-tests/attempts/${res.attempt.id}`)
     } catch (err) {
-      setStartError(err instanceof ApiError ? err.message : 'Could not start that test. Please try again.')
+      setStartError(humanizeError(err, { fallback: 'Could not start that test. Please try again.' }))
       setStartingId(null)
     }
   }
@@ -111,44 +122,37 @@ export default function MockTests() {
       title="Mock Tests"
       subtitle={data?.classLevel ? `Timed papers set for ${data.classLevel}` : undefined}
     >
-      {loadError && (
-        <div className={`card ${styles.centered}`}>
-          <h3>Could not load your mock tests</h3>
-          <p className="error-text">{loadError}</p>
-          <Button onClick={() => void load()}>Try again</Button>
-        </div>
-      )}
+      {loadError !== null && <ErrorState error={loadError} onRetry={() => void load()} />}
 
-      {!data && !loadError && (
-        <div className={styles.centered}>
-          <Spinner />
-          <p>Loading your mock tests…</p>
-        </div>
-      )}
+      {!data && loadError === null && <SkeletonCards count={2} label="Loading your mock tests" />}
 
-      {data && !loadError && (
-        <>
-          {startError && <p className="error-text">{startError}</p>}
+      {data && loadError === null && (
+        <div className={styles.page}>
+          {startError && <Alert tone="danger">{startError}</Alert>}
 
           {data.tests.length === 0 ? (
-            <div className={`card ${styles.empty}`}>
-              <i className="ph-bold ph-exam" />
-              <h3>No mock tests yet</h3>
-              <p>
-                {data.reason === 'no-class'
-                  ? 'Add your class to your profile and the tests set for it will appear here.'
-                  : `No mock tests have been published for ${data.classLevel} yet. This page fills in as soon as one is.`}
-              </p>
-              {data.reason === 'no-class' ? (
-                <Link to="/profile">
-                  <Button variant="outline">Go to my profile</Button>
-                </Link>
-              ) : (
-                <Link to="/practice">
-                  <Button variant="outline">Practise in the meantime</Button>
-                </Link>
-              )}
-            </div>
+            <Card>
+              <EmptyState
+                icon="ph-exam"
+                title="No mock tests yet"
+                description={
+                  data.reason === 'no-class'
+                    ? 'Add your class to your profile and the tests set for it will appear here.'
+                    : `No mock tests have been published for ${data.classLevel} yet. This page fills in as soon as one is.`
+                }
+                action={
+                  data.reason === 'no-class' ? (
+                    <ButtonLink to="/profile" variant="secondary" icon="ph-user-circle">
+                      Go to my profile
+                    </ButtonLink>
+                  ) : (
+                    <ButtonLink to="/practice" variant="secondary" icon="ph-target">
+                      Practise in the meantime
+                    </ButtonLink>
+                  )
+                }
+              />
+            </Card>
           ) : (
             <div className={styles.testGrid}>
               {data.tests.map((test) => {
@@ -156,10 +160,14 @@ export default function MockTests() {
                 const canStart = (test.available && test.attemptsLeft > 0) || test.resumeAttemptId !== null
 
                 return (
-                  <article key={test.id} className={`card ${styles.testCard}`}>
+                  <Card as="article" key={test.id} className={styles.testCard}>
                     <header className={styles.testHead}>
                       <h3>{test.title}</h3>
-                      {test.resumeAttemptId && <span className={styles.badgeOpen}>In progress</span>}
+                      {test.resumeAttemptId && (
+                        <Badge tone="warning" icon="ph-play-circle">
+                          In progress
+                        </Badge>
+                      )}
                     </header>
 
                     {test.description && <p className={styles.testDescription}>{test.description}</p>}
@@ -187,19 +195,34 @@ export default function MockTests() {
 
                     {(test.opensAt || test.closesAt) && (
                       <p className={styles.window}>
-                        <i className="ph-bold ph-calendar-blank" />{' '}
-                        {test.opensAt && `Opens ${formatDateTime(test.opensAt)}`}
-                        {test.opensAt && test.closesAt && ' · '}
-                        {test.closesAt && `Closes ${formatDateTime(test.closesAt)}`}
+                        <Icon name="ph-calendar-blank" weight="bold" size="sm" />
+                        <span>
+                          {test.opensAt && `Opens ${formatDateTime(test.opensAt)}`}
+                          {test.opensAt && test.closesAt && ' · '}
+                          {test.closesAt && `Closes ${formatDateTime(test.closesAt)}`}
+                        </span>
                       </p>
                     )}
 
-                    {blocked && <p className={styles.blocked}>{blocked}</p>}
+                    {/* Why it cannot be started, in words — never a disabled button with
+                        no explanation beside it. */}
+                    {blocked && (
+                      <Alert tone="warning" className={styles.blocked}>
+                        {blocked}
+                      </Alert>
+                    )}
 
                     <div className={styles.testActions}>
-                      <Button onClick={() => void start(test)} disabled={!canStart || startingId === test.id}>
+                      <Button
+                        fullWidth
+                        size="lg"
+                        icon={test.resumeAttemptId ? 'ph-play-circle' : 'ph-play'}
+                        loading={startingId === test.id}
+                        disabled={!canStart}
+                        onClick={() => void start(test)}
+                      >
                         {startingId === test.id
-                          ? 'Opening…'
+                          ? 'Opening'
                           : test.resumeAttemptId
                             ? 'Resume test'
                             : `Start test (${test.durationMinutes} min)`}
@@ -216,7 +239,16 @@ export default function MockTests() {
                               Attempt {attempt.attemptNumber} · {formatDateTime(attempt.startedAt)}
                               {attempt.autoSubmitted && ' · time ran out'}
                             </span>
-                            <span className={styles.attemptScore}>
+                            <Badge
+                              tone={
+                                attempt.status === 'in_progress'
+                                  ? 'warning'
+                                  : attempt.resultAvailable
+                                    ? 'success'
+                                    : 'neutral'
+                              }
+                              size="sm"
+                            >
                               {attempt.status === 'in_progress'
                                 ? 'Unfinished'
                                 : attempt.resultAvailable
@@ -224,33 +256,35 @@ export default function MockTests() {
                                   : attempt.disclosureReason === 'awaiting-close'
                                     ? 'Results after close'
                                     : 'Submitted'}
-                            </span>
-                            <Link to={`/mock-tests/attempts/${attempt.id}`} className={styles.attemptLink}>
+                            </Badge>
+                            <ButtonLink to={`/mock-tests/attempts/${attempt.id}`} size="sm" variant="ghost">
                               {attempt.status === 'in_progress'
                                 ? 'Resume'
                                 : attempt.reviewAvailable
                                   ? 'Review'
                                   : 'View'}
-                            </Link>
+                            </ButtonLink>
                           </li>
                         ))}
                       </ul>
                     )}
-                  </article>
+                  </Card>
                 )
               })}
             </div>
           )}
 
-          <div className="card">
-            <h3>🕘 Recent attempts</h3>
+          <Card>
+            <CardHeader title="Recent attempts" size="sm" as="h2" />
             {history === null ? (
-              <Spinner />
+              <SkeletonCards count={2} label="Loading your attempts" />
             ) : history.length === 0 ? (
-              <div className={styles.empty}>
-                <i className="ph-bold ph-clock-counter-clockwise" />
-                <p>You haven’t sat a mock test yet. Your attempts and scores will be listed here.</p>
-              </div>
+              <EmptyState
+                size="sm"
+                icon="ph-clock-counter-clockwise"
+                title="No attempts yet"
+                description="Every paper you sit is listed here with its score, so you can come back to what you got wrong."
+              />
             ) : (
               <ul className={styles.history}>
                 {history.map((attempt) => (
@@ -263,22 +297,30 @@ export default function MockTests() {
                         {attempt.autoSubmitted && ' · submitted automatically'}
                       </span>
                     </div>
-                    <span className={styles.historyScore}>
+                    <Badge
+                      tone={
+                        attempt.status === 'in_progress'
+                          ? 'warning'
+                          : attempt.resultAvailable
+                            ? 'success'
+                            : 'neutral'
+                      }
+                    >
                       {attempt.status === 'in_progress'
                         ? 'Unfinished'
                         : attempt.resultAvailable
                           ? `${attempt.score}/${attempt.maxMarks}`
-                          : '—'}
-                    </span>
-                    <Link to={`/mock-tests/attempts/${attempt.id}`} className={styles.attemptLink}>
+                          : 'Submitted'}
+                    </Badge>
+                    <ButtonLink to={`/mock-tests/attempts/${attempt.id}`} size="sm" variant="secondary">
                       {attempt.status === 'in_progress' ? 'Resume' : 'View'}
-                    </Link>
+                    </ButtonLink>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </>
+          </Card>
+        </div>
       )}
     </StudentShell>
   )

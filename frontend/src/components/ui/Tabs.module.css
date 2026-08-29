@@ -1,0 +1,130 @@
+/**
+ * A contained horizontal scroller, not a wrapping row. See the note in `Tabs.tsx`:
+ * wrapped tabs change the header's height as the selection moves.
+ */
+.list {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  /* Room for the focus ring, which would otherwise be clipped by the scroll box. */
+  padding: 3px 3px 0;
+  margin: -3px -3px 0;
+}
+
+.list::-webkit-scrollbar {
+  display: none;
+}
+
+.tab,
+.tabActive {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  white-space: nowrap;
+  transition:
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+@media (pointer: coarse) {
+  .tab,
+  .tabActive {
+    min-height: var(--tap-target);
+  }
+}
+
+.tab:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.tab:disabled,
+.tabActive:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- underline (default) ---------------------------------------- */
+
+.underline {
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.underline .tab,
+.underline .tabActive {
+  /* The transparent border is always present, so selecting a tab does not move it
+     by 2px. */
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.underline .tabActive {
+  color: var(--primary-text);
+  border-bottom-color: var(--primary);
+}
+
+/* ---------- pill ------------------------------------------------------- */
+
+.pill {
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--surface-sunken);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.pill .tab,
+.pill .tabActive {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-xs);
+}
+
+.pill .tabActive {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ---------- count ------------------------------------------------------ */
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--neutral-soft);
+  color: var(--neutral-text);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabActive .count {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.tabLabel {
+  min-width: 0;
+}
+
+/* The panel carries `tabIndex={0}`, so it needs a focus ring that does not look like
+   a text selection. */
+.panel {
+  outline-offset: 4px;
+  padding-top: var(--space-5);
+}

@@ -1,0 +1,274 @@
+/**
+ * BASE — the element layer (Milestone 23, Phase A).
+ *
+ * Resets, document defaults and the few global rules that are genuinely global:
+ * the focus ring, the reduced-motion honouring, and the themed canvas.
+ *
+ * Rules here apply to **every** page, including the twenty-nine that have not been
+ * redesigned yet, so this file stays deliberately small. Anything that could reflow
+ * an un-migrated page belongs in a component, not here — see the note on touch
+ * targets at the foot of the file for the one place that reasoning bit.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/**
+ * The themed background is painted on `html`, `body` **and** `#root`.
+ *
+ * Belt and braces on purpose. Normally `body`'s background propagates to the canvas
+ * and one declaration would do, but that propagation is exactly the fragile part: it
+ * only happens while `html` has no background of its own, and a body background is
+ * reported inconsistently once it has been lifted to the canvas. Painting `#root` —
+ * an ordinary element with `height: 100%` — means the app's own surface is themed by
+ * a normal, predictable cascade, so pages without a full-height wrapper (the landing,
+ * result and certificate pages) cannot end up with dark cards on a light canvas.
+ */
+html {
+  background: var(--bg);
+  /* Stops mobile Safari inflating text in landscape, which silently breaks a
+     carefully sized layout on exactly the devices most of these students use. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  background: var(--bg);
+  color: var(--text-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  background: var(--bg);
+  color: var(--text-body);
+}
+
+/**
+ * Headings carry the brand face; body copy carries the reading face.
+ *
+ * `--font-heading` is Poppins, which is what the product looked like before this
+ * milestone, so the brand voice is unchanged. What changed is that paragraphs are no
+ * longer set in it.
+ */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0 0 0.5em;
+  font-family: var(--font-heading);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text);
+  /* A long unbroken string — a chapter name, an email address, a student ID — must
+     wrap rather than push the page sideways. */
+  overflow-wrap: break-word;
+}
+
+h1 {
+  font-size: var(--text-3xl);
+}
+
+h2 {
+  font-size: var(--text-2xl);
+}
+
+h3 {
+  font-size: var(--text-xl);
+}
+
+h4 {
+  font-size: var(--text-lg);
+}
+
+h5,
+h6 {
+  font-size: var(--text-base);
+}
+
+/**
+ * Paragraphs are `--text-body` (10.4:1 on white), not `--text-muted` as they were
+ * before. Muted body copy everywhere is the single most template-like thing about an
+ * interface: it flattens hierarchy, because when everything is quiet nothing is
+ * secondary. Secondary text now says so explicitly, with a class.
+ */
+p {
+  margin: 0 0 1em;
+  color: var(--text-body);
+  overflow-wrap: break-word;
+}
+
+/**
+ * `color: inherit` is kept deliberately. Dozens of pre-Milestone-23 modules style
+ * their own links and rely on inheriting the surrounding colour; a global link colour
+ * would repaint navigation, cards and table rows all at once. Links that need to look
+ * like links use the `.link` utility or a component.
+ */
+a {
+  color: inherit;
+  text-decoration-thickness: from-font;
+  text-underline-offset: 0.15em;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+button {
+  /* A button is an action. Nothing in this product wants a text cursor on one, and
+     a caret over a submit control reads as an editable field. */
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+hr {
+  border: 0;
+  border-top: var(--border-width) solid var(--border);
+  margin: var(--space-6) 0;
+}
+
+fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+legend {
+  padding: 0;
+}
+
+/**
+ * THE FOCUS RING.
+ *
+ * One ring, on everything focusable, and it may be re-styled but never removed —
+ * keyboard users navigate this product's exam runner and admin tables, and an
+ * invisible focus position makes both unusable.
+ *
+ * `:focus-visible` rather than `:focus`, so a mouse click on a card or a button does
+ * not leave a ring behind; the browser decides, and it gets that decision right.
+ */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--primary-text);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* Chrome and Safari still paint the legacy ring on some controls in addition to
+   ours; suppressing it only where our own is guaranteed to be drawn. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+/**
+ * Theme-switch transition, kept to the properties that actually change so the flip
+ * reads as deliberate rather than as a flash. Deliberately **not** applied to `*` —
+ * transitioning every element's every property is what makes a theme switch feel
+ * sluggish.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  .card {
+    transition:
+      background-color var(--dur) var(--ease),
+      border-color var(--dur) var(--ease),
+      color var(--dur) var(--ease);
+  }
+}
+
+/**
+ * REDUCED MOTION, honoured once for the whole application.
+ *
+ * Every animation in the product is expressed in terms of the motion tokens, which is
+ * what makes a single global override sufficient. `0.01ms` rather than `none` because
+ * a zero duration cancels `animationend` / `transitionend` in some engines, and two
+ * of our components (the toast auto-dismiss and the modal exit) would then never
+ * finish tidying up.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/**
+ * TOUCH TARGETS.
+ *
+ * Form controls only. They are already full-width blocks in this product, so growing
+ * their height cannot reflow anything around them — whereas a blanket
+ * `min-height: 44px` on every `button` would inflate the compact row actions on
+ * twenty-nine pages that have not been redesigned yet, which is how a design-system
+ * commit turns into a layout regression. Buttons get their floor from the `Button`
+ * component instead, and each page picks it up as it is migrated.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    min-height: var(--tap-target);
+  }
+}
+
+/**
+ * A tick box is 13px at the browser's default, which is a hard thing to hit with a
+ * thumb. Every one in this product sits inside its own `<label>`, so the *label* is
+ * already the real target and this only makes the box itself easier to aim at; the
+ * `min-height` above deliberately skips these, because stretching a tick box to 44px
+ * distorts it rather than enlarging it.
+ */
+input[type='checkbox'],
+input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}

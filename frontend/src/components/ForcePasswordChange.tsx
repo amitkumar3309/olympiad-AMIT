@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
-import Button from './Button'
+import { Alert, Button, Field, PasswordInput } from './ui'
+import { humanizeError } from '../lib/errors'
 import styles from './ForcePasswordChange.module.css'
 
 /**
@@ -26,23 +27,31 @@ export default function ForcePasswordChange() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState('')
+  const [errors, setErrors] = useState<{ newPassword?: string; confirmPassword?: string }>({})
+  const [failure, setFailure] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const name = state.status === 'student' ? (state.student.fullName ?? state.student.studentId) : 'there'
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError('')
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    setFailure('')
 
-    if (newPassword !== confirmPassword) {
-      setError('The two new passwords do not match.')
-      return
+    /* Everything wrong at once, on the field it belongs to — this screen is the only
+       way into the product, so sending somebody round the loop twice is expensive. */
+    const next: { newPassword?: string; confirmPassword?: string } = {}
+    if (newPassword.length < 8) {
+      next.newPassword = 'Use at least 8 characters.'
+    } else if (!/[a-zA-Z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      next.newPassword = 'Include at least one letter and one number.'
+    } else if (newPassword === currentPassword) {
+      next.newPassword = 'Choose a password different from the temporary one.'
     }
-    if (newPassword === currentPassword) {
-      setError('Choose a password different from the temporary one.')
-      return
+    if (confirmPassword !== newPassword) {
+      next.confirmPassword = 'The two new passwords do not match.'
     }
+    setErrors(next)
+    if (Object.keys(next).length > 0) return
 
     setSubmitting(true)
     try {
@@ -51,7 +60,7 @@ export default function ForcePasswordChange() {
       // aside. The backend re-issues the cookies, so the session survives.
       await refreshSession()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not change your password.')
+      setFailure(humanizeError(err, { fallback: 'Could not change your password.' }))
     } finally {
       setSubmitting(false)
     }
@@ -59,61 +68,68 @@ export default function ForcePasswordChange() {
 
   return (
     <div className={styles.wrap}>
-      <form className={`card ${styles.card}`} onSubmit={handleSubmit}>
-        <h2>Choose a new password</h2>
+      <main id="main-content" className={styles.card}>
+        <h1 className={styles.title}>Choose a new password</h1>
         <p className={styles.lead}>
           Hello {name} — a member of staff has given you a temporary password. Please choose one of your own before
           carrying on. Nobody else should know your new password.
         </p>
 
-        {error && <p className="error-text">{error}</p>}
+        {failure && (
+          <Alert tone="danger" className={styles.alert}>
+            {failure}
+          </Alert>
+        )}
 
-        <div className="form-group">
-          <label htmlFor="fpc-current">Temporary password</label>
-          <input
-            id="fpc-current"
-            type="password"
-            className="form-control"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="fpc-new">New password</label>
-          <input
-            id="fpc-new"
-            type="password"
-            className="form-control"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            autoComplete="new-password"
-            required
-          />
-          <small className={styles.hint}>At least 8 characters, including a letter and a number.</small>
-        </div>
-        <div className="form-group">
-          <label htmlFor="fpc-confirm">Confirm new password</label>
-          <input
-            id="fpc-confirm"
-            type="password"
-            className="form-control"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            autoComplete="new-password"
-            required
-          />
-        </div>
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          <Field label="Temporary password" required>
+            <PasswordInput
+              autoComplete="current-password"
+              autoFocus
+              describedAs="temporary password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+            />
+          </Field>
 
-        <Button type="submit" fullWidth disabled={submitting}>
-          {submitting ? 'Saving...' : 'Set my password'}
-        </Button>
+          <Field
+            label="New password"
+            required
+            hint="At least 8 characters, including a letter and a number."
+            error={errors.newPassword}
+          >
+            <PasswordInput
+              autoComplete="new-password"
+              describedAs="new password"
+              value={newPassword}
+              onChange={(event) => {
+                setNewPassword(event.target.value)
+                if (errors.newPassword) setErrors((current) => ({ ...current, newPassword: undefined }))
+              }}
+            />
+          </Field>
 
-        <button type="button" className={styles.signOut} onClick={() => void logout()}>
+          <Field label="Confirm new password" required error={errors.confirmPassword}>
+            <PasswordInput
+              autoComplete="new-password"
+              describedAs="confirmed password"
+              value={confirmPassword}
+              onChange={(event) => {
+                setConfirmPassword(event.target.value)
+                if (errors.confirmPassword) setErrors((current) => ({ ...current, confirmPassword: undefined }))
+              }}
+            />
+          </Field>
+
+          <Button type="submit" fullWidth size="lg" loading={submitting} icon="ph-check">
+            {submitting ? 'Saving your password' : 'Set my password'}
+          </Button>
+        </form>
+
+        <Button variant="ghost" fullWidth icon="ph-sign-out" onClick={() => void logout()}>
           Sign out instead
-        </button>
-      </form>
+        </Button>
+      </main>
     </div>
   )
 }

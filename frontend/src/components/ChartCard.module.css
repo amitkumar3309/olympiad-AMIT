@@ -1,0 +1,22 @@
+.title {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+/**
+ * Shorter on a phone. A 260px chart on a 375px screen takes half the viewport for one
+ * series, and the axis labels are the first thing to become unreadable — the height is
+ * what buys them room, not the width.
+ */
+.canvas {
+  position: relative;
+  height: 200px;
+}
+
+@media (min-width: 768px) {
+  .canvas {
+    height: 260px;
+  }
+}

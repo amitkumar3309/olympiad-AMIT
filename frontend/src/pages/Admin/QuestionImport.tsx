@@ -24,6 +24,7 @@ import {
   type QuestionType,
   type Topic,
 } from '../../api/types'
+import { Alert, Icon, Steps, Table, TableScroll } from '../../components/ui'
 import styles from './QuestionImport.module.css'
 
 /**
@@ -53,6 +54,16 @@ import styles from './QuestionImport.module.css'
  * it is that an examiner should be able to see, without clicking anything, how many questions their
  * file *did not* produce and why. The counts strip at the top exists for exactly that.
  */
+
+/**
+ * The three stages, and the honest naming of the middle one: a previewed file has been
+ * *read*, not saved. Nothing here is a link — you reach the next stage by doing the work.
+ */
+const IMPORT_STEPS = [
+  { id: 'upload', label: 'Upload' },
+  { id: 'review', label: 'Review' },
+  { id: 'saved', label: 'Saved' },
+]
 
 // ---------------------------------------------------------------------------
 // Local shapes
@@ -539,14 +550,20 @@ export default function QuestionImport() {
   // reported rather than guessed at.
   const ready = files.length > 0 && parser?.available === true
 
+  /**
+   * Where the examiner is, derived from what exists rather than tracked in its own state.
+   * A separate stage variable is a second thing that can disagree with the screen — and
+   * the distinction that matters here is precisely the one that is easy to lose: a batch
+   * that has been *read* has written nothing.
+   */
+  const stage = saved ? 'saved' : batch && batch.length > 0 ? 'review' : 'upload'
+
   return (
     <AdminShell title="Bulk import">
       <div className={styles.page}>
-        {error && (
-          <div className={`card ${styles.errorBox}`} role="alert">
-            <i className="ph-bold ph-warning-circle" /> {error}
-          </div>
-        )}
+        <Steps steps={IMPORT_STEPS} current={stage} label="Import steps" />
+
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {/* ----------------------------------------------------------------
             Choose a format
@@ -567,7 +584,7 @@ export default function QuestionImport() {
                   disabled={busy !== null}
                   onClick={() => switchKind(option)}
                 >
-                  <i className={`ph-bold ${KIND_ICONS[option]}`} />
+                  <Icon name={KIND_ICONS[option]} weight="bold" />
                   <span>{KIND_LABELS[option]}</span>
                   {info && !info.available && <em className={styles.offTag}>unavailable</em>}
                 </button>
@@ -581,12 +598,12 @@ export default function QuestionImport() {
               <p className={styles.basis}>{parser.basis}</p>
               {parser.extraction === 'model' && (
                 <p className={styles.modelTag}>
-                  <i className="ph-bold ph-sparkle" /> This format is read by a language model. The other two are not.
+                  <Icon name="ph-sparkle" weight="bold" /> This format is read by a language model. The other two are not.
                 </p>
               )}
               {!parser.available && (
                 <p className={styles.offNotice}>
-                  <i className="ph-bold ph-plugs" /> Not available in this deployment. Photograph import needs{' '}
+                  <Icon name="ph-plugs" weight="bold" /> Not available in this deployment. Photograph import needs{' '}
                   <code>GEMINI_API_KEY</code> set in the backend environment — the other formats work without it.
                 </p>
               )}
@@ -596,7 +613,7 @@ export default function QuestionImport() {
           {kind === 'excel' && (
             <p className={styles.templateRow}>
               <button type="button" className={styles.secondary} disabled={busy !== null} onClick={() => void downloadTemplate()}>
-                <i className="ph-bold ph-download-simple" /> {busy === 'template' ? 'Building…' : 'Download the Excel template'}
+                <Icon name="ph-download-simple" weight="bold" /> {busy === 'template' ? 'Building…' : 'Download the Excel template'}
               </button>
               <span className={styles.hint}>
                 Column order and heading capitalisation do not matter. The template explains every column.
@@ -792,7 +809,7 @@ export default function QuestionImport() {
               <ul className={styles.fileList}>
                 {files.map((f) => (
                   <li key={f.name}>
-                    <i className={`ph-bold ${KIND_ICONS[kind]}`} /> {f.name}{' '}
+                    <Icon name={KIND_ICONS[kind]} weight="bold" /> {f.name}{' '}
                     <span className={styles.hint}>{formatBytes(f.size)}</span>
                   </li>
                 ))}
@@ -833,37 +850,39 @@ export default function QuestionImport() {
 
             {preview.truncated && (
               <p className={styles.truncated}>
-                <i className="ph-bold ph-scissors" /> This import hit its limit of {status?.limits.maxQuestions}{' '}
+                <Icon name="ph-scissors" weight="bold" /> This import hit its limit of {status?.limits.maxQuestions}{' '}
                 questions, so the rest of the upload was not read. Split the file and import the remainder separately.
               </p>
             )}
 
             {preview.files.length > 1 && (
-              <table className={styles.fileTable}>
-                <thead>
-                  <tr>
-                    <th>File</th>
-                    <th>Examined</th>
-                    <th>Read</th>
-                    <th>Problems</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.files.map((f) => (
-                    <tr key={f.name} data-failed={Boolean(f.error)}>
-                      <td>{f.name}</td>
-                      <td>{f.examined}</td>
-                      <td>{f.extracted}</td>
-                      <td>{f.error ? <span className={styles.fileError}>{f.error}</span> : f.failed || '—'}</td>
+              <TableScroll label="Per-file outcome">
+                <Table className={styles.fileTable}>
+                  <thead>
+                    <tr>
+                      <th>File</th>
+                      <th>Examined</th>
+                      <th>Read</th>
+                      <th>Problems</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {preview.files.map((f) => (
+                      <tr key={f.name} data-failed={Boolean(f.error)}>
+                        <td>{f.name}</td>
+                        <td>{f.examined}</td>
+                        <td>{f.extracted}</td>
+                        <td>{f.error ? <span className={styles.fileError}>{f.error}</span> : f.failed || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableScroll>
             )}
 
             {problemCount > 0 && (
               <button type="button" className={styles.secondary} onClick={downloadErrors}>
-                <i className="ph-bold ph-download-simple" /> Download the problem list ({problemCount})
+                <Icon name="ph-download-simple" weight="bold" /> Download the problem list ({problemCount})
               </button>
             )}
           </div>
@@ -875,7 +894,7 @@ export default function QuestionImport() {
         {preview && preview.batchWarnings.length > 0 && (
           <div className={`card ${styles.warnBox}`}>
             <h3>
-              <i className="ph-bold ph-warning-circle" /> Read this before approving
+              <Icon name="ph-warning-circle" weight="bold" /> Read this before approving
             </h3>
             <ul>
               {preview.batchWarnings.map((warning) => (
@@ -1077,7 +1096,9 @@ export default function QuestionImport() {
               </>
             )}
             <p>
-              <Link to="/admin/questions?source=excel_import">Open the question bank →</Link>
+              <Link to="/admin/questions?source=excel_import" className="link">
+                Open the question bank
+              </Link>
             </p>
           </div>
         )}
@@ -1219,7 +1240,7 @@ function ImportCard({
 
       {verdict?.ok === false && verdict.reason && (
         <p className={styles.refusedLine}>
-          <i className="ph-bold ph-x-circle" /> Would not save: {verdict.reason}
+          <Icon name="ph-x-circle" weight="bold" /> Would not save: {verdict.reason}
         </p>
       )}
 
@@ -1231,7 +1252,7 @@ function ImportCard({
         <ul className={styles.warnList}>
           {warnings.map((warning, i) => (
             <li key={`${warning.code}${i}`}>
-              <i className="ph-bold ph-warning" /> {warning.message}
+              <Icon name="ph-warning" weight="bold" /> {warning.message}
             </li>
           ))}
         </ul>
@@ -1277,7 +1298,7 @@ function ImportCard({
               ) : (
                 <>
                   <MathText>{option.text}</MathText>
-                  {option.isCorrect && <i className={`ph-bold ph-check ${styles.tick}`} />}
+                  {option.isCorrect && <Icon name="ph-check" weight="bold" className={styles.tick} />}
                 </>
               )}
             </li>

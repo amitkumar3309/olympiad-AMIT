@@ -4,6 +4,11 @@ import { CLASS_LEVELS, type AdminExam, type AdminExamAttempt, type ClassLevel, t
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Table,
+  TableScroll,
+} from '../../components/ui'
 import styles from './Exams.module.css'
 
 interface ListResponse {
@@ -233,15 +238,15 @@ export default function Exams() {
         </div>
 
         {notice && <p className={styles.notice}>{notice}</p>}
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {loading ? (
           <Spinner label="Loading exams..." />
         ) : exams.length === 0 ? (
           <p className={styles.empty}>No official exams yet.</p>
         ) : (
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
+          <TableScroll label="Scheduled exams">
+            <Table density="compact">
               <thead>
                 <tr>
                   <th>Exam</th>
@@ -304,8 +309,8 @@ export default function Exams() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
         )}
 
         {pagination && pagination.totalPages > 1 && (
@@ -330,8 +335,8 @@ export default function Exams() {
             {openAttempts.attempts.length === 0 ? (
               <p className={styles.empty}>Nobody has sat this paper yet.</p>
             ) : (
-              <div className={styles.tableScroll}>
-                <table className={styles.table}>
+              <TableScroll label="Exam results">
+                <Table density="compact">
                   <thead>
                     <tr>
                       <th>Student</th>
@@ -361,8 +366,8 @@ export default function Exams() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
+              </TableScroll>
             )}
             <Button fullWidth onClick={() => setOpenAttempts(null)}>
               Close

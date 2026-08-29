@@ -1,594 +1,501 @@
+/**
+ * The student dashboard (Milestone 23, Phase D).
+ *
+ * Also the stylesheet for `DailyChallengeCard`, which is a card *on* this page and is
+ * only split out of the bundle because it pulls in KaTeX.
+ */
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-.statRow {
-  display: grid;
-  grid-template-columns: 1.6fr repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-  align-items: stretch;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 20px;
-  align-items: start;
-}
-
-.centered {
-  display: grid;
-  place-items: center;
-  gap: 12px;
-  padding: 48px 24px;
-  text-align: center;
-}
-
-.mono {
-  font-family: var(--font-mono);
-}
-
-/* ---------------------------------------------------------------------------
-   Progress summary: XP / level / streak / rank / achievements
---------------------------------------------------------------------------- */
-
-.progressCard {
+.page {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  justify-content: center;
+  gap: var(--space-8);
 }
 
-.progressHead {
+.sectionTitle {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-2xs);
+  font-family: var(--font-body);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Jump back in — the three things a student came here to do
+   ========================================================================== */
+
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+.actionCard {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 76px;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.actionCard:hover {
+  border-color: var(--primary-border);
+  box-shadow: var(--shadow-md);
+}
+
+.actionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.actionText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.actionTitle {
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.actionMeta {
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+}
+
+.actionChevron {
+  flex-shrink: 0;
+  color: var(--text-subtle);
+}
+
+/* ==========================================================================
+   Progress
+   ========================================================================== */
+
+.progressGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+/* The level card spans two columns once there are at least two, so the XP figure and
+   its bar are not squeezed into a quarter of the row. */
+@media (min-width: 700px) {
+  .levelCard {
+    grid-column: span 2;
+  }
+}
+
+.levelHead {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
-}
-
-.levelBadge {
-  display: inline-block;
-  background: var(--royal-blue);
-  color: #fff;
-  font-size: 11.5px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  padding: 3px 9px;
-  border-radius: 999px;
-  margin-bottom: 6px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .xpValue {
-  font-size: 26px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-  line-height: 1.1;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
-.progressIcon {
-  font-size: 26px;
-  color: var(--royal-blue);
-  opacity: 0.7;
-}
-
-.meter,
-.meterSmall {
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.2);
-  overflow: hidden;
-}
-
-.meterSmall {
-  height: 5px;
-}
-
-.meterFill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--royal-blue), #7c9cff);
-  transition: width 0.3s ease;
-}
-
-.progressHint {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--text-muted);
-}
-
-.tile {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.tileIcon {
-  font-size: 24px;
-  color: var(--royal-blue);
+.levelIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 
-.tileValue {
-  font-size: 21px;
-  font-weight: 800;
-  line-height: 1.2;
-}
+/* ==========================================================================
+   The card grid
+   ========================================================================== */
 
-.tileLabel {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
-
-.tileNote {
-  margin: 4px 0 0;
-  font-size: 11.5px;
-  color: var(--text-muted);
-  opacity: 0.85;
-}
-
-/* ---------------------------------------------------------------------------
-   Empty states — every panel that can be empty explains why it is
---------------------------------------------------------------------------- */
-
-.empty {
+.grid {
   display: grid;
-  place-items: center;
-  gap: 8px;
-  padding: 24px 12px;
-  text-align: center;
-  color: var(--text-muted);
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
 }
 
-.empty i {
-  font-size: 30px;
-  opacity: 0.6;
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* The results table earns the full width; everything else pairs up. */
+  .wide {
+    grid-column: 1 / -1;
+  }
 }
 
-.empty p {
-  margin: 0;
-  font-size: 13.5px;
-  line-height: 1.55;
-  max-width: 42ch;
+/* One table, two presentations. Below 768px the rows are cards, because five numeric
+   columns on a phone is five illegible columns — and dropping columns to fit would
+   mean the information only exists on a desktop. */
+.mobileOnly {
+  display: flex;
 }
 
-.emptyAction {
-  color: var(--royal-blue);
-  font-weight: 700;
-  font-size: 13px;
-  text-decoration: none;
+.desktopOnly {
+  display: none;
 }
 
-.emptyAction:hover {
-  text-decoration: underline;
+@media (min-width: 768px) {
+  .mobileOnly {
+    display: none;
+  }
+
+  .desktopOnly {
+    display: block;
+  }
 }
 
-.subhead {
-  margin: 16px 0 8px;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
+/* ==========================================================================
+   Practice availability
+   ========================================================================== */
 
-/* ---------------------------------------------------------------------------
-   Recent test performance
---------------------------------------------------------------------------- */
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-}
-
-.table th {
-  text-align: left;
-  font-size: 11.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.table td {
-  padding: 9px 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-/* ---------------------------------------------------------------------------
-   Activity feed
---------------------------------------------------------------------------- */
-
-.feed {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.availability {
   display: flex;
   flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.availability li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.availabilityText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.availabilityName {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.availabilityMeta {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* ==========================================================================
+   Activity feed
+   ========================================================================== */
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
 }
 
 .feed li {
   display: grid;
-  grid-template-columns: 22px 1fr auto auto;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 13.5px;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
 .feed li:last-child {
   border-bottom: none;
 }
 
-.feed i {
-  color: var(--royal-blue);
-  font-size: 16px;
+.feedIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
 }
 
 .feedBody {
   display: flex;
   flex-direction: column;
+  gap: 1px;
   min-width: 0;
 }
 
 .feedLabel {
-  font-weight: 600;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text);
 }
 
 .feedDetail {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   overflow-wrap: anywhere;
 }
 
 .feedDay {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   white-space: nowrap;
 }
 
-.feedXp {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 700;
-  color: #16a34a;
-  white-space: nowrap;
+/* The XP badge wraps under the row on a narrow screen rather than squeezing the label
+   into two characters. */
+.feed li > *:last-child {
+  grid-column: 3;
 }
 
-/* ---------------------------------------------------------------------------
-   Available practice
---------------------------------------------------------------------------- */
+@media (max-width: 420px) {
+  .feed li {
+    grid-template-columns: auto 1fr;
+  }
 
-.challenges {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+  .feedDay {
+    grid-column: 2;
+  }
 
-.challenges li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 11px 12px;
-  border-radius: var(--radius-sm);
-  background: rgba(148, 163, 184, 0.06);
-}
-
-.challengeName {
-  display: block;
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.challengeMeta {
-  display: block;
-  font-size: 11.5px;
-  color: var(--text-muted);
-}
-
-.challengeCount {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-/* ---------------------------------------------------------------------------
-   Activity pagination
---------------------------------------------------------------------------- */
-
-.loadMore {
-  display: block;
-  width: 100%;
-  margin-top: 12px;
-  padding: 10px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.loadMore:hover:not(:disabled) {
-  border-color: var(--royal-blue);
-  color: var(--royal-blue);
-}
-
-.loadMore:disabled {
-  opacity: 0.6;
-  cursor: default;
+  .feed li > *:last-child {
+    grid-column: 2;
+    justify-self: start;
+  }
 }
 
 .feedEnd {
-  margin: 12px 0 0;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
   text-align: center;
-  font-size: 12px;
   color: var(--text-muted);
 }
 
-/* ---------------------------------------------------------------------------
-   Today's challenge
---------------------------------------------------------------------------- */
+/* ==========================================================================
+   Achievements
+   ========================================================================== */
 
-.challengeHead {
+.badgeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subhead {
+  margin: var(--space-4) 0 var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+}
+
+.nextList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nextDesc {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Leaderboard
+   ========================================================================== */
+
+.leaderboard {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderboard li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2);
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
-.challengeHead h3 {
-  margin: 0;
+.leaderboard li:last-child {
+  border-bottom: none;
 }
 
-.challengeBadge {
-  font-size: 11.5px;
-  font-weight: 700;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: rgba(37, 99, 235, 0.12);
-  border: 1px solid rgba(37, 99, 235, 0.3);
+/* The reader's own row, marked by a tint *and* the word "You" — never by colour
+   alone. */
+.meRow {
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
+}
+
+.rank {
+  flex-shrink: 0;
+  min-width: 2.5ch;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lbText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.lbName {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.lbSchool {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lbXp {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Today's challenge card (DailyChallengeCard.tsx)
+   ========================================================================== */
+
 .challengeTaxonomy {
-  margin: 6px 0 12px;
-  font-size: 12px;
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
 .challengeQuestion {
-  font-size: 14.5px;
-  line-height: 1.65;
-  overflow-wrap: anywhere;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text);
+  /* Long formulas scroll inside the block rather than widening the card. */
+  overflow-x: auto;
 }
 
 .challengeOptions {
-  list-style: none;
-  padding: 0;
-  margin: 14px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  counter-reset: none;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
 }
 
 .challengeOptions li {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(148, 163, 184, 0.06);
-  font-size: 13.5px;
-  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  min-width: 0;
 }
 
 .optionKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: rgba(148, 163, 184, 0.18);
-  font-size: 11px;
-  font-weight: 800;
+  background: var(--surface-sunken);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--text-muted);
 }
 
-/* The card's footer: the call to action, and one line of status beside it. */
 .challengeActions {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-top: 16px;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 .challengeNote {
-  font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
-  font-style: italic;
-  max-width: 34ch;
-}
-
-.challengeLoading {
-  margin: 8px 0 0;
-  font-size: 13px;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
   color: var(--text-muted);
 }
 
-/* ---------------------------------------------------------------------------
-   Achievements
---------------------------------------------------------------------------- */
-
-.badges {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.badges li {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
-  border-radius: 999px;
-  background: rgba(37, 99, 235, 0.12);
-  border: 1px solid rgba(37, 99, 235, 0.3);
-  font-size: 12.5px;
-  font-weight: 700;
-}
-
-.badges i {
-  color: var(--royal-blue);
-}
-
-.nextList {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.nextHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 13.5px;
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-
-.nextDesc {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.leaderboard {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.leaderboard li {
-  display: grid;
-  grid-template-columns: 40px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  background: rgba(148, 163, 184, 0.06);
-  font-size: 14px;
-}
-
-/** The signed-in student's own row, so they can find themselves at a glance. */
-.meRow {
-  background: rgba(37, 99, 235, 0.14);
-  outline: 1px solid rgba(37, 99, 235, 0.35);
-}
-
-.rank {
-  font-weight: 800;
-  color: var(--royal-blue);
-}
-
-.lbName {
-  font-weight: 600;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.lbSchool {
-  grid-column: 2;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.lbXp {
-  font-family: var(--font-mono);
-  font-weight: 700;
-}
-
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.actionCard {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  text-decoration: none;
-  color: var(--text-main);
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.actionCard:hover {
-  border-color: var(--royal-blue);
-  color: var(--royal-blue);
-}
-
-@media (max-width: 1200px) {
-  .statRow {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 900px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .statRow {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
-/* The sidebar, topbar and mobile-drawer rules moved to
-   `components/StudentShell.module.css` when the shell was extracted so it could
-   persist across every student page. Only this page's own content styles remain. */
-@media (max-width: 768px) {
-  .statRow {
-    grid-template-columns: 1fr;
+@media (min-width: 560px) {
+  .challengeActions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
   }
 }

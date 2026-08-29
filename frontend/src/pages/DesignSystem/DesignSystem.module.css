@@ -1,0 +1,181 @@
+/* Development-only reference page. See the note in `DesignSystem.tsx`. */
+
+.page {
+  min-height: 100vh;
+  padding-bottom: var(--space-24);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  padding: var(--space-5) 0;
+  background: var(--surface);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.headerInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .headerInner {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.h1 {
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.lead {
+  margin: 0;
+  max-width: 60ch;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.headerSide {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+/* The live width read-out, which is the whole point of the page during the
+   responsive audit. */
+.viewport {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.main {
+  padding-top: var(--space-8);
+}
+
+.section {
+  padding: var(--space-8) 0;
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-xl);
+}
+
+.note {
+  margin: var(--space-4) 0 0;
+  max-width: 70ch;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.row {
+  margin-bottom: var(--space-5);
+}
+
+.rowLabel {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--text-muted);
+}
+
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(140px, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+.swatch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.swatchChip {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-xs);
+}
+
+.swatchName {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.typeStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.typeMeta {
+  margin: calc(var(--space-3) * -1) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-subtle);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .formGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .span2 {
+    grid-column: 1 / -1;
+  }
+}
+
+.iconGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(104px, 100%), 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.iconCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-2);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.iconName {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
+  overflow-wrap: anywhere;
+}

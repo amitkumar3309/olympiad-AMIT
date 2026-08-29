@@ -1,0 +1,40 @@
+/**
+ * The icon is an inline-flex box rather than raw inline text so that its glyph is
+ * centred on the text baseline predictably, and so a 20px icon beside 15px text does
+ * not lift the line box.
+ */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  /* An icon is never selectable text — dragging across a label should not highlight
+     half a glyph. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.xs {
+  font-size: 14px;
+}
+
+.sm {
+  font-size: 16px;
+}
+
+.md {
+  font-size: 20px;
+}
+
+.lg {
+  font-size: 24px;
+}
+
+.xl {
+  font-size: 32px;
+}
+
+.xxl {
+  font-size: 44px;
+}

@@ -5,6 +5,7 @@ import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { api, ApiError } from '../../api/client'
 import type { HallOfFameEntry, HallOfFameResponse } from '../../api/types'
+import { Icon } from '../../components/ui'
 import styles from './HallOfFame.module.css'
 
 /**
@@ -24,7 +25,6 @@ import styles from './HallOfFame.module.css'
  * heading.
  */
 
-const MEDALS: Record<number, string> = { 1: '🥇', 2: '🥈', 3: '🥉' }
 
 function formatDate(value: string | null): string | null {
   if (!value) return null
@@ -39,7 +39,12 @@ function Entry({ entry }: { entry: HallOfFameEntry }) {
 
   return (
     <li className={styles.entry}>
-      <span className={styles.rank}>{MEDALS[entry.rank] ?? `#${entry.rank}`}</span>
+      <span className={styles.rank}>
+        {entry.rank <= 3 && (
+          <Icon name="ph-medal" weight="bold" size="sm" className={styles[`medal${entry.rank}`]} />
+        )}
+        <span>#{entry.rank}</span>
+      </span>
       <span className={styles.who}>
         <span className={styles.name}>{entry.displayName}</span>
         <span className={styles.meta}>
@@ -132,7 +137,7 @@ export default function HallOfFame() {
 
       {nothingYet && (
         <div className={`card ${styles.openNote}`}>
-          <i className="ph-bold ph-confetti" />
+          <Icon name="ph-confetti" weight="bold" />
           <div>
             <strong>Every board is still open.</strong>
             <p>
@@ -148,7 +153,7 @@ export default function HallOfFame() {
         {boards.map((board) => (
           <section className="card" key={board.code}>
             <header className={styles.boardHead}>
-              <i className={`ph-bold ${board.icon} ${styles.boardIcon}`} />
+              <Icon name={board.icon} weight="bold" className={styles.boardIcon} />
               <div>
                 <h3>{board.title}</h3>
                 <p className={styles.boardDescription}>{board.description}</p>
@@ -171,7 +176,9 @@ export default function HallOfFame() {
       <p className={styles.footNote}>
         Names are shown as a first name and a last initial, because the entrants are children and this page is public.
         Equal achievements share a rank. Accounts that are suspended or deactivated do not appear.{' '}
-        <Link to="/leaderboard">See the full leaderboard →</Link>
+        <Link to="/leaderboard" className="link">
+          See the full leaderboard
+        </Link>
       </p>
 
       <p className={styles.footNote}>

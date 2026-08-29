@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import Button from '../../components/Button'
-import Spinner from '../../components/Spinner'
+import { Alert, Badge, Button, ButtonLink, Card, ErrorState, Icon, Progress, SkeletonText, StatTile } from '../../components/ui'
 import MathText from '../../components/MathText'
 import { api, ApiError } from '../../api/client'
 import {
@@ -172,11 +171,11 @@ export default function PracticeSessionPage() {
   if (loadError) {
     return (
       <StudentShell title="Practice">
-        <div className={`card ${styles.centered}`}>
-          <h3>Could not load that session</h3>
-          <p className="error-text">{loadError}</p>
-          <Button onClick={() => navigate('/practice')}>Back to Practice Zone</Button>
-        </div>
+        <ErrorState
+          error={loadError}
+          title="Could not load that session"
+          onRetry={() => navigate('/practice')}
+        />
       </StudentShell>
     )
   }
@@ -184,10 +183,9 @@ export default function PracticeSessionPage() {
   if (!session || !question) {
     return (
       <StudentShell title="Practice">
-        <div className={styles.centered}>
-          <Spinner />
-          <p>Loading your session…</p>
-        </div>
+        <Card>
+          <SkeletonText lines={5} label="Loading your session" />
+        </Card>
       </StudentShell>
     )
   }
@@ -205,54 +203,56 @@ export default function PracticeSessionPage() {
     return (
       <StudentShell title="Practice review" subtitle={scope}>
         {/* Performance summary — every figure computed by the server. */}
+        <Card className={styles.summaryCard}>
+          <p className={styles.summaryScore}>
+            {session.score}
+            <span>/{session.maxMarks}</span>
+          </p>
+          <Progress
+            value={Math.max(0, session.score)}
+            max={session.maxMarks}
+            aria-label="Score"
+            valueText={`${percent}%`}
+            tone={percent >= 60 ? 'success' : percent >= 35 ? 'warning' : 'danger'}
+          />
+        </Card>
+
         <section className={styles.summaryRow}>
-          <div className={`card ${styles.summaryCard}`}>
-            <div className={styles.summaryScore}>
-              {session.score}
-              <span>/{session.maxMarks}</span>
-            </div>
-            <div className={styles.summaryLabel}>Score ({percent}%)</div>
-          </div>
-          <div className="card">
-            <div className={styles.tileValue}>{session.correctCount}</div>
-            <div className={styles.tileLabel}>Correct</div>
-          </div>
-          <div className="card">
-            <div className={styles.tileValue}>{session.incorrectCount}</div>
-            <div className={styles.tileLabel}>Incorrect</div>
-          </div>
-          <div className="card">
-            <div className={styles.tileValue}>{session.unansweredCount}</div>
-            <div className={styles.tileLabel}>Unanswered</div>
-          </div>
-          <div className="card">
-            <div className={styles.tileValue}>{session.accuracy}%</div>
-            <div className={styles.tileLabel}>Accuracy (of answered)</div>
-          </div>
-          <div className="card">
-            <div className={styles.tileValue}>{formatDuration(session.timeTakenSeconds)}</div>
-            <div className={styles.tileLabel}>Time taken</div>
-          </div>
+          <StatTile icon="ph-check-circle" tone="success" label="Correct" value={session.correctCount} />
+          <StatTile icon="ph-x-circle" tone="danger" label="Incorrect" value={session.incorrectCount} />
+          <StatTile icon="ph-minus-circle" tone="neutral" label="Unanswered" value={session.unansweredCount} />
+          <StatTile
+            icon="ph-target"
+            label="Accuracy"
+            value={`${session.accuracy}%`}
+            hint="Of the questions you answered"
+          />
+          <StatTile
+            icon="ph-clock"
+            tone="neutral"
+            label="Time taken"
+            value={formatDuration(session.timeTakenSeconds)}
+          />
         </section>
 
         {xpAwarded !== null && xpAwarded > 0 && (
-          <p className={styles.xpNote}>
-            <i className="ph-bold ph-star" /> +{xpAwarded} XP earned for practising today.
-          </p>
+          <Alert tone="success" icon="ph-star" className={styles.xpNote}>
+            +{xpAwarded} XP earned for practising today.
+          </Alert>
         )}
         {xpAwarded === 0 && session.correctCount + session.incorrectCount > 0 && (
-          <p className={styles.xpNote}>
+          <Alert tone="info" className={styles.xpNote}>
             You have already earned today’s practice XP — extra sessions still count towards your history.
-          </p>
+          </Alert>
         )}
 
         <div className={styles.reviewActions}>
-          <Link to="/practice">
-            <Button>Practise again</Button>
-          </Link>
-          <Link to="/dashboard">
-            <Button variant="outline">Back to dashboard</Button>
-          </Link>
+          <ButtonLink to="/practice" icon="ph-arrow-clockwise">
+            Practise again
+          </ButtonLink>
+          <ButtonLink to="/dashboard" variant="secondary" icon="ph-squares-four">
+            Back to dashboard
+          </ButtonLink>
         </div>
 
         {/* Per-question review with the correct answer and the explanation. */}
@@ -270,21 +270,47 @@ export default function PracticeSessionPage() {
   // -------------------------------------------------------------------------
 
   return (
-    <StudentShell title="Practice" subtitle={scope}>
+    // `focus`: no bottom bar while a paper is open — it sits where the answer
+    // buttons are. The menu stays reachable from the burger at every width.
+    <StudentShell title="Practice" subtitle={scope} focus>
       <div className={styles.runnerHead}>
-        <span className={styles.progressText}>
-          Question {current + 1} of {session.totalQuestions} · {answeredCount} answered
+        <div className={styles.runnerProgress}>
+          {/*
+            A real count out of a real total — questions answered, not a fiction that
+            eases towards the end of the paper.
+          */}
+          <Progress
+            value={answeredCount}
+            max={session.totalQuestions}
+            size="sm"
+            aria-label="Questions answered"
+          />
+          <span className={styles.progressText}>
+            Question {current + 1} of {session.totalQuestions} · {answeredCount} answered
+          </span>
+        </div>
+        <span className={styles.timer}>
+          <Icon name="ph-clock" weight="bold" size="sm" />
+          {formatDuration(elapsed)}
         </span>
-        <span className={styles.timer}>{formatDuration(elapsed)}</span>
       </div>
 
       <div className={styles.runner}>
         <div className="card">
-          <p className={styles.qMeta}>
-            {question.topic?.name} · {question.difficulty} ·{' '}
-            {question.marks} {question.marks === 1 ? 'mark' : 'marks'}
-            {question.negativeMarks > 0 ? ` · −${question.negativeMarks} if wrong` : ''}
-          </p>
+          <div className={styles.qMeta}>
+            {question.topic?.name && <Badge tone="neutral">{question.topic.name}</Badge>}
+            <Badge tone="neutral" uppercase size="sm">
+              {question.difficulty}
+            </Badge>
+            <Badge tone="primary" size="sm">
+              {question.marks} {question.marks === 1 ? 'mark' : 'marks'}
+            </Badge>
+            {question.negativeMarks > 0 && (
+              <Badge tone="danger" size="sm">
+                −{question.negativeMarks} if wrong
+              </Badge>
+            )}
+          </div>
 
           <div className={styles.qText}>
             <MathText>{question.questionText}</MathText>
@@ -376,26 +402,33 @@ export default function PracticeSessionPage() {
             </div>
           )}
 
-          {saveError && <p className="error-text">{saveError}</p>}
+          {saveError && <Alert tone="danger">{saveError}</Alert>}
 
           <div className={styles.navRow}>
-            <Button variant="outline" onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={current === 0}>
-              ← Previous
+            <Button
+              variant="secondary"
+              icon="ph-arrow-left"
+              onClick={() => setCurrent((c) => Math.max(0, c - 1))}
+              disabled={current === 0}
+            >
+              Previous
             </Button>
             <span className={styles.savingNote}>{saving ? 'Saving…' : 'Answers save automatically'}</span>
             {current < questions.length - 1 ? (
-              <Button onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))}>Next →</Button>
+              <Button iconAfter="ph-arrow-right" onClick={() => setCurrent((c) => Math.min(questions.length - 1, c + 1))}>
+                Next
+              </Button>
             ) : (
-              <Button variant="danger" onClick={() => void submitSession()} disabled={submitting}>
-                {submitting ? 'Marking…' : 'Submit for marking'}
+              <Button variant="danger" icon="ph-check" loading={submitting} onClick={() => void submitSession()}>
+                {submitting ? 'Marking' : 'Submit for marking'}
               </Button>
             )}
           </div>
         </div>
 
         {/* Palette: jump to any question, see which are answered. */}
-        <aside className="card">
-          <h4>Questions</h4>
+        <aside className={`card ${styles.paletteCard}`}>
+          <h2 className={styles.paletteTitle}>Questions</h2>
           <div className={styles.palette}>
             {questions.map((entry, index) => (
               <button
@@ -415,8 +448,14 @@ export default function PracticeSessionPage() {
             {answeredCount} of {session.totalQuestions} answered. Unanswered questions score zero and are never
             penalised.
           </p>
-          <Button variant="danger" fullWidth onClick={() => void submitSession()} disabled={submitting}>
-            {submitting ? 'Marking…' : 'Submit for marking'}
+          <Button
+            variant="danger"
+            fullWidth
+            icon="ph-check"
+            loading={submitting}
+            onClick={() => void submitSession()}
+          >
+            {submitting ? 'Marking' : 'Submit for marking'}
           </Button>
         </aside>
       </div>
@@ -484,8 +523,8 @@ function ReviewQuestion({ entry }: { entry: PracticeReviewQuestion }) {
               >
                 <span className={styles.optionKey}>{option.key.toUpperCase()}</span>
                 <MathText>{option.text}</MathText>
-                {correct && <i className={`ph-bold ph-check ${styles.optIcon}`} aria-label="correct answer" />}
-                {chosen && !correct && <i className={`ph-bold ph-x ${styles.optIcon}`} aria-label="your answer" />}
+                {correct && <Icon name="ph-check" weight="bold" className={styles.optIcon} label="correct answer" />}
+                {chosen && !correct && <Icon name="ph-x" weight="bold" className={styles.optIcon} label="your answer" />}
               </li>
             )
           })}

@@ -9,6 +9,7 @@ import type {
 } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
+import { Alert, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './Referrals.module.css'
 
 /**
@@ -269,7 +270,7 @@ export default function AdminReferrals() {
       )}
 
       {loading && !data && <Spinner label="Loading referrals..." />}
-      {error && <p className="error-text">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
       {notice && <p className={styles.notice}>{notice}</p>}
 
       {data && (
@@ -310,7 +311,7 @@ export default function AdminReferrals() {
                * below is real even though nothing is owed.
                */
               <p className={styles.notConfigured}>
-                <i className="ph-bold ph-info" /> No referral reward is configured, so nothing is being accrued.
+                <Icon name="ph-info" weight="bold" /> No referral reward is configured, so nothing is being accrued.
                 Introductions are still recorded and shown below — set an amount here when you have decided one.
               </p>
             )}
@@ -413,8 +414,8 @@ export default function AdminReferrals() {
                   : 'No referrals yet. A row appears here the moment somebody registers with another student’s link.'}
               </p>
             ) : (
-              <div className={styles.tableScroll}>
-                <table className={styles.table}>
+              <TableScroll label="Referrals">
+                <Table density="compact">
                   <thead>
                     <tr>
                       <th>Referrer</th>
@@ -514,8 +515,8 @@ export default function AdminReferrals() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
+              </TableScroll>
             )}
 
             {data.pagination.totalPages > 1 && (

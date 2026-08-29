@@ -1,0 +1,154 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-pill);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-none);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.sm {
+  padding: 3px 8px;
+  font-size: var(--text-2xs);
+}
+
+.md {
+  padding: 5px 11px;
+  font-size: var(--text-xs);
+}
+
+.uppercase {
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  font-weight: var(--weight-bold);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* ---------- soft (default) ---------------------------------------------
+   A tinted background with the readable text token — never the solid fill
+   colour as text, which is the mistake that made amber labels unreadable. */
+
+.soft.neutral {
+  background: var(--neutral-soft);
+  color: var(--neutral-text);
+}
+
+.soft.primary {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.soft.success {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.soft.warning {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
+
+.soft.danger {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.soft.info {
+  background: var(--info-soft);
+  color: var(--info-text);
+}
+
+.soft.accent {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* ---------- solid ------------------------------------------------------ */
+
+.solid.neutral {
+  background: var(--text-muted);
+  color: var(--surface);
+}
+
+.solid.primary {
+  background: var(--primary);
+  color: var(--primary-on);
+}
+
+.solid.success {
+  background: var(--success-solid);
+  color: #fff;
+}
+
+.solid.warning {
+  background: var(--warning-solid);
+  color: #fff;
+}
+
+.solid.danger {
+  background: var(--danger-solid);
+  color: #fff;
+}
+
+.solid.info {
+  background: var(--info-solid);
+  color: #fff;
+}
+
+.solid.accent {
+  background: var(--accent-strong);
+  /* Gold is a light fill in both themes, so its text stays dark rather than
+     following `--text`, which inverts. */
+  color: var(--gold-700);
+}
+
+/* ---------- outline ---------------------------------------------------- */
+
+.outline {
+  background: transparent;
+}
+
+.outline.neutral {
+  border-color: var(--neutral-border);
+  color: var(--neutral-text);
+}
+
+.outline.primary {
+  border-color: var(--primary-border);
+  color: var(--primary-text);
+}
+
+.outline.success {
+  border-color: var(--success-border);
+  color: var(--success-text);
+}
+
+.outline.warning {
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+.outline.danger {
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.outline.info {
+  border-color: var(--info-border);
+  color: var(--info-text);
+}
+
+.outline.accent {
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}

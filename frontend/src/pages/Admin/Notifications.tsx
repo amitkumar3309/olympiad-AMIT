@@ -10,6 +10,11 @@ import {
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
+import {
+  Alert,
+  Table,
+  TableScroll,
+} from '../../components/ui'
 import styles from './Notifications.module.css'
 
 interface ListResponse {
@@ -311,7 +316,7 @@ export default function Notifications() {
         </form>
 
         {notice && <p className={styles.notice}>{notice}</p>}
-        {error && <p className="error-text">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
 
         {loading ? (
           <Spinner label="Loading announcements..." />
@@ -320,8 +325,8 @@ export default function Notifications() {
             {appliedSearch || publishedFilter ? 'Nothing matches these filters.' : 'No announcements yet.'}
           </p>
         ) : (
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
+          <TableScroll label="Sent notifications">
+            <Table density="compact">
               <thead>
                 <tr>
                   <th>Title</th>
@@ -383,8 +388,8 @@ export default function Notifications() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
         )}
 
         {pagination && pagination.totalPages > 1 && (

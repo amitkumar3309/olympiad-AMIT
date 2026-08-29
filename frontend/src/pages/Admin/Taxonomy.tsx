@@ -6,6 +6,9 @@ import AdminShell from './AdminShell'
 import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
+import {
+  Alert,
+} from '../../components/ui'
 import styles from './Taxonomy.module.css'
 
 /**
@@ -142,7 +145,7 @@ export default function Taxonomy() {
       </label>
 
       {notice && <p className={styles.notice}>{notice}</p>}
-      {error && <p className="error-text">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
       <div className={styles.forms}>
         <form className={styles.inlineForm} onSubmit={createTopic}>

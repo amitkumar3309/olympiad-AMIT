@@ -4,6 +4,7 @@ import { ACTIVITY_LABELS, type ActivityType, type RewardConfigResponse, type Rew
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
+import { Alert, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './RewardSettings.module.css'
 
 /**
@@ -96,7 +97,7 @@ export default function RewardSettings() {
       </p>
 
       <div className={styles.warn}>
-        <i className="ph-bold ph-info" />
+        <Icon name="ph-info" weight="bold" />
         <div>
           <strong>Changing these cannot alter anybody&rsquo;s existing XP.</strong> Every event a student has already
           earned stored its own value at the time, and their total is the sum of those — so a change here decides what
@@ -106,7 +107,7 @@ export default function RewardSettings() {
       </div>
 
       {notice && <p className={styles.notice}>{notice}</p>}
-      {error && <p className="error-text">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
       {loading ? (
         <div className={styles.centered}>
@@ -114,8 +115,8 @@ export default function RewardSettings() {
         </div>
       ) : (
         <div className="card">
-          <div className={styles.tableScroll}>
-            <table className={styles.table}>
+          <TableScroll label="XP awards">
+            <Table density="compact">
               <thead>
                 <tr>
                   <th>Event</th>
@@ -157,8 +158,8 @@ export default function RewardSettings() {
                   )
                 })}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableScroll>
 
           <div className={styles.actions}>
             <Button onClick={() => void save()} disabled={saving || !changed}>

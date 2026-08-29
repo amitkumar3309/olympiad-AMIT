@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import Spinner from '../../components/Spinner'
+import { Alert, Badge, Button, Card, CardHeader, DataCard, DataCardList, DataRow, EmptyState, ErrorState, Icon, SkeletonCards, StatTile, Table, TableScroll, type BadgeTone } from '../../components/ui'
 import { api, ApiError } from '../../api/client'
 import type { ReferralRewardStatus, StudentReferralSummary } from '../../api/types'
 import { AMIT_SHORT } from '../../lib/brand'
@@ -46,6 +46,20 @@ const STATUS_HELP: Record<ReferralRewardStatus, string> = {
   rejected: 'This referral was not accepted. Contact support if you think that is wrong.',
 }
 
+/**
+ * The tone each state is shown in. Deliberately a map beside the labels rather than a
+ * chain of conditionals at the call site: a status is one fact, and its words, its
+ * tooltip and its colour should be decided in one place.
+ */
+const STATUS_TONES: Record<ReferralRewardStatus, BadgeTone> = {
+  pending_conversion: 'neutral',
+  no_reward: 'info',
+  accrued: 'warning',
+  approved: 'primary',
+  paid: 'success',
+  rejected: 'danger',
+}
+
 function rupees(paise: number): string {
   return `₹${(paise / 100).toFixed(2)}`
 }
@@ -70,7 +84,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 
   return (
     <button type="button" className={styles.copyBtn} onClick={() => void copy()}>
-      <i className={`ph-bold ${copied ? 'ph-check' : 'ph-copy'}`} /> {copied ? 'Copied' : label}
+      <Icon name={copied ? 'ph-check' : 'ph-copy'} weight="bold" /> {copied ? 'Copied' : label}
     </button>
   )
 }
@@ -123,15 +137,8 @@ export default function Referrals() {
   return (
     <StudentShell title="Refer & Earn" subtitle="Invite a friend to the Olympiad">
       <div className={styles.wrap}>
-        {loading && <Spinner label="Loading your referrals..." />}
-        {error && !loading && (
-          <div className={`card ${styles.errorCard}`}>
-            <p className="error-text">{error}</p>
-            <button type="button" className={styles.retry} onClick={() => void load()}>
-              Try again
-            </button>
-          </div>
-        )}
+        {loading && <SkeletonCards count={3} label="Loading your referrals" />}
+        {error && !loading && <ErrorState error={error} onRetry={() => void load()} />}
 
         {summary && !loading && (
           <>
@@ -165,12 +172,13 @@ export default function Referrals() {
                   target="_blank"
                   rel="noreferrer noopener"
                 >
-                  <i className="ph-bold ph-whatsapp-logo" /> Share on WhatsApp
+                  <Icon name="ph-whatsapp-logo" weight="bold" size="sm" />
+                  <span>Share on WhatsApp</span>
                 </a>
                 {typeof navigator !== 'undefined' && 'share' in navigator && (
-                  <button type="button" className={styles.shareBtn} onClick={() => void nativeShare()}>
-                    <i className="ph-bold ph-share-network" /> Share
-                  </button>
+                  <Button variant="secondary" icon="ph-share-network" onClick={() => void nativeShare()}>
+                    Share
+                  </Button>
                 )}
                 <CopyButton value={summary.code} label="Copy code" />
               </div>
@@ -194,48 +202,49 @@ export default function Referrals() {
                * not promise that a future reward will cover past referrals, because it
                * will not: the amount is fixed at the moment a referral converts.
                */
-              <section className={`card ${styles.rewardCard} ${styles.rewardOff}`}>
-                <p className={styles.rewardLead}>
-                  <i className="ph-bold ph-info" /> No referral reward is running at the moment.
-                </p>
-                <p className={styles.rewardTerms}>
-                  Your link still works and every friend who joins with it is recorded below. If a reward is announced
-                  later it will apply to referrals from that point on, so it is worth sharing now either way.
-                </p>
-              </section>
+              <Alert tone="info" title="No referral reward is running at the moment">
+                Your link still works and every friend who joins with it is recorded below. If a reward is announced
+                later it will apply to referrals from that point on, so it is worth sharing now either way.
+              </Alert>
             )}
 
             {/* ---------------------------------------------------------------
                 Counts — always real, always shown
             --------------------------------------------------------------- */}
             <section className={styles.tiles}>
-              <div className="card">
-                <div className={styles.tileValue}>{summary.counts.total}</div>
-                <div className={styles.tileLabel}>Friends joined</div>
-              </div>
-              <div className="card">
-                <div className={styles.tileValue}>{summary.counts.converted}</div>
-                <div className={styles.tileLabel}>Entered the Olympiad</div>
-              </div>
-              <div className="card">
-                <div className={styles.tileValue}>{summary.counts.pendingConversion}</div>
-                <div className={styles.tileLabel}>Yet to pay the fee</div>
-              </div>
+              <StatTile icon="ph-users-three" label="Friends joined" value={summary.counts.total} />
+              <StatTile
+                icon="ph-check-circle"
+                tone="success"
+                label="Entered the Olympiad"
+                value={summary.counts.converted}
+              />
+              <StatTile
+                icon="ph-clock"
+                tone="warning"
+                label="Yet to pay the fee"
+                value={summary.counts.pendingConversion}
+              />
               {/* Only when there is a reward: three tiles reading ₹0.00 look like a fault. */}
               {rewardOn && (
                 <>
-                  <div className="card">
-                    <div className={styles.tileValue}>{rupees(summary.rewards.accruedPaise)}</div>
-                    <div className={styles.tileLabel}>Earned, awaiting approval</div>
-                  </div>
-                  <div className="card">
-                    <div className={styles.tileValue}>{rupees(summary.rewards.approvedPaise)}</div>
-                    <div className={styles.tileLabel}>Approved</div>
-                  </div>
-                  <div className="card">
-                    <div className={styles.tileValue}>{rupees(summary.rewards.paidPaise)}</div>
-                    <div className={styles.tileLabel}>Paid to you</div>
-                  </div>
+                  <StatTile
+                    icon="ph-hand-coins"
+                    label="Earned, awaiting approval"
+                    value={rupees(summary.rewards.accruedPaise)}
+                  />
+                  <StatTile
+                    icon="ph-seal-check"
+                    tone="success"
+                    label="Approved"
+                    value={rupees(summary.rewards.approvedPaise)}
+                  />
+                  <StatTile
+                    icon="ph-currency-inr"
+                    tone="success"
+                    label="Paid to you"
+                    value={rupees(summary.rewards.paidPaise)}
+                  />
                 </>
               )}
             </section>
@@ -243,20 +252,41 @@ export default function Referrals() {
             {/* ---------------------------------------------------------------
                 The people
             --------------------------------------------------------------- */}
-            <section className={`card ${styles.listCard}`}>
-              <h3>Your referrals</h3>
+            <Card className={styles.listCard}>
+              <CardHeader title="Your referrals" size="sm" as="h2" />
 
               {summary.referrals.length === 0 ? (
-                <div className={styles.empty}>
-                  <i className="ph-bold ph-user-plus" />
-                  <p>You have not referred anyone yet.</p>
-                  <p className={styles.emptyHint}>
-                    Share your link with a friend. When they register with it, they will appear here.
-                  </p>
-                </div>
+                <EmptyState
+                  size="sm"
+                  icon="ph-user-plus"
+                  title="You have not referred anyone yet"
+                  description="Share your link with a friend. When they register with it, they appear here — and the moment they pay the entry fee, the referral is complete."
+                />
               ) : (
-                <div className={styles.tableScroll}>
-                  <table className={styles.table}>
+                <>
+                  {/* One card per friend on a phone; the table returns from 768px. */}
+                  <DataCardList className={styles.mobileOnly}>
+                    {summary.referrals.map((row) => (
+                      <DataCard
+                        key={row.id}
+                        title={row.name}
+                        subtitle={row.classLevel ?? undefined}
+                        status={
+                          <Badge tone={STATUS_TONES[row.rewardStatus]} size="sm" title={STATUS_HELP[row.rewardStatus]}>
+                            {STATUS_LABELS[row.rewardStatus]}
+                          </Badge>
+                        }
+                      >
+                        <DataRow label="Joined">{new Date(row.registeredAt).toLocaleDateString('en-IN')}</DataRow>
+                        {rewardOn && (
+                          <DataRow label="Reward">{row.rewardAmount > 0 ? row.rewardDisplay : '—'}</DataRow>
+                        )}
+                      </DataCard>
+                    ))}
+                  </DataCardList>
+
+                <TableScroll label="Your referrals" className={styles.desktopOnly}>
+                  <Table density="compact">
                     <thead>
                       <tr>
                         <th>Friend</th>
@@ -273,11 +303,13 @@ export default function Referrals() {
                               list is a list of children, and the reader is not staff. */}
                           <td className={styles.name}>{row.name}</td>
                           <td className={styles.muted}>{row.classLevel ?? '—'}</td>
-                          <td className={styles.muted}>{new Date(row.registeredAt).toLocaleDateString()}</td>
+                          <td className={styles.muted}>
+                            {new Date(row.registeredAt).toLocaleDateString('en-IN')}
+                          </td>
                           <td>
-                            <span className={styles[`status_${row.rewardStatus}`]} title={STATUS_HELP[row.rewardStatus]}>
+                            <Badge tone={STATUS_TONES[row.rewardStatus]} size="sm" title={STATUS_HELP[row.rewardStatus]}>
                               {STATUS_LABELS[row.rewardStatus]}
-                            </span>
+                            </Badge>
                           </td>
                           {rewardOn && (
                             <td className={styles.amount}>{row.rewardAmount > 0 ? row.rewardDisplay : '—'}</td>
@@ -285,14 +317,18 @@ export default function Referrals() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
+                  </Table>
+                </TableScroll>
+                </>
               )}
-            </section>
+            </Card>
 
             <p className={styles.footNote}>
               A friend counts once they register with your link. They enter the Olympiad — and your referral becomes
-              complete — when they pay the entry fee. <Link to="/payment">See the entry fee →</Link>
+              complete — when they pay the entry fee.{' '}
+              <Link to="/payment" className="link">
+                See the entry fee
+              </Link>
             </p>
           </>
         )}

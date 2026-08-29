@@ -1,0 +1,106 @@
+/**
+ * The shimmer is a moving gradient rather than a pulsing opacity: opacity on a large
+ * block reads as the page flickering, which is exactly the impression a loading state
+ * should not give.
+ *
+ * `prefers-reduced-motion` is honoured globally in `base.css`, which reduces the
+ * animation to a stationary gradient — still visibly a placeholder, no movement.
+ */
+.shape {
+  display: block;
+  background:
+    linear-gradient(
+      90deg,
+      var(--surface-hover) 25%,
+      var(--surface-active) 37%,
+      var(--surface-hover) 63%
+    );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.xs {
+  border-radius: var(--radius-xs);
+}
+
+.sm {
+  border-radius: var(--radius-sm);
+}
+
+.md {
+  border-radius: var(--radius-md);
+}
+
+.pill {
+  border-radius: var(--radius-pill);
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* ---------- presets ----------------------------------------------------- */
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+/**
+ * The row echoes the table it is standing in for. Two columns on a phone and the full
+ * count from 768px, because a five-column skeleton on a 320px screen is five slivers
+ * — which misrepresents the layout it is promising.
+ */
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.row > *:nth-child(n + 3) {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .row {
+    grid-template-columns: repeat(var(--cols, 4), 1fr);
+  }
+
+  .row > *:nth-child(n + 3) {
+    display: block;
+  }
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+}

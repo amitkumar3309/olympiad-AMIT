@@ -6,6 +6,7 @@ import AdminShell from './AdminShell'
 import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
+import { Alert, Icon } from '../../components/ui'
 import styles from './MockTests.module.css'
 
 /**
@@ -180,7 +181,7 @@ export default function AdminMockTests() {
       </div>
 
       {notice && <p className={styles.notice}>{notice}</p>}
-      {error && <p className="error-text">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
 
       {loading ? (
         <div className={styles.centered}>
@@ -188,7 +189,7 @@ export default function AdminMockTests() {
         </div>
       ) : tests.length === 0 ? (
         <div className={`card ${styles.empty}`}>
-          <i className="ph-bold ph-exam" />
+          <Icon name="ph-exam" weight="bold" />
           <h3>No mock tests yet</h3>
           <p>
             Create one, add published questions to it, set a duration and a window, then publish it. Until it is
@@ -262,18 +263,19 @@ export default function AdminMockTests() {
 
           {pagination && pagination.totalPages > 1 && (
             <div className={styles.pager}>
-              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                ← Previous
+              <Button variant="outline" icon="ph-arrow-left" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                Previous
               </Button>
               <span>
                 Page {pagination.page} of {pagination.totalPages}
               </span>
               <Button
                 variant="outline"
+                iconAfter="ph-arrow-right"
                 disabled={page >= pagination.totalPages}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Next →
+                Next
               </Button>
             </div>
           )}

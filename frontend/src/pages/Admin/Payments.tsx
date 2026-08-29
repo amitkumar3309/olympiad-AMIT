@@ -5,6 +5,7 @@ import type { AdminPaymentsResponse, PaymentRecord, PaymentSettingsResponse } fr
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
+import { Alert, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './Payments.module.css'
 
 /**
@@ -109,7 +110,7 @@ export default function AdminPayments() {
 
   return (
     <AdminShell title="Payments">
-      {error && <p className="error-text">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
       {notice && <p className={styles.notice}>{notice}</p>}
 
       {loading && !data ? (
@@ -126,7 +127,7 @@ export default function AdminPayments() {
 
             {settings?.providerConfigured === false && (
               <div className={styles.warn}>
-                <i className="ph-bold ph-warning" />
+                <Icon name="ph-warning" weight="bold" />
                 <div>
                   <strong>Razorpay is not configured.</strong> No student can pay until{' '}
                   <code>RAZORPAY_KEY_ID</code> and <code>RAZORPAY_KEY_SECRET</code> are set in the backend environment.
@@ -168,7 +169,7 @@ export default function AdminPayments() {
             </div>
 
             <div className={styles.warn}>
-              <i className="ph-bold ph-info" />
+              <Icon name="ph-info" weight="bold" />
               <div>
                 <strong>Changing the price never re-prices a payment already taken.</strong> Each row below stores what
                 was actually charged, so a change here applies to the next student and to nobody who has already paid.
@@ -231,8 +232,8 @@ export default function AdminPayments() {
                   : 'No payments yet. Rows appear here the moment a student opens the checkout.'}
               </p>
             ) : (
-              <div className={styles.tableScroll}>
-                <table className={styles.table}>
+              <TableScroll label="Payments">
+                <Table density="compact">
                   <thead>
                     <tr>
                       <th>Student</th>
@@ -272,7 +273,7 @@ export default function AdminPayments() {
                           */}
                           {payment.status === 'captured' ? (
                             <a className={styles.invoiceLink} href={`${API_BASE}/admin/payments/${payment.id}/invoice`}>
-                              <i className="ph-bold ph-download-simple" /> PDF
+                              <Icon name="ph-download-simple" weight="bold" /> PDF
                             </a>
                           ) : (
                             <span className={styles.sub}>—</span>
@@ -281,8 +282,8 @@ export default function AdminPayments() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
-              </div>
+                </Table>
+              </TableScroll>
             )}
             <p className={styles.foot}>Showing the 100 most recent payments.</p>
           </section>
