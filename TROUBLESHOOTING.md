@@ -1,5 +1,76 @@
 # TROUBLESHOOTING.md
 
+## Contrast measurements are wrong in a hidden browser pane
+
+**Symptom:** an automated contrast check reports failures that are not real — an outline button at
+1.28:1, `body` reporting a light background while `document.documentElement.className` is
+`theme-dark`, text colours that are plainly the *other* theme's values.
+
+**Cause:** a **CSS transition cannot advance while the tab is not compositing**, and `body`, `.card`
+and the text colours all carry one. `ThemeContext` adds `.theme-dark` in an effect *after* first
+paint, so even a freshly loaded page has a transition pending — `getComputedStyle` keeps reporting
+the pre-transition value indefinitely. Milestone 23 produced nine fake findings this way across two
+phases, and Phase G's first remedy ("reload into the theme rather than switching into it") is **not
+sufficient** for exactly that reason.
+
+**Fix:** force every element to its final value before measuring.
+
+```js
+const kill = document.createElement('style')
+kill.textContent = '*, *::before, *::after { transition: none !important; animation: none !important }'
+document.head.appendChild(kill)
+// measure here, then kill.remove()
+```
+
+The same page then measured 16.67:1, 6.83:1 and 5.62:1 on the three "failing" buttons.
+
+**Related:** the landing hero's wordmark uses `background-clip: text`, so its computed `color` is
+`transparent` and it will *always* fail an automated check. Measure its gradient endpoints against
+the background instead. And a programmatic `.focus()` does not trigger `:focus-visible`, which is a
+keyboard heuristic — verify the focus ring statically, by checking every `outline: none` in `src/`
+pairs with a replacement.
+
+## A CSS codemod broke the build with "Unclosed block"
+
+**Symptom:** `npm run build` fails with `CssSyntaxError: [postcss] ...: Unclosed block` after a
+script edited stylesheets.
+
+**Cause:** the script scanned for `{` / `}` pairs to find rules, and treated `@media (...) {` as one.
+Removing a rule *inside* a media query therefore consumed the query's own closing brace.
+
+**Fix:** any script that rewrites CSS has to track depth and recurse into at-rules rather than
+pattern-matching braces. The working version is in the Milestone 23 Phase H commit. If a codemod has
+already run, `git checkout --` the affected stylesheets and rerun with the corrected script —
+stylesheets are the safest thing in this repo to restore, because nothing else imports their
+internals.
+
+## The mock test says "3 answered" and scores 0/12
+
+**Symptom:** a paper's header and its submission dialog both report every question answered, and the
+marked result comes back with all of them **NOT ANSWERED**.
+
+**Cause:** both answer runners save optimistically — local state updates on the click, the `PUT`
+follows — and before Milestone 23 Phase H a *failed* save left the optimistic value in place. The
+counter, the palette and the confirmation dialog then all reported work the server did not have. The
+regression run reproduced it by tripping the rate limiter mid-paper; in production the same thing
+happens on any dropped request.
+
+**Fix:** already applied — a failed save now restores the previous response and says "That answer was
+not saved — try again". If you see this symptom again, look for a *new* optimistic write that does
+not roll back, not for a grading bug: `services/grading.ts` marks what it was given.
+
+## An accessibility audit on an empty page misses half the defects
+
+**Symptom:** a heading-order or contrast audit passes, and the same page fails once it has data.
+
+**Cause:** empty states render a fraction of a page's elements. Milestone 23 Phase G measured
+`/analytics` and `/daily-challenge` with no submitted attempts, so the recommendations block and the
+explanation panel — both of which had heading-level defects — were never in the DOM to be checked.
+
+**Fix:** seed or generate the data first. For a local database, sit a practice session and answer the
+daily challenge before auditing the student surfaces; sign in as the root administrator with at least
+one question, one mock test and one captured payment before auditing the admin ones.
+
 ## The local database is empty after using the content reset
 
 **Symptom:** Practice says "No questions have been published for your class yet", the Daily Challenge

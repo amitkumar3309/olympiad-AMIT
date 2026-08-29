@@ -31,7 +31,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 
 ## Technology Stack
 
-- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the twenty-one primitives in `src/components/ui` (Phase E added `Steps`). Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`; **no icon library is installed as a dependency**. Fonts: Inter (interface), Poppins (headings/brand), JetBrains Mono (figures), Cinzel (the printed certificate only). Linter: `oxlint`.
+- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **twenty** primitives in `src/components/ui` — one file each; several export more than one component. Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`; **no icon library is installed as a dependency**. Fonts: Inter (interface), Poppins (headings/brand), JetBrains Mono (figures), Cinzel (the printed certificate only). Linter: `oxlint`.
 - **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. One AI dependency: **`@google/genai`** (question drafting only — see the Milestone 20 ADR, which supersedes Milestone 17's decision against an SDK; it is `require`d rather than `import`ed for a packaging reason documented at the top of `services/geminiQuestionGenerator.ts`). Modular structure since Milestone 1 (`config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/`). Uses `zod` (validation), `pino` (logging), `helmet`, `express-rate-limit`. Linter: `eslint` + `typescript-eslint`. Tests: `vitest` + `supertest`.
 - **Database**: MongoDB via Mongoose.
 - **Auth**: short-lived access JWT + rotating opaque refresh token, both in `httpOnly` cookies; passwords hashed with `bcryptjs` (cost 12). Email via `nodemailer` over SMTP.
@@ -51,7 +51,8 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             prefers-reduced-motion honoured once
   src/styles/utilities.css  six layout utilities + the five pre-existing global
                             classes (.card, .form-control, ...), kept working
-  src/components/ui/        THE design system: 21 domain-agnostic primitives +
+  src/components/ui/        THE design system: 20 domain-agnostic primitives
+                            (one .tsx each; Input.tsx alone exports five) +
                             index.ts barrel. A component belongs here only if it
                             knows nothing about this product (M23 A)
   src/pages/<Page>/         one folder per route, colocated .module.css

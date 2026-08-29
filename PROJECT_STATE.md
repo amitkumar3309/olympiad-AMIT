@@ -4,7 +4,7 @@ _Last updated: 2026-08-29 (Milestone 23 — **complete**, Phases A–H)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
-**Verified counts, read from the code rather than carried forward** (2026-08-28, measured): **1253 tests passing across 35 files**, **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **54 frontend routes in production** (Milestone 23 Phase E added **one** — the `/*` catch-all rendering `NotFound`, so that an address nobody declared stops rendering a blank page; Phase A added **none**: its `/design-system` reference page is behind `import.meta.env.DEV` and is statically absent from a production build, confirmed in `dist/`; Phase G added `/admin/referrals`; Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`), and — new in Milestone 23 Phase A — **20 design-system primitives** in `frontend/src/components/ui`. Every number on this line was measured on 2026-08-28 by running `npm test --prefix backend` and counting the code; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
+**Verified counts, read from the code rather than carried forward** (re-measured 2026-08-29, at the close of Milestone 23): **1253 tests passing across 35 files**, **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **54 frontend routes in production** (Milestone 23 Phase E added **one** — the `/*` catch-all rendering `NotFound`, so that an address nobody declared stops rendering a blank page; Phase A added **none**: its `/design-system` reference page is behind `import.meta.env.DEV` and is statically absent from a production build, confirmed in `dist/`; Phase G added `/admin/referrals`; Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`), and **20 design-system primitives** in `frontend/src/components/ui` (Milestone 23 Phase A, plus `Steps` in Phase E — this is the **file** count, one per primitive, and it was carried as "twenty-one" until it was re-counted on 2026-08-29; `Input.tsx` alone exports five components). Every number on this line was re-measured on 2026-08-29 by running `npm test --prefix backend` and counting the files; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
 
 ## Current Development Phase
 
@@ -14,6 +14,19 @@ D (the student experience), E (the admin experience), F (the landing page), G (t
 accessibility audit) and H (the final regression). **No backend file was touched in any of them**,
 and the set of endpoints the frontend calls is byte-identical to where the milestone started:
 100 references before, 100 after. 1253 backend tests across 35 files, unchanged throughout.
+
+Two things were added after Phase H closed, both at the owner's instruction and both recorded in
+`CHANGELOG.md`: the **competition year** returned to the landing hero (`AMIT_COMPETITION_YEAR` in
+`lib/brand.ts` — nothing in the backend knows it, so that constant is the whole change when the
+sitting moves), and a **developer credit** (`components/DeveloperCredit.tsx`) in the public footer
+and at the foot of the signed-in navigation, linking to `sachinkukkar.tech`.
+
+**What this milestone did not close, and what to weigh next.** There is still **no frontend test
+suite**, and the eight phases made that gap sharper rather than smaller: they found an optimistic
+answer save that let a paper report "3 answered" and score 0/12, nine contrast failures, 28 headings
+at the wrong level and a 404 page with no `h1` — none of which 1253 backend tests could see, and all
+of which can come back silently. See the last section of `TESTING.md` for what a suite should cover
+first. Adding a framework needs a `DECISIONS.md` entry before installing anything.
 
 ### Developer credit (2026-08-29)
 
@@ -300,7 +313,7 @@ files, unchanged.** No new dependency.
   `.card`) is now `tokens.css` + `base.css` + `utilities.css`, with `theme.css` surviving as the three
   `@import`s so `main.tsx` is untouched. Three layers in `tokens.css` — palette → semantic → legacy
   aliases — and **a component may only reference the middle one**.
-- **`components/ui`: twenty-one primitives** (Phase E added `Steps`), all domain-agnostic. The boundary is the point: `Badge` does
+- **`components/ui`: twenty primitives** — one `.tsx` each, counted rather than incremented (Phase E added `Steps`; `Input.tsx` alone exports five components) — all domain-agnostic. The boundary is the point: `Badge` does
   not know what a payment state is, `Table` does not know what a student is. `EntryFeeBanner`,
   `Recommendations`, `MathText` and the two shells stay in `components/`.
 - **Nothing under the old pages was deleted.** `.card`, `.form-control`, `.form-group`, `.error-text`
