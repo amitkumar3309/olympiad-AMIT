@@ -4,6 +4,35 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-29 — An optimistic answer is rolled back when the server refuses it
+
+**Context.** Both answer runners save optimistically: local state updates on the click, the `PUT`
+follows. That is the right shape — on a timed paper the UI must not lag a click behind, and the
+server's response carries the authoritative remaining time.
+
+What it did on failure was show the error *and keep the optimistic answer*. The Phase H regression
+run tripped the rate limiter mid-paper and got the full consequence: the header read **"3
+answered"**, the palette showed three filled keys, the submission dialog said **"All 3 questions are
+answered"**, and the marked paper came back **0/12 with every question NOT ANSWERED**.
+
+**Decision.** On a failed save, restore the previous response and say so: *"That answer was not
+saved — try again."* `answeredCount` then means what the server holds, which is the only thing it
+can usefully mean — it is the number a student reads when deciding whether they are finished.
+
+**Rejected: keeping the answer and marking it "unsaved".** A third state (answered / unanswered /
+answered-but-not-saved) has to be understood under time pressure by a child, and every surface that
+counts answers would need to decide which bucket it belongs in. The palette, the header, the
+dialog and the progress bar would each be a place to get it wrong.
+
+**Rejected: retrying silently.** A retry that succeeds is invisible and fine; a retry that fails
+leaves the same lie in place for longer, and on a paper with a deadline the student needs to know
+*now* that something did not save.
+
+**Consequence.** The 409 path is unchanged — that means time ran out, and it reloads to show the
+marked paper rather than rolling anything back. The rule generalises: any optimistic write in this
+product must roll back, and the practice runner was fixed at the same time even though the failure
+was only reproduced on the mock test, because the two share the shape.
+
 ## 2026-08-29 — The colour tokens split fill from text, and the audit is what proved it matters
 
 **Context.** `tokens.css` has carried both `--success` and `--success-text` since Phase A, and the

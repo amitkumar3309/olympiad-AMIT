@@ -125,10 +125,8 @@
 
 /*
  * The "no reward configured" variant is deliberately neutral rather than a warning: the
- * programme genuinely works, tracking genuinely happens, and colouring this red would tell
- * a student something is broken when nothing is.
- */
-.rewardOff {
+ * programme genuinely works,
+tracking genuinely happens {
   border-left-color: var(--text-muted);
 }
 

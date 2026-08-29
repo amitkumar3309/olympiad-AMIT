@@ -2,6 +2,64 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-29 — Milestone 23, Phase H: the final regression
+
+Every flow driven end to end in a browser against a real backend and a real database, not
+inspected. **No backend file was touched in this phase or in any of the seven before it**
+(1253 tests across 35 files, unchanged), and the set of endpoints the frontend calls is
+byte-identical to where the milestone started: 100 references before, 100 after.
+
+### What was actually exercised
+
+A **new student registered through the form** — fourteen fields, a photograph, three steps
+— and got `AMIT_1702`. Then, as that student: signed in, updated the profile (`PATCH
+/me/profile`), started a **practice session**, answered, submitted, and got a server-marked
+review showing `-1 / 4` on a wrong answer and +25 XP; answered the **daily challenge**,
+which took the streak 0 → 1 and awarded +15 XP; sat a **mock test** under a server-owned
+countdown and submitted through the confirmation dialog; read their **referral code**, and
+confirmed the public validate endpoint resolves it with the referrer's name masked to
+"Regression H.".
+
+As the root super administrator: **created a question** through the editor (`POST` → 201)
+and **published it** through the bulk action; **uploaded the generated Excel template back
+through the importer** (5 examined, 5 usable, 1 unreadable, nothing written) and ran the
+**dry-run validate**, which answered "all 5 would save"; downloaded a real **invoice PDF**
+(`%PDF-1.7`, `AMIT-INV-2026-0A89426065CE`) and a real **student export** (`.xlsx`); and read
+the payments, referrals, generator and audit consoles.
+
+**139 API calls across 35 routes, zero non-2xx, zero JavaScript errors**, and every declared
+route renders — including `/*`, which now has a page.
+
+### Two defects the regression found, both in the answer runners
+
+**A failed answer save left the counter claiming it had succeeded.** Tripping the rate
+limiter mid-paper produced a mock test whose header read "3 answered", whose submission
+dialog said "All 3 questions are answered", and which came back **0/12 with every question
+marked NOT ANSWERED**. The optimistic update is right — the UI must not lag a click behind —
+but leaving it in place after a failure makes the counter, the palette and the dialog all
+state something the server does not hold, on the one screen where a student is deciding
+whether they are finished. Both runners now **roll the answer back** and say plainly
+"That answer was not saved — try again". Verified by forcing a 503 on the save: the counter
+holds at 0, the choice clears, the message appears, and the next successful save counts.
+
+**Two heading skips that only exist when a page has data.** Phase G measured
+`/analytics` and `/daily-challenge` empty, so the recommendations block and the explanation
+panel were never rendered. Answering a challenge and submitting a session made them appear —
+a heading audit on an empty page is half an audit.
+
+### Obsolete CSS removed
+
+**31 rules across ten page stylesheets** that nothing references any more: `tileLabel` /
+`tileValue` replaced by `StatTile`, `tableWrap` by `TableScroll`, `editBtn` by `Button`,
+`errorBox` by `Alert`, and the Taxonomy sheet's whole subject block, which went with the
+subject picker several milestones ago. A CSS Module class is scoped to its own file, so an
+unreferenced one is dead by construction. Files whose component uses a computed
+`styles[...]` lookup were excluded from the sweep, which is why no `components/ui` primitive
+appears in it. **No unused export remains in `components/ui`.**
+
+The first removal pass broke the build: a brace scanner treated `@media (...) {` as a rule
+and swallowed a media query's closing brace. The nesting-aware pass is what ran.
+
 ## 2026-08-29 — Milestone 23, Phase G: the responsive and accessibility audit
 
 Every important page measured in a browser at 375, 768, 1280 and 1440px, in both themes,

@@ -4,6 +4,22 @@ _Last updated: 2026-08-17 (complete security audit)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.
 
+> **Milestone 23 (the UI/UX modernisation, Phases A–H) changed nothing in this file.** No
+> authentication, authorization, validation, CORS, CSRF or rate-limiting code was touched — no
+> backend file was modified in any of the eight phases. Two properties it *relies* on were
+> re-verified in the browser during the Phase H regression, because a redesign is exactly where they
+> could have been broken by accident. The leaderboard and the public referral check still publish a
+> **masked** name (`displayName` — "Asha V.", "Regression H."), and an in-progress practice paper
+> still carries **no correctness at all**: the payload for session `6a9255a1...` contained no
+> `isCorrect`, no `solution`, no `numericAnswer` and no `booleanAnswer`, and its option objects were
+> empty of any key beyond what a student needs to answer. The entry-fee paywall was **not**
+> exercised, because the local database has no exam scheduled and `requireEntry` is mounted only on
+> `POST /exams/:id/attempt` — it is covered by the backend suite, which is unchanged. The one
+> client-side change with any security surface is that a failed answer save now **rolls back**
+> rather than displaying an answer the server does not hold — a correctness fix, not a boundary
+> change.
+
+
 ## Image import and the model boundary (Milestone 21, Phase E)
 
 The image path is the only importer that sends anything to a third party, so what it sends is

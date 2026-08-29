@@ -72,51 +72,16 @@
   font-size: 0.88rem;
 }
 
-.tree {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-}
-
-.subject {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  padding: 12px 14px;
-}
-
 .busy {
   opacity: 0.55;
   pointer-events: none;
 }
 
-.subjectHead,
 .topicRow {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-}
-
-.disclosure {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 0.9rem;
-  padding: 0 4px;
-}
-
-.subjectName {
-  font-weight: 700;
-}
-
-.slug {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
 }
 
 .topicCount {
@@ -151,12 +116,6 @@
 .linkButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.noTopics {
-  margin: 10px 0 0 26px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
 }
 
 .topics,

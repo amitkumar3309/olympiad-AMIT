@@ -343,6 +343,15 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   canvas and cannot use a CSS variable, which is why the three charts had hex literals in them and
   stayed light-mode blue on a dark page. A canvas is also an image to a screen reader, so every
   chart carries `role="img"` and a summary, and the same numbers are always in a table nearby.
+- **An optimistic update must be rolled back when the write fails.** Both answer runners
+  update local state before the `PUT` lands, which is right — a paper must not lag a click
+  behind. What was wrong was leaving that state in place after a failure: the Phase H
+  regression tripped the rate limiter mid-paper and produced a mock test whose header read
+  "3 answered", whose submission dialog said "All 3 questions are answered", and which came
+  back **0/12 with every question marked NOT ANSWERED**. `answeredCount` is what a student
+  uses to decide whether they are finished, so it has to mean *what the server holds*. On a
+  failed save both runners restore the previous response and say "That answer was not saved
+  — try again". Any new optimistic write needs the same rollback.
 - **A fill colour is not a text colour, and `--royal-blue` is neither.** `--success`,
   `--warning`, `--danger`, `--info` and `--primary` are what a shape is *filled or bordered*
   with; each has a **`-text` sibling** that is dark enough to carry words, and that split is

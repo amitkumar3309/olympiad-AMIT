@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-29 (Milestone 23, Phase G — the responsive and accessibility audit)._
+_Last updated: 2026-08-29 (Milestone 23 — **complete**, Phases A–H)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
@@ -8,10 +8,42 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 
 ## Current Development Phase
 
-**Milestone 23 — the complete UI/UX modernisation and mobile-first responsive redesign. Phases A
-(the design system), B (the global layout), C (authentication), D (the student experience), E
-(the admin experience), F (the landing page) and G (the responsive and accessibility audit):
-complete. Phase H not started; the milestone stops after each phase for the owner's instruction.**
+**Milestone 23 — the complete UI/UX modernisation and mobile-first responsive redesign: COMPLETE.**
+All eight phases are done — A (the design system), B (the global layout), C (authentication),
+D (the student experience), E (the admin experience), F (the landing page), G (the responsive and
+accessibility audit) and H (the final regression). **No backend file was touched in any of them**,
+and the set of endpoints the frontend calls is byte-identical to where the milestone started:
+100 references before, 100 after. 1253 backend tests across 35 files, unchanged throughout.
+
+### Phase H — the final regression (2026-08-29)
+
+Every flow driven end to end in a browser against a real backend and a real database, not
+inspected.
+
+- **What was actually exercised.** A new student **registered through the form** — fourteen fields,
+  a photograph, three steps — and got `AMIT_1702`. As that student: signed in, updated the profile,
+  ran a **practice session** through to a server-marked review (`-1 / 4` on a wrong answer, +25 XP),
+  answered the **daily challenge** (streak 0 → 1, +15 XP), sat a **mock test** under a server-owned
+  countdown, and confirmed their **referral code** resolves publicly with the name masked. As the
+  root super administrator: **created and published a question**, **uploaded the generated Excel
+  template back through the importer** (5 examined, 5 usable, 1 unreadable, nothing written) and ran
+  the **dry run**, downloaded a real **invoice PDF** and a real **student export**, and read every
+  console. **139 API calls across 35 routes, zero non-2xx, zero JavaScript errors**, and every
+  declared route renders.
+- **A failed answer save used to leave the counter claiming success.** Tripping the rate limiter
+  mid-paper produced a mock test whose header read "3 answered", whose submission dialog said "All 3
+  questions are answered", and which came back **0/12 with every question marked NOT ANSWERED**. The
+  optimistic update is right — the UI must not lag a click behind — but leaving it after a failure
+  makes the counter, the palette and the dialog all state something the server does not hold, on the
+  one screen where a student decides whether they are finished. Both runners now **roll the answer
+  back** and say "That answer was not saved — try again". Verified by forcing a 503.
+- **Two heading skips that only exist once a page has data**, on `/analytics` and
+  `/daily-challenge` — Phase G measured both empty. A heading audit on an empty page is half an
+  audit.
+- **31 obsolete CSS rules removed** across ten page stylesheets: `tileLabel`/`tileValue` superseded
+  by `StatTile`, `tableWrap` by `TableScroll`, `editBtn` by `Button`, `errorBox` by `Alert`, and the
+  Taxonomy sheet's subject block, which went with the subject picker milestones ago. No unused
+  export remains in `components/ui`.
 
 ### Phase G — the responsive and accessibility audit (2026-08-29)
 

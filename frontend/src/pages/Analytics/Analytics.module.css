@@ -16,15 +16,6 @@
   margin-bottom: 20px;
 }
 
-.insightList {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.insightList li {
-  margin-bottom: 8px;
-}
-
 /**
  * The empty state for everything that needs answered questions. Styled to read as a
  * deliberate "not measured yet" rather than as a loading state or an error.
@@ -76,14 +67,6 @@
   .statRow {
     grid-template-columns: 1fr;
   }
-}
-
-/* ---------------------------------------------------------------------------
-   Milestone 15 — the derived breakdowns
---------------------------------------------------------------------------- */
-
-.tableWrap {
-  overflow-x: auto;
 }
 
 .table {

@@ -447,7 +447,7 @@ function ChallengeResult({
 
       {attempt.explanation && (
         <div className={styles.explanation}>
-          <h5>Explanation</h5>
+          <h2>Explanation</h2>
           <MathText>{attempt.explanation}</MathText>
         </div>
       )}

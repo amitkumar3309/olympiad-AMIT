@@ -180,28 +180,46 @@ export default function MockTestAttempt() {
   /**
    * Saves one answer.
    *
-   * Optimistic, so the UI never lags a click behind, and a failed save leaves the choice
-   * visible with an error beside it. The response carries no correctness — there is
-   * nothing to reveal yet — but it does carry the server's remaining time, which is how
-   * a drifted countdown resynchronises. A 409 means time ran out: the server has marked
-   * the paper, so this reloads to show the outcome.
+   * Optimistic, so the UI never lags a click behind. The response carries no correctness
+   * — there is nothing to reveal yet — but it does carry the server's remaining time,
+   * which is how a drifted countdown resynchronises. A 409 means time ran out: the server
+   * has marked the paper, so this reloads to show the outcome.
+   *
+   * **A failed save is rolled back**, and that is not a cosmetic choice. It used to leave
+   * the optimistic answer in place with an error beside it — so the header said "3
+   * answered", the palette showed three filled keys, the submission dialog said "All 3
+   * questions are answered", and the paper came back 0/12 with every question marked NOT
+   * ANSWERED. The Phase H regression run reproduced exactly that by tripping the rate
+   * limiter mid-paper. On a timed paper a counter that overstates what the server holds
+   * is worse than a slow one: the student's own record of what they have done is the
+   * thing they use to decide whether to submit.
    */
   const saveAnswer = useCallback(
     async (target: MockAttemptQuestion, patch: Partial<MockAttemptQuestion['response']>) => {
       if (!attemptId || !attempt || !isMockAttemptOpen(attempt)) return
 
+      const previousResponse = target.response
       const nextResponse = { ...target.response, ...patch }
       const answered =
         nextResponse.selectedOptionKeys.length > 0 ||
         nextResponse.numericResponse !== null ||
         nextResponse.booleanResponse !== null
 
-      setAttempt({
-        ...attempt,
-        questions: attempt.questions.map((entry) =>
-          entry.id === target.id ? { ...entry, response: { ...nextResponse, answered } } : entry,
-        ),
-      })
+      // Narrowed inside, because `setAttempt` hands back the whole union and only an
+      // in-progress attempt has questions to patch.
+      const applyResponse = (response: MockAttemptQuestion['response']) =>
+        setAttempt((current) =>
+          current && isMockAttemptOpen(current)
+            ? {
+                ...current,
+                questions: current.questions.map((entry) =>
+                  entry.id === target.id ? { ...entry, response } : entry,
+                ),
+              }
+            : current,
+        )
+
+      applyResponse({ ...nextResponse, answered })
 
       setSaving(true)
       setSaveError(null)
@@ -220,12 +238,18 @@ export default function MockTestAttempt() {
           await load()
           return
         }
-        setSaveError(err instanceof ApiError ? err.message : 'Could not save that answer.')
+        // Back to what the server actually holds, so the counter cannot lie.
+        applyResponse(previousResponse)
+        setSaveError(
+          err instanceof ApiError
+            ? `${err.message} That answer was not saved — try again.`
+            : 'Could not save that answer. It was not saved — try again.',
+        )
       } finally {
         setSaving(false)
       }
     },
-    [attempt, attemptId, load],
+    [attemptId, attempt, load],
   )
 
   function chooseOption(target: MockAttemptQuestion, key: string) {
@@ -524,7 +548,7 @@ export default function MockTestAttempt() {
             </div>
           )}
 
-          {saveError && <p className="error-text">{saveError}</p>}
+          {saveError && <Alert tone="danger">{saveError}</Alert>}
 
           <div className={styles.navRow}>
             <Button variant="outline" onClick={() => setCurrent((c) => Math.max(0, c - 1))} disabled={current === 0}>

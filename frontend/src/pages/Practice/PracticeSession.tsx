@@ -96,26 +96,39 @@ export default function PracticeSessionPage() {
   /**
    * Saves one answer.
    *
-   * Optimistic: the local copy updates first so the UI never lags a click behind, and a
-   * failed save surfaces an error while leaving the choice visible. The response
-   * deliberately carries no correctness — there is nothing to reveal yet.
+   * Optimistic: the local copy updates first so the UI never lags a click behind. The
+   * response deliberately carries no correctness — there is nothing to reveal yet.
+   *
+   * **A failed save is rolled back.** It used to leave the optimistic answer in place
+   * with an error beside it, so "N answered" counted work the server did not have; the
+   * Phase H regression run reproduced that on the mock-test runner, which shares this
+   * shape, and got a paper reading "3 answered" that scored 0. The counter has to mean
+   * what the server holds.
    */
   const saveAnswer = useCallback(
     async (target: PracticeQuestion, patch: Partial<PracticeQuestion['response']>) => {
       if (!sessionId || !session || isReviewed(session)) return
 
+      const previousResponse = target.response
       const nextResponse = { ...target.response, ...patch }
       const answered =
         nextResponse.selectedOptionKeys.length > 0 ||
         nextResponse.numericResponse !== null ||
         nextResponse.booleanResponse !== null
 
-      setSession({
-        ...session,
-        questions: session.questions.map((entry) =>
-          entry.id === target.id ? { ...entry, response: { ...nextResponse, answered } } : entry,
-        ),
-      } as PracticeSessionView)
+      const applyResponse = (response: PracticeQuestion['response']) =>
+        setSession((current) =>
+          current && !isReviewed(current)
+            ? ({
+                ...current,
+                questions: current.questions.map((entry) =>
+                  entry.id === target.id ? { ...entry, response } : entry,
+                ),
+              } as PracticeSessionView)
+            : current,
+        )
+
+      applyResponse({ ...nextResponse, answered })
 
       setSaving(true)
       setSaveError(null)
@@ -127,7 +140,13 @@ export default function PracticeSessionPage() {
           booleanResponse: nextResponse.booleanResponse,
         })
       } catch (err) {
-        setSaveError(err instanceof ApiError ? err.message : 'Could not save that answer.')
+        // Back to what the server actually holds, so the counter cannot lie.
+        applyResponse(previousResponse)
+        setSaveError(
+          err instanceof ApiError
+            ? `${err.message} That answer was not saved — try again.`
+            : 'Could not save that answer. It was not saved — try again.',
+        )
       } finally {
         setSaving(false)
       }

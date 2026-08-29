@@ -157,13 +157,6 @@
   font-size: 1.05rem;
 }
 
-.invoicesLead {
-  margin: 0 0 16px;
-  font-size: 0.82rem;
-  line-height: 1.6;
-  color: var(--text-muted);
-}
-
 .invoiceList {
   margin: 0;
   padding: 0;
@@ -210,7 +203,6 @@
   flex-shrink: 0;
 }
 
-.invoiceView,
 .invoiceDownload,
 .invoiceClose {
   display: inline-flex;
@@ -224,7 +216,6 @@
   text-decoration: none;
 }
 
-.invoiceView,
 .invoiceClose {
   border: 1px solid var(--border);
   background: transparent;

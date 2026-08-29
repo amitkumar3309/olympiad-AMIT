@@ -364,20 +364,6 @@
   font-size: var(--text-xl);
   color: var(--text-muted);
 }
-.summaryLabel,
-.tileLabel {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  margin-top: 6px;
-}
-
-.tileValue {
-  font-size: 22px;
-  font-weight: 800;
-  font-family: var(--font-mono);
-}
 
 .xpNote {
   margin-bottom: var(--space-4);
@@ -447,21 +433,6 @@
   letter-spacing: 0.04em;
   padding: 3px 9px;
   border-radius: 999px;
-}
-
-.verdict_correct {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--success-text);
-}
-
-.verdict_incorrect {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--danger-text);
-}
-
-.verdict_skipped {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning-text);
 }
 
 .reviewMarks {
@@ -576,7 +547,6 @@
     grid-template-columns: repeat(6, 1fr);
   }
 }
-
 
 /* ---------- palette card ------------------------------------------------ */
 

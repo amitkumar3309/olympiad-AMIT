@@ -34,20 +34,6 @@
   font-family: var(--font-mono);
 }
 
-.backLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.backLink:hover {
-  color: var(--primary-text);
-}
-
 .successText {
   color: #16a34a;
   font-weight: 600;
@@ -195,25 +181,6 @@
 
 .sectionHead h2 {
   margin: 0;
-}
-
-.editBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 7px 12px;
-  color: var(--text-main);
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.editBtn:hover {
-  border-color: var(--royal-blue);
-  color: var(--primary-text);
 }
 
 .readList {

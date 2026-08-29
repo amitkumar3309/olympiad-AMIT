@@ -2,6 +2,13 @@
 
 _Last updated: 2026-08-18 (Milestone 20 — AI question generation rebuilt on the official `@google/genai` SDK: `POST /admin/generate-questions` gains `subtopic`, a rate limiter of its own and advisory `warnings`; two new routes, `.../validate` (a dry run that writes nothing) and `.../reject` (records what the examiner discarded); `.../approve` gains `subtopic` and stamps a `provenance` block recovered from the server's own generation log; and `GET /admin/questions` gains a `source` filter. Before that, the complete security audit — **no new routes**, but three cross-cutting changes below: a CSRF origin check on every state-changing method, masked names on the two public lookups, and three new rate limiters). Before that, Milestone 19 — payments: seven payment routes at the end of this file, plus `requireEntry` on four existing student routes, which now answer **402** for an unpaid entrant, and an `entitlements` object on every auth response). Before that, Milestone 17 — AI question drafting: `POST /admin/generate-questions` rewritten behind a generator seam, plus `GET /admin/question-generator`). Before that, Milestone 16 — intelligent performance recommendations: one new route, `GET /analytics/:studentId/recommendations`. Before that, Milestone 15 — performance analytics: `/analytics/:studentId` rewritten to serve derived data, plus two admin performance routes._
 
+> **Milestone 23 (the UI/UX modernisation, Phases A–H) changed nothing in this file.** It was a
+> frontend-only milestone: no route was added, removed or altered, and no request or response shape
+> changed. That was checked rather than assumed — every endpoint string literal reachable from
+> `frontend/src` was compared against the same set at the milestone's first commit, and both sides
+> hold **100** references. The eight phases also left `backend/` with zero modified files and the
+> suite at 1253 tests across 35 files throughout.
+
 **Base path: `/api/v1`** (canonical). The unversioned `/api` prefix is retained as a backward-compatibility alias mounting the exact same router — see [`DECISIONS.md`](DECISIONS.md). Add new routes to `backend/src/routes/v1/` only; they become available under both prefixes automatically.
 
 Response envelope: `{ success: true, ... }` or `{ success: false, error: string }`, produced by `sendSuccess`/`sendError` in `backend/src/lib/apiResponse.ts`. Validation failures additionally include a `details` array.

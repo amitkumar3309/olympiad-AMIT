@@ -288,13 +288,6 @@
   line-height: 1.7;
 }
 
-.errorBox {
-  border-color: var(--danger);
-  background: rgba(239, 68, 68, 0.08);
-  color: var(--danger-text);
-  font-weight: 600;
-}
-
 /* ---------------------------------------------------------------- review bar */
 
 .reviewBar {

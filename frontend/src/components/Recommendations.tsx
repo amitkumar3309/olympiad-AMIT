@@ -137,9 +137,9 @@ function Section({
 
   return (
     <div className={styles.section}>
-      <h4 className={styles.sectionTitle}>
+      <h3 className={styles.sectionTitle}>
         <Icon name={icon} weight="bold" /> {title}
-      </h4>
+      </h3>
       {items.length === 0 ? (
         <p className={styles.empty}>{emptyMessage}</p>
       ) : (
@@ -165,7 +165,8 @@ export default function Recommendations({ data }: { data: RecommendationSet }) {
   return (
     <div className="card">
       <div className={styles.head}>
-        <h3>What to work on next</h3>
+        {/* h2: a top-level section of the page that hosts it, under the h1. */}
+        <h2>What to work on next</h2>
         {/*
           Printed verbatim from the server, and deliberately prominent. The engine is
           swappable; what produced a given set of recommendations should never be a

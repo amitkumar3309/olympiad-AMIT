@@ -44,10 +44,6 @@
   width: 110px;
 }
 
-.tableWrap {
-  overflow-x: auto;
-}
-
 .table {
   width: 100%;
   border-collapse: collapse;
