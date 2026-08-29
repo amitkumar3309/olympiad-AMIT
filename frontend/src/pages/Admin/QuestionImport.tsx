@@ -569,7 +569,7 @@ export default function QuestionImport() {
             Choose a format
         ---------------------------------------------------------------- */}
         <div className={`card ${styles.formats}`}>
-          <h3>Where are the questions coming from?</h3>
+          <h2>Where are the questions coming from?</h2>
           <div className={styles.tabs} role="tablist">
             {IMPORT_FILE_KINDS.map((option) => {
               const info = status?.parsers.find((p) => p.kind === option)
@@ -649,7 +649,7 @@ export default function QuestionImport() {
             Upload
         ---------------------------------------------------------------- */}
         <form className={`card ${styles.uploadCard}`} onSubmit={(e) => void upload(e)}>
-          <h3>What should these questions be filed under?</h3>
+          <h2>What should these questions be filed under?</h2>
           <p className={styles.hint}>
             Used for anything the file does not say itself. A spreadsheet or Word file that names its own class or
             chapter overrides these per question — and a value it names that does not exist is reported rather than
@@ -831,7 +831,7 @@ export default function QuestionImport() {
         ---------------------------------------------------------------- */}
         {preview && (
           <div className={`card ${styles.counts}`}>
-            <h3>What was read</h3>
+            <h2>What was read</h2>
             <div className={styles.countGrid}>
               <Count label="Examined" value={preview.examined} />
               <Count label="Usable" value={batch?.length ?? 0} tone="good" />
@@ -1065,7 +1065,7 @@ export default function QuestionImport() {
         ---------------------------------------------------------------- */}
         {saved && (
           <div className={`card ${styles.savedBox}`}>
-            <h3>{saved.message}</h3>
+            <h2>{saved.message}</h2>
             {saved.rejected.length > 0 && (
               <>
                 <p>These were refused and are still on the screen so you can correct them:</p>

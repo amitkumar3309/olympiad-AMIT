@@ -301,7 +301,7 @@ export default function AdminReferrals() {
               What a referral is worth
           ----------------------------------------------------------------- */}
           <section className={`card ${styles.settings}`}>
-            <h3 className={styles.sectionTitle}>Referral reward</h3>
+            <h2 className={styles.sectionTitle}>Referral reward</h2>
 
             {!rewardConfigured && (
               /**
@@ -377,7 +377,7 @@ export default function AdminReferrals() {
           ----------------------------------------------------------------- */}
           <section className={`card ${styles.listCard}`}>
             <div className={styles.tableHead}>
-              <h3 className={styles.sectionTitle}>All referrals</h3>
+              <h2 className={styles.sectionTitle}>All referrals</h2>
               <form className={styles.filters} onSubmit={applySearch}>
                 <input
                   className="form-control"

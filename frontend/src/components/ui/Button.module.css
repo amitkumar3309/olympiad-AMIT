@@ -163,7 +163,7 @@
 
 .danger {
   background: var(--danger-solid);
-  color: #fff;
+  color: var(--danger-on);
   box-shadow: var(--shadow-xs);
 }
 

@@ -21,8 +21,11 @@ export default function NotFound() {
   return (
     <main className={styles.wrap}>
       <div className="container">
+        {/* `titleAs="h1"`: this title is the page's only heading. A document with no
+            h1 has no top level, which is what the Phase G audit found here. */}
         <EmptyState
           icon="ph-compass"
+          titleAs="h1"
           title="This page does not exist"
           description={`Nothing is published at ${pathname}. It may be a typo, or a link to something that has since moved.`}
           action={

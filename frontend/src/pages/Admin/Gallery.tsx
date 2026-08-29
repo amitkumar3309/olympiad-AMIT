@@ -168,7 +168,7 @@ export default function Gallery() {
   return (
     <AdminShell title="Event Gallery">
       <div className={`card ${styles.panel}`}>
-        <h3>Add a photo</h3>
+        <h2>Add a photo</h2>
         <p className={styles.hint}>
           Photographs of real events, shown on the public gallery page. JPEG, PNG or WebP, up to {MAX_BYTES / 1024} KB
           each — images are stored in the database, so keep them small.

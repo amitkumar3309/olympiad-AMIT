@@ -95,7 +95,7 @@ export default function HallOfFame() {
     return (
       <StudentShell title="Hall of Fame">
         <div className={`card ${styles.centered}`}>
-          <h3>Could not load the Hall of Fame</h3>
+          <h2>Could not load the Hall of Fame</h2>
           <p className="error-text">{error ?? 'Something went wrong.'}</p>
           <Button onClick={() => void load()}>Try again</Button>
         </div>
@@ -155,7 +155,7 @@ export default function HallOfFame() {
             <header className={styles.boardHead}>
               <Icon name={board.icon} weight="bold" className={styles.boardIcon} />
               <div>
-                <h3>{board.title}</h3>
+                <h2>{board.title}</h2>
                 <p className={styles.boardDescription}>{board.description}</p>
               </div>
             </header>

@@ -77,7 +77,7 @@
   opacity: 0.55;
 }
 
-.empty h3 {
+.empty h2, .empty h3 {
   margin: 10px 0 8px;
 }
 
@@ -127,7 +127,7 @@
   flex-wrap: wrap;
 }
 
-.rowHead h3 {
+.rowHead h2, .rowHead h3 {
   margin: 0;
   font-size: 16px;
 }
@@ -139,7 +139,7 @@
 }
 
 .badge {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -154,12 +154,12 @@
 
 .status_published {
   background: rgba(16, 185, 129, 0.15);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .status_archived {
   background: rgba(239, 68, 68, 0.12);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .rowActions {
@@ -188,11 +188,11 @@
 .linkButton:hover,
 .iconButton:hover {
   border-color: var(--royal-blue);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .dangerButton {
-  color: var(--danger);
+  color: var(--danger-text);
   border-color: rgba(239, 68, 68, 0.4);
 }
 
@@ -377,7 +377,7 @@
 }
 
 .statLabel {
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -432,7 +432,7 @@
 .attemptTag {
   display: inline-block;
   margin-left: 6px;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -500,17 +500,17 @@
 
 .qsGood {
   background: rgba(16, 185, 129, 0.15);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .qsMid {
   background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .qsPoor {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .qsSkipped {

@@ -250,6 +250,7 @@ export default function MockTestAttempt() {
       <StudentShell title="Mock test">
         <ErrorState
           error={loadError}
+          titleAs="h2"
           title="Could not load that attempt"
           onRetry={() => navigate('/mock-tests')}
         />
@@ -383,6 +384,7 @@ export default function MockTestAttempt() {
       <StudentShell title={title}>
         <Card>
           <EmptyState
+            titleAs="h2"
             icon="ph-warning-circle"
             title="This paper has no questions"
             description="Please tell your administrator. Nothing you do here will be marked against you."

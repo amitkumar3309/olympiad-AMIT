@@ -148,7 +148,7 @@ export default function QuestionPerformance() {
             Papers
         ------------------------------------------------------------ */}
         <div className={`card ${styles.panel}`}>
-          <h3>Paper performance</h3>
+          <h2>Paper performance</h2>
           {!tests ? (
             <Spinner label="Loading papers..." />
           ) : tests.tests.length === 0 ? (
@@ -182,7 +182,7 @@ export default function QuestionPerformance() {
             Questions
         ------------------------------------------------------------ */}
         <div className={`card ${styles.panel}`}>
-          <h3>Question performance</h3>
+          <h2>Question performance</h2>
 
           <div className={styles.toolbar}>
             <select

@@ -45,7 +45,7 @@
 }
 
 .backLink:hover {
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .successText {
@@ -130,12 +130,27 @@
 .fileLabel input[type='file'] {
   display: block;
   width: 100%;
-  font-size: 13px;
-  color: var(--text-muted);
+  /* 16px: Mobile Safari zooms a focused control whose text is smaller and does not zoom
+     back out. `--text-md` is exactly 16px. */
+  font-size: var(--text-md);
+  color: var(--text-body);
 }
 
+/**
+ * Visually hidden, NOT `display: none`.
+ *
+ * This span is the label's only text, so hiding it the old way left the file input with
+ * no accessible name at all — a screen reader announced "button" and nothing else. The
+ * Phase G audit caught it. Clipped text is still in the accessibility tree; removed text
+ * is not.
+ */
 .fileLabel span {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .hint {
@@ -198,7 +213,7 @@
 
 .editBtn:hover {
   border-color: var(--royal-blue);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .readList {
@@ -240,10 +255,12 @@
   font-weight: 700;
 }
 
+/* `#d97706` measured 3.19:1 and failed AA. `--warning-text` is the token for exactly
+   this and clears it in both themes. */
 .unverified {
-  color: #d97706;
-  font-size: 12.5px;
-  font-weight: 700;
+  color: var(--warning-text);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
 }
 
 /* ---------------------------------------------------------------------------

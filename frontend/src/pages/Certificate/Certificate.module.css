@@ -30,7 +30,7 @@
 .recipient {
   font-family: var(--font-display);
   font-size: 36px;
-  color: var(--royal-blue);
+  color: var(--primary-text);
   margin: 8px 0 16px;
 }
 

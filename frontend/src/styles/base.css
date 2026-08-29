@@ -244,12 +244,18 @@ legend {
 /**
  * TOUCH TARGETS.
  *
- * Form controls only. They are already full-width blocks in this product, so growing
- * their height cannot reflow anything around them — whereas a blanket
- * `min-height: 44px` on every `button` would inflate the compact row actions on
- * twenty-nine pages that have not been redesigned yet, which is how a design-system
- * commit turns into a layout regression. Buttons get their floor from the `Button`
- * component instead, and each page picks it up as it is migrated.
+ * Phase A deliberately limited this to form controls, because a blanket
+ * `min-height: 44px` on every `button` would have inflated the compact row actions on
+ * twenty-nine pages that had not been redesigned yet. Those pages have now been
+ * redesigned, and the Phase G audit measured what the caution left behind: an 18px
+ * checkbox in a table row, a 26px "remove option", four 29px row actions. On a **coarse
+ * pointer** there is no such thing as a legitimately 26px control — a fingertip is about
+ * 9mm and the 44px floor is what that measures out to.
+ *
+ * It is scoped to `pointer: coarse`, so a mouse-driven admin table keeps its compact
+ * rows; only a touch device pays the extra height, and on a touch device the extra
+ * height is the point. `inline-flex` rather than `block` so a button inside a sentence
+ * does not become a paragraph.
  */
 @media (pointer: coarse) {
   input:not([type='checkbox']):not([type='radio']),
@@ -257,6 +263,13 @@ legend {
   textarea {
     min-height: var(--tap-target);
   }
+
+  button,
+  [role='button'],
+  summary {
+    min-height: var(--tap-target);
+  }
+
 }
 
 /**
@@ -268,7 +281,29 @@ legend {
  */
 input[type='checkbox'],
 input[type='radio'] {
+  /* `flex-shrink: 0`, because most of these sit in a flex row and were being squashed
+     to a non-square 15.5px — a tick box that is not square reads as a rendering fault. */
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
   accent-color: var(--primary);
+}
+
+/**
+ * ...and 24px on a touch device — which is exactly WCAG 2.5.8 (Target Size, Minimum,
+ * AA): 24x24 CSS pixels. 18px is a hard thing to hit with a thumb, and the
+ * ones the Phase G audit found sit bare in a table cell with no wrapping label to
+ * enlarge the target. 24px is still recognisably a tick box and moves nothing around
+ * it, which a margin would.
+ *
+ * **This has to come after the rule above**, not inside the `pointer: coarse` block
+ * further up: the two selectors have identical specificity, so source order is the
+ * only thing deciding, and the unconditional rule was silently winning.
+ */
+@media (pointer: coarse) {
+  input[type='checkbox'],
+  input[type='radio'] {
+    width: 24px;
+    height: 24px;
+  }
 }

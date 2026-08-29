@@ -343,6 +343,52 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   canvas and cannot use a CSS variable, which is why the three charts had hex literals in them and
   stayed light-mode blue on a dark page. A canvas is also an image to a screen reader, so every
   chart carries `role="img"` and a summary, and the same numbers are always in a table nearby.
+- **A fill colour is not a text colour, and `--royal-blue` is neither.** `--success`,
+  `--warning`, `--danger`, `--info` and `--primary` are what a shape is *filled or bordered*
+  with; each has a **`-text` sibling** that is dark enough to carry words, and that split is
+  the only reason both exist. The Phase G audit found **109** declarations using the fill as
+  text — "Paid" at 2.22:1, "Pending" at 1.91:1, "Published" at 2.13:1 — and **38** more
+  using the legacy `--royal-blue`, which `.theme-dark` deliberately re-points *lighter* so it
+  stays visible as a border and is therefore useless for words there. Every solid fill also
+  has an explicit **`--*-on`** colour, and not all of them are white: white on
+  `--success-solid` is 3.77:1 and on `--warning-solid` 3.19:1, because green and amber are
+  light fills. The only `color: #fff` left in `src/` is the gallery lightbox, over a
+  photograph.
+- **`--text-muted` is the floor, and it does not go on a tint.** It was `--slate-500` until
+  Phase G, which measured it at 4.76:1 on `--surface` — AA with no headroom — and at 4.28:1
+  on a soft tint, where it fails. It is `--slate-600` now and clears AA on every surface and
+  tint in `tokens.css`. Nothing lighter may carry words; `--text-subtle` is for non-text
+  glyphs only.
+- **A state that IS the page takes `titleAs`.** `EmptyState` and `ErrorState` default to an
+  `h3`, which is right inside a card that already sits under a section heading and wrong when
+  the state is the whole route — the document then skips from the shell's `h1` to an `h3`.
+  Phase G found that on seventeen routes, and found the 404 page with **no `h1` at all**.
+  `titleAs="h2"` for a page-level state, `"h1"` when the state is the entire page.
+- **The 44px touch floor applies to buttons under `pointer: coarse` only.** Phase A limited it
+  to form controls so a blanket rule could not inflate the compact row actions on pages that
+  had not been redesigned; they have been, and the floor now covers `button`,
+  `[role="button"]` and `summary` on a touch device while a mouse-driven admin table keeps its
+  compact rows. A tick box cannot be stretched without distorting it, so it grows to **24px**
+  — WCAG 2.5.8's minimum — and carries `flex-shrink: 0`, because most sit in a flex row and
+  were being squashed to a non-square 15.5px. **11px is the type scale's floor**; nothing
+  smaller is a size, it is a mistake.
+- **Nothing may be explained only by a `title`.** A tooltip attribute never appears on a touch
+  screen, so on a phone a disabled button explained that way is simply dead. Phase G found two
+  disabled bulk actions and the student directory's five payment states in exactly that state.
+  Put the reason in the page — beside the control, or in a `<details>` legend — and keep the
+  `title` as a bonus for a mouse.
+- **Two measurement traps, both of which produced fake findings.** A **CSS transition cannot
+  advance while the tab is not compositing**, so after toggling the theme `getComputedStyle`
+  keeps reporting the *old* colour: six apparent contrast failures were one button
+  mid-transition. **Reload into a theme rather than switching into it.** And a programmatic
+  `.focus()` does not trigger `:focus-visible`, which is a keyboard heuristic — verify the
+  focus ring statically instead, by checking that every `outline: none` pairs with a
+  replacement.
+- **A route is `lazy()` unless it is the entry route.** Thirty-four were and fifteen were not,
+  so every visitor downloaded the admin console, the profile page and the practice zone before
+  the landing page painted; making them lazy took the main bundle from 543 kB (167 kB gzipped)
+  to **244 kB (75 kB)**. `Landing` stays eager on purpose — deferring it adds a round trip to
+  the first paint that matters most.
 - **Nothing on the landing page may be a claim the code cannot back.** It is the most public
   surface in the product and the one most likely to accumulate copy nobody re-reads: three
   statements on it were checked in Milestone 23 Phase F and three were wrong — "there is no

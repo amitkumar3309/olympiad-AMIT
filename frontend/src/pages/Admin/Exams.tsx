@@ -151,7 +151,7 @@ export default function Exams() {
   return (
     <AdminShell title="Official Exam">
       <div className={`card ${styles.panel}`}>
-        <h3>Schedule an official exam</h3>
+        <h2>Schedule an official exam</h2>
         <p className={styles.hint}>
           This is the national sitting, not a mock test. The window you set is the one announced to students; each
           student gets <strong>one attempt</strong>, and results are released separately once the window has closed. A

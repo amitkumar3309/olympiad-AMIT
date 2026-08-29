@@ -21,12 +21,12 @@
 
 /* ---------------------------------------------------------------- format tabs */
 
-.formats h3,
-.uploadCard h3,
-.counts h3,
-.reviewBar h3,
-.warnBox h3,
-.savedBox h3 {
+.formats h2, .formats h3,
+.uploadCard h2, .uploadCard h3,
+.counts h2, .counts h3,
+.reviewBar h2, .reviewBar h3,
+.warnBox h2, .warnBox h3,
+.savedBox h2, .savedBox h3 {
   margin: 0 0 10px;
   font-size: 16px;
 }
@@ -54,7 +54,7 @@
 .tab[data-active='true'] {
   border-color: var(--primary);
   background: rgba(99, 102, 241, 0.1);
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .tab:disabled {
@@ -82,7 +82,7 @@
   margin: 8px 0 0;
   font-size: 13px;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .offNotice {
@@ -210,7 +210,7 @@
 }
 
 .fileError {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 /* ---------------------------------------------------------------- problems */
@@ -291,7 +291,7 @@
 .errorBox {
   border-color: var(--danger);
   background: rgba(239, 68, 68, 0.08);
-  color: var(--danger);
+  color: var(--danger-text);
   font-weight: 600;
 }
 
@@ -317,7 +317,7 @@
   background: none;
   border: none;
   padding: 0;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -335,14 +335,14 @@
   margin: 8px 0 0;
   font-size: 13px;
   font-weight: 600;
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .checkBad {
   margin: 8px 0 0;
   font-size: 13px;
   font-weight: 600;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .secondary {
@@ -361,7 +361,7 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--danger);
   background: transparent;
-  color: var(--danger);
+  color: var(--danger-text);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -420,7 +420,7 @@
 
 .qType {
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-text);
 }
 
 .editedTag {
@@ -441,7 +441,7 @@
   margin: 0 0 10px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .warnList {
@@ -488,7 +488,7 @@
 
 .tick {
   margin-left: auto;
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .optionEdit {

@@ -77,7 +77,7 @@ export default function Analytics() {
         <span className={styles.stamp}>Counted {new Date(analytics.generatedAt).toLocaleString()}</span>
       </div>
 
-      <h3 className={styles.heading}>Accounts</h3>
+      <h2 className={styles.heading}>Accounts</h2>
       <div className={styles.statRow}>
         <StatTile icon="ph-users" value={String(accounts.total)} label="Entrants Registered" />
         <StatTile icon="ph-seal-check" value={String(accounts.verified)} label="Email Verified" />
@@ -91,7 +91,7 @@ export default function Analytics() {
         <StatTile icon="ph-archive" value={String(accounts.deactivated)} label="Deactivated" />
       </div>
 
-      <h3 className={styles.heading}>Engagement</h3>
+      <h2 className={styles.heading}>Engagement</h2>
       <div className={styles.statRow}>
         <StatTile icon="ph-pulse" value={String(engagement.everActive)} label="Ever Active" />
         <StatTile icon="ph-calendar-check" value={String(engagement.activeLast7)} label="Active (7 days)" />
@@ -114,7 +114,7 @@ export default function Analytics() {
         />
       </div>
 
-      <h3 className={styles.heading}>Content</h3>
+      <h2 className={styles.heading}>Content</h2>
       <div className={styles.statRow}>
         <StatTile icon="ph-list-checks" value={`${content.questionsPublished}/${content.questionsTotal}`} label="Questions Published" />
         <StatTile icon="ph-exam" value={`${content.mockTestsPublished}/${content.mockTestsTotal}`} label="Mock Tests Published" />
@@ -122,7 +122,7 @@ export default function Analytics() {
         <StatTile icon="ph-megaphone" value={String(content.announcementsPublished)} label="Announcements Live" />
       </div>
 
-      <h3 className={styles.heading}>Assessment</h3>
+      <h2 className={styles.heading}>Assessment</h2>
       <div className={styles.statRow}>
         <StatTile icon="ph-notebook" value={String(assessment.practiceSessionsSubmitted)} label="Practice Sessions Submitted" />
         <StatTile icon="ph-exam" value={String(assessment.mockAttemptsSubmitted)} label="Mock Papers Sat" />
@@ -150,14 +150,14 @@ export default function Analytics() {
         mock tests, practice sessions and daily challenges, which are real.
       </p>
 
-      <h3 className={styles.heading}>XP</h3>
+      <h2 className={styles.heading}>XP</h2>
       <div className={styles.statRow}>
         <StatTile icon="ph-lightning" value={String(xp.awardedTotal)} label="Total XP Awarded" />
         <StatTile icon="ph-user-focus" value={String(xp.earners)} label="Students With XP" />
         <StatTile icon="ph-chart-line" value={xp.averagePerEarner === null ? '—' : String(xp.averagePerEarner)} label="Average XP Per Earner" />
       </div>
 
-      <h3 className={styles.heading}>By class</h3>
+      <h2 className={styles.heading}>By class</h2>
       <div className={`card ${styles.classCard}`}>
         {/* The one table in the product with no scroll wrapper at all, so it pushed a
             375px screen sideways — found in the Phase B browser pass, fixed here. */}

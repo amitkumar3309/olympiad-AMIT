@@ -149,11 +149,11 @@
 
 .linkButton:hover {
   border-color: var(--royal-blue);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .dangerButton {
-  color: var(--danger);
+  color: var(--danger-text);
   border-color: rgba(239, 68, 68, 0.4);
 }
 
@@ -177,7 +177,7 @@
   flex-wrap: wrap;
 }
 
-.listHead h3 {
+.listHead h2, .listHead h3 {
   margin: 0;
 }
 
@@ -226,7 +226,7 @@
 .todayTag,
 .classTag,
 .sourceTag {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -235,8 +235,8 @@
 }
 
 .todayTag {
-  background: var(--royal-blue);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-on);
 }
 
 .classTag {
@@ -246,7 +246,7 @@
 
 .sourceScheduled {
   background: rgba(16, 185, 129, 0.15);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .sourceAutomatic {

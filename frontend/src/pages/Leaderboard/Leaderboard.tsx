@@ -218,9 +218,11 @@ export default function Leaderboard() {
       {/* --- The board ---------------------------------------------------- */}
       <section className="card">
         <div className={styles.boardHead}>
-          <h3>
+          {/* h2: the board is the page's top-level content and there is no section
+              heading above it. */}
+          <h2>
             {scope === 'class' ? classLevel : 'All students'} · {LEADERBOARD_PERIOD_LABELS[period]}
-          </h3>
+          </h2>
           {data && data.window.from && (
             <p className={styles.windowNote}>
               Counting XP earned from {data.window.from} to {data.window.to}.

@@ -53,7 +53,7 @@
 
 .paid i {
   font-size: 38px;
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .paid h3 {
@@ -72,7 +72,7 @@
   padding: 12px 16px;
   border-radius: var(--radius-sm);
   background: rgba(16, 185, 129, 0.14);
-  color: var(--success);
+  color: var(--success-text);
   font-size: 0.9rem;
 }
 
@@ -120,7 +120,7 @@
 
 .unlocks i {
   margin-right: 8px;
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .freeNote {
@@ -233,8 +233,8 @@
 
 .invoiceDownload {
   border: none;
-  background: var(--royal-blue);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-on);
 }
 
 /* --- The preview dialog --- */
@@ -345,7 +345,7 @@
 }
 
 .invoicePaid {
-  color: var(--success);
+  color: var(--success-text);
   font-weight: 800;
   letter-spacing: 0.06em;
 }

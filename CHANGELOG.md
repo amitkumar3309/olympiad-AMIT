@@ -2,6 +2,88 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-29 — Milestone 23, Phase G: the responsive and accessibility audit
+
+Every important page measured in a browser at 375, 768, 1280 and 1440px, in both themes,
+signed out, as a student and as the root super administrator. **Frontend only; no backend
+file was touched** (1253 tests across 35 files, unchanged), and the set of endpoints the
+frontend calls is byte-identical: 100 references before, 100 after.
+
+This phase is where the redesign was checked rather than written, and it found things the
+five phases that built it did not.
+
+### The colour system had two rules nobody had written down
+
+**A fill colour is not a text colour.** `--success`, `--warning`, `--danger`, `--info` and
+`--primary` are what a shape is filled or bordered with; each has a `-text` sibling dark
+enough to carry words. **109 declarations** used the fill as text, and the audit measured
+what that costs: "Paid" at 2.22:1, "Pending" at 1.91:1, "Published" at 2.13:1, "WELL
+ESTABLISHED" at 2.42:1 — against a 4.5:1 requirement.
+
+**`--royal-blue` is not a text colour either.** The legacy alias is deliberately re-pointed
+*lighter* in dark mode so it stays visible as a border, which makes it too light for words
+there — the question bank's row actions measured 4.21:1. **38 declarations** rewritten to
+`--primary-text`.
+
+**Every solid fill now has an explicit on-colour.** `--primary-on` was the only one; the
+rest were `#fff` written by hand, and white on `--success-solid` is 3.77:1 and on
+`--warning-solid` 3.19:1 — green and amber are light fills and take dark text.
+`--success-on`, `--warning-on`, `--danger-on`, `--info-on` and `--accent-on` are now
+declared in both themes, and the only `color: #fff` left in `src/` is the Gallery
+lightbox, which is white on a photograph.
+
+**`--text-muted` moved one step darker.** At `--slate-500` it was 4.76:1 on white — AA with
+no headroom — and 4.28:1 on a soft tint, where it failed. A secondary colour that only
+passes on pure white is a trap; it is `--slate-600` now and clears AA on every surface and
+tint in the file.
+
+### Twenty-eight headings were at the wrong level
+
+Eleven admin pages and six student ones opened with an `h3` directly under the shell's
+`h1`. `EmptyState` gained a `titleAs` for the case where the state *is* the page — and the
+404 page, written in Phase E, had **no `h1` at all**.
+
+### Touch targets, on a coarse pointer only
+
+Phase A limited the 44px floor to form controls, because a blanket rule would have inflated
+compact row actions on pages that had not been redesigned. They have been now, and the
+audit measured what the caution left: an 18px tick box in a table row, a 26px "remove
+option", four 29px row actions. `button`, `[role="button"]` and `summary` now take the 44px
+floor **under `pointer: coarse` only**, so a mouse-driven admin table keeps its compact
+rows; tick boxes grow to 24px, which is WCAG 2.5.8's minimum, and no longer squash to a
+non-square 15.5px in a flex row. Ten font sizes below the scale's 11px floor were raised,
+including the mobile bottom bar's 10px labels.
+
+### Information that only existed on hover
+
+A `title` attribute never appears on a touch screen. Two disabled bulk actions in the
+question bank explained themselves only that way — on a phone they were simply dead — and
+the five payment states in the student directory were defined only in a tooltip. The
+reasons are now in the page, and the states have a real legend.
+
+### Half the JavaScript was being downloaded for nothing
+
+Thirty-four routes were already lazy; **fifteen were not**, so every visitor downloaded the
+admin console, the profile page and the practice zone before the landing page painted. They
+are lazy now — `Landing` stays eager on purpose, being the entry route. The main bundle
+went from **543 kB (167 kB gzipped) to 244 kB (75 kB)**.
+
+### Two measurement traps worth recording
+
+A **CSS transition cannot advance while the tab is not compositing**, so after toggling the
+theme `getComputedStyle` keeps reporting the *old* colour: six "contrast failures" on the
+design-system page were the outline button mid-transition. Reload into the theme rather than
+switching into it. And a **programmatic `.focus()` does not trigger `:focus-visible`**,
+which is keyboard-driven — the focus ring was verified statically instead, by checking that
+every `outline: none` in `src/` is paired with a replacement (all five are).
+
+### Verified
+
+Twenty-one admin routes, thirteen student routes and six public ones, at four widths in two
+themes. Final state: **no page overflow, no element escaping its container, no dangling ARIA
+reference, no duplicate id, no unnamed control, no heading-level skip, no emoji, and no text
+under 4.5:1** anywhere measured.
+
 ## 2026-08-29 — Milestone 23, Phase F: the landing page
 
 The public page, rebuilt on the design system. **Frontend only; no backend file was

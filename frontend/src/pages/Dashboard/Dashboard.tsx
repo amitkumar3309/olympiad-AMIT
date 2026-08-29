@@ -165,7 +165,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {!loading && error !== null && <ErrorState error={error} onRetry={() => void load()} />}
+      {!loading && error !== null && <ErrorState error={error} titleAs="h2" onRetry={() => void load()} />}
 
       {!loading && error === null && data && (
         <div className={styles.page}>

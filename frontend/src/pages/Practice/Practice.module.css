@@ -451,17 +451,17 @@
 
 .verdict_correct {
   background: rgba(16, 185, 129, 0.15);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .verdict_incorrect {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .verdict_skipped {
   background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .reviewMarks {

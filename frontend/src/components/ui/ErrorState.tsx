@@ -25,16 +25,19 @@ export interface ErrorStateProps {
   /** Overrides the derived message. For when the page knows better than the status. */
   message?: string
   title?: string
+  /** Passed through to `EmptyState`. `'h2'` when this error IS the page. */
+  titleAs?: 'h1' | 'h2' | 'h3' | 'h4'
   onRetry?: () => void
   className?: string
 }
 
-export default function ErrorState({ error, message, title, onRetry, className }: ErrorStateProps) {
+export default function ErrorState({ error, message, title, titleAs, onRetry, className }: ErrorStateProps) {
   const expired = isSessionExpired(error)
 
   return (
     <EmptyState
       className={className}
+      titleAs={titleAs}
       icon={expired ? 'ph-sign-in' : 'ph-warning-circle'}
       title={title ?? (expired ? 'Your session has ended' : 'This could not be loaded')}
       description={message ?? humanizeError(error)}

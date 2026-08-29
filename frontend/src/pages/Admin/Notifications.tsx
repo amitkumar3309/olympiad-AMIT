@@ -170,7 +170,7 @@ export default function Notifications() {
   return (
     <AdminShell title="Notifications">
       <div className={`card ${styles.panel}`}>
-        <h3>Write an announcement</h3>
+        <h2>Write an announcement</h2>
         <p className={styles.hint}>
           Announcements appear in each student's in-app inbox. Nothing is emailed. Save a draft to write it now and
           publish later — students see nothing until it is published.

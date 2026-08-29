@@ -4,6 +4,54 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-29 — The colour tokens split fill from text, and the audit is what proved it matters
+
+**Context.** `tokens.css` has carried both `--success` and `--success-text` since Phase A, and the
+same pair for warning, danger, info and primary. The distinction was never written down as a rule,
+so it was followed where somebody happened to think about it and ignored everywhere else. Phase G
+measured the result:
+
+| what | measured | needs |
+|---|---|---|
+| "Paid" badge, student directory | 2.22:1 | 4.5:1 |
+| "Pending" badge | 1.91:1 | 4.5:1 |
+| "Published" badge, question bank | 2.13:1 | 4.5:1 |
+| "WELL ESTABLISHED", recommendations | 2.42:1 | 4.5:1 |
+| row actions, question bank (dark) | 4.21:1 | 4.5:1 |
+| white on `--success-solid` | 3.77:1 | 4.5:1 |
+| white on `--warning-solid` | 3.19:1 | 4.5:1 |
+| `--text-muted` on a soft tint | 4.28:1 | 4.5:1 |
+
+None of these is a typo. Each is somebody reaching for the colour that *names the meaning* — green
+for paid, amber for pending — without asking whether that particular green can carry 12px text.
+
+**Decision.** Three rules, and the tokens to make each one expressible.
+
+1. **A fill colour is not a text colour.** `--success` and friends fill and border; `--*-text`
+   carries words. 109 `color:` declarations rewritten.
+2. **`--royal-blue` is not a text colour either.** The legacy alias is re-pointed *lighter* in
+   `.theme-dark` precisely so it stays visible as a border on a dark surface, which is what makes it
+   useless for text there. 38 declarations rewritten to `--primary-text`.
+3. **Every solid fill has an explicit on-colour**, and not all of them are white. `--success-on` and
+   `--warning-on` are near-black, because green and amber are light fills. The values are the same in
+   both themes because the `-solid` fills are.
+
+And one token moved: **`--text-muted` from `--slate-500` to `--slate-600`**. At the old value it was
+4.76:1 on white — AA, and the tokens file called it "the floor" — but it dropped to 4.28:1 the moment
+it sat on a tint, which is a thing every card, highlighted row and empty state does.
+
+**Rejected: fixing the call sites and leaving the tokens.** The call sites *are* the fix for rules 1
+and 2, but leaving `--text-muted` at slate-500 would have left the next tinted card to rediscover the
+same failure. A secondary colour that only passes on pure white is not a secondary colour.
+
+**Rejected: an automated contrast check in CI.** There is no frontend test suite (adding one needs
+its own ADR), and the interesting cases are composited translucent fills that a static analyser
+cannot see — the audit had to blend `rgba()` over its opaque ancestor to get real numbers.
+
+**Consequence.** The rules are in `CLAUDE.md` and the reasons are in the tokens file beside the
+values. `--text-subtle` remains for non-text glyphs only. Anything measuring under 4.5:1 for body
+text is a defect, not a style choice.
+
 ## 2026-08-29 — Every claim on the landing page has to be checkable in the code
 
 **Context.** The brief for the redesign said *do not invent claims, statistics or achievements; use

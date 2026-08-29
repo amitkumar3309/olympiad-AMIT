@@ -29,7 +29,7 @@
 
 .warn i {
   font-size: 18px;
-  color: var(--royal-blue);
+  color: var(--primary-text);
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -101,7 +101,7 @@
 /* A value that differs from the shipped default, so a scan of the column shows what
    has been changed without comparing two numbers by eye. */
 .overridden {
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .actions {

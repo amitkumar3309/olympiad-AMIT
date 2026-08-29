@@ -452,7 +452,9 @@
   border: none;
   background: transparent;
   font-family: var(--font-body);
-  font-size: 10px;
+  /* The type scale's floor. It was 10px, which is below every other label in the
+     product and is exactly the "no tiny text" the mobile brief rules out. */
+  font-size: var(--text-2xs);
   font-weight: var(--weight-semibold);
   letter-spacing: 0.01em;
   color: var(--text-muted);

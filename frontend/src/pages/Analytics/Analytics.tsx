@@ -215,13 +215,16 @@ export default function Analytics() {
   return (
     <StudentShell title="Performance Analysis" subtitle="Worked out from the questions you have actually answered">
       <div className={styles.wrap}>
-        {error !== null && <ErrorState error={error} onRetry={load} />}
+        {error !== null && <ErrorState error={error} titleAs="h2" onRetry={load} />}
         {!result && error === null && <SkeletonCards count={4} label="Working out your performance" />}
 
         {analytics && !analytics.hasData && (
           <Card>
+            {/* `titleAs="h2"`: this state IS the page, sitting under the h1 with no
+                section heading between, so an h3 would skip a level. */}
             <EmptyState
               icon="ph-chart-line"
+              titleAs="h2"
               title="Nothing to measure yet"
               description="Your accuracy, strongest and weakest chapters and progress over time are all worked out from questions you have answered — and you have not submitted anything yet. This page fills in by itself once you do."
               action={

@@ -138,7 +138,7 @@ export default function Referrals() {
     <StudentShell title="Refer & Earn" subtitle="Invite a friend to the Olympiad">
       <div className={styles.wrap}>
         {loading && <SkeletonCards count={3} label="Loading your referrals" />}
-        {error && !loading && <ErrorState error={error} onRetry={() => void load()} />}
+        {error && !loading && <ErrorState error={error} titleAs="h2" onRetry={() => void load()} />}
 
         {summary && !loading && (
           <>

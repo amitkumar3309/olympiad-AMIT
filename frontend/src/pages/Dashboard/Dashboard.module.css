@@ -379,6 +379,18 @@
   border-radius: var(--radius-sm);
 }
 
+/**
+ * `--text-muted` is 4.76:1 on `--surface` — AA with almost no headroom, which is what
+ * `tokens.css` calls "the floor". On a *tinted* row it drops to 4.28:1 and fails, which
+ * is what the Phase G audit measured here. Muted text does not go on a tint: this row is
+ * the reader's own and should read stronger anyway.
+ */
+.meRow .rank,
+.meRow .lbSchool,
+.meRow .lbXp {
+  color: var(--text-body);
+}
+
 .rank {
   flex-shrink: 0;
   min-width: 2.5ch;

@@ -18,7 +18,7 @@
 
 .toggle:hover {
   border-color: var(--royal-blue);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .toggle:focus-visible {

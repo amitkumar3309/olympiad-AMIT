@@ -275,10 +275,18 @@
 
   /* Text. `--text` is the heading/emphasis colour, `--text-body` is paragraph copy
      (10.4:1 on white), `--text-muted` is secondary (4.76:1 — AA, and the floor:
-     nothing lighter may carry words). `--text-subtle` is for non-text glyphs only. */
+     nothing lighter may carry words). `--text-subtle` is for non-text glyphs only.
+
+     `--text-muted` was `--slate-500` until the Phase G audit, which measured it at
+     4.76:1 on `--surface` — AA with no headroom — and at **4.28:1 and 4.39:1** on the
+     soft tints, where it fails. A secondary colour that only passes on pure white is a
+     trap: every tinted card, every empty state and every highlighted row silently drops
+     under. It is now `--slate-600`, which clears AA on every surface and every tint in
+     this file, and the size/weight difference is what carries the hierarchy against
+     `--text-body`. **Nothing lighter than this may carry words.** */
   --text: var(--slate-800);
   --text-body: var(--slate-700);
-  --text-muted: var(--slate-500);
+  --text-muted: var(--slate-600);
   --text-subtle: var(--slate-400);
   --text-inverse: #ffffff;
 
@@ -288,6 +296,20 @@
   --primary-hover: var(--blue-700);
   --primary-active: var(--blue-800);
   --primary-on: #ffffff;
+
+  /* The on-colours for the solid fills.
+
+     Not all of them are white, and that is the point. White on `--success-solid`
+     measures 3.77:1 and on `--warning-solid` 3.19:1 — a badge's text is small, so both
+     fail AA, and the Phase G audit found them doing exactly that. Green and amber are
+     light fills and take dark text; red and blue are dark enough for white. The values
+     are the same in both themes because the `-solid` fills are. */
+  --success-on: var(--slate-900);
+  --warning-on: var(--slate-900);
+  --danger-on: #ffffff;
+  --info-on: #ffffff;
+  --accent-on: var(--gold-700);
+
   --primary-text: var(--blue-600);
   --primary-soft: var(--blue-50);
   --primary-soft-hover: var(--blue-100);
@@ -388,6 +410,20 @@
   --primary-hover: #5b6cf0;
   --primary-active: #6d7cf3;
   --primary-on: #ffffff;
+
+  /* The on-colours for the solid fills.
+
+     Not all of them are white, and that is the point. White on `--success-solid`
+     measures 3.77:1 and on `--warning-solid` 3.19:1 — a badge's text is small, so both
+     fail AA, and the Phase G audit found them doing exactly that. Green and amber are
+     light fills and take dark text; red and blue are dark enough for white. The values
+     are the same in both themes because the `-solid` fills are. */
+  --success-on: var(--slate-900);
+  --warning-on: var(--slate-900);
+  --danger-on: #ffffff;
+  --info-on: #ffffff;
+  --accent-on: var(--gold-700);
+
   --primary-text: #a5b6ff;
   --primary-soft: rgba(107, 134, 251, 0.16);
   --primary-soft-hover: rgba(107, 134, 251, 0.24);

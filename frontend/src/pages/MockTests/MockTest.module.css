@@ -68,21 +68,21 @@
   gap: var(--space-3);
 }
 
-.testHead h3 {
+.testHead h2 {
   margin: 0;
   font-size: var(--text-lg);
   overflow-wrap: anywhere;
 }
 .badgeOpen {
   flex-shrink: 0;
-  font-size: 10.5px;
+  font-size: var(--text-2xs);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 3px 9px;
   border-radius: 999px;
   background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .testDescription {
@@ -171,7 +171,7 @@
 
 .attemptLink {
   font-weight: 600;
-  color: var(--royal-blue);
+  color: var(--primary-text);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -626,17 +626,17 @@
 
 .verdict_correct {
   background: rgba(16, 185, 129, 0.15);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .verdict_incorrect {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .verdict_skipped {
   background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .reviewMarks {

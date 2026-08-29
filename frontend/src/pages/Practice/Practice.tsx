@@ -196,7 +196,7 @@ export default function Practice() {
       title="Practice Zone"
       subtitle={options?.classLevel ? `Published questions for ${options.classLevel}` : undefined}
     >
-      {loadError !== null && <ErrorState error={loadError} onRetry={() => void load()} />}
+      {loadError !== null && <ErrorState error={loadError} titleAs="h2" onRetry={() => void load()} />}
 
       {!options && loadError === null && <SkeletonCards count={2} label="Loading what you can practise" />}
 
@@ -222,6 +222,7 @@ export default function Practice() {
           {subjects.length === 0 ? (
             <Card>
               <EmptyState
+                titleAs="h2"
                 icon="ph-books"
                 title="Nothing to practise yet"
                 description={

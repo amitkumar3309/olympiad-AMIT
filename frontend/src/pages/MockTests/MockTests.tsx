@@ -122,7 +122,7 @@ export default function MockTests() {
       title="Mock Tests"
       subtitle={data?.classLevel ? `Timed papers set for ${data.classLevel}` : undefined}
     >
-      {loadError !== null && <ErrorState error={loadError} onRetry={() => void load()} />}
+      {loadError !== null && <ErrorState error={loadError} titleAs="h2" onRetry={() => void load()} />}
 
       {!data && loadError === null && <SkeletonCards count={2} label="Loading your mock tests" />}
 
@@ -133,6 +133,7 @@ export default function MockTests() {
           {data.tests.length === 0 ? (
             <Card>
               <EmptyState
+                titleAs="h2"
                 icon="ph-exam"
                 title="No mock tests yet"
                 description={
@@ -162,7 +163,9 @@ export default function MockTests() {
                 return (
                   <Card as="article" key={test.id} className={styles.testCard}>
                     <header className={styles.testHead}>
-                      <h3>{test.title}</h3>
+                      {/* h2: these cards are the page's top-level content and there is
+                          no section heading above them. */}
+                      <h2>{test.title}</h2>
                       {test.resumeAttemptId && (
                         <Badge tone="warning" icon="ph-play-circle">
                           In progress

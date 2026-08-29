@@ -293,7 +293,7 @@ export default function QuestionForm() {
 
           {error && <Alert tone="danger">{error}</Alert>}
 
-          <h3 className={styles.sectionTitle}>Classification</h3>
+          <h2 className={styles.sectionTitle}>Classification</h2>
           <div className={styles.grid}>
             <div className="form-group">
               <label htmlFor="q-topic">
@@ -399,7 +399,7 @@ export default function QuestionForm() {
             </div>
           </div>
 
-          <h3 className={styles.sectionTitle}>Question</h3>
+          <h2 className={styles.sectionTitle}>Question</h2>
           <div className="form-group">
             <label htmlFor="q-type">
               Type <Required />
@@ -494,7 +494,7 @@ export default function QuestionForm() {
             </div>
           )}
 
-          <h3 className={styles.sectionTitle}>Marking</h3>
+          <h2 className={styles.sectionTitle}>Marking</h2>
           <div className={styles.grid}>
             <div className="form-group">
               <label htmlFor="q-marks">
@@ -509,7 +509,7 @@ export default function QuestionForm() {
             </div>
           </div>
 
-          <h3 className={styles.sectionTitle}>Solution</h3>
+          <h2 className={styles.sectionTitle}>Solution</h2>
           <div className="form-group">
             <label htmlFor="q-solution">Worked solution</label>
             <textarea id="q-solution" className="form-control" rows={4} value={form.solution} onChange={(e) => set('solution', e.target.value)} />
@@ -532,7 +532,7 @@ export default function QuestionForm() {
         {/* Live preview: exactly the renderer the student-facing pages will use, so
             what an author sees here is what gets rendered. */}
         <aside className={styles.preview}>
-          <h3 className={styles.previewTitle}>Preview</h3>
+          <h2 className={styles.previewTitle}>Preview</h2>
           <div className={styles.previewCard}>
             {form.questionText.trim() === '' ? (
               <p className={styles.previewEmpty}>Start typing the question to see it rendered here.</p>

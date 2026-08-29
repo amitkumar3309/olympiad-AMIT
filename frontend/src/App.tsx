@@ -6,11 +6,13 @@ import { ProtectedRoute, RequirePermission, RequirePaidEntry } from './component
 import ForcePasswordChange from './components/ForcePasswordChange'
 import ToastProvider from './components/ui/ToastProvider'
 import Spinner from './components/Spinner'
+/* Eager on purpose: it is the entry route, so deferring it would add a round trip
+   to the first paint that matters most. Every other page below is lazy. */
 import Landing from './pages/Landing/Landing'
-import Payment from './pages/Payment/Payment'
-import Admin from './pages/Admin/Admin'
-import AdminUsers from './pages/Admin/Users'
-import AdminAuditLog from './pages/Admin/AuditLog'
+const Payment = lazy(() => import('./pages/Payment/Payment'))
+const Admin = lazy(() => import('./pages/Admin/Admin'))
+const AdminUsers = lazy(() => import('./pages/Admin/Users'))
+const AdminAuditLog = lazy(() => import('./pages/Admin/AuditLog'))
 
 /**
  * The question-bank pages are loaded on demand.
@@ -92,17 +94,17 @@ const HallOfFame = lazy(() => import('./pages/HallOfFame/HallOfFame'))
  * consistent once more than one page is using it.
  */
 const DesignSystem = import.meta.env.DEV ? lazy(() => import('./pages/DesignSystem/DesignSystem')) : null
-import Analytics from './pages/Analytics/Analytics'
-import Dashboard from './pages/Dashboard/Dashboard'
-import Profile from './pages/Profile/Profile'
-import Practice from './pages/Practice/Practice'
-import MockTests from './pages/MockTests/MockTests'
-import Certificate from './pages/Certificate/Certificate'
-import Report from './pages/Report/Report'
-import Result from './pages/Result/Result'
-import VerifyEmail from './pages/Auth/VerifyEmail'
-import ForgotPassword from './pages/Auth/ForgotPassword'
-import ResetPassword from './pages/Auth/ResetPassword'
+const Analytics = lazy(() => import('./pages/Analytics/Analytics'))
+const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'))
+const Profile = lazy(() => import('./pages/Profile/Profile'))
+const Practice = lazy(() => import('./pages/Practice/Practice'))
+const MockTests = lazy(() => import('./pages/MockTests/MockTests'))
+const Certificate = lazy(() => import('./pages/Certificate/Certificate'))
+const Report = lazy(() => import('./pages/Report/Report'))
+const Result = lazy(() => import('./pages/Result/Result'))
+const VerifyEmail = lazy(() => import('./pages/Auth/VerifyEmail'))
+const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/Auth/ResetPassword'))
 
 /**
  * Holds the entire application on the forced password-change screen while a

@@ -190,7 +190,7 @@ export default function AdminMockTests() {
       ) : tests.length === 0 ? (
         <div className={`card ${styles.empty}`}>
           <Icon name="ph-exam" weight="bold" />
-          <h3>No mock tests yet</h3>
+          <h2>No mock tests yet</h2>
           <p>
             Create one, add published questions to it, set a duration and a window, then publish it. Until it is
             published no student can see it.
@@ -209,7 +209,7 @@ export default function AdminMockTests() {
             {tests.map((test) => (
               <article key={test.id} className={`card ${styles.row} ${busyId === test.id ? styles.busy : ''}`}>
                 <div className={styles.rowHead}>
-                  <h3>{test.title}</h3>
+                  <h2>{test.title}</h2>
                   <span className={`${styles.badge} ${styles[`status_${test.status}`]}`}>
                     {STATUS_LABELS[test.status]}
                   </span>

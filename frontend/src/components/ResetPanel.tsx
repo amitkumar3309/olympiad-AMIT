@@ -164,9 +164,10 @@ export default function ResetPanel({ scope, onDone }: ResetPanelProps) {
   return (
     <section className={styles.zone} aria-labelledby={`danger-${scope}`}>
       <div className={styles.zoneHead}>
-        <h3 id={`danger-${scope}`}>
+        {/* h2: a top-level section of its page, under the h1. */}
+        <h2 id={`danger-${scope}`}>
           <Icon name="ph-warning-octagon" weight="bold" /> Danger zone
-        </h3>
+        </h2>
         <p>{SCOPE_BLURBS[scope]}</p>
         {done && <p className={styles.done}>{done}</p>}
       </div>

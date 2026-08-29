@@ -86,7 +86,7 @@ export default function Standings() {
   return (
     <AdminShell title="Standings & Rewards">
       <div className={`card ${styles.panel}`}>
-        <h3>Leaderboard</h3>
+        <h2>Leaderboard</h2>
         <p className={styles.hint}>
           Full names and student IDs, unlike the public board — which masks them because the entrants are children and
           that page is indexable. Ranks are positions in the whole ordering, not in the page.
@@ -184,7 +184,7 @@ export default function Standings() {
 
       {canReadRewards && (
         <div className={`card ${styles.panel}`}>
-          <h3>Badges & achievements</h3>
+          <h2>Badges & achievements</h2>
           <p className={styles.hint}>
             How the catalogue is actually landing — the evidence worth having before re-pricing the XP table.
           </p>
@@ -217,7 +217,7 @@ export default function Standings() {
                   </p>
                 )}
 
-                <h4 className={styles.subheading}>Students per level</h4>
+                <h3 className={styles.subheading}>Students per level</h3>
                 <div className={styles.levels}>
                   {overview.levels.map((row) => (
                     <span key={row.level} className={styles.levelPill}>
@@ -226,7 +226,7 @@ export default function Standings() {
                   ))}
                 </div>
 
-                <h4 className={styles.subheading}>Achievement holders</h4>
+                <h3 className={styles.subheading}>Achievement holders</h3>
                 <TableScroll label="Class standings">
                   <Table density="compact">
                     <thead>

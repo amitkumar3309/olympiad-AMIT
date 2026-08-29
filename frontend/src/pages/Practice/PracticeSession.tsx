@@ -173,6 +173,7 @@ export default function PracticeSessionPage() {
       <StudentShell title="Practice">
         <ErrorState
           error={loadError}
+          titleAs="h2"
           title="Could not load that session"
           onRetry={() => navigate('/practice')}
         />

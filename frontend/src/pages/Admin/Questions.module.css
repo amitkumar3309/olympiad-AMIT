@@ -46,33 +46,46 @@
 }
 
 .sortSelect {
-  background: var(--surface);
-  color: var(--text-main);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--text-main);
+  /* It inherited 13.6px from the toolbar. Mobile Safari zooms a focused control whose
+     text is under 16px and does not zoom back out, which looks exactly like a broken
+     layout. `--text-md` is 16px; the fine-pointer size is set below. */
+  font-size: var(--text-md);
+}
+
+@media (pointer: fine) {
+  .sortSelect {
+    font-size: var(--text-sm);
+  }
 }
 
 .orderToggle,
+/* `--royal-blue` is the legacy alias and is re-pointed *lighter* in dark mode so it
+   stays visible as a border — which is why these row actions measured 4.21:1 there.
+   `--primary-text` is the token for a word and clears AA in both themes. */
 .linkButton,
 .dangerButton {
-  background: none;
-  border: none;
   padding: 4px 6px;
+  border: none;
   border-radius: var(--radius-sm);
-  cursor: pointer;
+  background: none;
+  color: var(--primary-text);
   font: inherit;
-  color: var(--royal-blue);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .orderToggle:hover,
 .linkButton:hover {
-  background: rgba(79, 70, 229, 0.12);
+  background: var(--primary-soft);
 }
 
 .dangerButton {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .dangerButton:hover {
@@ -94,7 +107,7 @@
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: rgba(16, 185, 129, 0.14);
-  color: var(--success);
+  color: var(--success-text);
   font-size: 0.88rem;
 }
 
@@ -179,17 +192,17 @@
 
 .status_in_review {
   background: rgba(245, 158, 11, 0.18);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .status_published {
   background: rgba(16, 185, 129, 0.18);
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .status_archived {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .stem {
@@ -255,7 +268,7 @@
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .answerLine {
@@ -272,7 +285,7 @@
 
 .missing {
   margin: 6px 0 0;
-  color: var(--warning);
+  color: var(--warning-text);
   font-size: 0.85rem;
 }
 
@@ -364,7 +377,7 @@
   background: none;
   border: none;
   padding: 0;
-  color: var(--primary);
+  color: var(--primary-text);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -449,4 +462,13 @@
   color: var(--text-main);
   font-size: 13px;
   line-height: 1.6;
+}
+
+/* The reason a bulk action is unavailable, said in the page. A `title` is invisible on
+   a touch screen, which left two dead buttons and no explanation. */
+.bulkReason {
+  flex-basis: 100%;
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
 }

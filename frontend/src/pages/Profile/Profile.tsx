@@ -298,6 +298,7 @@ export default function Profile() {
       <StudentShell title="My profile">
         <ErrorState
           error={loadError}
+          titleAs="h2"
           title="Could not load your profile"
           message={loadError ?? 'Please try again.'}
           onRetry={() => void load()}

@@ -522,6 +522,23 @@ export default function Questions() {
                 >
                   Schedule daily challenge
                 </Button>
+
+                {/*
+                  Why a button is disabled, in the page rather than in a `title`.
+                  A tooltip attribute never appears on a touch screen, so on a phone
+                  these two buttons were simply dead with no explanation — which the
+                  Phase G audit flagged under "no hover-only information". The `title`
+                  stays for a mouse user who hovers before reading.
+                */}
+                {('reason' in toMockTest || 'reason' in toDailyChallenge) && (
+                  <p className={styles.bulkReason}>
+                    {'reason' in toMockTest
+                      ? toMockTest.reason
+                      : 'reason' in toDailyChallenge
+                        ? toDailyChallenge.reason
+                        : null}
+                  </p>
+                )}
                 <button type="button" className={styles.linkAction} onClick={() => setSelected([])}>
                   Clear
                 </button>

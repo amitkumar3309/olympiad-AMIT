@@ -73,7 +73,7 @@
 
 .secondaryBtn:hover:not(:disabled) {
   border-color: var(--royal-blue);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .secondaryBtn:disabled {
@@ -135,28 +135,31 @@
   white-space: nowrap;
 }
 
+/* Hand-rolled before the design system existed. The tints and the text colours are
+   tokens now, which is what makes them follow the theme and clear AA — `#a16207` on
+   its own amber tint measured 4.44:1 and failed. */
 .badge {
   display: inline-block;
   padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
 }
 
 .pending {
-  background: rgba(234, 179, 8, 0.16);
-  color: #a16207;
+  background: var(--warning-soft);
+  color: var(--warning-text);
 }
 
 .sent {
-  background: rgba(34, 197, 94, 0.16);
-  color: #15803d;
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 
 .failed {
-  background: rgba(239, 68, 68, 0.16);
-  color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 /*
@@ -166,7 +169,7 @@
 */
 .errorDetail {
   margin: 6px 0 0;
-  color: var(--danger);
+  color: var(--danger-text);
   font-size: 12px;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -214,7 +217,7 @@
   flex-shrink: 0;
   margin-top: 2px;
   font-size: 20px;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .linkWarning p {

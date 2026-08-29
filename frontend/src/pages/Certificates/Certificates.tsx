@@ -48,7 +48,7 @@ export default function Certificates() {
         <Spinner label="Loading your certificates..." />
       ) : certificates.length === 0 ? (
         <div className={`card ${styles.empty}`}>
-          <h3>No certificates yet</h3>
+          <h2>No certificates yet</h2>
           <p>
             Certificates are awarded for the <strong>official Olympiad</strong> only — not for mock tests, the practice
             zone or the daily challenge. Once you have sat the official exam and the organisers release the results,

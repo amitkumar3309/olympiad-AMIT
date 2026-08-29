@@ -14,7 +14,7 @@
 
 .icon {
   font-size: 48px;
-  color: var(--warning);
+  color: var(--warning-text);
   display: block;
   margin-bottom: 16px;
 }
@@ -34,8 +34,8 @@
   display: inline-block;
   padding: 10px 22px;
   border-radius: var(--radius-sm);
-  background: var(--royal-blue);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-on);
   font-weight: 600;
   text-decoration: none;
 }

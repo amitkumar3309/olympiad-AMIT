@@ -97,7 +97,7 @@
 }
 
 .status[data-kind='model'] .statusBadge {
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .status code {
@@ -140,7 +140,7 @@
   max-width: 700px;
   border-radius: var(--radius-sm);
   background: var(--success-soft);
-  color: var(--success);
+  color: var(--success-text);
   font-size: 0.9rem;
 }
 
@@ -155,7 +155,7 @@
   border: none;
   padding: 0;
   font: inherit;
-  color: var(--royal-blue);
+  color: var(--primary-text);
   cursor: pointer;
   text-decoration: underline;
 }
@@ -228,7 +228,7 @@
 
 .qIndex {
   font-family: var(--font-mono);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .qMarks {
@@ -239,7 +239,7 @@
   padding: 2px 8px;
   border-radius: var(--radius-pill);
   background: var(--warning-soft);
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .answerLine {
@@ -259,7 +259,7 @@
 }
 
 .tick {
-  color: var(--success);
+  color: var(--success-text);
   margin-left: 8px;
 }
 
@@ -298,11 +298,11 @@
 
 .secondary:hover:not(:disabled) {
   border-color: var(--royal-blue);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .danger {
-  color: var(--danger);
+  color: var(--danger-text);
   border-color: var(--danger);
 }
 
@@ -365,7 +365,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .warnBox ul {
@@ -390,7 +390,7 @@
   padding: 0;
   border: none;
   background: none;
-  color: var(--royal-blue);
+  color: var(--primary-text);
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
@@ -405,11 +405,11 @@
 }
 
 .checkOk {
-  color: var(--success);
+  color: var(--success-text);
 }
 
 .checkBad {
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .pick {
@@ -432,7 +432,7 @@
   margin: 0 0 10px;
   font-size: 0.86rem;
   font-weight: 600;
-  color: var(--danger);
+  color: var(--danger-text);
   display: flex;
   align-items: flex-start;
   gap: 6px;
@@ -447,7 +447,7 @@
   gap: 6px;
   font-size: 0.84rem;
   line-height: 1.5;
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .warnList li {

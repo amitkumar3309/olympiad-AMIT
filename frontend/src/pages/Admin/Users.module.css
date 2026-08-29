@@ -90,65 +90,17 @@
   color: var(--text-muted);
 }
 
-.pay_paid,
-.pay_pending,
-.pay_failed,
-.pay_refunded,
-.pay_not_started {
-  display: inline-block;
-  width: fit-content;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.pay_paid {
-  background: rgba(16, 185, 129, 0.14);
-  color: var(--success);
-}
-
-.pay_pending {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning);
-}
-
-.pay_failed {
-  background: rgba(239, 68, 68, 0.14);
-  color: var(--danger);
-}
-
-.pay_refunded {
-  background: rgba(56, 189, 248, 0.16);
-  color: var(--royal-blue);
-}
-
 /*
  * Deliberately the quietest chip of the five. "Registered and has not paid yet" is the
  * ordinary state of most of this table, and colouring it as a problem would make the
  * genuinely actionable states (failed, pending) harder to pick out rather than easier.
  */
-.pay_not_started {
-  background: rgba(148, 163, 184, 0.16);
-  color: var(--text-muted);
-}
-
-.searchBtn {
-  padding: 0 20px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--royal-blue);
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-}
-
 .notice {
   margin: 0 0 14px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: rgba(16, 185, 129, 0.12);
-  color: var(--success);
+  color: var(--success-text);
   font-size: 14px;
 }
 
@@ -250,7 +202,7 @@
 
 .modalWarn {
   margin: 0 0 1.25rem;
-  color: var(--warning);
+  color: var(--warning-text);
   font-size: 13px;
   font-weight: 600;
 }
@@ -396,7 +348,7 @@
   border: none;
   border-radius: var(--radius-sm);
   background: var(--danger-solid);
-  color: #fff;
+  color: var(--danger-on);
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
@@ -405,4 +357,55 @@
 .confirmDelete:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* The payment-state legend. A disclosure, because it is reference material rather than
+   something to read every visit — and because the meanings used to live only in a
+   `title`, which a touch screen never shows. */
+.legend {
+  margin: 0 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.legend summary {
+  min-height: var(--tap-target);
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-body);
+}
+
+.legend dl {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.legend dl > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.legend dt {
+  margin: 0;
+}
+
+.legend dd {
+  margin: 0;
+  color: var(--text-body);
+  font-size: var(--text-sm);
+}
+
+@media (min-width: 768px) {
+  .legend dl > div {
+    grid-template-columns: 8rem 1fr;
+    align-items: baseline;
+    gap: var(--space-4);
+  }
 }

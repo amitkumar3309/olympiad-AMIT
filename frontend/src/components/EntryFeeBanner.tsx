@@ -51,7 +51,9 @@ export default function EntryFeeBanner() {
       <div className={styles.left}>
         <Icon name="ph-trophy" weight="bold" className={styles.icon} />
         <div>
-          <h3 className={styles.title}>Book your seat in the national Olympiad</h3>
+          {/* h2, not h3: this card sits directly under the page heading, and an h3 there
+              makes the document skip a level. */}
+          <h2 className={styles.title}>Book your seat in the national Olympiad</h2>
           <p className={styles.body}>
             One payment of <strong>{status.amountDisplay}</strong> enters you into the official competition. Practice,
             mock tests and the daily challenge stay free — pay whenever you are ready.

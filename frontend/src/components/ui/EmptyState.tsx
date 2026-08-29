@@ -26,6 +26,19 @@ export interface EmptyStateProps {
   title: ReactNode
   description: ReactNode
   action?: ReactNode
+  /**
+   * The heading level for `title`.
+   *
+   * Defaults to `h3`, which is right inside a card that already sits under a section
+   * heading. When this state IS the page — a whole route that failed or has nothing in
+   * it yet — pass `'h2'`, or the document skips from the page's `h1` straight to an
+   * `h3`. The Phase G audit found that on three routes.
+   *
+   * `'h1'` is for the case where the state is the *entire* page and there is no page
+   * heading above it at all: the 404. A document with no `h1` has no top level, which
+   * is what that audit found there.
+   */
+  titleAs?: 'h1' | 'h2' | 'h3' | 'h4'
   /** A second, quieter action — "clear filters" beside "create one". */
   secondaryAction?: ReactNode
   size?: 'sm' | 'md'
@@ -35,6 +48,7 @@ export interface EmptyStateProps {
 export default function EmptyState({
   icon = 'ph-tray',
   title,
+  titleAs: TitleTag = 'h3',
   description,
   action,
   secondaryAction,
@@ -46,7 +60,7 @@ export default function EmptyState({
       <span className={styles.iconWrap}>
         <Icon name={icon} size={size === 'sm' ? 'lg' : 'xl'} />
       </span>
-      <h3 className={styles.title}>{title}</h3>
+      <TitleTag className={styles.title}>{title}</TitleTag>
       <p className={styles.description}>{description}</p>
       {(action || secondaryAction) && (
         <div className={styles.actions}>

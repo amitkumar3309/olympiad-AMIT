@@ -34,7 +34,7 @@
   font-size: 24px;
   font-weight: 800;
   font-family: var(--font-mono);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .scoreLabel {

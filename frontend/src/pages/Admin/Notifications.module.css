@@ -3,7 +3,7 @@
   margin-bottom: 20px;
 }
 
-.panel h3 {
+.panel h2, .panel h3 {
   margin: 0 0 6px;
 }
 
@@ -89,7 +89,7 @@
 
 .secondaryBtn:hover:not(:disabled) {
   border-color: var(--royal-blue);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .filters {
@@ -120,7 +120,7 @@
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: rgba(34, 197, 94, 0.12);
-  color: var(--success);
+  color: var(--success-text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -180,12 +180,12 @@
 }
 
 .published {
-  color: var(--success);
+  color: var(--success-text);
   font-weight: 700;
 }
 
 .draft {
-  color: var(--warning);
+  color: var(--warning-text);
   font-weight: 700;
 }
 
@@ -209,17 +209,17 @@
 
 .actionBtn:hover:not(:disabled) {
   border-color: var(--royal-blue);
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .dangerBtn {
   border-color: var(--danger);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .dangerBtn:hover:not(:disabled) {
-  background: var(--danger);
-  color: #fff;
+  background: var(--danger-solid);
+  color: var(--danger-on);
 }
 
 .actionBtn:disabled,

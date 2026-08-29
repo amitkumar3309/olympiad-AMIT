@@ -63,7 +63,7 @@ export default function Rewards() {
     return (
       <StudentShell title="Rewards">
         <div className={`card ${styles.centered}`}>
-          <h3>Could not load your rewards</h3>
+          <h2>Could not load your rewards</h2>
           <p className="error-text">{error ?? 'Something went wrong.'}</p>
           <Button onClick={() => void load()}>Try again</Button>
         </div>
@@ -139,7 +139,7 @@ export default function Rewards() {
       {/* --- Journey map -------------------------------------------------- */}
       <section className="card">
         <div className={styles.sectionHead}>
-          <h3>Your journey</h3>
+          <h2>Your journey</h2>
           <span className={styles.sectionMeta}>
             {journey.completedCount} of {journey.total} stages
           </span>
@@ -159,7 +159,7 @@ export default function Rewards() {
       {/* --- Badges ------------------------------------------------------- */}
       <section className="card">
         <div className={styles.sectionHead}>
-          <h3>Badges</h3>
+          <h2>Badges</h2>
           <span className={styles.sectionMeta}>
             {badges.heldCount} of {badges.total} held
           </span>
@@ -179,7 +179,7 @@ export default function Rewards() {
       {/* --- Achievements -------------------------------------------------- */}
       <section className="card">
         <div className={styles.sectionHead}>
-          <h3>Achievements</h3>
+          <h2>Achievements</h2>
           <span className={styles.sectionMeta}>
             {achievements.earnedCount} of {achievements.total} earned
           </span>

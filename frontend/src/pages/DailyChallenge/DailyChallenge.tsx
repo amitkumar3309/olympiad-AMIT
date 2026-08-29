@@ -142,7 +142,12 @@ export default function DailyChallengePage() {
   if (loadError) {
     return (
       <StudentShell title="Daily Challenge">
-        <ErrorState error={loadError} title="Could not load today’s challenge" onRetry={() => void load()} />
+        <ErrorState
+          error={loadError}
+          titleAs="h2"
+          title="Could not load today’s challenge"
+          onRetry={() => void load()}
+        />
       </StudentShell>
     )
   }
@@ -183,6 +188,7 @@ export default function DailyChallengePage() {
       {!today.challenge ? (
         <Card>
           <EmptyState
+            titleAs="h2"
             icon="ph-dice-five"
             title="No challenge today"
             description={

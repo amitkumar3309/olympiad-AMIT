@@ -3,7 +3,7 @@
   margin-bottom: 20px;
 }
 
-.panel h3 {
+.panel h2, .panel h3 {
   margin: 0 0 6px;
 }
 
@@ -85,13 +85,13 @@
 }
 
 .active {
-  color: var(--success);
+  color: var(--success-text);
   font-weight: 600;
   text-transform: capitalize;
 }
 
 .inactive {
-  color: var(--danger);
+  color: var(--danger-text);
   font-weight: 600;
   text-transform: capitalize;
 }

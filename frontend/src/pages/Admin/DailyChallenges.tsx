@@ -237,7 +237,7 @@ export default function AdminDailyChallenges() {
       <div className={styles.layout}>
         {/* ---------------------------------------------------------------- */}
         <div className="card">
-          <h3>Schedule a day</h3>
+          <h2>Schedule a day</h2>
 
           <div className="form-group">
             <label htmlFor="dc-class">Class</label>
@@ -282,7 +282,7 @@ export default function AdminDailyChallenges() {
             </p>
           )}
 
-          <h4 className={styles.pickerHead}>Choose a published {classLevel} question</h4>
+          <h3 className={styles.pickerHead}>Choose a published {classLevel} question</h3>
 
           <form
             className={styles.pickerFilters}
@@ -345,7 +345,7 @@ export default function AdminDailyChallenges() {
         {/* ---------------------------------------------------------------- */}
         <div className="card">
           <div className={styles.listHead}>
-            <h3>Scheduled and served</h3>
+            <h2>Scheduled and served</h2>
             <select
               className="form-control"
               value={classFilter}

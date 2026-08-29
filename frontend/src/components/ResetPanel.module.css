@@ -20,13 +20,13 @@
   background: rgba(239, 68, 68, 0.06);
 }
 
-.zoneHead h3 {
+.zoneHead h2 {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0 0 4px;
   font-size: 0.95rem;
-  color: var(--danger);
+  color: var(--danger-text);
   letter-spacing: 0.02em;
 }
 
@@ -40,7 +40,7 @@
 
 .done {
   margin-top: 8px !important;
-  color: var(--success) !important;
+  color: var(--success-text) !important;
   font-weight: 600;
 }
 
@@ -53,7 +53,7 @@
   border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--danger);
+  color: var(--danger-text);
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
@@ -65,8 +65,8 @@
  * and it fills in only on hover.
  */
 .trigger:hover {
-  background: var(--danger);
-  color: #fff;
+  background: var(--danger-solid);
+  color: var(--danger-on);
 }
 
 /* --- The dialog --- */
@@ -101,8 +101,8 @@
   gap: 12px;
   margin: 0 -24px 20px;
   padding: 16px 24px;
-  background: var(--danger);
-  color: #fff;
+  background: var(--danger-solid);
+  color: var(--danger-on);
 }
 
 .alarm i {
@@ -174,7 +174,7 @@
 
 .keepList i {
   margin-top: 2px;
-  color: var(--success);
+  color: var(--success-text);
   flex-shrink: 0;
 }
 
@@ -193,7 +193,7 @@
   margin: 0 0 10px;
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--warning);
+  color: var(--warning-text);
 }
 
 .blocked li {
@@ -233,7 +233,7 @@
   padding: 2px 7px;
   border-radius: 4px;
   background: rgba(239, 68, 68, 0.12);
-  color: var(--danger);
+  color: var(--danger-text);
   font-family: var(--font-mono);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -267,8 +267,8 @@
 
 .destroy {
   border: none;
-  background: var(--danger);
-  color: #fff;
+  background: var(--danger-solid);
+  color: var(--danger-on);
 }
 
 .destroy:disabled {

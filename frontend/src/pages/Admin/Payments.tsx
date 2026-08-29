@@ -123,7 +123,7 @@ export default function AdminPayments() {
               The fee itself
           --------------------------------------------------------------- */}
           <section className={`card ${styles.settings}`}>
-            <h3 className={styles.sectionTitle}>Entry fee</h3>
+            <h2 className={styles.sectionTitle}>Entry fee</h2>
 
             {settings?.providerConfigured === false && (
               <div className={styles.warn}>
@@ -208,7 +208,7 @@ export default function AdminPayments() {
           --------------------------------------------------------------- */}
           <section className="card">
             <div className={styles.tableHead}>
-              <h3 className={styles.sectionTitle}>Transactions</h3>
+              <h2 className={styles.sectionTitle}>Transactions</h2>
               <label className={styles.filter}>
                 <span>Status</span>
                 <select

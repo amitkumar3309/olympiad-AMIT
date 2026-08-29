@@ -183,7 +183,7 @@ export default function EmailDeliveries() {
         )}
 
         <div className={styles.toolbar}>
-          <select className="form-control" value={status} onChange={(e) => { setPage(1); setStatus(e.target.value as EmailStatus | '') }}>
+          <select className="form-control" aria-label="Filter by delivery status" value={status} onChange={(e) => { setPage(1); setStatus(e.target.value as EmailStatus | '') }}>
             <option value="">Any status</option>
             {STATUSES.map((value) => (
               <option key={value} value={value}>
@@ -191,7 +191,7 @@ export default function EmailDeliveries() {
               </option>
             ))}
           </select>
-          <select className="form-control" value={category} onChange={(e) => { setPage(1); setCategory(e.target.value as EmailCategory | '') }}>
+          <select className="form-control" aria-label="Filter by category" value={category} onChange={(e) => { setPage(1); setCategory(e.target.value as EmailCategory | '') }}>
             <option value="">Any category</option>
             {CATEGORIES.map((value) => (
               <option key={value} value={value}>

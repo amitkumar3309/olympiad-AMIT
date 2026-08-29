@@ -73,13 +73,13 @@
   margin-bottom: 12px;
 }
 
-.boardHead h3 {
+.boardHead h2 {
   margin: 0;
 }
 
 .boardIcon {
   font-size: 22px;
-  color: var(--royal-blue);
+  color: var(--primary-text);
   margin-top: 2px;
 }
 

@@ -12,9 +12,9 @@
 .facts strong { color: var(--text-main); font-size: 16px; }
 .actions { display: flex; align-items: center; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
 .muted { color: var(--text-muted); }
-.done { color: var(--success); font-weight: 600; font-size: 14px; }
-.state_open { color: var(--success); font-weight: 700; font-size: 13px; }
-.state_not_open_yet { color: var(--warning); font-weight: 700; font-size: 13px; }
+.done { color: var(--success-text); font-weight: 600; font-size: 14px; }
+.state_open { color: var(--success-text); font-weight: 700; font-size: 13px; }
+.state_not_open_yet { color: var(--warning-text); font-weight: 700; font-size: 13px; }
 .state_closed, .state_not_published { color: var(--text-muted); font-weight: 700; font-size: 13px; }
 .results { padding: 22px; margin-top: 20px; }
 .results h3 { margin: 0 0 14px; }

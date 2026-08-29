@@ -19,7 +19,7 @@
 .icon {
   flex-shrink: 0;
   font-size: 28px;
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .title {
@@ -39,8 +39,8 @@
   flex-shrink: 0;
   padding: 11px 22px;
   border-radius: var(--radius-sm);
-  background: var(--royal-blue);
-  color: #fff;
+  background: var(--primary);
+  color: var(--primary-on);
   font-weight: 700;
   text-decoration: none;
   white-space: nowrap;

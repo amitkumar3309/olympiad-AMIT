@@ -20,7 +20,7 @@
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: rgba(16, 185, 129, 0.14);
-  color: var(--success);
+  color: var(--success-text);
   font-size: 0.88rem;
 }
 
@@ -130,7 +130,7 @@
   padding: 2px 8px;
   border-radius: 999px;
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .linkButton {
@@ -141,7 +141,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 0.85rem;
-  color: var(--royal-blue);
+  color: var(--primary-text);
 }
 
 .linkButton:hover {

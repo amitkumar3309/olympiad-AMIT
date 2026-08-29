@@ -62,6 +62,15 @@ const PAYMENT_LABELS: Record<StudentPaymentState, string> = {
   not_started: 'Not started',
 }
 
+/** Which `Badge` tone each payment state wears. */
+const PAYMENT_TONES: Record<StudentPaymentState, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
+  paid: 'success',
+  pending: 'warning',
+  failed: 'danger',
+  refunded: 'info',
+  not_started: 'neutral',
+}
+
 const PAYMENT_HELP: Record<StudentPaymentState, string> = {
   paid: 'A payment was captured. This student has their seat in the Olympiad.',
   pending: 'A checkout was opened and has not resolved either way. It may still complete.',
@@ -126,9 +135,16 @@ function PaymentCell({ entry }: { entry: StudentDirectoryEntry }) {
 
   return (
     <div className={styles.paymentCell}>
-      <span className={styles[`pay_${paymentState}`]} title={PAYMENT_HELP[paymentState]}>
+      {/*
+        `Badge`, not a hand-rolled span. The page-local versions coloured their text with
+        `--success` / `--warning` / `--danger` — the *fill* tokens — and measured 2.22:1,
+        1.91:1 and 3.14:1 against their own tints in the Phase G audit. The primitive's
+        tones are the checked pairing, and what each state means is now in the legend
+        below the filters rather than in a `title` a touch screen never shows.
+      */}
+      <Badge tone={PAYMENT_TONES[paymentState]} size="sm" title={PAYMENT_HELP[paymentState]}>
         {PAYMENT_LABELS[paymentState]}
-      </span>
+      </Badge>
       {paymentState === 'paid' && payment && (
         <span className={styles.paymentDetail} title={`Order ${payment.razorpayOrderId}`}>
           {payment.amountDisplay}
@@ -713,9 +729,12 @@ export default function Users() {
             <option value="admin">Admins</option>
             <option value="superadmin">Super admin</option>
           </select>
-          <button type="submit" className={styles.searchBtn}>
+          {/* The design system's button, not a hand-rolled one: the local version filled
+              itself with the legacy `--royal-blue`, which in dark mode is a lighter blue
+              that measured 3.9:1 against its own white label. */}
+          <Button type="submit" icon="ph-magnifying-glass">
             Search
-          </button>
+          </Button>
 
           {/* Second row: the filters added with the directory. Separate from the first so
               the search box keeps its width — this is the control staff use most. */}
@@ -803,6 +822,28 @@ export default function Users() {
           </div>
         </form>
 
+        {/*
+          What the five payment states mean, in the page. They were only in a `title`,
+          which never appears on a touch screen — and a column of coloured words nobody
+          can define is worse than no column. A disclosure rather than a permanent block:
+          it is reference material, and it is reachable by keyboard and by thumb.
+        */}
+        <details className={styles.legend}>
+          <summary>What the payment states mean</summary>
+          <dl>
+            {(Object.keys(PAYMENT_LABELS) as StudentPaymentState[]).map((state) => (
+              <div key={state}>
+                <dt>
+                  <Badge tone={PAYMENT_TONES[state]} size="sm">
+                    {PAYMENT_LABELS[state]}
+                  </Badge>
+                </dt>
+                <dd>{PAYMENT_HELP[state]}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+
         {/* What the two download buttons will actually produce, stated before they are
             pressed. An export whose scope the administrator has to guess at is how a
             filtered file gets mistaken for the whole roll. */}
@@ -855,6 +896,7 @@ export default function Users() {
           <SkeletonTable rows={6} columns={6} label="Loading accounts" />
         ) : accounts.length === 0 ? (
           <EmptyState
+            titleAs="h2"
             icon={anyFilter ? 'ph-magnifying-glass' : 'ph-users'}
             title={anyFilter ? 'No students match these filters' : 'No accounts yet'}
             description={
