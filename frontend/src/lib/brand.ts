@@ -53,3 +53,16 @@ export const AMIT_FULL_FORM = 'Advance Mathematics and Intelligence Test'
  * infer one from a certificate serial or from the current date.
  */
 export const AMIT_COMPETITION_YEAR = '2027'
+
+/**
+ * Who built the site, and where to find them.
+ *
+ * Rendered by `components/DeveloperCredit.tsx` in the public footer and at the foot of the
+ * signed-in navigation. Here rather than inline for the same reason as everything else in
+ * this file: it is a fact that appears on screen and has no source of truth in the
+ * database, so it needs exactly one place to live.
+ */
+export const DEVELOPER = {
+  name: 'Sachin Kukkar',
+  url: 'https://sachinkukkar.tech',
+} as const

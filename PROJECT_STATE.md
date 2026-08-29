@@ -15,6 +15,18 @@ accessibility audit) and H (the final regression). **No backend file was touched
 and the set of endpoints the frontend calls is byte-identical to where the milestone started:
 100 references before, 100 after. 1253 backend tests across 35 files, unchanged throughout.
 
+### Developer credit (2026-08-29)
+
+`components/DeveloperCredit.tsx` renders "Designed and developed by Sachin Kukkar" in the public
+footer's legal strip and "Built by Sachin Kukkar" at the foot of the signed-in navigation panel, so
+a visitor, a student and an administrator all see it. The name links to `sachinkukkar.tech` with
+`rel="noopener noreferrer"` and an accessible name stating it opens in a new tab.
+
+**It is not an overlay.** A floating watermark over a child's exam paper is the opposite of this
+product's stated design direction, and a footer line is both where a reader looks for authorship and
+the placement that survives a future redesign. Name and URL live in `lib/brand.ts`, beside the other
+on-screen facts with no source of truth in the database.
+
 ### Phase H — the final regression (2026-08-29)
 
 Every flow driven end to end in a browser against a real backend and a real database, not

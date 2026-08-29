@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Badge, Icon } from '../ui'
 import { lockScroll, unlockScroll } from '../ui/scrollLock'
+import DeveloperCredit from '../DeveloperCredit'
 import ThemeToggle from '../ThemeToggle'
 import { findActiveItem, type NavGroup, type NavItem } from './navigation'
 import styles from './AppShell.module.css'
@@ -294,6 +295,7 @@ export default function AppShell({
 
         <div className={styles.panelFoot}>
           {identity}
+          <DeveloperCredit variant="compact" className={styles.credit} />
           <div className={styles.panelActions}>
             <ThemeToggle />
             <button type="button" className={styles.logout} onClick={() => void handleLogout()}>

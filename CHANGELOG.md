@@ -2,6 +2,30 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-29 — A developer credit, in the two places a credit belongs
+
+`components/DeveloperCredit.tsx`, rendering "Designed and developed by **Sachin Kukkar**"
+in the public footer's legal strip and "Built by **Sachin Kukkar**" at the foot of the
+signed-in navigation panel — so it is visible to a visitor, a student and an administrator
+without being visible *over* anything. The name links to
+[sachinkukkar.tech](https://sachinkukkar.tech).
+
+**Not an overlay and not a floating badge.** The design direction for this product is
+"minimal, not visually noisy", and a watermark sitting on top of a child's exam paper is
+the opposite of that. A footer line is where a reader looks for authorship, and it is the
+placement that survives somebody redesigning the page around it.
+
+The link carries `rel="noopener noreferrer"`: `noopener` because a `target="_blank"` link
+otherwise hands the opened page a live `window.opener` back into this one, and `noreferrer`
+so the destination is not told which page of a children's competition platform the reader
+came from. "Opens in a new tab" is in the accessible name rather than in the arrow glyph
+alone, per the rule that no icon may be the only carrier of meaning.
+
+The name and URL live in `lib/brand.ts` beside the other on-screen facts that have no
+source of truth in the database. Verified at 375px (stacked, 8.4:1) and 1280px (side by
+side), signed out, as a student and as an administrator, in the drawer and in the permanent
+sidebar: no page overflow, no dangling ARIA, no heading change.
+
 ## 2026-08-29 — The competition year returns to the hero
 
 Owner-supplied, after Milestone 23 Phase F removed it and flagged it rather than deciding.

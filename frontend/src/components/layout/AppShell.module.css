@@ -241,6 +241,12 @@
   border-top: var(--border-width) solid var(--border-subtle);
 }
 
+/* The developer credit, between the identity block and the actions. Quiet: it is
+   attribution, not a destination somebody is looking for. */
+.credit {
+  margin: 0 0 var(--space-1);
+}
+
 .panelActions {
   display: flex;
   align-items: center;

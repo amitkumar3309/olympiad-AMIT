@@ -1,0 +1,33 @@
+.credit {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  /* Underlined on hover *and* focus, not on hover alone: a keyboard user gets the same
+     affordance a mouse user does. */
+  border-bottom: 1px solid transparent;
+}
+
+.link:hover,
+.link:focus-visible {
+  border-bottom-color: currentColor;
+}
+
+.icon {
+  /* Decorative — the accessible name on the link already says it opens in a new tab. */
+  opacity: 0.7;
+}
+
+/* The navigation panel is narrow, so the credit sits on its own line above the actions
+   and stays quiet. */
+.compact {
+  font-size: var(--text-2xs);
+}

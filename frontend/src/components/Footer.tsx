@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import DeveloperCredit from './DeveloperCredit'
 import { Icon } from './ui'
 import { AMIT_SHORT } from '../lib/brand'
 import styles from './Footer.module.css'
@@ -77,6 +78,7 @@ export default function Footer() {
         <p>
           © {new Date().getFullYear()} {AMIT_SHORT}. Olympiad. All Rights Reserved.
         </p>
+        <DeveloperCredit />
       </div>
     </footer>
   )
