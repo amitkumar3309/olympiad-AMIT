@@ -38,3 +38,18 @@ export const AMIT_SHORT = 'A.M.I.T'
  * it can be dropped into a sentence without looking like an error.
  */
 export const AMIT_FULL_FORM = 'Advance Mathematics and Intelligence Test'
+
+/**
+ * The year of the competition, owner-supplied on 2026-08-29.
+ *
+ * **Nothing in the backend knows this.** A sitting's dates come from the `Exam` window an
+ * administrator announces, and the certificate the product prints carries no year at all —
+ * its serial uses whatever year it was *issued* in (`AMIT-CERT-<year>-<n>`). So this is a
+ * marketing fact with no source of truth behind it, which is exactly why it lives here and
+ * not inline: when the sitting moves, this line is the whole change.
+ *
+ * Milestone 23 Phase F removed it from the hero for that reason and flagged it rather than
+ * deciding; the owner supplied it the next day. If it is ever unclear again, ask — do not
+ * infer one from a certificate serial or from the current date.
+ */
+export const AMIT_COMPETITION_YEAR = '2027'

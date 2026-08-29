@@ -387,12 +387,20 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   Put the reason in the page — beside the control, or in a `<details>` legend — and keep the
   `title` as a bonus for a mouse.
 - **Two measurement traps, both of which produced fake findings.** A **CSS transition cannot
-  advance while the tab is not compositing**, so after toggling the theme `getComputedStyle`
-  keeps reporting the *old* colour: six apparent contrast failures were one button
-  mid-transition. **Reload into a theme rather than switching into it.** And a programmatic
-  `.focus()` does not trigger `:focus-visible`, which is a keyboard heuristic — verify the
-  focus ring statically instead, by checking that every `outline: none` pairs with a
-  replacement.
+  advance while the tab is not compositing**, so `getComputedStyle` keeps reporting the *old*
+  colour: nine apparent contrast failures across two sessions were buttons and a `body`
+  caught mid-transition. Phase G's advice — reload into the theme rather than switching into
+  it — is **not sufficient**, because `ThemeContext` adds `.theme-dark` in an effect *after*
+  first paint, so even a fresh load has a transition pending. The reliable move is to inject
+  `* { transition: none !important; animation: none !important }` before measuring, which
+  forces every element to its final value. And a programmatic `.focus()` does not trigger
+  `:focus-visible`, which is a keyboard heuristic — verify the focus ring statically instead,
+  by checking that every `outline: none` pairs with a replacement.
+- **A `background-clip: text` gradient reads as `color: transparent`.** The landing hero's
+  wordmark will always fail an automated contrast check for that reason; measure its gradient
+  **endpoints** against the background instead (currently 6.7/6.0 light, 9.6/14.9 dark). The
+  colour underneath the gradient is a real one, not `transparent`, so a `forced-colors` user
+  or a failed paint still sees the wordmark.
 - **A route is `lazy()` unless it is the entry route.** Thirty-four were and fifteen were not,
   so every visitor downloaded the admin console, the profile page and the practice zone before
   the landing page painted; making them lazy took the main bundle from 543 kB (167 kB gzipped)
@@ -404,7 +412,11 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   negative marking" (there is), "results within 48 hours" (nothing enforces it) and a year in
   the headline that appears nowhere else in the system. Where the product genuinely varies —
   the fee, the dates, whether a paper penalises a wrong answer — say **where the real figure
-  appears**, never a number. Two standing omissions follow: the **entry fee is not named**
+  appears**, never a number. The one exception is the **competition year in the hero**, which
+  is owner-supplied (2026-08-29) and lives in `lib/brand.ts`: nothing in the backend knows it,
+  so that constant is the single place to change when the sitting moves, and the single place
+  to look when somebody asks where it came from. Do not infer a year from a certificate serial
+  or from the current date — ask. Two standing omissions follow: the **entry fee is not named**
   (there is no public endpoint, and adding one so a marketing page can print a price is a
   backend change made for the UI), and **referral earnings are not mentioned at all**
   (`rewardEnabled` defaults to false). The class list is rendered from `CLASS_LEVELS`, so the

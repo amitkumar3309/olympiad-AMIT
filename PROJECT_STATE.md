@@ -102,8 +102,10 @@ Frontend only, **no API call added, removed or changed** and no backend file tou
   applies it. **"Results are published within 48 hours"** — nothing promises or enforces that;
   releasing results is a deliberate administrative act. **"AMIT MATHS OLYMPIAD 2027"** — the year
   appears nowhere else; the certificate this product prints is titled `A.M.I.T MATHS OLYMPIAD`
-  with no year, and the only year in the system is the current one, in a serial. **The year is
-  flagged for the owner, not decided**: if there is a real one, it is a one-line change.
+  with no year, and the only year in the system is the current one, in a serial. It was flagged
+  for the owner rather than decided, and **the owner supplied `2027` on 2026-08-29** — it is back
+  in the hero, as `AMIT_COMPETITION_YEAR` in `lib/brand.ts`, which is the one line to change when
+  the sitting moves.
 - **Six sections it never had.** The page was hero → figures → top three → form → three FAQs and
   never said what the platform *does*. It now has: what you get (practice, mock tests, daily
   challenge, performance insights), how it works in four steps, the ten class levels rendered from

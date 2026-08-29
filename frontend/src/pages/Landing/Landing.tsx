@@ -5,7 +5,7 @@ import Footer from '../../components/Footer'
 import { Button, Card, EmptyState, Icon, StatTile } from '../../components/ui'
 import { api } from '../../api/client'
 import { CLASS_LEVELS, type LeaderboardRow, type PublicStats, type ReferralCheck } from '../../api/types'
-import { AMIT_FULL_FORM } from '../../lib/brand'
+import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM } from '../../lib/brand'
 import LoginDialog from '../Auth/LoginDialog'
 import RegisterForm from '../Auth/RegisterForm'
 import styles from './Landing.module.css'
@@ -27,11 +27,13 @@ import styles from './Landing.module.css'
  *  - **"Results are published within 48 hours."** Nothing in the product promises that.
  *    Releasing results is a deliberate administrative act (`services/examService.ts`),
  *    which is what mints the certificates at the same moment.
- *  - **"AMIT MATHS OLYMPIAD 2027."** The year appears nowhere else: the certificate this
- *    product actually prints is titled `A.M.I.T MATHS OLYMPIAD` with no year, and the only
- *    year in the system is the *current* one, in a certificate serial. A sitting's dates
- *    come from the `Exam` window an administrator announces. Put a year back when there is
- *    one to state.
+ *  - **"AMIT MATHS OLYMPIAD 2027."** Removed in Phase F and **restored on 2026-08-29 at the
+ *    owner's instruction**, which is the only thing that could restore it: the certificate
+ *    this product prints is titled `A.M.I.T MATHS OLYMPIAD` with no year, and the only year
+ *    in the system is the *current* one inside a certificate serial. A sitting's dates come
+ *    from the `Exam` window an administrator announces. So the year is a marketing fact with
+ *    no source of truth behind it, and it lives in `lib/brand.ts` — one line to change when
+ *    the sitting moves, and one place to look when somebody asks where it came from.
  *
  * The four figures are real counts from `/public/stats` and render **only if they load** —
  * this page has never carried a placeholder headline number and must not start.
@@ -308,7 +310,9 @@ export default function Landing() {
             <p className={styles.kicker}>
               <Icon name="ph-medal" weight="bold" /> National-level mathematics olympiad
             </p>
-            <h1 className={styles.wordmark}>A.M.I.T Maths Olympiad</h1>
+            {/* The year is owner-supplied and lives in `brand.ts`: nothing in the backend
+                knows it, so there is one place to change when the sitting moves. */}
+            <h1 className={styles.wordmark}>A.M.I.T Maths Olympiad {AMIT_COMPETITION_YEAR}</h1>
             {/* The expansion, directly under the name it expands. Nowhere else on this page. */}
             <p className={styles.fullForm}>{AMIT_FULL_FORM}</p>
             {/* "A year of preparation" was the first draft, and it is a claim about duration

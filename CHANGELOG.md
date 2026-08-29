@@ -2,6 +2,21 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-29 — The competition year returns to the hero
+
+Owner-supplied, after Milestone 23 Phase F removed it and flagged it rather than deciding.
+
+`AMIT_COMPETITION_YEAR` lives in `frontend/src/lib/brand.ts` beside the expansion of the
+name, for the same reason: it is a fact about the brand that appears on screen and that
+**nothing in the backend knows**. A sitting's dates come from the `Exam` window an
+administrator announces, and the certificate this product prints carries no year at all —
+its serial uses the year it was *issued* in. So the constant is the single place to change
+when the sitting moves, and the single place to look when somebody asks where the year came
+from.
+
+Verified at 375px (two lines, 343px wide, no overflow) and 1280px (one line at 48px), with
+the expansion still directly beneath it and no heading, contrast or emoji regression.
+
 ## 2026-08-29 — Milestone 23, Phase H: the final regression
 
 Every flow driven end to end in a browser against a real backend and a real database, not

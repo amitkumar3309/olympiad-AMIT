@@ -103,8 +103,12 @@ product genuinely varies the copy says *where the real figure appears* instead o
 - Marks and penalties: "every question shows its marks and any penalty before you answer it" — true,
   because `studentQuestionView` returns both.
 - Results: "the organisers release them after the sitting has closed" — which is what the code does.
-- The year: removed. A sitting's dates come from the `Exam` window an administrator announces, and
-  there is no public endpoint for them.
+- The year: removed, **and restored on 2026-08-29 when the owner supplied it** — which is the only
+  thing that could restore it, since a sitting's dates come from the `Exam` window an administrator
+  announces and there is no public endpoint for them. It lives in `lib/brand.ts` as
+  `AMIT_COMPETITION_YEAR`, beside the expansion of the name and for the same reason: an
+  owner-supplied fact that appears on screen and has no source of truth in the code needs exactly
+  one place to live. Nobody should ever infer it from a certificate serial or from the date.
 
 Two omissions follow from the same rule. **The entry fee is not named**, because `GET
 /payments/status` is behind `requireAuth` and there is no public figure to read — and adding a public
