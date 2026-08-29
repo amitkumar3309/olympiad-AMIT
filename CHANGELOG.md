@@ -2,6 +2,72 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-29 — Milestone 23, Phase F: the landing page
+
+The public page, rebuilt on the design system. **Frontend only; no backend file was
+touched** (1253 tests across 35 files, unchanged), and no API call was added, removed or
+changed — it still reads exactly `/public/stats`, `/leaderboard?limit=3` and
+`/referrals/validate`.
+
+### Three claims did not survive being checked
+
+A marketing page is where invented facts go to live, and the brief's rule was explicit:
+*use only verified project information*. Every line was checked against the code, and three
+that were already on the page were wrong.
+
+- **"No — there is no negative marking."** There is. `Question.negativeMarks` exists, the
+  grader applies it (`services/grading.ts`), and the AI generator defaults it to 1. Replaced
+  with what the product can actually back: *every question shows its marks and any penalty
+  before you answer it* — true, because `studentQuestionView` includes both fields.
+- **"Results are published on your dashboard within 48 hours of your exam."** Nothing in the
+  product promises or enforces that. Releasing results is a deliberate administrative act,
+  which is also what mints the certificates. The answer now says so.
+- **"AMIT MATHS OLYMPIAD 2027."** The year appears nowhere else in the product: the
+  certificate this system actually prints is titled `A.M.I.T MATHS OLYMPIAD` with no year,
+  and the only year anywhere is the *current* one, in a certificate serial. A sitting's dates
+  come from the `Exam` window an administrator announces. The headline is now the name alone.
+  **If there is a real year, it is a one-line change — this is flagged for the owner rather
+  than decided.**
+
+### Six sections it did not have
+
+The page went hero → figures → top three → registration form → three FAQs. It never said
+what the platform *does*. It now carries: what you get (practice, mock tests, the daily
+challenge, performance insights), how it works as four steps, the ten class levels rendered
+from `CLASS_LEVELS` so it cannot advertise a class registration would refuse, three
+assurances that are properties of the system rather than adjectives, seven FAQs, and a
+closing call to action.
+
+### What it deliberately does not say
+
+**No entry-fee amount.** `GET /payments/status` is behind `requireAuth`, so there is no
+public figure to read; the page says a fee exists and that preparation is free, and names no
+number. Inventing one, or adding a public route so a marketing page could display one, would
+both be worse than the omission.
+
+**No referral earnings.** `ReferralSettings.rewardEnabled` defaults to false, so an earnings
+promise on the most public page in the product would be a claim about money that is switched
+off.
+
+### The last emojis in the product are gone
+
+`🥇🥈🥉` on the top three, `🌟` in the hero kicker, `🏆` on the heading and `👑` on the XP
+badge. The medal is now an icon *beside* the rank number rather than in place of it, which is
+the same rule the leaderboard and Hall of Fame follow: `#4` and a medal have to be comparable
+at a glance. **`src/` and `index.html` now contain zero emoji characters.**
+
+### Verified
+
+In a browser at 375, 768 and 1280px, in both themes: no page overflow, no element escaping
+its container, no dangling ARIA reference, no unlabelled control, no emoji, and a heading
+order that runs h1 → h2 → h3 with no level skipped. All **45 Phosphor glyphs on the page
+resolve to real characters** — checked through the computed `::before` content, because a
+weight or name the CDN does not carry renders an invisible glyph rather than falling back.
+Contrast measured on every new element with the translucent fills composited: the lowest
+text is 4.55:1 and the lowest icon 5.24:1. `/register?ref=` still scrolls to the form and
+still reports an invalid code honestly; sign-in still opens from the hero, the closing call
+to action and the `#login` hash.
+
 ## 2026-08-29 — Milestone 23, Phase E: the admin experience
 
 Twenty-four admin pages plus the AI generator. **Frontend only; no backend file was

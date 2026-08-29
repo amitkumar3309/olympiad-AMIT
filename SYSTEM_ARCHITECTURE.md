@@ -57,6 +57,9 @@ frontend/src/lib/brand.ts
    AMIT_FULL_FORM  'Advance Mathematics and Intelligence Test'
         |
         +-- pages/Landing/Landing.tsx   the hero line — the ONLY visible use
+                                        (the page itself: rebuilt M23 F. Every claim
+                                         on it traces to code; three that did not were
+                                         removed. Reads three pre-existing endpoints)
         +-- components/Navbar.tsx       alt + title only; the wordmark stays four letters
         +-- components/Footer.tsx       AMIT_SHORT only
 

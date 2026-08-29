@@ -4,6 +4,53 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-29 — Every claim on the landing page has to be checkable in the code
+
+**Context.** The brief for the redesign said *do not invent claims, statistics or achievements; use
+only verified project information.* Reading the existing landing page against the code found three
+statements that failed that test, and none of them looked like a lie — they looked like ordinary
+marketing copy somebody wrote once and nobody re-read:
+
+- **"No — there is no negative marking."** `Question.negativeMarks` exists, `services/grading.ts`
+  subtracts it, and the AI generator defaults it to **1**. A student who read this page and then sat
+  a paper with a penalty would have been misled about what a wrong answer costs.
+- **"Results are published on your personal dashboard within 48 hours of your exam."** No timer, no
+  job, no setting. Releasing results is a deliberate administrative act in `services/examService.ts`.
+- **"AMIT MATHS OLYMPIAD 2027."** The year is nowhere else in the product. The certificate it
+  actually prints is titled `A.M.I.T MATHS OLYMPIAD` with **no** year, and the only year in the
+  system is the *current* one, inside `AMIT-CERT-<year>-<n>`.
+
+**Decision.** A claim goes on the landing page only if it can be traced to code, and where the
+product genuinely varies the copy says *where the real figure appears* instead of naming one:
+
+- Marks and penalties: "every question shows its marks and any penalty before you answer it" — true,
+  because `studentQuestionView` returns both.
+- Results: "the organisers release them after the sitting has closed" — which is what the code does.
+- The year: removed. A sitting's dates come from the `Exam` window an administrator announces, and
+  there is no public endpoint for them.
+
+Two omissions follow from the same rule. **The entry fee is not named**, because `GET
+/payments/status` is behind `requireAuth` and there is no public figure to read — and adding a public
+route so a marketing page could print one would be a backend change made for the UI's convenience,
+which this milestone forbids. **Referral earnings are not mentioned at all**, because
+`ReferralSettings.rewardEnabled` defaults to `false`; the most public page in the product must not
+promise money that is switched off.
+
+**Rejected: keeping the claims and adding "subject to change".** A disclaimer under a wrong sentence
+is still a wrong sentence, and the specific reader who is harmed — a child who expected no penalty —
+does not read the small print.
+
+**Rejected: reading the fee from a new public endpoint.** It is a one-line route and it is the wrong
+instinct: the page does not need the number, it needs to be honest that a number exists. Adding an
+endpoint so a marketing page can print a price is exactly the "backend change for UI convenience"
+the milestone rules out.
+
+**Consequence.** The ten class levels are rendered from `CLASS_LEVELS` rather than typed out, so the
+page cannot advertise a class registration would refuse. The four figures still come from
+`/public/stats` and still render only if they load — this page has never carried a placeholder
+headline number. And **the year is flagged for the owner rather than decided**: if there is a real
+one, it is a one-line change to the hero.
+
 ## 2026-08-29 — An address nobody declared gets a page, not a blank screen
 
 **Context.** This app had no catch-all route. React Router renders nothing when no path matches, so

@@ -343,6 +343,17 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   canvas and cannot use a CSS variable, which is why the three charts had hex literals in them and
   stayed light-mode blue on a dark page. A canvas is also an image to a screen reader, so every
   chart carries `role="img"` and a summary, and the same numbers are always in a table nearby.
+- **Nothing on the landing page may be a claim the code cannot back.** It is the most public
+  surface in the product and the one most likely to accumulate copy nobody re-reads: three
+  statements on it were checked in Milestone 23 Phase F and three were wrong — "there is no
+  negative marking" (there is), "results within 48 hours" (nothing enforces it) and a year in
+  the headline that appears nowhere else in the system. Where the product genuinely varies —
+  the fee, the dates, whether a paper penalises a wrong answer — say **where the real figure
+  appears**, never a number. Two standing omissions follow: the **entry fee is not named**
+  (there is no public endpoint, and adding one so a marketing page can print a price is a
+  backend change made for the UI), and **referral earnings are not mentioned at all**
+  (`rewardEnabled` defaults to false). The class list is rendered from `CLASS_LEVELS`, so the
+  page cannot advertise a class registration would refuse.
 - **There is a catch-all route, and it must stay.** React Router renders **nothing** when no path
   matches, which is a blank white page — indistinguishable from a crash, and exactly what every
   generated referral link produced before `/register` was declared. `<Route path="*">` at the end of

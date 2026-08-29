@@ -1,6 +1,6 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-29 (Milestone 23, Phase E — the admin experience: 24 pages plus the AI generator)._
+_Last updated: 2026-08-29 (Milestone 23, Phase F — the landing page)._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
@@ -9,9 +9,42 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 ## Current Development Phase
 
 **Milestone 23 — the complete UI/UX modernisation and mobile-first responsive redesign. Phases A
-(the design system), B (the global layout), C (authentication), D (the student experience) and E
-(the admin experience): complete. Phases F–H not started; the milestone stops after each phase for
-the owner's instruction.**
+(the design system), B (the global layout), C (authentication), D (the student experience), E
+(the admin experience) and F (the landing page): complete. Phases G–H not started; the milestone
+stops after each phase for the owner's instruction.**
+
+### Phase F — the landing page (2026-08-29)
+
+Frontend only, **no API call added, removed or changed** and no backend file touched.
+
+- **Three claims were removed because they are not true.** The brief's rule was *use only
+  verified project information*, so every line was checked against the code. **"There is no
+  negative marking"** — there is; `Question.negativeMarks` exists and `services/grading.ts`
+  applies it. **"Results are published within 48 hours"** — nothing promises or enforces that;
+  releasing results is a deliberate administrative act. **"AMIT MATHS OLYMPIAD 2027"** — the year
+  appears nowhere else; the certificate this product prints is titled `A.M.I.T MATHS OLYMPIAD`
+  with no year, and the only year in the system is the current one, in a serial. **The year is
+  flagged for the owner, not decided**: if there is a real one, it is a one-line change.
+- **Six sections it never had.** The page was hero → figures → top three → form → three FAQs and
+  never said what the platform *does*. It now has: what you get (practice, mock tests, daily
+  challenge, performance insights), how it works in four steps, the ten class levels rendered from
+  `CLASS_LEVELS` so it cannot advertise a class registration would refuse, three assurances that
+  are properties of the system rather than adjectives, seven FAQs, and a closing call to action.
+- **Two things it deliberately does not say.** No **entry-fee amount** — `GET /payments/status` is
+  behind `requireAuth`, so there is no public figure, and adding a public route so a marketing page
+  could print one would be a backend change made for the UI's convenience. No **referral
+  earnings** — `ReferralSettings.rewardEnabled` defaults to false, so that would be a promise about
+  money that is switched off.
+- **The last emojis in the product are gone** — the three medals, the hero star, the trophy heading
+  and the crown on the XP badge. `src/` and `index.html` now contain **zero** emoji characters. The
+  medal is an icon beside the rank rather than in place of it.
+- **Verified in a browser** at 375, 768 and 1280px in both themes: no page overflow, nothing
+  escaping its container, no dangling ARIA reference, no unlabelled control, no emoji, and a
+  heading order with no level skipped. All **45 Phosphor glyphs resolve to real characters**
+  (checked through computed `::before` content). Contrast measured with translucent fills
+  composited: lowest text 4.55:1, lowest icon 5.24:1. `/register?ref=` still scrolls to the form
+  and still reports an invalid code; sign-in opens from the hero, the closing call to action and
+  the `#login` hash.
 
 ### Phase E — the admin experience (2026-08-29)
 
