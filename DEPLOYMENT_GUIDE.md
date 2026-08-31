@@ -79,10 +79,20 @@ Every one is report-only by default. Run it without a flag first, read the outpu
 cd backend && npx tsx scripts/migrate-questions.ts --delete
 ```
 
-**2. Publish the Class 12 question bank** — 208 validated questions across Mathematics and Physics. Without this the Practice Zone correctly reports "nothing to practise yet", because it only ever offers *published* questions matching the student's own class.
+**2. Publish a question bank.** Without this the Practice Zone correctly reports "nothing to practise yet", and the daily challenge says "no challenge today" — both only ever offer *published* questions matching the student's own class. Two banks exist, and each script is report-only until `--write`, so run it once without the flag first and read what it says it would do.
 
 ```bash
 cd backend && npx tsx scripts/seed-class12.ts --write
+```
+
+```bash
+cd backend && npx tsx scripts/seed-class9.ts --write
+```
+
+**2b. Provision the Class 9 demo account and challenge** (optional — only for a demonstration). Creates one verified Class 9 student, records the entry fee as captured against it, and pins a chosen daily challenge for today. It **refuses** to run if no Class 9 question is published, and it writes no practice history, no streak and no XP beyond the one award a real registration also grants. `--days=3` pins the next two days as well.
+
+```bash
+cd backend && npx tsx scripts/seed-demo.ts --write --days=3
 ```
 
 **3. Backfill activity for pre-Milestone-5 accounts** (optional). Gives them the enrolment XP they already earned instead of a blank dashboard. Skipping it is safe — they simply start from zero.

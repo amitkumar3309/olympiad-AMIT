@@ -63,3 +63,36 @@ export function daysBetween(from: DayKey, to: DayKey): number {
 export function shiftDay(key: DayKey, days: number): DayKey {
   return new Date(keyToUtcMidnight(key) - days * MS_PER_DAY).toISOString().slice(0, 10);
 }
+
+/**
+ * The instant a competition day begins — IST midnight, as an absolute UTC `Date`.
+ *
+ * A day key denotes an IST calendar date, and `keyToUtcMidnight` parses it as *UTC*
+ * midnight, so the real start of the day is that value shifted **back** by the offset:
+ * midnight in Delhi is 18:30 UTC the previous evening.
+ */
+export function dayStartsAt(key: DayKey): Date {
+  return new Date(keyToUtcMidnight(key) - IST_OFFSET_MINUTES * MS_PER_MINUTE);
+}
+
+/** The instant the day containing `at` ends and the next one begins. */
+export function nextDayStartsAt(at: Date = new Date()): Date {
+  // `shiftDay` counts backwards, so -1 is *tomorrow*.
+  return dayStartsAt(shiftDay(dayKeyOf(at), -1));
+}
+
+/**
+ * Whole seconds until the competition day rolls over.
+ *
+ * **The server owns this clock.** It exists so a countdown in a browser can be derived
+ * from a number the server sent rather than from the browser's own idea of midnight —
+ * which, in any timezone that is not IST, is the wrong moment, and on a device with a
+ * wrong clock is any moment at all.
+ *
+ * Rounded **up**, and floored at zero. A `floor` would report `0` for the whole of the
+ * final second, and a client that refetches when the countdown reaches zero would then
+ * refetch in a loop against a day that has not actually changed yet.
+ */
+export function secondsUntilNextDay(at: Date = new Date()): number {
+  return Math.max(0, Math.ceil((nextDayStartsAt(at).getTime() - at.getTime()) / 1000));
+}

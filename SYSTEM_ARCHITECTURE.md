@@ -349,8 +349,13 @@ src/
                           mockTestSchemas, dailyChallengeSchemas,
                           rewardSchemas)
 scripts/                  dev-local, verify-email, migrate-questions,
-                          backfill-activity, seed-class12, where-is-data,
-                          atlas-direct-uri
+                          backfill-activity, seed-class12, seed-class9,
+                          seed-demo, where-is-data, atlas-direct-uri
+  lib/seedQuestions.ts    THE question-bank seed runner, shared by every
+                          class-level seed: report-only by default, idempotent
+                          by question text, validated through the API's own
+                          createQuestionSchema. A class level is a parameter;
+                          the rules are not (M24)
 ```
 
 - **Routes do HTTP; services own the rules.** A route validates, authorises, calls a service and formats the envelope. Business rules live in `services/` and signal violations by throwing `ApiError`, which `lib/serviceError.ts` maps to a status code — so each rule is stated once, at the point it is enforced.

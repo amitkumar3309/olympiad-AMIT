@@ -3,7 +3,14 @@ import request from 'supertest';
 import app from '../src/app';
 import { DailyChallenge, DailyChallengeAttempt, Student, StudentActivity } from '../src/models';
 import { XP_AWARDS } from '../src/lib/xp';
-import { dayKeyOf, shiftDay, todayKey } from '../src/lib/competitionDay';
+import {
+  dayKeyOf,
+  dayStartsAt,
+  nextDayStartsAt,
+  secondsUntilNextDay,
+  shiftDay,
+  todayKey,
+} from '../src/lib/competitionDay';
 import { challengeStreakOf } from '../src/services/dailyChallengeService';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import {
@@ -167,6 +174,86 @@ describe('the competition day boundary', () => {
     const days = await DailyChallengeAttempt.distinct('day', {});
     expect(days.sort()).toEqual([yesterday, todayKey()].sort());
     expect(second.body.streak.current).toBe(2);
+  });
+});
+
+// ===========================================================================
+// The rollover clock
+// ===========================================================================
+
+/**
+ * The countdown a student sees.
+ *
+ * It is the server's clock for the same reason a mock test's countdown is: the boundary
+ * is IST midnight, a browser elsewhere computes a different instant, and a device with a
+ * wrong clock computes an arbitrary one. So the endpoint sends both a duration (immune
+ * to clock skew) and an absolute instant (immune to a throttled timer), and the page is
+ * only allowed to *display* them.
+ */
+describe('the rollover clock', () => {
+  it('places the day boundary at IST midnight, not UTC midnight', () => {
+    // IST midnight on the 12th is 18:30 UTC on the 11th.
+    expect(dayStartsAt('2026-08-12').toISOString()).toBe('2026-08-11T18:30:00.000Z');
+
+    // 20:00 UTC on the 11th is 01:30 IST on the 12th, so the next change is IST
+    // midnight on the 13th — 18:30 UTC on the 12th.
+    expect(nextDayStartsAt(new Date('2026-08-11T20:00:00.000Z')).toISOString()).toBe('2026-08-12T18:30:00.000Z');
+    // And an instant just *before* the boundary rolls over within the same hour.
+    expect(nextDayStartsAt(new Date('2026-08-11T18:29:00.000Z')).toISOString()).toBe('2026-08-11T18:30:00.000Z');
+  });
+
+  it('counts whole seconds to the boundary and never reports zero before it', () => {
+    expect(secondsUntilNextDay(new Date('2026-08-11T18:29:00.000Z'))).toBe(60);
+    // Half a second left is still *this* day: rounded up, so a client that refetches at
+    // zero cannot spin refetching a day that has not turned.
+    expect(secondsUntilNextDay(new Date('2026-08-11T18:29:59.500Z'))).toBe(1);
+    // Exactly on the boundary the new day has begun, and the count is a full day.
+    expect(secondsUntilNextDay(new Date('2026-08-11T18:30:00.000Z'))).toBe(24 * 60 * 60);
+  });
+
+  it('sends the countdown with today’s challenge, agreeing with the day it serves', async () => {
+    await seedBank();
+    const { cookies } = await registerVerifyLogin(app);
+
+    const res = await getToday(cookies);
+    expect(res.status).toBe(200);
+
+    const { rollover } = res.body;
+    expect(rollover.timezone).toBe('IST (UTC+05:30)');
+    expect(rollover.secondsRemaining).toBeGreaterThan(0);
+    expect(rollover.secondsRemaining).toBeLessThanOrEqual(24 * 60 * 60);
+    // The instant sent must be the start of the day *after* the one being served —
+    // a countdown that disagreed with the day on screen would be worse than none.
+    expect(rollover.nextChangeAt).toBe(dayStartsAt(shiftDay(res.body.today, -1)).toISOString());
+  });
+
+  it('sends the countdown even when there is nothing to answer', async () => {
+    // "Nothing is published for your class yet" is a state a reader wants a horizon on
+    // too, so the empty states carry it as well.
+    const { cookies } = await registerVerifyLogin(app);
+    const res = await getToday(cookies);
+
+    expect(res.body.challenge).toBeNull();
+    expect(res.body.reason).toBe('none-published');
+    expect(res.body.rollover.secondsRemaining).toBeGreaterThan(0);
+    expect(res.body.rollover.nextChangeAt).toBe(dayStartsAt(shiftDay(res.body.today, -1)).toISOString());
+  });
+
+  it('says whether a person chose today’s question or the bank filled the day', async () => {
+    const { adminCookies, questionIds } = await seedBank();
+    const { cookies } = await registerVerifyLogin(app);
+
+    // Untouched, a day is filled automatically the first time it is asked for.
+    const automatic = await getToday(cookies);
+    expect(automatic.body.challenge.source).toBe('automatic');
+
+    // Scheduled by hand, it says so — which is what lets the page claim both that the
+    // question changes at midnight and that staff may change it sooner.
+    await DailyChallenge.deleteMany({});
+    await schedule(adminCookies, { day: todayKey(), classLevel: 'Class 9', questionId: questionIds[0] });
+
+    const scheduled = await getToday(cookies);
+    expect(scheduled.body.challenge.source).toBe('scheduled');
   });
 });
 

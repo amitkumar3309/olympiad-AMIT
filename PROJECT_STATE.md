@@ -1,12 +1,82 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-29 (Milestone 23 — **complete**, Phases A–H)._
+_Last updated: 2026-08-31 (Milestone 24 — a real Class 9 daily challenge, its rollover clock, and a demo account: **complete**). Milestone 23 (the UI/UX modernisation, Phases A–H) closed before it._
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
-**Verified counts, read from the code rather than carried forward** (re-measured 2026-08-29, at the close of Milestone 23): **1253 tests passing across 35 files**, **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **54 frontend routes in production** (Milestone 23 Phase E added **one** — the `/*` catch-all rendering `NotFound`, so that an address nobody declared stops rendering a blank page; Phase A added **none**: its `/design-system` reference page is behind `import.meta.env.DEV` and is statically absent from a production build, confirmed in `dist/`; Phase G added `/admin/referrals`; Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`), and **20 design-system primitives** in `frontend/src/components/ui` (Milestone 23 Phase A, plus `Steps` in Phase E — this is the **file** count, one per primitive, and it was carried as "twenty-one" until it was re-counted on 2026-08-29; `Input.tsx` alone exports five components). Every number on this line was re-measured on 2026-08-29 by running `npm test --prefix backend` and counting the files; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
+**Verified counts, read from the code rather than carried forward** (re-measured 2026-08-31, at the close of Milestone 24): **1258 tests passing across 35 files** (Milestone 24 added **five**, all in `tests/dailyChallenge.test.ts`, covering the rollover clock and `challenge.source`; it added no test file and no model, and its two new frontend files — `components/ChallengeCountdown.tsx` and its stylesheet — are **not** design-system primitives, because the component knows what a daily challenge is), **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **54 frontend routes in production** (Milestone 23 Phase E added **one** — the `/*` catch-all rendering `NotFound`, so that an address nobody declared stops rendering a blank page; Phase A added **none**: its `/design-system` reference page is behind `import.meta.env.DEV` and is statically absent from a production build, confirmed in `dist/`; Phase G added `/admin/referrals`; Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`), and **20 design-system primitives** in `frontend/src/components/ui` (Milestone 23 Phase A, plus `Steps` in Phase E — this is the **file** count, one per primitive, and it was carried as "twenty-one" until it was re-counted on 2026-08-29; `Input.tsx` alone exports five components). Every number on this line was re-measured on 2026-08-29 by running `npm test --prefix backend` and counting the files; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
 
 ## Current Development Phase
+
+**Milestone 24 — a real Class 9 daily challenge, a rollover clock on it, and a demo account: COMPLETE.**
+
+Asked for by the owner ahead of a client demonstration, and the first backend change since
+Milestone 22.
+
+### The countdown is the server's, and it is sent in every state
+
+`GET /me/daily-challenge` carries `rollover`: `nextChangeAt` (absolute ISO instant),
+`secondsRemaining` (duration) and `timezone` (`IST (UTC+05:30)`), built by `rolloverView()` over
+three new functions in `lib/competitionDay.ts` — `dayStartsAt()`, `nextDayStartsAt()` and
+`secondsUntilNextDay()`. The challenge view also gained `source` (`scheduled` / `automatic`).
+
+`components/ChallengeCountdown.tsx` renders it on `/daily-challenge` (full) and on the dashboard
+card (compact), and **re-asks the server at zero** rather than concluding the day has turned. Three
+properties travel with it, all of which this codebase has been bitten by before:
+
+- **A browser must not compute the boundary.** It is IST midnight, so a device in another timezone
+  counts down to the wrong moment and one with a wrong clock to an arbitrary one.
+- **A duration and an instant are both sent** because they fail differently — clock skew versus a
+  timer throttled in a background tab. Each tick measures wall-clock time against `nextChangeAt`
+  instead of counting its own firings.
+- **`secondsUntilNextDay()` rounds up.** A `floor` reports `0` for the whole final second, and a
+  client that refetches at zero would spin against a day that has not changed.
+
+**The student-facing copy is the timer alone** — "The next question appears when this timer runs
+out" — by the owner’s decision on 2026-08-31. It first said both halves (midnight IST *and* that an
+administrator may change it sooner, with `source` naming which had happened), on the reasoning that a
+reader told only the first is misled the moment staff re-point a day; the owner weighed that and chose
+the simpler line. `challenge.source` remains on the payload and in the tests, displayed nowhere a
+student can see.
+
+### The admin edit path existed with no interface
+
+`PUT /admin/daily-challenges/:id` shipped in Milestone 8 and nothing called it. Correcting a day
+meant clearing it and adding it again, and for *today* that left a window in which the automatic
+fill could pin something else. `/admin/daily-challenges` now offers **Change question** on any day
+with no attempts, reusing the same picker, and writes the two refusals into the page — "Answered —
+now a record, so it cannot be changed" and "A past day is kept as the record of what was set" —
+rather than leaving them to a failed request.
+
+### Content and the demo account
+
+- **73 Class 9 questions** across the twelve CBSE chapters (`scripts/data/class9Maths.ts`), every
+  answer checkable by hand, every question carrying a worked solution, and every π question naming
+  the value to use. This also makes Class 9 practice real for the first time.
+- `scripts/seed-class9.ts` and `scripts/seed-class12.ts` now share one runner,
+  `scripts/lib/seedQuestions.ts`: a class level is a parameter, the rules are not.
+- `scripts/seed-demo.ts` provisions one verified Class 9 student (`demo.class9@amit.test`), the
+  entry fee as a `captured` `Payment` with `statusSource: 'manual'` and no invented Razorpay id or
+  signature, and the days ahead scheduled deliberately (`--days=7` for a demo week, planned as a
+  **chapter spread** rather than the top of the bank, exactly as `suggestPaper()` does). It
+  fabricates **no** history and refuses to run with nothing published for Class 9.
+- **A dry run that wrote was found during verification**: `seed-demo.ts` reported today's challenge
+  through `resolveChallengeFor()`, which *pins* one when none exists. Report-only mode now reads the
+  stored row.
+
+**Verified in a browser against a real backend and database**, signed in as the seeded student and
+as the root super administrator: the countdown ticks, the question marks 4/4 with +15 XP and its
+solution, the dashboard card carries the compact form, the three admin row states are as designed,
+and **Change question** round-tripped a `PUT` to 200. No non-2xx call and no console error in the
+flow. The verification answer was removed afterwards so the demo account starts unanswered.
+
+**What is still not done here.** There is **no Class 9 mock test** and no daily-challenge
+*automation* (still the open item from the Milestone 18 brief — see `FEATURE_STATUS.md`): a day
+nobody schedules is filled automatically and deterministically, which is not the same as a
+scheduler. And the frontend still has **no test suite**, so this milestone's five new tests are all
+backend; `ChallengeCountdown` was checked by driving a browser.
+
+---
 
 **Milestone 23 — the complete UI/UX modernisation and mobile-first responsive redesign: COMPLETE.**
 All eight phases are done — A (the design system), B (the global layout), C (authentication),

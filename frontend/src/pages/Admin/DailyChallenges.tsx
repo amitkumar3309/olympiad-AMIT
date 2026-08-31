@@ -37,6 +37,16 @@ import styles from './DailyChallenges.module.css'
  * which day today is — scheduling "today" from a laptop in London could otherwise land
  * on yesterday's challenge, which the backend would then refuse as a duplicate or, worse,
  * accept as tomorrow's.
+ *
+ * ## Changing a day, not only setting one
+ *
+ * `PUT /admin/daily-challenges/:id` has existed since Milestone 8 and had no interface
+ * until Milestone 24: the only way to correct a day was to clear it and add it again,
+ * which for *today* meant the automatic fill could re-pin a different question in the gap.
+ * The service refuses a change once **anybody has answered** — from that moment the
+ * challenge is the record of what those students were asked — so the action appears only
+ * on a day with no attempts, and the reason is written on the page rather than left to a
+ * failed request to explain.
  */
 
 interface QuestionListResponse {
@@ -83,6 +93,13 @@ export default function AdminDailyChallenges() {
   const [questionId, setQuestionId] = useState('')
   /** Set when the question was chosen in the Question Bank rather than in the picker below. */
   const [handoffNote, setHandoffNote] = useState('')
+  /**
+   * The day being re-pointed, if any. Holding the whole challenge rather than its id
+   * keeps the form able to name the day and class it is editing without looking them up
+   * again — and a row that disappears from the list on the next load cannot leave the
+   * form claiming to edit something that is no longer there, because saving reloads it.
+   */
+  const [editing, setEditing] = useState<AdminDailyChallenge | null>(null)
   const [searchParams] = useSearchParams()
   const [saving, setSaving] = useState(false)
 
@@ -207,6 +224,43 @@ export default function AdminDailyChallenges() {
     }
   }
 
+  /** Re-points a day at a different question. Only offered while nobody has answered. */
+  async function saveChange() {
+    if (!editing) return
+    setSaving(true)
+    setError('')
+    setNotice('')
+    try {
+      await api.put(`/admin/daily-challenges/${editing.id}`, { questionId })
+      setNotice(
+        `${editing.classLevel} on ${formatDay(editing.day)} now uses the question you chose.` +
+          (editing.day === data?.today ? ' Students who have not answered yet see it immediately.' : ''),
+      )
+      setEditing(null)
+      setQuestionId('')
+      await load()
+    } catch (err) {
+      // Expected once somebody has answered, or for a past day — the message says which.
+      setError(err instanceof ApiError ? err.message : 'Could not change that challenge.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function startEditing(challenge: AdminDailyChallenge) {
+    setEditing(challenge)
+    setClassLevel(challenge.classLevel)
+    setQuestionId(challenge.question.id)
+    setHandoffNote('')
+    setError('')
+    setNotice('')
+  }
+
+  function cancelEditing() {
+    setEditing(null)
+    setQuestionId('')
+  }
+
   async function remove(challenge: AdminDailyChallenge) {
     setBusyId(challenge.id)
     setError('')
@@ -228,7 +282,9 @@ export default function AdminDailyChallenges() {
       <p className={styles.intro}>
         One question a day per class. <strong>Scheduling is optional</strong> — a day nobody schedules is filled
         automatically from the published bank for that class, the same question for everybody, and appears below marked
-        “Automatic”. Schedule a day to choose it deliberately instead.
+        “Automatic”. Schedule a day to choose it deliberately instead. Every class rolls over to the next day’s question
+        at <strong>midnight IST</strong>, and until the first student answers a day you can still change what it uses —
+        including today’s.
       </p>
 
       {notice && <p className={styles.notice}>{notice}</p>}
@@ -237,9 +293,18 @@ export default function AdminDailyChallenges() {
       <div className={styles.layout}>
         {/* ---------------------------------------------------------------- */}
         <div className="card">
-          <h2>Schedule a day</h2>
+          <h2>{editing ? 'Change a day’s question' : 'Schedule a day'}</h2>
 
-          <div className="form-group">
+          {editing ? (
+            <Alert tone="info">
+              Choosing a question below will replace what {editing.classLevel} is set on{' '}
+              {formatDay(editing.day)}
+              {editing.day === data?.today ? ' (today)' : ''}. Nobody has answered it yet, so it is still safe to
+              change — once somebody has, the day is the record of what they were asked and can no longer be edited.
+            </Alert>
+          ) : null}
+
+          <div className="form-group" hidden={editing !== null}>
             <label htmlFor="dc-class">Class</label>
             <select
               id="dc-class"
@@ -259,7 +324,7 @@ export default function AdminDailyChallenges() {
             </select>
           </div>
 
-          <div className="form-group">
+          <div className="form-group" hidden={editing !== null}>
             <label htmlFor="dc-day">Day</label>
             <select id="dc-day" className="form-control" value={day} onChange={(e) => setDay(e.target.value)}>
               {(data?.upcoming ?? []).map((value) => (
@@ -276,7 +341,7 @@ export default function AdminDailyChallenges() {
             </p>
           </div>
 
-          {scheduledDays.has(day) && (
+          {!editing && scheduledDays.has(day) && (
             <p className={styles.warn}>
               {classLevel} already has a challenge on {formatDay(day)}. Clear it below first, or pick another day.
             </p>
@@ -336,9 +401,26 @@ export default function AdminDailyChallenges() {
 
           <div className={styles.formActions}>
             {handoffNote && <p className={styles.handoffHint}>{handoffNote}</p>}
-            <Button onClick={() => void schedule()} disabled={saving || !day || !questionId || scheduledDays.has(day)}>
-              {saving ? 'Scheduling…' : 'Schedule this challenge'}
-            </Button>
+            {editing ? (
+              <>
+                <Button
+                  onClick={() => void saveChange()}
+                  disabled={saving || !questionId || questionId === editing.question.id}
+                >
+                  {saving ? 'Saving…' : 'Use this question'}
+                </Button>
+                <Button variant="outline" onClick={cancelEditing} disabled={saving}>
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => void schedule()}
+                disabled={saving || !day || !questionId || scheduledDays.has(day)}
+              >
+                {saving ? 'Scheduling…' : 'Schedule this challenge'}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -401,15 +483,35 @@ export default function AdminDailyChallenges() {
                       {challenge.attempts} answered
                       {challenge.correctPercent !== null ? ` · ${challenge.correctPercent}% correct` : ' · —'}
                     </span>
-                    {challenge.attempts === 0 && (
-                      <button
-                        type="button"
-                        className={styles.dangerButton}
-                        disabled={busyId === challenge.id}
-                        onClick={() => void remove(challenge)}
-                      >
-                        Clear
-                      </button>
+                    {/*
+                      Both actions need an unanswered day, and a past day cannot be
+                      touched at all. Stated in the page rather than left to a `title`,
+                      which never appears on a touch screen, and rather than offering a
+                      button the API is going to refuse.
+                    */}
+                    {challenge.attempts > 0 ? (
+                      <span className={styles.dayStat}>Answered — now a record, so it cannot be changed</span>
+                    ) : challenge.day < data.today ? (
+                      <span className={styles.dayStat}>A past day is kept as the record of what was set</span>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.linkButton}
+                          disabled={busyId === challenge.id || editing?.id === challenge.id}
+                          onClick={() => startEditing(challenge)}
+                        >
+                          {editing?.id === challenge.id ? 'Choosing…' : 'Change question'}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.dangerButton}
+                          disabled={busyId === challenge.id}
+                          onClick={() => void remove(challenge)}
+                        >
+                          Clear
+                        </button>
+                      </>
                     )}
                   </div>
                 </li>

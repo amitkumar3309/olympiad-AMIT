@@ -2,7 +2,15 @@ import { Types } from 'mongoose';
 import { ApiError } from '../lib/ApiError';
 import { logger } from '../lib/logger';
 import type { ClassLevel } from '../lib/classLevels';
-import { daysBetween, isDayKey, shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
+import {
+  daysBetween,
+  isDayKey,
+  nextDayStartsAt,
+  secondsUntilNextDay,
+  shiftDay,
+  todayKey,
+  type DayKey,
+} from '../lib/competitionDay';
 import {
   DailyChallenge,
   DailyChallengeAttempt,
@@ -441,11 +449,56 @@ export function challengeQuestionView(challenge: DailyChallengeDocument, questio
     day: challenge.day,
     challengeId: String(challenge._id),
     classLevel: challenge.classLevel,
+    /**
+     * Whether a person chose today's question or the bank filled the day itself.
+     *
+     * Carried to the student because the page tells them the question changes at
+     * midnight *and* that staff may change it sooner, and those two sentences are only
+     * honest together — "chosen automatically" and "set by your teacher" are different
+     * facts about the same screen. It reveals nothing: which question was served is
+     * already visible, and by whom is not part of the answer key.
+     */
+    source: challenge.source,
     question: {
       ...studentQuestionView(question),
       marks: challenge.marks,
       negativeMarks: 0,
     },
+  };
+}
+
+export interface ChallengeRollover {
+  /** ISO 8601, absolute. The instant the next day's challenge takes over. */
+  nextChangeAt: string;
+  /** Whole seconds from *now* until that instant, as the server counts them. */
+  secondsRemaining: number;
+  /** Named so a page can say which midnight it means, rather than implying the reader's. */
+  timezone: string;
+}
+
+/**
+ * When today's challenge stops being today's.
+ *
+ * **The clock is the server's**, like a mock test's countdown: the boundary is IST
+ * midnight, a browser in another timezone would compute a different moment, and a
+ * device with a wrong clock would compute nonsense. The page ticks a *display* down
+ * from `secondsRemaining` and refetches when it runs out — it never decides for itself
+ * that the day has changed.
+ *
+ * Both figures are sent, and they answer different questions: `secondsRemaining` is
+ * immune to clock skew (it is a duration), while `nextChangeAt` survives a page left
+ * open for hours (an absolute instant cannot drift with a throttled timer). A page that
+ * had only the first would slowly lag; one that had only the second would inherit the
+ * device's clock error.
+ *
+ * Sent on **every** state of the challenge endpoint, including the empty ones: "nothing
+ * is published for your class yet" is a state a reader wants a horizon on too.
+ */
+export function rolloverView(at: Date = new Date()): ChallengeRollover {
+  return {
+    nextChangeAt: nextDayStartsAt(at).toISOString(),
+    secondsRemaining: secondsUntilNextDay(at),
+    timezone: 'IST (UTC+05:30)',
   };
 }
 

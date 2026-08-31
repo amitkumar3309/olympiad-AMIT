@@ -2,6 +2,104 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-08-31 — Milestone 24: a real Class 9 daily challenge, and a clock on it
+
+Three things the owner asked for before a client demonstration: a genuine daily challenge
+for Class 9, a Class 9 student to view it as, and a **timer** saying that the question
+changes automatically the next day — or sooner, if an administrator changes it.
+
+### The countdown is served, not computed
+
+`GET /me/daily-challenge` now carries `rollover`: `nextChangeAt` (an absolute ISO instant),
+`secondsRemaining` (a duration) and `timezone` (`IST (UTC+05:30)`). It is sent in **every**
+state of the endpoint, including the two empty ones — "nothing is published for your class
+yet" is a state a reader wants a horizon on too.
+
+**A browser must not decide when the competition day turns.** The boundary is IST midnight
+(`lib/competitionDay.ts`, now exporting `dayStartsAt`, `nextDayStartsAt` and
+`secondsUntilNextDay`), so a device in another timezone would count down to the wrong
+moment and one with a wrong clock to an arbitrary one — the same rule that makes a mock
+test's clock the server's. `components/ChallengeCountdown.tsx` only *displays* the two
+figures, and when it reaches zero it **re-asks the server** rather than assuming a new
+question is in place.
+
+Both figures are sent because they fail differently: a duration is immune to a device clock
+that is hours out, and an absolute instant is immune to a timer throttled in a background
+tab. Each tick therefore measures wall-clock time against the deadline instead of counting
+its own firings, which is why a page left open all afternoon still reads correctly.
+`secondsUntilNextDay()` rounds **up**, so it never reports `0` while the day is still
+today — a `floor` would report zero for the whole final second and a client refetching at
+zero would spin against a day that had not turned.
+
+The challenge view also gained `source` (`scheduled` / `automatic`). The page says both that
+the question changes at midnight *and* that staff may change it sooner, and those two
+sentences are only honest together: a student told "this changes at midnight" who finds a
+different question at four in the afternoon has been told something untrue.
+
+**Follow-up the same day, at the owner’s instruction:** the student-facing copy was cut back to the
+timer alone — "The next question appears when this timer runs out". The administrator sentence and the
+`scheduled` / `automatic` clause are gone from `/daily-challenge`, and `ChallengeCountdown` no longer
+takes a `source` prop. `challenge.source` stays on the payload and in the tests; nothing a student sees
+reads it. The tradeoff was stated and accepted: if staff re-point a day the question can change before
+the timer ends, and the page corrects itself on the next load.
+
+### An administrator can now change a day, not only set one
+
+`PUT /admin/daily-challenges/:id` has existed since Milestone 8 and had **no interface**.
+The only way to correct a day was to clear it and add it again — and for *today* that left a
+gap in which the automatic fill could pin something else. `/admin/daily-challenges` now
+offers **Change question** on any day nobody has answered, reusing the same picker, and
+states the two refusals in the page instead of leaving them to a failed request: a day with
+attempts is "now a record, so it cannot be changed", and a past day "is kept as the record
+of what was set".
+
+### A real Class 9 bank, and a demo account
+
+- `scripts/data/class9Maths.ts` — **73 questions across the twelve CBSE chapters**, every
+  answer a result that can be checked by hand and every question carrying a worked solution.
+  Where π appears the question states which value to use, because `22/7` and `3.14` disagree
+  at two decimal places and a numeric answer is marked against a stored number.
+- `scripts/seed-class9.ts`, over a new **shared runner** `scripts/lib/seedQuestions.ts` that
+  `seed-class12.ts` now also uses. Copying five hundred lines to change one constant is how
+  two seeds end up disagreeing about what a valid question is, and a seed is the one place
+  in this product that writes questions without a human reading each one.
+- `scripts/seed-demo.ts` — one verified Class 9 student, the entry fee recorded as a
+  **captured payment with `statusSource: 'manual'`** and no invented Razorpay id or
+  signature, and today's challenge scheduled deliberately (`--days=7` pins a demo week).
+  **A week of challenges is a spread, not the top of the bank** — the rule
+  `suggestPaper()` already follows: the planner round-robins chapters, least-used first,
+  counting days that were already pinned, and prefers a question type the previous day did
+  not use. Its first seven-day run put three coordinate-geometry questions on consecutive
+  days, two of them near-identical; the current plan covers seven chapters in seven days and
+  alternates numeric with multiple choice. Deterministic, so Thursday's question can be
+  answered before Thursday.
+  It **refuses to run with no published Class 9 question** rather than provisioning an
+  account whose challenge page is empty, and it fabricates **no history**: no streak, no
+  practice sessions, no XP beyond the one award a real registration also grants. The
+  mandatory registration photograph is a generated flat-colour PNG — a demo must not carry a
+  real child's face, and a stock photograph implies a person who did not consent.
+
+**A dry run that wrote was caught during verification.** `seed-demo.ts` ended by reporting
+what today resolves to *through the service*, and `resolveChallengeFor()` pins an automatic
+challenge when none exists — so report-only mode wrote a `DailyChallenge`. It now reads the
+stored row in that mode. Same trap the taxonomy half of the seed runner already documents.
+
+### Verified in a browser, against a real database
+
+Signed in as the seeded student: the countdown renders and ticks (33m 00s → 32m 57s), the
+note reads "A new question is set automatically at midnight, IST (UTC+05:30) — Tue 12:00 AM
+in your local time. Your administrator can also set a different question before then —
+today's was chosen by them", the question is answered and marked **4/4 with +15 XP** and its
+worked solution, and the dashboard card carries the compact form. As the root super
+administrator: the three row states are exactly as designed, and **Change question** on a
+future day round-tripped a `PUT` to 200 with the row updating to the new question. No
+non-2xx call and no console error in the flow. The verification answer was then removed, so
+the demo account starts unanswered.
+
+`competitionDay`'s new arithmetic and the endpoint's new field are pinned by **five new
+tests** in `tests/dailyChallenge.test.ts`, including that `nextChangeAt` agrees with the day
+being served and that IST midnight is 18:30 UTC the previous evening.
+
 ## 2026-08-29 — A developer credit, in the two places a credit belongs
 
 `components/DeveloperCredit.tsx`, rendering "Designed and developed by **Sachin Kukkar**"

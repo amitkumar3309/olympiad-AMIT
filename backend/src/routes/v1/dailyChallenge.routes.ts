@@ -21,6 +21,7 @@ import {
   loadChallengeQuestion,
   loadQuestionsByIds,
   resolveChallengeFor,
+  rolloverView,
   submitChallengeAnswer,
 } from '../../services/dailyChallengeService';
 import {
@@ -122,7 +123,13 @@ router.get(
       const today = todayKey();
 
       if (!isClassLevel(student.classLevel)) {
-        sendSuccess(res, 200, { challenge: null, attempt: null, reason: 'no-class', today });
+        sendSuccess(res, 200, {
+          challenge: null,
+          attempt: null,
+          reason: 'no-class',
+          today,
+          rollover: rolloverView(),
+        });
         return;
       }
 
@@ -130,7 +137,13 @@ router.get(
       if (!challenge) {
         // Not a 404: "there is no challenge today" is a normal answer while the bank
         // has nothing published for this class.
-        sendSuccess(res, 200, { challenge: null, attempt: null, reason: 'none-published', today });
+        sendSuccess(res, 200, {
+          challenge: null,
+          attempt: null,
+          reason: 'none-published',
+          today,
+          rollover: rolloverView(),
+        });
         return;
       }
 
@@ -143,7 +156,13 @@ router.get(
           { challengeId: String(challenge._id), questionId: String(challenge.question) },
           'Daily challenge points at a missing question',
         );
-        sendSuccess(res, 200, { challenge: null, attempt: null, reason: 'none-published', today });
+        sendSuccess(res, 200, {
+          challenge: null,
+          attempt: null,
+          reason: 'none-published',
+          today,
+          rollover: rolloverView(),
+        });
         return;
       }
 
@@ -157,6 +176,12 @@ router.get(
         completedCount: facts.challengesCompleted,
         reward: { xp: await rewardXp(), claimed: attempt !== null },
         today,
+        /**
+         * When this question stops being today's, as the **server** counts it. The page
+         * ticks a display down from it and refetches at zero; it never concludes for
+         * itself that the day has turned. See `rolloverView()`.
+         */
+        rollover: rolloverView(),
       });
     } catch (err) {
       logger.error({ err }, 'Failed to load the daily challenge');

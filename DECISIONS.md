@@ -4,6 +4,73 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-08-31 — The daily challenge's countdown is served, never computed in the browser
+
+**Context.** The demo needed a visible answer to "when does this question change?". The
+competition day is an **IST** calendar day, decided by `lib/competitionDay.ts` — nothing else in
+the product is allowed to decide it, for the reason a mock test's clock belongs to the server.
+
+**Decision.** `GET /me/daily-challenge` carries a `rollover` block, and the browser may only
+display it: `nextChangeAt` (absolute ISO instant), `secondsRemaining` (duration) and `timezone`.
+`ChallengeCountdown` ticks a display and, at zero, **re-requests the endpoint** rather than
+concluding that the day has turned — it has no next question to show and no authority to decide
+that it should.
+
+**Why both a duration and an instant.** They fail differently, and both failures are real. A
+duration is immune to a device clock that is hours out; an absolute instant is immune to a timer
+throttled or paused in a background tab, which is the documented behaviour this codebase has
+already been bitten by twice (`requestAnimationFrame` and `ResizeObserver` in a non-compositing
+tab). Each tick therefore measures wall-clock time against the deadline instead of counting its own
+firings.
+
+`secondsUntilNextDay()` rounds **up** and floors at zero: a `floor` reports `0` for the whole of
+the final second, and a client that refetches when the countdown hits zero would spin against a day
+that has not changed yet.
+
+**Rejected: computing midnight in the browser.** It is one line of client code and it is wrong for
+every reader outside IST, silently. A student in the Gulf or in the UK would be shown a countdown to
+their own midnight and would conclude the product is broken when the question changed at a different
+time — and nothing in the UI would reveal which of the two was authoritative.
+
+**Rejected: a page-level poll.** A one-minute poll would notice the change eventually and would put
+a request on every open tab for ever, to answer a question whose exact answer the server already
+knows in advance.
+
+## 2026-08-31 — One seed runner, with the class level as a parameter
+
+**Context.** A Class 9 bank was needed beside the Class 12 one. `seed-class12.ts` was a single file
+holding both the data wiring and every rule about how a seed writes.
+
+**Decision.** The rules moved to `scripts/lib/seedQuestions.ts` and both seeds became a call into
+it: report-only by default, idempotent by question text within a class, every question validated
+through `createQuestionSchema` (the same schema `POST /admin/questions` uses) plus
+`validateMathContent`, options deterministically shuffled, published rather than drafted, and a dry
+run that creates no taxonomy.
+
+**Why.** A seed is the one path in this product that writes questions to children without a human
+reading each one. Two copies of that path would eventually disagree about what a valid question is,
+and the more permissive copy would decide what got published. A class level is a parameter; the
+rules are not.
+
+## 2026-08-31 — A demo account is provisioned by script, and fabricates no history
+
+**Context.** A client demonstration needs an account that has been through registration, email
+verification and payment. There is no API that produces one, and there must not be — each of those
+steps is a real control.
+
+**Decision.** `scripts/seed-demo.ts` writes the end state directly, behind
+`assertConfiguredForWrites()` and `--write`, and is explicit about what it is: the entry fee is a
+`captured` `Payment` with `statusSource: 'manual'`, **no** `razorpayPaymentId` and **no**
+`razorpaySignature`, so nobody reconciling the payments console can mistake it for real money. The
+mandatory photograph is a generated flat-colour PNG, because a demo must not carry a real child's
+face and a stock photograph implies a person who did not consent.
+
+**What it will not do.** No practice sessions, no past challenge attempts, no streak and no XP
+beyond the one `account_created` award a real registration also grants. Invented history is the
+problem Milestone 5 spent a follow-up pass deleting, and on this platform it would appear on a public
+leaderboard beside real children. It also **refuses to run** when no Class 9 question is published,
+rather than provisioning an account whose challenge page is honestly empty.
+
 ## 2026-08-29 — An optimistic answer is rolled back when the server refuses it
 
 **Context.** Both answer runners save optimistically: local state updates on the click, the `PUT`

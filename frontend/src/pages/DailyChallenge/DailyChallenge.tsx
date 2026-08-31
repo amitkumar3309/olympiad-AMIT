@@ -14,6 +14,7 @@ import {
   StatTile,
 } from '../../components/ui'
 import MathText from '../../components/MathText'
+import ChallengeCountdown from '../../components/ChallengeCountdown'
 import { api, ApiError } from '../../api/client'
 import type {
   DailyChallengeAnswerResponse,
@@ -166,6 +167,15 @@ export default function DailyChallengePage() {
 
   return (
     <StudentShell title="Daily Challenge" subtitle={`One question a day · ${formatDay(today.today)}`}>
+      {/*
+        How long this question stays today's. The figures are the server's — the
+        competition day is an IST one, so a browser must not decide when it turns — and
+        reaching zero re-asks the server rather than assuming a new question is in place.
+        Rendered above the empty state too: "nothing is published yet" is a state a
+        reader wants a horizon on as well. The copy is the timer alone, by the owner's
+        decision (2026-08-31) — see ChallengeCountdown.
+      */}
+      {today.rollover && <ChallengeCountdown rollover={today.rollover} onElapsed={() => void load()} />}
       <section className={styles.statRow}>
         <StatTile icon="ph-flame" tone="warning" label="Day streak" value={streak.current} />
         <StatTile icon="ph-trophy" tone="neutral" label="Best streak" value={streak.longest} />
@@ -461,7 +471,9 @@ function ChallengeResult({
 
       <p className={styles.tomorrow}>
         <Icon name="ph-sun-horizon" weight="bold" size="sm" />
-        <span>A new challenge is set for your class every day.</span>
+        <span>
+          Your next question appears when the timer at the top of this page runs out.
+        </span>
       </p>
     </div>
   )

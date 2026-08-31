@@ -1538,11 +1538,36 @@ export interface StudentQuestion {
  * answer key lives only on `DailyChallengeResult`. A component handed the unanswered
  * shape cannot read a correct answer out of it — there is no field to read.
  */
+/** Who decided a day's question: a member of staff, or the automatic fill. */
+export type ChallengeSource = 'scheduled' | 'automatic'
+
 export interface DailyChallenge {
   day: string
   challengeId: string
   classLevel: ClassLevel
+  /**
+   * Whether a member of staff chose today's question or the bank filled the day itself.
+   * The page says both that the question changes at midnight and that staff may change
+   * it sooner, and those two sentences are only honest together.
+   */
+  source: ChallengeSource
   question: StudentQuestion
+}
+
+/**
+ * When today's challenge stops being today's — **the server's clock, not the browser's**.
+ *
+ * The boundary is IST midnight, so a browser in another timezone would compute a
+ * different instant and a device with a wrong clock would compute an arbitrary one. Both
+ * figures are sent because they fail differently: `secondsRemaining` is a duration and
+ * therefore immune to clock skew, while `nextChangeAt` is absolute and therefore immune
+ * to a timer throttled in a background tab. A countdown uses the first to render and the
+ * second to correct itself; it never concludes on its own that the day has turned.
+ */
+export interface ChallengeRollover {
+  nextChangeAt: string
+  secondsRemaining: number
+  timezone: string
 }
 
 export interface DailyChallengeResult {
@@ -1585,6 +1610,8 @@ export interface DailyChallengeToday {
   completedCount?: number
   reward?: { xp: number; claimed: boolean }
   today: string
+  /** Sent in every state, including the empty ones. */
+  rollover?: ChallengeRollover
   reason?: 'none-published' | 'no-class'
 }
 
@@ -1620,8 +1647,6 @@ export interface DailyChallengeHistoryResponse {
 }
 
 // --- Admin ---
-
-export type ChallengeSource = 'scheduled' | 'automatic'
 
 export interface AdminDailyChallenge {
   id: string

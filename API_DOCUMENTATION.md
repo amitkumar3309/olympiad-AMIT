@@ -1045,7 +1045,19 @@ Today's challenge for the caller's class, and their own attempt at it.
 - **Not answered yet** → `challenge` (answer-stripped) and `attempt: null`. Nothing in the payload can reveal the answer; a test stringifies the whole body and forbids the field names and the literal correct values.
 - **Answered** → the same question plus `attempt`: what they chose, whether it was right, the correct answer and the author's explanation.
 
-Also carries `streak` (current and longest), `completedCount`, `reward: { xp, claimed }` and the server's `today`. Answers `challenge: null` with `reason: 'none-published'` (nothing published for that class) or `reason: 'no-class'` (an account predating the class field) — both **200**, because neither is an error.
+Also carries `streak` (current and longest), `completedCount`, `reward: { xp, claimed }`, the server's `today`, and `rollover` (Milestone 24). Answers `challenge: null` with `reason: 'none-published'` (nothing published for that class) or `reason: 'no-class'` (an account predating the class field) — both **200**, because neither is an error.
+
+`challenge.source` is `scheduled` or `automatic` — whether a member of staff chose today's question or the bank filled the day itself. It reveals nothing, since which question was served is already on screen. **No student surface displays it** (owner's decision, 2026-08-31: the challenge page shows the timer alone); it is on the payload because the fact is cheap to serve and a client may need it, and the admin console reads the equivalent field on its own listing.
+
+**`rollover` is the countdown, and the clock is the server's.** It is sent in **every** state, including the two empty ones — "nothing is published for your class yet" is a state a reader wants a horizon on too.
+
+| Field | Meaning |
+| --- | --- |
+| `nextChangeAt` | ISO 8601, absolute: the instant the next day's challenge takes over (IST midnight). |
+| `secondsRemaining` | Whole seconds from now until then, rounded **up** and floored at zero. |
+| `timezone` | `IST (UTC+05:30)`, so a page can name which midnight it means rather than implying the reader's. |
+
+Both figures are sent because they fail differently: a duration is immune to a device clock that is hours out, and an absolute instant is immune to a timer throttled in a background tab. `secondsRemaining` never reports `0` before the boundary — a `floor` would report zero for the whole final second, and a client that refetches at zero would then spin against a day that has not turned. A client may only *display* these; it must not conclude that the day has changed and swap in a question of its own choosing — it re-requests this endpoint.
 
 The reveal is safe here in a way it would not be for a mock test: an attempt document only exists once the student has answered, so there is no path that discloses anything to someone who has not. A daily challenge has **no disclosure policy** on purpose — its point is to teach one question a day, and withholding the explanation would defeat that.
 

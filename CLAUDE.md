@@ -179,6 +179,15 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                               mathematical correctness
   scripts/verify-gemini.ts    read-only check that the key works and that
                               GEMINI_MODEL is one it can call
+  scripts/lib/seedQuestions.ts  THE question-bank seed runner, shared by
+                              seed-class9.ts and seed-class12.ts (M24). A class
+                              level is a parameter; the rules — report-only by
+                              default, idempotent, validated through
+                              createQuestionSchema, published not drafted — are not
+  scripts/seed-demo.ts        THE demo provisioning path (M24): one verified
+                              Class 9 student, the fee as a MANUAL captured
+                              Payment, today's challenge scheduled. Fabricates no
+                              history, and refuses if nothing is published
   tests/                      vitest + supertest suite
   api/index.ts                Vercel serverless entry (imports src/app.ts)
   tsconfig.json               BUILD config (src + api only; excludes tests)
@@ -344,6 +353,27 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   canvas and cannot use a CSS variable, which is why the three charts had hex literals in them and
   stayed light-mode blue on a dark page. A canvas is also an image to a screen reader, so every
   chart carries `role="img"` and a summary, and the same numbers are always in a table nearby.
+- **A countdown is a display of a figure the server sent, never a clock of its own.**
+  `components/ChallengeCountdown.tsx` (M24) renders `rollover` and, at zero, **re-requests
+  the endpoint** — it does not swap in tomorrow's question, because it does not have one and
+  has no authority to decide the day has turned. Each tick measures wall-clock time against
+  `nextChangeAt` rather than counting its own firings, so a tab that throttled `setInterval`
+  for two hours still reads correctly. It lives in `components/`, not `ui/`: it knows what a
+  daily challenge is. **The student-facing copy is the timer and nothing else** — owner decision,
+  2026-08-31: "The next question appears when this timer runs out", with no mention that staff
+  can change a day and no `scheduled`/`automatic` badge. The first version said both halves
+  (midnight IST **and** that an administrator may change it sooner), because a reader told only
+  the first has been misled the moment staff re-point a day; the owner weighed that and chose
+  the simpler line, and the residual risk resolves itself because the page re-requests at zero.
+  Do not reintroduce the administrator sentence or a `source` badge on a student surface without
+  asking. `challenge.source` stays on the payload and is read by the admin console.
+- **A day's challenge can be changed until somebody answers it, and the page says why not
+  otherwise.** `PUT /admin/daily-challenges/:id` existed from Milestone 8 with no interface, so
+  correcting today meant clearing the day — which let the automatic fill pin something else in
+  the gap. `/admin/daily-challenges` offers **Change question** only on a day with no attempts
+  and not in the past, and states the two refusals in the page rather than leaving them to a
+  failed request (a `title` never appears on a touch screen, and a button the API will refuse
+  is worse than no button).
 - **An optimistic update must be rolled back when the write fails.** Both answer runners
   update local state before the `PUT` lands, which is right — a paper must not lag a click
   behind. What was wrong was leaving that state in place after a failure: the Phase H
@@ -453,7 +483,7 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - **A mock test decides when a score and when an answer key may be shown**, through `resultDisplay` and `reviewPolicy`. `disclosureFor()` in `services/mockTestService.ts` is the only place either is interpreted — do not branch on them anywhere else, and do not snapshot them onto an attempt (an administrator has to be able to release results after the window closes).
 - **Practice sessions and mock-test attempts snapshot the answer key at serve time.** Grading reads that snapshot, not the live `Question`, so editing or re-pricing a question cannot retroactively change a paper somebody has already sat. Do not "simplify" grading to re-read the question.
 - **There is exactly one grader: `services/grading.ts`.** `isAnswered`, `gradeEntry` and `gradeEntries` are shared by practice, mock tests and the daily challenge, over the one served-question shape in `models/attemptAnswer.ts`. Do not write a second marking function for a new surface — two graders eventually disagree, and a grader that disagrees with the answer key is a wrong score on a student's report.
-- **For a timed surface, the server owns the clock.** `MockTestAttempt.expiresAt` is computed and stored when the attempt is created and never recomputed. No request body may carry a time, an elapsed duration or a deadline; an answer arriving after the deadline is refused and **not stored**, and a late submission is graded as at the deadline. A countdown in the browser is a display derived from `secondsRemaining` — never an input.
+- **For a timed surface, the server owns the clock — including the daily challenge's rollover.** `GET /me/daily-challenge` carries `rollover` (`nextChangeAt`, `secondsRemaining`, `timezone`) from `rolloverView()`, built on `nextDayStartsAt()` / `secondsUntilNextDay()` in `lib/competitionDay.ts`, and it is sent in **every** state including the empty ones. A browser may not compute the boundary: it is IST midnight, so a device in another timezone counts down to the wrong moment and one with a wrong clock to an arbitrary one. Both a duration and an absolute instant are sent because they fail differently (clock skew versus a throttled timer), and `secondsUntilNextDay()` rounds **up** so it never reports `0` before the boundary — a `floor` would make a client that refetches at zero spin against a day that has not turned. `MockTestAttempt.expiresAt` is computed and stored when the attempt is created and never recomputed. No request body may carry a time, an elapsed duration or a deadline; an answer arriving after the deadline is refused and **not stored**, and a late submission is graded as at the deadline. A countdown in the browser is a display derived from `secondsRemaining` — never an input.
 - **A submission that must happen once is closed by a conditional write**, not a read-then-write check: `finalizeAttempt()` updates with `status: 'in_progress'` in the filter and reports whether that write won, which is what gates the XP award. On a serverless platform a check and its write can land in different invocations.
 - **There is exactly one reward engine: `services/rewardService.ts`.** Call `grantReward()` — never `recordActivity()` directly (only the engine and `scripts/backfill-activity.ts` may), and never compute an XP amount in a route. A caller supplies *facts* about what happened (`context: { answeredCount }`); the engine decides eligibility and price. Adding a reward to a new surface means one call, not a new rule.
 - **Never query a database from `lib/achievements.ts`, `lib/badges.ts` or `lib/journey.ts`.** All three are pure functions of `RewardFacts` (`lib/rewardFacts.ts`), assembled once by `buildRewardFacts()`. To award for something new, add a fact there and supply it in the engine — that two-step friction is deliberate, and it is what has kept unearnable rows off the dashboard.

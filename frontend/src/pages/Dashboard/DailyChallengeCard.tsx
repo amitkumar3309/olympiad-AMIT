@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import MathText from '../../components/MathText'
+import ChallengeCountdown from '../../components/ChallengeCountdown'
 import { Badge, ButtonLink, Card, CardHeader, EmptyState, SkeletonText } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
 import { api } from '../../api/client'
@@ -84,6 +85,13 @@ export default function DailyChallengeCard() {
   const { question } = state.challenge
   const answered = state.attempt !== null
 
+  /**
+   * Reloading the card at the rollover would need a second copy of the fetch above; the
+   * card instead just stops counting, and the challenge page — one click away, and the
+   * only place the question can be answered — does the refetch. A tile that quietly
+   * swapped its question under the reader would be worse than one that waits.
+   */
+
   return (
     <Card>
       <CardHeader
@@ -96,6 +104,8 @@ export default function DailyChallengeCard() {
           </Badge>
         }
       />
+
+      {state.rollover && <ChallengeCountdown rollover={state.rollover} variant="compact" />}
 
       {[question.topic?.name, question.subtopic?.name].filter(Boolean).length > 0 && (
         <p className={styles.challengeTaxonomy}>
