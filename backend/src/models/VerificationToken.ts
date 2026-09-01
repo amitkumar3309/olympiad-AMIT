@@ -15,6 +15,19 @@ export interface VerificationTokenDocument extends Document {
   type: VerificationTokenType;
   expiresAt: Date;
   usedAt?: Date | null;
+  /**
+   * Set when this token stopped being live because a **newer one was issued**, rather
+   * than because somebody redeemed it.
+   *
+   * `usedAt` is set in both cases, so that field alone cannot tell them apart -- and the
+   * difference decides what a reader is told and, worse, what the server does next. A
+   * *redeemed* link means the job may already be done; a *superseded* link means the
+   * reader is holding an older email and the live link is still sitting in their inbox.
+   * Answering the second case with "already used, so we have emailed you a new one"
+   * sent another link, which superseded the live one, so the next click was stale again:
+   * a loop that burned 24 tokens and left two real accounts unable to verify at all.
+   */
+  supersededAt?: Date | null;
   createdAt: Date;
 }
 
@@ -24,6 +37,7 @@ const verificationTokenSchema = new Schema<VerificationTokenDocument>({
   type: { type: String, enum: ['email_verify', 'password_reset'], required: true },
   expiresAt: { type: Date, required: true },
   usedAt: { type: Date, default: null },
+  supersededAt: { type: Date, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 

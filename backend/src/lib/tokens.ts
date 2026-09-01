@@ -179,11 +179,20 @@ export async function issueVerificationToken(
       ? config.auth.emailVerifyTtlHours * 60 * 60 * 1000
       : config.auth.passwordResetTtlMinutes * 60 * 1000;
 
-  // Invalidate any outstanding token of the same type so only the newest link
-  // works — otherwise "resend" would leave several valid links in inboxes.
+  /**
+   * Invalidate any outstanding token of the same type so only the newest link works —
+   * otherwise "resend" would leave several valid links in inboxes.
+   *
+   * `supersededAt` is set alongside `usedAt` so the two reasons a token is no longer
+   * live stay distinguishable. Every existing query still treats `usedAt: null` as
+   * "live"; what this adds is the ability to answer a stale link with "your newest email
+   * has the working one" instead of "already used", and to *not* send yet another link
+   * in that case. See the comment on the field, and TROUBLESHOOTING.md.
+   */
+  const now = new Date();
   await VerificationToken.updateMany(
     { student: studentId, type, usedAt: null },
-    { $set: { usedAt: new Date() } },
+    { $set: { usedAt: now, supersededAt: now } },
   );
 
   const token = randomToken();
@@ -203,7 +212,13 @@ export async function issueVerificationToken(
 export type VerificationOutcome =
   | { ok: true; studentId: Types.ObjectId }
   | { ok: false; reason: 'invalid' }
-  | { ok: false; reason: 'used' | 'expired'; studentId: Types.ObjectId };
+  /**
+   * `superseded` is a *stale* link, not a spent one: a newer token was issued, so the
+   * working link is the most recent email. It is separate from `used` because the two
+   * need opposite handling — a caller must not "help" by sending another link, which is
+   * what supersedes the live one and loops.
+   */
+  | { ok: false; reason: 'used' | 'expired' | 'superseded'; studentId: Types.ObjectId };
 
 /** Consumes a token atomically, so a link cannot be redeemed twice concurrently. */
 export async function consumeVerificationToken(
@@ -213,7 +228,13 @@ export async function consumeVerificationToken(
   const tokenHash = hashToken(rawToken);
   const record = await VerificationToken.findOne({ tokenHash, type });
   if (!record) return { ok: false, reason: 'invalid' };
-  if (record.usedAt) return { ok: false, reason: 'used', studentId: record.student };
+  if (record.usedAt) {
+    return {
+      ok: false,
+      reason: record.supersededAt ? 'superseded' : 'used',
+      studentId: record.student,
+    };
+  }
   if (record.expiresAt.getTime() <= Date.now()) return { ok: false, reason: 'expired', studentId: record.student };
 
   // findOneAndUpdate with `usedAt: null` in the filter makes the consume atomic:
@@ -225,6 +246,29 @@ export async function consumeVerificationToken(
   if (!claimed) return { ok: false, reason: 'used', studentId: record.student };
 
   return { ok: true, studentId: record.student };
+}
+
+/**
+ * Whether a live (unused, unexpired) link of this type is already in the account's
+ * inbox.
+ *
+ * This is what makes "send them a fresh link" safe. Issuing a token invalidates the
+ * outstanding one, so resending on *every* stale click destroys the very link the error
+ * message tells the reader to open — and each further click destroys the next one. Asking
+ * first turns that loop into a single honest answer: the working link has already been
+ * sent, go and open it.
+ */
+export async function hasLiveVerificationToken(
+  studentId: Types.ObjectId,
+  type: VerificationTokenType,
+): Promise<boolean> {
+  const live = await VerificationToken.exists({
+    student: studentId,
+    type,
+    usedAt: null,
+    expiresAt: { $gt: new Date() },
+  });
+  return live !== null;
 }
 
 /**

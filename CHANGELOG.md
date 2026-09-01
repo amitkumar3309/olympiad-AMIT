@@ -2,6 +2,36 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-01 — Email verification could never succeed (production)
+
+Reported from the live site: a new student clicks the link in their verification email and
+is told it "had already been used, so we have emailed you a new one"; the newest email says
+the same thing; the account never verifies, so it can never sign in.
+
+**Two registrations had burned 24 tokens between them, and neither account could verify.**
+The cause was not the click. A token stopped being live in two different ways — redeemed, or
+superseded by a newer one — and both were recorded in the single `usedAt` field, so the route
+could not tell them apart. It treated a superseded link as a burned one and emailed a
+replacement, which superseded the link the reader had just been told to open. Every
+subsequent click repeated it: a loop with no exit. A duplicate request for one click was
+enough to start it, because the request that lost the race to consume the token read the
+account before the winner's write landed, concluded the link had been wasted, and mailed
+another.
+
+Fixed in four places: `VerificationToken.supersededAt` records *why* a token stopped being
+live; `hasLiveVerificationToken()` means the route **never destroys a live link to send a
+message**; a redeemed token on an unverified account is re-read three times over ~600ms
+before anything is concluded, so a duplicate request waits for the winner instead of mailing
+anybody; and `VerifyEmail.tsx` keeps one redemption *promise* per token per tab, so a
+remount attaches to the request in flight rather than starting a second one.
+
+Three regression tests replace one that had asserted the buggy behaviour — that a stale
+click *should* mail a fresh link. Reproduced end to end before and after, in a browser and
+against a real database. Two traps are recorded in `TROUBLESHOOTING.md`: a first attempt at
+the client guard left the page on "Verifying your email" for ever under StrictMode while the
+request had in fact succeeded, and `dev:local` does not watch files, so a reproduction can
+silently run pre-edit code.
+
 ## 2026-08-31 — Milestone 24: a real Class 9 daily challenge, and a clock on it
 
 Three things the owner asked for before a client demonstration: a genuine daily challenge

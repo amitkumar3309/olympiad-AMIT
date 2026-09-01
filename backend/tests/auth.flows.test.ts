@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../src/app';
-import { Student } from '../src/models';
+import { Student, VerificationToken } from '../src/models';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import {
   API,
@@ -248,14 +248,29 @@ describe('a spent verification link', () => {
       .expect(200);
   });
 
-  it('emails a fresh link instead of a dead end, and never claims an unverified account can sign in', async () => {
+  /**
+   * **The loop that broke registration in production.**
+   *
+   * This test previously asserted the opposite: that a stale link *should* trigger a
+   * fresh email. That premise was the defect. Issuing a token invalidates the
+   * outstanding one, so mailing a replacement on every stale click destroyed the very
+   * link the error message told the reader to open, and their next click destroyed its
+   * replacement. Two real registrations burned 24 tokens between them and neither
+   * account could ever be verified — see TROUBLESHOOTING.md.
+   *
+   * The rule now: **never destroy a live link to send a message.** If a working link is
+   * already in the inbox, say so and send nothing.
+   */
+  it('does not destroy the live link when an older one is clicked', async () => {
     await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
     const stale = tokenFromLatestEmail('Verify');
 
     // Asking for a new link invalidates every earlier one, by design — so this is the
     // "somebody opened the older of two emails" case, which is one of several ways a
-    // student legitimately arrives holding a spent token.
+    // student legitimately arrives holding a superseded token.
     await request(app).post(`${API}/auth/resend-verification`).send({ email: validStudent.email }).expect(200);
+    const live = tokenFromLatestEmail('Verify');
+    expect(live).not.toBe(stale);
 
     const before = getTestInbox().length;
     const res = await request(app).post(`${API}/auth/verify-email`).send({ token: stale });
@@ -264,14 +279,71 @@ describe('a spent verification link', () => {
     // Not "try signing in": that account cannot sign in, and pointing somebody at a
     // door that will not open is the failure this replaces.
     expect(res.body.error).not.toMatch(/try signing in/i);
-    expect(res.body.error).toMatch(/emailed you a new one/i);
+    // And not "we have emailed you a new one", because we deliberately have not.
+    expect(res.body.error).not.toMatch(/emailed you a new one/i);
+    expect(res.body.error).toMatch(/out of date|most recent/i);
 
-    // A replacement really was sent, to the address on the account and nowhere else.
+    expect(getTestInbox().length, 'a stale click must not send another link').toBe(before);
+
+    // The link that was already in the inbox still works. This is the assertion the
+    // whole fix exists for: before it, this request returned 400 as well.
+    const good = await request(app).post(`${API}/auth/verify-email`).send({ token: live });
+    expect(good.status, 'the newest link must survive a stale click').toBe(200);
+    await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: validStudent.email, password: validStudent.password })
+      .expect(200);
+  });
+
+  /**
+   * Two requests for one click: a page that fires twice, an impatient double click, a
+   * mail scanner that follows links. One consumes the token; the other must not conclude
+   * the link was wasted and mail a replacement — which is how the loop above started.
+   */
+  it('absorbs two redemptions of one link without mailing anybody', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    const token = tokenFromLatestEmail('Verify');
+    const before = getTestInbox().length;
+
+    const [first, second] = await Promise.all([
+      request(app).post(`${API}/auth/verify-email`).send({ token }),
+      request(app).post(`${API}/auth/verify-email`).send({ token }),
+    ]);
+
+    // Both are honest: one did the work, the other found it already done.
+    expect([first.status, second.status]).toEqual([200, 200]);
+    expect(getTestInbox().length, 'a duplicate request must not send another link').toBe(before);
+
+    expect(await Student.findOne({ email: validStudent.email }).then((s) => s!.isEmailVerified)).toBe(true);
+    await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: validStudent.email, password: validStudent.password })
+      .expect(200);
+  });
+
+  /**
+   * The belt-and-braces resend is still there for the case it was written for: a token
+   * that really was burned without doing its job, with nothing live left to destroy.
+   */
+  it('still emails a fresh link when the account has no working link at all', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    const token = tokenFromLatestEmail('Verify');
+
+    // Marked used *without* `supersededAt`, which is what a redemption that died
+    // mid-flight leaves behind — the one state where there is a genuine dead end and
+    // no live link in the inbox.
+    await VerificationToken.updateOne({ type: 'email_verify' }, { $set: { usedAt: new Date() } });
+
+    const before = getTestInbox().length;
+    const res = await request(app).post(`${API}/auth/verify-email`).send({ token });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/emailed you a new one/i);
     const inbox = getTestInbox();
-    expect(inbox.length, 'a fresh link must actually be sent').toBeGreaterThan(before);
+    expect(inbox.length, 'a real dead end must be repaired with a fresh link').toBeGreaterThan(before);
     expect(inbox[inbox.length - 1]!.to).toBe(validStudent.email);
 
-    // And it works, which is the whole point.
+    // And that fresh link works.
     await request(app).post(`${API}/auth/verify-email`).send({ token: tokenFromLatestEmail('Verify') }).expect(200);
     await request(app)
       .post(`${API}/auth/login`)

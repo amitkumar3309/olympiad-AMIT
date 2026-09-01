@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Alert, Button, Field, Input, Spinner } from '../../components/ui'
@@ -7,6 +7,30 @@ import AuthLayout, { AuthStatus } from './AuthLayout'
 import styles from './AuthLayout.module.css'
 
 type Phase = 'verifying' | 'success' | 'failed' | 'noToken'
+
+/**
+ * The redemption request in flight (or settled) for each token, in this tab.
+ *
+ * Module-level rather than a ref, because a ref only survives while the component does.
+ * A verification token is strictly single-use, so a **second** request for one click is
+ * not a harmless duplicate: it used to make the server report "already used" and email a
+ * replacement link, which invalidated the link the reader was holding. The server no
+ * longer does either (see the verify-email route), but the request should not be sent
+ * twice in the first place, and it can be sent twice for reasons this page does not
+ * control — StrictMode in development, a remount, a suspended lazy chunk resuming, a
+ * double click on the link.
+ *
+ * A *promise* rather than a stored outcome, so a mount that arrives while the request is
+ * still in flight attaches to the same one and renders its result. Storing a
+ * placeholder outcome instead would leave that mount showing the spinner for ever: the
+ * original promise resolves into an unmounted component, and its `setState` calls go
+ * nowhere.
+ *
+ * Keyed by the token, so a genuinely different link in the same tab is still redeemed. A
+ * full page reload clears it, which is correct: that is a new attempt, and the server
+ * answers an already-verified account with success.
+ */
+const redemptions = new Map<string, Promise<string>>()
 
 /**
  * The page an emailed verification link lands on.
@@ -28,24 +52,41 @@ export default function VerifyEmail() {
   const [resendError, setResendError] = useState('')
   const [resending, setResending] = useState(false)
 
-  // React 18+ StrictMode mounts effects twice in development. The verification
-  // token is strictly single-use, so a second call would report "already used"
-  // and show a spurious failure — this guard makes the attempt happen once.
-  const attempted = useRef(false)
-
+  /**
+   * Subscribes to the redemption of this token, starting it only if nobody has.
+   *
+   * There is deliberately **no "already attempted" ref**. One was tried first and it
+   * hung the page: StrictMode runs the effect, cleans it up, and runs it again on the
+   * same instance, so the ref was already set on the second run, the effect returned
+   * early, nothing subscribed, and the screen sat on "Verifying your email" for ever
+   * while the request had in fact succeeded. Found by opening the page rather than by
+   * reading it.
+   *
+   * The map is what makes the request happen once; every mount may safely attach to it.
+   */
   useEffect(() => {
-    if (!token || attempted.current) return
-    attempted.current = true
+    if (!token) return
 
-    verifyEmail(token)
+    const existing = redemptions.get(token)
+    const request = existing ?? verifyEmail(token)
+    if (!existing) redemptions.set(token, request)
+
+    let cancelled = false
+    request
       .then((msg) => {
+        if (cancelled) return
         setMessage(msg)
         setPhase('success')
       })
       .catch((err) => {
+        if (cancelled) return
         setMessage(humanizeError(err, { fallback: 'We could not verify that link.' }))
         setPhase('failed')
       })
+
+    return () => {
+      cancelled = true
+    }
   }, [token, verifyEmail])
 
   const handleResend = useCallback(

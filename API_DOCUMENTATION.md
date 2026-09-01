@@ -87,6 +87,8 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 - **Side effects**: writes a `StudentPhoto` document, and emails a single-use verification link valid for 24 hours. `fullName` is **derived** from the three name parts by the schema — do not send it. If the photo write fails, the just-created account is deleted again, so an account never exists without its mandatory photo.
 
 ### `POST /api/v1/auth/verify-email`
+
+**A spent link has three different answers, and the difference matters** (2026-09-01). If the account is already verified it is a **200** — the link did its job. If a *newer* link is outstanding it is a **400** saying the link is out of date, and **no email is sent**: issuing a token supersedes the live one, so resending here destroyed the link the message told the reader to open, and their next click destroyed its replacement. Only a token genuinely burned with nothing live outstanding triggers a fresh link. See TROUBLESHOOTING.md.
 - **Auth**: none (the token *is* the credential). **Rate limit**: 20/15 min.
 - **Request**: `{ token }` — the value from the emailed link.
 - **Response 200**: `{ success, message, student }` with `isEmailVerified: true`.

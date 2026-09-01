@@ -1,5 +1,53 @@
 # TROUBLESHOOTING.md
 
+## A verification link always says "already been used", and the account can never verify
+
+**Symptom.** A newly registered student clicks the link in their verification email and
+lands on "We could not verify your email — that link had already been used, so we have
+emailed you a new one. Please open the newest email and try again." Doing exactly that
+produces the same message again. The account stays unverified, so sign-in is refused too,
+and the inbox fills with verification emails. Seen in production on 2026-09-01: two real
+registrations burned **24 tokens** between them and neither could ever sign in.
+
+**Cause.** Two separate things, and the second is what made it unrecoverable.
+
+1. `issueVerificationToken()` invalidates any outstanding token by setting `usedAt` — the
+   *same field* a redemption sets. So a link that had merely been **superseded** by a newer
+   one was indistinguishable from a link that had actually been **redeemed**.
+2. The verify route treated that as a burned link and, trying to be helpful, **emailed a
+   fresh one**. Issuing that new token superseded whatever was live — including the link the
+   error message had just told the reader to open. Their next click was therefore stale as
+   well, which sent another link, which superseded that one. A loop with no exit.
+
+A duplicate request for a single click (a page that fires twice, an impatient double click,
+a mail scanner following links) was enough to enter the loop: the request that lost the race
+to consume the token read the account *before* the winner's save landed, concluded the link
+had been wasted, and mailed a replacement.
+
+**Fix.**
+
+- `VerificationToken.supersededAt` records *why* a token stopped being live, so
+  `consumeVerificationToken()` can return `superseded` rather than `used`. Every existing
+  query still treats `usedAt: null` as "live".
+- `hasLiveVerificationToken()` — the verify route now **never destroys a live link to send a
+  message**. If a working link is already in the inbox it says so and sends nothing. The
+  belt-and-braces resend remains for a genuinely burned token with nothing live outstanding.
+- On a *redeemed* token with an unverified account, the route re-reads the account three
+  times over ~600ms before concluding anything, so the loser of a duplicate-request race
+  waits for the winner instead of mailing anybody.
+- `pages/Auth/VerifyEmail.tsx` keeps one redemption **promise** per token per tab, so a
+  remount attaches to the request in flight rather than starting a second one.
+
+**How to spot it in the data.** Many `verificationtokens` rows for one student, all
+`usedAt` set, minutes apart, with `isEmailVerified: false` on the account. After the fix a
+superseded row also carries `supersededAt`.
+
+**Two traps met while fixing it.** A first attempt at the client guard used a ref plus a
+stored outcome; StrictMode's second effect run hit the guard, never subscribed, and left
+the page on "Verifying your email" for ever *while the request had succeeded*. And the local
+`dev:local` server does not watch files — a reproduction that appears to fail may simply be
+running the code from before the edit. Restart it.
+
 ## Contrast measurements are wrong in a hidden browser pane
 
 **Symptom:** an automated contrast check reports failures that are not real — an outline button at

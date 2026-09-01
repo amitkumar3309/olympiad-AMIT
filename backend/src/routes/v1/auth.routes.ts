@@ -40,6 +40,7 @@ import {
   revokeAllRefreshTokens,
   issueVerificationToken,
   consumeVerificationToken,
+  hasLiveVerificationToken,
   releaseVerificationToken,
 } from '../../lib/tokens';
 import { buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email';
@@ -318,11 +319,64 @@ router.post('/auth/verify-email', tokenSubmitLimiter, validate({ body: verifyEma
        * cannot open. That case is now largely prevented by the release below, but it is
        * still reported honestly, with the action that actually helps.
        */
-      if (outcome.reason === 'used' || outcome.reason === 'expired') {
-        const account = await Student.findById(outcome.studentId);
+      if (outcome.reason === 'used' || outcome.reason === 'expired' || outcome.reason === 'superseded') {
+        let account = await Student.findById(outcome.studentId);
+
+        /**
+         * **Two requests for one click.**
+         *
+         * A page that fires twice, an impatient double click, a mail scanner that
+         * follows links, a retried request after a cold start: one of the pair consumes
+         * the token and verifies the account, and the other arrives to find it spent.
+         * That loser can read the account *before* the winner's save lands, conclude the
+         * link was burned without doing its job, and email a replacement — which
+         * supersedes the live link and starts the loop this whole branch exists to
+         * avoid.
+         *
+         * So wait briefly and look again, rather than deciding on a read taken in the
+         * middle of somebody else's write. Bounded and short: three reads over ~600ms,
+         * only on a path that has already failed, and only for a *redeemed* token —
+         * a superseded or expired one was never being redeemed by anybody, so there is
+         * nothing to wait for.
+         */
+        if (account && !account.isEmailVerified && outcome.reason === 'used') {
+          for (let attempt = 0; attempt < 3 && !account.isEmailVerified; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            account = await Student.findById(outcome.studentId);
+            if (!account) break;
+          }
+        }
 
         if (account?.isEmailVerified) {
           sendSuccess(res, 200, { message: 'Your email is already verified. You can sign in.', alreadyVerified: true });
+          return;
+        }
+
+        /**
+         * **A live link is never destroyed to make a point.**
+         *
+         * Issuing a token invalidates the outstanding one, so resending on every stale
+         * click killed the exact link this message tells the reader to open — and the
+         * next click killed its replacement. Production ran that loop 24 times across two
+         * registrations and left both accounts unable to verify at all; see
+         * TROUBLESHOOTING.md.
+         *
+         * So: if a working link is already sitting in their inbox, say so and send
+         * nothing. This is also the answer to two verify requests arriving for one click
+         * (a page that fires twice, a mail scanner that follows links, an impatient double
+         * click): the loser of that race no longer mails anybody.
+         */
+        if (account && (await hasLiveVerificationToken(studentObjectId(account), 'email_verify'))) {
+          logger.info(
+            { studentId: account.studentId, reason: outcome.reason },
+            'Stale verification link presented while a newer one is still live — not sending another',
+          );
+          sendError(
+            res,
+            400,
+            'That link is out of date — a newer one has already been sent. Please open the most recent '
+              + 'verification email and use the link in that one.',
+          );
           return;
         }
 
@@ -344,10 +398,12 @@ router.post('/auth/verify-email', tokenSubmitLimiter, validate({ body: verifyEma
          * older of two emails all produce one, and none of them should cost a student
          * their account.
          */
+        // Nothing live is outstanding, so there is a real dead end here to fix, and
+        // sending a link cannot destroy one.
         if (account) {
           logger.warn(
             { studentId: account.studentId, reason: outcome.reason },
-            'Verification link was spent or expired on an unverified account — issuing a fresh one',
+            'Verification link was spent or expired with no live link outstanding — issuing a fresh one',
           );
           await sendVerificationLink(account);
           sendError(
@@ -835,9 +891,14 @@ router.post('/auth/reset-password', tokenSubmitLimiter, validate({ body: resetPa
       const message =
         outcome.reason === 'expired'
           ? 'This reset link has expired. Request a new one.'
-          : outcome.reason === 'used'
-            ? 'This reset link has already been used. Request a new one.'
-            : 'This reset link is invalid. Request a new one.';
+          : outcome.reason === 'superseded'
+            // Not "already used": a newer link was requested, so the working one is in
+            // the most recent email. Telling them to request another would supersede
+            // that one in turn.
+            ? 'This reset link is out of date — a newer one has been sent. Open the most recent email.'
+            : outcome.reason === 'used'
+              ? 'This reset link has already been used. Request a new one.'
+              : 'This reset link is invalid. Request a new one.';
       sendError(res, 400, message);
       return;
     }
