@@ -92,6 +92,21 @@ export function humanizeSignInError(error: unknown): string {
     if (error.status === 401 || error.status === 423) {
       return error.message || 'Those details did not match an account.'
     }
+    /**
+     * A 403 here is never "you lack permission", which is what the ordinary humanizer
+     * rewrites it to. The sign-in route answers 403 for exactly two situations, and both
+     * carry copy written for the reader: the address is **not verified** (with
+     * `code: 'EMAIL_NOT_VERIFIED'`, which is what puts the resend link on the form), or
+     * the account is suspended, blocked or deactivated.
+     *
+     * Printing "Your account does not have permission to do this" told a student whose
+     * only problem was an unopened verification email that their account was not allowed
+     * to sign in — beside a link offering to send them a new link, which made no sense
+     * next to it. Found by walking the flow in a browser.
+     */
+    if (error.status === 403) {
+      return error.message || 'That account cannot sign in yet.'
+    }
   }
   return humanizeError(error, { fallback: 'Could not sign you in. Please try again.' })
 }

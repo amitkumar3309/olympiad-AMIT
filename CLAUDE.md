@@ -337,7 +337,7 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   nonsense on the form you are signing in with — where a 401 means the credentials were wrong, and
   the backend's message is deliberately identical for an unknown account and a wrong password. The
   sign-in **400** is the opposite case: it is a zod aggregate rather than curated copy, so it is
-  replaced rather than printed. Both reached a real screen before this existed.
+  replaced rather than printed. Both reached a real screen before this existed. The **403** is the third case, added 2026-09-01: the ordinary humanizer turns it into "your account does not have permission", which told a student whose only problem was an unopened verification email that their account was not allowed to sign in — beside a link offering to resend that very email. Sign-in answers 403 only for an unverified address (`code: EMAIL_NOT_VERIFIED`, which is what renders the resend link) and for a suspended, blocked or deactivated account; both messages are written for the reader, so both are passed through.
 - **A student-facing figure that is unknown renders an em dash, never a zero.** `StatTile` takes
   `null` for exactly this, and the rule reaches the UI from the data layer: "not ranked yet" and
   "ranked last", "no reward configured" and "a reward of zero", are different facts. The same goes

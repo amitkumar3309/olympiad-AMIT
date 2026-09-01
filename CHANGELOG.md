@@ -25,6 +25,16 @@ before anything is concluded, so a duplicate request waits for the winner instea
 anybody; and `VerifyEmail.tsx` keeps one redemption *promise* per token per tab, so a
 remount attaches to the request in flight rather than starting a second one.
 
+**A second defect on the same journey, found by walking it in a browser.** An unverified
+account that tried to sign in was told "Your account does not have permission to do this."
+The backend's own 403 copy says "Please verify your email address before signing in" and
+carries `code: 'EMAIL_NOT_VERIFIED'`, which is what puts the resend link on the form — but
+`humanizeError()` rewrites every 403 into the generic permission line, which is right for a
+page whose data was refused and wrong on a sign-in form. `humanizeSignInError()` now passes
+a 403 through, exactly as it already did for 401 and 423. The sign-in route answers 403 for
+only two situations, an unverified address and a barred account, and both have copy written
+for the reader.
+
 Three regression tests replace one that had asserted the buggy behaviour — that a stale
 click *should* mail a fresh link. Reproduced end to end before and after, in a browser and
 against a real database. Two traps are recorded in `TROUBLESHOOTING.md`: a first attempt at

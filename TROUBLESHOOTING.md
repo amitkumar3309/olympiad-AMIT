@@ -38,6 +38,12 @@ had been wasted, and mailed a replacement.
 - `pages/Auth/VerifyEmail.tsx` keeps one redemption **promise** per token per tab, so a
   remount attaches to the request in flight rather than starting a second one.
 
+**A related symptom on the same journey.** An unverified account trying to sign in was
+shown "Your account does not have permission to do this", which reads as a broken or barred
+account rather than an unopened email. The cause was `humanizeError()` rewriting every 403;
+`humanizeSignInError()` now passes a 403 message through. If a sign-in ever reports a
+permission problem again, check that humanizer before suspecting the role table.
+
 **How to spot it in the data.** Many `verificationtokens` rows for one student, all
 `usedAt` set, minutes apart, with `isEmailVerified: false` on the account. After the fix a
 superseded row also carries `supersededAt`.
