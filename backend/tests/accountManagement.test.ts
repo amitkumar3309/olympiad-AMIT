@@ -275,7 +275,7 @@ describe('resetting another account’s password', () => {
     await request(app)
       .post(`${API}/me/change-password`)
       .set('Cookie', cookieHeader(cookies))
-      .send({ currentPassword: temporary, newPassword: 'ChosenByThem7' })
+      .send({ currentPassword: temporary, newPassword: 'ChosenByThem7!' })
       .expect(200);
 
     const after = await Student.findOne({ studentId });

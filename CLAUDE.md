@@ -329,6 +329,24 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   two-screen form; that is what this rule exists to prevent. Give `Field` an explicit `id` when
   something outside has to focus it; never put the `id` on the control instead, which breaks the
   label's `htmlFor`.
+- **There is one password policy, and the server holds it.** `validation/authSchemas.ts`
+  defines it (8+ characters, one lowercase, one uppercase, one number, one special
+  character — owner, 2026-09-02) and registration, the reset link and the settings change
+  all import it, so a password that can be set one way can be set every way. Its rules are
+  separate `refine`s so **every** failing one is reported in a single pass;
+  `frontend/src/lib/passwordPolicy.ts` mirrors them for the live checklist under the field
+  and is a *display*, never an authority. Change one, change the other — and remember
+  `generateTemporaryPassword()` in `users.routes.ts`, which must keep satisfying the
+  policy it will be checked against.
+- **The resend cooldown is the server's clock, and its response is deliberately not
+  truthful about the remaining time.** A verification link may be asked for once every
+  five minutes, measured from the age of the **live token** — not a counter, because the
+  wait is about what is in the inbox. `nextResendAt` rides on the registration and resend
+  responses and the browser only counts down to it. It is always "five minutes from now"
+  rather than the real remaining window, because `/auth/resend-verification` must answer
+  identically for an address that is not registered, and a truthful figure would make it
+  an account-existence oracle. Enforcement is server-side, so the constant figure is only
+  ever conservative. Do not "fix" it to report the real time.
 - **Every credential field carries `autoComplete`**, and the sign-in identifier is `username`
   (it takes a mobile number *or* an email, so telling a password manager it is an email makes it
   offer the wrong value). Passwords use `ui/PasswordInput`, which has the show/hide toggle.

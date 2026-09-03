@@ -282,3 +282,41 @@
     width: auto;
   }
 }
+
+/*
+ * The password requirement checklist, and the resend cooldown note.
+ *
+ * A met rule is stated in `--success-text`, never `--success`, which is a fill colour
+ * and does not carry words; an unmet one stays at `--text-muted` rather than being
+ * coloured as an error, because "not yet typed" is not a mistake.
+ */
+.passwordRules {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.passwordRules li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.ruleMet {
+  color: var(--success-text);
+}
+
+.ruleUnmet {
+  color: var(--text-muted);
+}
+
+.resendHint {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--text-muted);
+}

@@ -336,8 +336,8 @@ describe('PUT /me/photo', () => {
 // ===========================================================================
 
 describe('POST /me/change-password', () => {
-  const currentPassword = 'CorrectHorse9';
-  const newPassword = 'BrandNewSecret7';
+  const currentPassword = 'CorrectHorse9!';
+  const newPassword = 'BrandNewSecret7!';
 
   it('changes the password, so the old one stops working and the new one starts', async () => {
     const { cookies, student } = await registerVerifyLogin(app);

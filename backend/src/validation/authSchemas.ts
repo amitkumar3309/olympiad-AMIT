@@ -14,16 +14,40 @@ const mobile = z
 const email = z.string().trim().toLowerCase().pipe(z.string().email('Enter a valid email address'));
 
 /**
- * Password policy. Deliberately length-first rather than a thicket of character
- * classes: length is what actually resists guessing, and over-strict class rules
- * push people toward predictable substitutions.
+ * The password policy, and the **one** definition of it on the server: registration,
+ * the reset-link flow and the account-settings change all import this, so a password
+ * that can be set one way can be set every way.
+ *
+ * ## Composition rules are the owner's decision (2026-09-02)
+ *
+ * This was deliberately length-first until then, on the standard argument that length
+ * is what resists guessing while class rules push people toward `Password1!`. The owner
+ * asked for the familiar set instead, and that is a legitimate call — it is what most
+ * entrants and their parents expect to be asked for, and an unexpectedly permissive
+ * form reads as an insecure one. The length floor is kept, because the classes are an
+ * addition to it rather than a replacement.
+ *
+ * Each rule is a separate `refine` on purpose: zod reports them all in one pass, so the
+ * form can tell a reader everything their password is missing at once instead of
+ * revealing the next problem after each attempt.
+ *
+ * `frontend/src/lib/passwordPolicy.ts` mirrors these rules for the live checklist under
+ * the field. **This file is the authority**; that one exists so the reader is not told
+ * about a problem only after submitting. If you change a rule here, change it there.
  */
+export const PASSWORD_MIN_LENGTH = 8;
+
+/** Anything that is not a letter or a digit. Spaces count, and are not trimmed away. */
+const SPECIAL_CHARACTER = /[^A-Za-z0-9]/;
+
 export const password = z
   .string()
-  .min(8, 'Password must be at least 8 characters')
+  .min(PASSWORD_MIN_LENGTH, `Password must be at least ${PASSWORD_MIN_LENGTH} characters`)
   .max(200, 'Password must be at most 200 characters')
-  .refine((v) => /[a-zA-Z]/.test(v), 'Password must contain at least one letter')
-  .refine((v) => /\d/.test(v), 'Password must contain at least one number');
+  .refine((v) => /[a-z]/.test(v), 'Password must contain at least one lowercase letter')
+  .refine((v) => /[A-Z]/.test(v), 'Password must contain at least one uppercase letter')
+  .refine((v) => /\d/.test(v), 'Password must contain at least one number')
+  .refine((v) => SPECIAL_CHARACTER.test(v), 'Password must contain at least one special character, such as ! ? @ or #');
 
 /**
  * A person's name as typed on a form. `\p{L}` rather than `A-Za-z` so a name in

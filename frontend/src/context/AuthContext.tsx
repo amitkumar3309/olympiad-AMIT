@@ -36,6 +36,18 @@ export interface RegisterResult {
   message: string
   requiresEmailVerification: boolean
   student: Student
+  /**
+   * When another verification link may be requested — an absolute instant decided by
+   * the server, which the success screen counts down to. Optional so an older backend
+   * simply leaves the resend button enabled rather than breaking the page.
+   */
+  nextResendAt?: string
+}
+
+/** What a resend attempt reports: the generic message, and when to allow the next one. */
+export interface ResendResult {
+  message: string
+  nextResendAt?: string
 }
 
 interface AuthContextValue {
@@ -73,7 +85,7 @@ interface AuthContextValue {
    */
   refreshSession: () => Promise<void>
   verifyEmail: (token: string) => Promise<string>
-  resendVerification: (email: string) => Promise<string>
+  resendVerification: (email: string) => Promise<ResendResult>
   forgotPassword: (email: string) => Promise<string>
   resetPassword: (token: string, password: string) => Promise<string>
 }
@@ -209,9 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.message
   }, [])
 
-  const resendVerification = useCallback(async (email: string) => {
-    const res = await api.post<{ message: string }>('/auth/resend-verification', { email })
-    return res.message
+  const resendVerification = useCallback(async (email: string): Promise<ResendResult> => {
+    // The whole response, not just the message: `nextResendAt` is what the cooldown
+    // countdown is driven by, and it must come from the server rather than the browser.
+    return api.post<ResendResult>('/auth/resend-verification', { email })
   }, [])
 
   const forgotPassword = useCallback(async (email: string) => {

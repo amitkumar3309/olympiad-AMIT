@@ -17,4 +17,4 @@ mongoose.set('bufferCommands', false);
  * with a developer's actual admin credentials.
  */
 process.env.ADMIN_EMAIL = 'root-admin@amit.test';
-process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync('RootAdminPass9', 4);
+process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync('RootAdminPass9!', 4);

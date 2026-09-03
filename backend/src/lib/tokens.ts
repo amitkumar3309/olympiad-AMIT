@@ -272,6 +272,29 @@ export async function hasLiveVerificationToken(
 }
 
 /**
+ * The newest live token of this type, or null.
+ *
+ * Used for the resend cooldown: the age of this row is how long ago a link was actually
+ * emailed, which is the only honest basis for "you may ask for another in 4:12". A
+ * counter kept anywhere else would drift from what is in the inbox.
+ */
+export async function newestLiveVerificationToken(
+  studentId: Types.ObjectId,
+  type: VerificationTokenType,
+): Promise<{ createdAt: Date } | null> {
+  const row = await VerificationToken.findOne({
+    student: studentId,
+    type,
+    usedAt: null,
+    expiresAt: { $gt: new Date() },
+  })
+    .sort({ createdAt: -1 })
+    .select('createdAt')
+    .lean();
+  return row ? { createdAt: row.createdAt } : null;
+}
+
+/**
  * Gives a consumed token back, so the link in somebody's inbox still works.
  *
  * Consumption happens *before* the work the token authorises, which is what stops two

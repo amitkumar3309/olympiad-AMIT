@@ -1,19 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { Alert, Button, ButtonLink, Field, PasswordInput } from '../../components/ui'
+import { Alert, Button, ButtonLink, Field, Icon, PasswordInput } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
+// The one mirror of the server's policy. A second local copy of these rules drifted
+// from it the moment the rules changed, which is exactly what this import prevents.
+import { PASSWORD_RULES, passwordProblem } from '../../lib/passwordPolicy'
 import AuthLayout, { AuthStatus } from './AuthLayout'
 import styles from './AuthLayout.module.css'
-
-/** Mirrors the backend's rule, so the message a student sees is the rule they broke. */
-function passwordProblem(password: string): string | null {
-  if (password.length < 8) return 'Use at least 8 characters.'
-  if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
-    return 'Include at least one letter and one number.'
-  }
-  return null
-}
 
 export default function ResetPassword() {
   const [params] = useSearchParams()
@@ -108,12 +102,7 @@ export default function ResetPassword() {
       )}
 
       <form className={styles.form} onSubmit={handleSubmit} noValidate>
-        <Field
-          label="New password"
-          required
-          hint="At least 8 characters, including a letter and a number."
-          error={errors.password}
-        >
+        <Field label="New password" required error={errors.password}>
           <PasswordInput
             autoComplete="new-password"
             autoFocus
@@ -124,6 +113,25 @@ export default function ResetPassword() {
               if (errors.password) setErrors((current) => ({ ...current, password: undefined }))
             }}
           />
+          {/* The same ticked checklist the registration form shows, from the same
+              definition: somebody choosing a replacement password is being asked for
+              exactly what a new account is asked for, and should be told so up front. */}
+          <ul className={styles.passwordRules} aria-live="polite">
+            {PASSWORD_RULES.map((rule) => {
+              const met = rule.met(password)
+              return (
+                <li key={rule.id} className={met ? styles.ruleMet : styles.ruleUnmet}>
+                  <Icon
+                    name={met ? 'ph-check-circle' : 'ph-circle'}
+                    weight="bold"
+                    size="sm"
+                    label={met ? 'Met:' : 'Still needed:'}
+                  />
+                  <span>{rule.label}</span>
+                </li>
+              )
+            })}
+          </ul>
         </Field>
 
         <Field label="Confirm new password" required error={errors.confirm}>

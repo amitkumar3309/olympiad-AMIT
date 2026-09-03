@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Alert, Button, Field, Input, Spinner } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
+import { formatCooldown, useResendCooldown } from '../../lib/resendCooldown'
 import AuthLayout, { AuthStatus } from './AuthLayout'
 import styles from './AuthLayout.module.css'
 
@@ -53,6 +54,16 @@ export default function VerifyEmail() {
   const [resending, setResending] = useState(false)
 
   /**
+   * The wait before another link may be asked for (owner's request, 2026-09-02).
+   *
+   * Keyed by the address in the field, so switching addresses shows the right one, and
+   * persisted, so reloading this page does not appear to grant a fresh five minutes.
+   * The server refuses an early resend regardless — this is the honest display of a
+   * limit that is enforced there.
+   */
+  const cooldown = useResendCooldown(resendEmail)
+
+  /**
    * Subscribes to the redemption of this token, starting it only if nobody has.
    *
    * There is deliberately **no "already attempted" ref**. One was tried first and it
@@ -96,14 +107,16 @@ export default function VerifyEmail() {
       setResendNotice('')
       setResendError('')
       try {
-        setResendNotice(await resendVerification(resendEmail.trim()))
+        const result = await resendVerification(resendEmail.trim())
+        setResendNotice(result.message)
+        cooldown.start(result.nextResendAt, resendEmail.trim())
       } catch (err) {
         setResendError(humanizeError(err, { fallback: 'Could not send a new link. Please try again.' }))
       } finally {
         setResending(false)
       }
     },
-    [resendEmail, resendVerification],
+    [resendEmail, resendVerification, cooldown],
   )
 
   if (phase === 'verifying') {
@@ -169,9 +182,31 @@ export default function VerifyEmail() {
           />
         </Field>
 
-        <Button type="submit" fullWidth size="lg" loading={resending} icon="ph-paper-plane-tilt">
-          {resending ? 'Sending a new link' : 'Send me a new link'}
+        <Button
+          type="submit"
+          fullWidth
+          size="lg"
+          loading={resending}
+          icon="ph-paper-plane-tilt"
+          disabled={cooldown.secondsLeft > 0}
+        >
+          {resending
+            ? 'Sending a new link'
+            : cooldown.secondsLeft > 0
+              ? `Send another link in ${formatCooldown(cooldown.secondsLeft)}`
+              : 'Send me a new link'}
         </Button>
+
+        {/* The reason the button is disabled, in the page rather than in a `title` —
+            a tooltip never appears on a touch screen, and a dead button with no stated
+            reason is indistinguishable from a broken one. */}
+        {cooldown.secondsLeft > 0 && (
+          <p className={styles.hint}>
+            A link was sent moments ago. You can ask for another in{' '}
+            <strong>{formatCooldown(cooldown.secondsLeft)}</strong> — asking sooner would replace the link
+            already in your inbox, so open the newest email first.
+          </p>
+        )}
       </form>
 
       <div className={styles.formFooter}>

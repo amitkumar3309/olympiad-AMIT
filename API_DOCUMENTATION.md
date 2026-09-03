@@ -67,6 +67,8 @@ All auth routes live in `backend/src/routes/v1/auth.routes.ts`. Two cookies are 
 Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in production (the apps are on different domains). `tv` is the student's `tokenVersion`; a mismatch means the session was revoked.
 
 ### `POST /api/v1/auth/register`
+
+**Password policy** (owner, 2026-09-02): at least 8 characters with at least one lowercase letter, one uppercase letter, one number and one special character. Defined once in `validation/authSchemas.ts` and shared by the reset-link and change-password flows. All failing rules are reported in one response rather than the next one each time.
 - **Auth**: none. **Rate limit**: 10/hour per IP.
 - **Request** (Milestone 4 — every field below is required except `middleName`):
   ```
@@ -96,6 +98,8 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 - Tokens are single-use and consumed atomically, so a link cannot be redeemed twice even under a race.
 
 ### `POST /api/v1/auth/resend-verification`
+
+**Rate limited to one link every five minutes per account** (2026-09-02), measured from the age of the live link rather than from a counter. The response carries `nextResendAt`, an absolute instant the client counts down to; `POST /auth/register` carries it too, so the success screen can start the wait immediately. **`nextResendAt` is always "five minutes from now" and is not the true remaining window**: this endpoint answers identically for an address that is not registered, and a truthful figure would leak which addresses exist. The real window is enforced server-side, so a client timer can never expire before the server would allow the next send. An early request answers 200 and sends nothing.
 - **Auth**: none. **Rate limit**: 5/hour.
 - **Request**: `{ email }`
 - **Response 200**: always the same generic message, whether or not the address exists or is already verified — this endpoint must not reveal which addresses are registered.

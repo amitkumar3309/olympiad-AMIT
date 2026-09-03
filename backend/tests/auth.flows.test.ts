@@ -125,7 +125,7 @@ describe('register → verify → login → protected route → refresh → logo
  * forgot password → reset password → login with the new password.
  */
 describe('forgot password → reset password → login with the new password', () => {
-  const newPassword = 'BrandNewPass7';
+  const newPassword = 'BrandNewPass7!';
 
   it('completes the whole journey and invalidates the old password', async () => {
     await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
@@ -190,6 +190,87 @@ describe('forgot password → reset password → login with the new password', (
  * Both halves are pinned here, because fixing one without the other just moves the dead
  * end.
  */
+/**
+ * Ages the outstanding verification link so the five-minute resend cooldown has passed.
+ *
+ * The cooldown is measured from the age of the live token rather than from a counter, so
+ * moving that row back in time is exactly equivalent to waiting — and it keeps these
+ * tests instant. Nothing here fakes a clock: the row really is old.
+ */
+async function ageOutstandingLink(minutes = 6): Promise<void> {
+  await VerificationToken.updateMany(
+    { type: 'email_verify', usedAt: null },
+    { $set: { createdAt: new Date(Date.now() - minutes * 60 * 1000) } },
+  );
+}
+
+describe('the resend cooldown', () => {
+  it('refuses a second link while the first is still fresh, and keeps that first link working', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    const original = tokenFromLatestEmail('Verify');
+    const before = getTestInbox().length;
+
+    // Straight away, which is what an impatient student does.
+    const res = await request(app)
+      .post(`${API}/auth/resend-verification`)
+      .send({ email: validStudent.email })
+      .expect(200);
+
+    // The answer never varies — see the enumeration test below — but nothing was sent.
+    expect(res.body.nextResendAt).toBeTruthy();
+    expect(getTestInbox().length, 'no second link inside the cooldown').toBe(before);
+
+    // And the link they already have is untouched, which is the point: issuing a new one
+    // would have superseded it.
+    await request(app).post(`${API}/auth/verify-email`).send({ token: original }).expect(200);
+  });
+
+  it('sends a fresh link once the wait has passed', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    const original = tokenFromLatestEmail('Verify');
+    const before = getTestInbox().length;
+
+    await ageOutstandingLink();
+
+    await request(app).post(`${API}/auth/resend-verification`).send({ email: validStudent.email }).expect(200);
+
+    expect(getTestInbox().length, 'a link must be sent once the cooldown has passed').toBeGreaterThan(before);
+    const replacement = tokenFromLatestEmail('Verify');
+    expect(replacement).not.toBe(original);
+
+    // The new link works, and the superseded one says so without sending anything more.
+    const stale = await request(app).post(`${API}/auth/verify-email`).send({ token: original });
+    expect(stale.status).toBe(400);
+    expect(stale.body.error).toMatch(/out of date|most recent/i);
+    await request(app).post(`${API}/auth/verify-email`).send({ token: replacement }).expect(200);
+  });
+
+  it('answers identically for an address that is not registered', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    clearTestInbox();
+
+    const known = await request(app)
+      .post(`${API}/auth/resend-verification`)
+      .send({ email: validStudent.email })
+      .expect(200);
+    const unknown = await request(app)
+      .post(`${API}/auth/resend-verification`)
+      .send({ email: 'nobody.at.all@example.com' })
+      .expect(200);
+
+    /**
+     * The whole point of the generic answer: this endpoint must not become a way to test
+     * which addresses are registered. A *truthful* remaining time would leak exactly
+     * that — an unknown address would always report a full five minutes while a real one
+     * counted down — so the deadline is always "five minutes from now" and the real window
+     * is enforced against the token instead.
+     */
+    expect(unknown.body.message).toBe(known.body.message);
+    expect(Object.keys(unknown.body).sort()).toEqual(Object.keys(known.body).sort());
+    expect(getTestInbox().filter((mail) => mail.to === 'nobody.at.all@example.com')).toHaveLength(0);
+  });
+});
+
 describe('a spent verification link', () => {
   it('reports success when the link already did its job', async () => {
     await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
@@ -267,7 +348,10 @@ describe('a spent verification link', () => {
 
     // Asking for a new link invalidates every earlier one, by design — so this is the
     // "somebody opened the older of two emails" case, which is one of several ways a
-    // student legitimately arrives holding a superseded token.
+    // student legitimately arrives holding a superseded token. The cooldown has to have
+    // passed for a second link to be sent at all, which is what `ageOutstandingLink`
+    // stands in for.
+    await ageOutstandingLink();
     await request(app).post(`${API}/auth/resend-verification`).send({ email: validStudent.email }).expect(200);
     const live = tokenFromLatestEmail('Verify');
     expect(live).not.toBe(stale);
@@ -331,7 +415,8 @@ describe('a spent verification link', () => {
 
     // Marked used *without* `supersededAt`, which is what a redemption that died
     // mid-flight leaves behind — the one state where there is a genuine dead end and
-    // no live link in the inbox.
+    // no live link in the inbox. With nothing live, there is also no cooldown to wait
+    // out: the wait is measured from the link in the inbox, and there isn't one.
     await VerificationToken.updateOne({ type: 'email_verify' }, { $set: { usedAt: new Date() } });
 
     const before = getTestInbox().length;
@@ -393,7 +478,7 @@ describe('a spent verification link', () => {
     try {
       failed = await request(app)
         .post(`${API}/auth/reset-password`)
-        .send({ token, password: 'BrandNewPass9' });
+        .send({ token, password: 'BrandNewPass9!' });
     } finally {
       Student.prototype.save = save;
     }
@@ -402,10 +487,10 @@ describe('a spent verification link', () => {
 
     // Same property as the verification link: a transient failure must not consume the
     // one thing standing between the student and their account.
-    await request(app).post(`${API}/auth/reset-password`).send({ token, password: 'BrandNewPass9' }).expect(200);
+    await request(app).post(`${API}/auth/reset-password`).send({ token, password: 'BrandNewPass9!' }).expect(200);
     await request(app)
       .post(`${API}/auth/login`)
-      .send({ identifier: validStudent.email, password: 'BrandNewPass9' })
+      .send({ identifier: validStudent.email, password: 'BrandNewPass9!' })
       .expect(200);
   });
 });

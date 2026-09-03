@@ -2,6 +2,48 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-02 — A password policy, and a five-minute wait between verification emails
+
+Both at the owner's request.
+
+**The password policy now asks for composition, not just length.** At least eight
+characters, and at least one lowercase letter, one uppercase letter, one number and one
+special character. It is defined once, in `validation/authSchemas.ts`, and every path that
+sets a password — registration, the reset link, the account-settings change — imports it,
+so a password that can be set one way can be set every way. The rules are separate
+`refine`s so zod reports **all** of them in one pass: a reader is told everything their
+password is missing at once, rather than learning one rule per attempt.
+
+The registration and reset forms now show the five requirements as a live checklist that
+ticks as you type, from `lib/passwordPolicy.ts` — a deliberate mirror of the server, which
+remains the authority. The staff-issued temporary password generator was updated in the
+same change: its own comment said that a generated credential its validator would reject
+is a support call waiting to happen, and after this rule it could have produced one.
+
+**A verification link may now be requested only once every five minutes.** The server
+owns that clock: `nextResendAt` rides on the registration response and on every resend, and
+the browser only displays it — the countdown on the registration success screen and on the
+verification page is a display, and the server refuses an early resend regardless. It is
+persisted per address, so reloading the page does not appear to grant a fresh five minutes.
+
+The wait is measured from the age of the **live link**, which is the honest basis for it,
+and it protects the link as much as the mail quota: issuing a token supersedes the
+outstanding one, so an impatient second press used to destroy the link already in the
+inbox — the churn behind the 24-token loop fixed the day before.
+
+**The response is deliberately not truthful about the remaining time**, and that is the
+one subtle thing here. `/auth/resend-verification` answers identically whether or not the
+address is registered, so it cannot be used to test which addresses exist; a real remaining
+time would break exactly that, since an unknown address would always report a full five
+minutes while a real one counted down. So the response always says five minutes from now,
+and the real window is enforced against the token. A client's timer therefore never
+expires before the server would allow the next send.
+
+Twelve new tests (1272 across 35 files): every composition rule, that all failures are
+reported at once, that a space counts as a special character and is not trimmed, that an
+early resend sends nothing while keeping the first link working, that a resend after the
+wait sends a new one, and that a stranger's address gets a byte-identical answer.
+
 ## 2026-09-01 — Email verification could never succeed (production)
 
 Reported from the live site: a new student clicks the link in their verification email and

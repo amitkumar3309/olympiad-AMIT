@@ -453,7 +453,7 @@ describe('system notifications for real events', () => {
     await request(app)
       .post(`${API}/me/change-password`)
       .set('Cookie', header)
-      .send({ currentPassword: student.password, newPassword: 'BrandNewPass9', confirmPassword: 'BrandNewPass9' })
+      .send({ currentPassword: student.password, newPassword: 'BrandNewPass9!', confirmPassword: 'BrandNewPass9!' })
       .expect(200);
 
     expect(await Notification.countDocuments({ event: 'account.password_changed' })).toBe(1);

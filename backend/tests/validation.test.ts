@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../src/app';
 import { validStudent } from './helpers/auth';
+import { registerSchema } from '../src/validation/authSchemas';
 
 // Functional coverage of the request-validation layer only. Security-specific
 // behaviour (rate limiting, injection shapes, CORS, headers) is deliberately
@@ -86,5 +87,70 @@ describe('GET /api/v1/questions is no longer anonymous', () => {
     const res = await request(app).get('/api/v1/questions/000000000000000000000001');
     expect(res.status).toBe(401);
     expect(res.status).not.toBe(200);
+  });
+});
+
+describe('the password policy', () => {
+  /**
+   * Owner's decision, 2026-09-02: at least eight characters, and at least one of each of
+   * lowercase, uppercase, number and special character.
+   *
+   * Exercised through `registerSchema` rather than over HTTP, so every rule can be named
+   * individually without a database or a rate limiter in the way. The same `password`
+   * schema is imported by the reset-link and change-password flows, so what holds here
+   * holds for every path that sets a password — there is deliberately only one policy.
+   */
+  function attempt(password: string) {
+    return registerSchema.safeParse({ ...validStudent, password });
+  }
+
+  function messagesFor(password: string): string {
+    const parsed = attempt(password);
+    if (parsed.success) return '';
+    return parsed.error.issues.map((issue) => issue.message).join(' | ');
+  }
+
+  it('accepts a password holding all four classes', () => {
+    const parsed = attempt('Sunrise7!');
+    expect(parsed.success, parsed.success ? '' : messagesFor('Sunrise7!')).toBe(true);
+  });
+
+  it.each([
+    ['too short', 'Ab1!xyz', /at least 8/i],
+    ['no lowercase', 'SUNRISE7!', /lowercase/i],
+    ['no uppercase', 'sunrise7!', /uppercase/i],
+    ['no number', 'SunriseDay!', /number/i],
+    ['no special character', 'Sunrise777', /special character/i],
+  ])('refuses one with %s', (_label, password, expected) => {
+    expect(attempt(password).success).toBe(false);
+    expect(messagesFor(password)).toMatch(expected);
+  });
+
+  it('reports every missing requirement at once, not the next one', () => {
+    // A form can only tell a reader everything that is wrong if the schema returns
+    // everything that is wrong. `abcdefgh` breaks three rules, and all three are named
+    // — otherwise somebody tries five passwords, learning one rule each time.
+    const messages = messagesFor('abcdefgh');
+    expect(messages).toMatch(/uppercase/i);
+    expect(messages).toMatch(/number/i);
+    expect(messages).toMatch(/special character/i);
+  });
+
+  it('counts a space as a special character, and does not trim it away', () => {
+    // Deliberate: a passphrase with spaces is a good password, and trimming one would
+    // change a credential the reader believes they chose.
+    const parsed = attempt('Sunrise 7 morning');
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.password).toBe('Sunrise 7 morning');
+  });
+
+  it('is refused at the endpoint too, before the database is touched', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ ...validStudent, password: 'sunrise7' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/password/i);
   });
 });

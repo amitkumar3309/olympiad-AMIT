@@ -504,7 +504,7 @@ describe('GET /me/rewards', () => {
 
     const rootRes = await request(app)
       .post(`${API}/auth/admin/login`)
-      .send({ email: 'root-admin@amit.test', password: 'RootAdminPass9' })
+      .send({ email: 'root-admin@amit.test', password: 'RootAdminPass9!' })
       .expect(200);
     const rootCookies = cookieHeader(
       Object.fromEntries(

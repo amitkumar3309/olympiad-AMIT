@@ -32,7 +32,7 @@ describe('invalid tokens', () => {
   it('rejects a garbage password-reset token', async () => {
     const res = await request(app)
       .post(`${API}/auth/reset-password`)
-      .send({ token: 'not-a-real-token', password: 'Whatever123' })
+      .send({ token: 'not-a-real-token', password: 'Whatever123!' })
       .expect(400);
     expect(res.body.error).toMatch(/invalid/i);
   });
@@ -71,10 +71,10 @@ describe('invalid tokens', () => {
     await request(app).post(`${API}/auth/forgot-password`).send({ email: validStudent.email }).expect(200);
     const token = tokenFromLatestEmail('Reset');
 
-    await request(app).post(`${API}/auth/reset-password`).send({ token, password: 'FirstChange1' }).expect(200);
+    await request(app).post(`${API}/auth/reset-password`).send({ token, password: 'FirstChange1!' }).expect(200);
     const replay = await request(app)
       .post(`${API}/auth/reset-password`)
-      .send({ token, password: 'SecondChange2' })
+      .send({ token, password: 'SecondChange2!' })
       .expect(400);
     expect(replay.body.error).toMatch(/already been used/i);
   });
@@ -137,7 +137,7 @@ describe('expired tokens', () => {
 
     await VerificationToken.updateOne({ tokenHash: hashToken(token) }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
 
-    const res = await request(app).post(`${API}/auth/reset-password`).send({ token, password: 'NewPass123' }).expect(400);
+    const res = await request(app).post(`${API}/auth/reset-password`).send({ token, password: 'NewPass123!' }).expect(400);
     expect(res.body.error).toMatch(/expired/i);
   });
 

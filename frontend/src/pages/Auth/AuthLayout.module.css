@@ -161,3 +161,48 @@
 .formFooter a:hover {
   color: var(--primary-hover);
 }
+
+/*
+ * The reason a control is unavailable, stated beside it.
+ *
+ * Used by the verification page's resend cooldown. It is a sentence in the page rather
+ * than a `title`, because a tooltip never appears on a touch screen and a disabled
+ * button with no visible reason reads as a fault.
+ */
+.hint {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--text-muted);
+}
+
+/*
+ * The password requirement checklist, shared with the registration form's copy.
+ *
+ * A met rule uses `--success-text`, never `--success`, which is a fill colour that does
+ * not carry words. An unmet rule stays `--text-muted` rather than red: not having typed
+ * something yet is not an error.
+ */
+.passwordRules {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.passwordRules li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.ruleMet {
+  color: var(--success-text);
+}
+
+.ruleUnmet {
+  color: var(--text-muted);
+}

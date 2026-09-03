@@ -2,6 +2,8 @@ import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'reac
 import { useAuth } from '../../context/AuthContext'
 import { Alert, Button, Field, Icon, Input, PasswordInput, Select, Steps, Textarea } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
+import { PASSWORD_RULES, passwordProblem } from '../../lib/passwordPolicy'
+import { formatCooldown, useResendCooldown } from '../../lib/resendCooldown'
 import { CLASS_LEVELS, type ClassLevel, type ReferralCheck } from '../../api/types'
 import styles from './RegisterForm.module.css'
 
@@ -151,6 +153,14 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
   const [failure, setFailure] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [registeredId, setRegisteredId] = useState('')
+
+  /**
+   * The wait before another verification link may be requested (owner's request,
+   * 2026-09-02). Started from the registration response, so the first thing a new
+   * student sees is how long the link they have just been sent is worth waiting for
+   * — rather than a resend button inviting them to replace it immediately.
+   */
+  const cooldown = useResendCooldown(form.email)
   const [resendNotice, setResendNotice] = useState('')
 
   const setField =
@@ -176,10 +186,11 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
       next.mobile = 'Enter the 10-digit mobile number, without the country code.'
     }
     if (!photo) next.photo = 'A passport-style photograph is required.'
-    if (form.password.length < 8) {
-      next.password = 'Use at least 8 characters.'
-    } else if (!/[a-zA-Z]/.test(form.password) || !/\d/.test(form.password)) {
-      next.password = 'Include at least one letter and one number.'
+    // One definition of the policy, mirrored from the server (`lib/passwordPolicy.ts`),
+    // and it names **every** missing requirement at once rather than the next one.
+    const passwordIssue = passwordProblem(form.password)
+    if (passwordIssue) {
+      next.password = passwordIssue
     }
     if (form.confirmPassword !== form.password) {
       next.confirmPassword = 'The two passwords do not match.'
@@ -272,6 +283,7 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
         ...(referral?.valid ? { referralCode: referral.code } : {}),
       })
       setRegisteredId(result.student.studentId)
+      cooldown.start(result.nextResendAt, form.email.trim())
       setStep('success')
     } catch (err) {
       setFailure(humanizeError(err, { fallback: 'Registration failed. Please try again.' }))
@@ -284,7 +296,9 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
   async function handleResend() {
     setResendNotice('')
     try {
-      setResendNotice(await resendVerification(form.email.trim()))
+      const result = await resendVerification(form.email.trim())
+      setResendNotice(result.message)
+      cooldown.start(result.nextResendAt, form.email.trim())
     } catch (err) {
       setResendNotice(humanizeError(err, { fallback: 'Could not send a new link. Please try again.' }))
     }
@@ -496,7 +510,6 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
                 id={fieldId('password')}
                 label="Password"
                 required
-                hint="At least 8 characters, including a letter and a number."
                 error={errors.password}
               >
                 <PasswordInput
@@ -504,6 +517,34 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
                   value={form.password}
                   onChange={setField('password')}
                 />
+                {/*
+                  The requirements, ticked off as they are met.
+
+                  Shown always rather than only after a failed submit: a reader should
+                  know what is being asked of them *before* choosing a password, and the
+                  alternative — revealing the next missing rule after each attempt — is
+                  what makes people try five passwords in a row.
+
+                  `aria-live="polite"` so a screen-reader user hears a rule being
+                  satisfied without having to re-read the list; the icon is never the only
+                  carrier of meaning, since each rule keeps its words either way.
+                */}
+                <ul className={styles.passwordRules} aria-live="polite">
+                  {PASSWORD_RULES.map((rule) => {
+                    const met = rule.met(form.password)
+                    return (
+                      <li key={rule.id} className={met ? styles.ruleMet : styles.ruleUnmet}>
+                        <Icon
+                          name={met ? 'ph-check-circle' : 'ph-circle'}
+                          weight="bold"
+                          size="sm"
+                          label={met ? 'Met:' : 'Still needed:'}
+                        />
+                        <span>{rule.label}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
               </Field>
               <Field
                 id={fieldId('confirmPassword')}
@@ -593,10 +634,28 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
             <Button icon="ph-sign-in" onClick={onRequestLogin}>
               I have verified — sign me in
             </Button>
-            <Button variant="secondary" icon="ph-paper-plane-tilt" onClick={() => void handleResend()}>
-              Resend the link
+            <Button
+              variant="secondary"
+              icon="ph-paper-plane-tilt"
+              onClick={() => void handleResend()}
+              disabled={cooldown.secondsLeft > 0}
+            >
+              {cooldown.secondsLeft > 0
+                ? `Resend in ${formatCooldown(cooldown.secondsLeft)}`
+                : 'Resend the link'}
             </Button>
           </div>
+
+          {/* Why the button is unavailable, in the page rather than a tooltip: a
+              disabled control with no stated reason reads as a fault, and a `title`
+              never appears on a touch screen. */}
+          {cooldown.secondsLeft > 0 && (
+            <p className={styles.resendHint}>
+              The link is on its way. You can ask for another in{' '}
+              <strong>{formatCooldown(cooldown.secondsLeft)}</strong> — a new link replaces the one already
+              sent, so check your inbox (and your spam folder) first.
+            </p>
+          )}
         </div>
       )}
     </div>

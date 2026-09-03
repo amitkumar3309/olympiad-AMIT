@@ -41,6 +41,7 @@ import {
   issueVerificationToken,
   consumeVerificationToken,
   hasLiveVerificationToken,
+  newestLiveVerificationToken,
   releaseVerificationToken,
 } from '../../lib/tokens';
 import { buildVerificationEmail, buildPasswordResetEmail } from '../../lib/email';
@@ -153,6 +154,49 @@ function duplicateField(err: { keyPattern?: Record<string, unknown> }): string |
  * No `dedupeKey`: resending a verification link is a legitimate thing to ask for
  * (that is what `/auth/resend-verification` is), so these must not collide.
  */
+/**
+ * How long a student must wait between verification emails (owner's request,
+ * 2026-09-02). Five minutes.
+ *
+ * ## The server owns this clock, and the browser only displays it
+ *
+ * Same rule as the daily challenge's rollover: the page counts down from a figure this
+ * server sent and re-asks when it reaches zero. A cooldown enforced only in the browser
+ * is a suggestion — and this one exists partly to protect a mail quota, which a
+ * suggestion cannot do.
+ *
+ * ## Why the answer is the same for an address that is not registered
+ *
+ * `/auth/resend-verification` deliberately answers identically whether or not the
+ * account exists, so it cannot be used to test which addresses are registered. A
+ * *truthful* remaining time would break that: an unknown address would always report a
+ * full five minutes while a real one reported 4:12. So the response always says "five
+ * minutes from now", and the real window is enforced separately, against the age of the
+ * link actually sitting in the inbox. A client's timer therefore never expires *before*
+ * the server would allow the next send.
+ */
+export const RESEND_COOLDOWN_SECONDS = 5 * 60;
+
+/** The instant the caller may ask for another link. Constant, for the reason above. */
+function nextResendAt(): string {
+  return new Date(Date.now() + RESEND_COOLDOWN_SECONDS * 1000).toISOString();
+}
+
+/**
+ * Whether a fresh link may be emailed to this account yet.
+ *
+ * Measured from the newest **live** link, so it answers "how long ago did we actually
+ * send one" rather than "how long ago did somebody press a button". A link that has been
+ * redeemed or superseded is not in play, and an account with no live link at all has
+ * nothing to wait for.
+ */
+async function verificationCooldownRemaining(student: StudentDocument): Promise<number> {
+  const live = await newestLiveVerificationToken(studentObjectId(student), 'email_verify');
+  if (!live) return 0;
+  const elapsedSeconds = (Date.now() - live.createdAt.getTime()) / 1000;
+  return Math.max(0, Math.ceil(RESEND_COOLDOWN_SECONDS - elapsedSeconds));
+}
+
 async function sendVerificationLink(student: StudentDocument): Promise<void> {
   const { token } = await issueVerificationToken(studentObjectId(student), 'email_verify');
   await enqueueEmail({
@@ -288,6 +332,13 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
       message: 'Registration successful. Check your email for a verification link to activate your account.',
       requiresEmailVerification: config.auth.requireEmailVerification,
       student: publicStudent(student),
+      /**
+       * When they may ask for another link. The success screen counts down to it, so the
+       * first thing a new student sees after registering is how long the link they have
+       * just been sent is worth waiting for — rather than a resend button that invites
+       * them to supersede it immediately.
+       */
+      nextResendAt: nextResendAt(),
     });
   } catch (err) {
     logger.error({ err }, 'Registration failed');
@@ -480,12 +531,32 @@ router.post(
       const { email } = req.body as { email: string };
       const student = await Student.findOne({ email });
       if (student && !student.isEmailVerified && student.status === 'active') {
-        await sendVerificationLink(student);
+        /**
+         * Refused quietly while a link sent in the last five minutes is still live.
+         *
+         * Quietly, because the response may not vary with what we know about the
+         * address. The reader is not left guessing: they were given the same countdown
+         * when the link was sent, and the button that reaches this route is disabled
+         * until it runs out.
+         *
+         * This also protects the link itself. Issuing a token supersedes the outstanding
+         * one, so an impatient second press used to invalidate the link already in the
+         * inbox — the churn behind the 24-token loop recorded in TROUBLESHOOTING.md.
+         */
+        const waitSeconds = await verificationCooldownRemaining(student);
+        if (waitSeconds > 0) {
+          logger.info(
+            { studentId: student.studentId, waitSeconds },
+            'Verification resend refused: a link sent within the cooldown is still live',
+          );
+        } else {
+          await sendVerificationLink(student);
+        }
       }
-      sendSuccess(res, 200, { message: genericMessage });
+      sendSuccess(res, 200, { message: genericMessage, nextResendAt: nextResendAt() });
     } catch (err) {
       logger.error({ err }, 'Resend verification failed');
-      sendSuccess(res, 200, { message: genericMessage });
+      sendSuccess(res, 200, { message: genericMessage, nextResendAt: nextResendAt() });
     }
   },
 );

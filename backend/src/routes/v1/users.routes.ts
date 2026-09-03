@@ -122,11 +122,17 @@ function generateTemporaryPassword(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   let out = '';
   for (let i = 0; i < 14; i += 1) out += alphabet[crypto.randomInt(alphabet.length)];
-  // The password policy in `authSchemas.ts` demands a letter and a digit. The
-  // alphabet above makes both overwhelmingly likely but not certain, so they are
-  // appended rather than hoped for — a generated credential that its own validator
-  // would reject is a support call waiting to happen.
-  return `${out}a7`;
+  /**
+   * The suffix guarantees every class the policy in `authSchemas.ts` requires — a
+   * lowercase letter, an uppercase letter, a digit and a special character. The alphabet
+   * above makes the first three overwhelmingly likely but not certain, and since the
+   * owner added the special-character rule (2026-09-02) it can produce none at all.
+   *
+   * Appended rather than hoped for: a generated credential that its own validator would
+   * reject is a support call waiting to happen. `!` is deliberately the one special
+   * character used, because this password gets dictated over a phone.
+   */
+  return `${out}aA7!`;
 }
 
 /**

@@ -44,7 +44,7 @@ export const validStudent = {
   address: '12 Example Road, Example City, 110001',
   mobile: '9876543210',
   email: 'student@example.com',
-  password: 'CorrectHorse9',
+  password: 'CorrectHorse9!',
   photo: validPhoto,
 };
 
@@ -55,13 +55,13 @@ export const otherStudent = {
   lastName: 'Student',
   mobile: '9123456780',
   email: 'other@example.com',
-  password: 'DifferentHorse8',
+  password: 'DifferentHorse8!',
 };
 
 /** Matches the values `tests/setup.ts` puts into the environment. */
 export const rootAdmin = {
   email: 'root-admin@amit.test',
-  password: 'RootAdminPass9',
+  password: 'RootAdminPass9!',
 };
 
 /** Extracts the `token=` value from the most recent email of a given kind. */

@@ -20,6 +20,30 @@ Reflects the actual state of the code. Fix items here before building new featur
 > change.
 
 
+## Password policy and verification-email throttling (2026-09-02)
+
+**Passwords**: at least 8 characters with at least one lowercase letter, one uppercase
+letter, one number and one special character. One definition, in
+`validation/authSchemas.ts`, imported by registration, the reset-link flow and the
+account-settings change — there is no second copy on the server, and the client's
+`lib/passwordPolicy.ts` is a display mirror, not an authority. Composition rules were the
+owner's decision; the length floor is unchanged. Hashing is still bcrypt at cost 12.
+
+**Verification emails are limited to one per account every five minutes**, on top of the
+existing per-IP `emailActionLimiter`. The window is measured from the age of the live
+token, so it throttles what actually reaches an inbox rather than what reaches the route.
+It protects the mail quota and, just as importantly, the link itself: issuing a token
+supersedes the outstanding one, so an unthrottled resend button lets somebody destroy the
+link they are waiting for.
+
+**The throttle must not become an account-existence oracle.** `/auth/resend-verification`
+answers identically for an unregistered address, so the `nextResendAt` it returns is
+always five minutes from now rather than the true remaining wait — a truthful figure
+would distinguish a real account (counting down) from an unknown one (always a full five
+minutes). Enforcement is server-side against the token, so the constant figure costs
+nothing: a client timer can only ever be conservative. There is a test asserting the two
+responses have identical keys and messages.
+
 ## Image import and the model boundary (Milestone 21, Phase E)
 
 The image path is the only importer that sends anything to a third party, so what it sends is
