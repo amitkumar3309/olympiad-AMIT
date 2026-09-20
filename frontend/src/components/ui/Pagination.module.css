@@ -24,21 +24,23 @@
   gap: var(--space-2);
 }
 
+/* Matches `ui/Button variant="secondary"`: a tinted pill, not a bordered box — a card
+   has no border now, so a bordered control on one is the only drawn line in view. */
 .arrow {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: var(--tap-target);
   height: var(--tap-target);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--fill-subtle);
   color: var(--text);
+  transition: background-color var(--dur-fast) var(--ease);
 }
 
 .arrow:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  background: var(--surface-hover);
+  background: var(--fill-muted);
 }
 
 .arrow:disabled {
@@ -81,6 +83,8 @@
   }
 }
 
+/* A pill, like every other pressable thing in the product. The page numbers were the
+   last control still square (Milestone 26). */
 .page,
 .pageActive {
   display: inline-flex;
@@ -88,25 +92,34 @@
   justify-content: center;
   min-width: 38px;
   height: 38px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: none;
   font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  /* The one motion gap left in the design system: every other control eased its
+     hover and these did not, so a row of page numbers snapped while the arrows
+     beside them faded. */
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 
 .page:hover {
-  background: var(--surface-hover);
+  background: var(--fill-subtle);
   color: var(--text);
 }
 
+/* The current page is the ink fill — the one place in this component where an
+   element is *selected* rather than merely hoverable. */
 .pageActive {
   background: var(--primary);
   border-color: var(--primary);
   color: var(--primary-on);
+  font-weight: var(--weight-semibold);
 }
 
 /**

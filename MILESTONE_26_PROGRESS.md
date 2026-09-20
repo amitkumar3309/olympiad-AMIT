@@ -63,6 +63,9 @@ type is *tight*; colour is *categorical* and the action is *near-black*.
 | 7 | `8d17abc` | `humanizeError` in 97 places; `h1` on four public pages |
 | 8 | `c229fa8` | The hand-rolled card surfaces (11 converted, 3 made nested insets) |
 | 9 | `412d4c2` | **Eleven** duplicated action-button classes → one `ui/Button`; two tables → `ui/Menu` |
+| 10 | `da64da0` | Every radius on the scale; two selector-list bugs |
+| 11 | `3576c02` | The shadow type scale — 191 more sizes onto the ramp |
+| 12 | *(this)* | Motion pass |
 
 ### Verified at the last commit
 
@@ -85,25 +88,58 @@ It was **eleven** classes across ten files, not five. All gone; `ui/Button` /
 `ui/ButtonLink` are the only copies, and two table-row cases became `ui/Menu`.
 `--royal-blue` is now referenced **zero** times outside `tokens.css`.
 
-### C. 38 hardcoded font sizes left
+### ~~C. Hardcoded font sizes~~ — **done, phase 11**
 
-All display sizes (17, 20, 22, 26–48px). No 1:1 ramp step, so each needs a judgement about
-that page's hierarchy. Do them *with* the page, not as a sweep.
+It was **221**, not 38 — the phase-5 scan matched `font-size: Npx` only, so every `rem`
+value and every decimal px was invisible to it. Forty-four distinct values, six of them
+between 11 and 15px. 191 are now ramp tokens.
 
-### D. ~51 hardcoded `border-radius: Npx`
+### ~~D. Hardcoded radii~~ — **done, phase 10**
 
-Map onto `--radius-*`. Mostly safe, but check anything that is a circle (`50%`) or a pill.
+48 mapped. Nothing in `src/` hardcodes a radius. `border-radius: 50%` is left alone: a
+circle is a shape, not a step on the scale.
 
-### E. Motion pass
+### ~~E. Motion pass~~ — **done, phase 12**
 
-Tokens exist (`--dur-*`, `--ease-*`) and `prefers-reduced-motion` is already honoured once
-in `base.css`. What is missing is applying them: card hover, menu/modal entry, tab changes.
-**Keep it subtle** — the brief says no decoration.
+The system already had the right amount: `Modal`, `Menu`, `Toast`, `Tooltip`, `Spinner`,
+`Skeleton` and `Progress` all animate; `Button`, `Card`, `Input`, `Table`, `Tabs` and
+`Breadcrumb` all ease. **`Pagination` was the only gap** and is fixed.
 
-### F. Signed-in browser regression sweep — **blocked here**
+Deliberately **not** added: `scroll-behavior: smooth`. Every `scrollIntoView` in this
+product passes `behavior: 'auto'` on purpose — a documented Phase F decision that a
+smooth scroll can simply fail to arrive. `base.css` already carries the reduced-motion
+guard for it, which looks like an omission and is not.
 
-Needs a running backend and a real session. Cannot be done in this environment. It is the
-one item that must be reported as not-done rather than worked around.
+---
+
+## What is genuinely left
+
+### F. Signed-in browser regression sweep — **blocked in this environment**
+
+Needs a running backend and a real session. It is the one item that must be reported as
+not-done rather than worked around. Everything drivable without a backend — the 14 public
+routes, `/design-system`, both themes, 320px — has been swept.
+
+### G. 16 page-level glyph sizes should become `<Icon size>`
+
+`font-size: 32px` on an `<i>` is sizing a *glyph*, not text, so the type ramp correctly
+does not govern it — but the right fix is the component's own `size` prop at the call
+site, which is a JSX change per site. `Icon.module.css` (the icon scale itself) and
+`Certificate.module.css` (a printed document) are correctly excluded from any sweep.
+
+### H. ~160 `rgba()` literals remain in page CSS
+
+Almost all are low-alpha status tints (`rgba(16,185,129,.12)` and friends) where a
+`--success-soft` token already exists. Mechanical, but each needs a glance to confirm
+which semantic tone it meant. Lower value than anything above — they already follow the
+theme's *intent* even though they do not follow the theme.
+
+### I. Two hand-rolled modals
+
+`Admin/Exams` and `Admin/Certificates` still render their own dialog rather than
+`ui/Modal`. Left deliberately: swapping them is a **focus-management** change to a
+destructive confirmation, which deserves its own browser pass rather than riding along
+with a restyle.
 
 ---
 
