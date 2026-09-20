@@ -13,7 +13,7 @@
 
 .title {
   margin: 14px 0 10px;
-  font-size: 1.3rem;
+  font-size: var(--text-xl);
 }
 
 .body {
@@ -39,6 +39,6 @@
 
 .foot {
   margin: 20px 0 0;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }

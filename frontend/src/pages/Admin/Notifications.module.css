@@ -61,7 +61,7 @@
 
 .emailOptIn em {
   font-style: normal;
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   line-height: 1.6;
   color: var(--text-muted);
 }

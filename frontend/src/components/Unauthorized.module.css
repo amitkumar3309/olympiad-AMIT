@@ -21,7 +21,7 @@
 
 .card h2 {
   margin: 0 0 12px;
-  font-size: 22px;
+  font-size: var(--text-xl);
 }
 
 .card p {

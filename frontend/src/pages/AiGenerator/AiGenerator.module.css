@@ -59,7 +59,7 @@
 
 .hint {
   margin: 6px 0 0;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -80,7 +80,7 @@
 
 .status p {
   margin: 8px 0 0;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -118,13 +118,13 @@
 
 .rejected h3 {
   margin: 0 0 10px;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
 }
 
 .rejected ul {
   margin: 0;
   padding-left: 20px;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   line-height: 1.7;
   color: var(--text-muted);
 }
@@ -141,7 +141,7 @@
   border-radius: var(--radius-sm);
   background: var(--success-soft);
   color: var(--success-text);
-  font-size: 0.9rem;
+  font-size: var(--text-base);
 }
 
 .editLink {
@@ -178,7 +178,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   cursor: pointer;
 }
 
@@ -238,7 +238,7 @@
 
 .answerLine {
   margin: 10px 0 0;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -259,7 +259,7 @@
 
 .solution {
   margin-top: 12px;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
 }
 
@@ -284,7 +284,7 @@
   border-radius: var(--radius-sm);
   padding: 7px 14px;
   font: inherit;
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   color: var(--text-main);
@@ -315,7 +315,7 @@
 .rejectedList {
   margin: 8px 0;
   padding-left: 20px;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -336,7 +336,7 @@
 
 .warnBox h3 {
   margin: 0 0 10px;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -346,7 +346,7 @@
 .warnBox ul {
   margin: 0;
   padding-left: 20px;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   line-height: 1.7;
   color: var(--text-muted);
 }
@@ -357,7 +357,7 @@
   flex-wrap: wrap;
   gap: 12px;
   margin-top: 8px;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -366,7 +366,7 @@
   border: none;
   background: none;
   color: var(--primary-text);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -375,7 +375,7 @@
 .checkOk,
 .checkBad {
   margin: 8px 0 0;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   font-weight: 600;
 }
 
@@ -405,7 +405,7 @@
 /* This one IS a refusal, so it is allowed to look like one. */
 .refusedLine {
   margin: 0 0 10px;
-  font-size: 0.86rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--danger-text);
   display: flex;
@@ -420,7 +420,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 0.84rem;
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--warning-text);
 }

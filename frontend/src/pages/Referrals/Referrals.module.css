@@ -17,7 +17,7 @@
 
 .codeLabel {
   margin: 0 0 6px;
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -161,13 +161,13 @@ tracking genuinely happens {
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 0.95rem;
+  font-size: var(--text-base);
   line-height: 1.6;
 }
 
 .rewardTerms {
   margin: 8px 0 0;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   line-height: 1.65;
   color: var(--text-muted);
 }

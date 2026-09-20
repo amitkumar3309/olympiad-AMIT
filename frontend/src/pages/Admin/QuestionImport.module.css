@@ -154,7 +154,7 @@
 
 .count strong {
   display: block;
-  font-size: 22px;
+  font-size: var(--text-xl);
   line-height: 1.2;
 }
 

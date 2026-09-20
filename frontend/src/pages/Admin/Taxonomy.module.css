@@ -2,7 +2,7 @@
   margin: 0 0 14px;
   max-width: 76ch;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--text-base);
 }
 
 .archivedToggle {
@@ -10,7 +10,7 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 16px;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   cursor: pointer;
 }
@@ -21,7 +21,7 @@
   border-radius: var(--radius-sm);
   background: rgba(16, 185, 129, 0.14);
   color: var(--success-text);
-  font-size: 0.88rem;
+  font-size: var(--text-base);
 }
 
 .forms {
@@ -41,7 +41,7 @@
 .inlineForm > label {
   display: block;
   margin-bottom: 8px;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -70,7 +70,7 @@
 .emptyHint {
   margin: 0;
   max-width: 48ch;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
 }
 
 .busy {
@@ -87,12 +87,12 @@
 
 .topicCount {
   margin-left: auto;
-  font-size: 0.75rem;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
 .archivedBadge {
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   padding: 2px 8px;
   border-radius: var(--radius-pill);
   background: rgba(239, 68, 68, 0.15);
@@ -120,10 +120,10 @@
 }
 
 .topicName {
-  font-size: 0.92rem;
+  font-size: var(--text-base);
 }
 
 .subtopicName {
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   color: var(--text-muted);
 }

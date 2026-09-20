@@ -10,10 +10,10 @@
 .good { padding: 26px; border-left: 4px solid var(--success); }
 .withdrawn { padding: 26px; border-left: 4px solid var(--danger); }
 .bad { padding: 32px; text-align: center; border-left: 4px solid var(--text-muted); }
-.bad h2 { margin: 0 0 8px; font-size: 20px; }
+.bad h2 { margin: 0 0 8px; font-size: var(--text-xl); }
 .bad p { margin: 0 auto; max-width: 460px; color: var(--text-muted); line-height: 1.6; }
 .verdict { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
-.verdict h2 { margin: 0 0 4px; font-size: 20px; }
+.verdict h2 { margin: 0 0 4px; font-size: var(--text-xl); }
 .verdict p { margin: 0; color: var(--text-muted); line-height: 1.6; }
 .tick, .cross { flex: 0 0 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; font-size: var(--text-xl); font-weight: 800; }
 .tick { background: rgba(34,197,94,.16); color: var(--success-text); }

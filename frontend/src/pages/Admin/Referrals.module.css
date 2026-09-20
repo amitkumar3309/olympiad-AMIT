@@ -11,7 +11,7 @@
 
 .sectionTitle {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--text-md);
 }
 
 /* --------------------------------------------------------------------------
@@ -33,7 +33,7 @@
 }
 
 .totalLabel {
-  font-size: 0.7rem;
+  font-size: var(--text-2xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -42,7 +42,7 @@
 
 .totalValue {
   font-family: var(--font-mono);
-  font-size: 1.45rem;
+  font-size: var(--text-xl);
   font-weight: 800;
   color: var(--primary-text);
 }
@@ -68,7 +68,7 @@
   padding: 12px 14px;
   border-radius: var(--radius-sm);
   background: var(--bg);
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--text-muted);
 }
@@ -84,7 +84,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   cursor: pointer;
 }
@@ -97,14 +97,14 @@
 
 .settingsNote {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   line-height: 1.65;
   color: var(--text-muted);
 }
 
 .readOnly {
   margin: 12px 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -119,7 +119,7 @@
 .rejectBtn {
   padding: 9px 18px;
   border-radius: var(--radius-sm);
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -151,7 +151,7 @@
 .payBtn,
 .rejectBtn {
   padding: 6px 12px;
-  font-size: 0.76rem;
+  font-size: var(--text-xs);
 }
 
 .approveBtn {
@@ -213,7 +213,7 @@
   padding: 36px 10px;
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--text-base);
 }
 
 .tableScroll {
@@ -373,12 +373,12 @@
 
 .dialog h2, .dialog h3 {
   margin: 0 0 8px;
-  font-size: 1.05rem;
+  font-size: var(--text-md);
 }
 
 .dialogLead {
   margin: 0 0 16px;
-  font-size: 0.85rem;
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--text-muted);
 }

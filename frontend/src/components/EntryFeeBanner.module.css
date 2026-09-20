@@ -24,13 +24,13 @@
 
 .title {
   margin: 0 0 4px;
-  font-size: 1.05rem;
+  font-size: var(--text-md);
 }
 
 .body {
   margin: 0;
   max-width: 62ch;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   line-height: 1.6;
   color: var(--text-muted);
 }
@@ -52,6 +52,6 @@
 
 .unavailable {
   flex-shrink: 0;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }

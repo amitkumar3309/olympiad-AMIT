@@ -486,7 +486,7 @@
 
 .confirm p {
   margin: 0 0 4px;
-  font-size: 12.5px;
+  font-size: var(--text-xs);
   line-height: 1.55;
 }
 
@@ -557,7 +557,7 @@
 }
 
 .tileValue {
-  font-size: 22px;
+  font-size: var(--text-xl);
   font-weight: 800;
   font-family: var(--font-mono);
 }
@@ -662,7 +662,7 @@
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: 13.5px;
+  font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
 

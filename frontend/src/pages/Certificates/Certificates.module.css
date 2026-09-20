@@ -13,7 +13,7 @@
 .tier_merit { background: rgba(56,189,248,.16); color: var(--primary-text); }
 .tier_participation { background: rgba(148,163,184,.18); color: var(--text-muted); }
 .score { text-align: right; }
-.score strong { display: block; font-size: 30px; }
+.score strong { display: block; font-size: var(--text-2xl); }
 .score span { font-size: var(--text-sm); color: var(--text-muted); }
 .facts { display: flex; flex-wrap: wrap; gap: 26px; margin: 18px 0; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .facts dt { font-size: var(--text-2xs); letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 3px; }

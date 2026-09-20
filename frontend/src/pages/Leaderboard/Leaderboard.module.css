@@ -103,7 +103,7 @@
 
 .meRank {
   font-family: var(--font-mono);
-  font-size: 28px;
+  font-size: var(--text-2xl);
   font-weight: 800;
   line-height: 1.1;
 }
@@ -116,7 +116,7 @@
 
 .meXp {
   font-family: var(--font-mono);
-  font-size: 22px;
+  font-size: var(--text-xl);
   font-weight: 700;
 }
 

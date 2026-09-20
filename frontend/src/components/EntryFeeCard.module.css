@@ -6,13 +6,13 @@
 
 .card h2 {
   margin: 0 0 10px;
-  font-size: 1.05rem;
+  font-size: var(--text-md);
 }
 
 .body {
   margin: 0 0 8px;
   max-width: 60ch;
-  font-size: 0.88rem;
+  font-size: var(--text-base);
   line-height: 1.65;
   color: var(--text-muted);
 }
@@ -20,7 +20,7 @@
 .free {
   margin: 0 0 16px;
   max-width: 60ch;
-  font-size: 0.8rem;
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--text-muted);
 }
@@ -41,7 +41,7 @@
 
 .unavailable {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--text-muted);
 }
