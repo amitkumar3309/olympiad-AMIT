@@ -3,7 +3,9 @@ import { ApiError } from '../../api/client'
 import ThemeToggle from '../../components/ThemeToggle'
 import {
   Alert,
+  Avatar,
   Badge,
+  Breadcrumb,
   Button,
   ButtonLink,
   Card,
@@ -11,6 +13,9 @@ import {
   CardFooter,
   CardHeader,
   Checkbox,
+  IconTile,
+  Menu,
+  Section,
   DataCard,
   DataCardList,
   DataRow,
@@ -83,7 +88,15 @@ const SAMPLE_ICONS = [
   'ph-bell',
 ]
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/**
+ * A band of this reference page.
+ *
+ * Renamed from `Section` in Milestone 26, when `ui/Section` arrived and the two names
+ * collided. Deliberately **not** replaced by `ui/Section`: this page has to be able to
+ * show that component as a specimen, and a reference page built out of the thing it is
+ * demonstrating cannot show it failing.
+ */
+function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className={styles.section}>
       <h2 className={styles.sectionTitle}>{title}</h2>
@@ -148,7 +161,7 @@ export default function DesignSystem() {
       </header>
 
       <main className={`container ${styles.main}`}>
-        <Section title="Colour">
+        <Group title="Colour">
           <p className={styles.note}>
             Semantic tokens only. A component never names a palette step, so re-pointing one
             of these changes the whole product at once.
@@ -180,9 +193,9 @@ export default function DesignSystem() {
               </div>
             ))}
           </div>
-        </Section>
+        </Group>
 
-        <Section title="Typography">
+        <Group title="Typography">
           <p className={styles.note}>
             <strong>One family: Geist.</strong> Inter, Poppins and JetBrains Mono were dropped in
             Milestone 26 — the character of a heading comes from weight and tracking, not from a second
@@ -227,9 +240,149 @@ export default function DesignSystem() {
             <p className="eyebrow" style={{ margin: 0 }}>Eyebrow · text-2xs uppercase</p>
             <p className="mono" style={{ margin: 0 }}>Geist Mono 1234567890 · tabular figures</p>
           </div>
-        </Section>
+        </Group>
 
-        <Section title="Buttons">
+        {/* ------------------------------------------- the Milestone 26 primitives */}
+        <Group title="Section — the page's rhythm unit">
+          <p className={styles.note}>
+            Eyebrow → heading → lead → content, and with <code>titleAs=&quot;h1&quot; size=&quot;page&quot;</code>
+            it is also the page header. There is deliberately no separate <code>PageHeader</code>: the two are
+            the same shape at two sizes. It also wires its own <code>aria-labelledby</code>, so a section
+            cannot end up as an unnamed landmark.
+          </p>
+          <Card padding="lg">
+            <Section
+              as="div"
+              eyebrow="What you get"
+              title="Four ways to prepare, all of them free"
+              titleAs="h3"
+              lead="The lead is capped at a 62-character measure. A line of body copy spanning a 1200px container is genuinely hard to track back from."
+              actions={
+                <Button size="sm" variant="secondary">
+                  An action
+                </Button>
+              }
+            >
+              <p style={{ margin: 0 }}>Content sits here, one --block-gap below the header.</p>
+            </Section>
+          </Card>
+          <Row label="Compact — inside a card, under a section heading">
+            <div style={{ width: '100%' }}>
+              <Card tone="sunken" padding="md">
+                <Section
+                  as="div"
+                  title="Compact section"
+                  titleAs="h3"
+                  size="compact"
+                  lead="Smaller title, tighter rhythm."
+                  divider
+                >
+                  <p style={{ margin: 0, fontSize: 'var(--text-sm)' }}>With a divider under the header.</p>
+                </Section>
+              </Card>
+            </div>
+          </Row>
+        </Group>
+
+        <Group title="IconTile — the only coloured thing">
+          <p className={styles.note}>
+            <strong>This is the one place the categorical palette appears.</strong> Confining colour to a
+            single component is what keeps it scarce enough to mean something — and it is why buttons are
+            near-black. The <code>-on</code> colours are not all white: white on <code>--cat-orange</code> is
+            3.08:1, below even the 3:1 a non-text graphic needs, so orange, green and lilac take ink while
+            blue, magenta and purple take white.
+          </p>
+          <Row label="Tones — categories, never actions and never words">
+            <IconTile icon="ph-target" tone="blue" />
+            <IconTile icon="ph-exam" tone="orange" />
+            <IconTile icon="ph-calendar-check" tone="magenta" />
+            <IconTile icon="ph-chart-line-up" tone="green" />
+            <IconTile icon="ph-sparkle" tone="purple" />
+            <IconTile icon="ph-bell" tone="lilac" />
+            <IconTile icon="ph-gear-six" tone="neutral" />
+            <IconTile icon="ph-trophy" tone="gold" />
+          </Row>
+          <Row label="Sizes and shapes">
+            <IconTile icon="ph-target" tone="blue" size="sm" />
+            <IconTile icon="ph-target" tone="blue" size="md" />
+            <IconTile icon="ph-target" tone="blue" size="lg" />
+            <IconTile icon="ph-check-circle" tone="green" shape="circle" size="sm" />
+            <IconTile icon="ph-check-circle" tone="green" shape="circle" size="md" />
+          </Row>
+        </Group>
+
+        <Group title="Avatar">
+          <p className={styles.note}>
+            <code>name</code> is required — it is the initials <em>and</em> the image&apos;s alternative text.
+            A failed photograph falls back to initials rather than to the browser&apos;s broken-image glyph,
+            which matters because photographs come from an authenticated endpoint: an expired session would
+            otherwise break every avatar on the page.
+          </p>
+          <Row label="Sizes (sample names)">
+            <Avatar name="Aarav Sharma" size="xs" />
+            <Avatar name="Aarav Sharma" size="sm" />
+            <Avatar name="Priya Iyer" size="md" />
+            <Avatar name="Mohammed Ali Khan" size="lg" />
+            <Avatar name="Amit" size="md" />
+          </Row>
+          <Row label="A broken source falls back; it does not show a broken image">
+            <Avatar name="Sneha Rao" src="/this-photo-does-not-exist.png" size="md" />
+          </Row>
+        </Group>
+
+        <Group title="Menu — row actions">
+          <p className={styles.note}>
+            One trigger instead of five small buttons at the end of every table row. The panel is portalled
+            and positioned from the trigger, so <code>TableScroll</code>&apos;s overflow cannot clip it; any
+            scroll closes it rather than leaving it floating beside nothing. A disabled item states
+            <em> why</em> in the panel — a <code>title</code> never appears on a touch screen.
+          </p>
+          <Row label="Icon-only and labelled">
+            <Menu
+              label="Actions for a sample row"
+              items={[
+                { label: 'Edit', icon: 'ph-pencil-simple', onSelect: () => toast.info('Sample: edit') },
+                { label: 'Duplicate', icon: 'ph-copy', onSelect: () => toast.info('Sample: duplicate') },
+                { separator: true },
+                {
+                  label: 'Release results',
+                  icon: 'ph-megaphone',
+                  disabled: true,
+                  disabledReason: 'The exam window has to close first — a rank is a fact about the whole cohort.',
+                },
+                { label: 'Delete', icon: 'ph-trash', tone: 'danger', onSelect: () => toast.info('Sample: delete') },
+              ]}
+            />
+            <Menu
+              label="More actions for a sample row"
+              triggerLabel="More"
+              triggerIcon="ph-caret-down"
+              align="start"
+              items={[
+                { label: 'Export as .xlsx', icon: 'ph-file-xls', onSelect: () => toast.info('Sample: export') },
+                { label: 'Print', icon: 'ph-printer', onSelect: () => toast.info('Sample: print') },
+              ]}
+            />
+          </Row>
+        </Group>
+
+        <Group title="Breadcrumb">
+          <p className={styles.note}>
+            The last item is the page you are on: text, marked <code>aria-current=&quot;page&quot;</code>, never
+            a link. A link to the current page is a control that appears to do something and does nothing.
+          </p>
+          <Row>
+            <Breadcrumb
+              items={[
+                { label: 'Question Bank', to: '/design-system' },
+                { label: 'Class 9 · Trigonometry', to: '/design-system' },
+                { label: 'Edit question' },
+              ]}
+            />
+          </Row>
+        </Group>
+
+        <Group title="Buttons">
           <Row label="Variants">
             <Button variant="primary">Primary</Button>
             <Button variant="secondary">Secondary</Button>
@@ -266,9 +419,9 @@ export default function DesignSystem() {
               </Button>
             </div>
           </Row>
-        </Section>
+        </Group>
 
-        <Section title="Badges">
+        <Group title="Badges">
           {(['soft', 'solid', 'outline'] as const).map((variant) => (
             <Row key={variant} label={variant}>
               {TONES.map((tone) => (
@@ -295,9 +448,9 @@ export default function DesignSystem() {
               Draft
             </Badge>
           </Row>
-        </Section>
+        </Group>
 
-        <Section title="Alerts">
+        <Group title="Alerts">
           <div className="stack">
             {ALERT_TONES.map((tone) => (
               <Alert key={tone} tone={tone} title={`${tone} alert`}>
@@ -322,9 +475,9 @@ export default function DesignSystem() {
               A published question must have a solution a student can read.
             </Alert>
           </div>
-        </Section>
+        </Group>
 
-        <Section title="Forms">
+        <Group title="Forms">
           <Card>
             <CardHeader
               title="Field, Input, Select, Textarea, Checkbox"
@@ -379,9 +532,9 @@ export default function DesignSystem() {
               <Button icon="ph-check">Save</Button>
             </CardFooter>
           </Card>
-        </Section>
+        </Group>
 
-        <Section title="Cards">
+        <Group title="Cards">
           <div className="grid-auto" style={{ '--grid-min': '260px' } as CSSProperties}>
             <Card>
               <CardHeader title="Default" description="Surface, border, small shadow." size="sm" as="h3" />
@@ -396,18 +549,18 @@ export default function DesignSystem() {
               <CardBody>Hover and focus-within treatment.</CardBody>
             </Card>
           </div>
-        </Section>
+        </Group>
 
-        <Section title="Stat tiles">
+        <Group title="Stat tiles">
           <div className="grid-auto" style={{ '--grid-min': '200px' } as CSSProperties}>
             <StatTile icon="ph-users-three" label="Sample figure" value="1,253" />
             <StatTile icon="ph-currency-inr" label="Sample total" value="₹24,875" tone="success" hint="Sample only" />
             <StatTile icon="ph-clock-countdown" label="Sample pending" value="7" tone="warning" />
             <StatTile icon="ph-chart-line-up" label="Average score" value={null} hint="null renders an em dash, never 0" />
           </div>
-        </Section>
+        </Group>
 
-        <Section title="Tabs">
+        <Group title="Tabs">
           <Tabs
             idPrefix="ds-tabs"
             label="Design system examples"
@@ -448,9 +601,9 @@ export default function DesignSystem() {
             ]}
           />
           <p className={styles.note}>Filtering by: {pillTab}</p>
-        </Section>
+        </Group>
 
-        <Section title="Table, and its mobile form">
+        <Group title="Table, and its mobile form">
           <Card padding="none">
             <TableScroll label="Sample rows">
               <Table density="compact">
@@ -526,9 +679,9 @@ export default function DesignSystem() {
           </DataCardList>
 
           <Pagination page={page} pageCount={12} onChange={setPage} total={238} pageSize={20} label="Sample pages" />
-        </Section>
+        </Group>
 
-        <Section title="Steps">
+        <Group title="Steps">
           <p className="muted">
             A state display, not navigation: you reach the next step by doing the work. The middle step of a
             writing flow stays named <strong>Review</strong> — a previewed import has written nothing. Below
@@ -539,9 +692,9 @@ export default function DesignSystem() {
             <Steps steps={DEMO_STEPS} current="review" label="Steps, in the middle" />
             <Steps steps={DEMO_STEPS} current="saved" label="Steps, at the end" />
           </Card>
-        </Section>
+        </Group>
 
-        <Section title="Loading">
+        <Group title="Loading">
           <div className="grid-auto" style={{ '--grid-min': '280px' } as CSSProperties}>
             <Card>
               <CardHeader title="Skeleton text" size="sm" as="h3" />
@@ -566,9 +719,9 @@ export default function DesignSystem() {
             </Card>
           </div>
           <SkeletonCards count={3} />
-        </Section>
+        </Group>
 
-        <Section title="Progress">
+        <Group title="Progress">
           <div className="stack" style={{ '--stack-gap': 'var(--space-5)' } as CSSProperties}>
             <Progress label="Questions answered" value={12} max={20} valueText="12 of 20 answered" />
             <Progress label="Marks" value={38} max={50} tone="success" size="sm" />
@@ -578,9 +731,9 @@ export default function DesignSystem() {
               The indeterminate bar is for work whose length is unknown. No invented percentages.
             </p>
           </div>
-        </Section>
+        </Group>
 
-        <Section title="Empty and error states">
+        <Group title="Empty and error states">
           <div className="grid-auto" style={{ '--grid-min': '320px' } as CSSProperties}>
             <Card>
               <EmptyState
@@ -606,9 +759,9 @@ export default function DesignSystem() {
               <ErrorState error={new ApiError('Your session has ended', 401)} />
             </Card>
           </div>
-        </Section>
+        </Group>
 
-        <Section title="Dialogs and toasts">
+        <Group title="Dialogs and toasts">
           <Row label="Modal">
             <Button variant="secondary" icon="ph-browsers" onClick={() => setModal('plain')}>
               Open dialog
@@ -635,9 +788,9 @@ export default function DesignSystem() {
               Error
             </Button>
           </Row>
-        </Section>
+        </Group>
 
-        <Section title="Tooltip">
+        <Group title="Tooltip">
           <Row label="Hover or focus — supplementary only">
             <Tooltip content="XP is the sum of every activity you have been awarded for.">
               <Button size="sm" variant="ghost" icon="ph-question">
@@ -650,9 +803,9 @@ export default function DesignSystem() {
               </Button>
             </Tooltip>
           </Row>
-        </Section>
+        </Group>
 
-        <Section title="Icons">
+        <Group title="Icons">
           <p className={styles.note}>
             Phosphor, regular and bold only — no other weight has a stylesheet loaded, and a
             missing weight renders nothing at all.
@@ -665,7 +818,7 @@ export default function DesignSystem() {
               </span>
             ))}
           </div>
-        </Section>
+        </Group>
       </main>
 
       <Modal
