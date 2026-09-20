@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import { Alert, Button, ErrorState, Icon, SkeletonCards, Spinner } from '../../components/ui'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
   CLASS_LEVELS,
@@ -15,6 +15,7 @@ import {
 import { PHOTO_ACCEPT_ATTRIBUTE, formatBytes, readPhotoFile, type SelectedPhoto } from '../../lib/photo'
 import EntryFeeCard from '../../components/EntryFeeCard'
 import styles from './Profile.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The student's own profile and account settings.
@@ -140,7 +141,7 @@ export default function Profile() {
       setProfile(res.profile)
       setForm(formFrom(res.profile))
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'Could not load your profile.')
+      setLoadError(humanizeError(err, { fallback: 'Could not load your profile.' }))
     } finally {
       setLoading(false)
     }
@@ -160,7 +161,7 @@ export default function Profile() {
       .get<NotificationPrefsResponse>('/me/notification-preferences')
       .then(setPrefs)
       .catch((err) =>
-        setPrefsError(err instanceof ApiError ? err.message : 'Could not load your notification preferences.'),
+        setPrefsError(humanizeError(err, { fallback: 'Could not load your notification preferences.' })),
       )
   }, [])
 
@@ -179,7 +180,7 @@ export default function Profile() {
       const res = await api.patch<{ preferences: NotificationPrefs }>('/me/notification-preferences', change)
       setPrefs((current) => (current === null ? current : { ...current, preferences: res.preferences }))
     } catch (err) {
-      setPrefsError(err instanceof ApiError ? err.message : 'Could not save that preference.')
+      setPrefsError(humanizeError(err, { fallback: 'Could not save that preference.' }))
     } finally {
       setPrefsSaving(false)
     }
@@ -223,7 +224,7 @@ export default function Profile() {
       setEditing(false)
       setSavedMessage(res.changed ? 'Your details have been saved.' : 'No changes to save.')
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : 'Could not save your details.')
+      setFormError(humanizeError(err, { fallback: 'Could not save your details.' }))
     } finally {
       setSaving(false)
     }
@@ -254,7 +255,7 @@ export default function Profile() {
       setProfile((p) => (p ? { ...p, hasPhoto: true } : p))
       setSavedMessage('Your photo has been updated.')
     } catch (err) {
-      setPhotoError(err instanceof ApiError ? err.message : 'Could not save your photo.')
+      setPhotoError(humanizeError(err, { fallback: 'Could not save your photo.' }))
     } finally {
       setPhotoSaving(false)
     }
@@ -279,7 +280,7 @@ export default function Profile() {
       setPasswords({ currentPassword: '', newPassword: '', confirmPassword: '' })
       setPasswordMessage(res.message)
     } catch (err) {
-      setPasswordError(err instanceof ApiError ? err.message : 'Could not change your password.')
+      setPasswordError(humanizeError(err, { fallback: 'Could not change your password.' }))
     } finally {
       setPasswordSaving(false)
     }

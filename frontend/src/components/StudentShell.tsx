@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import AppShell from './layout/AppShell'
 import { STUDENT_BOTTOM_NAV, STUDENT_NAV } from './layout/navigation'
+import { Section } from './ui'
 import Navbar from './Navbar'
 import Footer from './Footer'
 
@@ -83,6 +84,25 @@ export default function StudentShell({ title, subtitle, actions, focus, children
       <>
         <Navbar />
         <main id="main-content" className="container">
+          {/*
+            **The guest fallback renders the title too** (Milestone 26).
+
+            It did not, and that was a real defect rather than a cosmetic one: four
+            public routes come through this branch — `/leaderboard`, `/hall-of-fame`,
+            `/result` and `/certificate` — and for a signed-out visitor every one of
+            them opened at `h2` with **no `h1` anywhere in the document**. A screen
+            reader user landing on the public leaderboard had nothing naming the page.
+
+            The signed-in branch never had the problem because `AppShell` puts the
+            `h1` in its topbar; this branch simply dropped `title` and `subtitle` on
+            the floor. `size="page"` matches the shell's own heading treatment, so a
+            page looks the same either side of signing in.
+
+            `as="div"`: the heading names the *page*, and the content below it is not
+            a region of its own — an `aria-labelledby` here would announce a landmark
+            that wraps nothing.
+          */}
+          <Section as="div" titleAs="h1" size="page" spacing="block" title={title} lead={subtitle} />
           {children}
         </main>
         <Footer />

@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { BadgeTier, EvaluatedBadge, JourneyStage, RewardsResponse } from '../../api/types'
 import { Icon } from '../../components/ui'
 import styles from './Rewards.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The student's whole standing: XP, level, streaks, badges, achievements and the
@@ -38,7 +39,7 @@ export default function Rewards() {
       const res = await api.get<RewardsResponse>('/me/rewards')
       setData(res.rewards)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load your rewards.')
+      setError(humanizeError(err, { fallback: 'Could not load your rewards.' }))
     } finally {
       setLoading(false)
     }

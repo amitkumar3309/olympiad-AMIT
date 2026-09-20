@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { CLASS_LEVELS, type AdminLeaderboardRow, type Pagination, type RewardsOverview } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
@@ -10,6 +10,7 @@ import {
   TableScroll,
 } from '../../components/ui'
 import styles from './Standings.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface BoardResponse {
   leaderboard: AdminLeaderboardRow[]
@@ -53,7 +54,7 @@ export default function Standings() {
       setRows(res.leaderboard)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the leaderboard.')
+      setError(humanizeError(err, { fallback: 'Could not load the leaderboard.' }))
       setRows([])
       setPagination(null)
     } finally {
@@ -75,7 +76,7 @@ export default function Standings() {
         if (!cancelled) setOverview(res.overview)
       })
       .catch((err) => {
-        if (!cancelled) setOverviewError(err instanceof ApiError ? err.message : 'Could not load the rewards overview.')
+        if (!cancelled) setOverviewError(humanizeError(err, { fallback: 'Could not load the rewards overview.' }))
       })
 
     return () => {

@@ -5,6 +5,7 @@ import { api, ApiError, API_BASE } from '../../api/client'
 import type { StudentInvoice } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import styles from './Payment.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The Olympiad entry fee — Razorpay Standard Checkout (Milestone 19).
@@ -263,7 +264,7 @@ export default function Payment() {
   useEffect(() => {
     refresh()
       .then(() => reconcile())
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load payment details.'))
+      .catch((err) => setError(humanizeError(err, { fallback: 'Could not load payment details.' })))
   }, [refresh, reconcile])
 
   async function pay() {
@@ -337,7 +338,7 @@ export default function Payment() {
 
       checkout.open()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not start the payment.')
+      setError(humanizeError(err, { fallback: 'Could not start the payment.' }))
     } finally {
       setBusy(false)
     }

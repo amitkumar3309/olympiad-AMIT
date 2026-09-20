@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import MathText from '../../components/MathText'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { loadChapters } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
@@ -28,6 +28,7 @@ import {
 import AdminShell from '../Admin/AdminShell'
 import { Alert, Icon, Steps } from '../../components/ui'
 import styles from './AiGenerator.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * AI question generation with review before approval (Milestone 18).
@@ -143,7 +144,7 @@ export default function AiGenerator() {
     api
       .get<AvailableModelsResponse>('/admin/question-generator/models')
       .then(setModels)
-      .catch((err) => setModelsError(err instanceof ApiError ? err.message : 'Could not reach Google.'))
+      .catch((err) => setModelsError(humanizeError(err, { fallback: 'Could not reach Google.' })))
   }, [])
 
   /**
@@ -223,7 +224,7 @@ export default function AiGenerator() {
         return current.map((entry) => (entry.clientId === replacing ? replacement : entry))
       })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not generate questions.')
+      setError(humanizeError(err, { fallback: 'Could not generate questions.' }))
     } finally {
       setBusy(null)
     }
@@ -301,7 +302,7 @@ export default function AiGenerator() {
         }),
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not check those questions.')
+      setError(humanizeError(err, { fallback: 'Could not check those questions.' }))
     } finally {
       setBusy(null)
     }
@@ -334,7 +335,7 @@ export default function AiGenerator() {
       // When something was refused the whole batch stays put, so the reviewer can fix the
       // one that failed rather than hunting for which of twenty it was.
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save those questions.')
+      setError(humanizeError(err, { fallback: 'Could not save those questions.' }))
     } finally {
       setBusy(null)
     }

@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import type { Certificate as CertificateRecord } from '../../api/types'
 import logo from '../../assets/logo.png'
 import { Icon } from '../../components/ui'
 import styles from './Certificate.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Digital certificates.
@@ -47,7 +48,7 @@ export default function Certificate() {
         if (!cancelled) setCertificates(res.certificates)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load your certificates.')
+        if (!cancelled) setError(humanizeError(err, { fallback: 'Could not load your certificates.' }))
       })
     return () => {
       cancelled = true

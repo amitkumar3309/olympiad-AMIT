@@ -11,7 +11,10 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 **Milestone 26 — a new visual language for the whole frontend: phases 1–6 complete.**
 
 **Frontend only.** No API contract, Mongoose model, permission, route guard or piece of
-business logic changed; the backend is untouched and its 1,282 tests are unaffected.
+business logic changed. `git diff` over the whole milestone touches **78 files, none of them
+under `backend/`** — and the suite was run anyway to prove it: **1,289 tests across 36 files,
+all passing**. (That is 7 more than the 1,282 recorded above at the close of Phase B; Phase C
+added them. Re-measure rather than quoting either figure.)
 
 ### What it is, and what it replaced
 
@@ -52,8 +55,17 @@ one of them will look wrong however carefully it is tokenised:
 - **289 of 327 hardcoded `font-size: Npx`** in the page CSS moved onto the ramp. The 38 left
   are display sizes where the right step is a judgement about that page, not a lookup.
 
-### Two defects found and fixed on the way
+### Four defects found by walking the product, not by reading it
 
+- **A raw 5xx was reaching readers, in 97 places across 39 files.** This repository has required
+  since Milestone 23 that every caught error go through `humanizeError()` and that a 5xx message
+  never reach a user. 97 call sites were doing `err instanceof ApiError ? err.message : '…'`
+  instead, which passes a 5xx straight through — a signed-out visitor on the public leaderboard
+  was shown **"Request failed (502)"**. All 97 now use `humanizeError(err, { fallback })`, which
+  keeps the page-specific message and the deliberate 4xx pass-through.
+- **Four public pages had no `h1`.** `StudentShell`'s guest fallback dropped `title` and
+  `subtitle` entirely, so for a signed-out visitor `/leaderboard`, `/hall-of-fame`, `/result`
+  and `/certificate` opened at `h2` with nothing naming the page. Fixed in the shell, once.
 - `/admin/analytics` asserted the official exam "is not built and nothing writes to its
   collections" — untrue since Milestone 13.
 - `Pagination`'s ellipsis and the design-system type captions painted words in `--text-subtle`

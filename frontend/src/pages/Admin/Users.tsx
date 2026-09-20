@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError, API_BASE } from '../../api/client'
+import { api, API_BASE } from '../../api/client'
 import {
   CLASS_LEVELS,
   type AccountStatus,
@@ -27,6 +27,7 @@ import {
   type BadgeTone,
 } from '../../components/ui'
 import styles from './Users.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /** The listing's page size. Named because the pager needs the same number to work
  *  out which rows it is showing — "1–20 of 138" is wrong the moment they diverge. */
@@ -408,7 +409,7 @@ export default function Users() {
       setAccounts(res.students)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load accounts.')
+      setError(humanizeError(err, { fallback: 'Could not load accounts.' }))
       setAccounts([])
       setPagination(null)
     } finally {
@@ -481,7 +482,7 @@ export default function Users() {
           : `${account.studentId} was already ${STATUS_LABELS[status].toLowerCase()}.`,
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not update that account.')
+      setError(humanizeError(err, { fallback: 'Could not update that account.' }))
     } finally {
       setBusyId('')
     }
@@ -504,7 +505,7 @@ export default function Users() {
           : `${account.studentId} was already ${article} ${role}.`,
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not update that role.')
+      setError(humanizeError(err, { fallback: 'Could not update that role.' }))
     } finally {
       setBusyId('')
     }
@@ -524,7 +525,7 @@ export default function Users() {
       // dialog is dismissed — see `TemporaryPasswordDialog`.
       setIssued({ account: res.student, password: res.temporaryPassword })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not reset that password.')
+      setError(humanizeError(err, { fallback: 'Could not reset that password.' }))
     } finally {
       setBusyId('')
     }
@@ -538,7 +539,7 @@ export default function Users() {
       await api.post(`/admin/users/${account.studentId}/revoke-sessions`, {})
       setNotice(`${account.studentId} has been signed out on every device. They can sign back in as normal.`)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not sign that account out.')
+      setError(humanizeError(err, { fallback: 'Could not sign that account out.' }))
     } finally {
       setBusyId('')
     }
@@ -554,7 +555,7 @@ export default function Users() {
       setNotice(`${account.studentId} (${account.email}) has been permanently deleted.`)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete that account.')
+      setError(humanizeError(err, { fallback: 'Could not delete that account.' }))
     } finally {
       setBusyId('')
     }

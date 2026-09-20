@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { loadImplicitSubject } from '../../api/implicitSubject'
 import type { Subject, TaxonomyStatus, Topic } from '../../api/types'
 import AdminShell from './AdminShell'
@@ -9,6 +9,7 @@ import {
   Alert,
 } from '../../components/ui'
 import styles from './Taxonomy.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Chapters and subtopics — the classification every question is filed under.
@@ -73,7 +74,7 @@ export default function Taxonomy() {
       )
       setTopics(topicRes.topics)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the chapters.')
+      setError(humanizeError(err, { fallback: 'Could not load the chapters.' }))
       setSubject(null)
       setTopics([])
     } finally {
@@ -104,7 +105,7 @@ export default function Taxonomy() {
       setNotice(`${newTopic.parent ? 'Subtopic' : 'Chapter'} "${name}" created.`)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create that chapter.')
+      setError(humanizeError(err, { fallback: 'Could not create that chapter.' }))
     } finally {
       setBusy('')
     }
@@ -121,7 +122,7 @@ export default function Taxonomy() {
     } catch (err) {
       // The backend refuses to archive anything with published questions still filed under it, and
       // says how many — surface that message verbatim.
-      setError(err instanceof ApiError ? err.message : 'Could not update that chapter.')
+      setError(humanizeError(err, { fallback: 'Could not update that chapter.' }))
     } finally {
       setBusy('')
     }

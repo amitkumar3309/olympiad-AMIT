@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import type {
   AdminReferralRow,
@@ -11,6 +11,7 @@ import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import { Alert, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './Referrals.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The referral console (Milestone 22, Phase G).
@@ -173,7 +174,7 @@ export default function AdminReferrals() {
       setRewardRupees((config.rewardAmount / 100).toFixed(2))
       setTerms(config.terms ?? '')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the referrals.')
+      setError(humanizeError(err, { fallback: 'Could not load the referrals.' }))
       setData(null)
     } finally {
       setLoading(false)
@@ -196,7 +197,7 @@ export default function AdminReferrals() {
     } catch (err) {
       // The API answers 409 when the row has moved on — another administrator got there
       // first. Its message names the state it found, which is the useful thing to show.
-      setError(err instanceof ApiError ? err.message : 'Could not update that referral.')
+      setError(humanizeError(err, { fallback: 'Could not update that referral.' }))
     } finally {
       setBusyId('')
     }
@@ -226,7 +227,7 @@ export default function AdminReferrals() {
           : 'Referral rewards are switched off. Introductions are still tracked.',
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save the referral settings.')
+      setError(humanizeError(err, { fallback: 'Could not save the referral settings.' }))
     } finally {
       setSaving(false)
     }

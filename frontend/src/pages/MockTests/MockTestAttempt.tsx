@@ -14,6 +14,7 @@ import {
   type MockReviewQuestion,
 } from '../../api/types'
 import styles from './MockTest.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Sitting a mock test, and seeing whatever the test lets you see afterwards.
@@ -113,7 +114,7 @@ export default function MockTestAttempt() {
     try {
       applyResponse(await api.get<AttemptResponse>(`/mock-tests/attempts/${attemptId}`))
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'Could not load that attempt.')
+      setLoadError(humanizeError(err, { fallback: 'Could not load that attempt.' }))
     }
   }, [attemptId, applyResponse])
 

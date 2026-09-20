@@ -2,10 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { PublishedResult, ResultResponse } from '../../api/types'
 import { Icon } from '../../components/ui'
 import styles from './Result.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The public result portal.
@@ -53,7 +54,7 @@ export default function Result() {
       if (res.result) setResult(res.result)
       else setNotPublished(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not look up that result. Please try again.')
+      setError(humanizeError(err, { fallback: 'Could not look up that result. Please try again.' }))
     } finally {
       setSearching(false)
     }

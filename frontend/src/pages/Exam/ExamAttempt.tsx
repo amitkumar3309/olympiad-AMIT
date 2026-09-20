@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { ExamAttemptInProgress, ExamPaperQuestion } from '../../api/types'
 import MathText from '../../components/MathText'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import styles from './ExamAttempt.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Sitting the official exam.
@@ -40,7 +41,7 @@ export default function ExamAttempt() {
       setAttempt(res.attempt)
       setSeconds(res.attempt.secondsRemaining)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load your paper.')
+      setError(humanizeError(err, { fallback: 'Could not load your paper.' }))
     } finally {
       setLoading(false)
     }
@@ -57,7 +58,7 @@ export default function ExamAttempt() {
       await api.post(`/exams/attempts/${attemptId}/submit`, {})
       setSubmitted(true)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not submit your paper.')
+      setError(humanizeError(err, { fallback: 'Could not submit your paper.' }))
     } finally {
       submittingRef.current = false
     }
@@ -97,7 +98,7 @@ export default function ExamAttempt() {
           : prev,
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'That answer was not saved.')
+      setError(humanizeError(err, { fallback: 'That answer was not saved.' }))
       // A refusal usually means the deadline passed, so re-read the real state.
       void load()
     } finally {

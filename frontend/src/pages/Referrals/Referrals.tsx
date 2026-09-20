@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import { Alert, Badge, Button, Card, CardHeader, DataCard, DataCardList, DataRow, EmptyState, ErrorState, Icon, SkeletonCards, StatTile, Table, TableScroll, type BadgeTone } from '../../components/ui'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { ReferralRewardStatus, StudentReferralSummary } from '../../api/types'
 import { AMIT_SHORT } from '../../lib/brand'
 import styles from './Referrals.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Refer & Earn, the student's page (Milestone 22, Phase F).
@@ -101,7 +102,7 @@ export default function Referrals() {
       const res = await api.get<{ referral: StudentReferralSummary }>('/me/referrals')
       setSummary(res.referral)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load your referrals.')
+      setError(humanizeError(err, { fallback: 'Could not load your referrals.' }))
       setSummary(null)
     } finally {
       setLoading(false)

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import {
   CLASS_LEVELS,
   DIFFICULTIES,
@@ -20,6 +20,7 @@ import {
   TableScroll,
 } from '../../components/ui'
 import styles from './QuestionPerformance.module.css'
+import { humanizeError } from '../../lib/errors'
 
 type Sort = 'hardest' | 'easiest' | 'most-served' | 'most-skipped'
 
@@ -75,7 +76,7 @@ export default function QuestionPerformance() {
       setResult(questions)
       setTests(testRows)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load performance analytics.')
+      setError(humanizeError(err, { fallback: 'Could not load performance analytics.' }))
       setResult(null)
     } finally {
       setLoading(false)

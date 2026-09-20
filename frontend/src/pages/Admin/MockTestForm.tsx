@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { loadChapterScope } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
@@ -19,6 +19,7 @@ import Button from '../../components/Button'
 import MathText from '../../components/MathText'
 import { Alert, Icon } from '../../components/ui'
 import styles from './MockTests.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Creating and editing a mock test (Milestone 7).
@@ -188,7 +189,7 @@ export default function MockTestForm() {
         )
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load that test.')
+        if (!cancelled) setError(humanizeError(err, { fallback: 'Could not load that test.' }))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -279,7 +280,7 @@ export default function MockTestForm() {
         const res = await api.get<QuestionListResponse>(`/admin/questions?${params.toString()}`)
         if (isCurrent()) setAvailable(res.questions)
       } catch (err) {
-        if (isCurrent()) setPickerError(err instanceof ApiError ? err.message : 'Could not load the question bank.')
+        if (isCurrent()) setPickerError(humanizeError(err, { fallback: 'Could not load the question bank.' }))
       } finally {
         if (isCurrent()) setPickerLoading(false)
       }
@@ -360,7 +361,7 @@ export default function MockTestForm() {
             : `Added ${fresh.length} questions from ${scope}. Adjust the marks or reorder them below.`,
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not put a paper together.')
+      setError(humanizeError(err, { fallback: 'Could not put a paper together.' }))
     } finally {
       setFilling(false)
     }
@@ -428,7 +429,7 @@ export default function MockTestForm() {
       }
       navigate('/admin/mock-tests')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save that test.')
+      setError(humanizeError(err, { fallback: 'Could not save that test.' }))
       setSaving(false)
     }
   }

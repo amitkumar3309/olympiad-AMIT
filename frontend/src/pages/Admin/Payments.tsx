@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError, API_BASE } from '../../api/client'
+import { api, API_BASE } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import type { AdminPaymentsResponse, PaymentRecord, PaymentSettingsResponse } from '../../api/types'
 import AdminShell from './AdminShell'
@@ -7,6 +7,7 @@ import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import { Alert, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './Payments.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The payments console (Milestone 19).
@@ -71,7 +72,7 @@ export default function AdminPayments() {
       setFeeRupees((feeSettings.olympiadEntryFee / 100).toFixed(2))
       setEnabled(feeSettings.entryFeeEnabled)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load payments.')
+      setError(humanizeError(err, { fallback: 'Could not load payments.' }))
     } finally {
       setLoading(false)
     }
@@ -102,7 +103,7 @@ export default function AdminPayments() {
         }`,
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save the fee.')
+      setError(humanizeError(err, { fallback: 'Could not save the fee.' }))
     } finally {
       setSaving(false)
     }

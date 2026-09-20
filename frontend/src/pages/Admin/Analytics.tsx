@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { PlatformAnalytics } from '../../api/types'
 import AdminShell from './AdminShell'
 import ChartCard from '../../components/ChartCard'
@@ -17,6 +17,7 @@ import {
   Tabs,
 } from '../../components/ui'
 import styles from './Analytics.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /** `2026-08-10` → `10 Aug`, for a readable chart axis. */
 function shortDay(day: string): string {
@@ -77,7 +78,7 @@ export default function Analytics() {
         if (!cancelled) setAnalytics(res.analytics)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load analytics.')
+        if (!cancelled) setError(humanizeError(err, { fallback: 'Could not load analytics.' }))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

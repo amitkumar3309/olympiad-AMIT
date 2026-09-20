@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { CLASS_LEVELS, type AdminMockTest, type MockTestStatus, type Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import { Alert, Icon } from '../../components/ui'
 import styles from './MockTests.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The mock-test list (Milestone 7) — the administrative index of every paper.
@@ -74,7 +75,7 @@ export default function AdminMockTests() {
       setTests(res.tests)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the mock tests.')
+      setError(humanizeError(err, { fallback: 'Could not load the mock tests.' }))
     } finally {
       setLoading(false)
     }
@@ -93,7 +94,7 @@ export default function AdminMockTests() {
       setNotice(`“${test.title}” is now ${STATUS_LABELS[next].toLowerCase()}.`)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not change that test.')
+      setError(humanizeError(err, { fallback: 'Could not change that test.' }))
     } finally {
       setBusyId('')
     }
@@ -109,7 +110,7 @@ export default function AdminMockTests() {
       await load()
     } catch (err) {
       // Expected for anything ever published or ever sat — the message says which.
-      setError(err instanceof ApiError ? err.message : 'Could not delete that test.')
+      setError(humanizeError(err, { fallback: 'Could not delete that test.' }))
     } finally {
       setBusyId('')
     }

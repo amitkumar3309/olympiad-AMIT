@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { MockTestResults as Results } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
@@ -8,6 +8,7 @@ import Button from '../../components/Button'
 import MathText from '../../components/MathText'
 import { Icon, Table, TableScroll } from '../../components/ui'
 import styles from './MockTests.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Results for one mock test (Milestone 7).
@@ -50,7 +51,7 @@ export default function MockTestResults() {
     try {
       setResults(await api.get<Results>(`/admin/mock-tests/${id}/results`))
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the results for that test.')
+      setError(humanizeError(err, { fallback: 'Could not load the results for that test.' }))
     } finally {
       setLoading(false)
     }

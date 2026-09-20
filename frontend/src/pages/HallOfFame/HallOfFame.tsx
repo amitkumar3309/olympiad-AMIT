@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
+import { humanizeError } from '../../lib/errors'
 import type { HallOfFameEntry, HallOfFameResponse } from '../../api/types'
 import { Icon } from '../../components/ui'
 import styles from './HallOfFame.module.css'
@@ -69,7 +70,9 @@ export default function HallOfFame() {
       const res = await api.get<HallOfFameResponse>('/hall-of-fame?limit=5')
       setData(res.hallOfFame)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the Hall of Fame.')
+      // `humanizeError`, not `err.message` — a 5xx message is never shown to a reader.
+      // See the matching note in `Leaderboard.tsx`; both public boards had it.
+      setError(humanizeError(err))
       setData(null)
     } finally {
       setLoading(false)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { CLASS_LEVELS, type AdminExam, type AdminExamAttempt, type ClassLevel, type Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
@@ -10,6 +10,7 @@ import {
   TableScroll,
 } from '../../components/ui'
 import styles from './Exams.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface ListResponse {
   exams: AdminExam[]
@@ -53,7 +54,7 @@ export default function Exams() {
       setExams(res.exams)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the exams.')
+      setError(humanizeError(err, { fallback: 'Could not load the exams.' }))
       setExams([])
     } finally {
       setLoading(false)
@@ -87,7 +88,7 @@ export default function Exams() {
       setPage(1)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not create that exam.')
+      setError(humanizeError(err, { fallback: 'Could not create that exam.' }))
     } finally {
       setCreating(false)
     }
@@ -102,7 +103,7 @@ export default function Exams() {
       setExams((list) => list.map((e) => (e.id === exam.id ? res.exam : e)))
       setNotice(`“${exam.title}” is now ${status}.`)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not change that status.')
+      setError(humanizeError(err, { fallback: 'Could not change that status.' }))
     } finally {
       setBusyId('')
     }
@@ -115,7 +116,7 @@ export default function Exams() {
       const res = await api.get<{ exam: AdminExam; attempts: AdminExamAttempt[] }>(`/admin/exams/${exam.id}/attempts`)
       setOpenAttempts(res)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the attempts.')
+      setError(humanizeError(err, { fallback: 'Could not load the attempts.' }))
     } finally {
       setBusyId('')
     }
@@ -142,7 +143,7 @@ export default function Exams() {
       )
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not publish those results.')
+      setError(humanizeError(err, { fallback: 'Could not publish those results.' }))
     } finally {
       setBusyId('')
     }

@@ -4,7 +4,8 @@ import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { useAuth } from '../../context/AuthContext'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
+import { humanizeError } from '../../lib/errors'
 import {
   CLASS_LEVELS,
   LEADERBOARD_PERIODS,
@@ -87,7 +88,16 @@ export default function Leaderboard() {
       if (scope === 'class') params.set('classLevel', classLevel)
       setData(await api.get<LeaderboardResponse>(`/leaderboard?${params.toString()}`))
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the leaderboard.')
+      /*
+        `humanizeError`, not `err.message` (Milestone 26).
+
+        This page printed the raw message, which is right for a 4xx — this product's
+        4xx copy is written for the reader — and wrong for a 5xx, where the message is
+        whatever fell out of the server or the proxy in front of it. A signed-out
+        visitor on the public leaderboard was being shown **"Request failed (502)"**,
+        which was found by walking the public routes rather than by reading the code.
+      */
+      setError(humanizeError(err))
       setData(null)
     } finally {
       setLoading(false)

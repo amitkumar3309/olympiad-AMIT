@@ -20,8 +20,8 @@ import {
 } from '../../components/ui'
 import ChartCard from '../../components/ChartCard'
 import Unauthorized from '../../components/Unauthorized'
-import { useAuth, ApiError } from '../../context/AuthContext'
-import { humanizeSignInError } from '../../lib/errors'
+import { useAuth } from '../../context/AuthContext'
+import { humanizeError, humanizeSignInError } from '../../lib/errors'
 import { api } from '../../api/client'
 import type { AdminStats, ManagedAccount, Pagination, Permission } from '../../api/types'
 import AdminShell from './AdminShell'
@@ -123,7 +123,7 @@ export default function Admin() {
         })
       } catch (err) {
         if (cancelled) return
-        setOverviewError(err instanceof ApiError ? err.message : 'Could not load the overview.')
+        setOverviewError(humanizeError(err, { fallback: 'Could not load the overview.' }))
       } finally {
         if (!cancelled) setLoadingOverview(false)
       }

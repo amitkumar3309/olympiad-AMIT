@@ -5,7 +5,8 @@ Chronological development history. For current state, see [`PROJECT_STATE.md`](P
 ## 2026-09-20 — Milestone 26: a new visual language (phases 1–6 of the UI redesign)
 
 **Frontend only.** No API contract, model, permission, route guard or piece of business logic
-changed. The backend is untouched.
+changed. `git diff` over the milestone touches 78 files, **none under `backend/`**, and the
+backend suite was run anyway: **1,289 tests across 36 files, all passing**.
 
 ### Before it: a direction that was stopped and reverted
 
@@ -40,8 +41,18 @@ Every value below was read off the live reference with `getComputedStyle`, not e
 - **289 of 327 hardcoded `font-size: Npx`** across the page CSS moved onto the type ramp, which
   is what made the redesign reach the forty-five pages nobody opened.
 
-### Two corrections found on the way
+### Four defects found by walking the product, not by reading it
 
+- **A raw 5xx was reaching readers, in 97 places.** `CLAUDE.md` has said since Milestone 23
+  that a 5xx message is never shown to a user and every caught error goes through
+  `humanizeError()`. 97 call sites across **39 files** were doing
+  `err instanceof ApiError ? err.message : '…'` instead, which passes a 5xx straight through —
+  a signed-out visitor on the public leaderboard was being shown **"Request failed (502)"**.
+  All 97 now call `humanizeError(err, { fallback })`, which preserves the page-specific
+  message and the 4xx pass-through while replacing 5xx and network failures.
+- **Four public pages had no `h1` at all.** `StudentShell`'s guest fallback dropped `title` and
+  `subtitle` on the floor, so for a signed-out visitor `/leaderboard`, `/hall-of-fame`,
+  `/result` and `/certificate` opened at `h2` with nothing naming the page.
 - `/admin/analytics` asserted that the official exam "is not built and nothing writes to its
   collections". That stopped being true in Milestone 13.
 - `Pagination`'s ellipsis and the design-system type captions were painting words in

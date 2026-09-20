@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
-import { api, ApiError, API_BASE } from '../../api/client'
+import { api, API_BASE } from '../../api/client'
 import { loadChapters } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
@@ -26,6 +26,7 @@ import {
 } from '../../api/types'
 import { Alert, Icon, Steps, Table, TableScroll } from '../../components/ui'
 import styles from './QuestionImport.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Bulk question import (Milestone 21, Phase F).
@@ -176,7 +177,7 @@ export default function QuestionImport() {
     api
       .get<ImportStatus>('/admin/questions/import')
       .then(setStatus)
-      .catch((err) => setError(err instanceof ApiError ? err.message : 'Could not load the importer.'))
+      .catch((err) => setError(humanizeError(err, { fallback: 'Could not load the importer.' })))
   }, [])
 
   /**
@@ -301,7 +302,7 @@ export default function QuestionImport() {
       // save them", and an examiner who has to tick two hundred boxes will stop reading them.
       setSelected(result.questions.map((q) => q.clientId))
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'That upload could not be read.')
+      setError(humanizeError(err, { fallback: 'That upload could not be read.' }))
       setPreview(null)
       setBatch(null)
     } finally {
@@ -349,7 +350,7 @@ export default function QuestionImport() {
       setTopics(chapters)
       await runUpload()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Those chapters could not be created.')
+      setError(humanizeError(err, { fallback: 'Those chapters could not be created.' }))
     } finally {
       setBusy(null)
     }
@@ -403,7 +404,7 @@ export default function QuestionImport() {
         of: sent.length,
       })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not check those questions.')
+      setError(humanizeError(err, { fallback: 'Could not check those questions.' }))
     } finally {
       setBusy(null)
     }
@@ -469,7 +470,7 @@ export default function QuestionImport() {
       setSelected(refusedIds)
       setChecked(null)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Those questions could not be saved.')
+      setError(humanizeError(err, { fallback: 'Those questions could not be saved.' }))
     } finally {
       setBusy(null)
     }

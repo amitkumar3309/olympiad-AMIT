@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, ApiError, API_BASE } from '../../api/client'
+import { api, API_BASE } from '../../api/client'
 import type { Certificate } from '../../api/types'
 import StudentShell from '../../components/StudentShell'
 import Spinner from '../../components/Spinner'
 import styles from './Certificates.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The student's certificate library.
@@ -29,7 +30,7 @@ export default function Certificates() {
         if (!cancelled) setCertificates(res.certificates)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load your certificates.')
+        if (!cancelled) setError(humanizeError(err, { fallback: 'Could not load your certificates.' }))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

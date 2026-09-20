@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { InboxNotification, Pagination } from '../../api/types'
 import StudentShell from '../../components/StudentShell'
 import Spinner from '../../components/Spinner'
 import styles from './Notifications.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface InboxResponse {
   notifications: InboxNotification[]
@@ -46,7 +47,7 @@ export default function Notifications() {
       setUnread(res.unread)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load your notifications.')
+      setError(humanizeError(err, { fallback: 'Could not load your notifications.' }))
       setItems([])
       setPagination(null)
     } finally {
@@ -79,7 +80,7 @@ export default function Notifications() {
       setUnread(res.unread)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not update your notifications.')
+      setError(humanizeError(err, { fallback: 'Could not update your notifications.' }))
     }
   }
 

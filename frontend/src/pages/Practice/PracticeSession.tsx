@@ -11,6 +11,7 @@ import {
   type PracticeSessionView,
 } from '../../api/types'
 import styles from './Practice.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Working through a practice session, and reviewing it afterwards.
@@ -67,7 +68,7 @@ export default function PracticeSessionPage() {
       const res = await api.get<SessionResponse>(`/practice/sessions/${sessionId}`)
       setSession(res.session)
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'Could not load that practice session.')
+      setLoadError(humanizeError(err, { fallback: 'Could not load that practice session.' }))
     }
   }, [sessionId])
 
@@ -177,7 +178,7 @@ export default function PracticeSessionPage() {
       setXpAwarded(res.xpAwarded)
       setCurrent(0)
     } catch (err) {
-      setSaveError(err instanceof ApiError ? err.message : 'Could not submit your session.')
+      setSaveError(humanizeError(err, { fallback: 'Could not submit your session.' }))
     } finally {
       setSubmitting(false)
     }

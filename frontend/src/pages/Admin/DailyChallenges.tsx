@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { loadImplicitSubject } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
@@ -16,6 +16,7 @@ import Button from '../../components/Button'
 import MathText from '../../components/MathText'
 import { Alert, Icon } from '../../components/ui'
 import styles from './DailyChallenges.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Scheduling the daily challenge (Milestone 8).
@@ -119,7 +120,7 @@ export default function AdminDailyChallenges() {
       // which is the day an administrator almost always wants.
       setDay((current) => current || res.upcoming[0] || res.today)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the daily challenges.')
+      setError(humanizeError(err, { fallback: 'Could not load the daily challenges.' }))
     } finally {
       setLoading(false)
     }
@@ -217,7 +218,7 @@ export default function AdminDailyChallenges() {
       setQuestionId('')
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not schedule that challenge.')
+      setError(humanizeError(err, { fallback: 'Could not schedule that challenge.' }))
     } finally {
       setSaving(false)
     }
@@ -240,7 +241,7 @@ export default function AdminDailyChallenges() {
       await load()
     } catch (err) {
       // Expected once somebody has answered, or for a past day — the message says which.
-      setError(err instanceof ApiError ? err.message : 'Could not change that challenge.')
+      setError(humanizeError(err, { fallback: 'Could not change that challenge.' }))
     } finally {
       setSaving(false)
     }
@@ -270,7 +271,7 @@ export default function AdminDailyChallenges() {
       await load()
     } catch (err) {
       // Expected once anybody has answered it — the message says so.
-      setError(err instanceof ApiError ? err.message : 'Could not remove that challenge.')
+      setError(humanizeError(err, { fallback: 'Could not remove that challenge.' }))
     } finally {
       setBusyId('')
     }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { GalleryItem, GalleryStatus, Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
@@ -8,6 +8,7 @@ import {
   Alert,
 } from '../../components/ui'
 import styles from './Gallery.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface GalleryListResponse {
   gallery: GalleryItem[]
@@ -71,7 +72,7 @@ export default function Gallery() {
       setItems(res.gallery)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the gallery.')
+      setError(humanizeError(err, { fallback: 'Could not load the gallery.' }))
       setItems([])
       setPagination(null)
     } finally {
@@ -119,7 +120,7 @@ export default function Gallery() {
       setPage(1)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not add that photo.')
+      setError(humanizeError(err, { fallback: 'Could not add that photo.' }))
     } finally {
       setUploading(false)
     }
@@ -138,7 +139,7 @@ export default function Gallery() {
           : `“${item.title}” is public again.`,
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not update that photo.')
+      setError(humanizeError(err, { fallback: 'Could not update that photo.' }))
     } finally {
       setBusyId('')
     }
@@ -153,7 +154,7 @@ export default function Gallery() {
       setNotice(`“${item.title}” was deleted permanently.`)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete that photo.')
+      setError(humanizeError(err, { fallback: 'Could not delete that photo.' }))
     } finally {
       setBusyId('')
     }

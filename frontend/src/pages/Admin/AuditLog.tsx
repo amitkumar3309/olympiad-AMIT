@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { AuditAction, AuditEntry, Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
@@ -9,6 +9,7 @@ import {
   TableScroll,
 } from '../../components/ui'
 import styles from './AuditLog.module.css'
+import { humanizeError } from '../../lib/errors'
 
 const ACTION_LABELS: Record<AuditAction, string> = {
   'user.role.changed': 'Role changed',
@@ -94,7 +95,7 @@ export default function AuditLog() {
       setEntries(res.entries)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the audit trail.')
+      setError(humanizeError(err, { fallback: 'Could not load the audit trail.' }))
       setEntries([])
       setPagination(null)
     } finally {

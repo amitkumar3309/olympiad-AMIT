@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { loadChapters } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
@@ -26,6 +26,7 @@ import MathText from '../../components/MathText'
 import { dailyChallengeHandoff, mockTestHandoff } from './questionHandoff'
 import { Alert, Button, ButtonLink, Icon, Spinner } from '../../components/ui'
 import styles from './Questions.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface QuestionListResponse {
   questions: AdminQuestion[]
@@ -139,7 +140,7 @@ export default function Questions() {
       setQuestions(res.questions)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the question bank.')
+      setError(humanizeError(err, { fallback: 'Could not load the question bank.' }))
       setQuestions([])
       setPagination(null)
     } finally {
@@ -172,7 +173,7 @@ export default function Questions() {
       setNotice(`Question moved to ${QUESTION_STATUS_LABELS[status].toLowerCase()}.`)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not update that question.')
+      setError(humanizeError(err, { fallback: 'Could not update that question.' }))
     } finally {
       setBusyId('')
     }
@@ -226,7 +227,7 @@ export default function Questions() {
       // left showing a stale count next to a success message.
       if (status === 'published' && previewClass) await loadAvailability(previewClass)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not update those questions.')
+      setError(humanizeError(err, { fallback: 'Could not update those questions.' }))
     } finally {
       setBulkBusy(false)
     }
@@ -257,7 +258,7 @@ export default function Questions() {
       )
     } catch (err) {
       setAvailability(null)
-      setError(err instanceof ApiError ? err.message : 'Could not check practice availability.')
+      setError(humanizeError(err, { fallback: 'Could not check practice availability.' }))
     } finally {
       setAvailabilityBusy(false)
     }
@@ -276,7 +277,7 @@ export default function Questions() {
       setNotice('Draft deleted.')
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete that question.')
+      setError(humanizeError(err, { fallback: 'Could not delete that question.' }))
     } finally {
       setBusyId('')
     }

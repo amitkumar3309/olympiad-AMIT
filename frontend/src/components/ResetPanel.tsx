@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../api/client'
+import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import Spinner from './Spinner'
 import { Icon } from './ui'
 import styles from './ResetPanel.module.css'
+import { humanizeError } from '../lib/errors'
 
 /**
  * The danger zone: one button per administrative area that empties it (Milestone 22).
@@ -101,7 +102,7 @@ export default function ResetPanel({ scope, onDone }: ResetPanelProps) {
       const res = await api.get<{ preview: ResetPreview }>(`/admin/reset/${scope}/preview`)
       setPreview(res.preview)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not work out what this would delete.')
+      setError(humanizeError(err, { fallback: 'Could not work out what this would delete.' }))
       setPreview(null)
     } finally {
       setLoading(false)
@@ -150,7 +151,7 @@ export default function ResetPanel({ scope, onDone }: ResetPanelProps) {
       close()
       onDone?.()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not complete that reset.')
+      setError(humanizeError(err, { fallback: 'Could not complete that reset.' }))
     } finally {
       setBusy(false)
     }

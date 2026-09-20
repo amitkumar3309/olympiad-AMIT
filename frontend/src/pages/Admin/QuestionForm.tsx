@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { loadChapters } from '../../api/implicitSubject'
 import {
   CLASS_LEVELS,
@@ -21,6 +21,7 @@ import Button from '../../components/Button'
 import MathText from '../../components/MathText'
 import { Alert, Icon } from '../../components/ui'
 import styles from './QuestionForm.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /** A blank option row. Keys are assigned by the server, so none is held here. */
 interface OptionDraft {
@@ -176,7 +177,7 @@ export default function QuestionForm() {
         tags: q.tags.join(', '),
       })
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'Could not load that question.')
+      setLoadError(humanizeError(err, { fallback: 'Could not load that question.' }))
     } finally {
       setLoading(false)
     }
@@ -233,7 +234,7 @@ export default function QuestionForm() {
       }
       navigate('/admin/questions')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save that question.')
+      setError(humanizeError(err, { fallback: 'Could not save that question.' }))
     } finally {
       setSaving(false)
     }

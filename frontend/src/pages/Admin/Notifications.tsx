@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import {
   CLASS_LEVELS,
   type AdminNotification,
@@ -16,6 +16,7 @@ import {
   TableScroll,
 } from '../../components/ui'
 import styles from './Notifications.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface ListResponse {
   notifications: AdminNotification[]
@@ -58,7 +59,7 @@ export default function Notifications() {
       setItems(res.notifications)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load announcements.')
+      setError(humanizeError(err, { fallback: 'Could not load announcements.' }))
       setItems([])
       setPagination(null)
     } finally {
@@ -98,7 +99,7 @@ export default function Notifications() {
       setPage(1)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save that announcement.')
+      setError(humanizeError(err, { fallback: 'Could not save that announcement.' }))
     } finally {
       setSubmitting(false)
     }
@@ -140,7 +141,7 @@ export default function Notifications() {
           : `“${item.title}” was withdrawn. It is hidden from every inbox — though anyone who already read it has seen it.`,
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not update that announcement.')
+      setError(humanizeError(err, { fallback: 'Could not update that announcement.' }))
     } finally {
       setBusyId('')
     }
@@ -155,7 +156,7 @@ export default function Notifications() {
       setNotice(`“${item.title}” was deleted.`)
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete that announcement.')
+      setError(humanizeError(err, { fallback: 'Could not delete that announcement.' }))
     } finally {
       setBusyId('')
     }

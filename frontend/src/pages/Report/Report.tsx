@@ -4,10 +4,11 @@ import StudentShell from '../../components/StudentShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import ChartCard from '../../components/ChartCard'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import type { AnalyticsResponse } from '../../api/types'
 import styles from './Report.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The printable student report.
@@ -38,7 +39,7 @@ export default function Report() {
         if (!cancelled) setResult(res)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Failed to load report.')
+        if (!cancelled) setError(humanizeError(err, { fallback: 'Failed to load report.' }))
       })
     return () => {
       cancelled = true

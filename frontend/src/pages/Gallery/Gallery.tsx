@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { GalleryItem, Pagination } from '../../api/types'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 import Spinner from '../../components/Spinner'
 import styles from './Gallery.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface GalleryResponse {
   gallery: GalleryItem[]
@@ -39,7 +40,7 @@ export default function Gallery() {
         setPagination(res.pagination)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load the gallery.')
+        if (!cancelled) setError(humanizeError(err, { fallback: 'Could not load the gallery.' }))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)

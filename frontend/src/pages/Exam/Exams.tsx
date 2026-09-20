@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { ExamResult, StudentExam } from '../../api/types'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import styles from './Exams.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The official Olympiad, as a student sees it.
@@ -36,7 +37,7 @@ export default function Exams() {
         setResults(resultRes.results)
       })
       .catch((err) => {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load your exams.')
+        if (!cancelled) setError(humanizeError(err, { fallback: 'Could not load your exams.' }))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -54,7 +55,7 @@ export default function Exams() {
       const res = await api.post<{ attempt: { id: string } }>(`/exams/${exam.id}/attempt`, {})
       navigate(`/exam/${res.attempt.id}`)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not start that exam.')
+      setError(humanizeError(err, { fallback: 'Could not start that exam.' }))
     } finally {
       setStarting('')
     }

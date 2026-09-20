@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import { ACTIVITY_LABELS, type ActivityType, type RewardConfigResponse, type RewardTableRow } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import { Alert, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './RewardSettings.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * The XP award table (Milestone 9).
@@ -50,7 +51,7 @@ export default function RewardSettings() {
         ),
       )
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the reward settings.')
+      setError(humanizeError(err, { fallback: 'Could not load the reward settings.' }))
     } finally {
       setLoading(false)
     }
@@ -78,7 +79,7 @@ export default function RewardSettings() {
       setMeta({ updatedByLabel: res.config.updatedByLabel, updatedAt: res.config.updatedAt })
       setNotice('Saved. This applies to events from now on — nothing already earned has changed.')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save the reward settings.')
+      setError(humanizeError(err, { fallback: 'Could not save the reward settings.' }))
     } finally {
       setSaving(false)
     }

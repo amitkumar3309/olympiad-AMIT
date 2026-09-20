@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type { DrainOutcome, EmailCategory, EmailDelivery, EmailStatus, OutboxStats, Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { Alert, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './EmailDeliveries.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface ListResponse {
   deliveries: EmailDelivery[]
@@ -58,7 +59,7 @@ export default function EmailDeliveries() {
       setLinkBase(res.linkBase ?? null)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the delivery log.')
+      setError(humanizeError(err, { fallback: 'Could not load the delivery log.' }))
       setDeliveries([])
       setPagination(null)
     } finally {
@@ -88,7 +89,7 @@ export default function EmailDeliveries() {
       setNotice(describeDrain(res.drain))
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not send the queued email.')
+      setError(humanizeError(err, { fallback: 'Could not send the queued email.' }))
     } finally {
       setWorking(false)
     }
@@ -111,7 +112,7 @@ export default function EmailDeliveries() {
       )
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not requeue those messages.')
+      setError(humanizeError(err, { fallback: 'Could not requeue those messages.' }))
     } finally {
       setWorking(false)
     }

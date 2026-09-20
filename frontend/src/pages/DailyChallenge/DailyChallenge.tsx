@@ -15,7 +15,7 @@ import {
 } from '../../components/ui'
 import MathText from '../../components/MathText'
 import ChallengeCountdown from '../../components/ChallengeCountdown'
-import { api, ApiError } from '../../api/client'
+import { api } from '../../api/client'
 import type {
   DailyChallengeAnswerResponse,
   DailyChallengeHistoryResponse,
@@ -24,6 +24,7 @@ import type {
   StudentQuestion,
 } from '../../api/types'
 import styles from './DailyChallenge.module.css'
+import { humanizeError } from '../../lib/errors'
 
 /**
  * Today's challenge: one question, answered once, marked by the server.
@@ -77,7 +78,7 @@ export default function DailyChallengePage() {
       setToday(state)
       setHistory(past)
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'Could not load today’s challenge.')
+      setLoadError(humanizeError(err, { fallback: 'Could not load today’s challenge.' }))
     }
   }, [])
 
@@ -132,7 +133,7 @@ export default function DailyChallengePage() {
       // The history gains today's row, and the streak on it is the server's.
       setHistory(await api.get<DailyChallengeHistoryResponse>('/me/daily-challenge/history?limit=10'))
     } catch (err) {
-      setSubmitError(err instanceof ApiError ? err.message : 'Could not submit your answer.')
+      setSubmitError(humanizeError(err, { fallback: 'Could not submit your answer.' }))
     } finally {
       setSubmitting(false)
     }

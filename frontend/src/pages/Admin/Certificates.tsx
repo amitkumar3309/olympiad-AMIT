@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { api, ApiError, API_BASE } from '../../api/client'
+import { api, API_BASE } from '../../api/client'
 import type { Certificate, CertificateTier, Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
@@ -10,6 +10,7 @@ import {
   TableScroll,
 } from '../../components/ui'
 import styles from './Certificates.module.css'
+import { humanizeError } from '../../lib/errors'
 
 interface ListResponse {
   certificates: Certificate[]
@@ -46,7 +47,7 @@ export default function Certificates() {
       setCertificates(res.certificates)
       setPagination(res.pagination)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not load the certificates.')
+      setError(humanizeError(err, { fallback: 'Could not load the certificates.' }))
       setCertificates([])
     } finally {
       setLoading(false)
@@ -70,7 +71,7 @@ export default function Certificates() {
       setReason('')
       await load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not revoke that certificate.')
+      setError(humanizeError(err, { fallback: 'Could not revoke that certificate.' }))
     } finally {
       setBusyId('')
     }
