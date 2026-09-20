@@ -17,7 +17,7 @@
   width: 56px;
   height: 56px;
   margin: 0 auto 16px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
 }
 
 .presented {

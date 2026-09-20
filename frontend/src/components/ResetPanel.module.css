@@ -231,7 +231,7 @@
 
 .confirmRow code {
   padding: 2px 7px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: rgba(239, 68, 68, 0.12);
   color: var(--danger-text);
   font-family: var(--font-mono);

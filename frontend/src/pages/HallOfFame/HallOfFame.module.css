@@ -93,7 +93,7 @@
 .emptyReason {
   margin: 0;
   padding: 14px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: rgba(148, 163, 184, 0.1);
   font-size: var(--text-sm);
   color: var(--text-muted);
@@ -113,7 +113,7 @@
   align-items: center;
   gap: 10px;
   padding: 9px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
 }
 
 .entry:nth-child(odd) {

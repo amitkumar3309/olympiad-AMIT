@@ -80,7 +80,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(245, 158, 11, 0.15);
   color: var(--warning-text);
 }
@@ -621,7 +621,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .verdict_correct {

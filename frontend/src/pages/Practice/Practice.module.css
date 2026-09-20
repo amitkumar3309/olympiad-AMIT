@@ -432,7 +432,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .reviewMarks {

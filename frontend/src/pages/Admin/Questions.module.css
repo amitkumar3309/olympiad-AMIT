@@ -19,7 +19,7 @@
   font-family: var(--font-mono);
   font-size: 0.85em;
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: rgba(148, 163, 184, 0.18);
 }
 
@@ -66,14 +66,15 @@
   }
 }
 
-.orderToggle,
-/* `--royal-blue` is the legacy alias and is re-pointed *lighter* in dark mode so it
-   stays visible as a border — which is why these row actions measured 4.21:1 there.
-   `--primary-text` is the token for a word and clears AA in both themes. */
 /**
  * `.linkButton` and `.dangerButton` were deleted in Milestone 26 — `ui/Button` and
  * `ui/ButtonLink` are the only copies of this control now. `.dangerButton`'s hover
  * used a hardcoded `rgba(239,68,68,.14)` where `--danger-soft` already existed.
+ *
+ * `.orderToggle` shared their rule and is all that is left of it. It is **hover only**:
+ * the selector list it used to sit in left a dangling `.orderToggle,` when they went,
+ * which CSS happily parses as `.orderToggle, .orderToggle:hover` — so the control
+ * would have worn its hover background permanently.
  */
 .orderToggle:hover {
   background: var(--fill-subtle);
@@ -155,7 +156,7 @@
 .tag {
   font-size: 0.72rem;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(148, 163, 184, 0.18);
   color: var(--text-muted);
   white-space: nowrap;
@@ -175,7 +176,7 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .status_draft {

@@ -115,7 +115,7 @@
 .bar {
   height: 8px;
   min-width: 2px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--royal-blue);
   transition: width 0.3s ease;
 }

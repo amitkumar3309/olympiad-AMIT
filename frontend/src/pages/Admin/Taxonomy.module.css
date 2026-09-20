@@ -94,7 +94,7 @@
 .archivedBadge {
   font-size: 0.7rem;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(239, 68, 68, 0.15);
   color: var(--danger-text);
 }

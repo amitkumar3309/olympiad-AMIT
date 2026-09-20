@@ -79,7 +79,7 @@
   font-size: var(--text-2xs);
   font-weight: 700;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(148, 163, 184, 0.2);
   color: var(--text-muted);
   white-space: nowrap;

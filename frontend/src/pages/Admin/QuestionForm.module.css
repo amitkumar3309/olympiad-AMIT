@@ -30,7 +30,7 @@
   font-family: var(--font-mono);
   font-size: 0.85em;
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: rgba(148, 163, 184, 0.18);
 }
 

@@ -87,7 +87,7 @@
 
 .alertTag {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(239, 68, 68, 0.15);
   color: var(--danger-text);
   font-size: var(--text-2xs);
@@ -101,7 +101,7 @@
 */
 .systemTag {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(100, 116, 139, 0.16);
   color: var(--text-muted);
   font-size: var(--text-2xs);

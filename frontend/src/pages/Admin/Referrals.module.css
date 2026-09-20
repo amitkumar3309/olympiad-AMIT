@@ -294,7 +294,7 @@
 .status_rejected {
   display: inline-block;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--text-2xs);
   font-weight: 700;
   white-space: nowrap;

@@ -80,16 +80,17 @@
   justify-content: center;
 }
 
-/* Sized to match `ui/Button`, which sits beside them in the same row. */
+/* Sized and shaped to match `ui/Button`, which sits beside them in the same row —
+   48px and a pill as of Milestone 26. */
 .copyBtn,
 .shareWhatsapp {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 42px;
-  padding: 0 var(--space-5);
-  border-radius: var(--radius-sm);
+  min-height: 48px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-pill);
   font-family: var(--font-body);
   font-size: var(--text-base);
   font-weight: var(--weight-semibold);
@@ -104,14 +105,39 @@
   }
 }
 
-.copyBtn,
-.copyBtn:hover,
-/* WhatsApp's own green, because the button is recognised by its colour first. */
+/**
+ * **Copy link is not the WhatsApp button** (fixed in Milestone 26).
+ *
+ * `.copyBtn` and `.copyBtn:hover` were in this selector list, so the copy button was
+ * painted WhatsApp green — indistinguishable from the share button sitting next to it,
+ * while doing something completely different. A dangling comma before a comment: CSS
+ * parses straight through the comment and keeps collecting selectors, so the mistake
+ * is invisible in the source unless you read the whole list.
+ *
+ * It is a secondary action, so it gets the secondary treatment.
+ */
+.copyBtn {
+  border: none;
+  background: var(--fill-subtle);
+  color: var(--text);
+  font-weight: var(--weight-medium);
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.copyBtn:hover {
+  background: var(--fill-muted);
+}
+
+/**
+ * WhatsApp's own green, and deliberately **not** a token: this button is recognised by
+ * its colour before its label, so it must not follow this product's palette. The dark
+ * green on it is WhatsApp's own pairing and measures 8.9:1.
+ */
 .shareWhatsapp {
   border: none;
   background: #25d366;
   color: #05391b;
-  font-weight: 700;
+  font-weight: var(--weight-semibold);
 }
 
 /* --------------------------------------------------------------------------

@@ -35,7 +35,7 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: rgba(148, 163, 184, 0.18);
 }
 
@@ -144,7 +144,7 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .status_draft {
@@ -417,7 +417,7 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 2px 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(148, 163, 184, 0.2);
   color: var(--text-muted);
 }
@@ -472,7 +472,7 @@
   font-weight: 800;
   font-size: 12.5px;
   padding: 3px 10px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: rgba(148, 163, 184, 0.2);
   min-width: 54px;
   text-align: center;

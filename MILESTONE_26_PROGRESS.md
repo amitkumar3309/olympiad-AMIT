@@ -61,6 +61,8 @@ type is *tight*; colour is *categorical* and the action is *near-black*.
 | 6 | `3a8ce90` | `/design-system` covers the five new primitives |
 | — | `50ce02e` | Documentation |
 | 7 | `8d17abc` | `humanizeError` in 97 places; `h1` on four public pages |
+| 8 | `c229fa8` | The hand-rolled card surfaces (11 converted, 3 made nested insets) |
+| 9 | `412d4c2` | **Eleven** duplicated action-button classes → one `ui/Button`; two tables → `ui/Menu` |
 
 ### Verified at the last commit
 
@@ -75,25 +77,13 @@ type is *tight*; colour is *categorical* and the action is *near-black*.
 
 Ordered by value. Each item says how to verify it, because there is no frontend test suite.
 
-### A. Page surfaces still on the *old* card treatment — **the main visual gap**
+### ~~A. Page surfaces on the old card treatment~~ — **done, phase 8**
 
-Page CSS modules define their own panels with `border: 1px solid var(--border)` +
-`--radius-md` + no shadow. Under the new language those read as flat bordered boxes beside
-real `Card`s, which are borderless and lifted. **This is the single biggest remaining reason
-a non-migrated page looks different.**
+### ~~B. The duplicated action-button classes~~ — **done, phase 9**
 
-Find them: search the page modules for a rule carrying both `border:` and `border-radius:`.
-Fix: drop the border, use `--radius-xl` (or `--radius-lg` when nested), add `--shadow-xl`
-(or `--shadow-md` when nested), and raise the padding — or, better, delete the local class
-and use `ui/Card`.
-
-### B. The five duplicated action-button classes
-
-`.actionBtn` / `.linkButton` are near-identical copies in **Gallery, DailyChallenges,
-MockTests, Notifications, Referrals** (Admin). Convert the call sites to `ui/Button`
-(`variant="secondary" size="sm"`) or, where they are table-row actions, to `ui/Menu` —
-`Admin/Exams.tsx` and `Admin/Certificates.tsx` were done this way in the abandoned
-direction and are the pattern to copy.
+It was **eleven** classes across ten files, not five. All gone; `ui/Button` /
+`ui/ButtonLink` are the only copies, and two table-row cases became `ui/Menu`.
+`--royal-blue` is now referenced **zero** times outside `tokens.css`.
 
 ### C. 38 hardcoded font sizes left
 

@@ -61,7 +61,7 @@
   font-size: var(--text-sm);
   font-weight: 600;
   padding: 7px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   border: 1px solid var(--border);
   background: transparent;
@@ -83,7 +83,7 @@
   font: inherit;
   font-size: var(--text-base);
   padding: 7px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-main);
@@ -157,7 +157,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
 }
 
 .row:nth-child(odd) {
@@ -196,7 +196,7 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   padding: 2px 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--primary);
   color: var(--primary-on);
 }
