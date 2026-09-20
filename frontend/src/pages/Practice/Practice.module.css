@@ -152,10 +152,16 @@
   font-variant-numeric: tabular-nums;
 }
 /* One column on a phone, question + palette from 1024px. The palette below the
-   question on a small screen is the right order: the question is what you came for. */
+   question on a small screen is the right order: the question is what you came for.
+
+   `minmax(0, 1fr)`, not a bare `1fr`: `1fr` means `minmax(auto, 1fr)`, and that `auto`
+   floor will not shrink below the column's min-content. The palette card's five 44px
+   keys plus the card padding come to 310px, so on a 320px phone this column refused to
+   fit its own 284px container and pushed the runner 8px sideways. The 1024px rule below
+   was already guarded; the phone case, which is the base case, was not. */
 .runner {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }

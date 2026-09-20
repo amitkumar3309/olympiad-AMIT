@@ -299,9 +299,13 @@
 .timeWarning {
   margin-bottom: var(--space-4);
 }
+/* `minmax(0, 1fr)`, not a bare `1fr` — the same fix as the practice runner, which is the
+   same design in another file. `1fr` is `minmax(auto, 1fr)`, and that `auto` floor will
+   not shrink below min-content: the palette card came to 310px and pushed a 320px phone
+   8px sideways. The 1024px rule below was already guarded; the phone case was not. */
 .runner {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }

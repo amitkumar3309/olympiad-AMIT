@@ -77,7 +77,7 @@ export default function Report() {
                 Recorded activity — real
             ---------------------------------------------------------- */}
             <div className="card">
-              <h3>Activity summary</h3>
+              <h2>Activity summary</h2>
               {xpByDay.length > 0 ? (
                 <p>
                   You have earned <strong>{totalXp} XP</strong> across{' '}
@@ -110,7 +110,7 @@ export default function Report() {
             {analytics?.hasData ? (
               <>
                 <div className="card">
-                  <h3>Accuracy</h3>
+                  <h2>Accuracy</h2>
                   <p>
                     Out of <strong>{analytics.overall.answered}</strong> questions answered across{' '}
                     <strong>{analytics.overall.attempts}</strong> submitted sittings, your overall accuracy is{' '}
@@ -136,7 +136,7 @@ export default function Report() {
                 )}
 
                 <div className="card">
-                  <h3>Topic breakdown</h3>
+                  <h2>Topic breakdown</h2>
                   <table className={styles.table}>
                     <thead>
                       <tr>
@@ -162,7 +162,7 @@ export default function Report() {
               </>
             ) : (
               <div className={`card ${styles.pending}`}>
-                <h3>Accuracy and topic breakdown</h3>
+                <h2>Accuracy and topic breakdown</h2>
                 <p>
                   These are worked out from questions you have actually answered, and you have not submitted anything
                   yet. Sit a practice session, a mock test or the daily challenge and this section fills in by itself —

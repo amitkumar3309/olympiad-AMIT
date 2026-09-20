@@ -470,7 +470,7 @@ export default function MockTestForm() {
 
       <div className={styles.formGrid}>
         <div className="card">
-          <h3>Test details</h3>
+          <h2>Test details</h2>
 
           <div className="form-group">
             <label htmlFor="mt-title">Title *</label>
@@ -648,9 +648,9 @@ export default function MockTestForm() {
         {/* ---------------------------------------------------------------- */}
 
         <div className="card">
-          <h3>
+          <h2>
             The paper — {selected.length} question{selected.length === 1 ? '' : 's'}, {totalMarks} marks
-          </h3>
+          </h2>
 
           {/* What a Question Bank hand-off brought over, and anything it could not use. */}
           {handoffNote && <p className={styles.handoffHint}>{handoffNote}</p>}
@@ -768,7 +768,7 @@ export default function MockTestForm() {
             </ol>
           )}
 
-          <h4 className={styles.pickerHead}>Add published {classLevel} questions</h4>
+          <h3 className={styles.pickerHead}>Add published {classLevel} questions</h3>
 
           <form
             className={styles.pickerFilters}

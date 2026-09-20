@@ -72,7 +72,7 @@ export default function Exams() {
   return (
     <StudentShell title="Official Olympiad">
       <div className={`card ${styles.intro}`}>
-        <h3>The official examination</h3>
+        <h2>The official examination</h2>
         <p>
           This is the national sitting. It runs only in the window the organisers announce, you get{' '}
           <strong>one attempt</strong>, and your result — with your rank and your certificate — is released by the
@@ -94,7 +94,7 @@ export default function Exams() {
             <div key={exam.id} className={`card ${styles.examCard}`}>
               <div className={styles.examHead}>
                 <div>
-                  <h3>{exam.title}</h3>
+                  <h2>{exam.title}</h2>
                   <span className={styles.code}>{exam.examCode}</span>
                 </div>
                 <span className={styles[`state_${exam.windowState.replace(/-/g, '_')}`]}>{windowLabel(exam)}</span>
@@ -139,7 +139,7 @@ export default function Exams() {
 
       {results.length > 0 && (
         <div className={`card ${styles.results}`}>
-          <h3>Your released results</h3>
+          <h2>Your released results</h2>
           <div className={styles.tableScroll}>
             <table className={styles.table}>
               <thead>

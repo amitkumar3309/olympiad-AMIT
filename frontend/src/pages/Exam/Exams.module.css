@@ -1,11 +1,11 @@
 .intro { padding: 22px; margin-bottom: 20px; }
-.intro h3 { margin: 0 0 8px; }
+.intro h2 { margin: 0 0 8px; }
 .intro p { margin: 0; color: var(--text-muted); line-height: 1.65; }
 .empty { padding: 40px 22px; text-align: center; color: var(--text-muted); }
 .list { display: grid; gap: 16px; }
 .examCard { padding: 22px; }
 .examHead { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
-.examHead h3 { margin: 0 0 4px; }
+.examHead h2 { margin: 0 0 4px; }
 .code { display: block; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--text-muted); }
 .description { margin: 12px 0 0; color: var(--text-muted); line-height: 1.6; }
 .facts { display: flex; gap: 22px; list-style: none; margin: 16px 0; padding: 0; font-size: var(--text-base); color: var(--text-muted); }
@@ -17,7 +17,7 @@
 .state_not_open_yet { color: var(--warning-text); font-weight: 700; font-size: var(--text-sm); }
 .state_closed, .state_not_published { color: var(--text-muted); font-weight: 700; font-size: var(--text-sm); }
 .results { padding: 22px; margin-top: 20px; }
-.results h3 { margin: 0 0 14px; }
+.results h2 { margin: 0 0 14px; }
 .tableScroll { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
 .table th { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: var(--text-2xs); letter-spacing: .06em; text-transform: uppercase; text-align: left; white-space: nowrap; }

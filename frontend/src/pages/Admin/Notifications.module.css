@@ -20,8 +20,16 @@
   gap: 14px;
 }
 
+/*
+  `flex-wrap: wrap`, not the default `nowrap`.
+
+  Both buttons set `white-space: nowrap` and carry 24px of horizontal padding, so on a
+  320px screen the pair could not fit the column and pushed the page 4px sideways —
+  a page that scrolls horizontally, to reveal nothing. They stack instead.
+*/
 .actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   margin-top: 8px;

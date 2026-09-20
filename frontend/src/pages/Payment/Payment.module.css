@@ -203,29 +203,31 @@
   flex-shrink: 0;
 }
 
-.invoiceDownload,
+/*
+  `.invoiceDownload` is deliberately NOT in this rule any more.
+
+  It was declared twice in this file. The redesigned rule further down restyles it as an
+  outline button — a `--border` edge, `--primary-text` words, a `--primary-soft` tint on
+  hover — but it never cleared the filled `background: var(--primary)` this block used to
+  set, and a later `color` does not undo an earlier `background`. What actually rendered
+  was `--primary-text` on `--primary`: the two are the *same colour by design*, one being
+  the words that name the other. Measured at a contrast ratio of 1.00 in BOTH themes —
+  #1a1a1a on #1a1a1a in light, #f4f4f4 on #f4f4f4 in dark — so the control a student uses
+  to download their own receipt was invisible. Declaring one class twice is what hid it.
+*/
 .invoiceClose {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 7px 14px;
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
   font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
-}
-
-.invoiceClose {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-muted);
-}
-
-.invoiceDownload {
-  border: none;
-  background: var(--primary);
-  color: var(--primary-on);
 }
 
 /* --- The preview dialog --- */

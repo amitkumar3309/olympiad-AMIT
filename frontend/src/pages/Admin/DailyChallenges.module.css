@@ -247,8 +247,10 @@
   overflow-wrap: anywhere;
 }
 
+/* Wraps, because the stat and its buttons do not both fit a phone on one line. */
 .dayFooter {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -262,9 +264,18 @@
 
 /* --------------------------------------------------------------------------- */
 
+/*
+  `minmax(0, 1fr)`, not a bare `1fr`.
+
+  `1fr` is shorthand for `minmax(auto, 1fr)`, and that `auto` floor refuses to shrink
+  below the column's min-content. The day list's footer row is wider than a 320px
+  phone, so the single column resolved to 362px inside a 284px container and pushed
+  the page 60px sideways. The two-column rule above was already guarded; this one,
+  being the mobile fallback, is where it actually mattered.
+*/
 @media (max-width: 1100px) {
   .layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

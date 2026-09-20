@@ -105,7 +105,7 @@ export default function MockTestResults() {
       {stats.attemptsStarted === 0 ? (
         <div className={`card ${styles.empty}`}>
           <Icon name="ph-users-three" weight="bold" />
-          <h3>Nobody has sat this test yet</h3>
+          <h2>Nobody has sat this test yet</h2>
           <p>
             {test.status === 'published'
               ? 'It is published, so results will appear here as students submit.'
@@ -162,7 +162,7 @@ export default function MockTestResults() {
           )}
 
           <div className="card">
-            <h3>Attempts</h3>
+            <h2>Attempts</h2>
             <TableScroll label="Attempts">
               <Table density="compact">
                 <thead>
@@ -209,7 +209,7 @@ export default function MockTestResults() {
           </div>
 
           <div className="card">
-            <h3>Question by question</h3>
+            <h2>Question by question</h2>
             <p className={styles.help}>
               Percentages are of the students who <em>answered</em> each question, so a question everybody skipped shows
               “—” rather than 0% — which would read as everyone getting it wrong.
