@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
-import { Button, Card, EmptyState, Icon, StatTile } from '../../components/ui'
+import { Button, Card, EmptyState, Icon, IconTile, Section, StatTile } from '../../components/ui'
 import { api } from '../../api/client'
 import { CLASS_LEVELS, type LeaderboardRow, type PublicStats, type ReferralCheck } from '../../api/types'
 import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM } from '../../lib/brand'
@@ -56,9 +56,17 @@ import styles from './Landing.module.css'
  * `brand.ts` and the rule in `CLAUDE.md`.
  */
 
-/** What the platform actually offers, in the order a student meets it. */
+/**
+ * What the platform actually offers, in the order a student meets it.
+ *
+ * Each carries an `IconTile` tone. The colours are **labels, not decoration**: four
+ * things a student can do, four hues, so the eye can tell them apart down the page and
+ * in the dashboard later. That is the whole job the categorical palette exists for —
+ * see the note in `ui/IconTile`.
+ */
 const FEATURES = [
   {
+    tone: 'blue' as const,
     icon: 'ph-target',
     title: 'Practice',
     body:
@@ -66,6 +74,7 @@ const FEATURES = [
       'Marked the moment you answer, with the worked solution.',
   },
   {
+    tone: 'orange' as const,
     icon: 'ph-exam',
     title: 'Mock tests',
     body:
@@ -73,6 +82,7 @@ const FEATURES = [
       'Your answers save as you go.',
   },
   {
+    tone: 'magenta' as const,
     icon: 'ph-calendar-check',
     title: 'Daily challenge',
     body:
@@ -80,6 +90,7 @@ const FEATURES = [
       'so it is a shared problem rather than a random draw.',
   },
   {
+    tone: 'green' as const,
     icon: 'ph-chart-line-up',
     title: 'Performance insights',
     body:
@@ -364,36 +375,36 @@ export default function Landing() {
         )}
 
         {/* ------------------------------------------------------------ Features */}
-        <section className={`container ${styles.section}`} aria-labelledby="what-you-get">
-          <header className={styles.sectionHead}>
-            <p className="eyebrow">What you get</p>
-            <h2 id="what-you-get">Four ways to prepare, all of them free</h2>
-            <p className={styles.sectionLead}>
-              The entry fee buys a seat in the Olympiad. Everything you use to get ready for it does not.
-            </p>
-          </header>
-
+        {/*
+          `ui/Section` from here down (Milestone 26). It replaces `.sectionHead` and
+          `.sectionLead` and the hand-written `aria-labelledby` / `id` pairs — the
+          component wires its own, so a section cannot end up as an unnamed landmark or
+          reuse an id already on the page.
+        */}
+        <Section
+          className={`container ${styles.section}`}
+          eyebrow="What you get"
+          title="Four ways to prepare, all of them free"
+          lead="The entry fee buys a seat in the Olympiad. Everything you use to get ready for it does not."
+        >
           <div className={styles.featureGrid}>
             {FEATURES.map((feature) => (
-              <Card key={feature.title} className={styles.feature}>
-                <span className={styles.featureIcon}>
-                  <Icon name={feature.icon} weight="bold" size="lg" />
-                </span>
+              <Card key={feature.title} className={styles.feature} interactive>
+                <IconTile icon={feature.icon} tone={feature.tone} size="lg" />
                 <h3>{feature.title}</h3>
                 <p>{feature.body}</p>
               </Card>
             ))}
           </div>
-        </section>
+        </Section>
 
         {/* -------------------------------------------------------- How it works */}
-        <section className={styles.stripe} aria-labelledby="how-it-works">
-          <div className={`container ${styles.section}`}>
-            <header className={styles.sectionHead}>
-              <p className="eyebrow">How it works</p>
-              <h2 id="how-it-works">From registering to being ranked</h2>
-            </header>
-
+        <div className={styles.stripe}>
+          <Section
+            className={`container ${styles.section}`}
+            eyebrow="How it works"
+            title="From registering to being ranked"
+          >
             <ol className={styles.steps}>
               {STEPS.map((step, index) => (
                 <li key={step.title}>
@@ -409,20 +420,16 @@ export default function Landing() {
                 </li>
               ))}
             </ol>
-          </div>
-        </section>
+          </Section>
+        </div>
 
         {/* ------------------------------------------------------------- Classes */}
-        <section className={`container ${styles.section}`} aria-labelledby="classes">
-          <header className={styles.sectionHead}>
-            <p className="eyebrow">Who it is for</p>
-            <h2 id="classes">Ten classes, ten papers</h2>
-            <p className={styles.sectionLead}>
-              Questions, mock tests and the daily challenge are set per class, so a Class 4 student is never
-              shown a Class 11 paper.
-            </p>
-          </header>
-
+        <Section
+          className={`container ${styles.section}`}
+          eyebrow="Who it is for"
+          title="Ten classes, ten papers"
+          lead="Questions, mock tests and the daily challenge are set per class, so a Class 4 student is never shown a Class 11 paper."
+        >
           {/* From `CLASS_LEVELS`, which mirrors the backend's own list — so this cannot
               advertise a class the product would refuse at registration. */}
           <ul className={styles.classList}>
@@ -431,36 +438,34 @@ export default function Landing() {
             ))}
           </ul>
           <p className={styles.classCaption}>Class 3 through Class 12</p>
-        </section>
+        </Section>
 
         {/* ---------------------------------------------------------- Assurances */}
-        <section className={styles.stripe} aria-labelledby="assurances">
-          <div className={`container ${styles.section}`}>
-            <header className={styles.sectionHead}>
-              <p className="eyebrow">How it is run</p>
-              <h2 id="assurances">Things we can show you, not adjectives</h2>
-            </header>
-
+        <div className={styles.stripe}>
+          <Section
+            className={`container ${styles.section}`}
+            eyebrow="How it is run"
+            title="Things we can show you, not adjectives"
+          >
             <div className={styles.assuranceGrid}>
               {ASSURANCES.map((item) => (
                 <div className={styles.assurance} key={item.title}>
-                  <Icon name={item.icon} weight="bold" size="lg" className={styles.assuranceIcon} />
+                  <IconTile icon={item.icon} tone="neutral" size="md" />
                   <h3>{item.title}</h3>
                   <p>{item.body}</p>
                 </div>
               ))}
             </div>
-          </div>
-        </section>
+          </Section>
+        </div>
 
         {/* ------------------------------------------------------- Top scholars */}
-        <section className={`container ${styles.section}`} aria-labelledby="scholars">
-          <header className={styles.sectionHead}>
-            <p className="eyebrow">Standings</p>
-            <h2 id="scholars">Top scholars</h2>
-            <p className={styles.sectionLead}>The highest XP earned so far, straight from the leaderboard.</p>
-          </header>
-
+        <Section
+          className={`container ${styles.section}`}
+          eyebrow="Standings"
+          title="Top scholars"
+          lead="The highest XP earned so far, straight from the leaderboard."
+        >
           {champions === null ? (
             <p className={styles.muted}>Loading the leaderboard…</p>
           ) : champions.length === 0 ? (
@@ -505,7 +510,7 @@ export default function Landing() {
               Hall of Fame
             </Link>
           </p>
-        </section>
+        </Section>
 
         {/* ------------------------------------------------------------ Register */}
         <section id="register" className={`container ${styles.section}`}>
@@ -518,13 +523,12 @@ export default function Landing() {
         </section>
 
         {/* ----------------------------------------------------------------- FAQ */}
-        <section className={styles.stripe} aria-labelledby="faq">
-          <div className={`container ${styles.section} ${styles.faqSection}`}>
-            <header className={styles.sectionHead}>
-              <p className="eyebrow">Questions</p>
-              <h2 id="faq">Before you register</h2>
-            </header>
-
+        <div className={styles.stripe}>
+          <Section
+            className={`container ${styles.section} ${styles.faqSection}`}
+            eyebrow="Questions"
+            title="Before you register"
+          >
             <div className={styles.faqList}>
               {FAQS.map((f) => (
                 <details className={styles.faqItem} key={f.q}>
@@ -536,8 +540,8 @@ export default function Landing() {
                 </details>
               ))}
             </div>
-          </div>
-        </section>
+          </Section>
+        </div>
 
         {/* ------------------------------------------------------------ Final CTA */}
         <section className={`container ${styles.section}`}>
