@@ -7,20 +7,52 @@
  * sign in is worse than a burger.
  */
 
+/**
+ * The header is a **floating pill**, not a bar across the top of the window.
+ *
+ * `.nav` itself is transparent and only provides the sticky behaviour and the space
+ * above the pill; `.inner` is the visible surface. The page genuinely scrolls behind
+ * and above it, which is what the detachment is for — a full-width opaque bar cuts
+ * the window in two and makes every page start 60px down.
+ */
 .nav {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
-  background: var(--surface);
-  border-bottom: var(--border-width) solid var(--border);
+  padding-block: var(--space-4) 0;
+  background: transparent;
+}
+
+/**
+ * The fade behind the floating pill.
+ *
+ * Without it, content scrolling up into the gap above the pill is cut off at the
+ * viewport edge mid-letter, which reads as a clipping bug. This is a short gradient
+ * from the page colour to nothing, painted *behind* the pill and ignoring the
+ * pointer — so the pill still floats, and what passes behind it dissolves.
+ */
+.nav::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: calc(100% + var(--space-6));
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--bg) 40%, transparent);
 }
 
 .inner {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
   min-height: 60px;
+  padding-inline: var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-3xl);
+  background: var(--surface-translucent);
+  backdrop-filter: blur(var(--blur-panel));
+  -webkit-backdrop-filter: blur(var(--blur-panel));
 }
 
 .brand {
@@ -30,8 +62,8 @@
   min-width: 0;
   font-family: var(--font-heading);
   font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.04em;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-normal);
   color: var(--text);
   text-decoration: none;
 }
@@ -56,27 +88,44 @@
 .linkActive {
   display: inline-flex;
   align-items: center;
-  min-height: var(--tap-target);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
   font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
   color: var(--text-muted);
   text-decoration: none;
   white-space: nowrap;
-  transition: color var(--dur-fast) var(--ease);
+  transition:
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
 }
 
 .link:hover {
+  background: var(--surface-hover);
   color: var(--text);
 }
 
-/* The current page is marked by colour *and* an underline, so the state does not
-   depend on distinguishing two greys. */
+/**
+ * The current page is a **filled pill** as well as accent-coloured, matching the
+ * sidebar. Two signals and neither is hue: one item has a background where the
+ * others have none. The inset underline this replaced could not survive the pill
+ * radius — a 2px rule inside a rounded shape stops short of both ends and reads as a
+ * rendering fault.
+ */
 .linkActive {
+  background: var(--primary-soft);
   color: var(--primary-text);
-  box-shadow: inset 0 -2px 0 var(--primary);
-  border-radius: 0;
+  font-weight: var(--weight-semibold);
+}
+
+/* A coarse pointer still gets the 44px floor — the compact height above is for the
+   desktop row, where the pill is one of six in a 60px bar. */
+@media (pointer: coarse) {
+  .link,
+  .linkActive {
+    min-height: var(--tap-target);
+  }
 }
 
 .desktopNav,
@@ -117,21 +166,28 @@
   animation: nav-fade var(--dur) var(--ease-out);
 }
 
+/**
+ * The mobile panel hangs under the pill and is inset to match it, rather than
+ * spanning the window. A full-bleed sheet under a floating pill looks like two
+ * unrelated elements that happen to touch.
+ */
 .panel {
   position: absolute;
   top: 100%;
-  left: 0;
-  right: 0;
+  left: var(--gutter);
+  right: var(--gutter);
   z-index: var(--z-drawer);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-height: calc(100dvh - 60px);
+  max-height: calc(100dvh - 120px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--space-3) var(--gutter) var(--space-5);
-  background: var(--surface);
-  border-bottom: var(--border-width) solid var(--border);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-lg);
   animation: nav-drop var(--dur) var(--ease-out);
 }
@@ -143,14 +199,8 @@
 
 .panelNav .link,
 .panelNav .linkActive {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
   font-size: var(--text-base);
-}
-
-.panelNav .linkActive {
-  background: var(--primary-soft);
-  box-shadow: none;
 }
 
 .panelActions {
@@ -182,8 +232,9 @@
 
 @media (min-width: 1024px) {
   .inner {
-    min-height: 68px;
+    min-height: 64px;
     gap: var(--space-5);
+    padding-inline: var(--space-5);
   }
 
   .brand {

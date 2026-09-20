@@ -193,17 +193,26 @@
   padding: clamp(var(--space-5), 3.2vw, var(--space-8));
 }
 
+/**
+ * Must stay visually identical to `ui/Input`'s `.control` while both exist — this is
+ * what the un-migrated pages use, and two form fields that differ by 1px of padding
+ * on the same screen is exactly the kind of drift the design system exists to stop.
+ * `--surface-sunken` for the reason given at the top of `Input.module.css`: almost
+ * every form sits inside a card, and a field the same colour as its card is an
+ * outline rather than a well.
+ */
 .form-control {
   width: 100%;
-  padding: 11px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius-sm);
   border: var(--border-width) solid var(--border);
-  background: var(--surface);
+  background: var(--surface-sunken);
   color: var(--text);
   font-size: var(--text-base);
   line-height: var(--leading-snug);
   transition:
     border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease);
 }
 
@@ -237,11 +246,12 @@
 .form-control:focus {
   outline: none;
   border-color: var(--primary);
+  background: var(--surface);
   box-shadow: var(--focus-ring);
 }
 
 .form-control:disabled {
-  background: var(--surface-sunken);
+  background: var(--bg);
   color: var(--text-muted);
   cursor: not-allowed;
 }

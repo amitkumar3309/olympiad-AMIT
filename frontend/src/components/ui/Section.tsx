@@ -1,4 +1,4 @@
-import type { ElementType, ReactNode } from 'react'
+import { useId, type ElementType, type ReactNode } from 'react'
 import Icon from './Icon'
 import styles from './Section.module.css'
 
@@ -37,6 +37,18 @@ import styles from './Section.module.css'
  * stylesheet turned off.
  *
  * **One phrase per heading.** Two accent phrases is no accent at all.
+ *
+ * ## It names its own landmark
+ *
+ * A bare `<section>` is **not** exposed as a landmark — it only becomes one once it
+ * has an accessible name. Every page that wanted that was writing the pair by hand
+ * (`<section aria-labelledby="faq">` … `<h2 id="faq">`), which means every new section
+ * is a chance to forget one half, or to reuse an id that is already on the page.
+ *
+ * This wires it itself with `useId`, so a section rendered as `section` or `article`
+ * is always a named landmark and the id is always unique. Pass `id` for a link target
+ * (`/#register`); it is kept separate from the heading's id on purpose, because they
+ * are different things — one is where you jump to, the other is what names the region.
  */
 
 export interface SectionProps {
@@ -98,6 +110,7 @@ export default function Section({
   className,
   children,
 }: SectionProps) {
+  const headingId = useId()
   const classes = [
     styles.section,
     styles[`size-${size}`],
@@ -108,8 +121,12 @@ export default function Section({
     .filter(Boolean)
     .join(' ')
 
+  /* Only a sectioning element becomes a landmark, so only those are named. Putting
+     `aria-labelledby` on a `div` names nothing and adds an IDREF for no reader. */
+  const isLandmark = Tag === 'section' || Tag === 'article' || Tag === 'aside' || Tag === 'nav'
+
   return (
-    <Tag id={id} className={classes}>
+    <Tag id={id} className={classes} aria-labelledby={isLandmark ? headingId : undefined}>
       <div className={divider ? styles.headWithDivider : styles.head}>
         <div className={styles.headText}>
           {eyebrow && (
@@ -118,7 +135,9 @@ export default function Section({
               {eyebrow}
             </p>
           )}
-          <Heading className={styles.title}>{title}</Heading>
+          <Heading id={headingId} className={styles.title}>
+            {title}
+          </Heading>
           {lead && <p className={styles.lead}>{lead}</p>}
         </div>
         {actions && <div className={styles.actions}>{actions}</div>}

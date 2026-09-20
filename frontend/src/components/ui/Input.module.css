@@ -4,19 +4,30 @@
  * `styles/utilities.css` — that class is what the un-migrated pages use, and the two
  * must look identical while both exist.
  */
+/**
+ * The field is a step **down**, not up.
+ *
+ * `--surface-sunken`, not `--surface`. Almost every form in this product sits inside
+ * a `Card`, which is `--surface` — so an input painted the same colour as the card is
+ * an outline and nothing else, and on a dark canvas a 1px hairline is not enough to
+ * say "you can type here". Inset reads as a well; raised reads as a button. This is
+ * one of the few places where the light and dark themes genuinely wanted different
+ * answers, and the token layer is what lets both have one.
+ */
 .control {
   width: 100%;
   min-width: 0;
-  padding: 11px 14px;
+  padding: 12px 16px;
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--surface-sunken);
   color: var(--text);
   font-family: var(--font-body);
   font-size: var(--text-base);
   line-height: var(--leading-snug);
   transition:
     border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease);
 }
 
@@ -41,20 +52,25 @@
   border-color: var(--border-strong);
 }
 
+/* Focus lifts the field as well as ringing it — the surface change is what carries
+   on a monochrome display and under `forced-colors`, where a ring may be repainted. */
 .control:focus {
   outline: none;
   border-color: var(--primary);
+  background: var(--surface);
   box-shadow: var(--focus-ring);
 }
 
+/* Disabled and read-only are a step *further* down than the resting field, so they
+   read as unavailable rather than merely unfocused. */
 .control:disabled {
-  background: var(--surface-sunken);
+  background: var(--bg);
   color: var(--text-muted);
   cursor: not-allowed;
 }
 
 .control:read-only:not(:focus) {
-  background: var(--surface-sunken);
+  background: var(--bg);
 }
 
 .invalid {
@@ -208,7 +224,7 @@
 }
 
 .checkbox:focus-visible {
-  outline: var(--focus-ring-width) solid var(--primary-text);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: 2px;
 }
 

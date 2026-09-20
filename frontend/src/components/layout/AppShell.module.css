@@ -70,7 +70,9 @@
   display: flex;
   flex-direction: column;
   width: min(var(--sidebar-width), 86vw);
-  background: var(--surface);
+  /* `--surface-raised`, unlike the permanent sidebar below, because a drawer is in
+     front of the page rather than beside it — it should read as lifted off. */
+  background: var(--surface-raised);
   border-right: var(--border-width) solid var(--border);
   box-shadow: var(--shadow-xl);
   animation: shell-slide-in var(--dur-slow) var(--ease);
@@ -84,26 +86,47 @@
   animation: shell-fade var(--dur) var(--ease-out);
 }
 
+/* No rule under the brand. A hairline here and another under the topbar stacks two
+   horizontal lines in the top-left corner of every page for no information gain;
+   the padding already separates the wordmark from the menu. */
 .panelHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-4);
-  border-bottom: var(--border-width) solid var(--border-subtle);
+  padding: var(--space-5) var(--space-5) var(--space-4);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
   font-family: var(--font-heading);
-  font-size: var(--text-base);
-  font-weight: var(--weight-bold);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
   letter-spacing: var(--tracking-tight);
   color: var(--text);
   text-decoration: none;
+}
+
+/**
+ * The brand mark: the glyph in a lime tile.
+ *
+ * The one place the accent appears unprompted on every page, which is why it is a
+ * 32px square rather than anything larger — it anchors the corner and then gets out
+ * of the way. `flex-shrink: 0` because the wordmark beside it truncates and this
+ * must not.
+ */
+.brandMark {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-xs);
+  background: var(--primary);
+  color: var(--primary-on);
 }
 
 .brand span {
@@ -180,8 +203,9 @@
   /* 44px on every device, not only on a touch screen: a twenty-item menu is easier to
      hit with a mouse at this height too. */
   min-height: var(--tap-target);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-4);
+  /* A pill, like every other pressable thing in the product. */
+  border-radius: var(--radius-pill);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
   color: var(--text-muted);
@@ -197,26 +221,23 @@
 }
 
 /**
- * The current page. A tinted background *and* a heavier weight *and* a left marker —
- * the previous treatment was a solid blue fill, which read as a button rather than as
- * a position, and left the row's own hover state nowhere to go.
+ * The current page.
+ *
+ * A **filled pill** plus a heavier weight. Two signals, and neither of them is hue:
+ * a reader who cannot distinguish the lime from the grey still sees one item with a
+ * background where the others have none, and one item set heavier. `aria-current`
+ * carries it for a screen reader.
+ *
+ * The 3px left marker that used to sit beside this is gone, and its job is done by
+ * the fill. A bar hanging off the flat edge of a pill reads as a rendering artefact,
+ * and the treatment before *that* was a solid blue fill — which looked like a button
+ * rather than a position and left the row's own hover state nowhere to go.
  */
 .itemActive {
   position: relative;
   background: var(--primary-soft);
   color: var(--primary-text);
   font-weight: var(--weight-semibold);
-}
-
-.itemActive::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 20%;
-  bottom: 20%;
-  width: 3px;
-  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
-  background: var(--primary);
 }
 
 .itemLabel {
@@ -302,6 +323,16 @@
  * and costs 56px; on a desktop the sidebar is already permanent and a second fixed
  * band would just take height from the tables.
  */
+/**
+ * Translucent, with a blur behind it, so the content scrolling under the sticky bar
+ * reads as *behind* it rather than as clipped by it. `--surface-translucent` is the
+ * card colour at 72%; the blur is what stops the text underneath showing through as
+ * ghosting.
+ *
+ * `backdrop-filter` is an enhancement, not a dependency: where it is unsupported the
+ * 72% fill alone is still opaque enough to read against, which is why the alpha is
+ * 0.72 and not the reference's 0.4.
+ */
 .topbar {
   position: sticky;
   top: 0;
@@ -311,8 +342,10 @@
   gap: var(--space-2);
   min-height: 56px;
   padding: var(--space-2) var(--gutter);
-  background: var(--surface);
-  border-bottom: var(--border-width) solid var(--border);
+  background: var(--surface-translucent);
+  backdrop-filter: blur(var(--blur-panel));
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 
 /**
@@ -362,14 +395,15 @@
 .title {
   margin: 0;
   font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
+  font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
   color: var(--text);
   overflow-wrap: break-word;
 }
 
 .subtitle {
-  margin: 2px 0 0;
+  margin: var(--space-1) 0 0;
   font-size: var(--text-xs);
   line-height: var(--leading-snug);
   color: var(--text-muted);
@@ -440,7 +474,10 @@
   align-items: stretch;
   height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--surface);
+  /* Translucent and blurred, matching the topbar — the page scrolls under both. */
+  background: var(--surface-translucent);
+  backdrop-filter: blur(var(--blur-panel));
+  -webkit-backdrop-filter: blur(var(--blur-panel));
   border-top: var(--border-width) solid var(--border);
   /* Sits above the page but below a dialog and below a toast. */
   box-shadow: var(--shadow-md);
@@ -535,6 +572,15 @@
    ========================================================================== */
 
 @media (min-width: 1024px) {
+  /**
+   * The permanent sidebar sits on the **page** colour, not on a surface.
+   *
+   * A navigation panel in its own lighter box beside a page of lighter boxes gives
+   * the screen two competing frames, and the reader has to work out which one the
+   * content is in. Navigation is chrome: it belongs to the window, so it shares the
+   * window's colour and is separated by one hairline. Everything that *is* content
+   * then reads as raised, which is the hierarchy that was wanted all along.
+   */
   .sidebar {
     position: sticky;
     top: 0;
@@ -544,8 +590,8 @@
     display: flex;
     flex-direction: column;
     width: var(--sidebar-width);
-    background: var(--surface);
-    border-right: var(--border-width) solid var(--border);
+    background: var(--bg);
+    border-right: var(--border-width) solid var(--border-subtle);
   }
 
   /* Belt and braces: the drawer is not mounted at this width, but if it somehow is
@@ -560,8 +606,10 @@
   .topbar {
     position: static;
     min-height: 0;
-    padding: var(--space-6) var(--space-8) 0;
+    padding: var(--space-10) var(--space-10) 0;
     background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     border-bottom: none;
   }
 
@@ -569,16 +617,23 @@
     padding-right: var(--space-4);
   }
 
+  /* The page's `h1`. Display weight and tracking, because at this size it is the
+     largest thing on the screen and 600 would read as shouting. */
   .title {
     font-size: var(--text-2xl);
+    font-weight: var(--weight-medium);
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
   }
 
   .subtitle {
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
+    line-height: var(--leading-relaxed);
+    max-width: 68ch;
   }
 
   .content {
-    padding: var(--space-5) var(--space-8) var(--space-16);
+    padding: var(--space-8) var(--space-10) var(--space-24);
   }
 
   /* The bell belongs to the compact header; on a desktop the sidebar item carries the

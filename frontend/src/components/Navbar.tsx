@@ -139,7 +139,14 @@ export default function Navbar() {
 
   return (
     <header className={styles.nav}>
-      <div className={`container ${styles.inner}`}>
+      {/*
+        Two elements, not one. `.container` owns the maximum width and the gutter, so
+        the pill inside it is inset from the window edge at every width; putting both
+        jobs on one element makes the pill touch the screen edges on a phone, because
+        `.container`'s gutter is *inside* padding.
+      */}
+      <div className="container">
+      <div className={styles.inner}>
         {/*
           The wordmark stays four letters (Milestone 22, Phase D). The expansion belongs
           where a visitor is asking what the letters mean — the hero — not in the top bar
@@ -185,6 +192,7 @@ export default function Navbar() {
             <Icon name={open ? 'ph-x' : 'ph-list'} weight="bold" size="md" />
           </button>
         </div>
+      </div>
       </div>
 
       {/*
