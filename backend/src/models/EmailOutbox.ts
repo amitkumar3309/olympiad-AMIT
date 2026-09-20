@@ -79,6 +79,21 @@ export interface EmailOutboxDocument extends Document {
   lastError?: string | null;
   sentAt?: Date | null;
   /**
+   * The two halves of a delivery's latency, recorded on the attempt that succeeded.
+   *
+   * `providerMs` is wall-clock time inside the provider request. `queuedForMs` is
+   * `sentAt - createdAt` — everything else, which is ours: the wait to be claimed.
+   *
+   * Stored rather than derived because they answer different questions and a single
+   * figure conflates them. "The verification email took four minutes" has two very
+   * different causes, and before Milestone 25 neither could be distinguished without
+   * reading a server log — so the answer was always a guess. Null on a row that has
+   * never been delivered, which is why `queuedForMs` is not simply computed from
+   * `createdAt` on read: a *pending* row has no elapsed delivery time, it has an age.
+   */
+  providerMs?: number | null;
+  queuedForMs?: number | null;
+  /**
    * Application-level idempotency, e.g. `results:<examId>:<studentId>`.
    *
    * Partial-unique, so releasing the same exam's results twice cannot email the
@@ -103,6 +118,8 @@ const emailOutboxSchema = new Schema<EmailOutboxDocument>({
   lastAttemptAt: { type: Date, default: null },
   lastError: { type: String, default: null },
   sentAt: { type: Date, default: null },
+  providerMs: { type: Number, default: null, min: 0 },
+  queuedForMs: { type: Number, default: null, min: 0 },
   dedupeKey: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });

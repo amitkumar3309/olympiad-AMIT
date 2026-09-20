@@ -4,6 +4,7 @@ import { Alert, Button, Field, Icon, Input, PasswordInput, Select, Steps, Textar
 import { humanizeError } from '../../lib/errors'
 import { PASSWORD_RULES, passwordProblem } from '../../lib/passwordPolicy'
 import { formatCooldown, useResendCooldown } from '../../lib/resendCooldown'
+import { SUPPORT } from '../../lib/brand'
 import { CLASS_LEVELS, type ClassLevel, type ReferralCheck } from '../../api/types'
 import styles from './RegisterForm.module.css'
 
@@ -161,7 +162,18 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
    * — rather than a resend button inviting them to replace it immediately.
    */
   const cooldown = useResendCooldown(form.email)
-  const [resendNotice, setResendNotice] = useState('')
+  /**
+   * The outcome of a resend, and **whether it worked**.
+   *
+   * These were one string rendered in an `info` Alert, so a resend that failed — a rate
+   * limit, a dropped connection — was announced in the same calm blue box as one that
+   * succeeded, reading as though a link were on its way when none was. A student who
+   * then waits for an email that does not exist has been actively misled by the screen
+   * that was supposed to help. Tone has to follow the outcome.
+   */
+  const [resendResult, setResendResult] = useState<{ ok: boolean; message: string } | null>(null)
+  /** Drives the button's own loading state, so the press is acknowledged immediately. */
+  const [resending, setResending] = useState(false)
 
   const setField =
     (field: FormField) =>
@@ -294,13 +306,19 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
   }
 
   async function handleResend() {
-    setResendNotice('')
+    setResendResult(null)
+    setResending(true)
     try {
       const result = await resendVerification(form.email.trim())
-      setResendNotice(result.message)
+      setResendResult({ ok: true, message: result.message })
       cooldown.start(result.nextResendAt, form.email.trim())
     } catch (err) {
-      setResendNotice(humanizeError(err, { fallback: 'Could not send a new link. Please try again.' }))
+      setResendResult({
+        ok: false,
+        message: humanizeError(err, { fallback: 'Could not send a new link. Please try again.' }),
+      })
+    } finally {
+      setResending(false)
     }
   }
 
@@ -622,13 +640,50 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
           <span className={styles.successIcon}>
             <Icon name="ph-envelope-simple" weight="bold" size="lg" />
           </span>
-          <h2 className={styles.heading}>Almost there, {form.firstName}</h2>
+          <h2 className={styles.heading}>Check your email, {form.firstName}</h2>
           <p className={styles.lead}>
-            Your student ID is <strong className={styles.studentId}>{registeredId}</strong>. We have emailed a
-            verification link to <strong>{form.email}</strong> — open it to activate your account, then sign in.
+            Your account is created — your student ID is{' '}
+            <strong className={styles.studentId}>{registeredId}</strong>. One step left: we have sent a
+            verification link to <strong className={styles.sentTo}>{form.email}</strong>. Open it to activate
+            your account, then sign in.
           </p>
 
-          {resendNotice && <Alert tone="info">{resendNotice}</Alert>}
+          {/*
+            The three things a reader needs before they start worrying, stated once and
+            up front rather than discovered one at a time. The link's lifetime matches
+            `config.auth.emailVerifyTtlHours`; the spam note is here because a new
+            sender's first message to an address is the one most likely to be filtered,
+            and "it never arrived" is overwhelmingly "it arrived somewhere else".
+          */}
+          <ul className={styles.successNotes}>
+            {/*
+              Each line is exactly two grid children — the icon, and one span holding all
+              the text. Without the span, an inline <strong> becomes a grid item of its
+              own and is placed in the *icon* column on the next row, which is what "The
+              link works for / 24 hours and can be used once." looked like in the browser.
+            */}
+            <li>
+              <Icon name="ph-clock" />
+              <span>
+                The link works for <strong>24 hours</strong> and can be used once.
+              </span>
+            </li>
+            <li>
+              <Icon name="ph-folder-simple" />
+              <span>Not there after a minute or two? Check your spam or promotions folder.</span>
+            </li>
+            <li>
+              <Icon name="ph-shield-check" />
+              <span>
+                You cannot sign in until the address is verified — that is what stops somebody
+                registering with an address that is not theirs.
+              </span>
+            </li>
+          </ul>
+
+          {resendResult && (
+            <Alert tone={resendResult.ok ? 'success' : 'danger'}>{resendResult.message}</Alert>
+          )}
 
           <div className={styles.successActions}>
             <Button icon="ph-sign-in" onClick={onRequestLogin}>
@@ -637,6 +692,7 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
             <Button
               variant="secondary"
               icon="ph-paper-plane-tilt"
+              loading={resending}
               onClick={() => void handleResend()}
               disabled={cooldown.secondsLeft > 0}
             >
@@ -656,6 +712,22 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
               sent, so check your inbox (and your spam folder) first.
             </p>
           )}
+
+          {/*
+            The dead end this screen would otherwise have.
+
+            A mistyped address cannot be corrected by the student: changing an account's
+            email is deliberately not built (`validation/profileSchemas.ts` — without a
+            confirm-at-the-new-address step it is an account-takeover primitive), and
+            registering again is refused, because the mobile number is already taken. So
+            the only real route is a human, and saying so is better than leaving somebody
+            to discover both refusals for themselves.
+          */}
+          <p className={styles.resendHint}>
+            Typed the wrong address? It cannot be changed from here, so email{' '}
+            <a href={`mailto:${SUPPORT.email}`}>{SUPPORT.email}</a> with your student ID and we will sort it
+            out.
+          </p>
         </div>
       )}
     </div>

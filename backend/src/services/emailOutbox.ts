@@ -1,12 +1,13 @@
 import type { Types } from 'mongoose';
 import { EmailOutbox, type EmailCategory, type EmailOutboxDocument } from '../models';
-import { deliverEmail, type OutboundEmail } from '../lib/email';
+import { openMailSession, type MailSession, type OutboundEmail } from '../lib/email';
 import { logger } from '../lib/logger';
+import { keepAlive } from '../lib/serverlessLifecycle';
 import { config } from '../config';
 import { isConnected } from '../db/connection';
 
 /**
- * THE email queue. Nothing in this codebase may call `deliverEmail()` directly.
+ * THE email queue. Nothing in this codebase may call `openMailSession()` directly.
  *
  * ## The property this file exists to guarantee
  *
@@ -20,18 +21,32 @@ import { isConnected } from '../db/connection';
  *
  * The Vercel free tier has no cron and no worker, and work started after a response
  * is not guaranteed to finish — the container can be frozen the moment the response
- * is flushed. So there are two drivers, and the queue is correct with either:
+ * is flushed. So there are three drivers, and the queue is correct with any of them:
  *
- *  1. **An opportunistic kick.** `enqueueEmail()` starts a drain and does not await
- *     it. If the container survives, the mail goes out within milliseconds.
- *  2. **A lazy sweep on later requests.** If it did not survive, the row is still
- *     `pending` and due, and the next drain picks it up. This is the same pattern
- *     the codebase already uses for expired mock-test and exam attempts, and for the
- *     same reason.
+ *  1. **An opportunistic kick, held open by the platform.** `enqueueEmail()` starts a
+ *     drain through `keepAlive()` (`lib/serverlessLifecycle.ts`), which registers it
+ *     with the runtime's `waitUntil` so the environment stays alive until it settles.
+ *     The mail goes out within milliseconds of the response.
+ *  2. **A lazy sweep on later requests** — `middleware/outboxSweep.ts`. If the kick was
+ *     never protected (no platform context) or its container died anyway, the row is
+ *     still `pending` and due, and the *next request of any kind* picks it up. This is
+ *     the same pattern the codebase already uses for expired mock-test and exam
+ *     attempts, and for the same reason.
+ *  3. **An explicit "send now"**, `POST /admin/email-deliveries/drain`.
  *
- * Neither is a deadline. A queue that only drains when the site is used cannot
- * promise a delivery time on an idle site, which is why `drainOutbox()` is also
- * exposed to staff as an explicit "send now" action rather than being hidden.
+ * ## The Milestone 25 regression this section used to describe but not implement
+ *
+ * Driver 2 was documented here from the beginning and **was never written**. Until
+ * Milestone 25 the only callers of `drainOutbox()` were this file and the two admin
+ * routes, so a verification email whose kick was frozen waited until *the next person
+ * registered*. On a quiet site that is hours. Both halves — protecting the kick, and
+ * building the sweep that was already promised — landed together, because either alone
+ * leaves a case uncovered: the platform lookup can stop resolving, and a container can
+ * die mid-drain however well it was registered.
+ *
+ * None of the three is a deadline. A queue that only drains when the site is used
+ * cannot promise a delivery time on a completely idle site, which is why the staff
+ * action stays visible rather than hidden.
  */
 
 /**
@@ -46,6 +61,30 @@ const BACKOFF_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
 
 /** Bounded so one unlucky request never tries to push a whole cohort's mail. */
 const DRAIN_BATCH = 10;
+
+/**
+ * How long one drain may keep *claiming new rows*. A message already in flight is
+ * never cut short.
+ *
+ * A serverless invocation has a wall-clock ceiling, and work registered with
+ * `waitUntil` counts against it. Without this, ten messages against a provider that is
+ * timing out would be killed by the platform mid-batch — which is survivable (the rows
+ * simply become due again) but wastes the whole invocation on one bad provider. Stopping
+ * early leaves the remainder due immediately for the next sweep.
+ */
+const DRAIN_BUDGET_MS = 20_000;
+
+/**
+ * What is recorded against a row that was claimed more times than its budget allows
+ * without ever reporting an outcome.
+ *
+ * `giveUp` is only evaluated in the `catch`, so an attempt that neither succeeds nor
+ * throws — a frozen container, a killed function — increments `attempts` and leaves the
+ * row `pending` for ever. It would then be marked `failed` by its *first* genuine error
+ * rather than its fourth. Naming the state is the honest alternative to both.
+ */
+const ABANDONED_REASON =
+  'Abandoned: the attempt budget was spent by attempts that never reported an outcome (the container was most likely stopped mid-send).';
 
 function backoffFor(attempts: number): number {
   return BACKOFF_MS[Math.min(attempts, BACKOFF_MS.length - 1)] ?? 60_000;
@@ -114,14 +153,21 @@ export async function enqueueEmail(input: EnqueueInput): Promise<EnqueueResult> 
  * single insert, and the request path is identical either way — it is what makes the
  * suite deterministic instead of racing a floating promise.
  *
- * Everywhere else it is deliberately **not awaited**, which is the entire point.
+ * Everywhere else it is deliberately **not awaited**, which is the entire point — but
+ * it is no longer a *bare* floating promise. `keepAlive()` registers it with the
+ * platform so the container is held open until the send finishes, instead of the work
+ * being suspended the instant the response is flushed. See `lib/serverlessLifecycle.ts`
+ * for why that distinction was the whole bug.
+ *
+ * Called synchronously from `enqueueEmail()`, which is called synchronously from the
+ * handler, so the per-invocation context `keepAlive()` reads is still live.
  */
 async function dispatch(): Promise<void> {
   if (config.isTest) {
     await drainOutbox();
     return;
   }
-  void drainOutbox().catch((err) => logger.error({ err }, 'Outbox drain failed'));
+  keepAlive(drainOutbox(), 'email-outbox-drain');
 }
 
 export interface DrainOutcome {
@@ -147,49 +193,129 @@ export async function drainOutbox(now = new Date()): Promise<DrainOutcome> {
   // but a drain can also be triggered by a request that never touched the database.
   if (!isConnected()) return outcome;
 
-  for (let i = 0; i < DRAIN_BATCH; i += 1) {
-    const claimed = await claimNext(now);
-    if (!claimed) break;
-    outcome.claimed += 1;
+  const drainStartedAt = Date.now();
 
-    try {
-      await deliverEmail({ to: claimed.to, subject: claimed.subject, text: claimed.text, html: claimed.html });
-      await EmailOutbox.updateOne(
-        { _id: claimed._id },
-        { $set: { status: 'sent', sentAt: new Date(), lastError: null } },
-      );
-      outcome.sent += 1;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      // `attempts` was already incremented by the claim, so it reflects this try.
-      const giveUp = claimed.attempts >= claimed.maxAttempts;
+  /**
+   * Opened once for the whole batch and closed in the `finally`, so ten queued
+   * messages cost one handshake rather than ten. See `MailSession` in `lib/email.ts`.
+   *
+   * Lazily, because the overwhelmingly common drain is the sweep finding nothing to
+   * do. A sweep that has to build and tear down a transport to discover the queue is
+   * empty would be paying for the exception on every request.
+   *
+   * Opened inline below rather than behind a `mailSession()` helper: TypeScript ignores
+   * assignments made inside a nested function when narrowing the variable in the
+   * enclosing scope, so the `finally` saw `session` as `null` and refused `.close()`.
+   */
+  let session: MailSession | null = null;
 
-      await EmailOutbox.updateOne(
-        { _id: claimed._id },
-        {
-          $set: {
-            status: giveUp ? 'failed' : 'pending',
-            lastError: message.slice(0, 500),
-            // Already pushed forward by the claim; restate it against this
-            // attempt's count so the backoff grows rather than staying flat.
-            nextAttemptAt: new Date(now.getTime() + backoffFor(claimed.attempts)),
-          },
-        },
-      );
+  try {
+    for (let i = 0; i < DRAIN_BATCH; i += 1) {
+      // Checked before claiming, never mid-message: a claimed row must reach an
+      // outcome, or it is exactly the stuck row this budget exists to avoid creating.
+      if (Date.now() - drainStartedAt > DRAIN_BUDGET_MS) break;
 
-      if (giveUp) {
+      const claimed = await claimNext(now);
+      if (!claimed) break;
+      outcome.claimed += 1;
+
+      // Claimed more times than its budget allows without ever reporting an outcome.
+      // See `ABANDONED_REASON` — this is the case that used to sit `pending` for ever.
+      if (claimed.attempts > claimed.maxAttempts) {
+        await EmailOutbox.updateOne(
+          { _id: claimed._id },
+          { $set: { status: 'failed', lastError: ABANDONED_REASON } },
+        );
         outcome.failed += 1;
         logger.error(
-          { to: claimed.to, category: claimed.category, attempts: claimed.attempts, err: message },
-          'Giving up on an email after the last attempt',
+          { to: claimed.to, category: claimed.category, attempts: claimed.attempts },
+          'Abandoning an email whose attempts never reported an outcome',
         );
-      } else {
-        outcome.retrying += 1;
-        logger.warn(
-          { to: claimed.to, category: claimed.category, attempts: claimed.attempts, err: message },
-          'Email delivery failed; will retry',
-        );
+        continue;
       }
+
+      try {
+        if (!session) session = openMailSession();
+
+        const receipt = await session.deliver({
+          to: claimed.to,
+          subject: claimed.subject,
+          text: claimed.text,
+          html: claimed.html,
+        });
+
+        const sentAt = new Date();
+        /**
+         * The two halves of "why was that email slow?", stored separately on purpose.
+         *
+         * `providerMs` is what the provider took. `queuedForMs` is everything else —
+         * how long the row waited to be picked up. A support question that used to
+         * need a server log now reads off the delivery console: a large `queuedForMs`
+         * with a small `providerMs` is ours, and the reverse is theirs.
+         */
+        await EmailOutbox.updateOne(
+          { _id: claimed._id },
+          {
+            $set: {
+              status: 'sent',
+              sentAt,
+              lastError: null,
+              providerMs: receipt.providerMs,
+              queuedForMs: sentAt.getTime() - claimed.createdAt.getTime(),
+            },
+          },
+        );
+        outcome.sent += 1;
+
+        logger.info(
+          {
+            to: claimed.to,
+            category: claimed.category,
+            attempts: claimed.attempts,
+            transport: receipt.transport,
+            providerMs: receipt.providerMs,
+            queuedForMs: sentAt.getTime() - claimed.createdAt.getTime(),
+          },
+          'Email delivered',
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        // `attempts` was already incremented by the claim, so it reflects this try.
+        const giveUp = claimed.attempts >= claimed.maxAttempts;
+
+        await EmailOutbox.updateOne(
+          { _id: claimed._id },
+          {
+            $set: {
+              status: giveUp ? 'failed' : 'pending',
+              lastError: message.slice(0, 500),
+              // Already pushed forward by the claim; restate it against this
+              // attempt's count so the backoff grows rather than staying flat.
+              nextAttemptAt: new Date(now.getTime() + backoffFor(claimed.attempts)),
+            },
+          },
+        );
+
+        if (giveUp) {
+          outcome.failed += 1;
+          logger.error(
+            { to: claimed.to, category: claimed.category, attempts: claimed.attempts, err: message },
+            'Giving up on an email after the last attempt',
+          );
+        } else {
+          outcome.retrying += 1;
+          logger.warn(
+            { to: claimed.to, category: claimed.category, attempts: claimed.attempts, err: message },
+            'Email delivery failed; will retry',
+          );
+        }
+      }
+    }
+  } finally {
+    // Never allowed to mask the outcome: a transport that will not close cleanly has
+    // no bearing on whether the messages went.
+    if (session) {
+      await session.close().catch((err: unknown) => logger.warn({ err }, 'Closing the mail transport failed'));
     }
   }
 
@@ -255,6 +381,13 @@ export function outboxRowView(doc: EmailOutboxDocument) {
     lastAttemptAt: doc.lastAttemptAt ?? null,
     lastError: doc.lastError ?? null,
     sentAt: doc.sentAt ?? null,
+    /**
+     * Published so the delivery console can say *where* a slow email was slow.
+     * Null on anything not yet delivered — an em dash, never a zero, by the rule
+     * the student-facing figures follow.
+     */
+    providerMs: doc.providerMs ?? null,
+    queuedForMs: doc.queuedForMs ?? null,
     createdAt: doc.createdAt,
   };
 }

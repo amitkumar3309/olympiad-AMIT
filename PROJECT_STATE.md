@@ -4,9 +4,120 @@ _Last updated: 2026-08-31 (Milestone 24 — a real Class 9 daily challenge, its 
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 
-**Verified counts, read from the code rather than carried forward** (re-measured 2026-08-31, at the close of Milestone 24): **1272 tests passing across 35 files** (Milestone 24 added **five**, all in `tests/dailyChallenge.test.ts`, covering the rollover clock and `challenge.source`; it added no test file and no model, and its two new frontend files — `components/ChallengeCountdown.tsx` and its stylesheet — are **not** design-system primitives, because the component knows what a daily challenge is), **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **54 frontend routes in production** (Milestone 23 Phase E added **one** — the `/*` catch-all rendering `NotFound`, so that an address nobody declared stops rendering a blank page; Phase A added **none**: its `/design-system` reference page is behind `import.meta.env.DEV` and is statically absent from a production build, confirmed in `dist/`; Phase G added `/admin/referrals`; Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`), and **20 design-system primitives** in `frontend/src/components/ui` (Milestone 23 Phase A, plus `Steps` in Phase E — this is the **file** count, one per primitive, and it was carried as "twenty-one" until it was re-counted on 2026-08-29; `Input.tsx` alone exports five components). Every number on this line was re-measured on 2026-08-29 by running `npm test --prefix backend` and counting the files; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
+**Verified counts, read from the code rather than carried forward** (re-measured 2026-09-20, at the close of Milestone 25 Phase B, by running `npm test --prefix backend`): **1289 tests passing across 36 files** — Milestone 25 added `tests/emailDelivery.test.ts` and its seventeen tests (ten in Phase B, seven in Phase C), and **two backend files that are neither a route, a service nor a model**: `lib/serverlessLifecycle.ts` and `middleware/outboxSweep.ts`. It added **no** model, no route, no permission and no environment variable. The figure immediately before it was **1272 across 35 files** (re-measured 2026-08-31 at the close of Milestone 24) (Milestone 24 added **five**, all in `tests/dailyChallenge.test.ts`, covering the rollover clock and `challenge.source`; it added no test file and no model, and its two new frontend files — `components/ChallengeCountdown.tsx` and its stylesheet — are **not** design-system primitives, because the component knows what a daily challenge is), **29 Mongoose models** (Milestone 22 Phase E added `Referral` and `ReferralSettings`; Phase B and Phase C added **none** — the directory and the invoice are both derived; Milestone 21 added `ImportBatch`; Milestone 19 added `Payment` and `PaymentSettings`; Milestone 18 added `GenerationLog`; Milestone 15 *removed* one), **23 permissions** (3 student / 20 admin / 23 super admin — Phase E added `referrals:write` for admins, and the content reset added `content:reset`, super admin only; Milestone 22 Phase B added **none**, reusing `students:read` for both the directory and its export, because a capability saying "you may read this, but not in a file" is a distinction without a difference), **54 frontend routes in production** (Milestone 23 Phase E added **one** — the `/*` catch-all rendering `NotFound`, so that an address nobody declared stops rendering a blank page; Phase A added **none**: its `/design-system` reference page is behind `import.meta.env.DEV` and is statically absent from a production build, confirmed in `dist/`; Phase G added `/admin/referrals`; Phase F added `/referrals` and `/register`; Phase B added none — it widened `/admin/users`; Phase D added none), **26 route modules** under `routes/v1/` (the content reset added `contentReset.routes.ts`, Phase E added `referrals.routes.ts`), **37 services** (Phase B added `studentDirectoryService` and `studentExportExcel`; Phase C added `invoiceService`; the reset added `contentResetService`; Phase E added `referralService`), and **20 design-system primitives** in `frontend/src/components/ui` (Milestone 23 Phase A, plus `Steps` in Phase E — this is the **file** count, one per primitive, and it was carried as "twenty-one" until it was re-counted on 2026-08-29; `Input.tsx` alone exports five components). Every number on this line was re-measured on 2026-08-29 by running `npm test --prefix backend` and counting the files; **re-measure rather than quoting it later.** Earlier revisions of this file carried 18 models, 535 tests and 33 routes several milestones after they stopped being true, and the line immediately before this one carried 882 tests and 26 models through the whole of Milestone 21. If a number here disagrees with the code, the code wins.
 
 ## Current Development Phase
+
+**Milestone 25 — email verification performance, then a final UI/UX polish: Phases A, B and C complete, Phases D–J not started.**
+
+### Phase C — the verification experience (2026-09-20)
+
+Phase B made the link arrive; this is what the reader sees when it does, and when it does not.
+**Verified end to end in a browser** against a real backend and a real local database: a
+registration through the form (`AMIT_5869`), the emailed link redeemed, the same link
+re-opened, an invalid token, and the resend cooldown — at 375px in both themes, with no page
+overflow and nothing escaping its container.
+
+**Three defects, all found by walking the flow rather than reading it.**
+
+- **A failed resend was announced as good news.** Both outcomes went into one string in an
+  `info` Alert, so a rate-limited resend looked exactly like a successful one and the reader
+  waited for an email that was never queued.
+- **`humanizeError` contradicted the server on every 429.** It replaced the message with
+  "wait a minute" — but `emailActionLimiter` allows five resends *per hour*. All seventeen
+  limiters carry reader-facing copy, so a 429 is now passed through like every other 4xx.
+- **An inline `<strong>` broke the new notes list**: CSS grid makes each child its own item,
+  so the bold text landed in the *icon* column on the next row. Caught at 375px one edit
+  after it was written.
+
+**The dead end is now named.** An email address cannot be changed self-service (deliberately
+— without a confirm-at-the-new-address step it is an account-takeover primitive) and
+registering again is refused on the duplicate mobile. A mistyped address therefore had no
+route out that any screen mentioned; both the success screen and the verification failure
+screen now give the support address. `SUPPORT` moved into `lib/brand.ts`, and `config.support`
+reads the existing `INVOICE_ORG_*` variables rather than adding its own.
+
+**The email was rebuilt** — preheader, branded wordmark, table-wrapped CTA that survives
+Outlook, expiry and single-use *before* the button, fallback URL, support line. **No image,
+no web font, no stylesheet, no tracker; 3.3 KB.** And **every interpolation is now escaped**:
+staff-authored announcement text went into the markup raw, so "everyone scoring < 50" lost
+the rest of its sentence, and an administrator could have injected a link into a message
+arriving under this platform's name.
+
+No new environment variable, no new dependency, no API change, no schema change.
+
+### Phase A — the diagnosis (2026-09-20)
+
+Traced registration end to end. The outbox's *shape* was never the problem; one word of it was.
+
+`enqueueEmail()` started `drainOutbox()` as a **bare floating promise** and the response was
+flushed microseconds later. A serverless execution environment is frozen the moment a response
+is flushed, and the drain's first `await` is a round trip to Atlas, so it lost that race
+essentially every time. It was not cancelled but **suspended**, resuming when that container
+was next thawed by an unrelated request — which is exactly the reported symptom: mail that
+arrives eventually, after an unpredictable delay.
+
+The recovery path did not exist. `services/emailOutbox.ts` had described a "lazy sweep on
+later requests" since Milestone 14; the only callers of `drainOutbox()` were that file and two
+admin routes. **A stuck row waited for the next person to register.** It was invisible in the
+delivery console too, because a frozen attempt runs neither the success path nor the `catch`,
+so the row just read *pending*.
+
+Measured and ruled out: SMTP reachability (DNS 23 ms, TCP 40 ms, greeting 72 ms to the
+documented Brevo relay — nowhere near a multi-minute delay), token generation, and any
+inline blocking in registration.
+
+### Phase B — the fix (2026-09-20)
+
+Backend only. **No API contract changed** (two fields added to one admin response) and **no
+migration** — both default to null.
+
+- **`lib/serverlessLifecycle.ts`** — `keepAlive()` registers background work with the
+  platform's per-invocation `waitUntil`. Degrades to the old best-effort behaviour rather than
+  breaking where there is no such context, and logs its mode once per container so the
+  degradation is visible rather than silent.
+- **`middleware/outboxSweep.ts`** — the sweep that was only ever a comment. Throttled to one
+  per 15 s per container, `next()` called **synchronously** so it can never delay a request,
+  inert without a database connection, inert under test. An in-flight flag that is never
+  cleared expires after 60 s, so a sweep frozen mid-drain cannot wedge the container meant to
+  recover from it.
+- **`lib/email.ts`** — `deliverEmail()` became a `MailSession` opened per drain, pooled, closed
+  with the batch. Ten queued messages now cost one handshake. **Not** a module-level pool: a
+  pooled socket cannot survive a container freeze, and reaching for a dead one turns a 400 ms
+  send into a failed one. Explicit timeouts (8 / 8 / 15 s) replace nodemailer's defaults, whose
+  **10-minute** socket timeout could outlive the outbox's own 60-second visibility timeout and
+  let a second drain claim a row still being sent — two verification links, of which only the
+  newest works.
+- **Timing is recorded, not guessed.** `EmailOutbox.providerMs` and `queuedForMs`, published by
+  `GET /admin/email-deliveries`, stored separately because they have different owners. One
+  `registration.timing` log line at `info`. Durations only — no token, address, password or key.
+- **An attempt that reports no outcome is abandoned with a reason** instead of sitting `pending`
+  for ever and then being marked `failed` by its *first* genuine error rather than its fourth.
+- **`scripts/verify-email.ts` now verifies the transport the app uses.** It built its own
+  `createTransport`, so the check an owner runs to prove SMTP works exercised a connection with
+  none of the app's timeouts.
+
+**Verified (2026-09-20).** `npm test --prefix backend` → **1282 passed across 36 files**
+(1272/35 before; this milestone added `tests/emailDelivery.test.ts` and its ten tests, and
+the count is exactly +10/+1 with no existing test changed). `npm run typecheck`, `npm run
+lint` and `npm run compile` all pass on the backend; `npm run build` passes on the frontend,
+whose bundle is unchanged because no frontend file was touched.
+
+**One thing to know about running this suite on a cold machine.** The first full run
+reported three failed *suites* — `mockTests`, `questionBank`, `questionImport` — all with
+`Hook timed out in 60000ms` on `beforeAll(startTestDb, 60_000)`. That is
+`mongodb-memory-server` starting a real `mongod` for the first time, not a test failure:
+the three passed on their own immediately afterwards (219/219), and the next full run was
+green end to end. Suspect the harness rather than the code when every failure in a run is a
+`startTestDb` timeout.
+
+**What is still not verified, and cannot be from here.** The fix is about how a *serverless
+container* behaves after a response. Locally there is no `waitUntil` context, so
+`keepAlive()` takes its `detached` branch — the branch the tests pin with a fake context.
+The end-to-end proof is a production registration whose delivery row shows `attempts: 1` and
+a small `queuedForMs` on `/admin/email-deliveries`.
+
+---
 
 **Milestone 24 — a real Class 9 daily challenge, a rollover clock on it, and a demo account: COMPLETE.**
 

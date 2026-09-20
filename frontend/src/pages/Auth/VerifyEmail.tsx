@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { Alert, Button, Field, Input, Spinner } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
+import { SUPPORT } from '../../lib/brand'
 import { formatCooldown, useResendCooldown } from '../../lib/resendCooldown'
 import AuthLayout, { AuthStatus } from './AuthLayout'
 import styles from './AuthLayout.module.css'
@@ -208,6 +209,21 @@ export default function VerifyEmail() {
           </p>
         )}
       </form>
+
+      {/*
+        The one case this page cannot solve on its own.
+
+        Everything above assumes the reader can read the mailbox. If the address on the
+        account is wrong, no amount of resending helps: changing an account's email is
+        deliberately not built (`validation/profileSchemas.ts` — a self-service address
+        change with no confirm-at-the-new-address step is an account-takeover primitive),
+        and registering again is refused because the mobile number is already taken.
+        Naming the way out is the difference between a dead end and a slow route.
+      */}
+      <p className={styles.hint}>
+        If the address on your account is wrong, a new link cannot reach you either — email{' '}
+        <a href={`mailto:${SUPPORT.email}`}>{SUPPORT.email}</a> and we will correct it.
+      </p>
 
       <div className={styles.formFooter}>
         <Link to="/#login">Back to sign in</Link>

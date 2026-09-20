@@ -4,6 +4,82 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-09-20 — Post-response work is registered with the platform, and the sweep that was only ever documented now exists
+
+**Context.** Verification emails were arriving late — sometimes very late. The outbox
+architecture was not the problem: persist the intent, answer the request, deliver afterwards
+is right, and it is why a dead provider has never cost a student their account since Milestone
+14. The problem was the word *afterwards*.
+
+`enqueueEmail()` started `drainOutbox()` as a bare floating promise and the response was
+flushed microseconds later. A serverless execution environment is **frozen the moment the
+response is flushed**, so the drain — whose first `await` is a round trip to Atlas — was
+suspended before it reached the provider. It is not cancelled, it is *suspended*: it resumes
+when that container is next thawed by an unrelated request, which explains the symptom exactly
+(mail that arrives eventually, after an unpredictable delay, rather than never).
+
+The recovery path was supposed to be a "lazy sweep on later requests". `services/emailOutbox.ts`
+had described it since Milestone 14. **It had never been written.** The only callers of
+`drainOutbox()` were that file and two admin routes, so a stuck row waited for the next
+person to register.
+
+**Decision.** Three drivers, none of which is sufficient alone.
+
+1. **`keepAlive()`** (`lib/serverlessLifecycle.ts`) registers the drain with the platform's
+   per-invocation `waitUntil`, so the container is held open until the send settles.
+2. **`middleware/outboxSweep.ts`** gives the queue a nudge on *any* request — throttled per
+   container, never awaited, and a no-op on a container with no database connection.
+3. The existing **explicit staff drain**, kept visible.
+
+**Why the request-context symbol rather than `@vercel/functions`.** That package's `waitUntil`
+is a wrapper around exactly this global lookup; the lookup is the stable part. Reading it
+directly keeps the backend's dependency list unchanged, which matters for a deployment whose
+whole story is "`@vercel/node` compiles `api/index.ts` and its imports, with no build step".
+The cost is that a platform change could stop it resolving — so it **degrades to the old
+behaviour rather than breaking**, driver 2 covers that case independently, and the mode is
+logged once per container so the degradation is visible instead of silent.
+
+**Rejected: awaiting SMTP inline in registration to force immediacy.** It would land the mail
+at roughly the same wall-clock moment and it would reintroduce precisely what Milestone 14
+removed — a student's request waiting on a third-party handshake, and a failed handshake
+destroying the verification link they need in order to log in at all. Speed bought by removing
+the durable record is not speed, it is the old bug with a better stopwatch.
+
+**Rejected: a cron or a worker.** The free tier has neither, and buying one is the paid
+infrastructure the project's cost constraint rules out. This is also the shape the codebase
+already uses for expired mock-test and exam attempts.
+
+**Consequence.** Delivery is initiated within milliseconds of the response instead of waiting
+for the next visitor, and a row that slips through anyway is picked up by the next request of
+any kind rather than the next email.
+
+---
+
+## 2026-09-20 — The SMTP pool is scoped to one drain, and the timeouts are arithmetic rather than a knob
+
+**Context.** `nodemailer.createTransport` was called with no `pool` and no timeouts. Every
+message therefore paid a fresh DNS + TCP + STARTTLS + AUTH handshake — measured at roughly
+300–600 ms against the documented Brevo relay — and inherited nodemailer's defaults of 2 min to
+connect, 30 s for the greeting and **10 minutes** on the socket.
+
+**Decision.** A `MailSession` opened per drain, pooled, and closed when the batch finishes.
+
+**Why not a module-level pool.** It is the obvious optimisation and it is worse than either
+alternative here. A pooled socket cannot survive a container freeze, so the next drain on a
+thawed container reaches for a dead connection and turns a 400 ms send into a **failed** one —
+trading half a second for a 60-second-plus retry. Per-drain scoping gets the batch saving (ten
+queued messages, one handshake) with no socket that outlives the work it was opened for, and a
+single-message drain costs exactly what it did before.
+
+**Why the timeouts are constants, not environment variables.** 8 s / 8 s / 15 s is a worst case
+of 31 s, which has to stay under the outbox's 60-second visibility timeout. Above it, a send
+still hanging could be overtaken by a second drain claiming the same row, and the student would
+receive two verification links of which only the newest works — the token churn already recorded
+in `TROUBLESHOOTING.md`. These figures are not a tuning preference, they are the arithmetic that
+keeps the queue correct, and a deployment that raised them would reintroduce the duplicate.
+
+---
+
 ## 2026-08-31 — The daily challenge's countdown is served, never computed in the browser
 
 **Context.** The demo needed a visible answer to "when does this question change?". The

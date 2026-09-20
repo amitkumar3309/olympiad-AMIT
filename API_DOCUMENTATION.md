@@ -606,13 +606,14 @@ Staff write **one** document carrying an audience *rule*; each student's inbox i
 
 **No user-facing request ever waits on SMTP.** Every message is written to `EmailOutbox` before anything tries to send it; delivery happens off the request path with backoff and a terminal give-up. See `services/emailOutbox.ts` and the Milestone 14 ADR.
 
-Because the free tier has no scheduler, delivery is driven by an opportunistic kick at enqueue time plus a lazy sweep on later requests — neither of which is a deadline. That is why the drain is also an explicit staff action rather than a hidden one.
+Because the free tier has no scheduler, delivery is driven by three things, none of which is a deadline: an opportunistic kick at enqueue time (held open by the platform's `waitUntil` since Milestone 25, so it is no longer suspended when the response is flushed), a lazy sweep on later requests (`middleware/outboxSweep.ts` — described in the code from Milestone 14 but only **written** in Milestone 25), and the explicit staff drain below. That last one stays visible rather than hidden precisely because nothing here can promise a delivery time on a completely idle site.
 
 ### `GET /api/v1/admin/email-deliveries`
 - **Permission**: `notifications:write`.
 - **Query**: `page`, `limit`, `status` (`pending`/`sent`/`failed`), `category` (`transactional`/`security`/`announcement`/`results`).
 - **Response 200**: `{ success, deliveries: EmailDelivery[], stats: { pending, sent, failed, oldestPendingAt }, pagination }`.
-- Each row carries `to`, `subject`, `category`, `status`, `attempts`/`maxAttempts`, `nextAttemptAt`, `lastAttemptAt`, `lastError` and `sentAt`. **The body is never returned** — a delivery record has no business reproducing the contents of somebody's password-reset email.
+- Each row carries `to`, `subject`, `category`, `status`, `attempts`/`maxAttempts`, `nextAttemptAt`, `lastAttemptAt`, `lastError`, `sentAt` and — since Milestone 25 — `providerMs` and `queuedForMs`. **The body is never returned** — a delivery record has no business reproducing the contents of somebody's password-reset email.
+- `providerMs` and `queuedForMs` are **additive fields, not a contract change**: both are `null` on anything not yet delivered, and on rows written before Milestone 25. They are separate because they have different owners — `providerMs` is wall-clock time inside the provider request, `queuedForMs` is `sentAt - createdAt`, which is the queue's own latency. A large `queuedForMs` beside a small `providerMs` is our delay; the reverse is the provider's. Before this existed, "the verification email was slow" could only be answered by reading a server log, so it was answered by guessing.
 - `oldestPendingAt` is the only figure that answers "is the queue stuck?"; a pending count alone cannot, because three queued messages is healthy if they arrived a second ago and a problem if the oldest has waited since Tuesday.
 
 ### `POST /api/v1/admin/email-deliveries/drain`

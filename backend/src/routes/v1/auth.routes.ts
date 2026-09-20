@@ -197,13 +197,36 @@ async function verificationCooldownRemaining(student: StudentDocument): Promise<
   return Math.max(0, Math.ceil(RESEND_COOLDOWN_SECONDS - elapsedSeconds));
 }
 
-async function sendVerificationLink(student: StudentDocument): Promise<void> {
+/**
+ * What the verification half of a request cost, for the timing trail.
+ *
+ * Milliseconds only — no token, no address, nothing that would make a log line
+ * sensitive. The point is to answer "was it us or the provider?", and that question
+ * needs durations, not contents. Checkpoint 5 (the provider request itself) cannot be
+ * measured here because it happens off the request path by design; it is recorded on
+ * the outbox row as `providerMs` and reported by the delivery console.
+ */
+interface VerificationTiming {
+  /** Checkpoint 3: generating and storing the single-use token. */
+  tokenMs: number;
+  /** Checkpoint 4: persisting the message and handing it to the queue. */
+  enqueueMs: number;
+  queued: boolean;
+}
+
+async function sendVerificationLink(student: StudentDocument): Promise<VerificationTiming> {
+  const tokenStartedAt = Date.now();
   const { token } = await issueVerificationToken(studentObjectId(student), 'email_verify');
-  await enqueueEmail({
+  const tokenMs = Date.now() - tokenStartedAt;
+
+  const enqueueStartedAt = Date.now();
+  const result = await enqueueEmail({
     ...buildVerificationEmail(student.email, token),
     category: 'transactional',
     student: studentObjectId(student),
   });
+
+  return { tokenMs, enqueueMs: Date.now() - enqueueStartedAt, queued: result.queued };
 }
 
 // ---------------------------------------------------------------------------
@@ -218,6 +241,9 @@ async function sendVerificationLink(student: StudentDocument): Promise<void> {
  */
 router.post('/auth/register', registerLimiter, validate({ body: registerSchema }), ensureDb, async (req, res) => {
   const { photo, password, referralCode, ...details } = req.body as RegisterInput;
+
+  /** Checkpoint 1 of the email timing trail. See `VerificationTiming`. */
+  const requestStartedAt = Date.now();
 
   try {
     // The bootstrap super-admin address is not registrable. Without this, anyone
@@ -270,6 +296,9 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
       sendError(res, 500, 'Could not complete registration. Please try again.');
       return;
     }
+
+    /** Checkpoint 2: the account exists. Dominated by bcrypt at cost 12. */
+    const accountCreatedMs = Date.now() - requestStartedAt;
 
     // The photo is mandatory, so an account without one is not a valid account.
     // There is no transaction available here (Atlas free tier aside, the local
@@ -326,7 +355,32 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
     // must not undo a completed registration.
     await grantReward({ student: studentObjectId(student), event: 'account_created' });
 
-    await sendVerificationLink(student);
+    const timing = await sendVerificationLink(student);
+
+    /**
+     * The application-side half of the email timing trail, in one line.
+     *
+     * Deliberately `info` rather than `debug`, so it is present in production — this is
+     * the measurement that separates "the backend was slow" from "the provider was
+     * slow", and the second half of it (`providerMs`) is recorded on the outbox row.
+     * Together they answer the support question without anyone having to reproduce it.
+     *
+     * `studentId` is the human-facing competitor number, which is already in every
+     * other log line on this path. No address, no token, no password, no hash.
+     */
+    logger.info(
+      {
+        event: 'registration.timing',
+        studentId: student.studentId,
+        accountCreatedMs,
+        tokenMs: timing.tokenMs,
+        enqueueMs: timing.enqueueMs,
+        queued: timing.queued,
+        /** Checkpoint 6: what the student actually waited for. */
+        totalMs: Date.now() - requestStartedAt,
+      },
+      'Registration completed and the verification email was queued',
+    );
 
     sendSuccess(res, 201, {
       message: 'Registration successful. Check your email for a verification link to activate your account.',

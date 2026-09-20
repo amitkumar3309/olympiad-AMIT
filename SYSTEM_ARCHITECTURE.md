@@ -461,16 +461,54 @@ REST-ish under `/api/v1/*` (canonical) with `/api/*` retained as a backward-comp
 
 ## Email Architecture — CURRENT
 
-_Implemented in Milestone 2. The fake client-side "OTP" step was deleted._
+_Transport implemented in Milestone 2 (the fake client-side "OTP" step was deleted); the durable queue in Milestone 14; delivery made prompt in Milestone 25._
 
-- `lib/email.ts` sends through **`nodemailer` over plain SMTP**, configured entirely by env vars, so any free-tier provider (Brevo, Resend, Mailtrap, a Gmail app password) works without a code change or vendor SDK.
-- Three transports, chosen by environment:
-  - **test** → captured in memory, letting tests assert on the real generated link;
-  - **SMTP configured** → real delivery;
-  - **SMTP unset** → written to the structured log, including the working link, so local development works before any provider exists.
-- Two templates: email verification and password reset. Link bases come from `FRONTEND_URL`.
-- Delivery failures are logged and swallowed, never surfaced, so a dead provider cannot become a 500 or leak whether an address exists.
-- **Appears to be configured** — a local registration sent a real message through the values in `backend/.env` rather than the log fallback. Delivery to an inbox has still never been *observed*, so treat that as unconfirmed until `npm run verify:email` is run. Note that `dev:local` does **not** suppress outgoing mail. See [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
+### The path one message takes
+
+```
+handler                                     off the request path
+───────                                     ────────────────────
+enqueueEmail()                              drainOutbox()
+  └─ EmailOutbox.create()  ─── persisted ──►  claimNext()        conditional write
+  └─ dispatch()                               └─ MailSession.deliver()
+       └─ keepAlive(drain) ─────────────────►      └─ nodemailer ──► provider
+  return                                      └─ mark sent + record timings
+response flushed
+```
+
+**The request never waits on SMTP**, and **nothing is sent that was not first written down**. Those two properties are the whole design: before Milestone 14, registration awaited a third-party handshake inline and a failed handshake destroyed the verification link a student needs in order to log in at all.
+
+### Transports
+
+`lib/email.ts` sends through **`nodemailer` over plain SMTP**, configured entirely by env vars, so any free-tier provider (Brevo, Resend, Mailtrap, a Gmail app password) works without a code change or vendor SDK. Three transports, chosen by environment:
+
+- **test** → captured in memory, letting tests assert on the real generated link, and failable on demand;
+- **SMTP configured** → real delivery through a `MailSession` **pooled per drain** — ten queued messages cost one handshake, and no socket outlives the batch it was opened for (a module-level pool cannot survive a container freeze; see the ADR);
+- **SMTP unset** → written to the structured log, including the working link, so local development works before any provider exists.
+
+Timeouts are explicit (8 s connect / 8 s greeting / 15 s socket) rather than nodemailer's defaults, and the worst case is bounded **under** the outbox's 60-second visibility timeout so a slow send cannot be overtaken by a second drain and mail two links.
+
+### What drives delivery, with no scheduler available
+
+The free tier has no cron and no worker, so there are three drivers and the queue is correct with any of them:
+
+1. **The opportunistic kick**, held open by `keepAlive()` (`lib/serverlessLifecycle.ts`), which registers the drain with the platform's per-invocation `waitUntil`. Without this the drain was a bare floating promise and the container was frozen the instant the response flushed — the Milestone 25 bottleneck.
+2. **The lazy sweep**, `middleware/outboxSweep.ts`: any request nudges the queue, throttled per container, never awaited, inert without a database connection. Described in the code from Milestone 14 and **not actually written until Milestone 25**.
+3. **The explicit staff drain**, `POST /admin/email-deliveries/drain`, kept visible because none of the above can promise a delivery time on a completely idle site.
+
+### Observability
+
+Every delivered row records `providerMs` (inside the provider request) and `queuedForMs` (`sentAt - createdAt`), stored separately because they have different owners, and both published by `/admin/email-deliveries`. Registration emits one `registration.timing` line at `info`. Durations only — no token, address, password or key.
+
+### Other properties
+
+### The message
+
+One shell in `lib/email.ts`, three builders on top of it: email verification, password reset, and the notification form. Link bases come from `FRONTEND_URL` — if that is unset in production every link points at `localhost:5173` and is dead, which the delivery console shows as a banner.
+
+Rebuilt in Milestone 25 Phase C, and the constraints are the interesting part. **It loads nothing from anywhere**: no image (blocked by default in most clients, so a logo is a hole in the layout), no web font, no stylesheet, no tracking pixel and no click-wrapped redirect — this is transactional mail to children, and a redirect would also make the URL unreadable at the moment a cautious parent wants to read it. The wordmark is text; the whole document is about 3 KB. The `<table>` wrappers exist because Outlook's Word rendering engine will not centre or paint a `<div>` reliably, and a CTA that renders as bare blue text is a verification link some readers will not recognise as the button they were told to press. A **preheader** carries the instruction into the inbox list. **Every interpolated value is escaped** — the notification builder carries staff-authored text, which was both an injection boundary and a live rendering bug.
+- Delivery failures are recorded against the row and retried with backoff (60 s → 5 min → 30 min → 2 h, then terminal), never surfaced to the user, so a dead provider cannot become a 500 or leak whether an address exists.
+- Delivery to a real inbox should be confirmed with `npm run verify:email`, which since Milestone 25 uses the *same* transport options as the app and reports the handshake and send durations. Note that `dev:local` does **not** suppress outgoing mail. See [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md).
 
 ## Payment Architecture — PLANNED (not started)
 

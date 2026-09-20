@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import DeveloperCredit from './DeveloperCredit'
 import { Icon } from './ui'
-import { AMIT_SHORT } from '../lib/brand'
+import { AMIT_SHORT, SUPPORT } from '../lib/brand'
 import styles from './Footer.module.css'
 
 /**
@@ -23,8 +23,10 @@ import styles from './Footer.module.css'
  * links, which on a phone is the difference between a number and a phone call.
  */
 
-const HELPLINE = '+91 9782870716'
-const SUPPORT_EMAIL = 'support@amitolympiad.com'
+// Moved to `lib/brand.ts` in Milestone 25 Phase C: the verification screens need the
+// same address, and a second copy of "how to reach us" is a second thing to keep right.
+const HELPLINE = SUPPORT.phone
+const SUPPORT_EMAIL = SUPPORT.email
 
 export default function Footer() {
   return (

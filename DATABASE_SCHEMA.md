@@ -470,7 +470,11 @@ One outbound email, persisted **before** anything tries to send it. This is the 
 | `lastAttemptAt` | Date \| null | no | `null` | |
 | `lastError` | String \| null | no | `null` | The provider's own message, truncated to 500 chars, shown in the delivery console. |
 | `sentAt` | Date \| null | no | `null` | |
+| `providerMs` | Number \| null | no | `null` | **Milestone 25.** Wall-clock ms inside the provider request, on the attempt that succeeded. |
+| `queuedForMs` | Number \| null | no | `null` | **Milestone 25.** `sentAt - createdAt` — the queue's own latency, which is the half that is ours. |
 | `dedupeKey` | String \| null | no | `null` | Application-level idempotency, e.g. `results:<examId>:<studentId>`. Partial-unique. |
+
+**Why the two timings are stored rather than derived, and stored separately.** Separately, because they have different owners: a large `queuedForMs` beside a small `providerMs` is our delay, the reverse is the provider's, and one combined figure answers neither. Stored, because `queuedForMs` is only meaningful once a row has actually been delivered — computing it from `createdAt` on read would report an *age* for a pending row and call it a delivery time. **Null is not zero** here, exactly as it is not on a student-facing figure: "never delivered" and "delivered instantly" are different facts, and the delivery console renders an em dash for the first. Both default to null, so **no migration is needed** — rows written before Milestone 25 correctly read as having no recorded timing.
 
 Indexes:
 - `{ status, nextAttemptAt }` — the drain's only query: what is pending and due, oldest deadline first.
@@ -478,6 +482,10 @@ Indexes:
 - `{ createdAt: -1 }` — the admin delivery view.
 
 **Why there is no `sending` status.** A row is claimed by pushing `nextAttemptAt` into the future and incrementing `attempts` in the same conditional write — a visibility timeout, not a state change. A separate `sending` state would be a lie the moment a serverless container is frozen or recycled mid-send: the row would sit in `sending` for ever with nothing to move it, and the message would never arrive. With a timeout, a crashed attempt simply becomes due again. The honest consequence is **at-least-once** delivery.
+
+**The 60-second visibility timeout is load-bearing arithmetic, not a round number.** `SMTP_TIMEOUTS` in `lib/email.ts` is bounded at 8 + 8 + 15 = 31 seconds for exactly this reason: a send still running when its row became claimable again could be overtaken by a second drain, and the student would receive two verification links of which only the newest works. Nodemailer's *default* socket timeout is 10 minutes, so before Milestone 25 that window was wide open. Changing either number means checking it against the other.
+
+**An attempt that reports no outcome is abandoned, not retried for ever** (Milestone 25). `giveUp` is only evaluated in the delivery `catch`, so an attempt killed mid-send neither succeeded nor threw: `attempts` climbed on each claim and the row stayed `pending` indefinitely, to be marked `failed` later by its *first* genuine error rather than its fourth. A claim that finds `attempts > maxAttempts` now marks the row `failed` with a `lastError` saying so, which is visible and requeueable rather than silently stuck.
 
 **Deliberately no TTL**, like `AuditLog`. A delivery record is the evidence for "we did tell them", and for a competition that issues certificates and refuses late submissions that evidence is worth more than the bytes. Rows are a few KB and bounded by real events rather than by traffic.
 

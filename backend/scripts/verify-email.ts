@@ -10,6 +10,7 @@
  */
 import nodemailer from 'nodemailer';
 import { config } from '../src/config';
+import { smtpTransportOptions } from '../src/lib/email';
 
 function mask(value: string | undefined): string {
   if (!value) return '(not set)';
@@ -37,17 +38,18 @@ async function main(): Promise<void> {
     return;
   }
 
-  const transporter = nodemailer.createTransport({
-    host: config.email.smtp.host,
-    port: config.email.smtp.port,
-    secure: config.email.smtp.secure,
-    auth: { user: config.email.smtp.user, pass: config.email.smtp.pass },
-  });
+  // The same options the running app uses, imported rather than repeated. This script
+  // used to build its own transporter, which meant the check an owner runs to prove
+  // SMTP works was exercising a connection with none of the app's timeouts — so it
+  // could pass against a provider the app would give up on.
+  const transporter = nodemailer.createTransport(smtpTransportOptions());
 
   console.log('\n--- Connection check ---');
+  const connectStartedAt = Date.now();
   try {
     await transporter.verify();
-    console.log('  Connected and authenticated successfully.');
+    console.log(`  Connected and authenticated successfully in ${Date.now() - connectStartedAt} ms.`);
+    console.log('  (That is the fixed cost of one delivery: DNS, TCP, STARTTLS and AUTH.)');
   } catch (err) {
     console.log(`  FAILED: ${err instanceof Error ? err.message : String(err)}`);
     console.log('\nCommon causes:');
@@ -67,6 +69,7 @@ async function main(): Promise<void> {
   }
 
   console.log(`\n--- Sending a test email to ${recipient} ---`);
+  const sendStartedAt = Date.now();
   try {
     const info = await transporter.sendMail({
       from: config.email.from,
@@ -76,8 +79,11 @@ async function main(): Promise<void> {
         'This is a test email from your AMIT Olympiad backend.\n\n' +
         'If you can read this, verification and password-reset emails will reach students.',
     });
-    console.log(`  Accepted by the provider. Message id: ${info.messageId}`);
+    console.log(`  Accepted by the provider in ${Date.now() - sendStartedAt} ms. Message id: ${info.messageId}`);
     console.log('\nRESULT: sent. Check the inbox (and the spam folder) for that address.');
+    console.log('If that figure is small but students still wait, the delay is at the provider or');
+    console.log('the recipient mailbox, not in this application — /admin/email-deliveries shows');
+    console.log('the same split for real sends (providerMs versus queuedForMs).');
     console.log('If it never arrives, the usual cause is that EMAIL_FROM is not an address');
     console.log('you authorised in your provider dashboard.');
   } catch (err) {

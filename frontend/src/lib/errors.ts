@@ -47,8 +47,20 @@ export function humanizeError(error: unknown, options: HumanizeOptions = {}): st
         return 'Your session has ended. Please sign in again.'
       case 403:
         return 'Your account does not have permission to do this.'
+      /**
+       * Passed through, like every other 4xx, because this product's limiters all
+       * carry written copy and several name a wait this used to contradict.
+       *
+       * It said "wait a minute" to a student who had hit `emailActionLimiter` — five
+       * verification resends **per hour** — so the reader tried again sixty seconds
+       * later, failed identically, and had no way to learn why. All seventeen limiters
+       * in `middleware/rateLimiter.ts` are sentences written for a reader ("Please
+       * request a new link", "Please wait a while before asking for more questions");
+       * the generic line below is for a 429 that arrives with nothing, such as one
+       * from a proxy in front of the API.
+       */
       case 429:
-        return 'Too many attempts. Please wait a minute and try again.'
+        return error.message || 'Too many attempts. Please wait a while and try again.'
       default:
         return error.message || fallback
     }

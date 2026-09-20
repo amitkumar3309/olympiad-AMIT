@@ -6,6 +6,7 @@ import { config } from './config';
 import { requestLogger } from './middleware/requestLogger';
 import { generalLimiter } from './middleware/rateLimiter';
 import { verifyRequestOrigin } from './middleware/csrf';
+import { outboxSweep } from './middleware/outboxSweep';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/health.routes';
 import v1Routes from './routes/v1';
@@ -85,6 +86,18 @@ export function createApp() {
     }),
   );
   app.use(cookieParser());
+
+  /**
+   * The email queue's second driver (Milestone 25). Never delays a request, never
+   * throws, and does nothing at all on a container with no database connection or a
+   * queue with nothing due — see `middleware/outboxSweep.ts`.
+   *
+   * Mounted **above** the health routes and the rate limiter on purpose. An uptime
+   * probe against a warm container is a perfectly good reason to notice a stuck
+   * verification email, and a sweep that a rate limiter could refuse would go quiet
+   * exactly when the site is busiest.
+   */
+  app.use(outboxSweep);
 
   // Mounted before the rate limiter so uptime/monitoring probes are never throttled.
   app.use(healthRoutes);

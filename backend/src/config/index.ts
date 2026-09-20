@@ -213,6 +213,25 @@ export const config = {
     gstin: env.INVOICE_GSTIN ?? null,
     taxNote: env.INVOICE_TAX_NOTE ?? null,
   },
+  /**
+   * How a reader reaches a human, printed in the footer of every email.
+   *
+   * Deliberately **the same two values the invoice prints**, read from the same
+   * `INVOICE_ORG_*` variables rather than from new ones of their own. They are one fact —
+   * "how to contact this organisation" — named after the surface that needed it first,
+   * and a second pair of variables holding the same address would be a second pair to
+   * keep in step. `FRONTEND_URL` already has three jobs for the same reason.
+   *
+   * This matters most on the verification email, where the reader may be looking at it
+   * precisely because something has gone wrong and the product cannot fix it for them:
+   * an account's email address cannot be changed self-service (see
+   * `validation/profileSchemas.ts`), so support is the genuine next step rather than a
+   * polite sign-off.
+   */
+  support: {
+    email: env.INVOICE_ORG_EMAIL,
+    phone: env.INVOICE_ORG_PHONE,
+  },
   payments: {
     /** True only when an order can actually be created AND verified. */
     configured: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),

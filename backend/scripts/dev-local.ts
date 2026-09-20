@@ -69,7 +69,15 @@ console.log(`[dev-local] Root admin: ${process.env.ADMIN_EMAIL} / LocalDevAdmin9
 console.log(
   `[dev-local] SMTP points at ${process.env.SMTP_HOST}:${process.env.SMTP_PORT} (nothing listening), so no real email is sent.`,
 );
-console.log('[dev-local] Email verification is OFF, so a newly registered account can sign in immediately.');
+// Reads the value rather than asserting the default. The `amit-olympiad-backend-verify-on`
+// launch configuration sets REQUIRE_EMAIL_VERIFICATION=true, and this line announced
+// "verification is OFF" anyway — which is the same class of defect as an email screen
+// reporting a failed send as good news, and was noticed while testing exactly that.
+console.log(
+  process.env.REQUIRE_EMAIL_VERIFICATION === 'true'
+    ? '[dev-local] Email verification is ON. With no SMTP, copy the link from the "EMAIL NOT SENT" log line below.'
+    : '[dev-local] Email verification is OFF, so a newly registered account can sign in immediately.',
+);
 
 // Imported after the overrides above, because config/env.ts reads process.env once
 // at module load — a static import would be hoisted and read the file's values.

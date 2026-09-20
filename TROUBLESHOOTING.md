@@ -683,6 +683,28 @@ then require `dist/src/services/geminiQuestionGenerator.js` from Node. Under `ts
 
 ---
 
+## Verification emails arrive, but slowly — minutes or hours late
+
+**Problem**: A student registers, the API returns 201 quickly, and the verification email turns up much later. Nothing is lost and nothing reports an error; the mail is just late, by an unpredictable amount. Note the difference from the entry below: that one is "no email at all", this one is "eventually".
+
+**Cause (fixed 2026-09-20, Milestone 25)**: delivery was started *after* the response as a bare floating promise, on a platform that **freezes the execution environment the instant a response is flushed**. `drainOutbox()`'s first `await` is a round trip to Atlas, so it lost that race essentially every time and was suspended before reaching the provider — not cancelled, suspended, which is why the mail eventually arrived when that container was next thawed by an unrelated request.
+
+The recovery path that should have caught it did not exist. `services/emailOutbox.ts` had described a "lazy sweep on later requests" since Milestone 14, but the only callers of `drainOutbox()` were that file and the two admin routes. So a stuck row waited for **the next person to register** — which on a quiet site is hours.
+
+It was invisible in the delivery console, too: a frozen attempt runs neither the success path nor the `catch`, so `lastError` stayed null and the row simply read *pending*, looking like it was waiting its turn.
+
+**Solution**: three drivers instead of one. `keepAlive()` (`lib/serverlessLifecycle.ts`) registers the drain with the platform's per-invocation `waitUntil` so the container stays alive until the send finishes; `middleware/outboxSweep.ts` is the sweep that was only ever a comment, nudging the queue on any request; and the explicit staff drain stays. See the 2026-09-20 ADRs.
+
+**Verification**: open `/admin/email-deliveries` and read a recent row. The diagnosis is in three numbers, and this is worth knowing whether or not you are debugging this specific bug:
+
+- `attempts` is **2 or more** on a row that eventually sent → the first attempt was lost. That was the smoking gun for this bug.
+- `queuedForMs` is large while `providerMs` is small → the delay is **ours**: the row waited to be picked up.
+- `providerMs` is large, or `queuedForMs` is small yet students still report waiting → the delay is at the provider or in the recipient's mailbox, and no application change will help. Check sender reputation, SPF/DKIM, and the spam folder.
+
+`providerMs` and `queuedForMs` are null on rows written before Milestone 25, which is correct rather than a fault — nothing measured them at the time.
+
+---
+
 ## Verification and reset emails are not arriving
 
 **Problem**: A student registers but no email appears.

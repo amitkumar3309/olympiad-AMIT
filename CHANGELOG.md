@@ -2,6 +2,118 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-20 — Milestone 25, Phase C: the verification experience, on screen and in the inbox
+
+Phase B made the link arrive quickly. This is about what the reader sees when it does —
+and what they see when it does not.
+
+**Three defects, all found by walking the flow rather than reading it.**
+
+- **A failed resend was announced as good news.** The registration success screen put both
+  outcomes into one string and rendered it in an `info` Alert, so a rate-limited or dropped
+  resend appeared in the same calm blue box as a successful one. Somebody then waits for an
+  email that was never queued. Tone now follows the outcome, and the button has a loading
+  state.
+- **`humanizeError` contradicted the server on every 429.** It replaced the message with
+  "Please wait a minute and try again" — but `emailActionLimiter` allows five resends *per
+  hour*, so the reader tried again after sixty seconds and failed identically with no way to
+  learn why. All seventeen limiters carry copy written for a reader, so a 429 is now passed
+  through like every other 4xx.
+- **An inline `<strong>` broke the new notes list.** CSS grid makes each child its own item,
+  so "The link works for **24 hours** and can be used once" rendered as two rows with the
+  bold text in the *icon* column. Caught in the browser at 375px, one edit after it was
+  written.
+
+**The dead end is named rather than left to be discovered.** An account's email address
+cannot be changed self-service — deliberately, because without a confirm-at-the-new-address
+step that is an account-takeover primitive — and registering again is refused because the
+mobile number is taken. So a mistyped address had **no** route out that the screen mentioned.
+Both the success screen and the verification failure screen now say so and give the support
+address. `SUPPORT` moved into `lib/brand.ts` (from two local constants in `Footer.tsx`) so
+there is one place per app that holds it.
+
+**The success screen leads with the three things a reader needs before they start worrying**:
+the link's 24-hour single-use lifetime, the spam folder, and that sign-in is blocked until
+it is used. The registered address is shown in full and wraps rather than pushing a 320px
+card off screen.
+
+**The email was rebuilt.** It was a bare `<div>` with a hardcoded blue and a `.replace()`
+call splicing in the footer. It is now a proper transactional email: a preheader for the
+inbox list, a branded text wordmark, a table-wrapped CTA that survives Outlook's rendering
+engine, the expiry and single-use rule stated *before* the button, the fallback URL, and a
+support line. **No image, no web font, no stylesheet, no tracking pixel** — 3.3 KB total,
+verified by rendering it at 375px and at desktop width. And **every interpolation is now
+escaped**: staff-authored announcement text went into the markup raw, so "everyone scoring
+< 50" lost the rest of its sentence, and an administrator could have put a link of their own
+choosing into a message arriving under this platform's name.
+
+`config.support` reads the existing `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` rather than
+adding variables of its own — it is one fact, named after the surface that needed it first.
+**No new environment variable, no new dependency, no API change, no schema change.**
+
+---
+
+## 2026-09-20 — Milestone 25, Phase B: the verification email is sent now, not when the next person registers
+
+The Phase A audit traced registration end to end and found the delay was not in the
+pipeline's shape but in one word of it. The outbox persists the message and answers the
+request, which is right; it then started delivery as a **bare floating promise**, and a
+serverless container is frozen the instant a response is flushed. The drain's first `await`
+is a round trip to Atlas, so it lost that race essentially every time and was suspended
+before it reached the provider — resuming only when that container was next thawed by an
+unrelated request.
+
+The documented recovery path did not exist. `services/emailOutbox.ts` had described a "lazy
+sweep on later requests" since Milestone 14, but the only callers of `drainOutbox()` were
+that file and the two admin routes. A stuck row therefore waited for **the next person to
+register**.
+
+**What changed.**
+
+- **`lib/serverlessLifecycle.ts`** — `keepAlive()` registers background work with the
+  platform's per-invocation `waitUntil`, so the container stays alive until the send settles.
+  It degrades to the old best-effort behaviour rather than breaking where there is no such
+  context, and logs which mode it is in once per container so the degradation is visible.
+- **`middleware/outboxSweep.ts`** — the sweep that was only ever a comment. Any request now
+  nudges the queue: throttled to one sweep per 15 s per container, never awaited (`next()` is
+  called synchronously), inert on a container with no database connection, and inert under
+  test so no suite races a background drain. An in-flight flag that is never cleared expires
+  after 60 s, so a sweep frozen mid-drain cannot wedge the container that was meant to
+  recover from it.
+- **`lib/email.ts`** — `deliverEmail()` is replaced by a `MailSession` opened per drain,
+  pooled, and closed with the batch. Ten queued messages now cost one handshake instead of
+  ten; a single-message drain costs what it always did. Explicit timeouts (8 s connect, 8 s
+  greeting, 15 s socket) replace nodemailer's defaults, whose **10-minute** socket timeout
+  could outlive the outbox's own 60-second visibility timeout and let a second drain claim a
+  row that was still being sent — two verification links, of which only the newest works.
+- **Timing, recorded rather than guessed.** `EmailOutbox` gained `providerMs` and
+  `queuedForMs`, both published by `GET /admin/email-deliveries`. They are stored separately
+  because they have different owners: a large `queuedForMs` with a small `providerMs` is ours,
+  the reverse is the provider's. Registration logs a single `registration.timing` line at
+  `info` covering checkpoints 1–4 and 6. **No token, address, password or key is logged.**
+- **An attempt that reports nothing is now abandoned with a reason.** `giveUp` was only
+  evaluated in the `catch`, so an attempt killed mid-send incremented `attempts` and left the
+  row `pending` for ever — to be marked `failed` later by its *first* genuine error rather
+  than its fourth.
+- **`scripts/verify-email.ts` now verifies the transport the app actually uses.** It built its
+  own `createTransport` call, so the check an owner runs to prove SMTP works was exercising a
+  connection with none of the app's timeouts. It imports `smtpTransportOptions()` instead, and
+  reports the handshake and send durations so provider latency is visible from the command line.
+
+**No API contract changed** — two fields were added to one admin response. **No schema
+migration**: both new fields default to null, and a row without them reads as "not delivered",
+which is what it is. No new model, route, permission, environment variable or dependency.
+
+**Verified**: `npm test --prefix backend` → **1282 passed across 36 files**, up from 1272/35
+with no existing test changed; typecheck, lint and `npm run compile` clean on the backend;
+`npm run build` clean on the frontend. The one thing local tests cannot prove is the fix
+itself — there is no `waitUntil` context outside the platform, so `keepAlive()` takes its
+`detached` branch locally and the `platform` branch is pinned with a fake context. The
+end-to-end proof is a production registration whose row on `/admin/email-deliveries` shows
+`attempts: 1` and a small `queuedForMs`.
+
+---
+
 ## 2026-09-02 — A password policy, and a five-minute wait between verification emails
 
 Both at the owner's request.

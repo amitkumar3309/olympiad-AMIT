@@ -260,6 +260,56 @@
   color: var(--text);
 }
 
+/*
+ * The address the link was sent to.
+ *
+ * `overflow-wrap: anywhere` because an email address is one unbroken token and a long
+ * one on a 320px screen pushed the card past the viewport — the address a reader most
+ * needs to check being the thing that breaks the layout it is checked in.
+ */
+.sentTo {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * What to expect, before the reader has to wonder.
+ *
+ * A list rather than a paragraph because these are three separate facts and a reader
+ * scanning an unfamiliar screen takes one at a time. The icons are decorative: every
+ * line reads correctly without them, which it has to, since the glyph font is fetched
+ * from a CDN at runtime.
+ */
+.successNotes {
+  width: 100%;
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.successNotes li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2);
+  align-items: start;
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  color: var(--text-muted);
+}
+
+.successNotes strong {
+  color: var(--text);
+}
+
+.successNotes i {
+  /* Nudged down onto the first line's baseline rather than its box top. */
+  margin-top: 2px;
+  color: var(--primary-text);
+}
+
 .successActions {
   display: flex;
   flex-direction: column;

@@ -55,6 +55,28 @@ export const AMIT_FULL_FORM = 'Advance Mathematics and Intelligence Test'
 export const AMIT_COMPETITION_YEAR = '2027'
 
 /**
+ * How a reader reaches a human, and the one place either value lives.
+ *
+ * Both were local constants in `components/Footer.tsx` until Milestone 25 Phase C, which
+ * is fine while a footer is the only surface that needs them. It stopped being true the
+ * moment the verification screens had to carry them: **the address a student can no longer
+ * receive mail at is exactly the problem those screens cannot solve themselves.** Changing
+ * the email on an account is deliberately not built — see `validation/profileSchemas.ts`,
+ * where it is absent because a self-service address change without a confirm-at-the-new-
+ * address step is an account-takeover primitive — so "write to us" is the honest next
+ * action, not a placeholder for one.
+ *
+ * The backend publishes the same two facts from `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE`
+ * (see `config.support`). That is a genuine duplication across the frontend/backend split,
+ * like the product name in `index.html`, and it is the reason these are constants rather
+ * than literals: one place per app to change.
+ */
+export const SUPPORT = {
+  email: 'support@amitolympiad.com',
+  phone: '+91 9782870716',
+} as const
+
+/**
  * Who built the site, and where to find them.
  *
  * Rendered by `components/DeveloperCredit.tsx` in the public footer and at the foot of the
