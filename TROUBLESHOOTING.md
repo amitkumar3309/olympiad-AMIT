@@ -1,5 +1,64 @@
 # TROUBLESHOOTING.md
 
+## A page-level accessibility sweep reports pages clean that are actually broken
+
+**Symptom.** A structural sweep (an `h1` per page, no heading skips, no horizontal overflow,
+no dangling ARIA) reports a run of admin pages clean. Re-running the same sweep later reports
+real overflow defects on those same pages.
+
+**Cause.** The general rate limiter is **300 requests per 15 minutes per IP**
+(`config.rateLimit`), and a full signed-in sweep of 44 routes makes several requests per page,
+so it exceeds that part-way through. A rate-limited page renders its **empty state** — and an
+empty state has an `h1`, no headings to skip, and nothing wide enough to overflow. It passes
+every structural check by having no content. During the Milestone 26 signed-in sweep, **two of
+five overflow bugs were invisible on the first pass** for exactly this reason.
+
+**Fix.** Never let a structural check stand on structure alone: record an error-state text
+match (`Too many requests`, `Something went wrong`, …) and a `document.body.innerText.length`
+beside every result, so a page that rendered nothing cannot be scored as a page that rendered
+correctly. Pace the sweep against the limiter, or read `RateLimit-Remaining` / `RateLimit-Reset`
+from any `/api` response and wait the window out. The same reasoning is why
+`TESTING.md` prefers assertions that name the status they forbid.
+
+## A control is invisible in one theme, and the CSS for it looks correct
+
+Two distinct causes, both found in the Milestone 26 signed-in sweep, both measuring ~1:1.
+
+**One class declared twice in one stylesheet.** `/payment` had `.invoiceDownload` in two
+rules. The later one restyled it as an outline button — `color: var(--primary-text)`, a border,
+a `--primary-soft` hover — but the earlier one's `background: var(--primary)` was never
+overridden, and **a later `color` does not undo an earlier `background`**. The result was
+`--primary-text` on `--primary`, which are the *same colour by design*: one is the name of the
+words that go on the other. Ratio **1.00 in both themes**. Search a module for the class name
+before adding a rule for it; two rules for one class is the defect.
+
+**A `<button>` with no background of its own.** `.orderToggle` on `/admin/questions` shared a
+selector list with two classes deleted in an earlier phase, and what survived was a `:hover`
+rule and nothing else. A button with no `background` does **not** inherit the page — it falls
+back to the user agent's `ButtonFace`, an opaque light grey that does not know the theme
+exists. In light mode it read fine; in dark the inherited `rgba(255,255,255,.66)` landed on it
+at **1.09:1**. Deleting a class from a selector list can silently take another class's base
+state with it. To find these: scan for rendered buttons whose computed `background-color` is
+`rgb(240, 240, 240)`.
+
+## A single-column grid overflows the page on a phone
+
+**Symptom.** `grid-template-columns: 1fr` — an obviously-safe single column — makes the page
+scroll sideways at 320px. The computed value reads something like `362px` inside a `284px`
+container.
+
+**Cause.** **`1fr` is shorthand for `minmax(auto, 1fr)`**, and that `auto` minimum is a
+*min-content* floor: the column may not shrink below the widest thing in it. So a grid whose
+child is a wide card, a `nowrap` button row, or a `select` sized `auto` (a `select` is as wide
+as its widest option) resolves to that child's width and overflows its own container. Five
+grids in the product did this, and it is the same rule as the `minmax(330px, 1fr)` case already
+in `CLAUDE.md` — a `minmax` floor wins against its container.
+
+**Fix.** `minmax(0, 1fr)` for a column that must fit its container; `minmax(min(Npx, 100%), 1fr)`
+when a real floor is wanted. For a flex row, the *flex item* is what has to shrink — its default
+`min-width: auto` is the same floor — so set `min-width: 0` on it and make any comfortable
+width a `flex-basis` rather than a `min-width`.
+
 ## A verification link always says "already been used", and the account can never verify
 
 **Symptom.** A newly registered student clicks the link in their verification email and

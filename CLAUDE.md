@@ -327,6 +327,27 @@ look wrong however carefully it is tokenised — read them before touching a sur
   `TableScroll` (contained horizontal scroll — the page must never be draggable off its edge) **or**
   `DataCardList` (one card per record). Do not drop a column to make a table fit: that means the
   information exists only on a desktop.
+- **A grid column that must fit its container is `minmax(0, 1fr)`, never a bare `1fr`.** `1fr` is
+  shorthand for `minmax(auto, 1fr)`, and that `auto` is a **min-content floor** — the column may
+  not shrink below the widest thing inside it. So the single-column mobile fallback that looks
+  safest of all resolves to whatever its widest child needs and drags the whole page sideways.
+  Milestone 26's signed-in sweep found this in **five** grids (both question runners, the admin
+  mock-test editor, the daily-challenge console) at 8–81px of overflow on a 320px screen, and it
+  is the same rule as `minmax(330px, 1fr)`, which put `/hall-of-fame` 28px over: **a `minmax`
+  floor wins against its container.** Use `minmax(min(Npx, 100%), 1fr)` when a real floor is
+  wanted. In a flex row the *item* carries the same default (`min-width: auto`), so give it
+  `min-width: 0` and make any comfortable width a `flex-basis`. Note a `select` sized `auto` is
+  as wide as its **widest option**, which is how a chapter name became a layout bug.
+- **Declare a class once per stylesheet, and set `color` and `background` in the same rule.** A
+  later `color` does not undo an earlier `background`. `/payment` declared `.invoiceDownload`
+  twice — the newer rule made it an outline button, the older one's `background: var(--primary)`
+  survived — leaving `--primary-text` on `--primary`, which are the *same colour by design*:
+  ratio **1.00 in both themes**, on the control a student uses to fetch their own receipt.
+  Relatedly, **a `<button>` with no background of its own falls back to the user agent's
+  `ButtonFace`**, an opaque light grey that ignores the theme — not to the page. `.orderToggle`
+  was left as a `:hover` rule when the classes sharing its selector list were deleted, and
+  measured **1.09:1** in dark while looking correct in light. Deleting a class from a selector
+  list can take another class's base state with it.
 - **16px is the minimum font size for a focused input.** Mobile Safari zooms the viewport when a
   focused field's text is smaller and does not zoom back out — it looks exactly like a broken layout.
   Both `ui/Input` and the legacy `.form-control` carry the rule under `@media (pointer: coarse)`.

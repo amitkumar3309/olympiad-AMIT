@@ -2,7 +2,7 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
-## 2026-09-20 — Milestone 26: a new visual language (phases 1–13 of the UI redesign)
+## 2026-09-20 — Milestone 26: a new visual language (phases 1–15 of the UI redesign)
 
 **Frontend only.** No API contract, model, permission, route guard or piece of business logic
 changed. `git diff` over the milestone touches 78 files, **none under `backend/`**, and the
@@ -86,8 +86,48 @@ overflow, no dangling ARIA reference and no raw 5xx**. A contrast sweep of the d
 page — every primitive in every variant — reports **0 failures against WCAG AA across 314 text
 nodes in both themes**.
 
-**Still not done:** a signed-in browser regression sweep, which needs a running backend and was
-not possible in this environment. See [`MILESTONE_26_PROGRESS.md`](MILESTONE_26_PROGRESS.md).
+### Phases 14–15: the signed-in sweep, which phases 1–13 could not do
+
+The one item phases 1–13 had to report as not-done. A backend was run against a **local**
+database (`npm run dev:local`, never `npm start` — `.env` holds the production Atlas URI),
+seeded with 73 published Class 9 questions and the demo student, and **44 signed-in routes**
+were walked — 18 as a student, 26 as the root superadmin — at 1280px and 320px in both
+themes. Seven defects, none of them reachable by reading the code.
+
+**Five were one bug.** `grid-template-columns: 1fr` is shorthand for `minmax(auto, 1fr)`, and
+that `auto` floor refuses to shrink below the column's min-content — so a single-column mobile
+fallback resolves to whatever its widest child needs and drags the page sideways. It is the
+same family as the `minmax(330px, 1fr)` phase 13 fixed on `/hall-of-fame`. It was in the
+practice runner and the mock-test runner (a 310px palette card in a 284px column), the admin
+mock-test editor (383px in 284px), the admin daily-challenge console (362px in 284px), and —
+in a different shape, two `nowrap` buttons in a `nowrap` flex row — the notifications composer.
+Also in the mock-test editor: a `select` sized `auto` is as wide as its widest option, and
+"Linear Equations in Two Variables" is wider than a phone.
+
+**Two were colour, and both were invisible controls.** `/payment` declared
+`.invoiceDownload` twice in one stylesheet; the redesigned rule restyled it as an outline
+button but never cleared the older rule's `background: var(--primary)`, leaving
+`--primary-text` on `--primary` — which are *the same colour by design*, one being the words
+that name the other. Contrast ratio **1.00 in both themes**, so the control a student uses to
+download their own receipt could not be seen. And `/admin/questions`'s sort toggle had lost its
+base state when phase 10 deleted the classes it shared a rule with, leaving only a `:hover`;
+a `<button>` with no background of its own falls back to the user agent's opaque light grey
+`ButtonFace`, which read fine in light mode and measured **1.09:1** in dark.
+
+**Four heading skips** (`/report`, `/exam`, `/admin/mock-tests/new`,
+`/admin/mock-tests/:id/results`) went `h1 → h3` with no `h2`.
+
+**A note on method, because it changed the result.** The first pass reported several admin
+pages clean that were not: the general rate limiter had tripped at 300 requests per 15 minutes,
+those pages were rendering empty states, and an empty state has an `h1` and no overflow. A
+structural check that cannot tell a rendered page from a refused one is not a check. The audit
+now records an error-state match and a character count beside every result, and everything was
+re-run against a fresh window — **two of the five overflow bugs were only visible on the
+re-run**.
+
+**Verified:** `tsc -b`, `oxlint`, `vite build` pass; zero `backend/` files touched. Across all
+44 signed-in routes in both themes: one `h1` each, no heading skips, no page-level horizontal
+overflow at 320px, no dangling ARIA reference, no raw 5xx, and **0 WCAG AA contrast failures**.
 
 ## 2026-09-20 — Milestone 25, Phase C: the verification experience, on screen and in the inbox
 

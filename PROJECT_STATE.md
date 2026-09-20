@@ -8,7 +8,7 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 
 ## Current Development Phase
 
-**Milestone 26 — a new visual language for the whole frontend: phases 1–13 complete.**
+**Milestone 26 — a new visual language for the whole frontend: phases 1–15 complete.**
 
 **Working notes for this milestone are in [`MILESTONE_26_PROGRESS.md`](MILESTONE_26_PROGRESS.md)**,
 including what is left and the traps already paid for. That file is temporary: fold it in
@@ -110,11 +110,21 @@ A sweep of **all 14 public routes** reports, at both 1280px and 320px: an `h1` o
 A contrast sweep of `/design-system` — every primitive in every variant — reports **0 WCAG AA
 failures across 314 text nodes in both themes**.
 
+**Phases 14–15 close the signed-in gap.** A backend was run against a *local* database
+(`npm run dev:local`), seeded, and **44 signed-in routes** walked — 18 as a student, 26 as the
+root superadmin — at 1280px and 320px in both themes. All 44 now report one `h1`, no heading
+skips, no horizontal overflow, no dangling ARIA, no raw 5xx and **0 WCAG AA contrast failures**.
+Seven defects were found and fixed. Five were one bug — `grid-template-columns: 1fr` is
+`minmax(auto, 1fr)`, whose `auto` floor will not shrink below min-content, so a single-column
+mobile fallback drags the page sideways. Two were invisible controls measuring ~1:1: the
+`/payment` invoice download (one class declared twice, leaving `--primary-text` on `--primary`)
+and the `/admin/questions` sort toggle (no base state at all, so it fell back to the user
+agent's opaque `ButtonFace`). Details and the reproduction recipe are in
+[`MILESTONE_26_PROGRESS.md`](MILESTONE_26_PROGRESS.md); the traps are in
+[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+
 **What is NOT done**, and must not be assumed:
 
-- **A signed-in browser regression sweep.** It needs a running backend and a real session, and
-  was not possible in this environment. This is the honest gap: everything drivable without a
-  backend has been swept, and nothing behind the auth gate has been seen rendered.
 - 16 page-level glyph sizes should become `<Icon size>` at the call site.
 - ~160 `rgba()` status tints could use the `--*-soft` tokens that already exist.
 - `Admin/Exams` and `Admin/Certificates` still render hand-rolled dialogs rather than

@@ -19,8 +19,36 @@ to a file and use `git commit -F <file>`.
 
 **The dev server**: `preview_start { name: "amit-olympiad-frontend" }`. Vite may bind to
 **5174** if 5173 is taken — read the actual port from the server log rather than trusting
-the harness's reported port. **There is no backend running**, so every signed-in page shows
-its error state; the public pages and `/design-system` are the only ones drivable here.
+the harness's reported port. Note both ports may be listening on **IPv6 only** (`::1`), so
+`127.0.0.1` refuses the connection and `localhost` works.
+
+**The backend**: `preview_start { name: "amit-olympiad-backend-local-db" }`. Use that entry,
+**never** `amit-olympiad-backend` — that one runs `npm start`, which reads the production
+Atlas URI out of `backend/.env`. Confirm with `GET /ready`, which names the database it is
+connected to (`amit-olympiad-local` is the right answer). It needs a MongoDB on
+`localhost:27017`.
+
+Seeding, from inside `backend/`, with `MONGO_URI` pinned to the local database first (the
+scripts load `.env`, and `dotenv` will not overwrite a variable that is already set):
+
+```
+$env:MONGO_URI = 'mongodb://127.0.0.1:27017/amit-olympiad-local'
+npx tsx scripts/seed-class9.ts --local --write   # 73 published questions, 12 chapters
+npx tsx scripts/seed-demo.ts   --local --write   # the student, verified, fee captured
+```
+
+`assertConfiguredForWrites()` prints the target database and refuses without `--local` —
+trust it, it is the guard that makes this safe. Sign in as
+`demo.class9@amit.test` / `Demo@1234`, or as `root@localhost` / `LocalDevAdmin9` at
+`/auth/admin/login` — **that route takes `email`, not `identifier`.**
+
+**CSRF is enforced now**: a request whose `Origin` is not the configured frontend is
+refused with "This request did not come from the AMIT Olympiad website". Drive the app from
+the origin the backend expects (5173), not from a second Vite instance.
+
+**The general rate limiter is 300 requests / 15 minutes per IP** and a full sweep exceeds
+it. A limited page renders an empty state, which passes a naive structural check — see
+*Traps*.
 
 **Screenshots in this environment are unreliable** (the pane often fails to composite).
 Measure with `javascript_tool` + `getComputedStyle` instead — it is more precise anyway, and
@@ -65,7 +93,10 @@ type is *tight*; colour is *categorical* and the action is *near-black*.
 | 9 | `412d4c2` | **Eleven** duplicated action-button classes → one `ui/Button`; two tables → `ui/Menu` |
 | 10 | `da64da0` | Every radius on the scale; two selector-list bugs |
 | 11 | `3576c02` | The shadow type scale — 191 more sizes onto the ramp |
-| 12 | *(this)* | Motion pass |
+| 12 | `2ab8146` | Motion pass |
+| 13 | *(phase 13)* | Public route sweep + the `/hall-of-fame` `minmax` overflow |
+| 14 | `f989f25` | **The signed-in sweep** — 5 overflow bugs, 4 heading skips, 1 invisible button |
+| 15 | `bd3ff36` | Dark-mode contrast pass — the sort toggle with no base state |
 
 ### Verified at the last commit
 
@@ -73,6 +104,9 @@ type is *tight*; colour is *categorical* and the action is *near-black*.
 - Backend **1,289 tests / 36 files, all passing**; `git diff` touches **no** `backend/` file.
 - `/design-system` contrast sweep: **0 WCAG AA failures, 314 nodes, both themes**.
 - All 14 public routes render; no page-level horizontal overflow at 320px.
+- **18 student routes + 26 admin routes**, signed in, at 1280px and 320px, both themes:
+  one `h1` each, no heading skips, no overflow, no dangling ARIA, no raw 5xx, and
+  **0 WCAG AA contrast failures**.
 
 ---
 
@@ -114,11 +148,30 @@ guard for it, which looks like an omission and is not.
 
 ## What is genuinely left
 
-### F. Signed-in browser regression sweep — **blocked in this environment**
+### ~~F. Signed-in browser regression sweep~~ — **done, phases 14–15**
 
-Needs a running backend and a real session. It is the one item that must be reported as
-not-done rather than worked around. Everything drivable without a backend — the 14 public
-routes, `/design-system`, both themes, 320px — has been swept.
+No longer blocked. `npm run dev:local --prefix backend` against a local MongoDB, seeded
+with `seed-class9.ts --local --write` (73 published questions, 12 chapters) and
+`seed-demo.ts --local --write` (`demo.class9@amit.test` / `Demo@1234`, verified, fee
+captured). Root admin is `root@localhost` / `LocalDevAdmin9` at `/auth/admin/login`,
+which takes **`email`**, not `identifier`.
+
+44 signed-in routes walked — 18 as the student, 26 as the superadmin — at 1280px and
+320px, in both themes. Seven defects, all now fixed. Five were the same bug: a bare
+`1fr` grid column. **`1fr` is `minmax(auto, 1fr)`**, and that `auto` floor will not
+shrink below the column's min-content, so an obviously-safe single-column mobile
+fallback resolves to whatever its widest child needs. Same family as the
+`minmax(330px, 1fr)` phase 13 fixed. Two were colour: a control whose text and
+background were the same token, and a button with no base state at all (see
+*Traps* below).
+
+**The method mattered more than the findings.** The first pass reported several admin
+pages clean that were not: the rate limiter had tripped at 300 requests per 15 minutes,
+those pages were rendering empty states, and an empty state has an `h1` and no overflow.
+A structural check that cannot distinguish a rendered page from a refused one is not a
+check. The audit now records an error-state match and a character count beside every
+result. **Two of the five overflow bugs were only visible on the re-run.** Budget the
+sweep against that limiter, or pace it.
 
 ### G. 16 page-level glyph sizes should become `<Icon size>`
 
@@ -156,3 +209,22 @@ with a restyle.
   *invisible* glyph, not a fallback. Check with `getComputedStyle(el,'::before').content`.
 - **`Menu` measures with `documentElement.clientWidth`, not `innerWidth`** — they differ by
   the scrollbar, which was enough to put the panel off-screen.
+- **`1fr` is `minmax(auto, 1fr)`, and `auto` is a min-content floor.** A single-column
+  mobile fallback written `grid-template-columns: 1fr` cannot shrink below its widest
+  child, so it overflows the page rather than fitting it. Five grids did this. Write
+  `minmax(0, 1fr)` for a column that must fit its container, and `minmax(min(Npx, 100%), 1fr)`
+  when you want a real floor. This is the same rule as the `minmax(330px, 1fr)` in `CLAUDE.md`.
+- **A `<button>` with no background of its own falls back to the UA's `ButtonFace`**, an
+  opaque light grey that ignores the theme — *not* to the page background. `.orderToggle`
+  was left as a `:hover` rule when the classes it shared a selector with were deleted, and
+  rendered at **1.09:1** in dark mode while looking perfectly fine in light. Deleting a
+  class from a selector list can silently take another class's base state with it.
+- **A control whose `color` and `background` come from a token pair is only safe if both
+  are set in the same rule.** `/payment` declared `.invoiceDownload` twice; the later rule
+  set `color: var(--primary-text)` and the earlier one's `background: var(--primary)`
+  survived. Those two are the *same colour by design* — ratio **1.00 in both themes**.
+  A later `color` does not undo an earlier `background`.
+- **A structural sweep must prove the page actually rendered.** An empty state and an
+  error state both have an `h1` and no overflow, so a rate-limited page reports clean.
+  Record an error-state match and a character count alongside every result. The general
+  limiter is **300 requests / 15 minutes per IP**, and a full sweep exceeds it.
