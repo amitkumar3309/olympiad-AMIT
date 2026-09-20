@@ -5,7 +5,7 @@
 .intro {
   margin: 0 0 16px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.6;
 }
 
@@ -30,7 +30,7 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 .table th {
@@ -38,7 +38,7 @@
   padding: 10px;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -71,7 +71,7 @@
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.16);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -99,7 +99,7 @@
   justify-content: center;
   gap: 16px;
   margin-top: 18px;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-muted);
 }
 

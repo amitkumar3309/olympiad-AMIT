@@ -423,11 +423,11 @@
 
 .reviewOrder {
   font-weight: 800;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .verdict {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -438,7 +438,7 @@
 .reviewMarks {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
 }
 
@@ -485,7 +485,7 @@
 }
 
 .answerPair dt {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -495,20 +495,20 @@
   margin: 4px 0 0;
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 .explanation {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.7;
 }
 
 .explanation h5 {
   margin: 0 0 8px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -516,7 +516,7 @@
 
 .revisionNote {
   margin: 14px 0 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-style: italic;
   line-height: 1.5;

@@ -6,19 +6,19 @@
 .examCard { padding: 22px; }
 .examHead { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .examHead h3 { margin: 0 0 4px; }
-.code { display: block; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--text-muted); }
+.code { display: block; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--text-muted); }
 .description { margin: 12px 0 0; color: var(--text-muted); line-height: 1.6; }
-.facts { display: flex; gap: 22px; list-style: none; margin: 16px 0; padding: 0; font-size: 14px; color: var(--text-muted); }
-.facts strong { color: var(--text-main); font-size: 16px; }
+.facts { display: flex; gap: 22px; list-style: none; margin: 16px 0; padding: 0; font-size: var(--text-base); color: var(--text-muted); }
+.facts strong { color: var(--text-main); font-size: var(--text-md); }
 .actions { display: flex; align-items: center; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
 .muted { color: var(--text-muted); }
-.done { color: var(--success-text); font-weight: 600; font-size: 14px; }
-.state_open { color: var(--success-text); font-weight: 700; font-size: 13px; }
-.state_not_open_yet { color: var(--warning-text); font-weight: 700; font-size: 13px; }
-.state_closed, .state_not_published { color: var(--text-muted); font-weight: 700; font-size: 13px; }
+.done { color: var(--success-text); font-weight: 600; font-size: var(--text-base); }
+.state_open { color: var(--success-text); font-weight: 700; font-size: var(--text-sm); }
+.state_not_open_yet { color: var(--warning-text); font-weight: 700; font-size: var(--text-sm); }
+.state_closed, .state_not_published { color: var(--text-muted); font-weight: 700; font-size: var(--text-sm); }
 .results { padding: 22px; margin-top: 20px; }
 .results h3 { margin: 0 0 14px; }
 .tableScroll { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: 14px; }
-.table th { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; text-align: left; white-space: nowrap; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
+.table th { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: var(--text-2xs); letter-spacing: .06em; text-transform: uppercase; text-align: left; white-space: nowrap; }
 .table td { padding: 12px; border-bottom: 1px solid var(--border); }

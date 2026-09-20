@@ -21,7 +21,7 @@
 }
 
 .presented {
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -48,7 +48,7 @@
 
 .metaLabel {
   display: block;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -98,7 +98,7 @@
 
 .pendingNote {
   margin-top: 10px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 @media (max-width: 600px) {

@@ -21,7 +21,7 @@
 }
 
 .emptyNote {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   max-width: 42ch;
 }
@@ -42,7 +42,7 @@
 }
 
 .controlLabel {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -58,7 +58,7 @@
 .tab,
 .tabActive {
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   padding: 7px 14px;
   border-radius: 999px;
@@ -81,7 +81,7 @@
 
 .select {
   font: inherit;
-  font-size: 14px;
+  font-size: var(--text-base);
   padding: 7px 12px;
   border-radius: 8px;
   border: 1px solid var(--border);
@@ -109,7 +109,7 @@
 }
 
 .meLabel {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -121,7 +121,7 @@
 }
 
 .meXp span {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   margin-left: 4px;
 }
@@ -137,7 +137,7 @@
 }
 
 .windowNote {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   margin: 4px 0 0;
 }
@@ -171,7 +171,7 @@
 
 .rank {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 700;
   text-align: center;
 }
@@ -202,7 +202,7 @@
 }
 
 .meta {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -211,7 +211,7 @@
 
 .xp {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -228,13 +228,13 @@
 }
 
 .pagerLabel {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
 .depthNote,
 .footNote {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -256,7 +256,7 @@
 
   .xp {
     grid-column: 2;
-    font-size: 13px;
+    font-size: var(--text-sm);
   }
 }
 

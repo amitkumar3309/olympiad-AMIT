@@ -361,7 +361,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   cursor: pointer;
 }
@@ -378,7 +378,7 @@
   border: none;
   padding: 0;
   color: var(--primary-text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -391,7 +391,7 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--warning, #f59e0b);
   background: rgba(245, 158, 11, 0.08);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .bulkReport ul {
@@ -409,7 +409,7 @@
   margin-bottom: 16px;
   border-radius: var(--radius-sm);
   border: 1px dashed var(--border);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .previewBar label {
@@ -460,7 +460,7 @@
   border: 1px solid var(--border);
   background: rgba(99, 102, 241, 0.08);
   color: var(--text-main);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.6;
 }
 

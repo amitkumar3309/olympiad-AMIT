@@ -27,7 +27,7 @@
 .sub {
   margin: 0;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 .mono {
@@ -37,7 +37,7 @@
 .successText {
   color: #16a34a;
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--text-base);
   margin: 0 0 12px;
 }
 
@@ -76,7 +76,7 @@
 
 .settingsCard h3 {
   margin: 0 0 10px;
-  font-size: 15px;
+  font-size: var(--text-base);
 }
 
 .photo,
@@ -95,7 +95,7 @@
   place-items: center;
   gap: 6px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   text-align: center;
 }
 
@@ -162,7 +162,7 @@
 
 .fileName {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   overflow-wrap: anywhere;
 }
@@ -199,7 +199,7 @@
 }
 
 .readList dt {
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -330,7 +330,7 @@
   padding: 10px 16px;
   color: var(--text-muted);
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--text-base);
   cursor: pointer;
 }
 
@@ -367,13 +367,13 @@
 }
 
 .prefRow strong {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-main);
 }
 
 .prefRow em {
   font-style: normal;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -382,7 +382,7 @@
   margin: 6px 0 0;
   padding-left: 20px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.7;
 }
 

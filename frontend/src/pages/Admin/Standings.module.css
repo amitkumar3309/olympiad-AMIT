@@ -9,7 +9,7 @@
 
 .subheading {
   margin: 22px 0 10px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -18,7 +18,7 @@
 .hint {
   margin: 0 0 18px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.55;
 }
 
@@ -47,14 +47,14 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 .table th {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: left;
@@ -73,7 +73,7 @@
 
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .muted {
@@ -113,12 +113,12 @@
 }
 
 .overviewStat strong {
-  font-size: 24px;
+  font-size: var(--text-xl);
 }
 
 .overviewStat span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -133,7 +133,7 @@
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -144,7 +144,7 @@
 .notCounted {
   color: var(--text-muted);
   font-style: italic;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .note {
@@ -152,7 +152,7 @@
   padding: 10px 14px;
   border-left: 3px solid var(--border);
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.6;
 }
 
@@ -162,7 +162,7 @@
   justify-content: center;
   gap: 16px;
   margin-top: 18px;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-muted);
 }
 

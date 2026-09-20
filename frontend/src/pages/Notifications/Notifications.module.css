@@ -9,7 +9,7 @@
   margin-bottom: 16px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border);
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 .count {
@@ -78,7 +78,7 @@
   border-radius: 999px;
   background: rgba(239, 68, 68, 0.15);
   color: var(--danger-text);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -92,7 +92,7 @@
   border-radius: 999px;
   background: rgba(100, 116, 139, 0.16);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -112,7 +112,7 @@
   gap: 6px;
   margin-top: 10px;
   color: var(--primary-text);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   text-decoration: none;
 }
@@ -130,7 +130,7 @@
 
 .meta {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .pager {
@@ -139,7 +139,7 @@
   justify-content: center;
   gap: 16px;
   margin-top: 18px;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-muted);
 }
 

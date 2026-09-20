@@ -24,13 +24,13 @@
 
 .totalValue {
   font-family: var(--font-mono);
-  font-size: 24px;
+  font-size: var(--text-xl);
   font-weight: 800;
   line-height: 1.15;
 }
 
 .totalLabel {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   margin-top: 2px;
 }
@@ -52,7 +52,7 @@
 
 .openNote p {
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   max-width: 70ch;
 }
@@ -85,7 +85,7 @@
 
 .boardDescription {
   margin: 3px 0 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.5;
 }
@@ -95,7 +95,7 @@
   padding: 14px;
   border-radius: 10px;
   background: rgba(148, 163, 184, 0.1);
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
 }
 
@@ -122,7 +122,7 @@
 
 .rank {
   font-family: var(--font-mono);
-  font-size: 15px;
+  font-size: var(--text-base);
   font-weight: 700;
   text-align: center;
 }
@@ -139,7 +139,7 @@
 
 .meta,
 .context {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -148,13 +148,13 @@
 
 .value {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
   white-space: nowrap;
 }
 
 .footNote {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.6;
   margin: 16px 0 0;

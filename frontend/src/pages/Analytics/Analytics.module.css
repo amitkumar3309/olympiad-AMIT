@@ -44,7 +44,7 @@
 
 .pendingNote {
   margin-top: 10px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   opacity: 0.85;
 }
 
@@ -84,7 +84,7 @@
 }
 
 .table th {
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
@@ -94,13 +94,13 @@
 /* The subject a topic belongs to, so two same-named topics stay distinguishable. */
 .sub {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
 .muted {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /* Accuracy rendered as a bar plus its number. The number is never dropped: a bar
@@ -167,7 +167,7 @@
 
 /* Whether this area is a topic, a subject or a difficulty band. */
 .scope {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;

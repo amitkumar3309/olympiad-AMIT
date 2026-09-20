@@ -8,7 +8,7 @@
   background: var(--surface);
   color: var(--text-muted);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   transition:
@@ -27,7 +27,7 @@
 }
 
 .toggle i {
-  font-size: 15px;
+  font-size: var(--text-base);
   line-height: 1;
 }
 

@@ -10,7 +10,7 @@
 .hint {
   margin: 0 0 18px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.55;
 }
 
@@ -55,7 +55,7 @@
 }
 
 .emailOptIn strong {
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-main);
 }
 
@@ -72,7 +72,7 @@
   border-radius: 999px;
   background: rgba(100, 116, 139, 0.16);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -121,7 +121,7 @@
   border-radius: var(--radius-sm);
   background: rgba(34, 197, 94, 0.12);
   color: var(--success-text);
-  font-size: 14px;
+  font-size: var(--text-base);
   font-weight: 600;
 }
 
@@ -138,14 +138,14 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--text-base);
 }
 
 .table th {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   text-align: left;
@@ -167,7 +167,7 @@
   max-width: 380px;
   margin-top: 4px;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: var(--text-sm);
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -201,7 +201,7 @@
   border: 1px solid var(--border);
   background: none;
   color: var(--text-main);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -234,7 +234,7 @@
   justify-content: center;
   gap: 16px;
   margin-top: 18px;
-  font-size: 14px;
+  font-size: var(--text-base);
   color: var(--text-muted);
 }
 
