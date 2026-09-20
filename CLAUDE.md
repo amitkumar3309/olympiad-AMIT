@@ -31,7 +31,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 
 ## Technology Stack
 
-- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **twenty** primitives in `src/components/ui` — one file each; several export more than one component. Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`; **no icon library is installed as a dependency**. Fonts: Inter (interface), Poppins (headings/brand), JetBrains Mono (figures), Cinzel (the printed certificate only). Linter: `oxlint`.
+- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **twenty-four** primitives in `src/components/ui` — one file each; several export more than one component. (Twenty through Milestone 23; the redesign added `Avatar`, `Breadcrumb`, `Menu` and `Section`. Count the `.tsx` files rather than trusting this line.) Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`; **no icon library is installed as a dependency**. Fonts: Inter (interface **and** headings), JetBrains Mono (figures), Cinzel (the printed certificate only) — Poppins was the heading face and was **removed** by the redesign, so `--font-heading` is Inter. Linter: `oxlint`.
 - **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. One AI dependency: **`@google/genai`** (question drafting only — see the Milestone 20 ADR, which supersedes Milestone 17's decision against an SDK; it is `require`d rather than `import`ed for a packaging reason documented at the top of `services/geminiQuestionGenerator.ts`). Modular structure since Milestone 1 (`config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/`). Uses `zod` (validation), `pino` (logging), `helmet`, `express-rate-limit`. Linter: `eslint` + `typescript-eslint`. Tests: `vitest` + `supertest`.
 - **Database**: MongoDB via Mongoose.
 - **Auth**: short-lived access JWT + rotating opaque refresh token, both in `httpOnly` cookies; passwords hashed with `bcryptjs` (cost 12). Email via `nodemailer` over SMTP.
@@ -51,7 +51,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             prefers-reduced-motion honoured once
   src/styles/utilities.css  six layout utilities + the five pre-existing global
                             classes (.card, .form-control, ...), kept working
-  src/components/ui/        THE design system: 20 domain-agnostic primitives
+  src/components/ui/        THE design system: 24 domain-agnostic primitives
                             (one .tsx each; Input.tsx alone exports five) +
                             index.ts barrel. A component belongs here only if it
                             knows nothing about this product (M23 A)
@@ -243,14 +243,28 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   no token fits, add one to `tokens.css`. A component references the **semantic** layer only
   (`--primary`, `--danger-soft`, `--surface`) — never a palette step (`--blue-600`), which exists so
   the semantic layer can be re-pointed in one place.
-- **`.theme-dark` must stay *below* `:root` in `tokens.css`.** Both selectors match
-  `document.documentElement` with identical specificity (0,1,0), so **source order is the only reason
-  dark mode wins**. Anything added to one needs a counterpart in the other. A CSS Module cannot name
-  `.theme-dark` without `:global` and should not want to: if a component needs a per-theme value, that
-  is a token (see `--tooltip-bg`).
+- **Dark is the default, and it is the *absence* of a class** (the redesign inverted this; it was
+  the other way round through Milestone 23). `tokens.css` defines the dark values on `:root` and
+  overrides them under **`.theme-light`**. That is not a preference about which block reads better:
+  **a class applied by React cannot be on the element for the first paint**, so with dark on a class
+  every cold load flashed white before the effect ran. With dark on `:root` the default theme needs
+  no class at all. The minority who choose light are served by `applyStoredTheme()`, called from
+  `main.tsx` **before** `createRoot` — module evaluation happens before the first paint, so the class
+  is there in time. Doing it in an effect is the same defect in the other direction.
+- **`.theme-light` must stay *below* `:root` in `tokens.css`.** Same rule as before with the subject
+  swapped: both selectors match `document.documentElement` with identical specificity (0,1,0), so
+  **source order is the only reason the light override wins**. Anything added to one needs a
+  counterpart in the other. A CSS Module cannot name `.theme-light` without `:global` and should not
+  want to: if a component needs a per-theme value, that is a token (see `--tooltip-bg`).
+- **The default is dark by the owner's decision (2026-09-20), and deliberately *not*
+  `prefers-color-scheme`.** Following the OS would mean two students shown different colours with no
+  way to reason about a screenshot or a support request. Light remains a real, supported theme and the
+  toggle keeps working — it is the baseline that changed, not the choice.
 - **The legacy aliases and the five global classes are load-bearing, not leftovers.** `--royal-blue`
-  (144 references), `--text-main`, `--gold`, `.card`, `.form-control`, `.form-group`, `.error-text`
-  and `.success-text` are what let 29 un-migrated pages inherit the redesign without being edited, and
+  (**38 uses outside `tokens.css`**, re-measured 2026-09-20; it was 144 at Milestone 23), `--text-main`,
+  `--gold`, `.card` (40 uses), `.form-control` (146), `.form-group` (70), `.error-text` (17)
+  and `.success-text` (0 — the only one now retirable) are what let un-migrated pages inherit the
+  redesign without being edited, and
   `components/Button.tsx`, `Spinner.tsx` and `StatTile.tsx` are re-exports keeping 88 imports working.
   Retire them **page by page** as each is redesigned; do not delete one while a page still uses it, and
   do not build new code on them.
@@ -409,8 +423,8 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   with; each has a **`-text` sibling** that is dark enough to carry words, and that split is
   the only reason both exist. The Phase G audit found **109** declarations using the fill as
   text — "Paid" at 2.22:1, "Pending" at 1.91:1, "Published" at 2.13:1 — and **38** more
-  using the legacy `--royal-blue`, which `.theme-dark` deliberately re-points *lighter* so it
-  stays visible as a border and is therefore useless for words there. Every solid fill also
+  using the legacy `--royal-blue`, which the **light** theme deliberately re-points so it stays
+  visible as a border and is therefore useless for words there. Every solid fill also
   has an explicit **`--*-on`** colour, and not all of them are white: white on
   `--success-solid` is 3.77:1 and on `--warning-solid` 3.19:1, because green and amber are
   light fills. The only `color: #fff` left in `src/` is the gallery lightbox, over a
@@ -442,8 +456,12 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   advance while the tab is not compositing**, so `getComputedStyle` keeps reporting the *old*
   colour: nine apparent contrast failures across two sessions were buttons and a `body`
   caught mid-transition. Phase G's advice — reload into the theme rather than switching into
-  it — is **not sufficient**, because `ThemeContext` adds `.theme-dark` in an effect *after*
-  first paint, so even a fresh load has a transition pending. The reliable move is to inject
+  it — was **not sufficient** at the time, because `ThemeContext` then added its class in an
+  effect *after* first paint, so even a fresh load had a transition pending. The redesign
+  removed that specific cause (`applyStoredTheme()` now runs at module scope, before the first
+  paint, and the default theme needs no class at all) — but **do not treat reloading as
+  sufficient on that basis**: a transition is still pending on any theme *toggle*, and the trap
+  is the measurement technique, not one route to it. The reliable move is still to inject
   `* { transition: none !important; animation: none !important }` before measuring, which
   forces every element to its final value. And a programmatic `.focus()` does not trigger
   `:focus-visible`, which is a keyboard heuristic — verify the focus ring statically instead,
