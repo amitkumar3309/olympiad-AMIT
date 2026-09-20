@@ -125,7 +125,9 @@
 }
 
 /** The uppercase micro-label above a figure or a section. Needs the extra tracking
-    to stay legible, and never goes below `--text-2xs`. */
+    to stay legible, and never goes below `--text-2xs`. For the *pill* form of this —
+    a tinted chip with an icon, which is the reference's section marker — use
+    `ui/Section`'s `eyebrow` prop rather than adding a second class here. */
 .eyebrow {
   font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
@@ -136,6 +138,25 @@
 
 .muted {
   color: var(--text-muted);
+}
+
+/**
+ * Running prose: a measure, and the loose leading that goes with it.
+ *
+ * Two separate reasons, both of which the page-level CSS was getting wrong by hand.
+ * **The measure** caps a paragraph at roughly 68 characters, because a line of body
+ * copy spanning a 1200px container is genuinely hard to track back from. **The
+ * leading** is 1.8 — light text on a dark canvas optically thickens, and the airier
+ * measure is most of why the reference's pages feel unhurried.
+ *
+ * For a paragraph that must fill its container (a table caption, a form hint), use
+ * the element default instead; this is for copy somebody reads, not labels they scan.
+ */
+.prose {
+  max-width: 68ch;
+  font-size: var(--text-md);
+  line-height: var(--leading-loose);
+  color: var(--text-body);
 }
 
 /** Tabular figures. Any column of scores, marks, money or ranks should use this:
@@ -155,16 +176,21 @@
    ========================================================================== */
 
 /**
- * The surface every existing page builds on. Modernised in place: a lighter shadow, a
- * 14px radius and fluid padding, so the whole product reads as one generation of
- * design even before its page is rewritten.
+ * The surface every existing page builds on. Modernised in place — now a 16px radius
+ * and roomier fluid padding — so the whole product reads as one generation of design
+ * even before its page is rewritten.
+ *
+ * `--shadow-sm` is `none` in the dark theme, which is deliberate rather than an
+ * omission: on a near-black canvas there is nowhere for a shadow to fall, and the
+ * separation comes from the surface step plus the hairline border. The declaration
+ * stays because the light theme still defines a real value for it.
  */
 .card {
   background: var(--surface);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
-  padding: clamp(var(--space-4), 3vw, var(--space-6));
+  padding: clamp(var(--space-5), 3.2vw, var(--space-8));
 }
 
 .form-control {

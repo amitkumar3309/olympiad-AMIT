@@ -1,10 +1,23 @@
+/**
+ * **Every button is a pill.**
+ *
+ * Milestone 26. The `pill` prop still exists and still resolves to the same radius,
+ * so the thirty-odd call sites that pass it are untouched — it is simply no longer
+ * the thing that makes a button a pill.
+ *
+ * This is the single most recognisable shape in the reference and it is doing real
+ * work, not decoration: a fully-rounded control cannot be mistaken for a card, a
+ * cell, an input or a tag, all of which are rectangles with a modest radius in this
+ * product. On a dense administrative table that distinction is what tells you at a
+ * glance which things are actions.
+ */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   font-family: var(--font-body);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-none);
@@ -13,11 +26,27 @@
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
+  /* `transform` joins the transition list for the press feedback below. Kept to four
+     named properties rather than `all`: transitioning everything is what makes a
+     hover feel laggy, and it re-animates layout properties nobody asked to animate. */
   transition:
     background-color var(--dur-fast) var(--ease),
     border-color var(--dur-fast) var(--ease),
     color var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease);
+    box-shadow var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+/**
+ * Press feedback: the button moves 1px and comes back.
+ *
+ * Small enough that nobody consciously notices it and large enough that a tap feels
+ * acknowledged on a phone, where there is no hover state to have confirmed the target
+ * beforehand. `:active` rather than a class, so it costs no JavaScript and cannot get
+ * stuck in the pressed state if a pointer is lost.
+ */
+.btn:active:not(:disabled):not([aria-disabled='true']) {
+  transform: translateY(1px);
 }
 
 .btn:disabled,
@@ -35,20 +64,20 @@
 
 .sm {
   min-height: 34px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
   font-size: var(--text-sm);
   gap: var(--space-1);
 }
 
 .md {
-  min-height: 42px;
-  padding: 0 var(--space-5);
+  min-height: 44px;
+  padding: 0 var(--space-6);
   font-size: var(--text-base);
 }
 
 .lg {
-  min-height: 50px;
-  padding: 0 var(--space-6);
+  min-height: 54px;
+  padding: 0 var(--space-8);
   font-size: var(--text-md);
 }
 
@@ -59,7 +88,7 @@
   }
 
   .sm {
-    padding: 0 var(--space-4);
+    padding: 0 var(--space-5);
   }
 }
 
@@ -67,8 +96,22 @@
   width: 100%;
 }
 
+/* Retained so the call sites that pass `pill` keep compiling and keep their shape.
+   `.btn` is already a pill; this is the same value, stated twice on purpose rather
+   than deleted, because removing the class would break thirty imports for nothing. */
 .pill {
   border-radius: var(--radius-pill);
+}
+
+/**
+ * The accent glow. **One per page**, opt-in — see the prop's note.
+ *
+ * `--glow-primary` is a ring plus a wide soft shadow, so it reads as light coming off
+ * the button rather than as a border. In the light theme the token degrades to an
+ * ordinary small shadow, because a lime halo on white is a smudge.
+ */
+.glow {
+  box-shadow: var(--glow-primary);
 }
 
 /* An icon-only button is square, so it reads as a control rather than as a
@@ -99,10 +142,19 @@
 
 /* ---------- variants ----------------------------------------------------- */
 
+/**
+ * The one lime thing on the screen.
+ *
+ * `--primary-on` is near-black, not white: white on `#a0e00d` measures 1.5:1. Any
+ * new variant that fills with the accent takes the same pairing.
+ *
+ * There is deliberately **no glow on the default state** — `--glow-primary` is
+ * reserved for the single hero call to action, and a glow on every save button is
+ * what turns an accent into noise.
+ */
 .primary {
   background: var(--primary);
   color: var(--primary-on);
-  box-shadow: var(--shadow-xs);
 }
 
 .primary:hover:not(:disabled) {
@@ -113,16 +165,22 @@
   background: var(--primary-active);
 }
 
-/* A solid, bordered surface — the standard partner to a primary action. */
+/**
+ * The standard partner to a primary action: a raised surface with a hairline.
+ *
+ * `--surface-raised` rather than `--surface`, so a secondary button sitting *on* a
+ * card is still a step lighter than the card. On the old light canvas `--surface` was
+ * white and the border did all the separating; on a near-black one a button the same
+ * colour as the card it sits on disappears into it.
+ */
 .secondary {
-  background: var(--surface);
+  background: var(--surface-raised);
   border-color: var(--border);
   color: var(--text);
-  box-shadow: var(--shadow-xs);
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: var(--surface-active);
   border-color: var(--border-strong);
 }
 
@@ -164,7 +222,6 @@
 .danger {
   background: var(--danger-solid);
   color: var(--danger-on);
-  box-shadow: var(--shadow-xs);
 }
 
 .danger:hover:not(:disabled) {
