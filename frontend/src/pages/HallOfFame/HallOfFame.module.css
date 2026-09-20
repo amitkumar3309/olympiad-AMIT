@@ -59,10 +59,18 @@
 
 /* --- Boards --------------------------------------------------------------- */
 
+/**
+ * `min(330px, 100%)`, not a bare `330px`.
+ *
+ * `minmax`'s floor wins against the container, so an unguarded floor wider than the
+ * viewport makes the whole page draggable sideways — this grid pushed a 320px screen
+ * to 348px. It is the one case `minmax` gets wrong, it is written down in `CLAUDE.md`,
+ * and this was the last grid in the product still doing it.
+ */
 .boards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(min(330px, 100%), 1fr));
+  gap: var(--space-4);
   align-items: start;
 }
 

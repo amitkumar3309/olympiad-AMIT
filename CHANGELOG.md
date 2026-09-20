@@ -2,7 +2,7 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
-## 2026-09-20 — Milestone 26: a new visual language (phases 1–6 of the UI redesign)
+## 2026-09-20 — Milestone 26: a new visual language (phases 1–13 of the UI redesign)
 
 **Frontend only.** No API contract, model, permission, route guard or piece of business logic
 changed. `git diff` over the milestone touches 78 files, **none under `backend/`**, and the
@@ -38,10 +38,30 @@ Every value below was read off the live reference with `getComputedStyle`, not e
 - **`/admin/analytics` was 22 identical stat tiles in six flat rows.** It is now four headline
   figures, two trends, and the other eighteen behind tabs. No figure was removed.
 - **Five primitives added**: `Section`, `IconTile`, `Avatar`, `Menu`, `Breadcrumb`.
-- **289 of 327 hardcoded `font-size: Npx`** across the page CSS moved onto the type ramp, which
-  is what made the redesign reach the forty-five pages nobody opened.
+- **The shadow type scale is gone.** The page CSS carried **221** hardcoded sizes across **44
+  distinct values**, six of them between 11 and 15px. 480 are now tokens across two sweeps —
+  the second found every `rem` and decimal value the first scan's regex could not see. This is
+  what made the redesign reach the forty-five pages nobody opened.
+- **Eleven duplicated action-button classes became one `ui/Button`**, across ten files. Where
+  the control sat at the end of a table row it became `ui/Menu`. `--royal-blue` is now
+  referenced **zero** times outside `tokens.css`.
+- **Nothing hardcodes a radius**, and the eleven hand-rolled card surfaces are on the new
+  borderless-plus-shadow treatment.
 
-### Four defects found by walking the product, not by reading it
+### Eight defects found by walking the product, not by reading it
+
+Four more, all pre-existing, none visible from the code alone:
+
+- **`/hall-of-fame` pushed a 320px phone to 348px** — `minmax(330px, 1fr)` with no `min()`
+  guard. The one case `minmax` gets wrong, already written down, and the last grid doing it.
+- **"Copy link" on `/referrals` was painted WhatsApp green.** A dangling comma before a
+  comment put `.copyBtn` inside `.shareWhatsapp`'s selector list, so two buttons that do
+  completely different things looked identical.
+- **`Profile`'s `.successText` and `.verified` kept a raw `#16a34a`** while their sibling
+  `.unverified` had already been corrected to a token.
+- **`Profile`'s form controls still had the old bordered-white-box treatment.**
+
+And the first four:
 
 - **A raw 5xx was reaching readers, in 97 places.** `CLAUDE.md` has said since Milestone 23
   that a 5xx message is never shown to a user and every caught error goes through
@@ -60,9 +80,14 @@ Every value below was read off the live reference with `getComputedStyle`, not e
 
 ### Verified
 
-`tsc -b`, `oxlint` and `vite build` pass at every phase. A contrast sweep of the design-system
+`tsc -b`, `oxlint` and `vite build` pass at every phase. A sweep of all **14 public routes** at
+1280px and 320px reports an `h1` on every page, **no heading-level skips, no horizontal
+overflow, no dangling ARIA reference and no raw 5xx**. A contrast sweep of the design-system
 page — every primitive in every variant — reports **0 failures against WCAG AA across 314 text
-nodes in both themes**, and there is no page-level horizontal overflow at 320px.
+nodes in both themes**.
+
+**Still not done:** a signed-in browser regression sweep, which needs a running backend and was
+not possible in this environment. See [`MILESTONE_26_PROGRESS.md`](MILESTONE_26_PROGRESS.md).
 
 ## 2026-09-20 — Milestone 25, Phase C: the verification experience, on screen and in the inbox
 

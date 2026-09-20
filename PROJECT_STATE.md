@@ -8,7 +8,11 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 
 ## Current Development Phase
 
-**Milestone 26 — a new visual language for the whole frontend: phases 1–6 complete.**
+**Milestone 26 — a new visual language for the whole frontend: phases 1–13 complete.**
+
+**Working notes for this milestone are in [`MILESTONE_26_PROGRESS.md`](MILESTONE_26_PROGRESS.md)**,
+including what is left and the traps already paid for. That file is temporary: fold it in
+here and delete it when the milestone closes.
 
 **Frontend only.** No API contract, Mongoose model, permission, route guard or piece of
 business logic changed. `git diff` over the whole milestone touches **78 files, none of them
@@ -52,10 +56,36 @@ one of them will look wrong however carefully it is tokenised:
   `Section` with `size="page"`), no `IconButton`, no `Search`, no `Drawer`, no `Dropdown`.
 - **Geist + Geist Mono replace Inter, Poppins and JetBrains Mono.** Three families to two, both
   variable, so fewer bytes than before. Cinzel survives for the two logotype surfaces.
-- **289 of 327 hardcoded `font-size: Npx`** in the page CSS moved onto the ramp. The 38 left
-  are display sizes where the right step is a judgement about that page, not a lookup.
+- **The shadow type scale is gone.** The page CSS carried **221** hardcoded font sizes across
+  **44 distinct values** — six of them between 11px and 15px — a second scale that agreed with
+  neither the ramp nor itself. 480 of them are now tokens (289 in the first sweep, 191 in the
+  second, which found the `rem` and decimal values the first scan's regex could not see). What
+  is left is 16 *glyph* sizes on `<i>` elements, the icon scale itself, and the printed
+  certificate — none of which a **type** ramp should govern.
+- **Nothing hardcodes a radius.** 48 more mapped, including 35 literal `999px`.
+- **Eleven duplicated action-button classes became one `ui/Button`.** `.actionBtn`,
+  `.linkButton`, `.secondaryBtn`, `.dangerBtn`, `.searchBtn`, `.iconButton`, `.dangerButton`
+  and `.publishBtn` across ten files, each a slightly different bordered rectangle. Where the
+  control sat at the end of a table row it became `ui/Menu` instead.
+- **`--royal-blue` is referenced zero times outside `tokens.css`.**
 
-### Four defects found by walking the product, not by reading it
+### Eight defects found by walking the product, not by reading it
+
+The later four, all pre-existing and none visible from the code alone:
+
+- **`/hall-of-fame` pushed a 320px phone to 348px.** `minmax(330px, 1fr)` with no `min()`
+  guard — `minmax`'s floor wins against its container. It is the one case `minmax` gets
+  wrong, it was already written down in `CLAUDE.md`, and this was the last grid doing it.
+- **"Copy link" on `/referrals` was painted WhatsApp green**, indistinguishable from the
+  share button beside it while doing something completely different. A dangling comma before
+  a comment put `.copyBtn` inside `.shareWhatsapp`'s selector list; CSS parses straight
+  through a comment and keeps collecting selectors, so it is invisible in the source.
+- **`Profile`'s `.successText` and `.verified` painted with a raw `#16a34a`** — their sibling
+  `.unverified` had already been corrected to a token and these two were missed.
+- **`Profile`'s form controls still carried the old bordered-white-box treatment**, which on
+  a borderless white card is an outline and nothing else.
+
+The first four:
 
 - **A raw 5xx was reaching readers, in 97 places across 39 files.** This repository has required
   since Milestone 23 that every caught error go through `humanizeError()` and that a 5xx message
@@ -73,15 +103,23 @@ one of them will look wrong however carefully it is tokenised:
 
 ### Verified
 
-`tsc -b`, `oxlint` and `vite build` pass at every phase boundary. A contrast sweep of
-`/design-system` — every primitive in every variant — reports **0 WCAG AA failures across 314
-text nodes in both themes**, and there is no page-level horizontal overflow at 320px.
+`tsc -b`, `oxlint` and `vite build` pass at every phase boundary.
 
-**What is NOT done**, and must not be assumed: the per-page passes for the student and admin
-surfaces beyond the two rebuilt here; converting the remaining five pages' `.actionBtn` rows to
-`ui/Menu`; the motion pass; and a **signed-in browser regression sweep**, which needs a running
-backend and was not possible in this environment. Those pages inherit the tokens, the shell and
-the type ramp, so they are consistent — but they have not been individually redesigned.
+A sweep of **all 14 public routes** reports, at both 1280px and 320px: an `h1` on every page,
+**no heading-level skips, no horizontal overflow, no dangling ARIA reference, and no raw 5xx**.
+A contrast sweep of `/design-system` — every primitive in every variant — reports **0 WCAG AA
+failures across 314 text nodes in both themes**.
+
+**What is NOT done**, and must not be assumed:
+
+- **A signed-in browser regression sweep.** It needs a running backend and a real session, and
+  was not possible in this environment. This is the honest gap: everything drivable without a
+  backend has been swept, and nothing behind the auth gate has been seen rendered.
+- 16 page-level glyph sizes should become `<Icon size>` at the call site.
+- ~160 `rgba()` status tints could use the `--*-soft` tokens that already exist.
+- `Admin/Exams` and `Admin/Certificates` still render hand-rolled dialogs rather than
+  `ui/Modal` — deliberately, because swapping them is a focus-management change to a
+  destructive confirmation and deserves its own browser pass.
 
 ---
 
