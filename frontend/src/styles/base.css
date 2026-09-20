@@ -45,11 +45,7 @@ body {
   margin: 0;
   font-family: var(--font-body);
   font-size: var(--text-md);
-  /* 1.65 rather than 1.5. Light text on a dark canvas needs more room between lines
-     than dark text on a light one — the glyphs optically thicken, and a measure that
-     reads comfortably in light mode reads as a block in dark mode. Prose that wants
-     the full 1.8 asks for `--leading-loose` explicitly. */
-  line-height: var(--leading-relaxed);
+  line-height: var(--leading-normal);
   background: var(--bg);
   color: var(--text-body);
   -webkit-font-smoothing: antialiased;
@@ -62,20 +58,11 @@ body {
 }
 
 /**
- * Headings: one family, and the character comes from weight and tracking.
+ * Headings carry the brand face; body copy carries the reading face.
  *
- * `--font-heading` is **Inter** as of Milestone 26, and Poppins has been removed from
- * the product. The two surfaces that carry a logotype — the landing wordmark and the
- * printed certificate — use `--font-display` (Cinzel) and always did.
- *
- * Two rules do most of the work here, and both are the opposite of the defaults:
- *
- *  - **Weight goes down as size goes up.** `h1` and `h2` are set at 500, not 700. At
- *    44px and above a bold weight reads as shouting and closes up the counters; at
- *    18px it reads as emphasis. This is why the reference's 60px display is 500 and
- *    its 14px labels are 700, and it is the single most transferable thing about it.
- *  - **Tracking tightens as size goes up.** A heading at -0.045em forms a shape; the
- *    same tracking on a 15px label makes it illegible. Each step below sets its own.
+ * `--font-heading` is Poppins, which is what the product looked like before this
+ * milestone, so the brand voice is unchanged. What changed is that paragraphs are no
+ * longer set in it.
  */
 h1,
 h2,
@@ -85,9 +72,9 @@ h5,
 h6 {
   margin: 0 0 0.5em;
   font-family: var(--font-heading);
-  font-weight: var(--weight-semibold);
-  line-height: var(--leading-snug);
-  letter-spacing: var(--tracking-snug);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
   color: var(--text);
   /* A long unbroken string — a chapter name, an email address, a student ID — must
      wrap rather than push the page sideways. */
@@ -96,16 +83,10 @@ h6 {
 
 h1 {
   font-size: var(--text-3xl);
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-display);
 }
 
 h2 {
   font-size: var(--text-2xl);
-  font-weight: var(--weight-medium);
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tight);
 }
 
 h3 {
@@ -119,7 +100,6 @@ h4 {
 h5,
 h6 {
   font-size: var(--text-base);
-  letter-spacing: var(--tracking-normal);
 }
 
 /**
@@ -209,7 +189,7 @@ legend {
  * not leave a ring behind; the browser decides, and it gets that decision right.
  */
 :focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline: var(--focus-ring-width) solid var(--primary-text);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
 }

@@ -9,50 +9,36 @@
 
 /* ---------------------------------------------------------------- hero ---- */
 
-/**
- * Two washes rather than one, and still no image: a wide accent glow bleeding down
- * from above the fold, over a cooler one at the top edge. It costs nothing to load,
- * it is the only decoration on the page, and on a near-black canvas it is what stops
- * the hero reading as an empty screen.
- *
- * No bottom border. A hard rule under the hero cuts the glow off mid-fade, and the
- * sections below already separate themselves with their own tinted bands.
- */
 .hero {
-  position: relative;
+  /* A single soft wash rather than a photograph: it costs nothing to load and it is the
+     only decoration on the page. */
   background:
-    radial-gradient(ellipse 90% 60% at 50% -20%, var(--primary-soft), transparent 70%),
-    radial-gradient(ellipse 140% 90% at 50% -40%, var(--surface), transparent 65%),
+    radial-gradient(ellipse 120% 80% at 50% -10%, var(--primary-soft), transparent 70%),
     var(--bg);
-  /* Clears the floating navigation, which is `position: sticky` over the page rather
-     than a bar the page starts below. */
-  padding: var(--space-16) 0 var(--space-20);
+  padding: var(--space-10) 0 var(--space-12);
   text-align: center;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .heroInner {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
-/* The eyebrow pill. Matches `ui/Section`'s, which is what every other section on the
-   site uses — the hero is not a different kind of page. */
 .kicker {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   margin: 0;
   padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--primary-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  background: var(--primary-soft);
+  background: var(--surface);
   color: var(--primary-text);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
 }
 
 /**
@@ -63,8 +49,8 @@
 .wordmark {
   margin: 0;
   font-family: var(--font-display);
-  font-size: var(--text-5xl);
-  font-weight: var(--weight-bold);
+  font-size: var(--text-4xl);
+  font-weight: var(--weight-black);
   line-height: var(--leading-tight);
   letter-spacing: -0.02em;
   color: var(--primary-text);
@@ -97,11 +83,10 @@
 }
 
 .tagline {
-  max-width: 44ch;
+  max-width: 34rem;
   margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-md);
-  line-height: var(--leading-loose);
+  color: var(--text-body);
+  font-size: var(--text-base);
 }
 
 .heroActions {
@@ -140,7 +125,7 @@
    and needs no size override here. */
 @media (min-width: 768px) {
   .hero {
-    padding: var(--space-20) 0 var(--space-24);
+    padding: var(--space-12) 0 var(--space-16);
   }
 
   .tagline {
@@ -155,53 +140,46 @@
 
 /* --------------------------------------------------------------- layout ---- */
 
-/**
- * `--section-gap` rather than a hand-picked step, so the rhythm of this page is the
- * same fluid measurement `ui/Section` uses everywhere else. It is deliberately much
- * larger than anything on the space ramp (56px on a phone, 120px on a desktop):
- * whitespace at this scale is the difference between spacious and padded, and it is
- * the one measurement a page cannot fake with borders.
- */
 .section {
-  padding-block: var(--section-gap);
+  padding: var(--space-10) 0;
 }
 
-/**
- * A tinted band, so the page reads as sections rather than one long scroll.
- *
- * The rules above and below it are gone. On a near-black canvas a six-point shift in
- * surface lightness already draws the edge; adding a hairline on top of it states the
- * boundary twice and is what makes a page look ruled rather than composed.
- */
+/** A tinted band, so the page reads as sections rather than one long scroll. */
 .stripe {
   background: var(--surface-sunken);
+  border-block: 1px solid var(--border-subtle);
 }
 
 .sectionHead {
   max-width: 44rem;
-  margin: 0 0 var(--block-gap);
+  margin: 0 0 var(--space-6);
 }
 
 .sectionHead h2 {
-  margin: var(--space-4) 0 0;
-  font-size: var(--text-3xl);
-  font-weight: var(--weight-medium);
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-2xl);
   line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-display);
 }
 
 .sectionLead {
-  margin: var(--space-4) 0 0;
-  max-width: 62ch;
-  color: var(--text-muted);
-  font-size: var(--text-md);
-  line-height: var(--leading-loose);
+  margin: var(--space-3) 0 0;
+  color: var(--text-body);
 }
 
 .muted {
   margin: var(--space-4) 0 0;
   color: var(--text-muted);
   font-size: var(--text-sm);
+}
+
+@media (min-width: 768px) {
+  .section {
+    padding: var(--space-12) 0;
+  }
+
+  .sectionHead h2 {
+    font-size: var(--text-3xl);
+  }
 }
 
 /* ---------------------------------------------------------------- stats ---- */

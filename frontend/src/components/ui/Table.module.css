@@ -14,7 +14,7 @@
 }
 
 .scroll:focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline: var(--focus-ring-width) solid var(--primary-text);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
 }
@@ -63,14 +63,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/**
- * The header row is a label, not a band.
- *
- * No fill of its own beyond the surface it sits on, and the only rule with real
- * weight in the whole table. A shaded header strip plus a border on every cell is
- * what makes a data table read as a spreadsheet; the uppercase micro-label and one
- * hairline underneath are enough to say "these are the columns".
- */
 .table thead th {
   font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
@@ -83,11 +75,6 @@
   background: var(--surface);
 }
 
-/**
- * Rows are separated by a hairline and **nothing else** — no vertical rules, no
- * zebra striping. Vertical rules turn a table into a grid of boxes, and striping
- * fights with the hover state, which is the one row highlight that means something.
- */
 .table tbody td {
   border-bottom: var(--border-width) solid var(--border-subtle);
   color: var(--text-body);
@@ -98,42 +85,33 @@
   border-bottom: none;
 }
 
-.table tbody tr {
-  transition: background-color var(--dur-fast) var(--ease);
-}
-
 .table tbody tr:hover td {
   background: var(--surface-hover);
 }
 
-/* Roomier rows: 16px of vertical padding rather than 12. A row that a name, a badge
-   and an avatar all have to fit inside needs the height, and this is the single
-   change that most separates a modern table from a dense one. */
 .table th,
 .table td {
-  padding: var(--space-4) var(--space-4);
+  padding: var(--space-3) var(--space-3);
 }
 
 .table th:first-child,
 .table td:first-child {
-  padding-left: var(--space-5);
+  padding-left: var(--space-4);
 }
 
 .table th:last-child,
 .table td:last-child {
-  padding-right: var(--space-5);
+  padding-right: var(--space-4);
 }
 
-/* `compact` is for a desktop administrative table with many rows — it is the density
-   the 44px touch floor deliberately does not apply to on a fine pointer. */
 .compact th,
 .compact td {
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-2) var(--space-3);
 }
 
 .comfortable th,
 .comfortable td {
-  padding: var(--space-5) var(--space-4);
+  padding: var(--space-4) var(--space-3);
 }
 
 .sticky thead th {

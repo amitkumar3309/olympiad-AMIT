@@ -257,16 +257,11 @@ export default function AppShell({
       <>
         <div className={styles.panelHead}>
           <Link to={brand.to} className={styles.brand} onClick={inDrawer ? closeDrawer : undefined}>
-            {/* The glyph sits in a lime tile — the one unprompted appearance of the
-                accent on every page. It is decoration beside the wordmark, so it is
-                hidden from assistive technology; the link's text is its name. */}
-            <span className={styles.brandMark} aria-hidden="true">
-              <Icon
-                name={variant === 'admin' ? 'ph-shield-check' : 'ph-graduation-cap'}
-                weight="bold"
-                size="sm"
-              />
-            </span>
+            <Icon
+              name={variant === 'admin' ? 'ph-shield-check' : 'ph-graduation-cap'}
+              weight="bold"
+              size="md"
+            />
             <span>{brand.label}</span>
           </Link>
           {inDrawer && (

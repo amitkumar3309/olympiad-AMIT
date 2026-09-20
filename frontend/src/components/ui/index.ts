@@ -1,20 +1,9 @@
 /**
- * The design system's public surface (Milestone 23 Phase A; extended in Milestone 26).
+ * The design system's public surface (Milestone 23, Phase A).
  *
  * Import from here rather than from the individual files:
  *
- *     import { Button, Card, Section, Field, Input, Badge } from '../../components/ui'
- *
- * ## Twenty-four primitives, and no near-duplicates
- *
- * Milestone 26 added four — `Section`, `Avatar`, `Menu`, `Breadcrumb` — and the
- * discipline that matters is the ones it did **not** add. There is no `PageHeader`
- * (that is `Section` with `size="page"`), no `IconButton` (that is `Button` with
- * `iconOnly`), no `Search` (that is `SearchInput`), no `Drawer` (the one drawer in
- * the product is the navigation's, and it belongs to `AppShell`), and no `Dropdown`
- * separate from `Menu`. A design system earns its keep by being the only answer to a
- * question; two components that nearly do the same thing put the decision back on
- * every call site.
+ *     import { Button, Card, CardHeader, Field, Input, Badge } from '../../components/ui'
  *
  * ## What belongs in this folder
  *
@@ -40,23 +29,6 @@ export type { ButtonProps, ButtonSize, ButtonVariant } from './Button'
 
 export { default as Card, CardHeader, CardBody, CardFooter } from './Card'
 export type { CardProps, CardHeaderProps } from './Card'
-
-/**
- * `Section` is the page's rhythm unit — eyebrow, heading, lead, content — and with
- * `titleAs="h1" size="page"` it is also the page header. There is deliberately no
- * separate `PageHeader`: the two are the same shape at two sizes.
- */
-export { default as Section } from './Section'
-export type { SectionProps } from './Section'
-
-export { default as Avatar } from './Avatar'
-export type { AvatarProps } from './Avatar'
-
-export { default as Menu } from './Menu'
-export type { MenuProps, MenuItem, MenuAction, MenuSeparator } from './Menu'
-
-export { default as Breadcrumb } from './Breadcrumb'
-export type { BreadcrumbProps, Crumb } from './Breadcrumb'
 
 export { default as Badge } from './Badge'
 export type { BadgeProps, BadgeTone } from './Badge'

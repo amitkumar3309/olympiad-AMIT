@@ -13,20 +13,11 @@ import styles from './Button.module.css'
  * props (`variant` of `primary | outline | danger | ghost`, and `fullWidth`) are all
  * still honoured, so those pages pick up the new treatment without being touched.
  *
- * ## Shape (Milestone 26)
- *
- * **Every button is a pill.** Milestone 23 had deliberately un-pilled them, on the
- * reasoning that a 10px corner reads as a product rather than as a landing page; the
- * new visual language puts that back, and for a better reason than fashion. Cards,
- * cells, inputs and tags in this product are all rectangles with a modest radius, so
- * a fully-rounded control is the one shape that can only be an action. On a dense
- * administrative table that is what tells you at a glance what is pressable.
- *
- * The `pill` prop is kept and still resolves to the same radius, so no call site
- * changed. It is simply no longer the thing that makes a button a pill.
- *
- * Hovering still does not lift the button. Pressing it moves it 1px — feedback for a
- * tap on a phone, where there was no hover state to confirm the target first.
+ * Two things changed in the *look*, deliberately: the radius is no longer a full pill
+ * (a 10px corner reads as a product rather than as a landing page — `pill` is still
+ * available for a hero call to action), and hovering no longer lifts the button 2px.
+ * A control that moves under the cursor is the sort of decoration this redesign is
+ * removing.
  *
  * ## Loading
  *
@@ -50,20 +41,8 @@ interface CommonProps {
   variant?: ButtonVariant
   size?: ButtonSize
   fullWidth?: boolean
-  /**
-   * Retained for compatibility and now a no-op in appearance: every button is a pill
-   * as of Milestone 26. Kept so the call sites that pass it do not have to change.
-   */
+  /** A fully rounded button. For a marketing call to action, not for the product. */
   pill?: boolean
-  /**
-   * The accent glow, for **one** call to action per page — the hero's, or the single
-   * action a page exists to offer.
-   *
-   * Deliberately opt-in rather than the primary variant's default. A glow on every
-   * save button is how an accent stops meaning anything, and this product has pages
-   * with six primary buttons on them.
-   */
-  glow?: boolean
   /** Phosphor glyph name, drawn before the label. */
   icon?: string
   /** Phosphor glyph name, drawn after the label — a chevron, an external-link mark. */
@@ -77,7 +56,6 @@ function classesFor({
   size = 'md',
   fullWidth,
   pill,
-  glow,
   iconOnly,
   className,
 }: CommonProps & { iconOnly?: boolean }) {
@@ -87,7 +65,6 @@ function classesFor({
     styles[size],
     fullWidth ? styles.fullWidth : '',
     pill ? styles.pill : '',
-    glow ? styles.glow : '',
     iconOnly ? styles.iconOnly : '',
     className,
   ]
@@ -129,7 +106,6 @@ export default function Button(props: ButtonProps) {
     size,
     fullWidth,
     pill,
-    glow,
     icon,
     iconAfter,
     loading,
@@ -147,7 +123,7 @@ export default function Button(props: ButtonProps) {
       // forms from buttons that only meant to open a dialog. Default to `button` and
       // make submission explicit.
       type={type}
-      className={classesFor({ variant, size, fullWidth, pill, glow, iconOnly, className })}
+      className={classesFor({ variant, size, fullWidth, pill, iconOnly, className })}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}
@@ -177,10 +153,10 @@ type ButtonLinkProps = CommonProps &
  * external destination or a download.
  */
 export function ButtonLink(props: ButtonLinkProps) {
-  const { variant, size, fullWidth, pill, glow, icon, iconAfter, className, children, to, href, ...rest } =
+  const { variant, size, fullWidth, pill, icon, iconAfter, className, children, to, href, ...rest } =
     props as ButtonLinkProps & { to?: string; href?: string }
 
-  const classes = classesFor({ variant, size, fullWidth, pill, glow, className })
+  const classes = classesFor({ variant, size, fullWidth, pill, className })
   const inner = (
     <Inner icon={icon} iconAfter={iconAfter}>
       {children}

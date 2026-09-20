@@ -7,24 +7,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!--
-      Dark is the product's default theme (Milestone 26), and these two lines are what
-      stop it flashing white before any stylesheet has arrived.
-
-      `color-scheme` tells the browser to paint its own canvas, scrollbars and form
-      furniture dark **immediately** — before CSS is parsed, which is exactly the
-      window `tokens.css` cannot cover. `dark light` rather than `dark` alone because
-      light is still a real theme here; the first value is the preferred one.
-
-      `theme-color` is the mobile browser's own chrome (the address bar on Android
-      Chrome, the status area of an installed PWA). Without it a dark page sits under
-      a white bar. The value is `--ink-1000`, the page background; if that token
-      changes, change this too — a literal is unavoidable in a file served before any
-      stylesheet.
-    -->
-    <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#070806" />
-
-    <!--
       The brand's full form (Milestone 22, Phase D), owner-supplied on 2026-08-28.
 
       Spelled out literally here, and *only* here, outside `src/lib/brand.ts`. This file is
@@ -46,24 +28,20 @@
     <meta property="og:type" content="website" />
 
     <!--
-      Fonts (Milestone 23 Phase A; narrowed in Milestone 26).
+      Fonts (Milestone 23, Phase A).
 
-      **Inter for the entire interface.** JetBrains Mono for figures. Cinzel for the
-      two logotype surfaces — the landing wordmark and the printed certificate — and
-      nothing else.
-
-      **Poppins was removed.** It was the heading face, and headings are Inter now; the
-      character of a heading here comes from weight and tracking rather than from a
-      second family. Nothing in `src/` referenced it once `--font-heading` was
-      re-pointed, which is worth checking again before adding any family back.
+      Inter for the interface, Poppins for headings and the brand voice, JetBrains Mono
+      for figures, Cinzel for the printed certificate and nothing else.
 
       Inter is requested as a **variable** range, so 400–800 is one file rather than
-      five.
+      five. Poppins' 300 and 400 weights were dropped: nothing in the product sets
+      either, because Poppins now applies to headings only. Net effect is fewer font
+      files than before despite the extra family.
     -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=JetBrains+Mono:wght@400;500;700&family=Cinzel:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=Poppins:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Cinzel:wght@600;700&display=swap"
       rel="stylesheet"
     />
     <!--
