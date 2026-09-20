@@ -31,7 +31,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 
 ## Technology Stack
 
-- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **twenty** primitives in `src/components/ui` — one file each; several export more than one component. Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`; **no icon library is installed as a dependency**. Fonts: Inter (interface), Poppins (headings/brand), JetBrains Mono (figures), Cinzel (the printed certificate only). Linter: `oxlint`.
+- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **twenty-five** primitives in `src/components/ui` — one file each; several export more than one component. Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`; **no icon library is installed as a dependency**. Fonts (Milestone 26): **Geist** (the entire interface), **Geist Mono** (figures), Cinzel (the landing wordmark and the printed certificate only) — Inter, Poppins and JetBrains Mono were all removed, and both Geist faces are variable, so three families became two for fewer bytes. Linter: `oxlint`.
 - **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. One AI dependency: **`@google/genai`** (question drafting only — see the Milestone 20 ADR, which supersedes Milestone 17's decision against an SDK; it is `require`d rather than `import`ed for a packaging reason documented at the top of `services/geminiQuestionGenerator.ts`). Modular structure since Milestone 1 (`config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/`). Uses `zod` (validation), `pino` (logging), `helmet`, `express-rate-limit`. Linter: `eslint` + `typescript-eslint`. Tests: `vitest` + `supertest`.
 - **Database**: MongoDB via Mongoose.
 - **Auth**: short-lived access JWT + rotating opaque refresh token, both in `httpOnly` cookies; passwords hashed with `bcryptjs` (cost 12). Email via `nodemailer` over SMTP.
@@ -231,7 +231,39 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - Route guards: `ProtectedRoute` (requires a student account) and `RequirePermission` (requires a capability) in `src/components/ProtectedRoute.tsx`. `AdminRoute` was **removed** in Milestone 3 — use `RequirePermission permission="..."`, which renders the `Unauthorized` component for a signed-in user rather than silently redirecting.
 - Read permissions with `can('...')` from `useAuth()`. The permission list arrives from the backend on every auth response; **never** reimplement the role → permission mapping on the frontend, and never branch on `state.status` to decide whether something administrative is allowed (`status` says which *kind* of account is signed in, not what it may do — a promoted admin has `status: 'student'`). Wrap new authenticated pages in these rather than checking `state.status` ad hoc in the page body (existing pages do check `state.status` for conditional rendering, e.g. to show a preview vs. real data — that's fine; the *route-level* gate should still use the wrapper).
 
-## Design System (Milestone 23, Phase A)
+## Design System (Milestone 23 Phase A; re-pointed onto a new visual language in Milestone 26)
+
+**The three ideas the current language rests on.** A change that contradicts one of these will
+look wrong however carefully it is tokenised — read them before touching a surface.
+
+- **Separation is by SHADOW, not by border.** A `Card` has **no visible border** and a wide,
+  soft, ink-tinted shadow. Borders still exist but are nearly invisible and are for the cases a
+  shadow cannot serve — a divider, an input well, an outline button. The one concession is
+  **`--card-border`: transparent in the light theme, a hairline in the dark one**, because a
+  shadow has nowhere to fall on a near-black page. It is a *token* rather than a rule inside
+  `Card.module.css` for the reason `--tooltip-bg` is one, and it is declared in **both** themes
+  so the box never changes size between them.
+- **Type is TIGHT, not airy.** Geist, weight 500 for body and 600 for headings — **nothing is
+  700** — with **negative tracking at every size**, tightening from -0.02em to -0.04em as it
+  grows. `--tracking-body` is applied **once, to `body`**; that single inherited declaration is
+  how the type change reached fifty pages with none of them edited. Do not add a second family:
+  the character of a heading here comes from weight and tracking.
+- **Colour is CATEGORICAL; the action is near-black.** `--primary` is `--ink-900` and there is
+  no bright brand colour on a button anywhere. The six `--cat-*` hues live in **exactly one
+  component, `ui/IconTile`**, and mark categories — a subject, a feature, a step. That
+  confinement is the design: it is the only way to keep colour scarce enough to mean anything.
+  They are deliberately **not** wired into `Badge`, whose tones are semantic; a badge says what
+  something *is*, a category colour says which bucket it is in. And their `-on` colours are
+  **not all white** — white on `--cat-orange` is 3.08:1, below even the 3:1 a non-text graphic
+  needs, so orange, green and lilac take ink.
+- **Not every number in a reference transfers.** The reference runs body at 1.24 leading and
+  gets away with it because every block on it is two lines long. This product has real
+  paragraphs, so `--leading-normal` is **1.45** and 1.24 is `--leading-snug`, for leads and
+  headings. Applying a design language means knowing which of its figures to leave behind.
+- **Nothing in `src/` may hardcode a font size.** 289 of 327 `font-size: Npx` declarations were
+  moved onto the ramp in Milestone 26; the 38 that remain are display sizes awaiting a per-page
+  judgement. A px size is pinned to the old scale for ever *and* ignores a reader who has set a
+  larger default.
 
 - **There is exactly one design system: `frontend/src/components/ui`**, over one token layer:
   `styles/tokens.css` (palette → semantic → legacy aliases) → `styles/base.css` (element defaults) →

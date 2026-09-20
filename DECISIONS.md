@@ -4,6 +4,80 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-09-20 — Milestone 26: a new visual language, and the abandoned one before it
+
+**Context.** The owner asked for a frontend redesign against a Framer reference. The first
+attempt used a dark, lime-accented template; it was stopped part-way through and a second
+reference (Tokko — white, near-black ink, heavy soft shadows, Geist) was supplied instead.
+
+**Decision 1: the abandoned direction was reverted rather than overwritten.** Three commits
+(`d7c0f2b`, `da1e34c`, `99800fb`) were reverted, not reset past. Those commits interleave with
+`c31ace6` — Milestone 25's backend fix, which also touched six frontend files — so a checkout
+to any single point would have taken real work with it. Three targeted reverts keep Milestone
+25 whole; `git log` shows both the attempt and the retraction, which is the honest record.
+
+**Decision 2: separation is by shadow, not by border.** A `Card` has **no visible border** and
+a wide, soft, ink-tinted shadow. This is the load-bearing choice — a page of bordered boxes
+reads as a form, a page of lifted surfaces reads as a product.
+
+Its consequence is `--card-border`: **transparent in the light theme, a hairline in the dark
+one**, because a shadow has nowhere to fall on a near-black page. It is a *token* rather than a
+rule inside `Card.module.css` for the reason `--tooltip-bg` is one — a CSS Module cannot name
+`.theme-dark` without `:global`, and a component that knows which theme it is in will be wrong
+in the next one. It is declared in **both** themes so the box never changes size between them.
+
+**Decision 3: colour is categorical, and the action is near-black.** `--primary` is
+`--ink-900`. There is no bright brand colour on a button anywhere in the product.
+
+This is not only fidelity to the reference; it fixes a real problem. One saturated royal blue
+had been doing five unrelated jobs — a button, a link, a chart series, a progress bar and the
+active nav item — so five different kinds of thing looked like the same control. Reducing the
+action to ink frees colour to *mean* something, and the six `--cat-*` hues now mark categories.
+
+**They are confined to one component, `ui/IconTile`**, and that confinement is the design: it
+is the only way to guarantee colour stays scarce. They are deliberately **not** wired into
+`Badge`, whose tones are semantic — a badge says what something *is*, a category colour says
+which bucket it is in, and mixing them makes both meaningless. The per-hue `-on` colours are
+**not all white**: white on `--cat-orange` measures 3.08:1, below even the 3:1 a non-text
+graphic needs, so orange, green and lilac take ink.
+
+**Decision 4: Geist replaces Inter, Poppins and JetBrains Mono.** Three families became two
+(Geist and Geist Mono, both variable, 400–700 in one file each), so this is *fewer* bytes than
+before. Cinzel survives for the two logotype surfaces. `--font-heading` is the same family as
+`--font-body` on purpose: the character of a heading comes from **weight and tracking**, not
+from a second face — weight *down* as size goes up (600 headings, 500 body, nothing at 700),
+and negative tracking at every size, tightening from -0.02em to -0.04em.
+
+`--tracking-body` is applied **once, to `body`**. That single inherited declaration is how the
+type change reached fifty pages without any of them being edited.
+
+**Decision 5: the reference's 1.24 body leading was not copied.** It works there because every
+block on that site is two lines long. This product has real paragraphs — an exam rubric, a
+refusal reason — so `--leading-normal` is **1.45**, and 1.24 is `--leading-snug`, for leads and
+headings. Applying a design language means knowing which of its numbers transfer.
+
+**Decision 6: the super administrator got an area of its own** (`/admin/system`), and the four
+`content:reset` panels moved into it from the foot of four content pages. Contextual reads
+well and is the wrong shape for a destructive act: it put the button that empties a collection
+at the end of the page used to edit that collection. Gathered, they can be listed in the
+dependency order the API requires, so working down the page is the sequence that succeeds. It
+is gated on `content:reset` — a permission, never a role name.
+
+**Consequences.**
+
+- The recolour was a one-file change because the "components never reference a palette step"
+  rule had been kept. A sweep confirmed it before the rewrite: `tokens.css` was the only file
+  naming one. That rule paid for itself in a single afternoon and must be kept.
+- Nothing in `src/` may hardcode a font size either. 289 of the 327 hardcoded `font-size: Npx`
+  declarations were moved onto the ramp; the 38 that remain are display sizes where the right
+  step is a judgement about that page's hierarchy rather than a lookup.
+- Five primitives were added (`Section`, `IconTile`, `Avatar`, `Menu`, `Breadcrumb`) and, more
+  importantly, five were **not**: there is no `PageHeader` (that is `Section` with
+  `size="page"`), no `IconButton`, no `Search`, no `Drawer` and no `Dropdown` separate from
+  `Menu`. A design system earns its keep by being the only answer to a question.
+
+---
+
 ## 2026-09-20 — Post-response work is registered with the platform, and the sweep that was only ever documented now exists
 
 **Context.** Verification emails were arriving late — sometimes very late. The outbox

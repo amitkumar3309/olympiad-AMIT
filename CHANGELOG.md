@@ -2,6 +2,57 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-20 — Milestone 26: a new visual language (phases 1–6 of the UI redesign)
+
+**Frontend only.** No API contract, model, permission, route guard or piece of business logic
+changed. The backend is untouched.
+
+### Before it: a direction that was stopped and reverted
+
+An earlier attempt at this milestone used a dark, lime-accented reference. The owner stopped it
+part-way and supplied a different one. Three commits were **reverted** rather than reset past,
+because they interleave with Milestone 25's backend fix — which also touched six frontend files
+— and a checkout to any single point would have taken real work with it. See the ADR.
+
+### The language, measured rather than guessed
+
+Every value below was read off the live reference with `getComputedStyle`, not eyeballed:
+
+- **White canvas, `#1a1a1a` ink, never pure black.** Muted text is ink at 65%, which is the
+  reference's own value and measures 5.4:1 on white — an alpha rather than a grey step, so it
+  stays correct on a tinted surface.
+- **Cards have no border and a soft wide shadow** (`rgba(26,26,26,.2) 0 16px 48px -4px`).
+  `--card-border` is transparent in light and a hairline in dark, because a shadow has nowhere
+  to fall on a near-black page.
+- **Geist replaces Inter, Poppins and JetBrains Mono** — three families to two, both variable,
+  so fewer bytes. Headings at 600, body at 500, negative tracking at every size.
+- **Pills and 32px.** Every button is a pill; the card radius is 32px.
+- **Colour is categorical and the action is near-black.** `--primary` is the ink. Six `--cat-*`
+  hues live in one new component and mark categories; they are not wired into `Badge`.
+
+### What changed structurally, not just visually
+
+- **The super administrator has an area** (`/admin/system`). It had none: its four exclusive
+  powers were footers on four unrelated content pages, and the two roles had identical menus.
+- **`/admin/analytics` was 22 identical stat tiles in six flat rows.** It is now four headline
+  figures, two trends, and the other eighteen behind tabs. No figure was removed.
+- **Five primitives added**: `Section`, `IconTile`, `Avatar`, `Menu`, `Breadcrumb`.
+- **289 of 327 hardcoded `font-size: Npx`** across the page CSS moved onto the type ramp, which
+  is what made the redesign reach the forty-five pages nobody opened.
+
+### Two corrections found on the way
+
+- `/admin/analytics` asserted that the official exam "is not built and nothing writes to its
+  collections". That stopped being true in Milestone 13.
+- `Pagination`'s ellipsis and the design-system type captions were painting words in
+  `--text-subtle`, which that token's own contract reserves for non-text glyphs (2.9:1).
+
+### Verified
+
+`tsc -b`, `oxlint` and `vite build` pass at every phase. A contrast sweep of the design-system
+page — every primitive in every variant — reports **0 failures against WCAG AA across 314 text
+nodes in both themes**, and there is no page-level horizontal overflow at 320px.
+
 ## 2026-09-20 — Milestone 25, Phase C: the verification experience, on screen and in the inbox
 
 Phase B made the link arrive quickly. This is about what the reader sees when it does —

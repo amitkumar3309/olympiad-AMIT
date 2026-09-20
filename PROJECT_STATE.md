@@ -8,6 +8,71 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 
 ## Current Development Phase
 
+**Milestone 26 — a new visual language for the whole frontend: phases 1–6 complete.**
+
+**Frontend only.** No API contract, Mongoose model, permission, route guard or piece of
+business logic changed; the backend is untouched and its 1,282 tests are unaffected.
+
+### What it is, and what it replaced
+
+The owner asked for a redesign against a Framer reference. **An earlier attempt at this
+milestone used a different reference (dark, lime accent) and was stopped part-way through.**
+Its three commits were **reverted** rather than reset past — they interleave with Milestone
+25's backend fix, which also touched six frontend files, so a checkout to any single point
+would have taken real work with it. `git log` carries both the attempt and the retraction.
+
+Every value in the new language was **measured off the live reference** with
+`getComputedStyle` rather than eyeballed. Three ideas carry it, and a change that contradicts
+one of them will look wrong however carefully it is tokenised:
+
+1. **Separation is by shadow, not by border.** A card has *no visible border* and a wide, soft,
+   ink-tinted shadow. `--card-border` is transparent in light and a hairline in dark, because a
+   shadow has nowhere to fall on a near-black page — a token, not a rule inside `Card`.
+2. **Type is tight.** Geist at 500 body / 600 headings, negative tracking at **every** size
+   (−0.02em → −0.04em). `--tracking-body` is applied once, to `body`; that single inherited
+   declaration is how the change reached fifty pages with none of them edited.
+3. **Colour is categorical; the action is near-black.** `--primary` is `--ink-900`. The six
+   `--cat-*` hues live in **one** component (`ui/IconTile`) and mark categories. They are
+   deliberately *not* wired into `Badge`, whose tones are semantic.
+
+### What changed structurally, not just visually
+
+- **`/admin/system` exists.** The super administrator had no area of its own: its four
+  exclusive powers were footers on four unrelated content pages, so the two staff roles had
+  identical navigation and the difference between them was undiscoverable. The reset panels
+  moved there, listed in the dependency order the API requires. Gated on `content:reset`.
+- **`/admin/analytics` was twenty-two identical stat tiles in six flat rows.** It is now four
+  headline figures, two trends, and the other eighteen behind ARIA tabs. **No figure was
+  removed.**
+- **Five primitives added** — `Section`, `IconTile`, `Avatar`, `Menu`, `Breadcrumb` — taking
+  the design system to **25**. Five were deliberately *not* added: no `PageHeader` (that is
+  `Section` with `size="page"`), no `IconButton`, no `Search`, no `Drawer`, no `Dropdown`.
+- **Geist + Geist Mono replace Inter, Poppins and JetBrains Mono.** Three families to two, both
+  variable, so fewer bytes than before. Cinzel survives for the two logotype surfaces.
+- **289 of 327 hardcoded `font-size: Npx`** in the page CSS moved onto the ramp. The 38 left
+  are display sizes where the right step is a judgement about that page, not a lookup.
+
+### Two defects found and fixed on the way
+
+- `/admin/analytics` asserted the official exam "is not built and nothing writes to its
+  collections" — untrue since Milestone 13.
+- `Pagination`'s ellipsis and the design-system type captions painted words in `--text-subtle`
+  (2.9:1), which that token's contract reserves for non-text glyphs.
+
+### Verified
+
+`tsc -b`, `oxlint` and `vite build` pass at every phase boundary. A contrast sweep of
+`/design-system` — every primitive in every variant — reports **0 WCAG AA failures across 314
+text nodes in both themes**, and there is no page-level horizontal overflow at 320px.
+
+**What is NOT done**, and must not be assumed: the per-page passes for the student and admin
+surfaces beyond the two rebuilt here; converting the remaining five pages' `.actionBtn` rows to
+`ui/Menu`; the motion pass; and a **signed-in browser regression sweep**, which needs a running
+backend and was not possible in this environment. Those pages inherit the tokens, the shell and
+the type ramp, so they are consistent — but they have not been individually redesigned.
+
+---
+
 **Milestone 25 — email verification performance, then a final UI/UX polish: Phases A, B and C complete, Phases D–J not started.**
 
 ### Phase C — the verification experience (2026-09-20)
