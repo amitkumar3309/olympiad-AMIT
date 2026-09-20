@@ -130,11 +130,13 @@
   gap: var(--space-4);
 }
 
+/* `--text-muted`, not `--text-subtle`: these captions are words, and the subtle step
+   is for non-text glyphs. It measures 2.9:1 on the page background. */
 .typeMeta {
   margin: calc(var(--space-3) * -1) 0 0;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--text-subtle);
+  color: var(--text-muted);
 }
 
 .formGrid {

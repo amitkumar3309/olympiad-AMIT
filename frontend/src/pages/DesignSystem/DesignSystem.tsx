@@ -183,27 +183,49 @@ export default function DesignSystem() {
         </Section>
 
         <Section title="Typography">
+          <p className={styles.note}>
+            <strong>One family: Geist.</strong> Inter, Poppins and JetBrains Mono were dropped in
+            Milestone 26 — the character of a heading comes from weight and tracking, not from a second
+            face. Note that <em>weight goes down as size goes up</em> (the display below is 600, the 11px
+            eyebrow is 600 too but the body is 500) and that <em>tracking is negative at every size</em>,
+            tightening from −0.02em to −0.04em as the type grows.
+          </p>
           <div className={styles.typeStack}>
-            <p style={{ fontSize: 'var(--text-4xl)', fontFamily: 'var(--font-heading)', fontWeight: 700, margin: 0, lineHeight: 1.1 }}>
+            <p
+              style={{
+                fontSize: 'var(--text-5xl)',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 600,
+                letterSpacing: 'var(--tracking-display)',
+                margin: 0,
+                lineHeight: 'var(--leading-tight)',
+              }}
+            >
               A national mathematics olympiad
             </p>
-            <p className={styles.typeMeta}>text-4xl · Poppins 700 · fluid</p>
+            <p className={styles.typeMeta}>text-5xl · Geist 600 · tracking −0.04em · leading 0.96 · fluid 44→96px</p>
 
-            <h1 style={{ margin: 0 }}>Heading 1 — text-3xl</h1>
-            <h2 style={{ margin: 0 }}>Heading 2 — text-2xl</h2>
-            <h3 style={{ margin: 0 }}>Heading 3 — text-xl</h3>
-            <h4 style={{ margin: 0 }}>Heading 4 — text-lg</h4>
+            <h1 style={{ margin: 0 }}>Heading 1 — text-3xl · 600 · −0.04em</h1>
+            <h2 style={{ margin: 0 }}>Heading 2 — text-2xl · 600 · −0.03em</h2>
+            <h3 style={{ margin: 0 }}>Heading 3 — text-xl · 600 · −0.03em</h3>
+            <h4 style={{ margin: 0 }}>Heading 4 — text-lg · 600 · −0.02em</h4>
 
+            <p className="prose" style={{ margin: 0 }}>
+              Running prose uses the <code>.prose</code> utility: text-lg at leading-relaxed with a
+              68-character measure. The reference runs body at 1.24, which works because every block on
+              it is two lines long; this product has real paragraphs, so prose gets more room. Long words
+              such as <code>AMIT_0000</code> wrap rather than pushing the page sideways.
+            </p>
             <p style={{ margin: 0 }}>
-              Body copy at text-md in Inter. Practice, mock tests and the daily challenge are
-              free; the entry fee covers the official Olympiad only. Long words such as
-              <code> AMIT_0000</code> wrap rather than pushing the page sideways.
+              Body copy at the element default — text-md, weight 500, leading 1.45, tracking −0.02em
+              inherited from <code>body</code>. That one inherited declaration is how the type change
+              reached fifty pages without any of them being edited.
             </p>
             <p className="muted" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-              Secondary copy at text-sm, muted — 4.76:1, the lightest text allowed.
+              Secondary copy at text-sm, muted — ink at 65%, 5.4:1 on white. Nothing lighter carries words.
             </p>
             <p className="eyebrow" style={{ margin: 0 }}>Eyebrow · text-2xs uppercase</p>
-            <p className="mono" style={{ margin: 0 }}>Mono 1234567890 · tabular figures</p>
+            <p className="mono" style={{ margin: 0 }}>Geist Mono 1234567890 · tabular figures</p>
           </div>
         </Section>
 

@@ -14,7 +14,7 @@
 }
 
 .scroll:focus-visible {
-  outline: var(--focus-ring-width) solid var(--primary-text);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
 }
@@ -63,9 +63,17 @@
   font-variant-numeric: tabular-nums;
 }
 
+/**
+ * The header row is a **label, not a band**.
+ *
+ * No fill of its own, and one hairline underneath — the only rule in the table with
+ * any weight. A shaded header strip plus a border on every cell is what makes a data
+ * table read as a spreadsheet; an uppercase micro-label and a single line say "these
+ * are the columns" without any of that.
+ */
 .table thead th {
   font-size: var(--text-2xs);
-  font-weight: var(--weight-bold);
+  font-weight: var(--weight-semibold);
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
   color: var(--text-muted);
@@ -75,6 +83,11 @@
   background: var(--surface);
 }
 
+/**
+ * Rows are separated by a hairline and **nothing else** — no vertical rules, no zebra
+ * striping. Vertical rules turn a table into a grid of boxes, and striping fights
+ * with the hover state, which is the one row highlight that means anything.
+ */
 .table tbody td {
   border-bottom: var(--border-width) solid var(--border-subtle);
   color: var(--text-body);
@@ -85,33 +98,42 @@
   border-bottom: none;
 }
 
-.table tbody tr:hover td {
-  background: var(--surface-hover);
+.table tbody tr {
+  transition: background-color var(--dur-fast) var(--ease);
 }
 
+.table tbody tr:hover td {
+  background: var(--fill-subtle);
+}
+
+/* Roomier rows: 16px of vertical padding rather than 12. A row that a name, a badge
+   and an avatar all have to sit inside needs the height, and this is the single
+   change that most separates a modern table from a dense one. */
 .table th,
 .table td {
-  padding: var(--space-3) var(--space-3);
+  padding: var(--space-4) var(--space-4);
 }
 
 .table th:first-child,
 .table td:first-child {
-  padding-left: var(--space-4);
+  padding-left: var(--space-5);
 }
 
 .table th:last-child,
 .table td:last-child {
-  padding-right: var(--space-4);
+  padding-right: var(--space-5);
 }
 
+/* `compact` is for a desktop administrative table with many rows — the density the
+   44px touch floor deliberately does not apply to on a fine pointer. */
 .compact th,
 .compact td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
 }
 
 .comfortable th,
 .comfortable td {
-  padding: var(--space-4) var(--space-3);
+  padding: var(--space-5) var(--space-4);
 }
 
 .sticky thead th {
@@ -137,10 +159,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-5);
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   min-width: 0;
 }
 

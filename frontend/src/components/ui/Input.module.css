@@ -4,19 +4,31 @@
  * `styles/utilities.css` — that class is what the un-migrated pages use, and the two
  * must look identical while both exist.
  */
+/**
+ * A field is an **inset tint**, not a bordered white box.
+ *
+ * Almost every form in this product sits inside a `Card`, which is now pure white
+ * with no visible border — so a white field on it would be an outline and nothing
+ * else, and on this canvas a 1px hairline is not enough to say "you can type here".
+ * A tint reads as a well; white reads as paper.
+ *
+ * The border is declared but transparent, so focus can colour it in without the box
+ * changing size.
+ */
 .control {
   width: 100%;
   min-width: 0;
-  padding: 11px 14px;
-  border: var(--border-width) solid var(--border);
+  padding: 12px 16px;
+  border: var(--border-width) solid transparent;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background: var(--fill-subtle);
   color: var(--text);
   font-family: var(--font-body);
   font-size: var(--text-base);
   line-height: var(--leading-snug);
   transition:
     border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease);
 }
 
@@ -38,23 +50,27 @@
 }
 
 .control:hover:not(:disabled):not(:read-only) {
-  border-color: var(--border-strong);
+  background: var(--fill-muted);
 }
 
+/* Focus lifts the field to white *and* rings it — the surface change is what carries
+   on a monochrome display and under `forced-colors`, where a ring may be repainted. */
 .control:focus {
   outline: none;
   border-color: var(--primary);
+  background: var(--surface);
   box-shadow: var(--focus-ring);
 }
 
 .control:disabled {
-  background: var(--surface-sunken);
-  color: var(--text-muted);
+  background: var(--fill-subtle);
+  color: var(--text-subtle);
   cursor: not-allowed;
 }
 
 .control:read-only:not(:focus) {
-  background: var(--surface-sunken);
+  background: var(--fill-subtle);
+  color: var(--text-muted);
 }
 
 .invalid {
@@ -208,7 +224,7 @@
 }
 
 .checkbox:focus-visible {
-  outline: var(--focus-ring-width) solid var(--primary-text);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: 2px;
 }
 

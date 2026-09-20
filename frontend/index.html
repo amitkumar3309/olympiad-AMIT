@@ -28,20 +28,22 @@
     <meta property="og:type" content="website" />
 
     <!--
-      Fonts (Milestone 23, Phase A).
+      Fonts (Milestone 23 Phase A; replaced in Milestone 26).
 
-      Inter for the interface, Poppins for headings and the brand voice, JetBrains Mono
-      for figures, Cinzel for the printed certificate and nothing else.
+      **Geist for the entire interface, Geist Mono for figures.** Cinzel survives for
+      the two logotype surfaces — the landing wordmark and the printed certificate —
+      and nothing else.
 
-      Inter is requested as a **variable** range, so 400–800 is one file rather than
-      five. Poppins' 300 and 400 weights were dropped: nothing in the product sets
-      either, because Poppins now applies to headings only. Net effect is fewer font
-      files than before despite the extra family.
+      Three families were dropped for these two: **Inter, Poppins and JetBrains Mono**.
+      Both Geist faces are variable (400–700 in one file each), so despite replacing
+      three faces this requests *fewer* bytes than it did. Nothing in `src/` referenced
+      the old families once `--font-body`, `--font-heading` and `--font-mono` were
+      re-pointed, which is worth re-checking before any family is added back.
     -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=Poppins:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Cinzel:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&family=Cinzel:wght@600;700&display=swap"
       rel="stylesheet"
     />
     <!--

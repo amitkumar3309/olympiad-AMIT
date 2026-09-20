@@ -13,11 +13,19 @@ import styles from './Button.module.css'
  * props (`variant` of `primary | outline | danger | ghost`, and `fullWidth`) are all
  * still honoured, so those pages pick up the new treatment without being touched.
  *
- * Two things changed in the *look*, deliberately: the radius is no longer a full pill
- * (a 10px corner reads as a product rather than as a landing page — `pill` is still
- * available for a hero call to action), and hovering no longer lifts the button 2px.
- * A control that moves under the cursor is the sort of decoration this redesign is
- * removing.
+ * ## Shape and colour (Milestone 26)
+ *
+ * **Every button is a pill, and the primary one is near-black.** Milestone 23 had
+ * deliberately un-pilled them; the new visual language puts that back, and for a
+ * better reason than fashion — cards, cells, inputs and tags here are all rectangles
+ * with a modest radius, so a fully-rounded control is the one shape that can only be
+ * an action.
+ *
+ * The `pill` prop is kept and still resolves to the same radius, so no call site
+ * changed. It is simply no longer the thing that makes a button a pill.
+ *
+ * Hovering still does not lift the button. Pressing it moves it 1px — feedback for a
+ * tap on a phone, where there was no hover state to confirm the target first.
  *
  * ## Loading
  *
@@ -41,7 +49,10 @@ interface CommonProps {
   variant?: ButtonVariant
   size?: ButtonSize
   fullWidth?: boolean
-  /** A fully rounded button. For a marketing call to action, not for the product. */
+  /**
+   * Retained for compatibility and now a no-op in appearance: every button is a pill
+   * as of Milestone 26. Kept so the call sites that pass it do not have to change.
+   */
   pill?: boolean
   /** Phosphor glyph name, drawn before the label. */
   icon?: string

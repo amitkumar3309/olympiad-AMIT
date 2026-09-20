@@ -138,6 +138,25 @@
   color: var(--text-muted);
 }
 
+/**
+ * Running prose: a measure, and the leading that goes with it.
+ *
+ * The reference runs body at 1.24, and gets away with it because every block on it is
+ * two lines long. This product has real paragraphs — an exam rubric, a refusal
+ * reason, a chapter description — so prose gets `--leading-relaxed` and a ~68
+ * character measure. A line of body copy spanning a 1200px container is genuinely
+ * hard to track back from.
+ *
+ * For a paragraph that must fill its container (a table caption, a form hint), use
+ * the element default instead; this is for copy somebody reads, not labels they scan.
+ */
+.prose {
+  max-width: 68ch;
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--text-body);
+}
+
 /** Tabular figures. Any column of scores, marks, money or ranks should use this:
     proportional digits make a column of numbers visibly ragged and harder to
     compare, which matters on a results table. */
@@ -155,29 +174,43 @@
    ========================================================================== */
 
 /**
- * The surface every existing page builds on. Modernised in place: a lighter shadow, a
- * 14px radius and fluid padding, so the whole product reads as one generation of
- * design even before its page is rewritten.
+ * The surface every existing page builds on. Re-pointed in Milestone 26 so the whole
+ * product reads as one generation of design even before its page is rewritten:
+ * **no visible border, a 32px radius, a real lifting shadow, and much more padding.**
+ *
+ * `--card-border` is transparent in the light theme and a hairline in the dark one —
+ * the separation is the shadow's job on white and the line's job on near-black. The
+ * declaration stays in both so the box never changes size between themes.
  */
 .card {
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: clamp(var(--space-4), 3vw, var(--space-6));
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  padding: clamp(var(--space-6), 3.5vw, var(--space-10));
 }
 
+/**
+ * Must stay visually identical to `ui/Input`'s `.control` while both exist — this is
+ * what the un-migrated pages use, and two form fields differing by 2px of padding on
+ * the same screen is the drift the design system exists to stop.
+ *
+ * `--fill-subtle` rather than `--surface`: almost every form sits inside a card, which
+ * is now pure white with no border, so a white field on it would be an outline and
+ * nothing else. An inset tint reads as a well.
+ */
 .form-control {
   width: 100%;
-  padding: 11px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius-sm);
-  border: var(--border-width) solid var(--border);
-  background: var(--surface);
+  border: var(--border-width) solid transparent;
+  background: var(--fill-subtle);
   color: var(--text);
   font-size: var(--text-base);
   line-height: var(--leading-snug);
   transition:
     border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease);
 }
 
@@ -200,7 +233,7 @@
 }
 
 .form-control:hover:not(:disabled) {
-  border-color: var(--border-strong);
+  background: var(--fill-muted);
 }
 
 /**
@@ -211,12 +244,13 @@
 .form-control:focus {
   outline: none;
   border-color: var(--primary);
+  background: var(--surface);
   box-shadow: var(--focus-ring);
 }
 
 .form-control:disabled {
-  background: var(--surface-sunken);
-  color: var(--text-muted);
+  background: var(--fill-subtle);
+  color: var(--text-subtle);
   cursor: not-allowed;
 }
 

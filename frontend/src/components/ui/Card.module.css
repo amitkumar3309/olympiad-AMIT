@@ -1,49 +1,85 @@
+/**
+ * A card is **a white surface, a 32px radius and a lifting shadow**. It has no
+ * visible border.
+ *
+ * That is the single decision this whole visual language rests on: separation comes
+ * from cast light, not from a drawn line. A page of bordered boxes reads as a form; a
+ * page of lifted surfaces reads as a product.
+ *
+ * `--card-border` is the one concession, and it is a token rather than a theme rule
+ * inside this file: **transparent in the light theme, a hairline in the dark one**,
+ * because a shadow has nowhere to fall on a near-black page. Declared in both so the
+ * box never changes size between themes — a 1px reflow on every card is what makes a
+ * theme switch feel broken.
+ */
 .card {
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
   /* A card in a flex or grid row must be allowed to be narrower than its content,
      or a table inside it pushes the page sideways. This one line prevents most
      horizontal-overflow bugs in a card layout. */
   min-width: 0;
 }
 
+/**
+ * A nested panel: a tinted inset with a *smaller* radius than the card holding it.
+ *
+ * Large outside, small inside. A 32px radius repeated on something nested inside a
+ * 32px container makes both look like mistakes — the inner corner has to be tighter
+ * for the nesting to read.
+ */
 .sunken {
-  background: var(--surface-sunken);
+  background: var(--fill-subtle);
+  border-color: transparent;
+  border-radius: var(--radius-md);
   box-shadow: none;
 }
 
+/** A bordered box with no lift — for a panel that is part of the page, not on it. */
 .plain {
+  border-color: var(--border);
   box-shadow: none;
 }
 
-/* Padding is fluid: 16px on a small phone, 24px once there is room. */
+/**
+ * Padding is fluid and generous: 24px on a small phone, 40px once there is room.
+ * The reference runs 40/32 on a desktop card, and the roominess is most of why its
+ * surfaces feel calm rather than packed.
+ */
 .pad-none {
   padding: 0;
 }
 
 .pad-sm {
-  padding: clamp(var(--space-3), 2.5vw, var(--space-4));
+  padding: clamp(var(--space-4), 2.5vw, var(--space-5));
 }
 
 .pad-md {
-  padding: clamp(var(--space-4), 3vw, var(--space-6));
+  padding: clamp(var(--space-6), 3.5vw, var(--space-10));
 }
 
 .pad-lg {
-  padding: clamp(var(--space-5), 4vw, var(--space-8));
+  padding: clamp(var(--space-8), 4.5vw, var(--space-12));
 }
 
+/**
+ * Hover on a card that is genuinely a link.
+ *
+ * The shadow deepens and the surface rises **1px** — not the 4–6px lift that makes a
+ * grid of cards jump around under a moving pointer. A transform rather than a margin,
+ * so nothing around it reflows.
+ */
 .interactive {
   transition:
-    border-color var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
 }
 
 .interactive:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg), var(--shadow-xl);
+  transform: translateY(-1px);
 }
 
 .interactive:focus-within {
@@ -65,23 +101,30 @@
   min-width: 0;
 }
 
+/* Semibold, not bold — see the heading note in `base.css`. Weight goes down as size
+   goes up, and every card on a page carrying bold emphasis is a page with no
+   hierarchy left to spend. */
 .title {
   margin: 0;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
   color: var(--text);
 }
 
 .titleSm {
   margin: 0;
-  font-size: var(--text-base);
+  font-size: var(--text-lg);
   font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-snug);
   color: var(--text);
 }
 
 .description {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-sm);
+  margin: var(--space-2) 0 0;
+  max-width: 64ch;
+  font-size: var(--text-md);
   line-height: var(--leading-normal);
   color: var(--text-muted);
 }

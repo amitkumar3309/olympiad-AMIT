@@ -41,11 +41,24 @@ html {
   text-size-adjust: 100%;
 }
 
+/**
+ * Body carries three things every element inherits, and they are the reason the
+ * redesign reaches pages nobody edited:
+ *
+ *  - **Weight 500, not 400.** Medium is the body weight in this language. At 400,
+ *    Geist reads thin and the interface loses its density.
+ *  - **Negative tracking, applied once.** `--tracking-body` is -0.02em, and being on
+ *    `body` means every module inherits it without a single one being touched.
+ *  - **16px, not 15px.** `--text-base` (15px) stays the *control* size — inputs,
+ *    table cells — while prose is a step up.
+ */
 body {
   margin: 0;
   font-family: var(--font-body);
   font-size: var(--text-md);
+  font-weight: var(--weight-medium);
   line-height: var(--leading-normal);
+  letter-spacing: var(--tracking-body);
   background: var(--bg);
   color: var(--text-body);
   -webkit-font-smoothing: antialiased;
@@ -58,11 +71,18 @@ body {
 }
 
 /**
- * Headings carry the brand face; body copy carries the reading face.
+ * Headings: one family, and the character comes from weight and tracking.
  *
- * `--font-heading` is Poppins, which is what the product looked like before this
- * milestone, so the brand voice is unchanged. What changed is that paragraphs are no
- * longer set in it.
+ * `--font-heading` is **Geist**, the same family as the body. Poppins is gone.
+ *
+ * Two rules do the work here, and both run counter to the usual defaults:
+ *
+ *  - **Weight is 600 and stops there.** Not 700, not 800. In this language a heading
+ *    is distinguished by *size and tightness*, and a bold weight at 48px closes up
+ *    the counters and reads as shouting.
+ *  - **Tracking tightens as size grows** — -0.02em at 18px, -0.04em at 48px. The
+ *    same tracking applied flat would make the small headings illegible and leave
+ *    the large ones looking spaced out. Each step below sets its own.
  */
 h1,
 h2,
@@ -72,9 +92,9 @@ h5,
 h6 {
   margin: 0 0 0.5em;
   font-family: var(--font-heading);
-  font-weight: var(--weight-bold);
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tight);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
   color: var(--text);
   /* A long unbroken string — a chapter name, an email address, a student ID — must
      wrap rather than push the page sideways. */
@@ -83,14 +103,18 @@ h6 {
 
 h1 {
   font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
 }
 
 h2 {
   font-size: var(--text-2xl);
+  letter-spacing: var(--tracking-tight);
 }
 
 h3 {
   font-size: var(--text-xl);
+  letter-spacing: var(--tracking-tight);
 }
 
 h4 {
@@ -100,6 +124,7 @@ h4 {
 h5,
 h6 {
   font-size: var(--text-base);
+  letter-spacing: var(--tracking-normal);
 }
 
 /**
@@ -189,7 +214,7 @@ legend {
  * not leave a ring behind; the browser decides, and it gets that decision right.
  */
 :focus-visible {
-  outline: var(--focus-ring-width) solid var(--primary-text);
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
   outline-offset: 2px;
   border-radius: var(--radius-xs);
 }

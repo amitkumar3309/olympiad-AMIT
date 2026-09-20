@@ -1,14 +1,26 @@
+/**
+ * **Every button is a pill** (Milestone 26).
+ *
+ * The `pill` prop still exists and resolves to the same radius, so the call sites
+ * that pass it are untouched — it is simply no longer what makes a button a pill.
+ *
+ * This is the dominant shape in the reference (98 uses against 66 for its card
+ * radius) and it is doing real work rather than decoration: cards, cells, inputs and
+ * tags in this product are all rectangles with a modest radius, so a fully-rounded
+ * control is the one shape that can only be an action. On a dense administrative
+ * table that is what tells you at a glance what is pressable.
+ */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   font-family: var(--font-body);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-medium);
   line-height: var(--leading-none);
-  letter-spacing: var(--tracking-normal);
+  letter-spacing: var(--tracking-snug);
   text-align: center;
   text-decoration: none;
   white-space: nowrap;
@@ -17,7 +29,19 @@
     background-color var(--dur-fast) var(--ease),
     border-color var(--dur-fast) var(--ease),
     color var(--dur-fast) var(--ease),
-    box-shadow var(--dur-fast) var(--ease);
+    box-shadow var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+/**
+ * Press feedback: the button moves 1px and comes back.
+ *
+ * Small enough that nobody consciously notices and large enough that a tap feels
+ * acknowledged on a phone, where there is no hover state to have confirmed the target
+ * first. `:active` rather than a class, so it costs no JavaScript and cannot stick.
+ */
+.btn:active:not(:disabled):not([aria-disabled='true']) {
+  transform: translateY(1px);
 }
 
 .btn:disabled,
@@ -33,33 +57,31 @@
    the 44px target — the compact size exists for dense desktop tables, and on a
    phone that density is not a saving, it is a mis-tap. */
 
+/* 48px is the reference's own button height, and it is the `md` here because `md` is
+   what a page's real actions use. `sm` stays compact for a mouse-driven admin table. */
 .sm {
   min-height: 34px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
   font-size: var(--text-sm);
   gap: var(--space-1);
 }
 
 .md {
-  min-height: 42px;
-  padding: 0 var(--space-5);
+  min-height: 48px;
+  padding: 0 var(--space-6);
   font-size: var(--text-base);
 }
 
 .lg {
-  min-height: 50px;
-  padding: 0 var(--space-6);
-  font-size: var(--text-md);
+  min-height: 56px;
+  padding: 0 var(--space-8);
+  font-size: var(--text-lg);
 }
 
 @media (pointer: coarse) {
-  .sm,
-  .md {
-    min-height: var(--tap-target);
-  }
-
   .sm {
-    padding: 0 var(--space-4);
+    min-height: var(--tap-target);
+    padding: 0 var(--space-5);
   }
 }
 
@@ -83,26 +105,36 @@
 }
 
 .iconOnly.md {
-  width: 42px;
+  width: 48px;
 }
 
 .iconOnly.lg {
-  width: 50px;
+  width: 56px;
 }
 
 @media (pointer: coarse) {
-  .iconOnly.sm,
-  .iconOnly.md {
+  .iconOnly.sm {
     width: var(--tap-target);
   }
 }
 
 /* ---------- variants ----------------------------------------------------- */
 
+/**
+ * The primary action is **near-black**, and carries no shadow.
+ *
+ * There is no bright brand colour on a button in this language. That is the
+ * reference's decision and it solves a problem the product had: a saturated blue on a
+ * button, a link, a chart series, a progress bar and an active nav item made five
+ * unrelated things look like the same control. With the action reduced to ink, colour
+ * is free to mean something (see `--cat-*`).
+ *
+ * In the dark theme `--primary` flips to near-white — the *relationship* carries over,
+ * not the value: the action is the highest-contrast thing on the page either way.
+ */
 .primary {
   background: var(--primary);
   color: var(--primary-on);
-  box-shadow: var(--shadow-xs);
 }
 
 .primary:hover:not(:disabled) {
@@ -113,42 +145,46 @@
   background: var(--primary-active);
 }
 
-/* A solid, bordered surface — the standard partner to a primary action. */
+/**
+ * The standard partner to a primary action: a **tinted pill, not a bordered box**.
+ *
+ * `--fill-subtle` is the reference's own secondary treatment, and it is the right one
+ * here for a structural reason — a card now has no border, so a bordered button
+ * sitting on it would be the only drawn line in view and would read as the louder of
+ * the two controls.
+ */
 .secondary {
-  background: var(--surface);
-  border-color: var(--border);
+  background: var(--fill-subtle);
+  border-color: transparent;
   color: var(--text);
-  box-shadow: var(--shadow-xs);
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
+  background: var(--fill-muted);
 }
 
 /* Kept as its own variant because thirty-seven pre-existing call sites pass
-   `variant="outline"`. Transparent rather than surface-filled, which is the only
-   thing that distinguishes it from `secondary`. */
+   `variant="outline"`. The one place a drawn line is still correct: an action that
+   must read as available without claiming any weight at all. */
 .outline {
   background: transparent;
-  border-color: var(--border);
+  border-color: var(--border-strong);
   color: var(--text);
 }
 
 .outline:hover:not(:disabled) {
   border-color: var(--primary);
-  color: var(--primary-text);
-  background: var(--primary-soft);
+  background: var(--fill-subtle);
 }
 
 /* A tinted action: more presence than a ghost, less than a primary. */
 .subtle {
-  background: var(--primary-soft);
-  color: var(--primary-text);
+  background: var(--fill-subtle);
+  color: var(--text);
 }
 
 .subtle:hover:not(:disabled) {
-  background: var(--primary-soft-hover);
+  background: var(--fill-muted);
 }
 
 .ghost {
@@ -157,14 +193,13 @@
 }
 
 .ghost:hover:not(:disabled) {
-  background: var(--surface-hover);
+  background: var(--fill-subtle);
   color: var(--text);
 }
 
 .danger {
   background: var(--danger-solid);
   color: var(--danger-on);
-  box-shadow: var(--shadow-xs);
 }
 
 .danger:hover:not(:disabled) {

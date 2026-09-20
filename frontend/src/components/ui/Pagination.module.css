@@ -109,8 +109,15 @@
   color: var(--primary-on);
 }
 
+/**
+ * The ellipsis between page numbers.
+ *
+ * `--text-muted`, not `--text-subtle`. It looks like punctuation but it carries a
+ * fact — "there are pages between these two" — and the contrast floor applies to
+ * anything a reader has to read. `--text-subtle` measures 2.9:1 here.
+ */
 .gap {
   padding: 0 var(--space-1);
-  color: var(--text-subtle);
+  color: var(--text-muted);
   user-select: none;
 }
