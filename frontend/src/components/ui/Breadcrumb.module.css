@@ -1,0 +1,62 @@
+.nav {
+  min-width: 0;
+}
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.separator {
+  color: var(--text-subtle);
+}
+
+/**
+ * The parent levels.
+ *
+ * Underlined on hover rather than always: a breadcrumb is three or four links in a
+ * row directly above a heading, and four permanently underlined items read as a
+ * sentence that has gone wrong. Colour is not the only affordance either — the
+ * position and the separators are, which is the case the "underline links in prose"
+ * rule exists to cover.
+ */
+.link {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-xs);
+  color: var(--text-muted);
+  text-decoration: none;
+  transition:
+    color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease);
+}
+
+.link:hover {
+  background: var(--fill-subtle);
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.current {
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-body);
+  font-weight: var(--weight-medium);
+  /* The current page's name can be a question's opening words. It truncates rather
+     than wrapping the breadcrumb onto a second line above every heading. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 28ch;
+}

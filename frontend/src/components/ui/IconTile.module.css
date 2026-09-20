@@ -1,0 +1,102 @@
+/**
+ * The tile carries a shadow of its own.
+ *
+ * It is the reference's own treatment — `rgba(26,26,26,.1) 0 12px 20px` under a 32px
+ * coloured circle — and it is what stops a saturated fill looking pasted on. A flat
+ * colour swatch on a white card reads as a bug; a lifted one reads as an object.
+ *
+ * `--shadow-md` is that exact value. In the dark theme it flattens with everything
+ * else, and the fill alone does the work.
+ */
+.tile {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-md);
+}
+
+/* ---------- shape -------------------------------------------------------- */
+
+.circle {
+  border-radius: var(--radius-pill);
+}
+
+/* A squircle rather than a circle for the larger, card-header use: a rounded square
+   sits better above a block of left-aligned text than a circle does. */
+.rounded {
+  border-radius: var(--radius-md);
+}
+
+.sm.rounded {
+  border-radius: var(--radius-xs);
+}
+
+.lg.rounded {
+  border-radius: var(--radius-lg);
+}
+
+/* ---------- size --------------------------------------------------------- */
+
+.sm {
+  width: 28px;
+  height: 28px;
+}
+
+.md {
+  width: 40px;
+  height: 40px;
+}
+
+.lg {
+  width: 56px;
+  height: 56px;
+}
+
+/* ---------- tone ---------------------------------------------------------
+   Each fill is paired with the `-on` colour declared beside it in `tokens.css`.
+   They are not all white — see the note in IconTile.tsx. */
+
+.neutral {
+  background: var(--fill-subtle);
+  color: var(--text);
+  /* The only tone with no lift: it is a *quiet* marker, and a shadow under a
+     barely-tinted tile reads as a smudge rather than as an object. */
+  box-shadow: none;
+}
+
+.orange {
+  background: var(--cat-orange);
+  color: var(--cat-orange-on);
+}
+
+.blue {
+  background: var(--cat-blue);
+  color: var(--cat-blue-on);
+}
+
+.magenta {
+  background: var(--cat-magenta);
+  color: var(--cat-magenta-on);
+}
+
+.purple {
+  background: var(--cat-purple);
+  color: var(--cat-purple-on);
+}
+
+.green {
+  background: var(--cat-green);
+  color: var(--cat-green-on);
+}
+
+.lilac {
+  background: var(--cat-lilac);
+  color: var(--cat-lilac-on);
+}
+
+/* Achievement, not category. Gold is the one colour in this product that means
+   something on its own, so it is kept out of the `--cat-*` rotation. */
+.gold {
+  background: var(--accent-strong);
+  color: var(--accent-on);
+}

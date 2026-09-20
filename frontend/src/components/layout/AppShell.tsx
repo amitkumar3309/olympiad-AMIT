@@ -257,11 +257,17 @@ export default function AppShell({
       <>
         <div className={styles.panelHead}>
           <Link to={brand.to} className={styles.brand} onClick={inDrawer ? closeDrawer : undefined}>
-            <Icon
-              name={variant === 'admin' ? 'ph-shield-check' : 'ph-graduation-cap'}
-              weight="bold"
-              size="md"
-            />
+            {/* The glyph sits in a near-black tile — ink rather than a colour, because
+                the accent hues mark categories and never the product itself. Decoration
+                beside the wordmark, so it is hidden from assistive technology; the
+                link's own text is its name. */}
+            <span className={styles.brandMark} aria-hidden="true">
+              <Icon
+                name={variant === 'admin' ? 'ph-shield-check' : 'ph-graduation-cap'}
+                weight="bold"
+                size="sm"
+              />
+            </span>
             <span>{brand.label}</span>
           </Link>
           {inDrawer && (

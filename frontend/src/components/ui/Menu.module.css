@@ -1,0 +1,159 @@
+/* ---------- trigger ------------------------------------------------------
+   A quiet control. It sits at the end of every row in a long table, so anything
+   with a fill or a border would turn the right-hand edge into a column of boxes. */
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-snug);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.trigger:hover,
+.trigger[aria-expanded='true'] {
+  background: var(--fill-subtle);
+  color: var(--text);
+}
+
+.triggerIconOnly {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+
+.triggerLabelled {
+  min-height: 34px;
+  padding: 0 var(--space-4);
+}
+
+/* The 44px floor applies to a coarse pointer only, so a mouse-driven admin table
+   keeps its compact rows. See the note in `base.css`. */
+@media (pointer: coarse) {
+  .triggerIconOnly {
+    width: var(--tap-target);
+    height: var(--tap-target);
+  }
+
+  .triggerLabelled {
+    min-height: var(--tap-target);
+  }
+}
+
+/* ---------- panel --------------------------------------------------------
+   `position: fixed` and portalled to the body, so `TableScroll`'s overflow cannot
+   clip it. Any scroll closes the menu — see the note in Menu.tsx. */
+
+.panel {
+  position: fixed;
+  z-index: var(--z-drawer);
+  min-width: 200px;
+  /* **`PANEL_MAX_WIDTH` in Menu.tsx must match the 280 here.** The component clamps
+     the panel inside the viewport using that figure rather than measuring, so the two
+     going out of step would put part of the panel off-screen again. */
+  max-width: min(280px, calc(100vw - 2 * var(--space-4)));
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  /* A menu genuinely floats above the page, which is the case the larger shadow
+     steps survive the dark theme for. */
+  box-shadow: var(--shadow-xl);
+  animation: menu-in var(--dur-fast) var(--ease-out);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-body);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-snug);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--fill-subtle);
+  color: var(--text);
+}
+
+.item[aria-disabled='true'] {
+  color: var(--text-subtle);
+  cursor: not-allowed;
+}
+
+.item[aria-disabled='true']:hover {
+  background: transparent;
+  color: var(--text-subtle);
+}
+
+.danger {
+  color: var(--danger-text);
+}
+
+.danger:hover,
+.danger:focus-visible {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/**
+ * Why an item is unavailable, in the page rather than in a `title`.
+ *
+ * A tooltip attribute never appears on a touch screen, so a disabled action explained
+ * that way is simply dead on a phone. `--text-subtle` is permitted here only because
+ * the item it sits in is already disabled, and a disabled control is exempt from the
+ * contrast floor; on an enabled item this would be a word below it.
+ */
+.itemReason {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-snug);
+  color: var(--text-subtle);
+}
+
+.separator {
+  margin: var(--space-2) 0;
+  border: 0;
+  border-top: var(--border-width) solid var(--border-subtle);
+}

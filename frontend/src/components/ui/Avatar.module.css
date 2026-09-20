@@ -1,0 +1,46 @@
+/**
+ * One rule set for both branches — the `<img>` and the initials `<span>` — so a
+ * photograph and a fallback occupy exactly the same box. A table row whose height
+ * changes depending on whether a picture loaded is a table that reflows as it paints.
+ */
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--fill-subtle);
+  color: var(--text-muted);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-normal);
+  /* A photograph is cropped to the circle rather than squashed into it. */
+  object-fit: cover;
+  overflow: hidden;
+  /* Initials are letters in a small box; tabular figures keep a column of avatars
+     from jittering when one happens to contain a 1. */
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.xs {
+  width: 24px;
+  height: 24px;
+  font-size: var(--text-2xs);
+}
+
+.sm {
+  width: 32px;
+  height: 32px;
+  font-size: var(--text-xs);
+}
+
+.md {
+  width: 40px;
+  height: 40px;
+  font-size: var(--text-sm);
+}
+
+.lg {
+  width: 56px;
+  height: 56px;
+  font-size: var(--text-md);
+}
