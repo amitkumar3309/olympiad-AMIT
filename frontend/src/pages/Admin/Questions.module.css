@@ -71,11 +71,28 @@
  * `ui/ButtonLink` are the only copies of this control now. `.dangerButton`'s hover
  * used a hardcoded `rgba(239,68,68,.14)` where `--danger-soft` already existed.
  *
- * `.orderToggle` shared their rule and is all that is left of it. It is **hover only**:
- * the selector list it used to sit in left a dangling `.orderToggle,` when they went,
- * which CSS happily parses as `.orderToggle, .orderToggle:hover` — so the control
- * would have worn its hover background permanently.
+ * `.orderToggle` shared their rule, and deleting the other two took its **base** state
+ * with them — it was left as a `:hover` rule and nothing else. A `<button>` with no
+ * background of its own does not fall back to the page; it falls back to the user
+ * agent's `ButtonFace`, which is an opaque light grey. In light mode that read fine and
+ * hid the problem; in dark mode the inherited `rgba(255,255,255,.66)` landed on it at a
+ * contrast ratio of **1.09**, so the sort control was invisible on every dark admin
+ * screen. It is styled to match `.sortSelect`, which it sits beside in `.sortRow`.
  */
+.orderToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-main);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
 .orderToggle:hover {
   background: var(--fill-subtle);
 }
