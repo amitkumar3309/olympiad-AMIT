@@ -22,7 +22,6 @@ import {
 } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
-import ResetPanel from '../../components/ResetPanel'
 import MathText from '../../components/MathText'
 import { dailyChallengeHandoff, mockTestHandoff } from './questionHandoff'
 import { Alert, Button, ButtonLink, Icon, Spinner } from '../../components/ui'
@@ -775,7 +774,9 @@ export default function Questions() {
           </Button>
         </div>
       )}
-      <ResetPanel scope="questions" onDone={() => void load()} />
+      {/* The reset for this area moved to `/admin/system` in Milestone 26 - a destructive
+          act belongs in one place a reader arrives at deliberately, not at the foot of
+          the page they use to edit the same collection. */}
     </AdminShell>
   )
 }

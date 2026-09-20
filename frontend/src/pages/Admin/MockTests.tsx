@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { api, ApiError } from '../../api/client'
 import { CLASS_LEVELS, type AdminMockTest, type MockTestStatus, type Pagination } from '../../api/types'
 import AdminShell from './AdminShell'
-import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import { Alert, Icon } from '../../components/ui'
@@ -281,7 +280,9 @@ export default function AdminMockTests() {
           )}
         </>
       )}
-      <ResetPanel scope="mock-tests" onDone={() => void load()} />
+      {/* The reset for this area moved to `/admin/system` in Milestone 26 - a destructive
+          act belongs in one place a reader arrives at deliberately, not at the foot of
+          the page they use to edit the same collection. */}
     </AdminShell>
   )
 }

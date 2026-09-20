@@ -1,0 +1,99 @@
+/* ---------- links ------------------------------------------------------- */
+
+.linkGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+}
+
+@media (min-width: 720px) {
+  .linkGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.linkCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.linkTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-snug);
+  color: var(--text);
+}
+
+.linkBody {
+  margin: 0;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+
+/* ---------- the two standing rules -------------------------------------- */
+
+/**
+ * Stated on the page, not in a `title` and not only inside each dialog.
+ *
+ * A tooltip never appears on a touch screen, and a warning a reader only meets after
+ * pressing the dangerous button arrives too late to change what they were about to do.
+ */
+.rules ul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rules li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+
+.rules strong {
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.ruleIcon {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--success-text);
+}
+
+/* ---------- the reset panels -------------------------------------------- */
+
+.resets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin-top: var(--space-6);
+}
+
+.resetRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Why this one may be blocked, above the panel rather than inside its dialog. The
+   panel names the real blockers with real counts once it is opened; this is the
+   standing rule, which is what decides the order somebody works down the page. */
+.resetNote {
+  margin: 0;
+  padding-left: var(--space-1);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}

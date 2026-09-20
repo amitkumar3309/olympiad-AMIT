@@ -3,7 +3,6 @@ import { api, ApiError } from '../../api/client'
 import { loadImplicitSubject } from '../../api/implicitSubject'
 import type { Subject, TaxonomyStatus, Topic } from '../../api/types'
 import AdminShell from './AdminShell'
-import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import {
@@ -252,7 +251,9 @@ export default function Taxonomy() {
           })}
         </ul>
       )}
-      <ResetPanel scope="chapters" onDone={() => void load()} />
+      {/* The reset for this area moved to `/admin/system` in Milestone 26 - a destructive
+          act belongs in one place a reader arrives at deliberately, not at the foot of
+          the page they use to edit the same collection. */}
     </AdminShell>
   )
 }

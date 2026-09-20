@@ -22,6 +22,8 @@ const AdminAuditLog = lazy(() => import('./pages/Admin/AuditLog'))
  * student download a maths typesetter to look at the landing page. Splitting here
  * keeps the initial bundle roughly where it was before Milestone 4.
  */
+/** The super administrator's own console (Milestone 26) — see the note on the route. */
+const AdminSystem = lazy(() => import('./pages/Admin/System'))
 const AdminQuestions = lazy(() => import('./pages/Admin/Questions'))
 const AdminQuestionForm = lazy(() => import('./pages/Admin/QuestionForm'))
 const AdminQuestionImport = lazy(() => import('./pages/Admin/QuestionImport'))
@@ -184,6 +186,23 @@ export default function App() {
             element={
               <RequirePermission permission="audit:read">
                 <AdminAuditLog />
+              </RequirePermission>
+            }
+          />
+          {/*
+            The super administrator's console (Milestone 26). Gated on `content:reset`,
+            which is the permission that is super-admin-only — never on a role name,
+            for the reason every other gate in this product avoids one.
+
+            The page repeats the check itself. Not redundancy for its own sake: the
+            guard renders the generic `Unauthorized`, and this page can say which *one*
+            account the area belongs to and where everything else lives.
+          */}
+          <Route
+            path="/admin/system"
+            element={
+              <RequirePermission permission="content:reset">
+                <AdminSystem />
               </RequirePermission>
             }
           />

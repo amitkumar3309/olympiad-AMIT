@@ -184,7 +184,6 @@ export const ADMIN_NAV: NavGroup[] = [
       { to: '/admin/analytics', label: 'Analytics', icon: 'ph-chart-line-up', permission: 'analytics:read:any' },
       { to: '/admin/performance', label: 'Question performance', icon: 'ph-target', permission: 'analytics:read:any' },
       { to: '/admin/standings', label: 'Standings & Rewards', icon: 'ph-ranking', permission: 'students:read' },
-      { to: '/admin/audit-log', label: 'Audit Log', icon: 'ph-scroll', permission: 'audit:read' },
     ],
   },
   {
@@ -203,6 +202,30 @@ export const ADMIN_NAV: NavGroup[] = [
   {
     label: 'Settings',
     items: [{ to: '/admin/reward-settings', label: 'XP awards', icon: 'ph-sliders-horizontal', permission: 'rewards:write' }],
+  },
+  /**
+   * The super administrator's group (Milestone 26), and the only one an ordinary
+   * administrator does not see at all.
+   *
+   * Before it, the two roles had **identical navigation**. The things only a super
+   * administrator can do were reachable only by scrolling to the bottom of four
+   * unrelated content pages (`content:reset`) or by opening a row menu on the student
+   * directory (`users:role:write`, `users:delete`). The difference between the roles
+   * was real and completely undiscoverable.
+   *
+   * Both items are gated, and on **different** permissions rather than on a role name:
+   * `content:reset` is super-admin-only and is what makes this group super-admin-only,
+   * while the audit log stays on `audit:read` because an ordinary administrator holds
+   * it — it moved here from *Insights* because reading who did what is oversight
+   * rather than analysis, and `visibleGroups()` renders the group for anyone holding
+   * either one.
+   */
+  {
+    label: 'System',
+    items: [
+      { to: '/admin/system', label: 'System', icon: 'ph-shield-star', permission: 'content:reset' },
+      { to: '/admin/audit-log', label: 'Audit Log', icon: 'ph-scroll', permission: 'audit:read' },
+    ],
   },
 ]
 

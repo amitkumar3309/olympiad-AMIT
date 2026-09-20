@@ -11,7 +11,6 @@ import {
   type Pagination,
 } from '../../api/types'
 import AdminShell from './AdminShell'
-import ResetPanel from '../../components/ResetPanel'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
@@ -520,7 +519,9 @@ export default function AdminDailyChallenges() {
           )}
         </div>
       </div>
-      <ResetPanel scope="daily-challenges" onDone={() => void load()} />
+      {/* The reset for this area moved to `/admin/system` in Milestone 26 - a destructive
+          act belongs in one place a reader arrives at deliberately, not at the foot of
+          the page they use to edit the same collection. */}
     </AdminShell>
   )
 }
