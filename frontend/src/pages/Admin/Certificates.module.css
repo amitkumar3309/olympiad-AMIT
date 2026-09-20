@@ -1,42 +1,203 @@
-.panel { padding: 22px; margin-bottom: 20px; }
-.panel h2, .panel h3 { margin: 0 0 6px; }
-.hint { margin: 0 0 18px; color: var(--text-muted); font-size: var(--text-base); line-height: 1.6; }
-.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: end; }
-.filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
-.filters select { flex: 0 1 200px; }
-.notice { margin: 0 0 14px; padding: 10px 14px; border-radius: var(--radius-sm); background: rgba(34,197,94,.12); color: var(--success-text); font-size: var(--text-base); font-weight: 600; }
-.empty { padding: 28px 0; color: var(--text-muted); text-align: center; }
-.tableScroll { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
-.table th { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: var(--text-2xs); letter-spacing: .06em; text-transform: uppercase; text-align: left; white-space: nowrap; }
-.table td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
-.table tr.busy { opacity: .55; }
-.code { display: block; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-xs); color: var(--text-muted); }
-.muted { color: var(--text-muted); }
-.status_draft { color: var(--warning-text); font-weight: 700; text-transform: capitalize; }
-.status_published { color: var(--success-text); font-weight: 700; text-transform: capitalize; }
-.status_archived { color: var(--text-muted); font-weight: 700; text-transform: capitalize; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.actionBtn, .publishBtn { padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--text-main); font-size: var(--text-sm); font-weight: 600; cursor: pointer; white-space: nowrap; }
-.actionBtn:hover:not(:disabled) { border-color: var(--royal-blue); color: var(--primary-text); }
-.publishBtn { border-color: var(--gold); color: var(--gold); }
-.publishBtn:hover:not(:disabled) { background: var(--gold); color: #1a1400; }
-.actionBtn:disabled, .publishBtn:disabled { opacity: .45; cursor: not-allowed; }
-.pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 18px; font-size: var(--text-base); color: var(--text-muted); }
-.pager button { padding: 8px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--text-main); font-weight: 600; cursor: pointer; }
-.pager button:disabled { opacity: .45; cursor: not-allowed; }
-.modalBackdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 1rem; background: rgba(0,0,0,.55); }
-.modal { width: 100%; max-width: 720px; max-height: 84vh; overflow: auto; padding: 24px; }
-.modal h2, .modal h3 { margin: 0 0 16px; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--text-sm); }
-.searchBtn { padding: 8px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--text-main); font-weight: 600; cursor: pointer; }
-.filters input { flex: 1 1 220px; min-width: 0; }
-.tier_distinction { display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(212,175,55,.18); color: var(--gold); font-size: var(--text-2xs); font-weight: 800; text-transform: uppercase; }
-.tier_merit { display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(56,189,248,.16); color: var(--primary-text); font-size: var(--text-2xs); font-weight: 800; text-transform: uppercase; }
-.tier_participation { display: inline-block; padding: 3px 10px; border-radius: 999px; background: rgba(148,163,184,.18); color: var(--text-muted); font-size: var(--text-2xs); font-weight: 800; text-transform: uppercase; }
-.dangerBtn { padding: 6px 12px; border-radius: var(--radius-sm); border: 1px solid var(--danger); background: none; color: var(--danger-text); font-size: var(--text-sm); font-weight: 700; cursor: pointer; }
-.dangerBtn:hover:not(:disabled) { background: var(--danger-solid); color: var(--danger-on); }
-.revoked { color: var(--danger-text); font-weight: 700; font-size: var(--text-sm); }
-.modalLead { margin: 0 0 18px; color: var(--text-muted); font-size: var(--text-base); line-height: 1.6; }
-.modalActions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
-.cancelBtn { padding: 10px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: none; color: var(--text-main); font-weight: 600; cursor: pointer; }
+/**
+ * Certificate management (rewritten in Milestone 26).
+ *
+ * ## Fourteen dead classes went with the row-action conversion
+ *
+ * `.actionBtn`, `.publishBtn`, `.dangerBtn`, `.searchBtn`, `.revoked`, three
+ * `.status_*`, three `.tier_*`, and a hand-rolled `.table` / `.tableScroll` that
+ * `ui/Table` had already superseded.
+ *
+ * Every one was a near-copy of something in `Exams.module.css` — the two files were
+ * the same file with different nouns, down to the `#1a1400` literal on the publish
+ * button's hover. The three `.tier_*` chips each hardcoded their own rgba tint
+ * (`212,175,55` / `56,189,248` / `148,163,184`) where `Badge`'s tones already existed,
+ * and the "distinction" one painted its *words* in `--gold`, which is a fill colour.
+ *
+ * `ui/Badge` carries the tier and the revoked state now, `ui/Menu` the actions, and
+ * `ui/Button` the search.
+ */
+
+.panel {
+  padding: clamp(var(--space-5), 3.2vw, var(--space-8));
+  margin-bottom: var(--block-gap);
+}
+
+.panel h2,
+.panel h3 {
+  margin: 0 0 var(--space-2);
+}
+
+.hint {
+  margin: 0 0 var(--space-5);
+  max-width: 72ch;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
+  gap: var(--space-4);
+  align-items: end;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.filters select {
+  flex: 0 1 200px;
+}
+
+.filters input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.notice {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--success-soft);
+  color: var(--success-text);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+}
+
+.empty {
+  padding: var(--space-10) 0;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.busy {
+  opacity: 0.55;
+}
+
+/* The secondary identifier under a name — a student ID, an exam code. */
+.code {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+/* The revoked badge sits above the action menu in the same cell — being revoked is a
+   fact about the document, not something you can do to it. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---------- pagination ---------------------------------------------------- */
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.pager button {
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--fill-subtle);
+  color: var(--text);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.pager button:hover:not(:disabled) {
+  background: var(--fill-muted);
+}
+
+.pager button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (pointer: coarse) {
+  .pager button {
+    min-height: var(--tap-target);
+  }
+}
+
+/* ---------- the revoke dialog --------------------------------------------
+   Still hand-rolled rather than `ui/Modal`. Left alone deliberately: swapping it is a
+   focus-management change to a *destructive confirmation*, which deserves its own
+   browser pass rather than riding along with a restyle. */
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--overlay);
+}
+
+.modal {
+  width: 100%;
+  max-width: 720px;
+  max-height: 84vh;
+  overflow: auto;
+  padding: clamp(var(--space-5), 3.2vw, var(--space-8));
+  border-radius: var(--radius-xl);
+}
+
+.modal h2,
+.modal h3 {
+  margin: 0 0 var(--space-4);
+}
+
+.modalLead {
+  margin: 0 0 var(--space-5);
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.cancelBtn {
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--fill-subtle);
+  color: var(--text);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.cancelBtn:hover {
+  background: var(--fill-muted);
+}

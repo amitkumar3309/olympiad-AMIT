@@ -6,6 +6,8 @@ import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import {
   Alert,
+  Badge,
+  Menu,
   Table,
   TableScroll,
 } from '../../components/ui'
@@ -276,35 +278,69 @@ export default function Exams() {
                       {exam.questionCount} Q · {exam.totalMarks} marks
                     </td>
                     <td>
-                      <span className={styles[`status_${exam.status}`]}>{exam.status}</span>
+                      <Badge
+                        tone={exam.status === 'published' ? 'success' : exam.status === 'archived' ? 'neutral' : 'warning'}
+                        size="sm"
+                      >
+                        {exam.status}
+                      </Badge>
                     </td>
                     <td className={styles.muted}>
                       {exam.resultsPublishedAt ? new Date(exam.resultsPublishedAt).toLocaleDateString() : '—'}
                     </td>
                     <td>
+                      {/*
+                        Three buttons per row became one menu (Milestone 26). The row is
+                        data; the actions are the long tail, and three compact controls
+                        in every row are what made this table scroll sideways.
+
+                        The `label` names the exam rather than saying "Actions", because
+                        a screen-reader user listing the buttons on a page of twenty
+                        exams would otherwise hear the same word twenty times.
+
+                        `disabledReason` replaces a `title`. That attribute never
+                        appears on a touch screen, so the explanation for why results
+                        cannot be released yet was simply invisible on a phone — a dead
+                        button with no stated cause.
+                      */}
                       <div className={styles.actions}>
-                        {exam.status !== 'published' ? (
-                          <button className={styles.actionBtn} disabled={busyId === exam.id} onClick={() => void setStatus(exam, 'published')}>
-                            Publish
-                          </button>
-                        ) : (
-                          <button className={styles.actionBtn} disabled={busyId === exam.id} onClick={() => void setStatus(exam, 'draft')}>
-                            Unpublish
-                          </button>
-                        )}
-                        <button className={styles.actionBtn} disabled={busyId === exam.id} onClick={() => void viewAttempts(exam)}>
-                          Attempts
-                        </button>
-                        {/* Disabled until the window closes: ranks are a cohort fact,
-                            and publishing early would rank against whoever finished first. */}
-                        <button
-                          className={styles.publishBtn}
-                          disabled={busyId === exam.id || exam.windowState !== 'closed'}
-                          title={exam.windowState !== 'closed' ? 'The window must close before results can be released' : ''}
-                          onClick={() => void publish(exam)}
-                        >
-                          Release results
-                        </button>
+                        <Menu
+                          label={`Actions for ${exam.title}`}
+                          items={[
+                            exam.status !== 'published'
+                              ? {
+                                  label: 'Publish',
+                                  icon: 'ph-check-circle',
+                                  disabled: busyId === exam.id,
+                                  onSelect: () => void setStatus(exam, 'published'),
+                                }
+                              : {
+                                  label: 'Unpublish',
+                                  icon: 'ph-arrow-counter-clockwise',
+                                  disabled: busyId === exam.id,
+                                  onSelect: () => void setStatus(exam, 'draft'),
+                                },
+                            {
+                              label: 'Attempts',
+                              icon: 'ph-list-bullets',
+                              disabled: busyId === exam.id,
+                              onSelect: () => void viewAttempts(exam),
+                            },
+                            { separator: true },
+                            {
+                              label: 'Release results',
+                              icon: 'ph-megaphone',
+                              // Ranks are a cohort fact: releasing early would rank
+                              // against whoever happened to finish first.
+                              disabled: busyId === exam.id || exam.windowState !== 'closed',
+                              disabledReason:
+                                exam.windowState !== 'closed'
+                                  ? 'The exam window has to close first — a rank is a fact about the whole cohort.'
+                                  : undefined,
+                              onSelect: () => void publish(exam),
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>

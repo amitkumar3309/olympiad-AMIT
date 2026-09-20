@@ -1,7 +1,7 @@
 .card {
   padding: 22px 24px;
   margin-bottom: 22px;
-  border-left: 3px solid var(--royal-blue);
+  border-left: 3px solid var(--primary);
 }
 
 .card h2 {

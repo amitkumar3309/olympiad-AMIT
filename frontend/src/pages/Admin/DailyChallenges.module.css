@@ -133,38 +133,24 @@
   border-top: 1px solid var(--border);
 }
 
-.linkButton,
-.dangerButton {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg);
-  color: var(--text-main);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 6px 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.linkButton:hover {
-  border-color: var(--royal-blue);
-  color: var(--primary-text);
-}
-
-.dangerButton {
+/**
+ * `.linkButton` and `.dangerButton` were deleted in Milestone 26 — `ui/Button` is the
+ * only copy of this control now.
+ *
+ * Between them they carried a hardcoded `12.5px` (a size on no scale anywhere), the
+ * legacy `--royal-blue` on hover, and two `rgba(239,68,68,…)` literals where
+ * `--danger-text` / `--danger-soft` already existed.
+ *
+ * `.dangerAction` is a **tone** on a ghost `Button`, not a second implementation: a
+ * destructive row action stays quiet until it is hovered.
+ */
+.dangerAction {
   color: var(--danger-text);
-  border-color: rgba(239, 68, 68, 0.4);
 }
 
-.dangerButton:hover {
-  background: rgba(239, 68, 68, 0.08);
-}
-
-.linkButton:disabled,
-.dangerButton:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.dangerAction:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 /* --- The list of days --- */

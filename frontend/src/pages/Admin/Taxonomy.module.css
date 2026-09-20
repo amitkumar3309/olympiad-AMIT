@@ -99,25 +99,10 @@
   color: var(--danger-text);
 }
 
-.linkButton {
-  background: none;
-  border: none;
-  padding: 4px 6px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--primary-text);
-}
-
-.linkButton:hover {
-  background: rgba(79, 70, 229, 0.12);
-}
-
-.linkButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* `.linkButton` was deleted in Milestone 26 — `ui/Button` is the only copy of this
+   control now. Its hover painted with a hardcoded `rgba(79,70,229,.12)`: an indigo
+   from the palette *before* the one this product last used, so it had been wrong
+   through two redesigns without anybody noticing. */
 
 .topics,
 .subtopics {

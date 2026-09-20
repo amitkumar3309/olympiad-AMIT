@@ -17,12 +17,12 @@
 }
 
 .toggle:hover {
-  border-color: var(--royal-blue);
+  border-color: var(--primary);
   color: var(--primary-text);
 }
 
 .toggle:focus-visible {
-  outline: 2px solid var(--royal-blue);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 

@@ -70,35 +70,23 @@
 /* `--royal-blue` is the legacy alias and is re-pointed *lighter* in dark mode so it
    stays visible as a border — which is why these row actions measured 4.21:1 there.
    `--primary-text` is the token for a word and clears AA in both themes. */
-.linkButton,
-.dangerButton {
-  padding: 4px 6px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--primary-text);
-  font: inherit;
-  text-decoration: none;
-  cursor: pointer;
+/**
+ * `.linkButton` and `.dangerButton` were deleted in Milestone 26 — `ui/Button` and
+ * `ui/ButtonLink` are the only copies of this control now. `.dangerButton`'s hover
+ * used a hardcoded `rgba(239,68,68,.14)` where `--danger-soft` already existed.
+ */
+.orderToggle:hover {
+  background: var(--fill-subtle);
 }
 
-.orderToggle:hover,
-.linkButton:hover {
-  background: var(--primary-soft);
-}
-
-.dangerButton {
+/* A **tone** on a ghost `Button`, not a second implementation. */
+.dangerAction {
   color: var(--danger-text);
 }
 
-.dangerButton:hover {
-  background: rgba(239, 68, 68, 0.14);
-}
-
-.linkButton:disabled,
-.dangerButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.dangerAction:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 .count {

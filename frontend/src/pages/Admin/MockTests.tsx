@@ -5,7 +5,7 @@ import { CLASS_LEVELS, type AdminMockTest, type MockTestStatus, type Pagination 
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
-import { Alert, Icon } from '../../components/ui'
+import { Alert, ButtonLink, Icon } from '../../components/ui'
 import styles from './MockTests.module.css'
 import { humanizeError } from '../../lib/errors'
 
@@ -227,34 +227,39 @@ export default function AdminMockTests() {
                 </p>
 
                 <div className={styles.rowActions}>
-                  <Link to={`/admin/mock-tests/${test.id}/edit`} className={styles.linkButton}>
+                  {/* `ui/Button` and `ButtonLink` (Milestone 26) — `.linkButton` was one
+                      of five near-identical copies across the admin pages. `ButtonLink`
+                      for the two that navigate: a destination must be an `<a>`, or
+                      middle-click, ctrl-click and "copy link" all stop working. */}
+                  <ButtonLink to={`/admin/mock-tests/${test.id}/edit`} variant="secondary" size="sm">
                     Edit
-                  </Link>
-                  <Link to={`/admin/mock-tests/${test.id}/results`} className={styles.linkButton}>
+                  </ButtonLink>
+                  <ButtonLink to={`/admin/mock-tests/${test.id}/results`} variant="secondary" size="sm">
                     Results
-                  </Link>
+                  </ButtonLink>
                   {NEXT_STATUSES[test.status].map((next) => (
-                    <button
+                    <Button
                       key={next}
-                      type="button"
-                      className={styles.linkButton}
+                      variant="secondary"
+                      size="sm"
                       disabled={busyId === test.id}
                       onClick={() => void changeStatus(test, next)}
                     >
                       {ACTION_LABELS[next]}
-                    </button>
+                    </Button>
                   ))}
                   {/* Only ever succeeds for a test never published and never sat; the
                       backend decides, and its refusal is shown as an error. */}
                   {!test.publishedAt && (
-                    <button
-                      type="button"
-                      className={styles.dangerButton}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={styles.dangerAction}
                       disabled={busyId === test.id}
                       onClick={() => void remove(test)}
                     >
                       Delete
-                    </button>
+                    </Button>
                   )}
                 </div>
               </article>

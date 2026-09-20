@@ -6,6 +6,8 @@ import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import {
   Alert,
+  Badge,
+  Menu,
   Table,
   TableScroll,
 } from '../../components/ui'
@@ -130,9 +132,9 @@ export default function Certificates() {
             <option value="false">Valid</option>
             <option value="true">Revoked</option>
           </select>
-          <button type="submit" className={styles.searchBtn}>
+          <Button type="submit" variant="secondary" size="sm">
             Search
-          </button>
+          </Button>
         </form>
 
         {notice && <p className={styles.notice}>{notice}</p>}
@@ -173,36 +175,66 @@ export default function Certificates() {
                       <span className={styles.code}>{certificate.examCode}</span>
                     </td>
                     <td>
-                      <span className={styles[`tier_${certificate.tier}`]}>{certificate.tier}</span>
+                      {/* `accent` is gold, which in this product means achievement and
+                          nothing else — a distinction is exactly that. */}
+                      <Badge
+                        tone={
+                          certificate.tier === 'distinction'
+                            ? 'accent'
+                            : certificate.tier === 'merit'
+                              ? 'primary'
+                              : 'neutral'
+                        }
+                        size="sm"
+                      >
+                        {certificate.tier}
+                      </Badge>
                     </td>
-                    <td className={styles.muted}>
+                    <td className={`${styles.muted} tnum`}>
                       {certificate.percentage}% · rank {certificate.rank}/{certificate.totalCandidates}
                     </td>
                     <td className={styles.muted}>{new Date(certificate.issuedAt).toLocaleDateString()}</td>
                     <td>
+                      {/*
+                        A revoked certificate states that in the row rather than in the
+                        menu: it is a fact about the document, not something you can do
+                        to it. Its reason used to be a `title`, which never appears on a
+                        touch screen — it is rendered now.
+                      */}
                       <div className={styles.actions}>
-                        <a
-                          className={styles.actionBtn}
-                          href={`${API_BASE}/admin/certificates/${certificate.id}/download`}
-                        >
-                          PDF
-                        </a>
-                        {certificate.revoked ? (
-                          <span className={styles.revoked} title={certificate.revokedReason ?? undefined}>
-                            revoked
-                          </span>
-                        ) : (
-                          <button
-                            className={styles.dangerBtn}
-                            disabled={busyId === certificate.id}
-                            onClick={() => {
-                              setPendingRevoke(certificate)
-                              setReason('')
-                            }}
-                          >
-                            Revoke
-                          </button>
+                        {certificate.revoked && (
+                          <Badge tone="danger" size="sm" icon="ph-prohibit">
+                            Revoked
+                          </Badge>
                         )}
+                        <Menu
+                          label={`Actions for ${certificate.certificateId}`}
+                          items={[
+                            {
+                              label: 'Download the PDF',
+                              icon: 'ph-file-pdf',
+                              // The browser's own handling of a download is what the
+                              // reader expects, so this is a navigation rather than a fetch.
+                              onSelect: () => {
+                                window.location.href = `${API_BASE}/admin/certificates/${certificate.id}/download`
+                              },
+                            },
+                            { separator: true },
+                            {
+                              label: 'Revoke',
+                              icon: 'ph-prohibit',
+                              tone: 'danger',
+                              disabled: busyId === certificate.id || certificate.revoked,
+                              disabledReason: certificate.revoked
+                                ? (certificate.revokedReason ?? 'This certificate has already been revoked.')
+                                : undefined,
+                              onSelect: () => {
+                                setPendingRevoke(certificate)
+                                setReason('')
+                              },
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>

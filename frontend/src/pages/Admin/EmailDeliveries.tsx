@@ -203,9 +203,10 @@ export default function EmailDeliveries() {
           <Button type="button" disabled={working} onClick={() => void drain()}>
             {working ? 'Working...' : 'Send queued now'}
           </Button>
-          <button type="button" className={styles.secondaryBtn} disabled={working} onClick={() => void retry()}>
+          {/* `ui/Button` (Milestone 26) — `.secondaryBtn` was one more copy. */}
+          <Button variant="secondary" disabled={working} onClick={() => void retry()}>
             Requeue failed
-          </button>
+          </Button>
         </div>
 
         {error && <Alert tone="danger">{error}</Alert>}

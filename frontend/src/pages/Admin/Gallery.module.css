@@ -34,14 +34,25 @@
   min-width: 0;
 }
 
-.searchBtn {
-  padding: 8px 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-main);
-  font-weight: 600;
-  cursor: pointer;
+/**
+ * `.searchBtn`, `.actionBtn` and `.dangerBtn` were deleted in Milestone 26.
+ *
+ * They were one of five near-identical copies of the same compact action button across
+ * the admin pages — every one a bordered rectangle whose hover used the legacy
+ * `--royal-blue` alias. `ui/Button` is the only copy now.
+ *
+ * `.dangerAction` is what is left: a **tone** applied to a ghost `Button`, not a second
+ * button implementation. A destructive row action should stay quiet until it is
+ * hovered — a red-bordered button beside every photograph reads as a warning about the
+ * photograph.
+ */
+.dangerAction {
+  color: var(--danger-text);
+}
+
+.dangerAction:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 .notice {
@@ -120,39 +131,6 @@
   display: flex;
   gap: 8px;
   margin-top: 4px;
-}
-
-.actionBtn,
-.dangerBtn {
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-main);
-  font-size: var(--text-xs);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.actionBtn:hover:not(:disabled) {
-  border-color: var(--royal-blue);
-  color: var(--primary-text);
-}
-
-.dangerBtn {
-  border-color: var(--danger);
-  color: var(--danger-text);
-}
-
-.dangerBtn:hover:not(:disabled) {
-  background: var(--danger-solid);
-  color: var(--danger-on);
-}
-
-.actionBtn:disabled,
-.dangerBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .pager {

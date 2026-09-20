@@ -263,9 +263,11 @@ export default function Notifications() {
             <Button type="submit" disabled={submitting}>
               {submitting ? 'Saving...' : 'Publish now'}
             </Button>
-            <button type="button" className={styles.secondaryBtn} disabled={submitting} onClick={(e) => void submit(e, false)}>
+            {/* `ui/Button` (Milestone 26) — `.secondaryBtn`, `.searchBtn`, `.actionBtn`
+                and `.dangerBtn` were four more copies of the same control. */}
+            <Button variant="secondary" disabled={submitting} onClick={(e) => void submit(e, false)}>
               Save as draft
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -311,9 +313,9 @@ export default function Notifications() {
             <option value="system">Sent automatically</option>
             <option value="all">Both</option>
           </select>
-          <button type="submit" className={styles.searchBtn}>
+          <Button type="submit" variant="secondary" size="sm">
             Search
-          </button>
+          </Button>
         </form>
 
         {notice && <p className={styles.notice}>{notice}</p>}
@@ -373,17 +375,24 @@ export default function Notifications() {
                           housekeeping is not falsification.
                         */}
                         {item.source === 'staff' && (
-                          <button
-                            className={styles.actionBtn}
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             disabled={busyId === item.id}
                             onClick={() => void togglePublished(item)}
                           >
                             {item.isPublished ? 'Withdraw' : 'Publish'}
-                          </button>
+                          </Button>
                         )}
-                        <button className={styles.dangerBtn} disabled={busyId === item.id} onClick={() => void remove(item)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={styles.dangerAction}
+                          disabled={busyId === item.id}
+                          onClick={() => void remove(item)}
+                        >
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

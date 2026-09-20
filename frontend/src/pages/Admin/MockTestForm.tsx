@@ -17,7 +17,7 @@ import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
-import { Alert, Icon } from '../../components/ui'
+import { Alert } from '../../components/ui'
 import styles from './MockTests.module.css'
 import { humanizeError } from '../../lib/errors'
 
@@ -731,33 +731,37 @@ export default function MockTestForm() {
                         disabled={paperLocked}
                       />
                     </label>
-                    <button
-                      type="button"
-                      className={styles.iconButton}
+                    {/* `ui/Button` (Milestone 26). `iconOnly` makes `aria-label`
+                        mandatory at the type level, which is what these two reorder
+                        controls need — an unlabelled arrow is the most common
+                        accessibility failure in an admin table. */}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      iconOnly
+                      icon="ph-arrow-up"
+                      aria-label="Move up"
                       onClick={() => move(index, -1)}
                       disabled={index === 0 || paperLocked}
-                      aria-label="Move up"
-                    >
-                      <Icon name="ph-arrow-up" weight="bold" size="sm" />
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.iconButton}
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      iconOnly
+                      icon="ph-arrow-down"
+                      aria-label="Move down"
                       onClick={() => move(index, 1)}
                       disabled={index === selected.length - 1 || paperLocked}
-                      aria-label="Move down"
-                    >
-                      <Icon name="ph-arrow-down" weight="bold" size="sm" />
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.dangerButton}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={styles.dangerAction}
                       onClick={() => remove(entry.id)}
                       disabled={paperLocked}
-                      aria-label="Remove from paper"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -806,14 +810,14 @@ export default function MockTestForm() {
                       {question.topic?.name ?? '—'} · {question.difficulty} · {question.marks} marks
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className={styles.linkButton}
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => add(question)}
                     disabled={selectedIds.has(question.id) || paperLocked}
                   >
                     {selectedIds.has(question.id) ? 'On paper' : 'Add'}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>

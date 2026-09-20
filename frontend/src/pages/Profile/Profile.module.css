@@ -320,23 +320,40 @@
   flex-wrap: wrap;
 }
 
+/**
+ * "Sign out everywhere". The last of the hand-rolled action buttons (Milestone 26).
+ *
+ * Kept as a class rather than converted, because it is the one on this page whose
+ * *meaning* is the hover: it is quiet until you reach for it, then it turns red. Its
+ * hover used two raw `#dc2626` literals where `--danger-text` / `--danger-soft`
+ * already existed — the only hardcoded colour left on this page.
+ *
+ * Shaped to match `ui/Button variant="ghost"` so it does not read as a fourth kind of
+ * control beside the three real Buttons above it.
+ */
 .secondaryBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 10px 16px;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
   color: var(--text-muted);
-  font-weight: 600;
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
   font-size: var(--text-base);
+  letter-spacing: var(--tracking-snug);
   cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 
 .secondaryBtn:hover {
-  border-color: #dc2626;
-  color: #dc2626;
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 .divider {

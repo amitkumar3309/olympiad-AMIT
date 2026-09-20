@@ -730,30 +730,46 @@ export default function Questions() {
                 </div>
               )}
 
+              {/* `ui/Button` / `ButtonLink` (Milestone 26) — `.linkButton` and
+                  `.dangerButton` were two more copies of the compact admin action
+                  button. `ButtonLink` for Edit, because a destination must be an `<a>`:
+                  a `<button>` that calls `navigate()` loses middle-click, ctrl-click
+                  and "copy link". */}
               <div className={styles.actions}>
-                <button type="button" className={styles.linkButton} onClick={() => setExpandedId(expandedId === question.id ? '' : question.id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  iconAfter={expandedId === question.id ? 'ph-caret-up' : 'ph-caret-down'}
+                  onClick={() => setExpandedId(expandedId === question.id ? '' : question.id)}
+                >
                   {expandedId === question.id ? 'Hide answer & solution' : 'Show answer & solution'}
-                </button>
-                <Link to={`/admin/questions/${question.id}/edit`} className={styles.linkButton}>
+                </Button>
+                <ButtonLink to={`/admin/questions/${question.id}/edit`} variant="secondary" size="sm">
                   Edit
-                </Link>
+                </ButtonLink>
                 {NEXT_STATUSES[question.status].map((next) => (
-                  <button
+                  <Button
                     key={next}
-                    type="button"
-                    className={styles.linkButton}
+                    variant="secondary"
+                    size="sm"
                     disabled={busyId === question.id}
                     onClick={() => void changeStatus(question, next)}
                   >
                     {next === 'draft' && question.status === 'archived' ? 'Restore to draft' : `Move to ${QUESTION_STATUS_LABELS[next].toLowerCase()}`}
-                  </button>
+                  </Button>
                 ))}
                 {/* Offered only for a draft that has never been published — the same
                     rule the backend enforces, so the button is not a dead end. */}
                 {canDelete && question.status !== 'published' && !question.publishedAt && (
-                  <button type="button" className={styles.dangerButton} disabled={busyId === question.id} onClick={() => void remove(question)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={styles.dangerAction}
+                    disabled={busyId === question.id}
+                    onClick={() => void remove(question)}
+                  >
                     Delete
-                  </button>
+                  </Button>
                 )}
               </div>
             </li>

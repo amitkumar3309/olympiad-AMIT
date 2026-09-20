@@ -29,7 +29,7 @@
 }
 
 .engine[data-kind='model'] {
-  border-color: var(--royal-blue);
+  border-color: var(--primary);
   color: var(--primary-text);
 }
 
@@ -93,7 +93,7 @@
 }
 
 .neutral {
-  border-left-color: var(--royal-blue);
+  border-left-color: var(--primary);
 }
 
 .cardHead {

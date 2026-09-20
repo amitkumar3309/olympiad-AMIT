@@ -41,5 +41,5 @@
 }
 
 .link:hover {
-  background: var(--royal-blue-dark);
+  background: var(--primary-hover);
 }

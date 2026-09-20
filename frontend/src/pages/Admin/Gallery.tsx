@@ -239,9 +239,9 @@ export default function Gallery() {
             <option value="published">Published</option>
             <option value="archived">Archived</option>
           </select>
-          <button type="submit" className={styles.searchBtn}>
+          <Button type="submit" variant="secondary" size="sm">
             Search
-          </button>
+          </Button>
         </form>
 
         {notice && <p className={styles.notice}>{notice}</p>}
@@ -273,16 +273,27 @@ export default function Gallery() {
                     {item.displayOrder}
                   </span>
                   <span className={styles.tileActions}>
-                    <button
-                      className={styles.actionBtn}
+                    {/* `ui/Button` (Milestone 26). These were `.actionBtn` / `.dangerBtn`,
+                        one of five near-identical copies of the same control across the
+                        admin pages — all bordered rectangles on the legacy `--royal-blue`.
+                        The component is the only copy now. */}
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       disabled={busyId === item.id}
                       onClick={() => void setStatus(item, item.status === 'published' ? 'archived' : 'published')}
                     >
                       {item.status === 'published' ? 'Archive' : 'Publish'}
-                    </button>
-                    <button className={styles.dangerBtn} disabled={busyId === item.id} onClick={() => void remove(item)}>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busyId === item.id}
+                      onClick={() => void remove(item)}
+                      className={styles.dangerAction}
+                    >
                       Delete
-                    </button>
+                    </Button>
                   </span>
                 </figcaption>
               </figure>

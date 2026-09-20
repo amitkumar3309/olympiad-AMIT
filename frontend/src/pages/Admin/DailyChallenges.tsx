@@ -387,13 +387,15 @@ export default function AdminDailyChallenges() {
                       {question.topic?.name ?? '—'} · {question.difficulty} · {question.marks} marks
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className={styles.linkButton}
+                  {/* `ui/Button` (Milestone 26) — `.linkButton` was one of five
+                      near-identical copies of this control across the admin pages. */}
+                  <Button
+                    variant={questionId === question.id ? 'primary' : 'secondary'}
+                    size="sm"
                     onClick={() => setQuestionId(questionId === question.id ? '' : question.id)}
                   >
                     {questionId === question.id ? 'Chosen' : 'Choose'}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -495,22 +497,23 @@ export default function AdminDailyChallenges() {
                       <span className={styles.dayStat}>A past day is kept as the record of what was set</span>
                     ) : (
                       <>
-                        <button
-                          type="button"
-                          className={styles.linkButton}
+                        <Button
+                          variant="secondary"
+                          size="sm"
                           disabled={busyId === challenge.id || editing?.id === challenge.id}
                           onClick={() => startEditing(challenge)}
                         >
                           {editing?.id === challenge.id ? 'Choosing…' : 'Change question'}
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.dangerButton}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={styles.dangerAction}
                           disabled={busyId === challenge.id}
                           onClick={() => void remove(challenge)}
                         >
                           Clear
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>

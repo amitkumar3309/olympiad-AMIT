@@ -77,19 +77,22 @@
   text-transform: uppercase;
 }
 
-.secondaryBtn {
-  padding: 10px 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-main);
-  font-weight: 600;
-  cursor: pointer;
+/**
+ * `.secondaryBtn`, `.searchBtn`, `.actionBtn` and `.dangerBtn` were deleted in
+ * Milestone 26. Four copies of the same control on one page, and five more across the
+ * other admin pages; `ui/Button` is the only copy now. Every one of them used the
+ * legacy `--royal-blue` alias on hover.
+ *
+ * `.dangerAction` is a **tone** on a ghost `Button`, not a second implementation: a
+ * destructive row action stays quiet until it is hovered.
+ */
+.dangerAction {
+  color: var(--danger-text);
 }
 
-.secondaryBtn:hover:not(:disabled) {
-  border-color: var(--royal-blue);
-  color: var(--primary-text);
+.dangerAction:hover:not(:disabled) {
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 .filters {
@@ -103,16 +106,6 @@
 .filters select {
   flex: 1 1 180px;
   min-width: 0;
-}
-
-.searchBtn {
-  padding: 8px 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-main);
-  font-weight: 600;
-  cursor: pointer;
 }
 
 .notice {
@@ -192,40 +185,6 @@
 .rowActions {
   display: flex;
   gap: 8px;
-}
-
-.actionBtn,
-.dangerBtn {
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: none;
-  color: var(--text-main);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.actionBtn:hover:not(:disabled) {
-  border-color: var(--royal-blue);
-  color: var(--primary-text);
-}
-
-.dangerBtn {
-  border-color: var(--danger);
-  color: var(--danger-text);
-}
-
-.dangerBtn:hover:not(:disabled) {
-  background: var(--danger-solid);
-  color: var(--danger-on);
-}
-
-.actionBtn:disabled,
-.dangerBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .pager {

@@ -217,14 +217,16 @@ export default function Taxonomy() {
                       {subtopics.length} subtopic{subtopics.length === 1 ? '' : 's'}
                     </span>
                   )}
-                  <button
-                    type="button"
-                    className={styles.linkButton}
+                  {/* `ui/Button` (Milestone 26) — `.linkButton` was one more copy of the
+                      compact admin action button. */}
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     disabled={busy === topic.id}
                     onClick={() => void setTopicStatus(topic, topic.status === 'archived' ? 'active' : 'archived')}
                   >
                     {topic.status === 'archived' ? 'Reactivate' : 'Archive'}
-                  </button>
+                  </Button>
                 </div>
 
                 {subtopics.length > 0 && (
@@ -234,14 +236,14 @@ export default function Taxonomy() {
                         <div className={styles.topicRow}>
                           <span className={styles.subtopicName}>{sub.name}</span>
                           {sub.status === 'archived' && <span className={styles.archivedBadge}>archived</span>}
-                          <button
-                            type="button"
-                            className={styles.linkButton}
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             disabled={busy === sub.id}
                             onClick={() => void setTopicStatus(sub, sub.status === 'archived' ? 'active' : 'archived')}
                           >
                             {sub.status === 'archived' ? 'Reactivate' : 'Archive'}
-                          </button>
+                          </Button>
                         </div>
                       </li>
                     ))}
