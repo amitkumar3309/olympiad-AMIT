@@ -25,11 +25,12 @@
 .loginCard {
   width: 100%;
   max-width: 26rem;
-  padding: clamp(var(--space-5), 5vw, var(--space-8));
+  padding: clamp(var(--space-6), 5vw, var(--space-10));
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  /* The new card treatment (Milestone 26) — see the note in `Card.module.css`. */
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
 }
 
 .loginIcon {
@@ -81,25 +82,29 @@
   margin-bottom: var(--space-6);
 }
 
+/* A shortcut tile. Smaller radius and a lighter lift than a full card, because these
+   sit four-up in a row above one — large outside, small inside. */
 .quickCard {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  min-height: 68px;
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-4);
+  min-height: 76px;
+  padding: var(--space-4) var(--space-5);
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   text-decoration: none;
   transition:
-    border-color var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
 }
 
+/* The shadow deepens and the tile rises 1px — not the 4–6px lift that makes a grid of
+   cards jump around under a moving pointer. A transform, so nothing around it reflows. */
 .quickCard:hover {
-  border-color: var(--primary-border);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
 }
 
 .quickIcon {

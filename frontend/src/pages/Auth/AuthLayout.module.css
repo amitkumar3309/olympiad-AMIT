@@ -25,11 +25,13 @@
   /* A measure, not a breakpoint: 30rem is about 60 characters of the lead paragraph,
      and the form fields inside are full width at every size. */
   max-width: 30rem;
-  padding: clamp(var(--space-5), 5vw, var(--space-8));
+  padding: clamp(var(--space-6), 5vw, var(--space-10));
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  /* The new card treatment (Milestone 26): no visible border, the card radius, the
+     lifting shadow. See the note in `Card.module.css` for `--card-border`. */
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
 }
 
 .title {

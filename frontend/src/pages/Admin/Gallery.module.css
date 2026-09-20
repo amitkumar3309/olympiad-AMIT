@@ -66,12 +66,15 @@
   gap: 16px;
 }
 
+/* Matches the public gallery's tile — the same photograph on two pages should not be
+   in two different frames. */
 .tile {
   margin: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .tile.busy {

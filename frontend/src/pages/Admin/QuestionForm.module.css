@@ -128,11 +128,14 @@
   color: var(--text-muted);
 }
 
+/* The live preview of the question being written. A card, because it is showing the
+   examiner the thing a student will see — and a student sees it on a card. */
 .previewCard {
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
   background: var(--surface);
+  box-shadow: var(--shadow-md);
   min-height: 160px;
 }
 

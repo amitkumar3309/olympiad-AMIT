@@ -1,9 +1,12 @@
+/* The registration card, on the new surface treatment (Milestone 26): no visible
+   border, the card radius, and the lifting shadow. `--card-border` is transparent in
+   the light theme and a hairline in the dark one — see the note in `Card.module.css`. */
 .card {
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  padding: clamp(var(--space-4), 4vw, var(--space-8));
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  padding: clamp(var(--space-6), 4vw, var(--space-10));
 }
 
 .heading {
@@ -121,15 +124,16 @@
   }
 }
 
+/* Nested inside the card, so it is an inset tint with a *smaller* radius and no
+   border — large outside, small inside. */
 .photoPreview {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   margin-top: var(--space-3);
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-subtle);
 }
 
 .photoPreview img {
@@ -171,15 +175,21 @@
   gap: var(--space-5);
 }
 
+/**
+ * The validation summary — a nested inset, like `.photoPreview`.
+ *
+ * It keeps its own left border in the `danger` state further down this file, which is
+ * the one place a drawn line is still doing work here: a list of problems has to be
+ * distinguishable from a list of hints without relying on the colour alone.
+ */
 .summary {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   margin: 0;
   padding: var(--space-4);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  background: var(--fill-subtle);
 }
 
 .summaryRow {

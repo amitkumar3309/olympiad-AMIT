@@ -32,12 +32,15 @@
   gap: 20px;
 }
 
+/* A photograph tile on the new surface treatment: no border, a real lift, and enough
+   radius that the image inside is visibly cropped to it (`overflow: hidden`). */
 .tile {
   margin: 0;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .tile button {

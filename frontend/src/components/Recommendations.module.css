@@ -68,12 +68,20 @@
   gap: 10px;
 }
 
+/**
+ * One recommendation.
+ *
+ * The **left border stays** and the surrounding one goes. That 3px edge is not
+ * decoration — it is recoloured per finding type by the rules below (`.weak`,
+ * `.strong`, …), so it is the one place in this component where a drawn line is
+ * carrying information rather than drawing a box. On an inset tint it reads more
+ * clearly than it did inside a full border.
+ */
 .card {
-  border: 1px solid var(--border);
   border-left: 3px solid var(--text-muted);
-  border-radius: var(--radius-sm);
-  padding: 14px 16px;
-  background: var(--bg);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
+  background: var(--fill-subtle);
 }
 
 .weak {

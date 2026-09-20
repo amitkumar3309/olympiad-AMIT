@@ -51,15 +51,27 @@
   gap: 12px;
 }
 
+/* One notice in the inbox. A read row is a quiet inset; an unread one is marked by a
+   left edge *and* a raised surface, so "unread" does not depend on telling two tints
+   apart. */
 .item {
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--fill-subtle);
 }
 
+/**
+ * Unread.
+ *
+ * `--primary` and `--surface`, not the hardcoded `rgba(56,189,248,.05)` sky blue this
+ * carried — that literal pre-dated the token layer, was the only one of its colour in
+ * the product, and did not follow the theme. The row now *lifts* rather than tinting,
+ * which is the same signal the rest of the redesign uses for "this one is different".
+ */
 .unreadItem {
-  border-left: 3px solid var(--royal-blue);
-  background: rgba(56, 189, 248, 0.05);
+  border-left: 3px solid var(--primary);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .item.busy {

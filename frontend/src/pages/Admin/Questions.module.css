@@ -24,15 +24,18 @@
 }
 
 /* auto-fit keeps the filter bar one column on a phone with no media query. */
+/* The filter bar is a card in its own right — it sits above the list rather than in
+   it, and on the new surface treatment that means a lift rather than a drawn box. */
 .filters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 10px;
-  padding: 14px;
-  margin-bottom: 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: var(--space-3);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
   background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .sortRow {
@@ -137,11 +140,13 @@
   gap: 14px;
 }
 
+/* One question in the bank. A record rather than a comparison, so it is a real card. */
 .card {
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
   background: var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .busy {

@@ -31,25 +31,31 @@
   gap: var(--space-3);
 }
 
+/**
+ * The "what to do next" tiles at the top of the dashboard, on the new surface
+ * treatment (Milestone 26): no visible border, a lifting shadow, and a smaller radius
+ * than a full card because these sit in a row above several.
+ */
 .actionCard {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  min-height: 76px;
-  padding: var(--space-4);
+  gap: var(--space-4);
+  min-height: 84px;
+  padding: var(--space-5);
   background: var(--surface);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   text-decoration: none;
   transition:
-    border-color var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
+    box-shadow var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
 }
 
+/* 1px, not 4–6px: a grid of cards that jumps under a moving pointer is decoration. */
 .actionCard:hover {
-  border-color: var(--primary-border);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
 }
 
 .actionIcon {
