@@ -247,7 +247,7 @@
   gap: var(--space-3);
   margin-bottom: var(--space-4);
   padding: var(--space-3) 0;
-  background: var(--bg);
+  background: var(--fill-subtle);
 }
 
 @media (min-width: 560px) {

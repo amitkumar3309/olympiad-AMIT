@@ -56,7 +56,7 @@
   margin-bottom: 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--fill-subtle);
 }
 
 .exportSummary {
@@ -130,7 +130,7 @@
 .photoFallback {
   display: grid;
   place-items: center;
-  background: var(--bg);
+  background: var(--fill-subtle);
   color: var(--text-muted);
   font-weight: 600;
 }

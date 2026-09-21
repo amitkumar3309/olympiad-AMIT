@@ -67,7 +67,7 @@
   margin: 12px 0 16px;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--fill-subtle);
   font-size: var(--text-sm);
   line-height: 1.6;
   color: var(--text-muted);

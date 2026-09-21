@@ -573,7 +573,14 @@
    * the screen two competing frames, and the reader has to work out which one the
    * content is in. Navigation is chrome: it belongs to the window, so it shares the
    * window's colour and is separated by one hairline. Everything that *is* content
-   * then reads as raised — which is the hierarchy the shadow-based cards want.
+   * then reads as raised.
+   *
+   * Milestone 27 changed the mechanism and not the outcome. That last sentence used to
+   * say "which is the hierarchy the shadow-based cards want"; cards have no shadow now,
+   * and the hierarchy is carried by fill instead — the sidebar and the content area are
+   * both the cream page, and a card is white on top of it. So this rule still holds for
+   * the same reason, by a different means, which is worth saying rather than leaving a
+   * comment that argues from something that no longer exists.
    */
   .sidebar {
     position: sticky;

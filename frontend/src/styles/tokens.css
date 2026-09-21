@@ -646,6 +646,23 @@
   --surface-hover: var(--ink-25);
   --surface-active: var(--ink-100);
 
+  /**
+   * **A nested fill is an ALPHA fill, and that is a correctness property rather than
+   * a stylistic one.**
+   *
+   * `--fill-subtle` and `--fill-muted` darken *whatever they sit on*, so a step
+   * against the parent is guaranteed by construction. A surface token cannot promise
+   * that: eighteen declarations across ten files said `background: var(--bg)` to mean
+   * "a recessed inset inside a card", which worked while `--bg` was a near-white
+   * `--ink-25` against a white `--surface` — and in Milestone 27 `--bg` became the
+   * page itself, so every one of those sitting on the page rather than in a card
+   * collapsed to **1.00:1 against its own parent**: an invisible surface, with nothing
+   * to error on.
+   *
+   * So: `--bg` and `--bg-subtle` are for an element that **is** a page or a
+   * full-bleed band. Anything nested inside a surface uses one of these two. The rule
+   * survives the next re-point, which a hand-picked pair of surface tokens would not.
+   */
   --fill-subtle: rgba(20, 38, 29, 0.05);
   --fill-muted: rgba(20, 38, 29, 0.1);
   --surface-translucent: rgba(244, 240, 229, 0.82);

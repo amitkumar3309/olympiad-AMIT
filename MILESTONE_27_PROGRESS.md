@@ -180,6 +180,73 @@ surface" has one definition instead of two that can drift.
 | Overflow at 1280px | **0px** |
 | Contrast at 320px, dark | 0 failures / 182 nodes |
 
+## Phase 4 — the correctness sweep (done)
+
+Eighteen declarations across ten files, plus the rationale on two comments that had
+started arguing from something that no longer exists.
+
+### The one real defect class: `--bg` used as an inset
+
+Ten files said `background: var(--bg)` to mean "a recessed area inside a card". That
+worked while `--bg` was a near-white `--ink-25` against a white `--surface`. Now `--bg`
+**is** the page, so every one of those sitting on the page rather than inside a card
+collapsed to **1.00:1 against its own parent** — an invisible surface, with nothing to
+error on.
+
+All eighteen became `--fill-subtle`, and the rule is now written where the tokens are
+declared: **a nested fill is an alpha fill.** `--fill-subtle` and `--fill-muted` darken
+whatever they sit on, so a step against the parent is guaranteed by construction; a
+surface token cannot promise that. `--bg` and `--bg-subtle` are for an element that *is*
+a page or a full-bleed band. The rule survives the next re-point, which a hand-picked
+pair of surface tokens would not.
+
+The **seven** remaining `var(--bg)` backgrounds were each checked and are all genuinely
+page-level: `html` / `body` / `#root`, `AppShell`’s `.shell` and `.sidebar`,
+`ForcePasswordChange`’s `.wrap` and `Admin`’s `.loginWrap`. The sidebar is deliberately
+the same colour as the shell, separated by one hairline — its comment justified that by
+"the hierarchy the shadow-based cards want", which stopped being true in phase 2, so it
+now explains the fill-based version of the same argument.
+
+### A local backend, which is what made this verifiable
+
+The earlier phases could only sweep guest and error states. This machine turns out to
+have **MongoDB 8.3 listening on 127.0.0.1:27017**, so `npm run dev:local --prefix
+backend` gives a real API, and `scripts/seed-demo.ts` already had a Class 9 student
+provisioned (`demo.class9@amit.test` / `Demo@1234`, entry fee captured, 73 published
+questions). Only today’s daily challenge needed writing.
+
+**There is no `backend/.env` in this checkout**, which is worth knowing because
+`CLAUDE.md` warns at length that it holds the production Atlas URI. It does not exist
+here, so `MONGO_URI` falls back to its localhost default and there is no way for a seed
+to reach production. `dev:local` targets `amit-olympiad-local` while that default is
+`amit-olympiad` — a seed must be given `MONGO_URI` explicitly or it stocks a *different*
+local database and reports success, which is the same shape as the bug `envGuard.ts`
+was written for.
+
+Admin sweeps used the `dev:local` root account (`root@localhost` / `LocalDevAdmin9`).
+Note `/auth/admin/login` takes **`email`**, not the `identifier` the student route
+takes.
+
+### Verified — 23 routes, both themes
+
+0 WCAG AA failures and 0px page overflow on every route below, in **both** themes, with
+transitions disabled. Roughly **2,030 text nodes** in total.
+
+| Group | Routes swept | Text nodes |
+|---|---|---|
+| Public | `/` 166, `/leaderboard` 42, `/hall-of-fame` 31, `/gallery` 31 | 270 |
+| Student | `/dashboard` 94, `/rewards` 128, `/profile` 83, `/analytics` 71, `/daily-challenge` 66, `/mock-tests` 49, `/practice` 48, `/referrals` 48, `/payment` 41, `/notifications` 37, `/my-certificates` 32 | 697 |
+| Admin | `/admin/daily-challenges` 462, `/admin/users` 111, `/ai-generator` 76, `/admin/payments` 72, `/admin/system` 71, `/admin/questions/import` 67, `/admin/referrals` 56, `/admin/mock-tests` 50 | 965 |
+
+Also swept at **320px**: `/`, `/admin/daily-challenges` (427 nodes), `/admin/users`,
+`/admin/questions/import` — 0 overflow, 0 failures. And `/` at 1280px.
+
+**Coverage is 23 of 56 declared routes, and the gap is not nothing.** Unswept: most of
+the remaining admin console, and every parameterised route (`/practice/:sessionId`,
+`/exam/:attemptId`, `/mock-tests/attempts/:attemptId`, `/admin/questions/:id/edit`,
+`/result`, `/certificate`) which needs data a seed does not create. The three question
+runners are the most important of those and are **specifically flagged in `CLAUDE.md`**
+as one design in three files.
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)
@@ -189,12 +256,14 @@ surface" has one definition instead of two that can drift.
   called a defect — they may sit on a dark panel — but they are the first thing to look at
   on those two pages. This predates Milestone 27 (gold-400 was a light fill in Milestone 26
   too); it is recorded here because that is where it will be fixed.
-- **Phase 4+ — the remaining 53 routes.** They inherit the tokens already, so they are
-  Brightpath-coloured today; what will be wrong is hardcoded *structure*. Two patterns to
-  grep for specifically, because both are the "silent inversion" the landing page had:
-  **`background: var(--surface)` on something that is a page rather than a card**, and
-  **`background: var(--bg)` used as a tint against a white page**. The second is invisible
-  now by definition.
+- **Phase 5 — restructure the student pages** (owner’s scope decision, 2026-09-21):
+  correctness is done everywhere, and the ~15 student-facing routes now get Brightpath
+  *patterns* — pastel category cards, tinted bands, hard-edged tiles. The admin console
+  gets correctness only, deliberately: the reference is a marketing site with nothing to
+  say about a dense table, and a coloured admin console would be worse rather than better.
+- **The parameterised routes still need a look**, especially the three question runners,
+  which `CLAUDE.md` calls one design in three files — so a change to one is a change to
+  three. Reaching them needs a practice session and a mock attempt created through the UI.
 - **The two sweeps Milestone 26 closed have to be re-run at the end**, on every route
   rather than two of them: 0 WCAG AA failures in both themes, and no horizontal overflow at
   320px and 1280px.

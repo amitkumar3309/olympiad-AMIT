@@ -175,7 +175,7 @@
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--fill-subtle);
 }
 
 .invoiceRowMain {
@@ -334,7 +334,7 @@
   margin-top: 18px;
   padding: 14px;
   border-radius: var(--radius-sm);
-  background: var(--bg);
+  background: var(--fill-subtle);
 }
 
 .invoicePaid {
