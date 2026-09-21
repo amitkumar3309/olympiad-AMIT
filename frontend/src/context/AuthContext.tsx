@@ -68,14 +68,14 @@ interface AuthContextValue {
   hasPaid: boolean
   /** Creates an account and emails a verification link. Does NOT sign the student in. */
   register: (input: RegisterInput) => Promise<RegisterResult>
-  /** `identifier` is the mobile number OR the email address. */
-  login: (identifier: string, password: string) => Promise<Student>
   /**
-   * Signs in at the admin portal as either the root super admin or a promoted
-   * admin. Resolves once the session is established; read `state`/`can()` for who
-   * it turned out to be, since the two identities differ in shape.
+   * Signs in at the one door this product has.
+   *
+   * `identifier` is the mobile number OR the email address. It resolves to the
+   * **role**, because where a session belongs afterwards is a property of the account
+   * rather than of the page the form happened to be opened from.
    */
-  adminLogin: (email: string, password: string) => Promise<void>
+  login: (identifier: string, password: string) => Promise<Role>
   logout: () => Promise<void>
   logoutEverywhere: () => Promise<void>
   /**
@@ -155,47 +155,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return api.post<RegisterResult>('/auth/register', input)
   }, [])
 
-  const login = useCallback(async (identifier: string, password: string) => {
-    const res = await api.post<SessionResponse>('/auth/login', { identifier, password })
-    setState(toAuthState(res))
-    return res.student!
-  }, [])
-
   /**
-   * Signs in at the administrator portal.
+   * Signs in, and resolves to the role so the caller knows where to send them.
    *
-   * Two different identities legitimately sign in there, and they authenticate
-   * against different endpoints:
+   * ## Why there is a second request in here
    *
-   * - the **root** super admin, which exists only in the environment
-   *   (`ADMIN_EMAIL` / `ADMIN_PASSWORD_HASH`), has no database record, and posts to
-   *   `/auth/admin/login`;
-   * - a **promoted** admin, which is an ordinary student account carrying
-   *   `role: 'admin'`, and posts to the normal `/auth/login`.
+   * Two identities legitimately sign in, and they authenticate against different
+   * endpoints. A **promoted** admin is an ordinary student account carrying
+   * `role: 'admin'`, and uses `/auth/login` like everybody else. The **bootstrap**
+   * super administrator does not: `/auth/login` refuses it deliberately, and
+   * authentication happens at `/auth/admin/login`.
    *
-   * Requiring the promoted admin to know that distinction was a trap: the portal
-   * answered their perfectly correct credentials with "Invalid admin credentials",
-   * which reads as a broken account rather than as the wrong door. So we try the
-   * root endpoint first — it is stateless and touches no account — and fall back to
-   * the ordinary login when it reports that these are not the root credentials.
+   * Until Milestone 27 the reader was made to know that. There were two sign-in forms,
+   * and the administrator's was advertised in the footer of every public page —
+   * so the product told every visitor where its admin door was, and told a promoted
+   * admin who used it "Invalid admin credentials", which reads as a broken account
+   * rather than as the wrong door.
    *
-   * The fallback reveals nothing: `/auth/login` returns the same generic failure for
-   * an unknown account as for a wrong password, and an account that turns out to
-   * hold no administrative permission simply lands on the portal's "this area is for
-   * administrators" state.
+   * There is one form now. On `ADMIN_PORTAL_REQUIRED` the same credentials are
+   * re-posted to the admin route and the reader simply ends up signed in. The retry is
+   * safe precisely because of *when* the server answers that code: only once the
+   * password is already correct, so it is never returned to somebody who is guessing,
+   * and a wrong password is a 401 on the first call that is never retried. It
+   * therefore costs one extra request for one account in the product and nothing at
+   * all for anybody else.
+   *
+   * If the retry itself fails — the bootstrap account is addressed by the configured
+   * **email**, so signing in as it by mobile number cannot work — that failure is
+   * reported as itself rather than papered over. It is not reachable in practice:
+   * staff are provisioned without a mobile number.
    */
-  const adminLogin = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string): Promise<Role> => {
+    let res: SessionResponse
     try {
-      setState(toAuthState(await api.post<SessionResponse>('/auth/admin/login', { email, password })))
-      return
+      res = await api.post<SessionResponse>('/auth/login', { identifier, password })
     } catch (err) {
-      // Only "those are not the root credentials" is worth a second attempt. A 500
-      // from an unconfigured root account, or a network failure, is the real answer.
-      if (!(err instanceof ApiError) || err.status !== 401) throw err
+      if (!(err instanceof ApiError) || err.code !== 'ADMIN_PORTAL_REQUIRED') throw err
+      res = await api.post<SessionResponse>('/auth/admin/login', { email: identifier, password })
     }
-    // `identifier` accepts an email or a mobile number, so a promoted admin can use
-    // whichever they sign in with everywhere else.
-    setState(toAuthState(await api.post<SessionResponse>('/auth/login', { identifier: email, password })))
+    setState(toAuthState(res))
+    return res.role
   }, [])
 
   const logout = useCallback(async () => {
@@ -254,7 +253,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasPaid,
         register,
         login,
-        adminLogin,
         logout,
         logoutEverywhere,
         refreshSession: loadSession,

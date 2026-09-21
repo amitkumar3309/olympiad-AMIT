@@ -742,15 +742,26 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
     }
 
     /**
-     * The bootstrap super administrator is **staff, not an entrant**, and signs in
-     * only at the administrator portal. It has no class, no school and no photo, so
-     * a student session would drop it into a dashboard built for a competitor — and
-     * the public login form is the most-attacked surface in the product, which is
-     * not where the most privileged account in the system should be reachable.
+     * The bootstrap super administrator is **staff, not an entrant**, and authenticates
+     * at `/auth/admin/login`. It has no class, no school and no photo, so a student
+     * session would drop it into a dashboard built for a competitor — and this route is
+     * the most-attacked surface in the product, which is not where the most privileged
+     * account in the system should be reachable.
      *
      * A *promoted* admin is unaffected: it really is a student who was given extra
-     * capability, and this is its normal way in (the `/admin` portal falls back to
-     * this route for exactly that reason).
+     * capability, and this is its normal way in.
+     *
+     * `ADMIN_PORTAL_REQUIRED` is what makes that split invisible to the reader
+     * (Milestone 27). There is one sign-in form in the product now, and on this code it
+     * silently re-posts to the admin route rather than showing anybody a message about a
+     * portal they were not looking for. The frontend must branch on the **code** and not
+     * on this sentence, which is why the code exists at all.
+     *
+     * The refusal stays **after** the password check, which is the property that matters:
+     * a caller who does not already hold the password gets the same generic failure here
+     * as for any other wrong guess, so this is not an account-enumeration oracle pointing
+     * at the super administrator. Moving it earlier would break that, whatever the client
+     * does with the code.
      */
     const staffOnly: AuthFailure | null =
       student.role === 'superadmin'
@@ -758,6 +769,7 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
             ok: false,
             status: 403,
             message: 'Administrator accounts sign in from the administrator portal at /admin.',
+            code: 'ADMIN_PORTAL_REQUIRED',
           }
         : null;
 

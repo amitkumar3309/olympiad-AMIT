@@ -87,7 +87,7 @@ interface Overview {
 }
 
 export default function Admin() {
-  const { state, can, adminLogin } = useAuth()
+  const { state, can, login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -151,7 +151,7 @@ export default function Admin() {
     setError('')
     setSubmitting(true)
     try {
-      await adminLogin(email.trim(), password)
+      await login(email.trim(), password)
     } catch (err) {
       setError(humanizeSignInError(err))
     } finally {
