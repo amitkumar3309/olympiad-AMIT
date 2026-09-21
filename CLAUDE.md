@@ -276,6 +276,25 @@ look wrong however carefully it is tokenised — read them before touching a sur
   measure its gradient endpoints instead (**18.73** and **15.17** on black). Do not
   reintroduce the warm cream text ramp: `#f0ece1` on a blue card reads as a yellow cast, and
   because the ramp's steps are alphas that cast would reach every muted label in the product.
+- **The theme follows the operating system on a first visit** (owner, 2026-09-21, reversing
+  the earlier hardcoded light default). Precedence in `ThemeContext`: an explicit choice in
+  `localStorage` always wins, otherwise `prefers-color-scheme`, otherwise light. The OS is
+  also followed **live** while no explicit choice exists. The old rule — light always, OS
+  ignored, so support could reason about screenshots — produced exactly the confusing case
+  that got it reversed: a device set to dark, a site that stayed light, and nothing
+  indicating a dark theme existed. **When verifying a theme, kill transitions first**: the
+  class is applied in an effect after first paint, so `getComputedStyle` reports the *old*
+  background mid-transition — this reported a white `body` under `.theme-dark` during the
+  very change that introduced it.
+- **Landing-page icons animate continuously, and the loop is on the GLYPH while the hover is
+  on the TILE.** An `animation` beats a `transition` on the same property, so both on one
+  element means the hover silently never applies; `IconTile` gives two elements for exactly
+  this. The first version was hover-only and was effectively invisible — nobody hovers a
+  marketing page deliberately, and **a phone has no hover at all**. The loops are
+  **transform-only** with small amplitudes (3–4px, 4–5°) over `--dur-idle`, staggered by
+  negative delays. Transform-only is the same rule as everywhere else: a loop that never
+  runs leaves the icon where it was, whereas an opacity or entrance animation that never
+  runs leaves content invisible. Do not animate `opacity` here, and do not add an entrance.
 - **The interactive steps are deliberately NOT white, and that is not an oversight.**
   `--surface-hover`, `--surface-active` and `--surface-sunken` are the faintest steps of the
   brand blue (`--royal-25` / `--royal-50`). White versions of those three are the same as

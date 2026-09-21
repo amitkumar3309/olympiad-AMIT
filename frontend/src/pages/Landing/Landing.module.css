@@ -530,97 +530,220 @@
 /**
  * Icon animation on the landing page (Milestone 28).
  *
- * ## Why this is CSS rather than an animated-icon library
+ * ## Why CSS rather than an animated-icon library
  *
  * The owner asked for animated icons and named a React icon library. This product's
  * icons are **Phosphor as a webfont**, reached only through `ui/Icon`, and CLAUDE.md
  * forbids a second icon library — installing one would also have left this page's
- * glyphs looking different from the ~50 other pages that keep using Phosphor. The
- * owner chose this route once that was pointed out (2026-09-21). It needs no
- * dependency and no bundle.
+ * glyphs looking unlike the ~50 other pages still on Phosphor. The owner chose this
+ * route once that was pointed out. No dependency, no bundle cost.
  *
- * ## The one rule these obey: TRANSFORM ONLY, and only on interaction
+ * ## They loop, and the first version was wrong to make them hover-only
  *
- * Nothing here animates `opacity`, and there are no entrance animations. That is
- * deliberate and it is the standing rule in CLAUDE.md about work delivered with the
- * browser's rendering steps: **a CSS animation may never run in a tab that is not
- * compositing.** A fade-in that never fires leaves the content *invisible* — a real
- * failure — whereas a hover transform that never fires leaves the icon exactly as it
- * already was. So every effect below is additive: the page is complete and correct
- * with all of it switched off.
+ * The first attempt animated on hover alone. It was invisible: nobody hovers a
+ * marketing page deliberately, and on a phone there is **no hover at all**, so on the
+ * device most visitors use there was no animation whatsoever. These run continuously.
  *
- * `prefers-reduced-motion` needs nothing here either — `base.css` already flattens
- * every transition and animation in the application with `!important`.
+ * ## The rule they all obey: TRANSFORM ONLY
  *
- * Durations and curves come from the motion tokens; nothing below hardcodes a value.
+ * Nothing here animates `opacity`, and there are no entrance animations. That is the
+ * standing rule in CLAUDE.md about work delivered with the browser's rendering steps:
+ * **a CSS animation may never run in a tab that is not compositing.** A fade-in that
+ * never fires leaves content *invisible* — a real failure. A transform loop that never
+ * fires leaves the icon exactly where it already was. Every effect here is additive:
+ * the page is complete and correct with all of it switched off, which is also exactly
+ * what a reader with `prefers-reduced-motion` gets, since `base.css` already flattens
+ * every animation in the application with `!important`.
+ *
+ * Transform is also the cheap property — it composites without layout or paint, so a
+ * dozen looping icons cost nothing measurable.
+ *
+ * ## Amplitudes are small on purpose
+ *
+ * 3–4px and 4–5 degrees, over `--dur-idle`. Something that moves forever has to stay
+ * under "did that just move?" or it becomes the only thing on the page. The stagger
+ * delays below are literal because they are offsets that stop twelve icons marching in
+ * lockstep — a per-element layout detail, not a design duration.
+ *
+ * ## Why the loop is on the GLYPH and the hover is on the TILE
+ *
+ * An `animation` beats a `transition` on the same property, so putting both on one
+ * element means the hover silently never applies. `IconTile` renders
+ * `<span class="tile"><i class="ph-…"></i></span>`, which gives two elements: the
+ * **glyph loops**, the **tile answers the pointer**. Keep them separate.
  */
 
-/* The tile inside a feature card and an outcome block. Lifts and tilts very slightly
-   as the eye arrives, so the colour reads as a thing rather than a swatch. */
+@keyframes iconFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes iconSway {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+@keyframes iconPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.09);
+  }
+}
+
+@keyframes iconBob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  30% {
+    transform: translateY(-4px) rotate(-4deg);
+  }
+  65% {
+    transform: translateY(-1px) rotate(4deg);
+  }
+}
+
+/* A Phosphor glyph is an `<i>`, which is inline — an inline box cannot be transformed,
+   so every animated glyph needs this. Missing it is why an animation can look like it
+   simply did not apply. */
+.feature > span i,
+.outcome > span i,
+.kicker i,
+.heroFacts li i,
+.steps h3 i,
+.statGrid i,
+.championMedal {
+  display: inline-block;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+
+/* The four feature tiles. `iconBob` is the fullest movement on the page, because this
+   is the section the eye lands on first. */
+.feature > span i {
+  animation-name: iconBob;
+  animation-duration: var(--dur-idle);
+}
+
+.featureGrid > *:nth-child(2) > span i {
+  animation-delay: -0.9s;
+}
+
+.featureGrid > *:nth-child(3) > span i {
+  animation-delay: -1.8s;
+}
+
+.featureGrid > *:nth-child(4) > span i {
+  animation-delay: -2.7s;
+}
+
+/* The three outcomes. A plain float — this section is further down and quieter. */
+.outcome > span i {
+  animation-name: iconFloat;
+  animation-duration: var(--dur-idle-slow);
+}
+
+.outcomeGrid > *:nth-child(2) > span i {
+  animation-delay: -1.6s;
+}
+
+.outcomeGrid > *:nth-child(3) > span i {
+  animation-delay: -3.2s;
+}
+
+/* The step markers and the glyph beside each step heading. */
+.stepNumber {
+  animation: iconPulse var(--dur-idle-slow) ease-in-out infinite;
+}
+
+.steps li:nth-child(2) .stepNumber,
+.steps li:nth-child(2) h3 i {
+  animation-delay: -1.2s;
+}
+
+.steps li:nth-child(3) .stepNumber,
+.steps li:nth-child(3) h3 i {
+  animation-delay: -2.4s;
+}
+
+.steps li:nth-child(4) .stepNumber,
+.steps li:nth-child(4) h3 i {
+  animation-delay: -3.6s;
+}
+
+.steps h3 i {
+  animation-name: iconFloat;
+  animation-duration: var(--dur-idle);
+}
+
+/* The hero. The eyebrow's medal swings; the three facts float out of step. */
+.kicker i {
+  animation-name: iconSway;
+  animation-duration: var(--dur-idle-slow);
+}
+
+.heroFacts li i {
+  animation-name: iconFloat;
+  animation-duration: var(--dur-idle);
+}
+
+.heroFacts li:nth-child(2) i {
+  animation-delay: -1.2s;
+}
+
+.heroFacts li:nth-child(3) i {
+  animation-delay: -2.4s;
+}
+
+/* Participation figures and the podium medal. `.statGrid i` reaches inside
+   `ui/StatTile` without this page needing to know that component's class names. */
+.statGrid i {
+  animation-name: iconPulse;
+  animation-duration: var(--dur-idle-slow);
+}
+
+.statGrid > *:nth-child(2) i {
+  animation-delay: -1.25s;
+}
+
+.statGrid > *:nth-child(3) i {
+  animation-delay: -2.5s;
+}
+
+.statGrid > *:nth-child(4) i {
+  animation-delay: -3.75s;
+}
+
+.championMedal {
+  animation-name: iconSway;
+  animation-duration: var(--dur-idle-slow);
+}
+
+/**
+ * The pointer response, on the TILE rather than the glyph — see the note above about
+ * an animation beating a transition. The tile lifts and tips while the glyph keeps
+ * looping inside it.
+ */
 .feature > span:first-child,
 .outcome > span:first-child {
-  transition:
-    transform var(--dur) var(--ease-out),
-    box-shadow var(--dur) var(--ease-out);
+  transition: transform var(--dur) var(--ease-out);
 }
 
 .feature:hover > span:first-child,
 .feature:focus-within > span:first-child,
 .outcome:hover > span:first-child {
-  transform: translateY(-3px) rotate(-5deg) scale(1.06);
-}
-
-/* The glyph itself counter-rotates a touch, so the icon stays upright while its tile
-   tips — the tile moves, the symbol only settles. */
-.feature > span:first-child i,
-.outcome > span:first-child i {
-  transition: transform var(--dur) var(--ease-out);
-}
-
-.feature:hover > span:first-child i,
-.feature:focus-within > span:first-child i,
-.outcome:hover > span:first-child i {
-  transform: rotate(5deg) scale(1.04);
-}
-
-/* The numbered step markers, and the small glyph beside each step heading. */
-.stepNumber,
-.steps h3 i {
-  transition: transform var(--dur) var(--ease-out);
-}
-
-.steps li:hover .stepNumber {
-  transform: translateY(-2px) scale(1.08);
-}
-
-.steps li:hover h3 i {
-  transform: translateX(2px);
-}
-
-/* The three facts under the hero, and the eyebrow's medal. A nudge, nothing more —
-   these sit next to the first thing anybody reads. */
-.kicker i,
-.heroFacts li i {
-  display: inline-block;
-  transition: transform var(--dur) var(--ease-out);
-}
-
-.kicker:hover i {
-  transform: rotate(-12deg) scale(1.12);
-}
-
-.heroFacts li:hover i {
-  transform: translateY(-2px) scale(1.12);
-}
-
-/* Participation figures and the podium medal. `.statGrid i` reaches the icon inside
-   `ui/StatTile` without this page needing to know that component's class names. */
-.statGrid i,
-.championMedal {
-  transition: transform var(--dur) var(--ease-out);
-}
-
-.statGrid > *:hover i,
-.champion:hover .championMedal {
-  transform: translateY(-2px) scale(1.1);
+  transform: translateY(-3px) scale(1.06);
 }

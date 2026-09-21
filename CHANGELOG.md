@@ -122,6 +122,34 @@ Verified in a browser: signed out, `/admin` lands on `/#login` with one dialog a
 superadmin session lands on `/admin`; a student session lands on `/dashboard`. The generic
 `Invalid credentials.` message is unchanged, so no error reveals a role.
 
+### The theme follows the OS, and the landing icons actually move
+
+Two corrections after the owner reported not seeing either change on the live site. Both
+had shipped; neither was reachable.
+
+**The theme now follows `prefers-color-scheme` on a first visit.** It was hardcoded to light
+and deliberately ignored the OS, so a device set to dark still got a light site and nothing
+hinted that a dark theme existed — the owner's report was "the dark theme is not updated"
+when it had in fact deployed correctly. Precedence: an explicit choice in `localStorage`
+always wins, otherwise the OS, otherwise light; the OS is followed live while no choice
+exists. Worth knowing when checking this: the theme class is applied in an effect after
+first paint, so `getComputedStyle` reports the *old* background mid-transition — the first
+verification of this change reported a white `body` under `.theme-dark`.
+
+**The landing-page icons loop instead of animating on hover.** The first version was
+hover-only, which is effectively invisible: nobody hovers a marketing page deliberately and
+**a phone has no hover at all**. Eight groups now animate continuously — feature tiles
+(`iconBob`), outcome tiles and hero facts (`iconFloat`), step markers and stat tiles
+(`iconPulse`), the hero eyebrow and podium medal (`iconSway`) — staggered by negative delays
+so they do not march in lockstep.
+
+The mechanical catch, recorded because it is easy to hit: **an `animation` beats a
+`transition` on the same property**, so both on one element means the hover silently never
+applies. `IconTile` gives two elements — the glyph loops, the tile answers the pointer.
+Still transform-only with small amplitudes (3–4px, 4–5°) over the new `--dur-idle` /
+`--dur-idle-slow` tokens, for the same reason as before: a loop that never runs leaves the
+icon where it was; an opacity or entrance animation that never runs leaves content invisible.
+
 ### The dark theme: a black page with royal-blue cards
 
 It was a *green* near-black inherited from Brightpath — `--bg: #0f1a14`, cards `#18241d`,

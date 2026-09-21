@@ -107,6 +107,35 @@ remove feedback rather than decoration, which is not what "white background" ask
 are the faintest steps of the brand blue, so the only tint anywhere in the product now
 belongs to the primary. If the request comes again, that is the line.
 
+**Decision 9: the theme follows the operating system, reversing the light default.** The
+earlier decision was light always, `prefers-color-scheme` deliberately ignored, on the
+grounds that two students seeing different colours makes screenshots and support harder to
+reason about. The owner reversed it after hitting the case that reasoning did not cover: a
+device set to dark, a site that stayed light, and **no indication a dark theme existed at
+all** — the owner's own report was "the dark theme is not updated" when in fact it had
+shipped and was simply never reachable without finding the toggle. The support argument was
+also weaker than it looked, since anyone who uses the toggle already creates that divergence.
+
+Precedence is explicit choice → OS → light, and the OS is followed live while no choice
+exists. **A verification note that cost real time here:** the theme class is applied in an
+effect *after* first paint, so `getComputedStyle` reports the pre-transition background —
+the first check of this change reported a white `body` under `.theme-dark`. Kill transitions
+before measuring, which is the same trap `CLAUDE.md` already records for contrast checks.
+
+**Decision 10: landing-page icons loop, and the loop goes on the glyph.** The first
+implementation animated on hover only. It was effectively invisible — nobody hovers a
+marketing page deliberately, and **a phone has no hover at all**, so on the device most
+visitors use there was no animation whatsoever. That is the whole reason it shipped and the
+owner still could not see it.
+
+They loop now, and the mechanical constraint worth recording is that **an `animation` beats a
+`transition` on the same property**: putting both on one element means the hover silently
+never applies. `IconTile` renders a tile wrapping a glyph, which gives two elements — the
+glyph loops, the tile answers the pointer. Everything stays **transform-only** with small
+amplitudes, for the same reason as before: a loop that never runs leaves the icon where it
+already was, whereas an opacity or entrance animation that never runs leaves content
+invisible. `--dur-idle` / `--dur-idle-slow` were added rather than hardcoding seconds.
+
 **Decision 8: the dark theme is a black page with royal-blue cards.** It was a *green*
 near-black (`--bg: #0f1a14`, cards `#18241d`, warm cream text) because it was derived from
 Brightpath, whose whole palette is warm. Once the light theme became white with a royal-blue
