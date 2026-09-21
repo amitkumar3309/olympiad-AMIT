@@ -460,57 +460,61 @@ export default function Landing() {
         </div>
 
         {/* ------------------------------------------------------- Top scholars */}
-        <Section
-          className={`container ${styles.section}`}
-          eyebrow="Standings"
-          title="Top scholars"
-          lead="The highest XP earned so far, straight from the leaderboard."
-        >
-          {champions === null ? (
-            <p className={styles.muted}>Loading the leaderboard…</p>
-          ) : champions.length === 0 ? (
-            <EmptyState
-              icon="ph-trophy"
-              title="Nobody is on the leaderboard yet"
-              description="XP is earned by practising, sitting mock tests and answering the daily challenge. Register below and you could be the first name here."
-            />
-          ) : (
-            <ol className={styles.championGrid}>
-              {champions.map((row) => (
-                <li key={row.studentId}>
-                  <Card className={styles.champion}>
-                    <span className={styles.championRank}>
-                      {/* An icon beside the rank, never in place of it: "#4" and a medal
-                          have to be comparable at a glance. */}
-                      {row.rank <= 3 && <Icon name="ph-medal" weight="bold" className={styles.championMedal} />}
-                      <span className="tnum">#{row.rank}</span>
-                    </span>
-                    {/* The API publishes a first name and a last initial only — these are
-                        schoolchildren and this page is public. */}
-                    <h3>{row.displayName}</h3>
-                    {row.schoolName && <p className={styles.championSchool}>{row.schoolName}</p>}
-                    <p className={styles.muted}>
-                      {row.classLevel ? `${row.classLevel} · ` : ''}
-                      <span className="tnum">{row.xp.toLocaleString()}</span> XP
-                    </p>
-                  </Card>
-                </li>
-              ))}
-            </ol>
-          )}
+        {/* The reference puts its people section on the pale blue band rather than the
+            sand one — a second tint, so three consecutive bands do not read as one. */}
+        <div className={styles.stripeBlue}>
+          <Section
+            className={`container ${styles.section}`}
+            eyebrow="Standings"
+            title="Top scholars"
+            lead="The highest XP earned so far, straight from the leaderboard."
+          >
+            {champions === null ? (
+              <p className={styles.muted}>Loading the leaderboard…</p>
+            ) : champions.length === 0 ? (
+              <EmptyState
+                icon="ph-trophy"
+                title="Nobody is on the leaderboard yet"
+                description="XP is earned by practising, sitting mock tests and answering the daily challenge. Register below and you could be the first name here."
+              />
+            ) : (
+              <ol className={styles.championGrid}>
+                {champions.map((row) => (
+                  <li key={row.studentId}>
+                    <Card className={styles.champion}>
+                      <span className={styles.championRank}>
+                        {/* An icon beside the rank, never in place of it: "#4" and a medal
+                            have to be comparable at a glance. */}
+                        {row.rank <= 3 && <Icon name="ph-medal" weight="bold" className={styles.championMedal} />}
+                        <span className="tnum">#{row.rank}</span>
+                      </span>
+                      {/* The API publishes a first name and a last initial only — these are
+                          schoolchildren and this page is public. */}
+                      <h3>{row.displayName}</h3>
+                      {row.schoolName && <p className={styles.championSchool}>{row.schoolName}</p>}
+                      <p className={styles.muted}>
+                        {row.classLevel ? `${row.classLevel} · ` : ''}
+                        <span className="tnum">{row.xp.toLocaleString()}</span> XP
+                      </p>
+                    </Card>
+                  </li>
+                ))}
+              </ol>
+            )}
 
-          {/* The top three are a taste of the standing; the full board is public too, and
-              can be filtered by class and by period. */}
-          <p className={styles.muted}>
-            <Link to="/leaderboard" className="link">
-              See the full leaderboard
-            </Link>{' '}
-            ·{' '}
-            <Link to="/hall-of-fame" className="link">
-              Hall of Fame
-            </Link>
-          </p>
-        </Section>
+            {/* The top three are a taste of the standing; the full board is public too, and
+                can be filtered by class and by period. */}
+            <p className={styles.muted}>
+              <Link to="/leaderboard" className="link">
+                See the full leaderboard
+              </Link>{' '}
+              ·{' '}
+              <Link to="/hall-of-fame" className="link">
+                Hall of Fame
+              </Link>
+            </p>
+          </Section>
+        </div>
 
         {/* ------------------------------------------------------------ Register */}
         <section id="register" className={`container ${styles.section}`}>

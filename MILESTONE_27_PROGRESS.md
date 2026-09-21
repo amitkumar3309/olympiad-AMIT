@@ -116,6 +116,70 @@ Neither was reachable from the landing page, which is the argument for that page
 | Contrast, `/design-system` dark | **0 failures / 408 text nodes**; tightest margin 1.17× |
 | Computed treatment | card `box-shadow: none` r20; primary `rgb(73,126,100) 0 4px 0`; brand orange with **ink** label; tile `rgb(84,136,178) 3px 3px 0`; ghost/outline/subtle no edge |
 
+## Phase 3 — the landing page (done)
+
+`pages/Landing` (both files), plus two token additions. This is the **one route the
+reference actually designs**, so it is the only page where fidelity is a question with an
+answer; everything else inherits.
+
+Two rules had silently inverted when the tokens were re-pointed, and neither errored:
+
+- **The hero painted `--surface`.** Correct when the page was near-white and a card was
+  white — the difference was invisible and a radial tint did the work. With cream pages and
+  white cards it made the hero a **white rectangle on a cream page**, the exact inverse of
+  the reference. It now paints nothing and inherits the page; the radial tint went with it,
+  because on cream it read as a smudge rather than as light.
+- **`.stripe` painted `--bg`.** In Milestone 26 that was `--ink-25` against a white
+  `--surface` — a faint tint. Now `--bg` *is* the page, so the rule became
+  `background: <the page>` and **the alternating band stopped existing** without anything
+  breaking. That is the characteristic failure of a token re-point: nothing errors, a
+  distinction just quietly disappears. It is `--bg-subtle` (sand) now.
+
+Added: `.stripeBlue`, the reference's second band tint, on the Top-scholars section — its
+people section, which the reference puts on pale blue. And the step markers became the
+reference almost verbatim: **44×44 pastel squares with a `3px 3px 0` diagonal edge**, a
+different pastel per step, replacing green circles. Four pastels telling four otherwise
+identical things apart is the one place a categorical colour does its actual job here.
+
+### The defect worth reading: a theme-invariant fill behind theme-dependent text
+
+The pale blue band shipped broken and took **two** passes to fix, and the intermediate
+state was worse than the first.
+
+1. **First attempt** — `.stripeBlue { background: var(--cat-blue) }`. The pastels are
+   theme-invariant by design; `--text` and `--text-muted` are not, and invert to warm
+   off-white in dark. Result: **six failures at 1.09–1.22:1** — cream on pale blue.
+   Milestone 26 never hit this because it confined the pastels to `IconTile`, which pins
+   `color` to the fill's own `-on`.
+2. **Second attempt** — an `.on-pastel` utility re-pointing the text tokens to an invariant
+   ink set on the container. It fixed the band and **broke the cards inside it**: a `Card`
+   paints `--surface`, near-black in dark, and its text was now pinned to ink — **ten
+   failures at 1.00:1**, worse than before.
+3. **The actual fix** — `--band-accent`, a token: `--cat-blue` in light,
+   `--surface-raised` in dark. Same mechanism and same reason as `--card-border`.
+
+The narrow lesson, now written into `tokens.css`: **pinning text on a container pins it for
+the whole subtree, and a subtree containing a themed surface cannot be pinned.** An
+invariant fill is only safe under *leaf* content — a glyph, a numeral, a label. `IconTile`
+and the step markers qualify; a section band does not.
+
+`.on-pastel` was **removed rather than kept for later**, on the same reasoning that removed
+`--accent-solid` an hour earlier: an unused affordance whose only plausible use is the one
+that just failed is a trap, not a head start. The invariant ink set (`--ink-text*`,
+`--ink-border*`) stayed, because the light theme now points at it — so "ink on a light
+surface" has one definition instead of two that can drift.
+
+### Verified
+
+| Check | Result |
+|---|---|
+| `npm run build` / `npm run lint` | pass / clean |
+| Contrast, `/` light | **0 failures / 188 nodes**, tightest margin 1.07× |
+| Contrast, `/` dark | **0 failures / 188 nodes**, tightest margin 1.27× |
+| Overflow at 320px | **0px** (scrollWidth 320 = viewport) |
+| Overflow at 1280px | **0px** |
+| Contrast at 320px, dark | 0 failures / 182 nodes |
+
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)
@@ -125,10 +189,12 @@ Neither was reachable from the landing page, which is the argument for that page
   called a defect — they may sit on a dark panel — but they are the first thing to look at
   on those two pages. This predates Milestone 27 (gold-400 was a light fill in Milestone 26
   too); it is recorded here because that is where it will be fixed.
-- **Phase 3+ — the pages.** 14 public + 44 signed-in routes inherit whatever the tokens
-  say; the ones that look wrong will be the ones with hardcoded *structure* rather than
-  hardcoded values. The landing hero currently sits on a **white** surface where the
-  reference puts it on cream — the first thing to re-point.
+- **Phase 4+ — the remaining 53 routes.** They inherit the tokens already, so they are
+  Brightpath-coloured today; what will be wrong is hardcoded *structure*. Two patterns to
+  grep for specifically, because both are the "silent inversion" the landing page had:
+  **`background: var(--surface)` on something that is a page rather than a card**, and
+  **`background: var(--bg)` used as a tint against a white page**. The second is invisible
+  now by definition.
 - **The two sweeps Milestone 26 closed have to be re-run at the end**, on every route
   rather than two of them: 0 WCAG AA failures in both themes, and no horizontal overflow at
   320px and 1280px.

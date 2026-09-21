@@ -131,6 +131,40 @@
   --ink-950: #0b1711;
 
   /**
+   * **The invariant ink set** — the one group in this file that `.theme-dark` must
+   * NOT override.
+   *
+   * Its job today is modest: the light theme’s `--text-*` and `--border-*` point at
+   * it, so there is exactly one definition of "ink on a light surface" rather than two
+   * that can drift. It is documented at this length because of what it is *for* next.
+   *
+   * The six `--cat-*` pastels are theme-invariant — a light fill carrying ink, in both
+   * themes. `--text` and `--text-muted` are the opposite: they invert to a warm
+   * off-white in the dark theme. Put one behind the other and you get cream on pale
+   * blue at **1.09:1**, which is what a pale-blue section band measured the first time
+   * one was added here. Milestone 26 never hit this because it confined the pastels to
+   * `IconTile`, which pins `color` to the fill’s own `-on`.
+   *
+   * **The constraint that makes this subtle:** pinning text on a container pins it for
+   * the whole subtree, and a subtree containing a *themed* surface cannot be pinned —
+   * a `Card` inside a pinned band paints `--surface`, near-black in dark, and its text
+   * was left as ink at 1.00:1. So an invariant fill is only safe where the content on
+   * it is a leaf: a glyph, a numeral, a label. `IconTile` and the landing page’s step
+   * markers qualify; a section band does not, which is why `--band-accent` goes themed
+   * in dark rather than staying pastel.
+   *
+   * Pin against these when you add a pastel surface that holds only leaf content. Do
+   * not pin a container that holds cards.
+   */
+  --ink-text: var(--ink-900);
+  --ink-text-body: rgba(20, 38, 29, 0.84);
+  --ink-text-muted: rgba(20, 38, 29, 0.7);
+  --ink-text-subtle: rgba(20, 38, 29, 0.5);
+  --ink-border: rgba(20, 38, 29, 0.1);
+  --ink-border-subtle: rgba(20, 38, 29, 0.06);
+  --ink-border-strong: rgba(20, 38, 29, 0.18);
+
+  /**
    * Mid green — one step that is neither text nor page, used as a card fill and as
    * the companion edge under the standard action. Kept out of the ink ramp because it
    * is saturated: it would break the monotonic-neutral property above.
@@ -445,9 +479,9 @@
    * do: a table divider, the well around an input, the outline on a secondary button.
    * Re-tinted from neutral grey to the green ink so they sit correctly on cream.
    */
-  --border: rgba(20, 38, 29, 0.1);
-  --border-subtle: rgba(20, 38, 29, 0.06);
-  --border-strong: rgba(20, 38, 29, 0.18);
+  --border: var(--ink-border);
+  --border-subtle: var(--ink-border-subtle);
+  --border-strong: var(--ink-border-strong);
 
   /**
    * `--card-border` is a token rather than a rule inside `Card.module.css` for the
@@ -456,6 +490,26 @@
    * next one. Declared in **both** themes so the box never changes size between them.
    */
   --card-border: transparent;
+
+  /**
+   * **The accent section band**, and it is a token for the same reason
+   * `--card-border` is: a CSS Module cannot name `.theme-dark`, and a component that
+   * knows which theme it is in will be wrong in the next one.
+   *
+   * The reference alternates its cream page with a sand band and a **pale blue** one.
+   * The sand band is just `--bg-subtle` and needs nothing. The pale blue one does,
+   * because it is a `--cat-*` pastel and those are theme-invariant — so in the dark
+   * theme it becomes a themed surface instead of staying bright.
+   *
+   * The first attempt kept it pastel in both themes and pinned the text on it to ink
+   * with a utility class. That fixed the band and broke the **cards inside it**: a
+   * `Card` paints `--surface`, which is near-black in the dark theme, so its text was
+   * pinned to ink on a dark fill at **1.00:1**. The lesson is narrow and worth
+   * keeping: **pinning text on a container pins it for the whole subtree**, and a
+   * subtree that contains a themed surface cannot be pinned. A band has descendants;
+   * an `IconTile` has a glyph. That is why one can be invariant and the other cannot.
+   */
+  --band-accent: var(--cat-blue);
 
   /**
    * Shadows — and read this before using one.
@@ -608,10 +662,10 @@
    * nothing lighter may carry words. `--text-subtle` measures 2.88–3.16:1 and is for
    * **non-text glyphs only** — it is not a quiet text colour.
    */
-  --text: var(--ink-900);
-  --text-body: rgba(20, 38, 29, 0.84);
-  --text-muted: rgba(20, 38, 29, 0.7);
-  --text-subtle: rgba(20, 38, 29, 0.5);
+  --text: var(--ink-text);
+  --text-body: var(--ink-text-body);
+  --text-muted: var(--ink-text-muted);
+  --text-subtle: var(--ink-text-subtle);
   --text-inverse: var(--ink-50);
 
   /**
@@ -782,6 +836,10 @@
   --border-strong: rgba(240, 236, 225, 0.22);
 
   --card-border: rgba(240, 236, 225, 0.12);
+
+  /* A bright pastel band would be a hole in a near-black page, and it cannot carry
+     themed cards. In this theme the accent band is simply a lifted surface. */
+  --band-accent: var(--surface-raised);
 
   --text: #f0ece1;
   --text-body: rgba(240, 236, 225, 0.84);

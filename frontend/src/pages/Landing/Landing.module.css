@@ -17,11 +17,20 @@
  * generous top padding is clearing the floating navigation, which sits *over* the page
  * rather than being a bar the page starts below.
  */
+/**
+ * The hero sits **on the page**, not on a white slab (Milestone 27).
+ *
+ * It painted `--surface` before, which was correct when the page was near-white and a
+ * card was white — the difference was invisible and the radial tint did the work. Now
+ * `--bg` is warm cream and `--surface` is white, so painting `--surface` here made the
+ * hero a white rectangle sitting on a cream page: the exact inverse of the reference,
+ * where the hero *is* the cream and white is reserved for cards.
+ *
+ * No background of its own, then — it inherits the page. The radial tint is gone with
+ * it: on cream it read as a smudge rather than as light.
+ */
 .hero {
   position: relative;
-  background:
-    radial-gradient(ellipse 100% 70% at 50% -10%, var(--fill-subtle), transparent 70%),
-    var(--surface);
   padding: var(--space-16) 0 var(--space-20);
   text-align: center;
 }
@@ -177,8 +186,26 @@
  * already draws the edge, and a hairline on top of it states the boundary twice — the
  * thing that makes a page look ruled rather than composed.
  */
+/**
+ * The alternating section band — and it had silently stopped existing.
+ *
+ * It painted `--bg`, which in Milestone 26 was `--ink-25` against a white `--surface`:
+ * a faint off-white tint. Milestone 27 makes `--bg` the page itself, so this rule
+ * became `background: <the page>` and the band vanished without anything erroring.
+ * That is the characteristic failure of a token re-point — nothing breaks, a
+ * distinction just quietly disappears.
+ *
+ * It is `--bg-subtle` now: the sand band the reference alternates with its cream, which
+ * is how it marks a section without drawing a line. `.stripeBlue` is the second tint
+ * the reference uses, for the one band that should feel different rather than merely
+ * next — it puts its people section on pale blue.
+ */
 .stripe {
-  background: var(--bg);
+  background: var(--bg-subtle);
+}
+
+.stripeBlue {
+  background: var(--band-accent);
 }
 
 /* `.sectionHead`, `.sectionHead h2` and `.sectionLead` were deleted here — `ui/Section`
@@ -276,19 +303,51 @@
   font-size: var(--text-sm);
 }
 
+/**
+ * The step marker is the reference almost verbatim: a **pastel square with a hard
+ * diagonal edge**, numbered 01, 02, 03.
+ *
+ * It was a green circle before. The square-with-an-offset is the same object as
+ * `ui/IconTile` and is built the same way — `3px 3px 0` in the fill’s own companion —
+ * but it is not that component, because it holds a *number* rather than an icon and
+ * the numeral wants the mono face and tabular alignment.
+ *
+ * Each step takes a different pastel, by position. That is the one place a
+ * categorical colour is doing its actual job on this page: telling three things apart
+ * that are otherwise identical. Every pastel carries ink at 9:1 or better, so the
+ * numeral is legible on all of them without a per-tone rule.
+ */
 .stepNumber {
+  --step-edge: var(--cat-blue-edge);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: var(--primary-on);
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--cat-blue);
+  color: var(--ink-900);
+  box-shadow: var(--tile-offset, 3px) var(--tile-offset, 3px) 0 0 var(--step-edge);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.steps li:nth-child(2) .stepNumber {
+  --step-edge: var(--cat-green-edge);
+  background: var(--cat-green);
+}
+
+.steps li:nth-child(3) .stepNumber {
+  --step-edge: var(--cat-magenta-edge);
+  background: var(--cat-magenta);
+}
+
+.steps li:nth-child(4) .stepNumber {
+  --step-edge: var(--cat-orange-edge);
+  background: var(--cat-orange);
 }
 
 @media (min-width: 768px) {
