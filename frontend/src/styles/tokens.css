@@ -217,6 +217,15 @@
    * Warmed slightly against the cream page, and it keeps the Milestone 26 shape: a
    * bright step for decoration and a dark step for words, because a usable gold and a
    * legible gold are not the same colour.
+   *
+   * **There is deliberately no `--accent-solid`.** Every other status has one — a dark
+   * fill that carries a white label — and gold does not, because gold’s whole job is
+   * to look like gold: the steps bright enough to read as an award (`--gold-300`,
+   * `--gold-400`) are light fills that take **ink**, and a `--gold-600` badge with a
+   * white label is just a brown badge. One was added in Milestone 27 for symmetry with
+   * the other four ramps, went unused, and its existence immediately caused
+   * `--accent-on` to be set to white against a light fill. It was removed rather than
+   * documented.
    */
   --gold-50: #fdf6e3;
   --gold-100: #f9e9ba;
@@ -647,14 +656,23 @@
   --warning-on: #ffffff; /* 4.68:1 on --warning-solid */
   --danger-on: #ffffff; /* 5.27:1 */
   --info-on: #ffffff; /* 5.64:1 */
-  --accent-on: #ffffff; /* 5.39:1 on --gold-600 */
+
+  /**
+   * Gold is the exception, and it is **ink in both themes**.
+   *
+   * Its two consumers (`Badge`, `IconTile`) both fill with `--accent-strong`, which is
+   * `--gold-400` — a *light* fill. White on it measures **2.14:1**; ink measures 7.40:1.
+   * This was briefly set to white on the assumption that it paired with a dark solid
+   * step, and the design-system page caught it at 2.14:1 within the hour. Gold has no
+   * dark solid step on purpose: see the note on the ramp above.
+   */
+  --accent-on: var(--ink-900); /* 7.40:1 on --accent-strong */
 
   /**
    * Gold — achievement, and nothing else.
    */
   --accent: var(--gold-300);
   --accent-strong: var(--gold-400);
-  --accent-solid: var(--gold-600);
   --accent-text: var(--gold-700);
   --accent-soft: var(--gold-50);
   --accent-border: var(--gold-200);
@@ -808,7 +826,6 @@
 
   --accent: var(--gold-300);
   --accent-strong: var(--gold-200);
-  --accent-solid: var(--gold-400);
   --accent-text: var(--gold-200);
   --accent-soft: rgba(217, 171, 34, 0.14);
   --accent-border: rgba(217, 171, 34, 0.3);
@@ -816,15 +833,31 @@
   /**
    * Status `-text` steps lighten to the `300` rung, which clears 6.79–8.97:1 on the
    * dark surfaces and 6.43–8.39:1 on its own soft tint.
+   *
+   * **`--success-solid` and `--warning-solid` lighten to that same rung**, and danger
+   * and info deliberately do not. It is the light-theme rule applied in the same
+   * place: green and amber are *light* hues, so a mid step cannot carry a label with
+   * any margin. Ink on `--green-500` measures **4.51:1** and on `--amber-500`
+   * **4.44:1** — one scrapes AA by 0.01 and the other fails, and a 0.01 margin is not
+   * a pass, it is luck. On the `300` rung they are 7.93:1 and 9.52:1.
+   *
+   * Danger and info stay saturated with white labels (5.27:1 and 5.64:1), because a
+   * pale pink badge reads less urgent than a red one and they have the headroom to
+   * stay red. Uniformity is not the goal; legibility with margin is.
+   *
+   * So in this theme the `300` rung is both the light fill that carries ink **and**
+   * the text colour that reads on a dark surface. That is one value doing two jobs
+   * rather than a mistake: both jobs ask the same question of it — is this light
+   * enough against near-black.
    */
   --success: var(--green-500);
-  --success-solid: var(--green-500);
+  --success-solid: var(--green-300);
   --success-text: var(--green-300);
   --success-soft: rgba(46, 155, 97, 0.14);
   --success-border: rgba(46, 155, 97, 0.3);
 
   --warning: var(--amber-500);
-  --warning-solid: var(--amber-500);
+  --warning-solid: var(--amber-300);
   --warning-text: var(--amber-300);
   --warning-soft: rgba(184, 123, 15, 0.16);
   --warning-border: rgba(184, 123, 15, 0.32);

@@ -1,18 +1,32 @@
 /**
- * The tile carries a shadow of its own.
+ * The tile carries a **hard diagonal edge** — `3px 3px 0` in a darker companion of
+ * its own fill, with zero blur (Milestone 27).
  *
- * It is the reference's own treatment — `rgba(26,26,26,.1) 0 12px 20px` under a 32px
- * coloured circle — and it is what stops a saturated fill looking pasted on. A flat
- * colour swatch on a white card reads as a bug; a lifted one reads as an object.
+ * This is the reference's treatment for exactly this object: its step numbers and
+ * feature icons are 38–58px pastel squares with `3px 3px 0` or `4px 4px 0` beneath
+ * them. It replaces Milestone 26's soft `--shadow-md`, and the change is not
+ * cosmetic — a blurred shadow says *floating*, a hard offset says *solid object*, and
+ * a marker is the second thing.
  *
- * `--shadow-md` is that exact value. In the dark theme it flattens with everything
- * else, and the fill alone does the work.
+ * Note the offset is **diagonal** here and **vertical** on a button. That is the
+ * reference's own distinction and it is worth keeping: a button is a thing you press
+ * down, a tile is a thing sitting on the page.
+ *
+ * The colour comes from the tone, via `--tile-edge`, because each pastel has a
+ * *designed* companion rather than a computed one. `--tile-edge` defaults to
+ * transparent, so a tone that sets no companion is simply flat — which is what
+ * `.neutral` wants.
+ *
+ * Unlike the soft shadow it replaces, this **survives into the dark theme**: a
+ * zero-blur offset does not need anywhere to cast.
  */
 .tile {
+  --tile-edge: transparent;
+  --tile-offset: 3px;
   display: inline-grid;
   place-items: center;
   flex-shrink: 0;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--tile-offset) var(--tile-offset) 0 0 var(--tile-edge);
 }
 
 /* ---------- shape -------------------------------------------------------- */
@@ -37,7 +51,11 @@
 
 /* ---------- size --------------------------------------------------------- */
 
+/* The offset scales with the tile: 3px under a 28px square is proportionally heavier
+   than 4px under a 56px one, and the edge should read as the same thickness of
+   material at every size. */
 .sm {
+  --tile-offset: 2px;
   width: 28px;
   height: 28px;
 }
@@ -48,6 +66,7 @@
 }
 
 .lg {
+  --tile-offset: 4px;
   width: 56px;
   height: 56px;
 }
@@ -59,39 +78,46 @@
 .neutral {
   background: var(--fill-subtle);
   color: var(--text);
-  /* The only tone with no lift: it is a *quiet* marker, and a shadow under a
-     barely-tinted tile reads as a smudge rather than as an object. */
-  box-shadow: none;
+  /* The only tone with no edge: it is a *quiet* marker, and an offset under a
+     barely-tinted tile reads as a smudge rather than as an object. `--tile-edge`
+     already defaults to transparent, so this is a statement of intent. */
+  --tile-edge: transparent;
 }
 
 .orange {
   background: var(--cat-orange);
   color: var(--cat-orange-on);
+  --tile-edge: var(--cat-orange-edge);
 }
 
 .blue {
   background: var(--cat-blue);
   color: var(--cat-blue-on);
+  --tile-edge: var(--cat-blue-edge);
 }
 
 .magenta {
   background: var(--cat-magenta);
   color: var(--cat-magenta-on);
+  --tile-edge: var(--cat-magenta-edge);
 }
 
 .purple {
   background: var(--cat-purple);
   color: var(--cat-purple-on);
+  --tile-edge: var(--cat-purple-edge);
 }
 
 .green {
   background: var(--cat-green);
   color: var(--cat-green-on);
+  --tile-edge: var(--cat-green-edge);
 }
 
 .lilac {
   background: var(--cat-lilac);
   color: var(--cat-lilac-on);
+  --tile-edge: var(--cat-lilac-edge);
 }
 
 /* Achievement, not category. Gold is the one colour in this product that means
@@ -99,4 +125,5 @@
 .gold {
   background: var(--accent-strong);
   color: var(--accent-on);
+  --tile-edge: var(--gold-500);
 }

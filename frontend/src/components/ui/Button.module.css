@@ -10,13 +10,35 @@
  * control is the one shape that can only be an action. On a dense administrative
  * table that is what tells you at a glance what is pressable.
  */
+/**
+ * **The raised edge** (Milestone 27). A filled button carries `0 4px 0` in a
+ * companion colour with **zero blur** — the reference's signature, and a keycap
+ * rather than a lift.
+ *
+ * Three variables drive it so that one base rule serves every variant:
+ *
+ *  - `--btn-edge` is the companion **colour**, set by the variant. It defaults to
+ *    transparent, so a flat variant paints nothing.
+ *  - `--btn-lift` is how far the edge extends. `0px` by default.
+ *  - `--btn-press` is how far the button travels on `:active`. It is a separate
+ *    variable because a flat button still needs press feedback (1px) while a raised
+ *    one must travel its own full offset so the edge visibly collapses.
+ *
+ * The colour is not computed from the fill. Each companion is a *designed* pair: the
+ * reference's green button takes a **lighter** green edge while its orange button
+ * takes a darker orange one, and no formula produces both.
+ */
 .btn {
+  --btn-edge: transparent;
+  --btn-lift: 0px;
+  --btn-press: 1px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   border: var(--border-width) solid transparent;
   border-radius: var(--radius-pill);
+  box-shadow: 0 var(--btn-lift) 0 0 var(--btn-edge);
   font-family: var(--font-body);
   font-weight: var(--weight-medium);
   line-height: var(--leading-none);
@@ -34,14 +56,23 @@
 }
 
 /**
- * Press feedback: the button moves 1px and comes back.
+ * Press feedback: the edge **collapses**.
  *
- * Small enough that nobody consciously notices and large enough that a tap feels
- * acknowledged on a phone, where there is no hover state to have confirmed the target
- * first. `:active` rather than a class, so it costs no JavaScript and cannot stick.
+ * The button travels down by exactly its own offset and the edge shrinks to zero, so
+ * it behaves like something physically pressed against the page rather than something
+ * that dimmed. That is the interaction the hard edge implies, and it is why
+ * `--brand-hover` *lightens* rather than darkens — the depth cue is the edge, so the
+ * colour is free to do something else.
+ *
+ * A flat variant keeps the old 1px nudge via the `--btn-press` default: small enough
+ * that nobody consciously notices, large enough that a tap feels acknowledged on a
+ * phone where there was no hover state to confirm the target first.
+ *
+ * `:active` rather than a class, so it costs no JavaScript and cannot stick.
  */
 .btn:active:not(:disabled):not([aria-disabled='true']) {
-  transform: translateY(1px);
+  transform: translateY(var(--btn-press));
+  box-shadow: 0 0 0 0 var(--btn-edge);
 }
 
 .btn:disabled,
@@ -85,6 +116,18 @@
   }
 }
 
+/* The compact size takes a thinner edge: 4px under a 34px control is heavier than
+   4px under a 48px one, and the edge should read as the same thickness of material at
+   every size. Two class selectors, so this beats the variant rule that sets the full
+   offset, and scoped to the raised variants so a ghost button keeps its 1px nudge. */
+.sm.primary,
+.sm.brand,
+.sm.secondary,
+.sm.danger {
+  --btn-lift: 2px;
+  --btn-press: 2px;
+}
+
 .fullWidth {
   width: 100%;
 }
@@ -121,18 +164,23 @@
 /* ---------- variants ----------------------------------------------------- */
 
 /**
- * The primary action is **near-black**, and carries no shadow.
+ * The standard action: a **deep green pill with a lighter green edge**.
  *
- * There is no bright brand colour on a button in this language. That is the
- * reference's decision and it solves a problem the product had: a saturated blue on a
- * button, a link, a chart series, a progress bar and an active nav item made five
- * unrelated things look like the same control. With the action reduced to ink, colour
- * is free to mean something (see `--cat-*`).
+ * There are two action colours in this language, which is the reverse of Milestone
+ * 26 — and the split is by *emphasis*, not by hue preference. `primary` is the
+ * workhorse and belongs on every form, table row and dialog; `brand` below is the
+ * single loudest action on a page. Milestone 26's reasoning still holds underneath:
+ * what broke before was one saturated blue doing five unrelated jobs, and the fix is
+ * that a colour has one job, not that colour is banned.
  *
- * In the dark theme `--primary` flips to near-white — the *relationship* carries over,
- * not the value: the action is the highest-contrast thing on the page either way.
+ * In the dark theme `--primary` flips to a light green with an ink label and a
+ * *darker* edge — the direction of the companion inverts, because on a near-black
+ * page a lighter edge reads as a glow rather than as material.
  */
 .primary {
+  --btn-edge: var(--primary-edge);
+  --btn-lift: var(--edge-width);
+  --btn-press: var(--edge-width);
   background: var(--primary);
   color: var(--primary-on);
 }
@@ -146,6 +194,38 @@
 }
 
 /**
+ * The call to action — **orange, with an ink label** (Milestone 27).
+ *
+ * The loudest control in the product, for the one thing a page actually wants
+ * pressed. Use it **once per page**: three orange buttons on a screen is the same as
+ * none.
+ *
+ * The label is **ink, not white**. The reference puts white here and it measures
+ * 3.05:1, which fails AA for normal text; ink on the same fill is 5.19:1. The fill is
+ * unchanged — only the label moved — so this costs nothing in fidelity. It is the
+ * same defect class Milestone 26's Phase G audit found 109 times.
+ *
+ * Hover **lightens** rather than darkens, which is unusual and deliberate: darkening
+ * breaks the ink label (`--orange-600` gives ink 3.72:1 and white 4.26:1 — neither
+ * clears), and the depth cue here is the edge rather than the tone.
+ */
+.brand {
+  --btn-edge: var(--brand-edge);
+  --btn-lift: var(--edge-width);
+  --btn-press: var(--edge-width);
+  background: var(--brand);
+  color: var(--brand-on);
+}
+
+.brand:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+.brand:active:not(:disabled) {
+  background: var(--brand-active);
+}
+
+/**
  * The standard partner to a primary action: a **tinted pill, not a bordered box**.
  *
  * `--fill-subtle` is the reference's own secondary treatment, and it is the right one
@@ -153,7 +233,13 @@
  * sitting on it would be the only drawn line in view and would read as the louder of
  * the two controls.
  */
+/* The reference's own secondary treatment is a pale pill under a **full-strength ink
+   edge** — the one place the companion is far darker than the fill, which is what lets
+   a quiet button still read as raised. */
 .secondary {
+  --btn-edge: var(--primary);
+  --btn-lift: var(--edge-width);
+  --btn-press: var(--edge-width);
   background: var(--fill-subtle);
   border-color: transparent;
   color: var(--text);
@@ -198,6 +284,9 @@
 }
 
 .danger {
+  --btn-edge: var(--danger-text);
+  --btn-lift: var(--edge-width);
+  --btn-press: var(--edge-width);
   background: var(--danger-solid);
   color: var(--danger-on);
 }

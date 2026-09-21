@@ -1,22 +1,31 @@
 /**
- * A card is **a white surface, a 32px radius and a lifting shadow**. It has no
- * visible border.
+ * A card is **a white surface on a cream page, a 20px radius, and nothing else** — no
+ * border, and as of Milestone 27 **no shadow either**.
  *
- * That is the single decision this whole visual language rests on: separation comes
- * from cast light, not from a drawn line. A page of bordered boxes reads as a form; a
- * page of lifted surfaces reads as a product.
+ * That is the single decision this visual language rests on, and it is the reverse of
+ * Milestone 26's. Separation comes from the **fill**: `--surface` is white,
+ * `--bg` is `#f4f0e5`, and that step alone is the edge. The reference has no border
+ * and no shadow on any card in it — a shadow census returned only its pill buttons
+ * and its icon tiles, and the three soft shadows it did return belonged to the
+ * "Made in Framer" badge rather than the template.
  *
- * `--card-border` is the one concession, and it is a token rather than a theme rule
- * inside this file: **transparent in the light theme, a hairline in the dark one**,
- * because a shadow has nowhere to fall on a near-black page. Declared in both so the
- * box never changes size between themes — a 1px reflow on every card is what makes a
- * theme switch feel broken.
+ * **Do not give a card the `--edge-*` treatment.** The hard offset belongs to
+ * controls and markers; a page of edged boxes reads as a page of buttons. If a card
+ * needs to stand out more, change its fill — that is what the six `--cat-*` pastels
+ * and `--bg-subtle` are for.
+ *
+ * `--card-border` carries the dark theme, and it is a token rather than a theme rule
+ * inside this file: **transparent in the light theme, a hairline in the dark one**.
+ * In light, cream-against-white does the separating; in dark, `--surface` and `--bg`
+ * are both near-black and a fill step alone is too quiet, so the hairline becomes
+ * real. Declared in both so the box never changes size between themes — a 1px reflow
+ * on every card is what makes a theme switch feel broken.
  */
 .card {
   background: var(--surface);
   border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
+  box-shadow: none;
   /* A card in a flex or grid row must be allowed to be narrower than its content,
      or a table inside it pushes the page sideways. This one line prevents most
      horizontal-overflow bugs in a card layout. */
@@ -37,16 +46,24 @@
   box-shadow: none;
 }
 
-/** A bordered box with no lift — for a panel that is part of the page, not on it. */
+/**
+ * A bordered box — for a panel that is part of the page rather than a surface on it.
+ *
+ * This is now the *only* card variant with a drawn line, and it is deliberately the
+ * quietest: `--border` is a 10%-alpha ink hairline. It exists for the case a fill
+ * cannot serve, such as a panel that must sit on `--surface` without becoming a
+ * second white box on a white one.
+ */
 .plain {
+  background: transparent;
   border-color: var(--border);
   box-shadow: none;
 }
 
 /**
  * Padding is fluid and generous: 24px on a small phone, 40px once there is room.
- * The reference runs 40/32 on a desktop card, and the roominess is most of why its
- * surfaces feel calm rather than packed.
+ * The Brightpath reference runs 30px on its step cards and 40px on its dark stat
+ * panel, and the roominess is most of why its surfaces feel calm rather than packed.
  */
 .pad-none {
   padding: 0;
@@ -67,19 +84,22 @@
 /**
  * Hover on a card that is genuinely a link.
  *
- * The shadow deepens and the surface rises **1px** — not the 4–6px lift that makes a
- * grid of cards jump around under a moving pointer. A transform rather than a margin,
- * so nothing around it reflows.
+ * With no shadow to deepen, the hover is a **fill shift plus a 2px rise** — not the
+ * 4–6px lift that makes a grid of cards jump around under a moving pointer, and a
+ * transform rather than a margin so nothing around it reflows.
+ *
+ * It deliberately does **not** grow an edge on hover: an edge would make the card
+ * momentarily look like a button, and the rule is that cards never carry one.
  */
 .interactive {
   transition:
-    box-shadow var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
     transform var(--dur) var(--ease);
 }
 
 .interactive:hover {
-  box-shadow: var(--shadow-lg), var(--shadow-xl);
-  transform: translateY(-1px);
+  background: var(--surface-hover);
+  transform: translateY(-2px);
 }
 
 .interactive:focus-within {

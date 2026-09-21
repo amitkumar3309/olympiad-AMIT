@@ -197,18 +197,26 @@ export default function DesignSystem() {
 
         <Group title="Typography">
           <p className={styles.note}>
-            <strong>One family: Geist.</strong> Inter, Poppins and JetBrains Mono were dropped in
-            Milestone 26 — the character of a heading comes from weight and tracking, not from a second
-            face. Note that <em>weight goes down as size goes up</em> (the display below is 600, the 11px
-            eyebrow is 600 too but the body is 500) and that <em>tracking is negative at every size</em>,
-            tightening from −0.02em to −0.04em as the type grows.
+            <strong>Two families: Bricolage Grotesque over Instrument Sans.</strong> Milestone 26 ran the
+            whole interface on one face and got a heading&rsquo;s character from weight and tracking alone;
+            Milestone 27 gives headings a display face, because the Brightpath reference does and because
+            Bricolage is tiring at 15px down two hundred admin table rows. Geist Mono survives for figures
+            (79 references across 33 files) and Cinzel for the two logotype surfaces.
+          </p>
+          <p className={styles.note}>
+            <strong>Tracking is now negative only on display sizes.</strong> This is the trap in the
+            milestone: <code>--tracking-body</code> is applied <em>once, to <code>body</code></em>, which
+            is how a type change reaches fifty pages unedited — and its value went from −0.02em to
+            <strong>0</strong>. So the same one-line lever that tightened everything now un-tightens it,
+            and the character moves into the headings (−0.08em at 30px and up). Body weight went 500 →
+            <strong>400</strong> for the same reason: the display face carries the hierarchy now.
           </p>
           <div className={styles.typeStack}>
             <p
               style={{
                 fontSize: 'var(--text-5xl)',
                 fontFamily: 'var(--font-heading)',
-                fontWeight: 600,
+                fontWeight: 700,
                 letterSpacing: 'var(--tracking-display)',
                 margin: 0,
                 lineHeight: 'var(--leading-tight)',
@@ -216,26 +224,27 @@ export default function DesignSystem() {
             >
               A national mathematics olympiad
             </p>
-            <p className={styles.typeMeta}>text-5xl · Geist 600 · tracking −0.04em · leading 0.96 · fluid 44→96px</p>
+            <p className={styles.typeMeta}>text-5xl · Bricolage Grotesque 700 · tracking −0.08em · leading 1.0 · fluid 40→103px</p>
 
-            <h1 style={{ margin: 0 }}>Heading 1 — text-3xl · 600 · −0.04em</h1>
-            <h2 style={{ margin: 0 }}>Heading 2 — text-2xl · 600 · −0.03em</h2>
-            <h3 style={{ margin: 0 }}>Heading 3 — text-xl · 600 · −0.03em</h3>
-            <h4 style={{ margin: 0 }}>Heading 4 — text-lg · 600 · −0.02em</h4>
+            <h1 style={{ margin: 0 }}>Heading 1 — text-3xl · 600 · −0.08em</h1>
+            <h2 style={{ margin: 0 }}>Heading 2 — text-2xl · 600 · −0.06em</h2>
+            <h3 style={{ margin: 0 }}>Heading 3 — text-xl · 600 · −0.04em</h3>
+            <h4 style={{ margin: 0 }}>Heading 4 — text-lg · 600 · −0.04em</h4>
 
             <p className="prose" style={{ margin: 0 }}>
               Running prose uses the <code>.prose</code> utility: text-lg at leading-relaxed with a
-              68-character measure. The reference runs body at 1.24, which works because every block on
-              it is two lines long; this product has real paragraphs, so prose gets more room. Long words
+              68-character measure. Brightpath runs body at 1.4 and that is what
+              <code>--leading-normal</code> now is; prose gets more room again on top of it. Long words
               such as <code>AMIT_0000</code> wrap rather than pushing the page sideways.
             </p>
             <p style={{ margin: 0 }}>
-              Body copy at the element default — text-md, weight 500, leading 1.45, tracking −0.02em
-              inherited from <code>body</code>. That one inherited declaration is how the type change
-              reached fifty pages without any of them being edited.
+              Body copy at the element default — text-md, weight 400, leading 1.4, tracking 0 inherited
+              from <code>body</code>. That one inherited declaration is how the type change reached fifty
+              pages without any of them being edited, in both directions.
             </p>
             <p className="muted" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-              Secondary copy at text-sm, muted — ink at 65%, 5.4:1 on white. Nothing lighter carries words.
+              Secondary copy at text-sm, muted — ink at 70%, 5.9:1 on white and 4.6:1 at its worst (on
+              <code>--cat-purple</code>). Nothing lighter carries words.
             </p>
             <p className="eyebrow" style={{ margin: 0 }}>Eyebrow · text-2xs uppercase</p>
             <p className="mono" style={{ margin: 0 }}>Geist Mono 1234567890 · tabular figures</p>
@@ -284,13 +293,21 @@ export default function DesignSystem() {
           </Row>
         </Group>
 
-        <Group title="IconTile — the only coloured thing">
+        <Group title="IconTile — a marker, with a hard edge">
           <p className={styles.note}>
-            <strong>This is the one place the categorical palette appears.</strong> Confining colour to a
-            single component is what keeps it scarce enough to mean something — and it is why buttons are
-            near-black. The <code>-on</code> colours are not all white: white on <code>--cat-orange</code> is
-            3.08:1, below even the 3:1 a non-text graphic needs, so orange, green and lilac take ink while
-            blue, magenta and purple take white.
+            <strong>The six categorical hues are pastels now, and every <code>-on</code> is ink</strong>
+            (9.0–11.9:1). Milestone 26 needed a mixed set because its hues were saturated — white on its
+            orange measured 3.08:1 — and a pastel is a light fill by definition, so the special cases are
+            gone. They are also no longer <em>confined</em> to this component: Brightpath fills cards and
+            whole sections with them. What still holds is that they are fills, never words, and are not
+            wired into <code>Badge</code>, whose tones are semantic.
+          </p>
+          <p className={styles.note}>
+            The tile carries a <strong>hard diagonal offset</strong> — <code>3px 3px 0</code>, zero blur,
+            in a darker companion of its own fill. Note the direction: <em>diagonal</em> on a marker,
+            <em>vertical</em> on a button. A button is something you press down; a tile is something
+            sitting on the page. Unlike the soft shadow it replaces, it survives into the dark theme —
+            a zero-blur offset needs nowhere to cast.
           </p>
           <Row label="Tones — categories, never actions and never words">
             <IconTile icon="ph-target" tone="blue" />
@@ -383,8 +400,22 @@ export default function DesignSystem() {
         </Group>
 
         <Group title="Buttons">
+          <p className={styles.note}>
+            <strong>A filled button carries a hard offset edge</strong> — <code>0 4px 0</code> in a
+            companion colour, zero blur: a keycap rather than a lift. Pressing it <em>collapses</em> that
+            edge, travelling down by exactly its own offset. The companion is a designed pair, not a
+            formula — the green action takes a <em>lighter</em> green edge while the orange one takes a
+            darker orange. A flat variant keeps the older 1px nudge.
+          </p>
+          <p className={styles.note}>
+            <strong>There are two action colours.</strong> <code>primary</code> (deep green) is the
+            workhorse; <code>brand</code> (orange) is the loudest control in the product and belongs
+            <em>once per page</em>. Its label is <strong>ink, not white</strong> — the reference uses
+            white and it measures 3.05:1, where ink on the same fill is 5.19:1.
+          </p>
           <Row label="Variants">
             <Button variant="primary">Primary</Button>
+            <Button variant="brand">Brand</Button>
             <Button variant="secondary">Secondary</Button>
             <Button variant="outline">Outline</Button>
             <Button variant="subtle">Subtle</Button>
@@ -535,14 +566,27 @@ export default function DesignSystem() {
         </Group>
 
         <Group title="Cards">
+          <p className={styles.note}>
+            <strong>A card has no border and no shadow.</strong> Separation is the fill:
+            <code>--surface</code> is white, <code>--bg</code> is <code>#f4f0e5</code>, and that step
+            alone is the edge. This is the reverse of Milestone 26, where a card was white-on-white and a
+            soft shadow did the separating. <strong>Do not give a card the <code>--edge-*</code>
+            treatment</strong> — the hard offset belongs to controls and markers, and a page of edged
+            boxes reads as a page of buttons. If a card needs more presence, change its fill.
+          </p>
+          <p className={styles.note}>
+            <code>--card-border</code> is transparent in light and a hairline in dark, because
+            <code>--surface</code> and <code>--bg</code> are both near-black there and a fill step alone
+            is too quiet. It is declared in both themes so the box never changes size between them.
+          </p>
           <div className="grid-auto" style={{ '--grid-min': '260px' } as CSSProperties}>
             <Card>
-              <CardHeader title="Default" description="Surface, border, small shadow." size="sm" as="h3" />
+              <CardHeader title="Default" description="White on cream. No border, no shadow." size="sm" as="h3" />
               <CardBody>Padding is fluid: 16px on a phone, 24px when there is room.</CardBody>
             </Card>
             <Card tone="sunken">
               <CardHeader title="Sunken" description="For a nested panel." size="sm" as="h3" />
-              <CardBody>No shadow, recessed surface.</CardBody>
+              <CardBody>A tinted inset, with a tighter radius than the card holding it.</CardBody>
             </Card>
             <Card interactive>
               <CardHeader title="Interactive" description="Only when it is really a link." size="sm" as="h3" />

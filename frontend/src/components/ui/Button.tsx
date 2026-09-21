@@ -13,19 +13,27 @@ import styles from './Button.module.css'
  * props (`variant` of `primary | outline | danger | ghost`, and `fullWidth`) are all
  * still honoured, so those pages pick up the new treatment without being touched.
  *
- * ## Shape and colour (Milestone 26)
+ * ## Shape and colour (Milestone 26, re-pointed in Milestone 27)
  *
- * **Every button is a pill, and the primary one is near-black.** Milestone 23 had
- * deliberately un-pilled them; the new visual language puts that back, and for a
- * better reason than fashion — cards, cells, inputs and tags here are all rectangles
- * with a modest radius, so a fully-rounded control is the one shape that can only be
- * an action.
+ * **Every button is a pill.** Milestone 23 had deliberately un-pilled them; the
+ * visual language puts that back, and for a better reason than fashion — cards,
+ * cells, inputs and tags here are all rectangles with a modest radius, so a
+ * fully-rounded control is the one shape that can only be an action.
  *
  * The `pill` prop is kept and still resolves to the same radius, so no call site
  * changed. It is simply no longer the thing that makes a button a pill.
  *
- * Hovering still does not lift the button. Pressing it moves it 1px — feedback for a
- * tap on a phone, where there was no hover state to confirm the target first.
+ * **A filled button now carries a hard offset edge** — `0 4px 0` in a companion
+ * colour with zero blur, which is the reference signature. Pressing it *collapses*
+ * that edge: the button travels down by exactly its own offset and the edge shrinks
+ * to zero, so it behaves like something pressed against the page. A flat variant
+ * keeps the older 1px nudge. See `Button.module.css` for the three variables that
+ * drive it.
+ *
+ * There are **two action colours**: `primary` (deep green) is the workhorse and
+ * `brand` (orange) is the single loudest action on a page. Milestone 26 had one
+ * near-black action; the reasoning that produced it still holds — a colour should
+ * have one job — but the reference has two, split by emphasis.
  *
  * ## Loading
  *
@@ -41,7 +49,20 @@ import styles from './Button.module.css'
  * accessibility failure in an admin table.
  */
 
-export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'subtle' | 'ghost' | 'danger'
+/**
+ * `brand` is the orange call to action, added in Milestone 27. It is the loudest
+ * control in the product and belongs **once per page** — three of them is the same
+ * as none. Everything else is unchanged, so the 37 call sites passing `outline` and
+ * the forty pages importing the old `components/Button` keep working.
+ */
+export type ButtonVariant =
+  | 'primary'
+  | 'brand'
+  | 'secondary'
+  | 'outline'
+  | 'subtle'
+  | 'ghost'
+  | 'danger'
 
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
