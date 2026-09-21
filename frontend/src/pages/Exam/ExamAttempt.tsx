@@ -248,12 +248,19 @@ export default function ExamAttempt() {
       </div>
 
       <div className={styles.nav}>
-        <button disabled={current === 0} onClick={() => setCurrent((c) => c - 1)}>
+        {/* `ui/Button`, like the other three runners. These were raw `<button>`s styled
+            by a `.nav button` rule, which is why the exam nav looked nothing like the
+            practice one. */}
+        <Button variant="secondary" disabled={current === 0} onClick={() => setCurrent((c) => c - 1)}>
           Previous
-        </button>
-        <button disabled={current >= attempt.questions.length - 1} onClick={() => setCurrent((c) => c + 1)}>
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={current >= attempt.questions.length - 1}
+          onClick={() => setCurrent((c) => c + 1)}
+        >
           Next
-        </button>
+        </Button>
         <Button
           onClick={() => {
             if (window.confirm('Submit your paper? You cannot return to it, and there is only one attempt.')) {

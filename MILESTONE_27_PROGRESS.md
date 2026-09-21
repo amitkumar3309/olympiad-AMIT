@@ -457,6 +457,58 @@ unpushed on `main` when this milestone started and is not part of it. Milestone 
 `56aa87e..HEAD`. That commit is also why `/auth/admin/login` now takes **`email`** rather
 than the `identifier` the student route takes — worth knowing before writing a login call.
 
+## Phase 9 — the fourth question runner (done)
+
+`CLAUDE.md` says the runners are "one design, in three files". **There are four.** The
+official exam runner is the one that sentence forgets, and it had never been migrated —
+not in Milestone 23, which built the design system, nor 26, which re-pointed the
+language. `Exam/ExamAttempt.module.css` was 27 lines of minified pre-Milestone-23 CSS.
+
+Practice, MockTest and DailyChallenge are **byte-identical** on `.option`, so those three
+genuinely are in step. The exam carried:
+
+- **two hardcoded colours** — `rgba(56,189,248,.08)` on the chosen option and
+  `rgba(34,197,94,.16)` on an answered palette square: a **sky blue** and a stray green,
+  in a product whose language contains no blue at all;
+- the legacy `--royal-blue` and `--text-main` aliases, three uses each;
+- a **36px** palette square and an option row with **no minimum height**, against a 44px
+  touch floor and a 56px option;
+- a 1px border where the design is 2px, and **no tint and no filled key circle** — so the
+  chosen answer was signalled by border colour *alone*, on a single hairline;
+- hand-rolled `.nav button` styling sitting beside a real `ui/Button`;
+- ~30 hardcoded px values, two hardcoded line heights, a hardcoded `z-index` and
+  `border-radius: 50%`.
+
+It is rewritten onto the shared idiom, copied from `Practice.module.css` rather than
+re-invented. **All 20 class names are unchanged**, so the only TSX edit was the two raw
+`<button>`s in the nav becoming `ui/Button`.
+
+That this was the worst screen in the codebase is the part worth sitting with: it is the
+paper a child pays the entry fee to sit, and it looked like a different application from
+the three runners they practise in.
+
+### 12 more stranded literals in the other three runners
+
+All pre-Milestone-26 palette values — old emerald `16,185,129`, red `239,68,68`, amber
+`245,158,11`, slate `148,163,184` — so they followed neither the theme nor the recolour.
+Each mapped onto the tint its own selector is named after: `.optCorrect` →
+`--success-soft`, `.optWrong` → `--danger-soft`, `.verdict_skipped` → `--warning-soft`.
+
+### The wider finding, and a correction to CLAUDE.md
+
+`CLAUDE.md` claims **"`--royal-blue` is referenced zero times outside `tokens.css`"**.
+It is referenced **18** times, across 13 files. `--text-main` is used **40** times and
+`--gold` 10. Those all still resolve correctly — the aliases point at `--text`,
+`--primary` and `--accent` — so this is a documentation error rather than a visual defect.
+
+The real residue is **157 hardcoded colour literals** (137 `rgba()`, 20 hex) outside
+`tokens.css`, concentrated in `Admin/Questions` (14), `Admin/MockTests` (13),
+`Admin/QuestionImport` (11) and `Rewards` (10). These are old slate/blue/emerald values
+that follow neither the theme nor the recolour, and **they are invisible to a contrast
+sweep unless the exact page and state is visited** — which is why phases 1–8 did not
+catch them. The claim that the recolour was "a one-file change" holds for anything using
+a *token*; it was never true of these.
+
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)

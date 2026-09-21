@@ -81,7 +81,7 @@
   letter-spacing: 0.04em;
   padding: 3px 9px;
   border-radius: var(--radius-pill);
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--warning-soft);
   color: var(--warning-text);
 }
 
@@ -484,7 +484,7 @@
   gap: 8px;
   padding: 12px;
   border-radius: var(--radius-sm);
-  background: rgba(239, 68, 68, 0.07);
+  background: var(--danger-soft);
   border: 1px solid var(--danger);
 }
 
@@ -629,17 +629,17 @@
 }
 
 .verdict_correct {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--success-soft);
   color: var(--success-text);
 }
 
 .verdict_incorrect {
-  background: rgba(239, 68, 68, 0.15);
+  background: var(--danger-soft);
   color: var(--danger-text);
 }
 
 .verdict_skipped {
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--warning-soft);
   color: var(--warning-text);
 }
 
@@ -672,12 +672,12 @@
 
 .optCorrect {
   border-color: var(--success);
-  background: rgba(16, 185, 129, 0.08);
+  background: var(--success-soft);
 }
 
 .optWrong {
   border-color: var(--danger);
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--danger-soft);
 }
 
 .optIcon {

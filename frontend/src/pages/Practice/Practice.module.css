@@ -470,12 +470,12 @@
 
 .optCorrect {
   border-color: var(--success);
-  background: rgba(16, 185, 129, 0.08);
+  background: var(--success-soft);
 }
 
 .optWrong {
   border-color: var(--danger);
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--danger-soft);
 }
 
 .optIcon {
