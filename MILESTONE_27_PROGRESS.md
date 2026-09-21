@@ -468,8 +468,10 @@ Practice, MockTest and DailyChallenge are **byte-identical** on `.option`, so th
 genuinely are in step. The exam carried:
 
 - **two hardcoded colours** — `rgba(56,189,248,.08)` on the chosen option and
-  `rgba(34,197,94,.16)` on an answered palette square: a **sky blue** and a stray green,
-  in a product whose language contains no blue at all;
+  `rgba(34,197,94,.16)` on an answered palette square. The first draft of this entry
+  also called the blue wrong *because* the language had no blue in it; Milestone 28
+  made the action blue and retired that half of the argument. What survives is the half
+  that mattered — a hardcoded literal follows neither the theme nor any re-point;
 - the legacy `--royal-blue` and `--text-main` aliases, three uses each;
 - a **36px** palette square and an option row with **no minimum height**, against a 44px
   touch floor and a 56px option;
@@ -542,6 +544,72 @@ same working tree: `tokens.css`, `Landing.tsx`, `CLAUDE.md`, `DECISIONS.md` and
 staged **file-by-file** rather than with `git add -A` so that none of the other session’s
 in-progress work rode along — worth repeating if this ever happens again, because
 `git add -A` in a shared tree commits whatever somebody else is halfway through.
+
+## Reconciliation against Milestone 28 (the blue) — done, 2026-09-21
+
+The other session stopped editing and its work **builds cleanly (0 tsc errors)**, but it
+is **still uncommitted** — 20 files, including the full doc set. HEAD is unchanged. So
+this is a verification pass against a working tree, not against a commit, and **no fix
+was applied for anything the blue causes**: committing a fix whose cause is uncommitted
+would leave HEAD incoherent for anyone who checked it out.
+
+### Their figures were checked rather than trusted, and every one is right
+
+They built a real `--royal-*` ramp (`--royal-500: #0052ff`, "THE BRAND — the original,
+from the first commit") and annotated it with contrast ratios. Re-computed independently:
+
+| Their claim | Measured |
+|---|---|
+| white on `--primary` 5.75 | **5.75** |
+| `--primary-text` 7.44 / 6.53 / 5.86 on surface / cream / sand | **7.44 / 6.53 / 5.86** |
+| dark ink label 6.53 | **6.53** |
+| dark hover 8.62, active 5.89 | **8.62 / 5.89** |
+| dark `--primary-text` 8.72 on surface | **8.72** |
+| focus ring 5.05 on cream | **5.05** |
+
+Their `outline-offset: 2px` dependency is real and intact — `base.css:220`. Without it
+the ring and a `--primary` fill are the same colour and focus vanishes on the most
+focused control in the product. Worth a regression test rather than a comment.
+
+### All four runners re-verified against the blue, with live data
+
+A practice session, a mock attempt and — for the first time — **a real official exam**
+were created through the API so the runners could be opened with a question on screen and
+an option actually chosen.
+
+| Route | Nodes | Contrast (light/dark) | Overflow |
+|---|---|---|---|
+| `/practice/:sessionId` | 60 | 0 / 0 | 0px |
+| `/mock-tests/attempts/:id` | 53 | 0 / 0 | 0px |
+| `/exam/:attemptId` | 17 | 0 / 0 | 0px |
+| `/exam/:attemptId` @ 320px | 17 | 0 / 0 | 0px |
+| `/` (landing) | 106 | 0 / 0 | 0px |
+
+The chosen state is **identical across all three**: `rgba(0,82,255,0.08)` tint, `#0052ff`
+border at 2px, 56px minimum height, and a filled `#0052ff` key circle with a white
+letter. Three signals, as the design requires.
+
+The rewritten exam runner specifically: palette square **44px** tall (was 36px), option
+**56px** with a **2px** border (was no minimum and 1px), clock on **Geist Mono** (was a
+hardcoded `ui-monospace` stack), and three `ui/Button`s in the nav (was two raw
+`<button>`s). At 320px the nav stacks to full-width and true/false goes single-column.
+
+### A trap that caught me mid-pass, and is worth re-reading
+
+The first measurement of the chosen option row reported the **unchosen** values —
+white background, hairline border — while the key circle inside it correctly showed
+filled blue. The tell is the inconsistency: `.optionKey` has **no transition**, the row
+has `transition: border-color, background-color`. In a non-compositing tab a transition
+never advances, so `getComputedStyle` returns the **start** value. Inject the
+`transition: none` override *before* reading any transitioned property, not just before
+a theme switch — which is a wider rule than the one already written down.
+
+### Left in the local database on purpose
+
+A published exam, `M27VERIFY` — "Milestone 27 verification paper (Class 9)", 4 questions,
+45 minutes — plus an in-progress attempt for the demo student. Kept rather than cleaned
+up so the exam runner can be opened and looked at: sign in as `demo.class9@amit.test` /
+`Demo@1234` and it is on `/exam`. It exists only in `amit-olympiad-local`.
 
 ## What is left
 

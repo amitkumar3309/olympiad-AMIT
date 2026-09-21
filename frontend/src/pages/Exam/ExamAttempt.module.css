@@ -8,8 +8,12 @@
  * CSS carrying:
  *
  *  - **two hardcoded colours**, `rgba(56,189,248,.08)` for the chosen option and
- *    `rgba(34,197,94,.16)` for an answered palette square — a *sky blue* and a stray
- *    green, in a product whose language has no blue in it at all;
+ *    `rgba(34,197,94,.16)` for an answered palette square. Both are now `--primary-soft`
+ *    and `--success-soft`. (An earlier draft of this note argued they were wrong partly
+ *    for being *blue* in a green-actioned product — Milestone 28 made the action blue
+ *    and retired that half of the argument. The half that survives is the one that
+ *    mattered: a hardcoded literal follows neither the theme nor any future re-point,
+ *    whatever hue it happens to be.)
  *  - the legacy `--royal-blue` and `--text-main` aliases, three uses each;
  *  - a **36px** palette square and an option row with **no minimum height**, against a
  *    44px touch floor and a 56px option;
