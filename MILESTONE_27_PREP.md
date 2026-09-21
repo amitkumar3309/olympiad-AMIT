@@ -1,5 +1,10 @@
 # MILESTONE_27_PREP.md — re-pointing the token layer onto a Figma design
 
+_**Superseded in part, 2026-09-21:** the work started, and what has actually happened is in
+[`MILESTONE_27_PROGRESS.md`](MILESTONE_27_PROGRESS.md). The three questions below are answered
+there; the two decisions in the next section still stand. This file remains as the record of
+what was settled before any code changed._
+
 _Written 2026-09-21. **Prep only — no code has changed.** This file exists because the
 session that planned it could not reach Figma (see "Why this file exists"), and the work
 needs to survive a session boundary. Fold it into `PROJECT_STATE.md` and delete it when

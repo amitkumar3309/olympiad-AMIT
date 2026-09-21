@@ -8,6 +8,26 @@ This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG
 
 ## Current Development Phase
 
+**Milestone 27 — re-pointing the frontend onto the Brightpath reference: phase 1 (the token
+layer) complete.** Working notes are in
+[`MILESTONE_27_PROGRESS.md`](MILESTONE_27_PROGRESS.md); the decisions taken before work
+started are in [`MILESTONE_27_PREP.md`](MILESTONE_27_PREP.md) and the reasoning is the
+Milestone 27 ADR in [`DECISIONS.md`](DECISIONS.md). Both files are temporary — fold them in
+here and delete them when the milestone closes.
+
+This milestone **supersedes Milestone 26's visual language** rather than sitting beside it,
+and it reverses two of that milestone's three ideas: separation is now by **fill** (a white
+card on a warm cream page) rather than by shadow, and colour is **abundant** rather than
+scarce, with two action colours instead of a near-black one. Emphasis is a **hard offset
+edge** with zero blur — the reference's signature — confined to controls and markers. Both
+of Milestone 26's verified sweeps are re-opened by construction; re-running them across all
+54 routes is part of the milestone, not an afterthought.
+
+Phase 1 touched **two frontend files** (`src/styles/tokens.css` and `index.html`) and no
+page: **zero of the 216 existing tokens were dropped**, 29 were added, the production build
+is unchanged at 247 kB / 76 kB gzipped, and the landing page measures **0 WCAG AA contrast
+failures across 189 text nodes in both themes**. Backend untouched.
+
 **Milestone 26 — a new visual language for the whole frontend: phases 1–15 complete.**
 
 **Working notes for this milestone are in [`MILESTONE_26_PROGRESS.md`](MILESTONE_26_PROGRESS.md)**,

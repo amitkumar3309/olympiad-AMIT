@@ -28,22 +28,31 @@
     <meta property="og:type" content="website" />
 
     <!--
-      Fonts (Milestone 23 Phase A; replaced in Milestone 26).
+      Fonts (Milestone 23 Phase A; replaced in Milestone 26, replaced again in 27).
 
-      **Geist for the entire interface, Geist Mono for figures.** Cinzel survives for
-      the two logotype surfaces — the landing wordmark and the printed certificate —
-      and nothing else.
+      **Bricolage Grotesque for headings, Instrument Sans for everything else.** That
+      pairing is the Brightpath reference’s, and the division is load-bearing for this
+      product: Bricolage has a lot of character and is tiring at 15px down a column of
+      two hundred admin table rows, so it is the display face only.
 
-      Three families were dropped for these two: **Inter, Poppins and JetBrains Mono**.
-      Both Geist faces are variable (400–700 in one file each), so despite replacing
-      three faces this requests *fewer* bytes than it did. Nothing in `src/` referenced
-      the old families once `--font-body`, `--font-heading` and `--font-mono` were
-      re-pointed, which is worth re-checking before any family is added back.
+      **Geist Mono survives for figures** — it is referenced 79 times across 33 files
+      for serials, ids and tabular numbers, and a proportional substitute would break
+      column alignment. **Cinzel survives for the two logotype surfaces** — the
+      landing wordmark and the printed certificate — and nothing else. Geist is gone.
+
+      That is four families where Milestone 26 had three, and unlike that milestone
+      this one does **not** get to claim it saved bytes: it costs roughly one extra
+      variable face. Both new families are variable, so the cost is one file each
+      rather than one per weight.
+
+      These names appear in exactly two places: here, and `--font-body` /
+      `--font-heading` in `src/styles/tokens.css`. Nothing in `src/` names a family
+      directly, which is what made swapping them a two-file change.
     -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&family=Cinzel:wght@600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400..700&family=Geist+Mono:wght@400..600&family=Cinzel:wght@600;700&display=swap"
       rel="stylesheet"
     />
     <!--

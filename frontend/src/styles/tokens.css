@@ -2,19 +2,25 @@
  * DESIGN TOKENS — the single source of truth for colour, type, space, radius,
  * shadow, motion and layering in this application.
  *
- * Milestone 23 Phase A created this file. **Milestone 26 re-pointed it** onto a new
- * visual language, measured from the reference rather than guessed at. Nothing about
- * how it is *used* changed: three layers, semantic-only in components, light on
- * `:root` with the dark theme as the override below it.
+ * Milestone 23 Phase A created this file. Milestone 26 re-pointed it onto a
+ * near-black/white language measured from Tokko. **Milestone 27 re-points it again**,
+ * onto the Brightpath reference, and this time the change is not only a recolour —
+ * two of the three ideas underneath it invert. Read the next section before touching
+ * a surface.
+ *
+ * Every value here was measured off the live reference with `getComputedStyle` and
+ * then **verified with WCAG arithmetic before being written**, not eyeballed. Where
+ * the reference itself fails a contrast threshold, the reference loses; those cases
+ * are named in the comments beside the tokens that record the decision.
  *
  * ## How to use this file
  *
- * Nothing in `src/` may hardcode a colour, a radius, a shadow or a duration. Reach
- * for a token here instead, and if none fits, add one *here* rather than inventing a
- * value in a component — that is the whole mechanism by which fifty pages stay
- * recognisably one product. It is also why this milestone's recolour was a one-file
- * change: a sweep confirmed that **no file outside this one references a palette
- * step**, so the ramps below could be replaced wholesale.
+ * Nothing in `src/` may hardcode a colour, a radius, a shadow, a duration or a font
+ * size. Reach for a token here instead, and if none fits, add one *here* rather than
+ * inventing a value in a component — that is the whole mechanism by which fifty pages
+ * stay recognisably one product. It is also why this milestone's recolour reaches all
+ * 54 routes without editing them: a sweep confirmed that **no file outside this one
+ * references a palette step**, so the ramps below can be replaced wholesale.
  *
  * ## Three layers, in order
  *
@@ -25,28 +31,37 @@
  *     *means*. This is the layer components use, and the only layer the dark theme
  *     redefines.
  *  3. **Legacy aliases** (`--royal-blue`, `--gold`, `--text-main`) — the names the
- *     pre-Milestone-23 CSS modules already reference, 144 times for `--royal-blue`
- *     alone. Kept working deliberately: retokenising 14,000 lines of CSS in one
- *     commit would be a rewrite disguised as a refactor. New code uses the semantic
- *     names; the aliases retire page by page as each is redesigned.
+ *     pre-Milestone-23 CSS modules already reference. Kept working deliberately; they
+ *     retire page by page as each is redesigned.
  *
  * ## THE THREE IDEAS THIS LANGUAGE IS BUILT ON
  *
- * Everything below follows from three decisions, and a change that contradicts one of
- * them will look wrong however carefully it is tokenised:
+ * Milestone 26's first and third ideas are **reversed** here. A change that
+ * contradicts one of these will look wrong however carefully it is tokenised:
  *
- *  1. **Separation is by shadow, not by border.** A card here has *no border at all*
- *     and a soft, wide, low-opacity shadow. Borders exist but are nearly invisible
- *     and are used for the few cases a shadow cannot serve — a divider, an input
- *     well, an outline button.
- *  2. **Type is tight, not airy.** Medium weight (500) for body, semibold (600) for
- *     headings, and **negative tracking at every size**, tightening as size grows.
- *     This is the opposite of the "large, light, loose" default and is most of what
- *     makes the reference feel designed.
- *  3. **Colour is categorical; action is near-black.** There is no bright brand
- *     colour on a button. `--primary` is `--ink-900`. The six `--cat-*` hues are for
- *     *marking* things — an icon tile, a subject, a status dot — never for actions,
- *     and never for words.
+ *  1. **Separation is by FILL — not by shadow, and not by border.** A white card sits
+ *     on a warm cream page and that difference alone is the edge. The reference has
+ *     **no border and no shadow on any card**; whole sections are tinted instead
+ *     (cream → sand → pale blue). This is the opposite of Milestone 26, where a card
+ *     was white-on-white and a soft shadow did the separating. `--shadow-*` survives
+ *     here only for things that genuinely float — see the shadow section.
+ *  2. **Emphasis is a HARD OFFSET EDGE, and it belongs to controls and markers only.**
+ *     The reference's signature is `0 4px 0` in a companion colour, with **zero
+ *     blur** — a sticker or a keycap, not a lift. It is on buttons (vertical offset)
+ *     and on small icon tiles and step numbers (diagonal offset). It is **never on a
+ *     card**. That is the `--edge-*` family, which is new in this milestone.
+ *  3. **Colour is ABUNDANT and categorical.** Milestone 26 made colour scarce and the
+ *     action near-black. Here the page itself is coloured, cards are pastel, and there
+ *     are two action colours: a deep green standard action and an orange call to
+ *     action. The six `--cat-*` hues are no longer confined to one component.
+ *
+ * And one that does **not** change, because it was never about the reference:
+ *
+ *  4. **Type is tight.** Still negative tracking, but now carried by a display face —
+ *     Bricolage Grotesque for headings (600–700, −0.04em to −0.08em) over Instrument
+ *     Sans for everything else. Note `--tracking-body` is now **0**: the reference
+ *     tracks its body copy normally and only its headings tightly, which is the
+ *     opposite of Milestone 26's single inherited −0.02em.
  *
  * ## Dark mode
  *
@@ -55,6 +70,14 @@
  * order is what makes dark mode win**: the `.theme-dark` block must stay *below*
  * `:root`. Anything added to one needs a counterpart in the other, or it is simply
  * missing in the theme that lacks it.
+ *
+ * The reference is light-only (it carries no `prefers-color-scheme: dark` rule at
+ * all), so the dark theme below is **derived, and verified independently**. Two
+ * consequences worth knowing: the hard offset edge *survives* into dark mode, where a
+ * blurred shadow could not — a zero-blur offset in a darker companion still reads on
+ * a near-black page — and the six categorical pastels are **theme-invariant**,
+ * because they are already light fills carrying ink text and they measure 9–12:1 on a
+ * dark surface exactly as they do on cream.
  *
  * ## Breakpoints (documented here, declared in each module)
  *
@@ -78,55 +101,112 @@
   /**
    * Ink — the neutral ramp, and the only ramp most of the product needs.
    *
-   * Built on **`#1a1a1a`, never pure black**. That one step is the reference's text
-   * colour, its primary button and its shadow colour, and the difference between
-   * `#1a1a1a` and `#000` is the difference between "designed" and "default".
+   * Built on **`#14261d`, a very dark green, never black and never grey**. That one
+   * step is the reference's text colour; `--ink-800` (`#1b3428`) is its standard
+   * button and dark card; `--ink-600` (`#45564b`) is its secondary text;
+   * `--ink-50` (`#f4f0e5`) is the **page itself** and `--ink-100` (`#eae4d3`) the
+   * sand band that alternates with it. Five of the thirteen steps are therefore
+   * values read directly off the reference rather than interpolated.
    *
-   * The intermediate steps are the ink composited over white at fixed alphas, so a
-   * solid step and its alpha equivalent are interchangeable — which matters because
-   * the semantic layer below uses *alpha* for text and borders (so they sit correctly
-   * on a tinted surface) and *solid* steps for fills.
+   * Note what this means: unlike Milestone 26's ramp, **the page is not `--ink-0`**.
+   * White is a *card*, cream is the page. That single fact is idea (1) above, and it
+   * is why `--surface` and `--bg` are different colours here rather than both white.
+   *
+   * The ramp is verified monotonic in relative luminance, so a step is always darker
+   * than the one before it — which is what lets `--ink-200` be a border and
+   * `--ink-300` a disabled fill without checking each one by hand.
    */
   --ink-0: #ffffff;
-  --ink-25: #fafafa;
-  --ink-50: #f4f4f4;
-  --ink-100: #e8e8e8;
-  --ink-200: #d6d6d6;
-  --ink-300: #b8b8b8;
-  --ink-400: #949494;
-  --ink-500: #757575;
-  --ink-600: #5c5c5c;
-  --ink-700: #454545;
-  --ink-800: #2e2e2e;
-  --ink-900: #1a1a1a;
-  --ink-950: #0d0d0d;
+  --ink-25: #faf8f1;
+  --ink-50: #f4f0e5; /* THE PAGE — measured off the reference */
+  --ink-100: #eae4d3; /* the sand band that alternates with it */
+  --ink-200: #d5cfba;
+  --ink-300: #b0b5a4;
+  --ink-400: #8a9287;
+  --ink-500: #6a7568;
+  --ink-600: #45564b; /* secondary text — measured */
+  --ink-700: #33453a;
+  --ink-800: #1b3428; /* the standard action, and the dark card — measured */
+  --ink-900: #14261d; /* THE INK — measured */
+  --ink-950: #0b1711;
 
   /**
-   * The categorical set. **Marks, not actions, and never words.**
+   * Mid green — one step that is neither text nor page, used as a card fill and as
+   * the companion edge under the standard action. Kept out of the ink ramp because it
+   * is saturated: it would break the monotonic-neutral property above.
    *
-   * Six hues, used to tell one thing apart from another — a subject, a chapter, a
-   * question type, an icon tile on a feature card. They are deliberately *not* wired
-   * into `Badge`, whose tones are semantic (success, warning, danger); a badge says
-   * what something *is*, a category colour says which *bucket* it is in, and mixing
-   * the two is how a palette stops meaning anything.
-   *
-   * Each has an `-on` for the glyph that sits on it, and they are **not all the same
-   * value** — orange, green and lilac are light fills that take ink; blue, magenta
-   * and purple are dark enough for white. White on `--cat-orange` is 3.08:1, which
-   * fails even the 3:1 a non-text graphic needs.
+   * It takes **white** text (4.72:1), not cream (4.14:1, which fails). That pair is
+   * the reason both exist.
    */
-  --cat-orange: #f56628;
-  --cat-orange-on: var(--ink-900); /* 5.8:1 — white would be 3.1:1 */
-  --cat-blue: #2979fa;
-  --cat-blue-on: #ffffff; /* 4.1:1 */
-  --cat-magenta: #ed2791;
-  --cat-magenta-on: #ffffff; /* 4.0:1 */
-  --cat-purple: #b824d9;
-  --cat-purple-on: #ffffff; /* 4.9:1 */
-  --cat-green: #49c420;
-  --cat-green-on: var(--ink-900); /* 7.8:1 */
-  --cat-lilac: #d6aef2;
-  --cat-lilac-on: var(--ink-900); /* 9.5:1 */
+  --green-mid: #497e64;
+
+  /**
+   * The categorical set — six **pastels**, each carrying ink text and each with a
+   * darker **`-edge`** companion for the hard offset.
+   *
+   * Four of the six are measured off the reference (blue, green/lime, magenta/pink,
+   * orange/peach, with their edges). Lilac and purple are derived in the same
+   * register, and purple went through three candidates before one cleared the
+   * muted-text floor — `#cdbcea` measured **4.44:1** for `--text-muted`, just under
+   * AA, which is exactly the class of defect Milestone 26's Phase G audit found 109
+   * times. It is `#c9c6f0` for that reason and no other.
+   *
+   * **The names are Milestone 26's, deliberately.** They are bucket labels, not
+   * colour claims — `IconTile`'s `tone` prop is the only public API over them, and
+   * re-pointing values rather than renaming tokens is what kept this a one-file
+   * change. `--cat-purple` is a periwinkle; it differs from `--cat-lilac` by 1.15:1,
+   * which is enough to tell two adjacent tiles apart.
+   *
+   * Every `-on` is now **ink**, in both themes. Milestone 26 needed a mixed set
+   * because its hues were saturated; a pastel is a light fill by definition, so ink
+   * measures 9.04–11.93:1 on all six and the special cases disappear. **These six are
+   * theme-invariant** — they are not redefined in `.theme-dark`, because a light
+   * pastel reads on a dark surface at 9–12:1 just as it does on cream.
+   *
+   * Unlike Milestone 26, these are **not confined to `ui/IconTile`** — the reference
+   * uses them as card and section fills too. What still holds: they are fills, never
+   * words, and they are not wired into `Badge`, whose tones are semantic.
+   */
+  --cat-orange: #f9d8c0; /* peach — measured */
+  --cat-orange-on: var(--ink-900); /* 11.78:1 */
+  --cat-orange-edge: #ba9275; /* measured */
+  --cat-blue: #c9e0f2; /* measured */
+  --cat-blue-on: var(--ink-900); /* 11.65:1 */
+  --cat-blue-edge: #5488b2; /* measured */
+  --cat-magenta: #f6d7e8; /* pink — measured */
+  --cat-magenta-on: var(--ink-900); /* 11.93:1 */
+  --cat-magenta-edge: #be8fa9; /* measured */
+  --cat-purple: #c9c6f0; /* derived — see the note above */
+  --cat-purple-on: var(--ink-900); /* 9.68:1 */
+  --cat-purple-edge: #8b7fb8;
+  --cat-green: #d6e59a; /* lime — measured */
+  --cat-green-on: var(--ink-900); /* 11.73:1 */
+  --cat-green-edge: #a0af64; /* measured */
+  --cat-lilac: #ded3f0; /* derived */
+  --cat-lilac-on: var(--ink-900); /* 11.08:1 */
+  --cat-lilac-edge: #9b8cc0;
+
+  /**
+   * Orange — the **call to action**, and the brand mark's own colour.
+   *
+   * This is the reference's highest-emphasis button, and it is the one place the
+   * reference is simply wrong: it puts **white on `#e8722c`, which measures 3.05:1**
+   * and fails AA for normal text. Ours takes **ink** (5.19:1). That is not a
+   * compromise on fidelity — the fill is identical, only the label changed.
+   *
+   * Two more consequences, both measured: `--brand-hover` **lightens** rather than
+   * darkens, because darkening breaks the ink label (`#c85a18` gives ink 3.72:1 and
+   * white 4.26:1 — neither clears). And the ramp needs a dark step for words:
+   * `#9e4512` is the only one that carries text on every surface it can land on
+   * (4.75:1 worst case, on the sand band).
+   */
+  --orange-50: #fdf0e6;
+  --orange-100: #fad9c0;
+  --orange-300: #f0a56d;
+  --orange-400: #f08a4a;
+  --orange-500: #e8722c; /* THE CTA — measured */
+  --orange-600: #c85a18;
+  --orange-700: #9e4512; /* the only step that may carry words */
 
   /**
    * Gold, narrowed to one job: **achievement**. Certificates, medals, the Hall of
@@ -134,140 +214,185 @@
    * something on its own, which is why it is not in the categorical set — those are
    * arbitrary labels, this one is earned.
    *
-   * `#ffd700` is 1.9:1 on white and unusable as text, so the ramp keeps a bright step
-   * for decoration and a dark step for words.
+   * Warmed slightly against the cream page, and it keeps the Milestone 26 shape: a
+   * bright step for decoration and a dark step for words, because a usable gold and a
+   * legible gold are not the same colour.
    */
-  --gold-50: #fff9e6;
-  --gold-100: #fff1c2;
-  --gold-200: #ffe485;
-  --gold-300: #f7d34a;
-  --gold-400: #eabb1c;
-  --gold-500: #c99700;
-  --gold-600: #a67a00;
-  --gold-700: #7c5b00;
+  --gold-50: #fdf6e3;
+  --gold-100: #f9e9ba;
+  --gold-200: #f2da8a;
+  --gold-300: #edc95a;
+  --gold-400: #d9ab22;
+  --gold-500: #a87f0c;
+  --gold-600: #87650a;
+  --gold-700: #6b5008;
 
   /**
-   * Status. Four ramps, kept semantic and kept away from the categorical hues: a
-   * reader must be able to tell "this failed" from "this is chapter three".
+   * Status. Four ramps, kept semantic and kept visually apart from the categorical
+   * pastels — a reader has to tell "this failed" from "this is chapter three", and
+   * the pastels are light while these are saturated.
+   *
+   * All four were re-mixed into the warm register and then **solved numerically**
+   * against three thresholds at once: the `700` step must carry words on white,
+   * cream, sand and its own two soft tints; the `600` step must take either white or
+   * ink as a label; the `500` step must reach 3:1 as a non-text mark on cream.
+   *
+   * Amber is the hard one, as always — it sits where neither white nor ink clears on
+   * a mid step. `--amber-600` is `#a46609` because that is where **white** reaches
+   * 4.5:1 *after hex rounding*; the first candidate computed 4.5034:1 and rounded
+   * back down to 4.50, which is the kind of near-miss that only shows up if you
+   * verify the value you actually wrote rather than the one you calculated.
    */
-  --green-50: #ecfdf5;
-  --green-100: #d1fae5;
-  --green-300: #6ee7b7;
-  --green-500: #10b981;
-  --green-600: #059669;
-  --green-700: #047857;
+  --green-50: #eaf5ee;
+  --green-100: #cde9d8;
+  --green-300: #7cc79b;
+  --green-500: #2e9b61;
+  --green-600: #1d7f4c;
+  --green-700: #13633a;
 
-  --amber-50: #fffbeb;
-  --amber-100: #fef3c7;
-  --amber-300: #fcd34d;
-  --amber-500: #f59e0b;
-  --amber-600: #d97706;
-  --amber-700: #a1620a;
+  --amber-50: #fdf4e3;
+  --amber-100: #fae6bf;
+  --amber-300: #f0c264;
+  --amber-500: #b87b0f;
+  --amber-600: #a46609; /* white clears 4.5:1 here, and not one step lighter */
+  --amber-700: #8f5709;
 
-  --red-50: #fef2f2;
-  --red-100: #fee2e2;
-  --red-300: #fca5a5;
-  --red-500: #ef4444;
-  --red-600: #dc2626;
-  --red-700: #b91c1c;
+  --red-50: #fdefec;
+  --red-100: #fad8d2;
+  --red-300: #f0a196;
+  --red-500: #e0503c;
+  --red-600: #c43a28;
+  --red-700: #9e2c1e;
 
-  --sky-50: #eff6ff;
-  --sky-100: #dbeafe;
-  --sky-300: #93c5fd;
-  --sky-500: #3b82f6;
-  --sky-600: #2563eb;
-  --sky-700: #1d4ed8;
+  --sky-50: #eaf2fb;
+  --sky-100: #cfe1f6;
+  --sky-300: #8ab6e6;
+  --sky-500: #3c82c9;
+  --sky-600: #2a6aa8;
+  --sky-700: #1f5285;
 
   /* ==================================================================
-     2. TYPOGRAPHY
+     2. TYPE
      ================================================================== */
 
   /**
-   * **Geist, for the entire interface**, with **Geist Mono** for figures.
+   * Two interface families, and they are **not** the same face — which is the one
+   * structural difference from Milestone 26, where `--font-heading` deliberately
+   * aliased `--font-body` and a heading got its character from weight and tracking
+   * alone.
    *
-   * Milestone 26 dropped three families — Inter, Poppins and JetBrains Mono — for
-   * these two. Both are variable (400–700 in one file each), so despite replacing
-   * three faces this is *fewer* bytes than before. Cinzel survives for the two
-   * logotype surfaces, the landing wordmark and the printed certificate.
+   * **Bricolage Grotesque** (variable, 300–800) is the display face: headings,
+   * figures, the wordmark. **Instrument Sans** (variable) is everything else — body
+   * copy, tables, inputs, labels. That pairing is the reference's, and the division
+   * matters for this product specifically: Bricolage has a lot of character and is
+   * tiring at 15px down a column of two hundred admin table rows.
    *
-   * `--font-heading` is the same family as `--font-body` on purpose. The character of
-   * a heading here comes from **weight and tracking**, not from a second face.
+   * `--font-mono` is unchanged and stays **Geist Mono** — it is referenced 79 times
+   * across 33 files for serials, ids and figures, and a proportional substitute would
+   * break column alignment. `--font-display` stays **Cinzel** for the two logotype
+   * surfaces (the landing wordmark and the printed certificate) and nothing else.
+   *
+   * That is four families where Milestone 26 had three, and unlike that milestone
+   * this one does **not** get to claim it saved bytes: it costs roughly one extra
+   * variable face. Both new families are variable and requested from Google Fonts in
+   * `index.html`, which is the only place they are named outside this file.
    */
   --font-body:
-    'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-heading:
-    'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    'Bricolage Grotesque', 'Instrument Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
 
   /**
    * A ramp, not a free-for-all.
    *
-   * `--text-base` stays **15px**: it is what every input and table cell in the
-   * product already uses, and this application is half dense administrative tables.
-   * The reference has no equivalent — it is a marketing page with seven sizes — so
-   * the small end of this ramp is the product's and the large end is the reference's.
+   * **`--text-base` stays 15px.** The reference runs its body copy at 16px, and it
+   * was tempting to move the whole ramp up to match — but 15px is what every input
+   * and table cell in this product already uses, and half of it is dense
+   * administrative tables that a marketing page has no equivalent of. The reference's
+   * 16px body maps to `--text-md`, which already existed. Nothing below `--text-base`
+   * moved either; **11px is the floor** and anything smaller is a mistake, not a size.
    *
-   * The four largest steps are fluid, so a headline never has to be shrunk by a media
-   * query; the `clamp()` floor is the phone size and is the value that matters most.
+   * The four largest steps are fluid `clamp()`, re-pointed onto the reference's own
+   * endpoints: its H1 measures 62px at a 1024px viewport and 103px at 1440px, its
+   * section headings 50–56px, its leads 32px. The **floor of each clamp is the phone
+   * size** and is the value that matters most; a fixed px headline would re-introduce
+   * the media queries these replaced.
    */
   --text-2xs: 0.6875rem; /* 11px — uppercase micro-labels only. The floor. */
   --text-xs: 0.75rem; /* 12px */
   --text-sm: 0.8125rem; /* 13px */
   --text-base: 0.9375rem; /* 15px — default UI text, tables, inputs */
-  --text-md: 1rem; /* 16px — secondary body */
+  --text-md: 1rem; /* 16px — the reference's body size */
   --text-lg: 1.125rem; /* 18px — body copy and leads */
-  --text-xl: 1.5rem; /* 24px — large lead */
-  --text-2xl: clamp(1.75rem, 1.55rem + 1vw, 2rem); /* 28 → 32 */
-  --text-3xl: clamp(2rem, 1.5rem + 2.4vw, 3rem); /* 32 → 48 */
-  --text-4xl: clamp(2.5rem, 1.6rem + 4.4vw, 4.5rem); /* 40 → 72 */
-  --text-5xl: clamp(2.75rem, 1.4rem + 6.6vw, 6rem); /* 44 → 96 — hero only */
+  --text-xl: 1.5rem; /* 24px — card title */
+  --text-2xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem); /* 24 → 32 */
+  --text-3xl: clamp(1.875rem, 1.1rem + 3.8vw, 3.125rem); /* 30 → 50 */
+  --text-4xl: clamp(2.25rem, 1.2rem + 5.2vw, 3.5rem); /* 36 → 56 */
+  --text-5xl: clamp(2.5rem, 0.6rem + 9.4vw, 6.4375rem); /* 40 → 103 — hero only */
 
   /**
-   * Leading.
+   * Leading. Tighter at the top than Milestone 26's, because the reference sets its
+   * hero at exactly 1.0 and its section headings at 1.1.
    *
-   * The reference runs **1.24 for body**, which is tight — and it gets away with it
-   * because every block on it is two lines long. This product has real paragraphs
-   * (an exam rubric, a refusal reason, a chapter description), so `--leading-normal`
-   * is **1.45**: tighter than the 1.55 it replaces, loose enough to read a paragraph
-   * in. The reference's own figure is `--leading-snug`, which is correct for a lead.
-   *
-   * `--leading-tight` is **0.96** — under 1, which is right only at display sizes,
-   * where the ascenders and descenders of a 72px line have room to interlock.
+   * `--leading-normal` is **1.4** — the reference's own body figure, and close enough
+   * to the 1.45 it replaces that no paragraph reflows badly. Do not take the display
+   * figures down further: 1.0 works on a two-line hero and turns a three-line heading
+   * into a solid block.
    */
   --leading-none: 1;
-  --leading-tight: 0.96; /* display only */
-  --leading-snug: 1.24; /* headings and leads — the reference's body figure */
-  --leading-normal: 1.45; /* body copy */
+  --leading-tight: 1; /* display only — the reference's hero */
+  --leading-snug: 1.15; /* section headings */
+  --leading-normal: 1.4; /* body copy — the reference's figure */
   --leading-relaxed: 1.6;
   --leading-loose: 1.75;
 
-  --weight-normal: 400;
-  --weight-medium: 500; /* body */
+  /**
+   * Weight. **700 is in use now**, which it explicitly was not in Milestone 26 — the
+   * reference sets its hero in Bricolage 700 and its section headings in 600. Body
+   * copy is 400, not 500: with a display face doing the heading work, the body no
+   * longer has to carry weight to feel deliberate.
+   */
+  --weight-normal: 400; /* body */
+  --weight-medium: 500; /* emphasis, card titles, button labels */
   --weight-semibold: 600; /* headings */
-  --weight-bold: 700;
+  --weight-bold: 700; /* the hero, and figures */
   --weight-black: 800;
 
   /**
-   * Tracking, and it is **negative at every size**.
+   * Tracking, and **this is the trap in this milestone**.
    *
-   * That is the single most transferable thing about this reference: 16px body at
-   * -0.02em, 72px display at -0.04em. `--tracking-normal` stays at `0` because
-   * existing CSS passes it expecting no change; `--tracking-body` is the one applied
-   * to `body` in `base.css`, so everything inherits it without any module changing.
+   * Milestone 26 applied `--tracking-body: -0.02em` **once, to `body`** in
+   * `base.css`, and that single inherited declaration is how its type change reached
+   * fifty pages with none of them edited. The mechanism is kept; the **value is now
+   * `0`**, because the reference tracks body copy normally and reserves negative
+   * tracking for display sizes only. So the same one-line lever that tightened
+   * everything now un-tightens everything, and the character moves into the headings.
+   *
+   * Measured off the reference: 62px hero −0.06em, 50–56px headings −0.08em, 32px
+   * leads −0.08em, 24px card titles −0.04em, 20px −0.06em, 16px body normal.
    */
-  --tracking-display: -0.04em; /* 40px and up */
-  --tracking-tight: -0.03em; /* 24–32px */
-  --tracking-snug: -0.02em; /* 18–21px */
-  --tracking-body: -0.02em; /* applied once, to `body` */
+  --tracking-display: -0.08em; /* 30px and up */
+  --tracking-tight: -0.06em; /* the hero, and 20px headings */
+  --tracking-snug: -0.04em; /* 24px card titles */
+  --tracking-body: 0; /* applied once, to `body` — was -0.02em */
   --tracking-normal: 0;
   --tracking-wide: 0.02em;
   --tracking-caps: 0.06em; /* uppercase micro-labels need the air */
 
   /* ==================================================================
-     3. SPACING — a 4px base. Steps are named by size, not by ordinal, so
-        `--space-6` is always 24px however the ramp grows.
+     3. SPACE
      ================================================================== */
+
+  /**
+   * The reference is built on a **10px** rhythm rather than the 4/8px one this scale
+   * uses (its gaps tally 4, 6, 10, 20, 30, 40, 50, 80 and its section padding
+   * 100/110/130px on tablet, 150px on desktop). The scale is **not** re-pointed to
+   * match: a 4px base subdivides more usefully in dense admin layouts, and every
+   * existing page is already built on it. What did change is `--section-gap`, which
+   * now reaches the reference's generous desktop figure.
+   */
   --space-0: 0;
   --space-1: 4px;
   --space-2: 8px;
@@ -283,103 +408,128 @@
   --space-24: 96px;
   --space-32: 128px;
 
-  /**
-   * The vertical gap between two major sections of a page, and between blocks inside
-   * one. Fluid, and deliberately larger than anything on the space ramp: whitespace
-   * at this scale is the difference between "spacious" and "padded", and it is the
-   * one measurement a page cannot fake with borders.
-   */
-  --section-gap: clamp(64px, 8vw, 128px);
+  --section-gap: clamp(64px, 9vw, 150px); /* the reference's desktop figure */
   --block-gap: clamp(24px, 3.5vw, 48px);
 
   /* ==================================================================
-     4. RADIUS, BORDER, SHADOW
+     4. RADIUS, BORDER, SHADOW, EDGE
      ================================================================== */
 
   /**
-   * Large on the outside, small on the inside.
-   *
-   * The reference's two dominant radii are **the pill** (98 uses) and **32px** (66),
-   * with 24 and 16 inside them. A very soft outer container holding crisper inner
-   * rectangles is what reads as composed rather than as "rounded corners turned up".
-   * `--radius-xl` is the card.
+   * Radius, re-pointed onto the reference's four observed values: **10px** on small
+   * tiles and controls, **16px** on a programme card, **20px** on the main card, and
+   * a full pill. Everything is flatter than Milestone 26, whose card was 32px.
    */
-  --radius-xs: 8px; /* chips, tags, the focus ring's own rounding */
-  --radius-sm: 12px; /* inputs, small controls */
-  --radius-md: 16px; /* inner panels, nested surfaces */
-  --radius-lg: 24px; /* modals, large inner panels */
-  --radius-xl: 32px; /* THE card, and a page section */
-  --radius-2xl: 40px; /* an outer shell around cards */
-  --radius-pill: 999px;
+  --radius-xs: 6px; /* chips, tags, the focus ring's own rounding */
+  --radius-sm: 10px; /* inputs, small controls, icon tiles — measured */
+  --radius-md: 14px; /* inner panels, nested surfaces */
+  --radius-lg: 16px; /* programme cards — measured */
+  --radius-xl: 20px; /* THE card, and a page section — measured */
+  --radius-2xl: 28px; /* an outer shell around cards */
+  --radius-pill: 999px; /* the reference writes 100px; same result */
 
   --border-width: 1px;
 
   /**
-   * Borders are **alpha over the surface, and nearly invisible**.
-   *
-   * A hairline has to sit over several different surfaces — white, the subtle tint, a
-   * soft status fill — and a fixed grey is visibly wrong on at least one of them. Ink
-   * at 8% is correct on all of them because it is defined relative to what it is
-   * drawn on.
-   *
-   * **A card does not use one.** See the shadow note below: in this language borders
-   * are for dividers, input wells and outline buttons, and separation between a
-   * surface and the page is the shadow's job.
+   * Borders are **nearly invisible and are not how anything separates** — the
+   * reference has no border on any card. They survive for the few jobs a fill cannot
+   * do: a table divider, the well around an input, the outline on a secondary button.
+   * Re-tinted from neutral grey to the green ink so they sit correctly on cream.
    */
-  --border: rgba(26, 26, 26, 0.08);
-  --border-subtle: rgba(26, 26, 26, 0.05);
-  --border-strong: rgba(26, 26, 26, 0.16);
+  --border: rgba(20, 38, 29, 0.1);
+  --border-subtle: rgba(20, 38, 29, 0.06);
+  --border-strong: rgba(20, 38, 29, 0.18);
 
   /**
-   * The card's border, which is **transparent in this theme and real in the dark one**.
-   *
-   * A token rather than a per-theme rule inside `Card`, for the reason `--tooltip-bg`
-   * is one: a CSS Module cannot name `.theme-dark` without `:global`, and a component
-   * that knows which theme it is in is a component that will be wrong in the next one.
-   * `Card` declares `border: 1px solid var(--card-border)` unconditionally and the
-   * theme decides whether separation comes from the shadow or from the line.
-   *
-   * Transparent rather than `border: none`, so the card's box does not change size
-   * between themes — a 1px reflow on every card is exactly the kind of thing that
-   * makes a theme switch feel broken.
+   * `--card-border` is a token rather than a rule inside `Card.module.css` for the
+   * reason `--tooltip-bg` is one: a CSS Module cannot name `.theme-dark` without
+   * `:global`, and a component that knows which theme it is in will be wrong in the
+   * next one. Declared in **both** themes so the box never changes size between them.
    */
   --card-border: transparent;
 
   /**
-   * **Shadows do the separating here**, and they are the measured ones.
+   * Shadows — and read this before using one.
    *
-   * Wide, soft and low-opacity, tinted with the ink rather than with black — a pure
-   * black shadow on a white page reads as grey dirt, an ink-tinted one reads as
-   * light. `--shadow-md` is the reference's chip, `--shadow-lg` its section, and
-   * `--shadow-xl` its card (note the negative spread, which pulls the blur in at the
-   * top so the surface looks lifted rather than smeared).
+   * **The reference has no shadow on any card, panel or section.** Separation is by
+   * fill (idea 1). So these five tokens are no longer the card's lift; they are
+   * reserved for the things that genuinely **float above** the page and that the
+   * reference — a marketing site with no overlay UI at all — never had to solve: the
+   * modal, the drawer, the menu, the toast, the tooltip. A dropdown with no elevation
+   * over a cream page is unreadable, and no amount of fidelity to a landing page
+   * changes that.
    *
-   * In the dark theme these become near-useless — there is nowhere darker for a
-   * shadow to fall — so that block restores the border and flattens these instead.
+   * They are warm-tinted to the green ink so an overlay does not read as grey against
+   * cream. If you are reaching for one of these on something that is *part of the
+   * page*, you want a fill instead.
    */
-  --shadow-xs: 0 1px 2px rgba(26, 26, 26, 0.04);
-  --shadow-sm: 0 2px 6px rgba(26, 26, 26, 0.06);
-  --shadow-md: 0 12px 20px rgba(26, 26, 26, 0.1);
-  --shadow-lg: 0 16px 40px rgba(26, 26, 26, 0.1);
-  --shadow-xl: 0 16px 48px -4px rgba(26, 26, 26, 0.2);
+  --shadow-xs: 0 1px 2px rgba(20, 38, 29, 0.05);
+  --shadow-sm: 0 2px 6px rgba(20, 38, 29, 0.07);
+  --shadow-md: 0 10px 20px rgba(20, 38, 29, 0.1);
+  --shadow-lg: 0 16px 36px rgba(20, 38, 29, 0.12);
+  --shadow-xl: 0 20px 48px -4px rgba(20, 38, 29, 0.18);
 
-  /* The blur behind a translucent panel — the floating navigation and the topbar. */
+  /**
+   * THE EDGE — new in Milestone 27, and the reference's actual signature.
+   *
+   * A hard offset with **zero blur** in a companion colour: `0 4px 0` under a button,
+   * `3px 3px 0` under a small tile. It reads as a sticker or a keycap rather than a
+   * lift, and it is the reason the design looks the way it does.
+   *
+   * Two rules travel with it. **It belongs to controls and markers, never to a
+   * card** — a card separates by fill, and putting an edge on one makes a page of
+   * boxes look like a page of buttons. And **the colour comes from the element**, not
+   * from here: each fill has its own `-edge` companion (`--primary-edge`,
+   * `--brand-edge`, `--cat-*-edge`), because the companion is a designed pair and not
+   * a formula — the reference's green button takes a *lighter* green edge while its
+   * orange button takes a darker orange one.
+   *
+   * `--edge-*` below are the **geometries**, written as a `box-shadow` with the colour
+   * left off. A component composes one with its own colour:
+   * `box-shadow: var(--edge-control) var(--primary-edge)`.
+   *
+   * The press interaction that goes with this is a **collapse**, not a colour change:
+   * translate the control down by the offset and shrink the edge to zero, so it
+   * behaves like something physically pressed. That is also why `--brand-hover`
+   * lightens instead of darkening — the depth cue is the edge, so the colour is free.
+   */
+  --edge-width: 4px;
+  --edge-control: 0 4px 0 0; /* buttons — vertical only */
+  --edge-control-sm: 0 2px 0 0; /* compact controls */
+  --edge-tile: 3px 3px 0 0; /* small markers — diagonal */
+  --edge-tile-lg: 4px 4px 0 0; /* larger tiles — diagonal */
+
   --blur-panel: 16px;
 
   /* ==================================================================
-     5. MOTION. Every duration in the product comes from here, which is what
-        lets `prefers-reduced-motion` be honoured in exactly one place.
+     5. MOTION
      ================================================================== */
+
+  /**
+   * `--ease` is the reference's own curve, `cubic-bezier(0.44, 0, 0.56, 1)` — a
+   * symmetrical ease that is slower in and out than a standard material curve.
+   *
+   * The reference runs it at **400ms**, which is right for a scroll-triggered
+   * marketing animation and wrong for a button in an admin table. The durations stay
+   * close to Milestone 26's; only `--dur-slow` moved, for the one case where
+   * something large enters.
+   *
+   * `prefers-reduced-motion` is honoured **once**, in `base.css`. Do not re-handle it
+   * per component. And remember that a CSS transition cannot advance while the tab is
+   * not compositing, so `getComputedStyle` will report the *start* value in a hidden
+   * preview — a measurement artifact, not a bug.
+   */
   --dur-fast: 120ms;
-  --dur: 180ms;
-  --dur-slow: 260ms;
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur: 200ms;
+  --dur-slow: 320ms;
+  --ease: cubic-bezier(0.44, 0, 0.56, 1); /* the reference's curve */
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* ==================================================================
-     6. LAYERING. One ladder, so a drawer cannot end up above a modal.
+     6. LAYERING
      ================================================================== */
+
   --z-base: 0;
   --z-raised: 10;
   --z-sticky: 20;
@@ -394,13 +544,23 @@
   /* ==================================================================
      7. LAYOUT
      ================================================================== */
+
+  /**
+   * `--container-width` stays 1200px; the reference's content column measures 1365px
+   * at a 1440px viewport, which is wider than this product wants for reading.
+   * `--container-wide` widened to 1400px for the landing page, which is the one
+   * surface that should match the reference's breadth.
+   *
+   * `--tap-target` stays **44px** and is not negotiable: the reference's own pill
+   * buttons measure 42px, and that is below the floor. Accessibility is one of the
+   * things "the design wins" does not reach.
+   */
   --container-width: 1200px;
   --container-narrow: 720px;
-  --container-wide: 1440px;
+  --container-wide: 1400px;
   --gutter: clamp(18px, 4.5vw, 32px);
-  /* The minimum comfortable touch target. Every interactive element the product
-     ships must reach this on a coarse pointer; `base.css` enforces it. */
-  --tap-target: 44px;
+
+  --tap-target: 44px; /* the reference is 42px; the floor wins */
   --sidebar-width: 272px;
   --header-height: 64px;
   --bottom-nav-height: 62px;
@@ -410,84 +570,101 @@
      ================================================================== */
 
   /**
-   * Surfaces.
-   *
-   * **The page is `#fafafa` and a card is pure white** — the opposite way round from
-   * the design this replaced, where the page was tinted and cards were white by
-   * being lighter. Here a card is lighter *and* lifted by a shadow, which is what
-   * lets it carry no border at all.
+   * Surfaces. **`--bg` and `--surface` are different colours now**, which is the
+   * whole of idea (1): the page is warm cream and a card is white, and that step is
+   * the edge. `--bg-subtle` is the sand band the reference alternates with the cream
+   * to mark a section without drawing a line.
    */
-  --bg: var(--ink-25);
-  --bg-subtle: var(--ink-50);
-  --surface: #ffffff;
-  --surface-raised: #ffffff;
-  --surface-sunken: var(--ink-50);
-  --surface-hover: var(--ink-50);
+  --bg: var(--ink-50);
+  --bg-subtle: var(--ink-100);
+  --surface: var(--ink-0);
+  --surface-raised: var(--ink-0);
+  --surface-sunken: var(--ink-100);
+  --surface-hover: var(--ink-25);
   --surface-active: var(--ink-100);
-  /* The reference's most-used fill: ink at 5%, for a tinted slab or an inset group. */
-  --fill-subtle: rgba(26, 26, 26, 0.05);
-  --fill-muted: rgba(26, 26, 26, 0.1);
-  --surface-translucent: rgba(255, 255, 255, 0.8);
-  --overlay: rgba(26, 26, 26, 0.45);
+
+  --fill-subtle: rgba(20, 38, 29, 0.05);
+  --fill-muted: rgba(20, 38, 29, 0.1);
+  --surface-translucent: rgba(244, 240, 229, 0.82);
+  --overlay: rgba(20, 38, 29, 0.55);
 
   /**
-   * Text.
+   * Text. Alpha rather than solid steps, so a value lands correctly on white, on
+   * cream, on the sand band **and** on any of the six pastels — which is now a real
+   * requirement rather than a nicety, because the reference puts body copy on pastel
+   * cards.
    *
-   * `--text-muted` is **ink at 65%**, which is the reference's own value and measures
-   * 5.4:1 on white and 5.2:1 on the subtle tint — the case a fixed grey fails. It is
-   * the floor: **nothing lighter may carry words.** `--text-subtle` is for non-text
-   * glyphs only — a chevron, a divider dot, an inactive step marker.
+   * Every one of these was verified against all nine surfaces text can land on.
+   * `--text-muted` is the **floor**: its worst case is 4.62:1 (on `--cat-purple`) and
+   * nothing lighter may carry words. `--text-subtle` measures 2.88–3.16:1 and is for
+   * **non-text glyphs only** — it is not a quiet text colour.
    */
   --text: var(--ink-900);
-  --text-body: rgba(26, 26, 26, 0.82);
-  --text-muted: rgba(26, 26, 26, 0.65);
-  --text-subtle: rgba(26, 26, 26, 0.45);
-  --text-inverse: #ffffff;
+  --text-body: rgba(20, 38, 29, 0.84);
+  --text-muted: rgba(20, 38, 29, 0.7);
+  --text-subtle: rgba(20, 38, 29, 0.5);
+  --text-inverse: var(--ink-50);
 
   /**
-   * Primary — **near-black, not a brand colour**.
-   *
-   * This is the decision that most defines the language: the reference's call to
-   * action is `#1a1a1a` and colour appears only as a category mark. It also solves a
-   * problem the product had, which is that a saturated brand blue on a button, a
-   * link, a chart series, a progress bar and an active nav item made five unrelated
-   * things look like the same control.
+   * The standard action: the reference's deep green, with white text and a
+   * **lighter** green edge. There are two action colours in this language — this one
+   * is the default and the workhorse, and `--brand` below is the single
+   * high-emphasis call to action on a page.
    */
-  --primary: var(--ink-900);
-  --primary-hover: var(--ink-800);
+  --primary: var(--ink-800);
+  --primary-hover: var(--ink-900);
   --primary-active: var(--ink-950);
-  --primary-on: #ffffff;
+  --primary-on: #ffffff; /* 13.39:1 */
+  --primary-edge: var(--green-mid); /* the reference's lighter companion */
 
-  --primary-text: var(--ink-900);
+  --primary-text: var(--ink-800);
   --primary-soft: var(--fill-subtle);
   --primary-soft-hover: var(--fill-muted);
   --primary-border: var(--border-strong);
 
   /**
-   * The on-colours for the solid fills.
+   * The call to action — orange, with an **ink** label. See the orange ramp above for
+   * why it is ink and not the white the reference uses (3.05:1).
    *
-   * Not all of them are white, and that is the point. White on `--success-solid`
-   * measures 3.77:1 and on `--warning-solid` 3.19:1 — a badge's text is small, so
-   * both fail AA. Green and amber are light fills and take dark text; red and blue
-   * are dark enough for white.
+   * Used sparingly: one per page, for the thing we actually want pressed. A page with
+   * three orange buttons has none.
    */
-  --success-on: var(--ink-900);
-  --warning-on: var(--ink-900);
-  --danger-on: #ffffff;
-  --info-on: #ffffff;
-  --accent-on: var(--ink-900);
+  --brand: var(--orange-500);
+  --brand-hover: var(--orange-400); /* lightens — darkening breaks the ink label */
+  --brand-active: var(--orange-500);
+  --brand-on: var(--ink-900); /* 5.19:1 */
+  --brand-edge: #b26e45; /* measured off the reference */
+  --brand-text: var(--orange-700); /* the only step that carries words */
+  --brand-soft: var(--orange-50);
+  --brand-border: var(--orange-100);
 
-  /* Accent (gold) — achievement only. `--accent` is the decorative fill,
-     `--accent-text` the readable one; never use the fill for words. */
+  /**
+   * The label colour for each solid status fill. **Not all of them are white** in
+   * every theme — this is the split that stops "Paid" rendering at 2.22:1, which is
+   * what Milestone 26's Phase G audit found 109 times.
+   */
+  --success-on: #ffffff; /* 5.01:1 on --success-solid */
+  --warning-on: #ffffff; /* 4.68:1 on --warning-solid */
+  --danger-on: #ffffff; /* 5.27:1 */
+  --info-on: #ffffff; /* 5.64:1 */
+  --accent-on: #ffffff; /* 5.39:1 on --gold-600 */
+
+  /**
+   * Gold — achievement, and nothing else.
+   */
   --accent: var(--gold-300);
   --accent-strong: var(--gold-400);
+  --accent-solid: var(--gold-600);
   --accent-text: var(--gold-700);
   --accent-soft: var(--gold-50);
   --accent-border: var(--gold-200);
 
-  /* Status. Four tokens each, and the reason there are four is accessibility: a
-     status is communicated by `-soft` fill + `-text` words + an icon, never by
-     colour alone. `--x` is the solid fill for a bar or a dot. */
+  /**
+   * Status. Each has a **fill** (`--success`), a **solid** for a label-bearing
+   * background (`--success-solid`), a **`-text`** dark enough to carry words on every
+   * surface including its own tint, a **soft** tint and a **border**. The fill and
+   * the `-text` are different colours and that is the point of both existing.
+   */
   --success: var(--green-500);
   --success-solid: var(--green-600);
   --success-text: var(--green-700);
@@ -516,96 +693,112 @@
   --neutral-text: var(--text-muted);
   --neutral-border: var(--border);
 
-  /* Focus. One ring, everywhere, and it must never be removed — only re-styled. */
-  --focus-ring: 0 0 0 3px rgba(26, 26, 26, 0.18);
-  --focus-ring-danger: 0 0 0 3px rgba(239, 68, 68, 0.3);
+  /**
+   * Focus. One global ring, declared once in `base.css`. Note a programmatic
+   * `.focus()` does **not** trigger `:focus-visible` — it is a keyboard heuristic —
+   * so verify a focus ring statically, by checking that every `outline: none` pairs
+   * with a replacement.
+   */
+  --focus-ring: 0 0 0 3px rgba(20, 38, 29, 0.22);
+  --focus-ring-danger: 0 0 0 3px rgba(224, 80, 60, 0.32);
   --focus-ring-width: 2px;
   --focus-ring-color: var(--ink-900);
 
-  /* A tooltip inverts against the page in light mode and lifts off it in dark mode,
-     so it gets its own tokens rather than a per-theme rule inside the component — a
-     CSS Module cannot name `.theme-dark` without `:global`, and a component that
-     knows which theme it is in is a component that will be wrong in the next one. */
+  /**
+   * The tooltip is the one component that inverts against the page in the light theme
+   * and matches it in the dark one, which is why these are tokens.
+   */
   --tooltip-bg: var(--ink-900);
-  --tooltip-text: var(--ink-0);
+  --tooltip-text: var(--ink-50);
   --tooltip-border: transparent;
-
-  color-scheme: light;
 }
 
 /**
- * DARK THEME.
+ * ==================================================================
+ * DARK THEME — derived, because the reference has none.
+ * ==================================================================
  *
- * Must stay below `:root` — identical specificity, so order decides (see the header).
+ * **This block must stay below `:root`.** `.theme-dark` and `:root` both match
+ * `document.documentElement` with identical specificity (0,1,0), so source order is
+ * the only reason dark mode wins. Anything added to one needs a counterpart here.
  *
- * **Shadows stop working here and borders come back.** On a near-black canvas there
- * is nowhere darker for a shadow to fall, so the card treatment inverts: the small
- * steps flatten to `none` and separation returns to a surface step plus a hairline.
- * That is not a compromise, it is the same idea expressed in a medium that has no
- * cast light — and it is why `Card` declares both a border and a shadow and lets the
- * theme decide which one is doing the work.
+ * Derived from the light palette and then **verified independently** against every
+ * surface and tint: the warm off-white `#f0ece1` carries `--text` at 10.19–15.86:1,
+ * `--text-body` at 7.74–11.28:1 and `--text-muted` at 5.66–7.72:1 across all seven
+ * dark surfaces.
  *
- * The categorical hues are lightened, because a saturated mid-tone that reads well on
- * white goes muddy on near-black; their `-on` colours flip to ink for the same reason.
+ * Four decisions worth keeping:
+ *
+ *  - **The page stays green, not grey.** The whole ramp is a very dark green so the
+ *    dark theme is recognisably the same product; a neutral charcoal would throw away
+ *    the one thing that makes the light theme distinctive.
+ *  - **The hard offset edge survives.** This is the happy consequence of idea (2): a
+ *    *blurred* shadow has nowhere to fall on a near-black page, which is why
+ *    Milestone 26 flattened `--shadow-xs/sm` to `none` here. A zero-blur offset in a
+ *    darker companion still reads, so the design's signature does not disappear in
+ *    dark mode. The soft `--shadow-md/lg/xl` — the overlay scale — do deepen, because
+ *    an overlay still has to lift.
+ *  - **The six categorical pastels are NOT redefined.** They are light fills carrying
+ *    ink text and they measure 9.15–12.16:1 against `--surface` here, so re-pointing
+ *    them would be work with no reader-visible benefit. Their edges are not redefined
+ *    either. That is 12 tokens Milestone 26 had to override and this one does not.
+ *  - **`--card-border` becomes a real hairline**, because with no shadow *and* no
+ *    fill step to speak of, a card on a near-black page needs something.
  */
 .theme-dark {
-  --ink-0: #ffffff;
+  --bg: #0f1a14;
+  --bg-subtle: #15211a;
+  --surface: #18241d;
+  --surface-raised: #1f2d25;
+  --surface-sunken: #0b1410;
+  --surface-hover: #202e26;
+  --surface-active: #2a3a30;
 
-  --bg: #0f0f0f;
-  --bg-subtle: #151515;
-  --surface: #1a1a1a;
-  --surface-raised: #232323;
-  --surface-sunken: #121212;
-  --surface-hover: #242424;
-  --surface-active: #2e2e2e;
-  --fill-subtle: rgba(255, 255, 255, 0.06);
-  --fill-muted: rgba(255, 255, 255, 0.12);
-  --surface-translucent: rgba(26, 26, 26, 0.78);
-  --overlay: rgba(0, 0, 0, 0.7);
+  --fill-subtle: rgba(240, 236, 225, 0.06);
+  --fill-muted: rgba(240, 236, 225, 0.12);
+  --surface-translucent: rgba(24, 36, 29, 0.8);
+  --overlay: rgba(6, 12, 9, 0.72);
 
-  --border: rgba(255, 255, 255, 0.1);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.2);
-  /* Real here — the shadow that separates a card in light mode does nothing on a
-     near-black page, so the line takes the job back. See the note on the light side. */
-  --card-border: rgba(255, 255, 255, 0.1);
+  --border: rgba(240, 236, 225, 0.12);
+  --border-subtle: rgba(240, 236, 225, 0.07);
+  --border-strong: rgba(240, 236, 225, 0.22);
 
-  --text: #f4f4f4;
-  --text-body: rgba(255, 255, 255, 0.84);
-  --text-muted: rgba(255, 255, 255, 0.66);
-  --text-subtle: rgba(255, 255, 255, 0.42);
+  --card-border: rgba(240, 236, 225, 0.12);
+
+  --text: #f0ece1;
+  --text-body: rgba(240, 236, 225, 0.84);
+  --text-muted: rgba(240, 236, 225, 0.68);
+  --text-subtle: rgba(240, 236, 225, 0.44);
   --text-inverse: var(--ink-900);
 
   /**
-   * Primary inverts to near-white.
-   *
-   * A near-black button on a near-black page is invisible, so the *relationship* is
-   * what carries over rather than the value: the action is the highest-contrast thing
-   * on the page, and it still is not a brand colour.
+   * The standard action inverts: a light green fill with an ink label, and a *darker*
+   * companion edge — the opposite direction to the light theme, where the edge is
+   * lighter than the fill. On a near-black page a lighter edge would read as a glow.
    */
-  --primary: #f4f4f4;
-  --primary-hover: #ffffff;
-  --primary-active: #d6d6d6;
-  --primary-on: var(--ink-900);
+  --primary: #6fbf94;
+  --primary-hover: #8ed9ae;
+  --primary-active: #5fae83;
+  --primary-on: var(--ink-900); /* 7.21:1 */
+  --primary-edge: #3d7a5a;
 
-  --primary-text: #f4f4f4;
-  --primary-soft: rgba(255, 255, 255, 0.08);
-  --primary-soft-hover: rgba(255, 255, 255, 0.14);
-  --primary-border: rgba(255, 255, 255, 0.2);
+  --primary-text: #8ed9ae; /* 9.69:1 on --surface */
+  --primary-soft: rgba(111, 191, 148, 0.14);
+  --primary-soft-hover: rgba(111, 191, 148, 0.22);
+  --primary-border: rgba(111, 191, 148, 0.35);
 
-  /* Lightened so they stay legible as fills on a dark canvas; all six take ink. */
-  --cat-orange: #ff8a52;
-  --cat-orange-on: var(--ink-900);
-  --cat-blue: #6aa3ff;
-  --cat-blue-on: var(--ink-900);
-  --cat-magenta: #ff5fae;
-  --cat-magenta-on: var(--ink-900);
-  --cat-purple: #d98aef;
-  --cat-purple-on: var(--ink-900);
-  --cat-green: #7ee356;
-  --cat-green-on: var(--ink-900);
-  --cat-lilac: #e2c6f7;
-  --cat-lilac-on: var(--ink-900);
+  /**
+   * The call to action lightens so the ink label keeps its margin (6.37:1), and its
+   * text step lightens to `--orange-300`, which reads 7.88:1 on `--surface`.
+   */
+  --brand: var(--orange-400);
+  --brand-hover: #f59c63;
+  --brand-active: var(--orange-500);
+  --brand-on: var(--ink-900); /* 6.37:1 */
+  --brand-edge: #a85a2a;
+  --brand-text: var(--orange-300); /* 7.88:1 on --surface */
+  --brand-soft: rgba(232, 114, 44, 0.16);
+  --brand-border: rgba(232, 114, 44, 0.34);
 
   --success-on: var(--ink-900);
   --warning-on: var(--ink-900);
@@ -615,71 +808,75 @@
 
   --accent: var(--gold-300);
   --accent-strong: var(--gold-200);
+  --accent-solid: var(--gold-400);
   --accent-text: var(--gold-200);
-  --accent-soft: rgba(234, 187, 28, 0.14);
-  --accent-border: rgba(234, 187, 28, 0.3);
+  --accent-soft: rgba(217, 171, 34, 0.14);
+  --accent-border: rgba(217, 171, 34, 0.3);
 
+  /**
+   * Status `-text` steps lighten to the `300` rung, which clears 6.79–8.97:1 on the
+   * dark surfaces and 6.43–8.39:1 on its own soft tint.
+   */
   --success: var(--green-500);
   --success-solid: var(--green-500);
   --success-text: var(--green-300);
-  --success-soft: rgba(16, 185, 129, 0.14);
-  --success-border: rgba(16, 185, 129, 0.28);
+  --success-soft: rgba(46, 155, 97, 0.14);
+  --success-border: rgba(46, 155, 97, 0.3);
 
   --warning: var(--amber-500);
   --warning-solid: var(--amber-500);
   --warning-text: var(--amber-300);
-  --warning-soft: rgba(245, 158, 11, 0.14);
-  --warning-border: rgba(245, 158, 11, 0.28);
+  --warning-soft: rgba(184, 123, 15, 0.16);
+  --warning-border: rgba(184, 123, 15, 0.32);
 
   --danger: var(--red-500);
   --danger-solid: var(--red-600);
   --danger-text: var(--red-300);
-  --danger-soft: rgba(239, 68, 68, 0.15);
-  --danger-border: rgba(239, 68, 68, 0.3);
+  --danger-soft: rgba(224, 80, 60, 0.16);
+  --danger-border: rgba(224, 80, 60, 0.32);
 
   --info: var(--sky-500);
   --info-solid: var(--sky-600);
   --info-text: var(--sky-300);
-  --info-soft: rgba(59, 130, 246, 0.15);
-  --info-border: rgba(59, 130, 246, 0.3);
+  --info-soft: rgba(60, 130, 201, 0.16);
+  --info-border: rgba(60, 130, 201, 0.32);
 
   --neutral-soft: var(--fill-subtle);
   --neutral-text: var(--text-muted);
   --neutral-border: var(--border);
 
-  /* Flattened — see the note above. The three larger steps survive because an
-     overlay genuinely floats: a modal, a drawer and a dropdown are in front of the
-     page rather than part of it. */
-  --shadow-xs: none;
-  --shadow-sm: none;
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.55);
+  /**
+   * The overlay scale deepens; the hard `--edge-*` geometries are untouched, because
+   * a zero-blur offset works on any background.
+   */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.55);
   --shadow-xl: 0 24px 64px -4px rgba(0, 0, 0, 0.65);
 
-  --focus-ring: 0 0 0 3px rgba(255, 255, 255, 0.28);
-  --focus-ring-color: #f4f4f4;
+  --focus-ring: 0 0 0 3px rgba(240, 236, 225, 0.3);
+  --focus-ring-color: #f0ece1;
 
   --tooltip-bg: var(--surface-raised);
   --tooltip-text: var(--text);
   --tooltip-border: var(--border-strong);
-
-  color-scheme: dark;
 }
 
 /**
- * LEGACY ALIASES.
+ * ==================================================================
+ * 9. LEGACY ALIASES — load-bearing, not leftovers.
+ * ==================================================================
  *
- * Every name the CSS modules written before Milestone 23 reference. Declared last so
- * they resolve against whichever theme block ran, and defined for both themes at
- * once — that is the point of pointing them at semantic tokens.
+ * The names the pre-Milestone-23 CSS modules already reference. They are what let
+ * un-migrated pages inherit a redesign without being edited, and they retire page by
+ * page as each is redesigned. Do not delete one while a page still uses it, and do
+ * not build new code on them.
  *
- * `--royal-blue` is the interesting one, and Milestone 26 is where it stops being
- * blue. It is used 67 times as `color`, 43 on a border and 7 as a background, and the
- * product no longer has a brand blue to give it — so it resolves to the ink, which is
- * correct for all three uses and makes an un-migrated page look deliberate rather than
- * like a leftover from a palette nothing else is using.
- *
- * The aliases retire page by page as each is redesigned. Do not build new code on them.
+ * `--royal-blue` is a particular case: Milestone 26 reduced it to **zero references
+ * outside this file**, so it survives only as a safety net. It points at `--primary`,
+ * which in this language is a deep green — the name has been a lie since Milestone 26
+ * and is kept for the same reason the alias is.
  */
 :root,
 .theme-dark {

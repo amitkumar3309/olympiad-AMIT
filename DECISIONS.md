@@ -4,6 +4,119 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-09-21 — Milestone 27: the Brightpath language, and the two ideas it reverses
+
+**Context.** The owner asked for the frontend to be redesigned against a third reference —
+`https://brightpath-wbs.framer.website/`, an education/tutoring Framer template — one day
+after Milestone 26 closed against the second (Tokko). Two decisions were taken before any
+code changed and are recorded in [`MILESTONE_27_PREP.md`](MILESTONE_27_PREP.md): the scope
+is **redesigning the pages that already exist**, and where the design disagrees with the
+current tokens **the design wins**.
+
+**Decision 1: the reference is read off the live site, not out of Figma.** The owner's
+Figma seat is a **View seat on a Starter plan, which allows 20 MCP reads per month** — not
+enough to extract a design system across 54 routes, where three reads per screen is normal
+before any retry. The Framer site is the same design, is free to measure, and yields *real
+computed values* rather than values transcribed off a screenshot. So every number in
+`tokens.css` was measured with `getComputedStyle` against the live reference, which is the
+method Milestone 26 used against Tokko and the reason that milestone's recolour was
+trustworthy. Figma is reserved for gaps the public site cannot show.
+
+**Decision 2: two of Milestone 26's three ideas are reversed.** This is the part that must
+not be silently re-reversed by a later session, because both inversions look like
+regressions if you only know the previous language:
+
+- **Separation is by FILL, not by shadow.** Milestone 26's load-bearing choice was a
+  borderless white card lifted by a wide soft shadow. Brightpath has **no border and no
+  shadow on any card** — a white card sits on a warm cream page (`#ffffff` on `#f4f0e5`)
+  and whole sections are tinted instead. Measured, not inferred: a census of every
+  shadowed element on the reference returned only pill buttons and small icon tiles, and
+  the three apparent soft shadows in the list were the Framer badge.
+- **Colour is abundant, not scarce.** Milestone 26 reduced the action to near-black and
+  confined the six `--cat-*` hues to one component, deliberately, so that colour could
+  mean something. Brightpath colours the page itself, fills cards with pastels, and has
+  **two** action colours — a deep green standard action and an orange call to action.
+
+**Decision 3: emphasis becomes a hard offset edge, and it is a new token family.** The
+reference's actual signature is `box-shadow: 0 4px 0 <companion>` with **zero blur** — a
+sticker or a keycap, not a lift. `--edge-control`, `--edge-control-sm`, `--edge-tile` and
+`--edge-tile-lg` hold the *geometries*; the colour comes from the element, because each
+fill has a designed companion rather than a computed one (the reference's green button
+takes a **lighter** green edge while its orange button takes a darker orange one). Two
+rules travel with it: it belongs to **controls and markers, never a card**, and the press
+interaction is a **collapse** — translate down by the offset, shrink the edge to zero.
+
+A happy consequence: the edge **survives into dark mode**, where a blurred shadow cannot.
+Milestone 26 had to flatten `--shadow-xs/sm` to `none` in `.theme-dark` because a soft
+shadow has nowhere to fall on a near-black page; a zero-blur offset in a darker companion
+still reads, so the design's signature does not disappear in the dark theme.
+
+**Decision 4: `--shadow-*` is demoted to the overlay scale rather than deleted.** The
+reference is a marketing page and has no modal, drawer, menu, toast or tooltip. Those
+exist here and need elevation that fill-contrast cannot provide — a dropdown with no
+shadow over a cream page is unreadable. So the five shadow tokens survive, warm-tinted to
+the green ink, reserved for things that genuinely float. This is the one place the
+reference is extended rather than followed, and it is extended because it is silent, not
+because it is wrong.
+
+**Decision 5: where the reference fails WCAG, the reference loses.** "The design wins"
+settles *values*; it does not repeal accessibility. Three cases, all measured:
+
+- The reference puts **white on its orange CTA (`#e8722c`), which is 3.05:1** and fails AA
+  for normal text. Ours takes ink (5.19:1). The fill is identical; only the label changed.
+  This is the same defect class Milestone 26's Phase G audit found 109 times.
+- Its pill buttons are **42px tall**, below the 44px `--tap-target` floor. The floor wins.
+- `--cat-purple` is `#c9c6f0` rather than the `#cdbcea` that fitted the palette better,
+  because `#cdbcea` measured **4.44:1** for `--text-muted` — just under AA, and the
+  reference now puts body copy on pastel cards, so that pairing is real.
+
+Every value was verified with WCAG arithmetic **before** being written, and verified on the
+**rounded hex actually committed**: `--amber-600` is `#a46609` because the first candidate
+computed 4.5034:1 against white and rounded back down to 4.50. A near-miss like that is
+invisible unless you check the value you wrote rather than the one you calculated.
+
+**Decision 6: a fourth font family, and no pretence that it is cheaper.** Milestone 26 went
+from three families to two and could honestly claim fewer bytes. This one goes to four:
+**Bricolage Grotesque** (display) and **Instrument Sans** (body) are the reference's
+pairing, **Geist Mono** survives because `--font-mono` is referenced 79 times across 33
+files for serials and tabular figures where a proportional substitute would break column
+alignment, and **Cinzel** survives for the two logotype surfaces. Geist itself is gone.
+
+Unlike Milestone 26, `--font-heading` is **not** an alias of `--font-body`: a display face
+does the heading work now. The division is load-bearing for this product specifically —
+Bricolage has a lot of character and is tiring at 15px down a column of two hundred admin
+table rows.
+
+**Decision 7: `--text-base` stays 15px, and `--tracking-body` becomes 0.** The reference
+runs body copy at 16px and it was tempting to move the whole ramp up; 15px is what every
+input and table cell already uses, and half this product is dense administrative tables a
+marketing page has no equivalent of. The reference's 16px maps to the existing
+`--text-md`. Tracking is the opposite kind of change: Milestone 26 applied
+`--tracking-body: -0.02em` **once, to `body`**, and that single inherited declaration is
+how its type change reached fifty pages unedited. The mechanism is kept and the value is
+now `0`, because the reference tracks body copy normally and reserves negative tracking for
+display sizes. The same one-line lever now un-tightens everything, and the character moves
+into the headings.
+
+**Consequences.**
+
+- **Zero tokens were dropped.** All 216 names from Milestone 26 survive; 29 were added
+  (the orange ramp, `--brand-*`, `--green-mid`, six `--cat-*-edge`, `--primary-edge`,
+  `--accent-solid` and the five `--edge-*`). That was checked by diffing the token-name
+  sets against `git show HEAD:…`, and it is what guarantees no page breaks on a missing
+  variable.
+- The six categorical pastels are **theme-invariant** — not redefined in `.theme-dark`,
+  because a light pastel carrying ink text measures 9.15–12.16:1 on a dark surface just as
+  it does on cream. That is 12 tokens Milestone 26 had to override and this one does not.
+- Milestone 26's two verified sweeps are **re-opened by construction**, exactly as the prep
+  file predicted. The contrast sweep has been re-run on the landing page (0 failures in
+  both themes across 189 text nodes); the overflow sweep and the remaining 53 routes are
+  the rest of this milestone.
+- `--royal-blue` now aliases a deep green. The name has been a lie since Milestone 26 and
+  is kept for the same reason the alias is: un-migrated pages still resolve through it.
+
+---
+
 ## 2026-09-20 — Milestone 26: a new visual language, and the abandoned one before it
 
 **Context.** The owner asked for a frontend redesign against a Framer reference. The first
