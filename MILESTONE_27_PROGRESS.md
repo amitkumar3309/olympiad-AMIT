@@ -509,6 +509,40 @@ sweep unless the exact page and state is visited** — which is why phases 1–8
 catch them. The claim that the recolour was "a one-file change" holds for anything using
 a *token*; it was never true of these.
 
+## SUPERSEDED IN PART BY MILESTONE 28 — read this before trusting a figure here
+
+_Added 2026-09-21, at the point Milestone 27 stopped._
+
+A second session is running **Milestone 28**, which **re-points `--primary` from the deep
+green back to royal blue**. The owner has confirmed that is intended, so Milestone 27’s
+green standard action is a superseded decision, not a defect to defend.
+
+**What that invalidates, and what it does not.**
+
+Every contrast figure in this file was measured against a green `--primary`. There are
+**96 `--primary`-family usages outside `tokens.css`** (14 of them inside `ui/`), and
+`--primary` is the fill sitting behind `--primary-on` labels on buttons, badges, progress
+bars, the option row’s chosen state and the palette’s current marker. So:
+
+- **Re-run the full sweep.** 0 failures across 25 routes in both themes was true of the
+  green. It says nothing about the blue. The blue also has to clear the `--primary-edge`
+  companion relationship, which was a *lighter* green in light and a *darker* one in dark.
+- **The focus ring needs checking against the button.** Milestone 28’s own note says the
+  ring is safe on a blue fill only because `base.css` draws it at `outline-offset: 2px`,
+  so the ring never touches the fill. That is a real dependency between two files and
+  worth re-verifying rather than trusting.
+- **Everything structural stands.** The flat cards, the alpha-inset rule, the hard offset
+  edge, the display-face figures, the four-runner fix, the medal trio and the
+  theme-invariant-fill rule are all independent of which hue `--primary` is. So are the
+  157 stranded literals — those follow neither palette.
+
+**Why Milestone 27 stopped here rather than finishing.** The two sessions were editing the
+same working tree: `tokens.css`, `Landing.tsx`, `CLAUDE.md`, `DECISIONS.md` and
+`PROJECT_STATE.md` were all being rewritten concurrently. Milestone 27’s commits were
+staged **file-by-file** rather than with `git add -A` so that none of the other session’s
+in-progress work rode along — worth repeating if this ever happens again, because
+`git add -A` in a shared tree commits whatever somebody else is halfway through.
+
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)
