@@ -36,14 +36,14 @@
   font-size: var(--text-xs);
   padding: 1px 5px;
   border-radius: var(--radius-xs);
-  background: rgba(148, 163, 184, 0.18);
+  background: var(--fill-muted);
 }
 
 .warn {
   margin: 0 0 16px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--warning-soft);
   border-left: 3px solid var(--warning);
   font-size: var(--text-sm);
   line-height: 1.6;
@@ -53,7 +53,7 @@
   margin: 0 0 12px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--success-soft);
   border-left: 3px solid var(--success);
   font-size: var(--text-sm);
 }
@@ -148,17 +148,17 @@
 }
 
 .status_draft {
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--fill-muted);
   color: var(--text-muted);
 }
 
 .status_published {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--success-soft);
   color: var(--success-text);
 }
 
 .status_archived {
-  background: rgba(239, 68, 68, 0.12);
+  background: var(--danger-soft);
   color: var(--danger-text);
 }
 
@@ -418,7 +418,7 @@
   letter-spacing: 0.03em;
   padding: 2px 6px;
   border-radius: var(--radius-pill);
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--fill-muted);
   color: var(--text-muted);
 }
 
@@ -473,23 +473,23 @@
   font-size: var(--text-xs);
   padding: 3px 10px;
   border-radius: var(--radius-pill);
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--fill-muted);
   min-width: 54px;
   text-align: center;
 }
 
 .qsGood {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--success-soft);
   color: var(--success-text);
 }
 
 .qsMid {
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--warning-soft);
   color: var(--warning-text);
 }
 
 .qsPoor {
-  background: rgba(239, 68, 68, 0.15);
+  background: var(--danger-soft);
   color: var(--danger-text);
 }
 
@@ -540,7 +540,7 @@
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--info-soft);
   color: var(--text-main);
   font-size: var(--text-sm);
   line-height: 1.6;

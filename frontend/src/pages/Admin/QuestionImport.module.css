@@ -53,7 +53,7 @@
 
 .tab[data-active='true'] {
   border-color: var(--primary);
-  background: rgba(99, 102, 241, 0.1);
+  background: var(--info-soft);
   color: var(--primary-text);
 }
 
@@ -165,24 +165,24 @@
 
 .count[data-tone='good'] {
   border-color: var(--success);
-  background: rgba(16, 185, 129, 0.08);
+  background: var(--success-soft);
 }
 
 .count[data-tone='bad'] {
   border-color: var(--danger);
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--danger-soft);
 }
 
 .count[data-tone='warn'] {
-  border-color: var(--warning, #f59e0b);
-  background: rgba(245, 158, 11, 0.1);
+  border-color: var(--warning);
+  background: var(--warning-soft);
 }
 
 .truncated {
   margin: 12px 0 0;
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--warning, #f59e0b);
+  color: var(--warning);
 }
 
 .fileTable {
@@ -206,7 +206,7 @@
 }
 
 .fileTable tr[data-failed='true'] td {
-  background: rgba(239, 68, 68, 0.06);
+  background: var(--danger-soft);
 }
 
 .fileError {
@@ -249,9 +249,9 @@
 .missingChapters {
   margin: 14px 0;
   padding: 14px 16px;
-  border: 1px solid var(--warning, #f59e0b);
+  border: 1px solid var(--warning);
   border-radius: var(--radius-xs);
-  background: rgba(245, 158, 11, 0.08);
+  background: var(--warning-soft);
 }
 
 .missingChapters h4 {
@@ -277,8 +277,8 @@
 }
 
 .warnBox {
-  border-color: var(--warning, #f59e0b);
-  background: rgba(245, 158, 11, 0.08);
+  border-color: var(--warning);
+  background: var(--warning-soft);
 }
 
 .warnBox ul {
@@ -375,7 +375,7 @@
 /* A question the dry run says would be refused. Unmissable on purpose. */
 .qCard[data-refused='true'] {
   border-color: var(--danger);
-  background: rgba(239, 68, 68, 0.05);
+  background: var(--danger-soft);
 }
 
 .qHead {
@@ -419,8 +419,8 @@
 .editedTag {
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning, #f59e0b);
+  background: var(--warning-soft);
+  color: var(--warning);
   font-weight: 700;
   font-size: var(--text-2xs);
 }
@@ -445,7 +445,7 @@
   flex-direction: column;
   gap: 4px;
   font-size: var(--text-xs);
-  color: var(--warning, #f59e0b);
+  color: var(--warning);
 }
 
 .qText {
@@ -475,7 +475,7 @@
 
 .correct {
   border-color: var(--success);
-  background: rgba(16, 185, 129, 0.08);
+  background: var(--success-soft);
   font-weight: 600;
 }
 
@@ -547,7 +547,7 @@
 
 .savedBox {
   border-color: var(--success);
-  background: rgba(16, 185, 129, 0.08);
+  background: var(--success-soft);
 }
 
 .rejectedList {

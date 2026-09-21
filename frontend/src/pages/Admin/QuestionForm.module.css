@@ -31,7 +31,7 @@
   font-size: 0.85em;
   padding: 1px 5px;
   border-radius: var(--radius-xs);
-  background: rgba(148, 163, 184, 0.18);
+  background: var(--fill-muted);
 }
 
 .required {
@@ -85,7 +85,7 @@
 }
 
 .removeOption:hover {
-  background: rgba(239, 68, 68, 0.14);
+  background: var(--danger-soft);
 }
 
 .formActions {
@@ -169,8 +169,8 @@
 }
 
 .previewCorrect {
-  border-color: rgba(16, 185, 129, 0.5) !important;
-  background: rgba(16, 185, 129, 0.08);
+  border-color: var(--success-border) !important;
+  background: var(--success-soft);
 }
 
 .previewKey {
@@ -189,7 +189,7 @@
   margin-top: 18px;
   padding: 12px;
   border-radius: var(--radius-sm);
-  background: rgba(148, 163, 184, 0.1);
+  background: var(--fill-subtle);
   font-size: var(--text-base);
 }
 

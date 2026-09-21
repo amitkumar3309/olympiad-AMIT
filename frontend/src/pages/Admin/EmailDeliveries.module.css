@@ -25,13 +25,13 @@
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: rgba(148, 163, 184, 0.06);
+  background: var(--fill-subtle);
 }
 
 /* Only ever applied to the "gave up" tile, and only when it is non-zero. */
 .statBad {
   border-color: var(--danger);
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--danger-soft);
 }
 
 .statValue {
@@ -194,7 +194,7 @@
   margin-bottom: 18px;
   padding: 16px 18px;
   border-left: 3px solid var(--danger);
-  background: rgba(239, 68, 68, 0.08);
+  background: var(--danger-soft);
 }
 
 .linkWarning i {

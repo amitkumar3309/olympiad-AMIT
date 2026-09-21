@@ -20,7 +20,7 @@
   margin: 0 0 16px;
   padding: 12px 16px;
   border-radius: var(--radius-sm);
-  background: rgba(37, 99, 235, 0.08);
+  background: var(--primary-soft);
   border-left: 3px solid var(--royal-blue);
   font-size: var(--text-sm);
   line-height: 1.6;
@@ -38,7 +38,7 @@
   margin: 0 0 12px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--success-soft);
   border-left: 3px solid var(--success);
   font-size: var(--text-sm);
 }

@@ -19,7 +19,7 @@
   margin: 10px 0 0;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--warning-soft);
   border-left: 3px solid var(--warning);
   font-size: var(--text-sm);
   line-height: 1.55;
@@ -29,7 +29,7 @@
   margin: 0 0 12px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--success-soft);
   border-left: 3px solid var(--success);
   font-size: var(--text-sm);
 }
@@ -104,7 +104,7 @@
 }
 
 .bankChosen {
-  background: rgba(37, 99, 235, 0.08);
+  background: var(--primary-soft);
   outline: 1px solid var(--royal-blue);
 }
 
@@ -226,17 +226,17 @@
 }
 
 .classTag {
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--fill-muted);
   color: var(--text-muted);
 }
 
 .sourceScheduled {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--success-soft);
   color: var(--success-text);
 }
 
 .sourceAutomatic {
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--fill-muted);
   color: var(--text-muted);
 }
 
@@ -297,7 +297,7 @@
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--info-soft);
   color: var(--text-main);
   font-size: var(--text-sm);
   line-height: 1.6;

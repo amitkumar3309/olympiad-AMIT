@@ -23,7 +23,7 @@
   font-size: 0.85em;
   padding: 1px 5px;
   border-radius: var(--radius-xs);
-  background: rgba(239, 68, 68, 0.12);
+  background: var(--danger-soft);
   color: var(--danger-text);
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  border: 1px solid var(--danger-border);
 }

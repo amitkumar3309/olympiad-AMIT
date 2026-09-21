@@ -19,7 +19,7 @@
   margin: 0 0 12px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(16, 185, 129, 0.14);
+  background: var(--success-soft);
   color: var(--success-text);
   font-size: var(--text-base);
 }
@@ -95,7 +95,7 @@
   font-size: var(--text-2xs);
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: rgba(239, 68, 68, 0.15);
+  background: var(--danger-soft);
   color: var(--danger-text);
 }
 

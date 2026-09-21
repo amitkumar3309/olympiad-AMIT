@@ -99,7 +99,7 @@
   margin: 0 0 14px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(16, 185, 129, 0.12);
+  background: var(--success-soft);
   color: var(--success-text);
   font-size: var(--text-base);
 }
@@ -180,7 +180,7 @@
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay);
 }
 
 .modal {
@@ -221,7 +221,7 @@
   padding: 12px 14px;
   border: 1px dashed var(--border);
   border-radius: var(--radius-sm);
-  background: var(--surface-alt, rgba(148, 163, 184, 0.08));
+  background: var(--surface-sunken);
 }
 
 .tempPassword code {

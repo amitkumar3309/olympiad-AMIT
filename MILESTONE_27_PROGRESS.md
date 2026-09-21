@@ -611,6 +611,99 @@ A published exam, `M27VERIFY` — "Milestone 27 verification paper (Class 9)", 4
 up so the exam runner can be opened and looked at: sign in as `demo.class9@amit.test` /
 `Demo@1234` and it is on `/exam`. It exists only in `amit-olympiad-local`.
 
+## Phase 10 — the stranded literals, cleared (done)
+
+The residue phases 1–8 could not see: **130 literal colour declarations** outside
+`tokens.css` (the earlier figure of 157 counted mentions inside comments too). Every one
+was a **pre-Milestone-26 palette value**, so they followed neither the theme nor either
+recolour, and a contrast sweep only catches them if you happen to visit the exact page
+and state that paints them.
+
+**105 rewritten. 25 remain, all accounted for.**
+
+### The mapping was by hue *and* by role, not find-and-replace
+
+The old palette groups cleanly, and the alpha was deliberately **dropped** rather than
+matched: the semantic tints are already calibrated, and preserving an old alpha would
+re-encode a guess made against a different palette.
+
+| Old value | Count | Now |
+|---|---|---|
+| `rgba(148,163,184,…)` old slate | 31 | `--fill-subtle` at α≤0.12, `--fill-muted` above — a zebra stripe should be barely there, a chip should read as a chip |
+| `rgba(16,185,129,…)` / `rgba(34,197,94,…)` old emerald | 24 | `--success-soft` / `--success-border` |
+| `rgba(239,68,68,…)` old red | 18 | `--danger-soft` / `--danger-border` |
+| `rgba(245,158,11,…)` + `#f59e0b` old amber | 18 | `--warning-soft` / `--warning-border` |
+| `rgba(37,99,235,…)` old blue-600 | 6 | `--primary-soft` / `--primary-border` |
+| `rgba(99,102,241/56,189,248/59,130,246,…)` indigo, sky, blue | 7 | `--info-soft` / `--info-border` |
+| `rgba(2,6,23,…)` / `rgba(0,0,0,…)` backdrops | 5 | `--overlay` |
+| `rgba(100,116,139,…)` slate-500 | 3 | `--fill-muted` |
+| `rgba(255,215,0,…)` / `rgba(212,175,55,…)` gold | 3 | `--accent-soft` / `--accent-border` |
+
+### Four judged cases, which is why this was not automatable end to end
+
+- **`Admin/Referrals` `.payBtn`** filled with `--success` and labelled with a hardcoded
+  `#04231a`. That is the fill-as-text trap the `-on` siblings exist to prevent: it is
+  `--success-solid` + `--success-on` now, **5.01:1**. White on `--success` would have
+  been 3.51.
+- **The `Rewards` badge tiers ARE the podium medals.** `rgba(180,120,70,…)`/`#b47846`,
+  `#8794a7` and `#c9a227` were a private bronze/silver/gold set. They now use
+  `--medal-bronze` / `--medal-silver` / `--medal-gold` — the verified trio from phase 7 —
+  on a neutral `--fill-muted` plate. **The tier is the glyph colour; the plate is
+  neutral.** A gold badge and a gold medal should be the same gold.
+- **`var(--surface-alt, rgba(148,163,184,0.08))`** — `--surface-alt` **has never existed**,
+  so unlike the other fallbacks this one was genuinely firing and painting old slate. It
+  is `--surface-sunken`. The rest (`var(--warning, #f59e0b)` ×7, `var(--surface, #fff)`,
+  `var(--success, #16a34a)`) were dead and are simply gone.
+- **`Rewards` `.current .stageMarker`** ring → `--primary-soft`, matching
+  `.paletteCurrent` in the runners. It was the one declaration the hue pass left
+  unmapped, because the property was `box-shadow` rather than a background.
+
+### The 25 left, every one deliberate
+
+- **13** in `Admin/Questions.module.css` — **held uncommitted by the other session** and
+  skipped on principle. They are the same mechanical hue map as the rest; whoever lands
+  Milestone 28 should run the same pass over that one file.
+- **4** the gallery lightbox: `#fff` twice, `rgba(0,0,0,0.85)` and
+  `rgba(255,255,255,0.4)`. It sits **over a photograph**, where white is the only colour
+  that works on an arbitrary image, and `CLAUDE.md` already names this as the one
+  intentional `#fff` in `src/`. (`.tile img`’s placeholder tint in the same file was
+  *not* part of that exception and is now `--fill-subtle`.)
+- **2** WhatsApp’s brand green and its paired label on the share button. A third-party
+  brand colour cannot follow this product’s palette — the button is recognised by its
+  colour before its label. Already documented in the file, and it measures 8.9:1.
+- **1** the printed certificate’s paper gradient. A document, not a product surface.
+- **5** in the two runner files and elsewhere that were already cleared in phase 9.
+
+### Verified
+
+| Route | Contrast (light/dark) | Overflow |
+|---|---|---|
+| `/rewards` (106 nodes, badge tiers) | 0 / 0 | 0px |
+| `/admin/questions/import` (67 nodes, 17 literals) | 0 / 0 | 0px |
+| `/admin/mock-tests` (50 nodes, 12 literals) | 0 / 0 | 0px |
+
+`vite build` passes, which is what actually proves 105 rewritten CSS declarations still
+parse; `tsc` reports **zero** errors in my files.
+
+## Milestone 28 also makes the page WHITE — and why Milestone 27 survives it
+
+Discovered while checking whose change a file was: `--bg` is `var(--ink-0)` in their tree,
+the same white as `--surface`. So Milestone 28 replaces Milestone 27’s **"separation is by
+fill"** with **"separation is by border"**, and compensates by making `--card-border` a
+real `--ink-border-strong` hairline instead of transparent.
+
+Measured live: `--bg: #ffffff`, `--surface: #ffffff`, `--card-border: rgba(20,38,29,0.18)`.
+
+**The eighteen cards phase 5 flattened are fine**, and for a reason worth keeping: they
+reference `--card-border` rather than hardcoding `transparent`. Had phase 5 written the
+transparent value directly — which was tempting, since it was transparent in both themes —
+every flattened card would now be white-on-white with nothing to separate it. That is the
+whole argument for the token, and it was tested by an event nobody planned.
+
+What *is* now stale is the **prose**: `Card.module.css`, the `/design-system` page and this
+file all argue from a cream page. Those were deliberately **not** rewritten, because
+Milestone 28 is uncommitted and guessing its final state would just move the error. The
+session that lands it owns that prose.
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)

@@ -132,12 +132,12 @@
 
 /* The Olympiad and a rehearsal must never read as the same thing. */
 .officialTag {
-  background: rgba(212, 175, 55, 0.18);
-  color: #a16207;
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
 
 .mockTag {
-  background: rgba(100, 116, 139, 0.16);
+  background: var(--fill-muted);
   color: var(--text-muted);
 }
 

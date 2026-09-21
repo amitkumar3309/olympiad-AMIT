@@ -4,7 +4,7 @@
   margin: 0 0 14px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(16, 185, 129, 0.12);
+  background: var(--success-soft);
   color: var(--success-text);
   font-size: var(--text-base);
 }
@@ -166,8 +166,8 @@
  */
 .payBtn {
   border: none;
-  background: var(--success);
-  color: #04231a;
+  background: var(--success-solid);
+  color: var(--success-on);
   font-weight: 700;
 }
 
@@ -301,29 +301,29 @@
 }
 
 .status_pending_conversion {
-  background: rgba(148, 163, 184, 0.16);
+  background: var(--fill-muted);
   color: var(--text-muted);
 }
 
 .status_no_reward {
-  background: rgba(56, 189, 248, 0.16);
+  background: var(--info-soft);
   color: var(--primary-text);
 }
 
 /* Amber for the two that mean money is owed and somebody has to act. */
 .status_accrued,
 .status_approved {
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--warning-soft);
   color: var(--warning-text);
 }
 
 .status_paid {
-  background: rgba(16, 185, 129, 0.14);
+  background: var(--success-soft);
   color: var(--success-text);
 }
 
 .status_rejected {
-  background: rgba(239, 68, 68, 0.14);
+  background: var(--danger-soft);
   color: var(--danger-text);
 }
 
@@ -362,7 +362,7 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(2, 6, 23, 0.68);
+  background: var(--overlay);
   overflow-y: auto;
 }
 

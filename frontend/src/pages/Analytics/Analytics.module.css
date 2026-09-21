@@ -147,11 +147,11 @@
   padding: 10px 12px;
   border-radius: var(--radius-sm);
   border-left: 3px solid transparent;
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--fill-subtle);
 }
 
 .strong {
-  border-left-color: var(--success, #16a34a);
+  border-left-color: var(--success);
 }
 
 .weak {

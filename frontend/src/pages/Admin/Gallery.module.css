@@ -59,7 +59,7 @@
   margin: 0 0 14px;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(34, 197, 94, 0.12);
+  background: var(--success-soft);
   color: var(--success-text);
   font-size: var(--text-base);
   font-weight: 600;
@@ -97,7 +97,7 @@
   width: 100%;
   height: 150px;
   object-fit: cover;
-  background: rgba(148, 163, 184, 0.12);
+  background: var(--fill-subtle);
 }
 
 .tile figcaption {

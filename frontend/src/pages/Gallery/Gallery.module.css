@@ -57,7 +57,7 @@
   width: 100%;
   height: 180px;
   object-fit: cover;
-  background: rgba(148, 163, 184, 0.12);
+  background: var(--fill-subtle);
 }
 
 .tile figcaption {

@@ -102,7 +102,7 @@
   margin: 0;
   padding: 14px;
   border-radius: var(--radius-sm);
-  background: rgba(148, 163, 184, 0.1);
+  background: var(--fill-subtle);
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
@@ -125,7 +125,7 @@
 }
 
 .entry:nth-child(odd) {
-  background: rgba(148, 163, 184, 0.07);
+  background: var(--fill-subtle);
 }
 
 .rank {

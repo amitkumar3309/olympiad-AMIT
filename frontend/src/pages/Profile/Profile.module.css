@@ -89,7 +89,7 @@
   object-fit: cover;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--fill-subtle);
 }
 
 .photoEmpty {

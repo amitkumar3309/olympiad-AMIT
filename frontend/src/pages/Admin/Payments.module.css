@@ -70,7 +70,7 @@
   margin: 0 0 16px;
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--info-soft);
   font-size: var(--text-sm);
   line-height: 1.6;
 }
@@ -95,7 +95,7 @@
   margin: 0 0 16px;
   padding: 12px 16px;
   border-radius: var(--radius-sm);
-  background: rgba(16, 185, 129, 0.14);
+  background: var(--success-soft);
   color: var(--success-text);
   font-size: var(--text-base);
 }
@@ -207,17 +207,17 @@
 }
 
 .ok {
-  background: rgba(16, 185, 129, 0.16);
+  background: var(--success-soft);
   color: var(--success-text);
 }
 
 .bad {
-  background: rgba(239, 68, 68, 0.16);
+  background: var(--danger-soft);
   color: var(--danger-text);
 }
 
 .pending {
-  background: rgba(148, 163, 184, 0.18);
+  background: var(--fill-muted);
   color: var(--text-muted);
 }
 

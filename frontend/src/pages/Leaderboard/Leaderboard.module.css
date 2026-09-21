@@ -161,11 +161,11 @@
 }
 
 .row:nth-child(odd) {
-  background: rgba(148, 163, 184, 0.07);
+  background: var(--fill-subtle);
 }
 
 .rowMine {
-  background: rgba(37, 99, 235, 0.12);
+  background: var(--primary-soft);
   outline: 1px solid var(--royal-blue);
 }
 
