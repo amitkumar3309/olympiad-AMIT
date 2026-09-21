@@ -192,14 +192,17 @@
   gap: var(--space-1);
 }
 
+/* The podium glyphs use the verified `--medal-*` trio rather than a palette step:
+   `--accent-strong` measured 2.14:1 on white and 1.88:1 on cream here, which made
+   first place the *least* visible medal. See the note in `tokens.css`. */
 .medal1 {
-  color: var(--accent-strong);
+  color: var(--medal-gold);
 }
 
 .medal2 {
-  color: var(--text-subtle);
+  color: var(--medal-silver);
 }
 
 .medal3 {
-  color: var(--gold-600);
+  color: var(--medal-bronze);
 }

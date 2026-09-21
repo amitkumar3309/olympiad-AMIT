@@ -382,6 +382,64 @@ companion with ink glyphs; the XP figure is Bricolage Grotesque 32px/700 at −2
 `/analytics` at 320px reports a `TABLE` 193px wider than the viewport while the **page**
 overflows 0px. That is `TableScroll` working as documented — contained horizontal scroll,
 page never draggable off its edge — and not a finding.
+## Phase 7 — the podium medals, and where the patterns stop (done)
+
+### The medal defect, which was the open finding from phase 2
+
+Both `/hall-of-fame` and `/leaderboard` drew the first-place medal in
+`--accent-strong` (`--gold-400`): **2.14:1 on white, 1.88:1 on the cream page** — below
+even the 3:1 a non-text graphic needs. The gold medal was the *least* visible of the
+three. Third place used `--gold-600` directly, which is fine in the light theme and
+near-invisible in the dark one.
+
+The cause is worth stating precisely, because it is the same shape as three earlier bugs
+this milestone: **the palette is not re-pointed per theme — only the semantic layer is.**
+So a component naming a palette step gets one fixed colour in both themes, and any such
+choice is wrong in one of them. `--medal-gold`, `--medal-silver` and `--medal-bronze`
+are declared in **both** themes and verified against the worst surface each can land on.
+
+Measured after: gold **5.39:1** light / **10.01:1** dark; silver **4.82** / **7.63**.
+Bronze is a literal, because there is no bronze ramp and this is its only use — a whole
+ramp for one glyph would be worse than one documented literal in the file where literals
+belong.
+
+The medals are **not** the only carrier of rank — the position is written beside the
+glyph — which is why the requirement is 3:1 visibility rather than the three being
+tellable apart by hue. That is the same rule as "no icon may be the only carrier of
+meaning", applied to a decoration.
+
+### Where the reference’s patterns legitimately stop
+
+Three candidates were examined and **declined**, and the reasons are more useful than
+the changes would have been:
+
+- **`/practice`’s chapter picker** is the closest thing here to the reference’s "Pick a
+  program" pastel cards — but it is a `<select>` inside a `Field`. Turning it into a grid
+  of twelve pastel cards changes the *interaction*, not the styling, and a select is the
+  right control for choosing one of twelve chapters on a phone.
+- **`/rewards`’ badge grid** encodes **tiers** (bronze / silver / gold). Pastel category
+  fills would fight that meaning, and `CLAUDE.md` is explicit that gold is achievement
+  rather than a bucket.
+- **`/rewards`’ `.stageMarker`** encodes journey **state** (locked / current / done). Same
+  argument: the colour is carrying a fact, so a categorical hue would overwrite it.
+
+This is the honest end of the pattern work rather than a shortfall. The reference’s
+vocabulary is a pastel marker beside a row, a display-face figure, a tinted band, a hard
+offset edge and a pastel category card. The first four are applied and reach every page
+through `IconTile`, `StatTile`, `Button` and the token layer. The fifth has **one**
+honest home in this product — the landing page, where it is used — because everywhere
+else that looks like a category grid is actually encoding a state.
+
+### Verified
+
+| Route | Width | Contrast (light/dark) | Overflow | Medals (light/dark) |
+|---|---|---|---|---|
+| `/hall-of-fame` | 320px | 0 / 0 | 0px | — |
+| `/hall-of-fame` | 1265px | 0 / 0 | 0px | 5.39 / 10.01 gold, 4.82 / 7.63 silver |
+| `/leaderboard` | 1265px | 0 / 0 | 0px | same trio |
+
+`/hall-of-fame` is worth the explicit 320px row: Milestone 26 found it **28px over** from
+a `minmax(330px, 1fr)` floor, so it is the page most likely to regress on width.
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)
@@ -391,10 +449,16 @@ page never draggable off its edge — and not a finding.
   called a defect — they may sit on a dark panel — but they are the first thing to look at
   on those two pages. This predates Milestone 27 (gold-400 was a light fill in Milestone 26
   too); it is recorded here because that is where it will be fixed.
-- **Finish phase 6.** The dashboard is done. Still to look at with the reference in hand:
-  `/practice` (its chapter picker is the closest thing this product has to the
-  reference’s "Pick a program" pastel cards), `/rewards` (badges and the journey),
-  `/leaderboard` and `/hall-of-fame` (its people sections), and `/referrals`.
+- **The three question runners** (`/practice/:sessionId`, `/mock-tests/attempts/:id`,
+  `/exam/:id`). `CLAUDE.md` calls them one design in three files, so they must be changed
+  together, and none has been opened in a browser this milestone — they need a live
+  session and attempt. They share the option row, the 44px palette button and the stacked
+  mobile navigation; the option row’s chosen state uses `--primary-soft`, which phase 4
+  deliberately left alone.
+- **The rest of the admin console** (correctness only, per the scope decision): about a
+  dozen routes not yet opened, including `/admin/taxonomy`, `/admin/exams`,
+  `/admin/certificates`, `/admin/audit-log`, `/admin/analytics` and the mock-test editor.
+- **`/result`, `/certificate`, `/verify/:code`** — all need data a seed does not create.
 - **The parameterised routes still need a look**, especially the three question runners,
   which `CLAUDE.md` calls one design in three files — so a change to one is a change to
   three. Reaching them needs a practice session and a mock attempt created through the UI.

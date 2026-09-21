@@ -749,6 +749,30 @@
   --accent-border: var(--gold-200);
 
   /**
+   * The three podium medals, and they are tokens because a **palette step cannot
+   * serve both themes**.
+   *
+   * `/hall-of-fame` and `/leaderboard` both drew the first-place medal in
+   * `--accent-strong` (`--gold-400`), which measures **2.14:1 on white and 1.88:1 on
+   * the cream page** — below even the 3:1 a non-text graphic needs, so the gold medal
+   * was the least visible of the three. Third place used `--gold-600` directly, which
+   * is fine in this theme and near-invisible in the dark one, because the palette is
+   * not re-pointed per theme — only the semantic layer is. That asymmetry is the whole
+   * reason these exist.
+   *
+   * Each value is verified against the worst surface it can land on: white, cream and
+   * sand here; the three dark surfaces below. Bronze is a literal because there is no
+   * bronze ramp and this is its only use — a whole ramp for one glyph would be worse.
+   *
+   * Note the medals are **not** the only carrier of rank: the position is written
+   * beside the glyph, which is why 3:1 visibility is the requirement rather than the
+   * three being tellable apart by hue.
+   */
+  --medal-gold: var(--gold-600); /* 4.24:1 worst */
+  --medal-silver: var(--ink-500); /* 3.80:1 worst */
+  --medal-bronze: #8a5a2b; /* 4.62:1 worst */
+
+  /**
    * Status. Each has a **fill** (`--success`), a **solid** for a label-bearing
    * background (`--success-solid`), a **`-text`** dark enough to carry words on every
    * surface including its own tint, a **soft** tint and a **border**. The fill and
@@ -904,6 +928,12 @@
   --accent-text: var(--gold-200);
   --accent-soft: rgba(217, 171, 34, 0.14);
   --accent-border: rgba(217, 171, 34, 0.3);
+
+  /* The medals lighten, like every other mark in this theme. Verified against
+     `--bg`, `--surface` and `--surface-raised`. */
+  --medal-gold: var(--gold-300); /* 8.97:1 worst */
+  --medal-silver: var(--ink-300); /* 6.84:1 worst */
+  --medal-bronze: #d9a273; /* 6.41:1 worst */
 
   /**
    * Status `-text` steps lighten to the `300` rung, which clears 6.79–8.97:1 on the
