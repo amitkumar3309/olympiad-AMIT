@@ -128,7 +128,7 @@ export default function Navbar() {
     </>
   ) : (
     <>
-      <ButtonLink to="/#login" variant="outline" size="sm" icon="ph-sign-in">
+      <ButtonLink to="/#login" variant="outline" size="sm">
         Sign in
       </ButtonLink>
       <ButtonLink to="/register" size="sm">

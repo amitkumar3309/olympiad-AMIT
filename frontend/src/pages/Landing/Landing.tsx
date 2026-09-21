@@ -319,10 +319,10 @@ export default function Landing() {
                 `ButtonLink` so middle-click, ⌘-click and "copy link address" all behave —
                 none of which a `<button>` running `scrollIntoView` could do.
               */}
-              <ButtonLink to={registerHref} size="lg" iconAfter="ph-arrow-right">
+              <ButtonLink to={registerHref} size="lg">
                 Register now
               </ButtonLink>
-              <Button size="lg" variant="outline" icon="ph-sign-in" onClick={() => setLoginOpen(true)}>
+              <Button size="lg" variant="outline" onClick={() => setLoginOpen(true)}>
                 Sign in
               </Button>
             </div>
@@ -534,10 +534,10 @@ export default function Landing() {
             <h2>Ready to sit the paper?</h2>
             <p>Registering is free, and you can practise the same day.</p>
             <div className={styles.heroActions}>
-              <ButtonLink to={registerHref} size="lg" iconAfter="ph-arrow-right">
+              <ButtonLink to={registerHref} size="lg">
                 Register now
               </ButtonLink>
-              <Button size="lg" variant="ghost" icon="ph-sign-in" onClick={() => setLoginOpen(true)}>
+              <Button size="lg" variant="ghost" onClick={() => setLoginOpen(true)}>
                 I already have an account
               </Button>
             </div>

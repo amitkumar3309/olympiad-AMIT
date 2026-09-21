@@ -524,3 +524,103 @@
   font-size: var(--text-lg);
   line-height: var(--leading-normal);
 }
+
+/* ------------------------------------------------------- icon motion ---- */
+
+/**
+ * Icon animation on the landing page (Milestone 28).
+ *
+ * ## Why this is CSS rather than an animated-icon library
+ *
+ * The owner asked for animated icons and named a React icon library. This product's
+ * icons are **Phosphor as a webfont**, reached only through `ui/Icon`, and CLAUDE.md
+ * forbids a second icon library — installing one would also have left this page's
+ * glyphs looking different from the ~50 other pages that keep using Phosphor. The
+ * owner chose this route once that was pointed out (2026-09-21). It needs no
+ * dependency and no bundle.
+ *
+ * ## The one rule these obey: TRANSFORM ONLY, and only on interaction
+ *
+ * Nothing here animates `opacity`, and there are no entrance animations. That is
+ * deliberate and it is the standing rule in CLAUDE.md about work delivered with the
+ * browser's rendering steps: **a CSS animation may never run in a tab that is not
+ * compositing.** A fade-in that never fires leaves the content *invisible* — a real
+ * failure — whereas a hover transform that never fires leaves the icon exactly as it
+ * already was. So every effect below is additive: the page is complete and correct
+ * with all of it switched off.
+ *
+ * `prefers-reduced-motion` needs nothing here either — `base.css` already flattens
+ * every transition and animation in the application with `!important`.
+ *
+ * Durations and curves come from the motion tokens; nothing below hardcodes a value.
+ */
+
+/* The tile inside a feature card and an outcome block. Lifts and tilts very slightly
+   as the eye arrives, so the colour reads as a thing rather than a swatch. */
+.feature > span:first-child,
+.outcome > span:first-child {
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+
+.feature:hover > span:first-child,
+.feature:focus-within > span:first-child,
+.outcome:hover > span:first-child {
+  transform: translateY(-3px) rotate(-5deg) scale(1.06);
+}
+
+/* The glyph itself counter-rotates a touch, so the icon stays upright while its tile
+   tips — the tile moves, the symbol only settles. */
+.feature > span:first-child i,
+.outcome > span:first-child i {
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.feature:hover > span:first-child i,
+.feature:focus-within > span:first-child i,
+.outcome:hover > span:first-child i {
+  transform: rotate(5deg) scale(1.04);
+}
+
+/* The numbered step markers, and the small glyph beside each step heading. */
+.stepNumber,
+.steps h3 i {
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.steps li:hover .stepNumber {
+  transform: translateY(-2px) scale(1.08);
+}
+
+.steps li:hover h3 i {
+  transform: translateX(2px);
+}
+
+/* The three facts under the hero, and the eyebrow's medal. A nudge, nothing more —
+   these sit next to the first thing anybody reads. */
+.kicker i,
+.heroFacts li i {
+  display: inline-block;
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.kicker:hover i {
+  transform: rotate(-12deg) scale(1.12);
+}
+
+.heroFacts li:hover i {
+  transform: translateY(-2px) scale(1.12);
+}
+
+/* Participation figures and the podium medal. `.statGrid i` reaches the icon inside
+   `ui/StatTile` without this page needing to know that component's class names. */
+.statGrid i,
+.championMedal {
+  transition: transform var(--dur) var(--ease-out);
+}
+
+.statGrid > *:hover i,
+.champion:hover .championMedal {
+  transform: translateY(-2px) scale(1.1);
+}
