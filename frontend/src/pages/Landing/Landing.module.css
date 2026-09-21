@@ -139,7 +139,9 @@
   padding: 0;
   list-style: none;
   color: var(--text-muted);
-  font-size: var(--text-sm);
+  /* `--text-base` rather than `--text-sm`: the icons beside these are 24px now, and a
+     13px label under a 24px icon reads as a caption rather than a fact. */
+  font-size: var(--text-base);
   font-weight: var(--weight-medium);
 }
 
@@ -538,56 +540,82 @@
  * glyphs looking unlike the ~50 other pages still on Phosphor. The owner chose this
  * route once that was pointed out. No dependency, no bundle cost.
  *
- * ## Two earlier attempts, and what each got wrong
+ * ## Three attempts, and the rule that came out of them
  *
- * **First: hover only.** Invisible. Nobody hovers a marketing page deliberately and a
- * phone has *no hover at all*, so on the device most visitors use nothing moved.
+ * **Hover only.** Invisible: nobody hovers a marketing page deliberately, and a phone
+ * has *no hover at all*.
  *
- * **Second: a loop, but 3–4px over 3.6–5s on the glyph alone.** Also effectively
- * invisible — the owner's words were that the animation is minimal and should be
- * properly visible. Two things were wrong with it. The travel was small enough to
- * read as nothing happening, and it was on the **glyph**, a ~20px mark inside a large
- * coloured tile, so the part of the composition that actually catches the eye was
- * perfectly still.
+ * **A 3–4px loop on the glyph.** Also invisible — too little travel to register, and
+ * it moved a ~20px mark inside a large coloured tile while the tile, the thing that
+ * catches the eye, stayed still.
  *
- * **This version** moves the **tile** — the big coloured square — and moves it far
- * enough to see: roughly triple the amplitude (8–12px of travel, 8–14 degrees) over
- * `--dur-idle`, which is quicker than before. The glyph inside counter-rotates so the
- * symbol stays legible while its tile tips.
+ * **A 16px bob on the tile.** Visible, and wrong in a new way: the owner's words were
+ * that it took the icons *out of the box*. It did. Translating a tile 16px and tipping
+ * it 10 degrees breaks the grid the cards are aligned on, so four tiles at four points
+ * in the cycle read as four misaligned boxes rather than as one animated row.
  *
- * ## The hover had to change property, and this is the interesting constraint
+ * **So: SCALE AND ROTATE, NEVER TRANSLATE.** Every keyframe below leaves the element's
+ * centre exactly where layout put it. A scale is anchored — it grows and shrinks around
+ * that centre — and a rotation on the *glyph inside* a tile is contained by definition.
+ * Nothing drifts out of alignment, and the motion is still large enough to see
+ * (1.12–1.2 scale, ±10 degrees). If you add another icon here, keep it to those two
+ * functions; `translate` is what broke it.
  *
- * An `animation` beats a `transition` on the same property. Once the *tile* is the
- * thing looping, a hover `transform` on that tile silently never applies — which is
- * exactly the bug the previous version was shaped to avoid by keeping them on
- * separate elements. Now that both want the tile, the pointer response moves to a
- * **different property**: `filter: brightness()`, which no animation here touches.
- * Not `box-shadow` — that carries `--edge-tile`, the keycap edge, and overriding it
- * would delete the edge on hover.
+ * ## The hover is on a different property, and that is not optional
  *
- * ## Still transform-only, and still additive
+ * An `animation` beats a `transition` on the same property. The tile loops on
+ * `transform`, so a hover `transform` on it silently never applies. Hover is
+ * `filter: brightness()` — deliberately not `box-shadow`, which carries `--edge-tile`,
+ * the keycap edge, and overriding it would delete the edge on hover.
+ *
+ * ## Still transform-only, still additive
  *
  * Nothing animates `opacity`; there are no entrance animations. A CSS animation may
  * never run in a tab that is not compositing, so a loop that does not fire leaves the
- * icon exactly where it was, while a fade-in that does not fire leaves content
+ * icon exactly where it was, whereas a fade-in that does not fire leaves content
  * *invisible*. Transform is also the cheap property — composited, no layout, no paint.
- * `prefers-reduced-motion` needs nothing here: `base.css` flattens every animation in
- * the application with `!important`.
+ * `prefers-reduced-motion` needs nothing: `base.css` flattens every animation with
+ * `!important`.
  *
  * Stagger delays are literal negative offsets — a per-element detail that stops a dozen
- * icons marching in lockstep, not a design duration.
+ * icons pulsing in lockstep, not a design duration.
  */
 
-@keyframes iconFloat {
+/* The tile breathes around its own centre. No translation: see the note above. */
+@keyframes tileBreathe {
   0%,
   100% {
-    transform: translateY(0);
+    transform: scale(1);
   }
   50% {
-    transform: translateY(-10px);
+    transform: scale(1.12);
   }
 }
 
+/* The glyph swings inside the tile, which is contained by definition. */
+@keyframes glyphSwing {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+/* For a standalone icon with no tile around it. */
+@keyframes iconPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+/* A glyph anchored in place that tips further than `glyphSwing` — for the two medals,
+   which read as objects rather than as symbols. */
 @keyframes iconSway {
   0%,
   100% {
@@ -595,43 +623,6 @@
   }
   50% {
     transform: rotate(14deg);
-  }
-}
-
-@keyframes iconPulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.18);
-  }
-}
-
-@keyframes iconBob {
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  30% {
-    transform: translateY(-12px) rotate(-10deg);
-  }
-  65% {
-    transform: translateY(-4px) rotate(9deg);
-  }
-}
-
-/* The glyph counter-rotation, which keeps the symbol upright while its tile tips. */
-@keyframes glyphSteady {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  30% {
-    transform: rotate(8deg);
-  }
-  65% {
-    transform: rotate(-7deg);
   }
 }
 
@@ -651,15 +642,15 @@
   animation-timing-function: ease-in-out;
 }
 
-/* ---- the four feature tiles: the fullest movement on the page ---- */
+/* ---- the four feature tiles: breathe, with the glyph swinging inside ---- */
 
 .feature > span {
-  animation-name: iconBob;
+  animation-name: tileBreathe;
   animation-duration: var(--dur-idle);
 }
 
 .feature > span i {
-  animation-name: glyphSteady;
+  animation-name: glyphSwing;
   animation-duration: var(--dur-idle);
 }
 
@@ -681,15 +672,22 @@
 /* ---- the three outcome tiles ---- */
 
 .outcome > span {
-  animation-name: iconFloat;
+  animation-name: tileBreathe;
   animation-duration: var(--dur-idle-slow);
 }
 
-.outcomeGrid > *:nth-child(2) > span {
+.outcome > span i {
+  animation-name: glyphSwing;
+  animation-duration: var(--dur-idle-slow);
+}
+
+.outcomeGrid > *:nth-child(2) > span,
+.outcomeGrid > *:nth-child(2) > span i {
   animation-delay: -1.1s;
 }
 
-.outcomeGrid > *:nth-child(3) > span {
+.outcomeGrid > *:nth-child(3) > span,
+.outcomeGrid > *:nth-child(3) > span i {
   animation-delay: -2.2s;
 }
 
@@ -697,11 +695,11 @@
 
 .stepNumber {
   display: inline-flex;
-  animation: iconPulse var(--dur-idle) ease-in-out infinite;
+  animation: tileBreathe var(--dur-idle) ease-in-out infinite;
 }
 
 .steps h3 i {
-  animation-name: iconFloat;
+  animation-name: glyphSwing;
   animation-duration: var(--dur-idle);
 }
 
@@ -727,8 +725,10 @@
   animation-duration: var(--dur-idle);
 }
 
+/* The three facts are 24px icons now, so a pulse on them is plainly visible without
+   any of them leaving the row they are aligned on. */
 .heroFacts li i {
-  animation-name: iconFloat;
+  animation-name: iconPulse;
   animation-duration: var(--dur-idle);
 }
 
@@ -765,9 +765,8 @@
 }
 
 /**
- * The pointer response. `filter`, **not** `transform` — see the note at the top: the
- * tile is looping on `transform`, and an animation beats a transition on the same
- * property, so a hover transform here would never apply.
+ * The pointer response. `filter`, **not** `transform` — the tile is looping on
+ * transform and an animation beats a transition on the same property.
  */
 .feature > span,
 .outcome > span {

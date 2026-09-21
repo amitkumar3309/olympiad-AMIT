@@ -138,18 +138,33 @@ verification of this change reported a white `body` under `.theme-dark`.
 
 **The landing-page icons loop instead of animating on hover.** The first version was
 hover-only, which is effectively invisible: nobody hovers a marketing page deliberately and
-**a phone has no hover at all**. Eight groups now animate continuously — feature tiles
-(`iconBob`), outcome tiles and hero facts (`iconFloat`), step markers and stat tiles
-(`iconPulse`), the hero eyebrow and podium medal (`iconSway`) — staggered by negative delays
-so they do not march in lockstep.
+**a phone has no hover at all**. Nine groups animate continuously now — the feature and
+outcome tiles and the step markers breathe (`tileBreathe`), their glyphs swing inside them
+(`glyphSwing`), the hero facts and stat tiles pulse (`iconPulse`), and the hero eyebrow and
+podium medal sway (`iconSway`) — staggered by negative delays so they do not march in
+lockstep.
+
+**The hero facts also got bigger icons.** They rendered `ui/Icon` with no `size`, so each
+inherited `--text-sm` (13px) from the list — an icon at body size beside body text reads as
+punctuation, and the owner reported exactly that. They are `size="lg"` (24px) over a
+`--text-base` label now, and `ph-graduation-cap` replaces `ph-student`, which is a busier
+glyph that turns to mush small.
 
 That version was still too quiet — the owner's verdict was that the animation is minimal
 and should be properly visible. Two things were wrong: **3–4px over 3.6–5s reads as nothing
 happening**, and it animated the *glyph*, a ~20px mark inside a large coloured tile, leaving
-the part of the composition that actually catches the eye perfectly still. The **tile**
-moves now, measured on the running page at **16.4px of travel and −10°/+9°** over a 2.6s
-cycle — roughly four times the previous amplitude — with the glyph counter-rotating so the
-symbol stays legible while its tile tips.
+the part of the composition that actually catches the eye perfectly still.
+
+Moving the **tile** 16px fixed the visibility and broke something else: the owner reported
+that it took the icons **out of the box**, and it did. Translating a tile 16px and tipping
+it 10° breaks the grid the cards align on, so four tiles at four points in the cycle read
+as four misaligned boxes rather than one animated row.
+
+**So the rule is SCALE AND ROTATE, NEVER TRANSLATE.** The tile breathes (1 → 1.12) and the
+glyph swings inside it (±10°), which is **measured at 0px of centre drift on both axes** —
+every element stays exactly where layout put it while still plainly moving. A scale is
+anchored to its own centre and a rotation on a glyph *inside* a tile is contained by
+definition; `translate` was the one function that could not be.
 
 The mechanical catch, recorded because it is easy to hit: **an `animation` beats a
 `transition` on the same property**. Once the tile is the thing looping, a hover

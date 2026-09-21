@@ -286,20 +286,28 @@ look wrong however carefully it is tokenised — read them before touching a sur
   class is applied in an effect after first paint, so `getComputedStyle` reports the *old*
   background mid-transition — this reported a white `body` under `.theme-dark` during the
   very change that introduced it.
-- **Landing-page icons animate continuously, the loop is on the TILE, and the hover is on a
-  DIFFERENT PROPERTY.** Two earlier attempts failed for instructive reasons. *Hover only*
-  was invisible — nobody hovers a marketing page deliberately and **a phone has no hover at
-  all**. *A loop of 3–4px over 3.6–5s on the glyph alone* was also invisible: too little
-  travel to register, and it moved a ~20px mark inside a large coloured tile while the tile
-  itself — the thing that catches the eye — stayed perfectly still. The current version
-  moves the **tile**, measured at **16.4px of travel and −10°/+9°** over `--dur-idle`
-  (2.6s), with the glyph counter-rotating so the symbol stays legible. Because the tile is
-  now looping on `transform`, and **an `animation` beats a `transition` on the same
-  property**, the pointer response had to move to `filter: brightness()` — not `box-shadow`,
-  which carries `--edge-tile` and would lose the keycap edge. Still **transform-only** and
-  still additive: a loop that never runs leaves the icon where it was, whereas an opacity or
-  entrance animation that never runs leaves content invisible. Do not animate `opacity`
-  here, and do not add an entrance.
+- **Landing-page icons animate continuously, and the rule is SCALE AND ROTATE — NEVER
+  TRANSLATE.** Three attempts got here. *Hover only* was invisible — nobody hovers a
+  marketing page deliberately and **a phone has no hover at all**. *A 3–4px loop on the
+  glyph* was invisible too: too little travel to register, and it moved a ~20px mark inside
+  a large coloured tile while the tile, the thing that catches the eye, stayed still. *A
+  16px bob on the tile* was visible and wrong in a new way — it took the icons **out of
+  their boxes**, because translating a tile 16px and tipping it 10° breaks the grid the
+  cards align on, so four tiles at four points in the cycle read as four misaligned boxes.
+  The current version scales the tile (1 → 1.12) and swings the glyph inside it (±10°),
+  which is **measured at 0px of centre drift**: every element stays exactly where layout put
+  it while still plainly moving. If you animate another icon here, keep to those two
+  functions. Because the tile loops on `transform`, and **an `animation` beats a
+  `transition` on the same property**, the pointer response is `filter: brightness()` — not
+  `box-shadow`, which carries `--edge-tile` and would lose the keycap edge. Still
+  **transform-only** and additive: a loop that never runs leaves the icon where it was,
+  whereas an opacity or entrance animation that never runs leaves content invisible. Do not
+  animate `opacity` here, and do not add an entrance.
+- **An icon beside text needs its own size.** The hero facts rendered `ui/Icon` with no
+  `size`, so it inherited `--text-sm` (13px) from the list — an icon at body size next to
+  body text reads as punctuation rather than an icon, and the owner reported exactly that.
+  They are `size="lg"` (24px) over a `--text-base` label now. `size="inherit"` is the right
+  default for an icon *inside* a sentence; it is the wrong one for an icon *labelling* one.
 - **The interactive steps are deliberately NOT white, and that is not an oversight.**
   `--surface-hover`, `--surface-active` and `--surface-sunken` are the faintest steps of the
   brand blue (`--royal-25` / `--royal-50`). White versions of those three are the same as

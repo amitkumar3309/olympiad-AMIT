@@ -327,15 +327,22 @@ export default function Landing() {
               </Button>
             </div>
 
+            {/*
+              `size="lg"` (24px) rather than inheriting. These sat at `--text-sm` — 13px,
+              the size of the label beside them — which the owner reported as very small,
+              and they were: an icon at body size next to body text reads as punctuation
+              rather than as an icon. `ph-graduation-cap` replaces `ph-student`, which is
+              a busier glyph and turns to mush at this size.
+            */}
             <ul className={styles.heroFacts}>
               <li>
-                <Icon name="ph-student" weight="bold" /> Class 3 to Class 12
+                <Icon name="ph-graduation-cap" weight="bold" size="lg" /> Class 3 to Class 12
               </li>
               <li>
-                <Icon name="ph-buildings" weight="bold" /> Any school board
+                <Icon name="ph-buildings" weight="bold" size="lg" /> Any school board
               </li>
               <li>
-                <Icon name="ph-gift" weight="bold" /> Free to prepare
+                <Icon name="ph-gift" weight="bold" size="lg" /> Free to prepare
               </li>
             </ul>
           </div>
