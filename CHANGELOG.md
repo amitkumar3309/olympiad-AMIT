@@ -122,6 +122,30 @@ Verified in a browser: signed out, `/admin` lands on `/#login` with one dialog a
 superadmin session lands on `/admin`; a student session lands on `/dashboard`. The generic
 `Invalid credentials.` message is unchanged, so no error reveals a role.
 
+### The dark theme: a black page with royal-blue cards
+
+It was a *green* near-black inherited from Brightpath — `--bg: #0f1a14`, cards `#18241d`,
+warm cream text. Once the light theme was white with a royal-blue primary, the two themes
+looked like different products. The owner asked for all black with royal-blue cards.
+
+- `--bg: #000000`, `--surface: #121e47` (the same hue family as `--primary`, two steps
+  down), `--surface-raised/-sunken/-hover/-active` and the translucent navbar all re-mixed
+  into that blue.
+- **Borders are the blue, not a neutral** — on a blue card a grey hairline reads as dirt.
+  `--card-border` is `rgba(122,165,255,0.28)`, and it is doing the real work: the card/page
+  fill step is only 1.30:1, so the edge is the border, exactly as in the light theme.
+- **The text ramp went from warm cream to a cool near-white** (`#eef2fb`). `#f0ece1` on a
+  blue card reads as a yellow cast, and its steps are alphas, so that cast would have
+  reached every muted label in the product.
+- `--primary-on` is a neutral blue-black rather than `--ink-900`: this theme is not green
+  any more, and it is also a better label (**8.30:1** against 6.53:1).
+
+Measured on the running page: text **14.38:1**, muted **7.62:1**, `--primary` as a fill
+**6.64:1** on a card and **8.65:1** on the page, `--primary-text` **8.77:1**. A sweep of
+**111 text nodes reports zero real failures** — the single hit is the hero wordmark, the
+documented `background-clip: text` artifact, whose gradient endpoints measure **18.73** and
+**15.17** against black. The light theme is untouched.
+
 ### "How it is run" replaced with "What you walk away with"
 
 The section headed *How it is run / Things we can show you, not adjectives* was three true

@@ -80,12 +80,20 @@
  * missing in the theme that lacks it.
  *
  * The reference is light-only (it carries no `prefers-color-scheme: dark` rule at
- * all), so the dark theme below is **derived, and verified independently**. Two
- * consequences worth knowing: the hard offset edge *survives* into dark mode, where a
- * blurred shadow could not — a zero-blur offset in a darker companion still reads on
- * a near-black page — and the six categorical pastels are **theme-invariant**,
+ * all), so the dark theme below is **derived, and verified independently**.
+ *
+ * **Milestone 28 re-pointed it too**: it is a *black* page with **royal-blue cards**
+ * (`--bg: #000000`, `--surface: #121e47`) and a cool near-white text ramp. It was a
+ * green near-black with warm cream text, derived from Brightpath — which, once the
+ * light theme became white with a royal-blue primary, left the two themes looking like
+ * different products. The blue card is the same hue family as `--primary`. Every
+ * figure is recorded beside the tokens.
+ *
+ * Two consequences worth knowing: the hard offset edge *survives* into dark mode,
+ * where a blurred shadow could not — a zero-blur offset in a darker companion still
+ * reads on a black page — and the six categorical pastels are **theme-invariant**,
  * because they are already light fills carrying ink text and they measure 9–12:1 on a
- * dark surface exactly as they do on cream.
+ * dark surface exactly as they do on white.
  *
  * ## Breakpoints (documented here, declared in each module)
  *
@@ -993,34 +1001,64 @@
  *    fill step to speak of, a card on a near-black page needs something.
  */
 .theme-dark {
-  --bg: #0f1a14;
-  --bg-subtle: #15211a;
-  --surface: #18241d;
-  --surface-raised: #1f2d25;
-  --surface-sunken: #0b1410;
-  --surface-hover: #202e26;
-  --surface-active: #2a3a30;
+  /**
+   * **Black page, royal-blue cards** (owner, 2026-09-21).
+   *
+   * Through Milestone 27 this theme was a *green* near-black — `--bg: #0f1a14`, cards
+   * `#18241d`, warm cream text — because it was derived from the Brightpath reference,
+   * whose whole palette is warm. With the light theme now white with a royal-blue
+   * primary, that left the two themes belonging to different products.
+   *
+   * So the page is **true black** and a card is **`#121e47`, a deep royal blue** —
+   * the same hue family as `--primary`, two ramp steps down in lightness. Every figure
+   * below was measured rather than picked:
+   *
+   *   card vs the black page   1.30:1   (a visible step; the blue `--card-border`
+   *                                      at 1.72:1 against the card is what draws
+   *                                      the actual edge, which is why that token
+   *                                      exists in this theme at all)
+   *   --text on a card        14.38:1
+   *   --text-muted on a card   7.62:1   (and 7.2–8.1:1 on every other dark surface)
+   *   --primary as a fill      6.64:1 on a card, 8.65:1 on the page
+   *   --primary-text           8.77:1 on a card
+   *
+   * The text ramp went from warm cream to a **cool near-white**: `#f0ece1` on a blue
+   * card reads as a yellow cast, and the alpha steps composite over everything, so the
+   * cast would have reached every muted label in the product.
+   */
+  --bg: #000000;
+  --bg-subtle: #080c18;
+  --surface: #121e47; /* THE CARD — royal blue */
+  --surface-raised: #1a2a5e;
+  --surface-sunken: #0a1130;
+  --surface-hover: #1a2a5e;
+  --surface-active: #223469;
 
-  --fill-subtle: rgba(240, 236, 225, 0.06);
-  --fill-muted: rgba(240, 236, 225, 0.12);
-  --surface-translucent: rgba(24, 36, 29, 0.8);
-  --overlay: rgba(6, 12, 9, 0.72);
+  --fill-subtle: rgba(238, 242, 251, 0.06);
+  --fill-muted: rgba(238, 242, 251, 0.12);
+  /* The navbar, the admin topbar and the mobile bottom bar — the card colour, so the
+     chrome belongs to the same blue as everything it floats over. */
+  --surface-translucent: rgba(18, 30, 71, 0.82);
+  --overlay: rgba(0, 0, 0, 0.78);
 
-  --border: rgba(240, 236, 225, 0.12);
-  --border-subtle: rgba(240, 236, 225, 0.07);
-  --border-strong: rgba(240, 236, 225, 0.22);
+  /* Borders are the blue, not a neutral: on a blue card a grey hairline reads as dirt. */
+  --border: rgba(122, 165, 255, 0.18);
+  --border-subtle: rgba(122, 165, 255, 0.1);
+  --border-strong: rgba(122, 165, 255, 0.32);
 
-  --card-border: rgba(240, 236, 225, 0.12);
+  /* Carries the card edge here. A 1.30:1 fill step alone is too quiet on black — the
+     same reason this token stopped being `transparent` in the light theme. */
+  --card-border: rgba(122, 165, 255, 0.28);
 
-  /* A bright pastel band would be a hole in a near-black page, and it cannot carry
-     themed cards. In this theme the accent band is simply a lifted surface. */
+  /* A bright pastel band would be a hole in a black page, and it cannot carry themed
+     cards. In this theme the accent band is simply a lifted surface. */
   --band-accent: var(--surface-raised);
 
-  --text: #f0ece1;
-  --text-body: rgba(240, 236, 225, 0.84);
-  --text-muted: rgba(240, 236, 225, 0.68);
-  --text-subtle: rgba(240, 236, 225, 0.44);
-  --text-inverse: var(--ink-900);
+  --text: #eef2fb;
+  --text-body: rgba(238, 242, 251, 0.84);
+  --text-muted: rgba(238, 242, 251, 0.7);
+  --text-subtle: rgba(238, 242, 251, 0.45);
+  --text-inverse: #04070f;
 
   /**
    * The standard action inverts: a **royal-blue tint** with an ink label, and a
@@ -1038,12 +1076,14 @@
    * ink: darkening the fill would eat the label's contrast rather than add to it.
    */
   --primary: #7aa5ff;
-  --primary-hover: #9dc0ff; /* lightens — ink label keeps 8.62:1 */
-  --primary-active: #6f9bff; /* 5.89:1 */
-  --primary-on: var(--ink-900); /* 6.53:1 */
+  --primary-hover: #9dc0ff; /* lightens — the label keeps 10.95:1 */
+  --primary-active: #6f9bff; /* 7.49:1 */
+  /* The neutral near-black, not `--ink-900`: this theme is no longer green, and the
+     blue-black is both consistent and a better label (8.30:1 against 6.53:1). */
+  --primary-on: #04070f; /* 8.30:1 */
   --primary-edge: #3f63b8;
 
-  --primary-text: #9dc0ff; /* 8.72:1 on --surface */
+  --primary-text: #9dc0ff; /* 8.77:1 on the blue card */
   --primary-soft: rgba(122, 165, 255, 0.14);
   --primary-soft-hover: rgba(122, 165, 255, 0.22);
   --primary-border: rgba(122, 165, 255, 0.35);

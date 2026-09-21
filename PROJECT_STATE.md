@@ -27,7 +27,11 @@ was run anyway. Four changes, all at the owner's request:
    white, so no tinted section band remains. The sidebar's current-page pill became
    `--primary-soft`. Interactive states (`--surface-hover` / `-active` / `-sunken`, the
    `--fill-*` alphas) are deliberately **left** as the faintest blues — a white hover state is a
-   deleted hover state. Dark mode untouched; all text contrast improved.
+   deleted hover state. **The dark theme was then re-pointed to match**: a **black page**
+   (`#000000`) with **royal-blue cards** (`#121e47`), blue borders and a cool near-white text
+   ramp, replacing the green near-black and warm cream inherited from Brightpath. A sweep of
+   111 text nodes in dark reports zero real contrast failures. All light-theme text contrast
+   improved.
 2. **Registration is `/register`**, a real page (`pages/Register`) wrapping the unchanged
    `pages/Auth/RegisterForm`, instead of a section on the landing scroll. The `?ref=` check
    moved with it; the landing page carries an incoming `?ref=` across to its Register buttons.

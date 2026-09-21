@@ -107,6 +107,25 @@ remove feedback rather than decoration, which is not what "white background" ask
 are the faintest steps of the brand blue, so the only tint anywhere in the product now
 belongs to the primary. If the request comes again, that is the line.
 
+**Decision 8: the dark theme is a black page with royal-blue cards.** It was a *green*
+near-black (`--bg: #0f1a14`, cards `#18241d`, warm cream text) because it was derived from
+Brightpath, whose whole palette is warm. Once the light theme became white with a royal-blue
+primary, the two themes belonged to different products. `--bg` is `#000000` and `--surface`
+is `#121e47`, the same hue family as `--primary`.
+
+Three things travel with it. **The card/page fill step is only 1.30:1**, so — exactly as in
+the light theme — the edge is `--card-border`, a blue hairline at 1.72:1 against the card;
+that token is now load-bearing in *both* themes, which is the clearest argument for its
+existence yet. **Borders are the blue rather than a neutral**, because a grey hairline on a
+blue card reads as dirt. And **the text ramp had to go from warm cream to a cool near-white**:
+`#f0ece1` on a blue card is a visible yellow cast, and because the ramp's steps are alphas
+that composite over whatever they land on, the cast would have reached every muted label in
+the product rather than staying on the cards.
+
+Verified on the running page with a sweep of 111 text nodes: **zero real failures.** The one
+hit is the hero wordmark, which is the documented `background-clip: text` artifact — its
+gradient endpoints measure 18.73 and 15.17 against black.
+
 The same pass moved the sidebar's current-page pill from the neutral `--fill-muted` to
 `--primary-soft` — "sidebar highlights" were on the owner's original list, and the neutral
 tint dated from when `--primary` was near-black and a blue tint would have referred to

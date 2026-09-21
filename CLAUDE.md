@@ -263,6 +263,19 @@ look wrong however carefully it is tokenised — read them before touching a sur
   and card hairlines. The `.stripe` / `.stripeBlue` classes stay, still pointed at their
   tokens, because the dark theme still tints them and because restoring a band should be one
   line in `tokens.css` rather than a hunt through a page stylesheet.
+- **The dark theme is a BLACK page with ROYAL-BLUE cards** (owner, 2026-09-21). `--bg` is
+  `#000000` and `--surface` is **`#121e47`**, a deep blue in the same hue family as
+  `--primary`; the text ramp is a cool near-white (`#eef2fb`) and the borders are the blue,
+  not a neutral. It was a *green* near-black with warm cream text through Milestone 27,
+  inherited from Brightpath — which, once the light theme became white with a royal-blue
+  primary, left the two themes looking like different products. Measured: card vs page
+  **1.30:1** (so the blue `--card-border` at 1.72:1 is what actually draws the edge — this
+  is why that token exists), text **14.38:1**, muted **7.62:1**, `--primary` as a fill
+  **6.64:1** on a card. A full sweep of 111 text nodes reports **zero** real failures; the
+  only hit is the hero wordmark, which is the documented `background-clip: text` artifact —
+  measure its gradient endpoints instead (**18.73** and **15.17** on black). Do not
+  reintroduce the warm cream text ramp: `#f0ece1` on a blue card reads as a yellow cast, and
+  because the ramp's steps are alphas that cast would reach every muted label in the product.
 - **The interactive steps are deliberately NOT white, and that is not an oversight.**
   `--surface-hover`, `--surface-active` and `--surface-sunken` are the faintest steps of the
   brand blue (`--royal-25` / `--royal-50`). White versions of those three are the same as
@@ -280,10 +293,9 @@ look wrong however carefully it is tokenised — read them before touching a sur
   modal, drawer, menu, toast, tooltip — and nothing that is part of the page may use one. The
   four exceptions are things that float over content (`.skipLink`, `.bottomNav`, the sticky
   `Navbar .inner`) and the printed certificate, which is a *document*.
-  **`--card-border`** stays a token for the reason `--tooltip-bg` is one: transparent in the
-  light theme, a hairline in the dark one, where `--surface` and `--bg` are both near-black
-  and a fill step alone is too quiet. Declared in **both** themes so the box never changes
-  size between them.
+  **`--card-border`** stays a token for the reason `--tooltip-bg` is one, and it is now a real
+  hairline in **both** themes — a fill step alone is too quiet in either. Declared in both so
+  the box never changes size between them.
 - **A nested fill is an ALPHA fill.** `--fill-subtle` / `--fill-muted` darken whatever they
   sit on, so a step against the parent is guaranteed by construction. `--bg` and `--bg-subtle`
   are only for an element that **is** a page or a full-bleed band. Eighteen declarations said
@@ -332,7 +344,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
   same in both themes; `--text`, `--text-muted`, `--primary-text` and the borders invert. Put
   one behind the other and you get cream on pale blue at **1.09:1**. Pinning the text on the
   container fixes that — and pins it for the **whole subtree**, so a `Card` inside (which
-  paints `--surface`, near-black in dark) then renders ink at **1.00:1**. Both of those
+  paints `--surface`, a dark royal blue in dark) then renders ink at **1.00:1**. Both of those
   shipped this milestone. An invariant fill is safe under a glyph, a numeral or a label;
   a section band instead uses **`--band-accent`**, which goes themed in dark.
 - **The palette is NOT re-pointed per theme — only the semantic layer is.** So a component
