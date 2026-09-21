@@ -131,22 +131,45 @@ const STEPS = [
   },
 ]
 
-/** Properties of the product, not adjectives about it. Each one is enforced in code. */
-const ASSURANCES = [
+/**
+ * What a student actually ends up with (Milestone 28).
+ *
+ * This replaced "How it is run" / "Things we can show you, not adjectives" — three
+ * true statements about server-side marking, editorial review and name masking, which
+ * were the *mechanics* of the product described to somebody who has not used it yet.
+ * A reader deciding whether to register wants to know what they get, not how the
+ * grader is implemented. The owner asked for something more impactful and this is it:
+ * the same honesty, pointed at the outcome rather than the machinery.
+ *
+ * All three are still things the code does, which is the rule this page lives under:
+ *  - the rank is real — `services/examService.ts` ranks the cohort when results are
+ *    released, and equal scores share a rank (1, 2, 2, 4);
+ *  - the certificate is real and verification is keyed on a random `verificationCode`
+ *    rather than the readable serial (`GET /certificates/verify/:code`, page `/verify`);
+ *  - the marking claim is the answer-key snapshot taken at serve time plus the
+ *    one-attempt unique index, both from Milestone 13.
+ *
+ * The name-masking fact was not dropped — it moved to the FAQ, where a parent looking
+ * for it will actually look.
+ */
+const OUTCOMES = [
   {
+    tone: 'gold' as const,
+    icon: 'ph-medal',
+    title: 'A national rank',
+    body: 'Placed against every student in your class. Equal scores share a rank.',
+  },
+  {
+    tone: 'purple' as const,
+    icon: 'ph-certificate',
+    title: 'A certificate anyone can check',
+    body: 'Issued the moment results are released, with a code that verifies publicly.',
+  },
+  {
+    tone: 'green' as const,
     icon: 'ph-shield-check',
-    title: 'Marked on the server, never in your browser',
-    body: 'Against the answer key captured when the paper was served, so a later edit cannot change your mark.',
-  },
-  {
-    icon: 'ph-user-focus',
-    title: 'A person approves every question',
-    body: 'Nothing is published without a worked solution and a resolvable answer key.',
-  },
-  {
-    icon: 'ph-eye-slash',
-    title: 'Children are not named in public',
-    body: 'Public pages show a first name and a last initial. Never schools or contact details.',
+    title: 'A score you can trust',
+    body: 'One attempt, marked on the server against the key captured when your paper was served.',
   },
 ]
 
@@ -183,6 +206,13 @@ const FAQS = [
   {
     q: 'Do I need to install anything?',
     a: 'No. Everything runs in a browser, on a phone or a computer.',
+  },
+  {
+    // Moved here from the old "How it is run" section (Milestone 28). It is a real
+    // guarantee — `displayNameFor()` is the only function allowed to decide it — and
+    // the FAQ is where a parent looks for it, rather than a row of cards they scroll past.
+    q: 'Will my child’s name be published?',
+    a: 'Public pages show a first name and a last initial only. Never a school or contact details.',
   },
 ]
 
@@ -390,18 +420,26 @@ export default function Landing() {
         */}
         <Section
           className={`container ${styles.section}`}
-          eyebrow="How it is run"
-          title="Things we can show you, not adjectives"
+          eyebrow="Why it counts"
+          title="What you walk away with"
+          lead="Practice is preparation. The Olympiad is the thing that goes on record."
         >
-          <div className={styles.assuranceGrid}>
-            {ASSURANCES.map((item) => (
-              <div className={styles.assurance} key={item.title}>
-                <IconTile icon={item.icon} tone="neutral" size="md" />
+          <div className={styles.outcomeGrid}>
+            {OUTCOMES.map((item) => (
+              <div className={styles.outcome} key={item.title}>
+                <IconTile icon={item.icon} tone={item.tone} size="md" />
                 <h3>{item.title}</h3>
                 <p>{item.body}</p>
               </div>
             ))}
           </div>
+          {/* The certificate claim is checkable from this page, which is the point of
+              making it: `/verify` takes a code and answers from the real record. */}
+          <p className={styles.muted}>
+            <Link to="/verify" className="link">
+              Verify a certificate
+            </Link>
+          </p>
         </Section>
 
         {/* ------------------------------------------------------- Top scholars */}

@@ -375,20 +375,20 @@
   }
 }
 
-/* ----------------------------------------------------------- assurances ---- */
+/* ----------------------------------------------------------- outcomes ---- */
 
-.assuranceGrid {
+.outcomeGrid {
   display: grid;
   grid-template-columns: 1fr;
   gap: var(--space-6);
 }
 
-.assurance h3 {
+.outcome h3 {
   margin: var(--space-4) 0 var(--space-2);
   font-size: var(--text-lg);
 }
 
-.assurance p {
+.outcome p {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--text-md);
@@ -396,7 +396,7 @@
 }
 
 @media (min-width: 768px) {
-  .assuranceGrid {
+  .outcomeGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-6);
   }

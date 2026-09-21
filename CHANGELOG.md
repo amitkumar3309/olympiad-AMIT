@@ -122,9 +122,29 @@ Verified in a browser: signed out, `/admin` lands on `/#login` with one dialog a
 superadmin session lands on `/admin`; a student session lands on `/dashboard`. The generic
 `Invalid credentials.` message is unchanged, so no error reveals a role.
 
+### "How it is run" replaced with "What you walk away with"
+
+The section headed *How it is run / Things we can show you, not adjectives* was three true
+statements about server-side marking, editorial review and name masking — the *mechanics* of
+the product, explained to somebody who has not used it yet. The owner asked for something
+more impactful. It is now **Why it counts / What you walk away with**, pointed at the outcome
+instead of the machinery, and still bound by this page's rule that every claim is code-backed:
+
+- **A national rank** — `services/examService.ts` ranks the cohort when results are released,
+  and equal scores share a rank (1, 2, 2, 4).
+- **A certificate anyone can check** — minted by the same release, verified through
+  `GET /certificates/verify/:code` on a random code rather than the readable serial. The
+  section links to `/verify`, so the claim is checkable from the page that makes it.
+- **A score you can trust** — the answer-key snapshot taken at serve time, plus the
+  one-attempt unique index.
+
+The name-masking guarantee was **not dropped**: it moved to the FAQ ("Will my child's name be
+published?"), which is where a parent looks for it rather than a row of cards they scroll
+past. `.assurance*` classes renamed to `.outcome*` so the stylesheet still describes itself.
+
 ### Copy
 
-Landing page features, steps, assurances, FAQ answers, the hero tagline and the final CTA cut to a
+Landing page features, steps, outcomes, FAQ answers, the hero tagline and the final CTA cut to a
 headline plus one or two lines. Nothing factual removed — eligibility, the free-to-prepare rule,
 that the sitting has a fee shown before payment, and how results are released all survive. One
 piece of copy was *wrong* rather than merely long: the empty leaderboard state said "Register
