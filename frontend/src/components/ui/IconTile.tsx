@@ -1,3 +1,4 @@
+import type { ReactElement } from 'react'
 import Icon from './Icon'
 import styles from './IconTile.module.css'
 
@@ -47,8 +48,17 @@ export type IconTileTone =
   | 'gold'
 
 export interface IconTileProps {
-  /** Phosphor glyph name, with or without the `ph-` prefix. */
-  icon: string
+  /**
+   * A Phosphor glyph name, with or without the `ph-` prefix — **or** an already
+   * rendered element, which is how the landing page passes a Lucide icon
+   * (Milestone 28; see the ADR for why one page is allowed a second icon set).
+   *
+   * A string is the normal case and stays the normal case: everything outside the
+   * landing page uses it, and this component still decides the size and weight for
+   * that path. An element is passed through untouched, so the **caller** owns its
+   * size and stroke — match `ICON_SIZE` below or the tile will look wrong.
+   */
+  icon: string | ReactElement
   tone?: IconTileTone
   size?: 'sm' | 'md' | 'lg'
   /** `rounded` for a card's header glyph, `circle` for a marker in a row. */
@@ -77,7 +87,11 @@ export default function IconTile({
 
   return (
     <span className={classes} {...(label ? {} : { 'aria-hidden': true })}>
-      <Icon name={icon} weight="bold" size={ICON_SIZE[size]} label={label} />
+      {typeof icon === 'string' ? (
+        <Icon name={icon} weight="bold" size={ICON_SIZE[size]} label={label} />
+      ) : (
+        icon
+      )}
     </span>
   )
 }

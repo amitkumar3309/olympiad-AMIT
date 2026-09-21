@@ -687,6 +687,16 @@
    */
   --dur-idle: 2.6s;
   --dur-idle-slow: 3.4s;
+  /**
+   * The curve for a **looping** animation, and it is not `--ease`.
+   *
+   * `ease-in-out` and the reference's own curve are tuned for a movement that starts
+   * and stops — they decelerate hard at each end, which on a loop reads as a pause at
+   * the extremes, so the motion ticks rather than flows. This is `easeInOutSine`: the
+   * gentlest standard curve, and the one that makes a repeating transform look
+   * continuous. Use it for anything with `animation-iteration-count: infinite`.
+   */
+  --ease-sine: cubic-bezier(0.37, 0, 0.63, 1);
   --ease: cubic-bezier(0.44, 0, 0.56, 1); /* the reference's curve */
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);

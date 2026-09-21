@@ -107,6 +107,43 @@ remove feedback rather than decoration, which is not what "white background" ask
 are the faintest steps of the brand blue, so the only tint anywhere in the product now
 belongs to the primary. If the request comes again, that is the line.
 
+## 2026-09-21 — Milestone 28: `lucide-react` on the landing page, overriding "no second icon library"
+
+**Context.** The owner asked for animated icons on the home page and named a React Lucide
+library. `CLAUDE.md` says **"Do not add a second icon library"** — this product's icons are
+Phosphor loaded as a *webfont* from a CDN, with nothing installed as a dependency, and there
+is an earlier ADR about an icon package that had to be reverted. I put the conflict to the
+owner with three options and they chose CSS animation on the existing Phosphor. Two rounds
+of that followed (hover-only, then a loop), and the owner then asked for Lucide **again,
+explicitly**. A repeated instruction after the trade-off has been spelled out is a decision,
+not a misunderstanding, so this is that decision recorded rather than argued a third time.
+
+**Decision: `lucide-react` is a dependency, and it is scoped to the landing page.** The
+landing page's *content* icons — the four feature tiles, the three outcome tiles, the four
+steps, the hero eyebrow, the three hero facts, the four participation figures and the podium
+medal — are Lucide. Everything else in the product, **including this page's own navbar,
+footer, FAQ caret and empty states**, is still Phosphor.
+
+That split is deliberate and it is the part most likely to be "tidied up" by someone later.
+Converting the rest would mean touching every `ui/Icon` call site across ~50 routes, which is
+a milestone of its own and was offered and not chosen. So the rule in `CLAUDE.md` is
+**narrowed, not deleted**: one page has a second icon set, and adding a third — or spreading
+this one — still needs a decision.
+
+**Why the earlier reverted-icon-package ADR does not apply.** That was
+`@phosphor-icons/web`, whose `@font-face` lists four formats including a 3 MB SVG font, all
+of which the bundler emitted. `lucide-react` is tree-shaken React components with **zero
+runtime dependencies**: the sixteen icons actually imported cost **+8.3 kB raw / +3.3 kB
+gzipped** on the main bundle (227.75 → 236.01 kB; 70.19 → 73.51 kB gzipped). Measured, not
+assumed. The failure mode of the old package is simply not present here.
+
+**Two consequences worth knowing.** `ui/IconTile` and `ui/StatTile` now accept
+`string | ReactElement` for `icon` — a string is still the normal path and those components
+still size it, while an element is passed through untouched, so the **caller** owns its size.
+And Lucide renders an `<svg>` with `width`/`height` *attributes* of 24, which CSS beats, so
+the landing stylesheet states every size explicitly; those components were built around
+`ui/Icon`, which takes its size from a prop rather than from the tile.
+
 **Decision 9: the theme follows the operating system, reversing the light default.** The
 earlier decision was light always, `prefers-color-scheme` deliberately ignored, on the
 grounds that two students seeing different colours makes screenshots and support harder to

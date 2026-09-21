@@ -527,6 +527,71 @@
   line-height: var(--leading-normal);
 }
 
+/* -------------------------------------------------- lucide icon sizing ---- */
+
+/**
+ * The landing page's content icons are **Lucide** as of Milestone 28 (see the ADR —
+ * the owner asked for it twice, and it overrides the standing "no second icon
+ * library" rule for this one page). Everything else in the product, including this
+ * page's navbar, footer and FAQ caret, is still Phosphor.
+ *
+ * Lucide renders an `<svg>` with `width`/`height` **attributes** of 24. A CSS
+ * `width`/`height` beats an attribute, so the sizes below are what actually apply —
+ * and they have to be stated, because the tiles were built around `ui/Icon`, which
+ * takes its size from a prop rather than from the tile. Get these wrong and the glyph
+ * is the right shape in the wrong box.
+ *
+ * `flex-shrink: 0` because most of these sit in a flex row beside a label, where an
+ * `<svg>` is happy to be squashed out of square.
+ *
+ * Colour needs nothing: Lucide strokes with `currentColor`, so each tile's `-on`
+ * colour reaches it the same way it reached the Phosphor glyph.
+ */
+.feature > span svg,
+.outcome > span svg,
+.heroFacts li svg,
+.kicker svg,
+.steps h3 svg,
+.statGrid svg,
+svg.championMedal {
+  flex-shrink: 0;
+}
+
+/* `IconTile size="lg"` — matches `ui/Icon`'s `lg`, 24px. */
+.feature > span svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* `IconTile size="md"` and `StatTile`'s own 20px. */
+.outcome > span svg,
+.statGrid svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Beside a 15px label in the hero — see the note at the call site. */
+.heroFacts li svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* The eyebrow is `--text-2xs`; a 24px icon in it would be taller than the pill. */
+.kicker svg {
+  width: 14px;
+  height: 14px;
+}
+
+.steps h3 svg {
+  width: 20px;
+  height: 20px;
+}
+
+svg.championMedal {
+  width: 16px;
+  height: 16px;
+}
+
 /* ------------------------------------------------------- icon motion ---- */
 
 /**
@@ -626,20 +691,27 @@
   }
 }
 
-/* A Phosphor glyph is an `<i>`, which is inline — an inline box cannot be transformed.
-   Missing this is why an animation can look like it simply did not apply. */
+/**
+ * **Do not set `display` here.** An earlier version of this block declared
+ * `display: inline-block` on these, believing an inline `<i>` could not be
+ * transformed. That was wrong twice over: `ui/Icon` is already `inline-flex` (which
+ * *is* transformable — only plain `display: inline` is not), and overriding it threw
+ * away the `inline-flex` + `line-height: 1` that centres the glyph, so every glyph
+ * dropped onto the text baseline and sat **visibly off-centre inside its tile**. The
+ * tile is `inline-grid; place-items: center`, so its child is a grid item and is
+ * blockified automatically — nothing needed the override in the first place.
+ */
 .feature > span,
 .outcome > span,
-.feature > span i,
-.outcome > span i,
-.kicker i,
-.heroFacts li i,
-.steps h3 i,
-.statGrid i,
+.feature > span :is(i, svg),
+.outcome > span :is(i, svg),
+.kicker :is(i, svg),
+.heroFacts li :is(i, svg),
+.steps h3 :is(i, svg),
+.statGrid :is(i, svg),
 .championMedal {
-  display: inline-block;
   animation-iteration-count: infinite;
-  animation-timing-function: ease-in-out;
+  animation-timing-function: var(--ease-sine);
 }
 
 /* ---- the four feature tiles: breathe, with the glyph swinging inside ---- */
@@ -649,23 +721,23 @@
   animation-duration: var(--dur-idle);
 }
 
-.feature > span i {
+.feature > span :is(i, svg) {
   animation-name: glyphSwing;
   animation-duration: var(--dur-idle);
 }
 
 .featureGrid > *:nth-child(2) > span,
-.featureGrid > *:nth-child(2) > span i {
+.featureGrid > *:nth-child(2) > span :is(i, svg) {
   animation-delay: -0.65s;
 }
 
 .featureGrid > *:nth-child(3) > span,
-.featureGrid > *:nth-child(3) > span i {
+.featureGrid > *:nth-child(3) > span :is(i, svg) {
   animation-delay: -1.3s;
 }
 
 .featureGrid > *:nth-child(4) > span,
-.featureGrid > *:nth-child(4) > span i {
+.featureGrid > *:nth-child(4) > span :is(i, svg) {
   animation-delay: -1.95s;
 }
 
@@ -676,29 +748,30 @@
   animation-duration: var(--dur-idle-slow);
 }
 
-.outcome > span i {
+.outcome > span :is(i, svg) {
   animation-name: glyphSwing;
   animation-duration: var(--dur-idle-slow);
 }
 
 .outcomeGrid > *:nth-child(2) > span,
-.outcomeGrid > *:nth-child(2) > span i {
+.outcomeGrid > *:nth-child(2) > span :is(i, svg) {
   animation-delay: -1.1s;
 }
 
 .outcomeGrid > *:nth-child(3) > span,
-.outcomeGrid > *:nth-child(3) > span i {
+.outcomeGrid > *:nth-child(3) > span :is(i, svg) {
   animation-delay: -2.2s;
 }
 
 /* ---- the step markers and their heading glyphs ---- */
 
+/* `.stepNumber` is declared once, above — it is already `inline-flex`. Only the
+   animation is added here. */
 .stepNumber {
-  display: inline-flex;
-  animation: tileBreathe var(--dur-idle) ease-in-out infinite;
+  animation: tileBreathe var(--dur-idle) var(--ease-sine) infinite;
 }
 
-.steps h3 i {
+.steps h3 :is(i, svg) {
   animation-name: glyphSwing;
   animation-duration: var(--dur-idle);
 }
@@ -720,14 +793,14 @@
 
 /* ---- the hero ---- */
 
-.kicker i {
+.kicker :is(i, svg) {
   animation-name: iconSway;
   animation-duration: var(--dur-idle);
 }
 
 /* The three facts are 24px icons now, so a pulse on them is plainly visible without
    any of them leaving the row they are aligned on. */
-.heroFacts li i {
+.heroFacts li :is(i, svg) {
   animation-name: iconPulse;
   animation-duration: var(--dur-idle);
 }
@@ -742,7 +815,7 @@
 
 /* ---- participation figures and the podium medal ---- */
 
-.statGrid i {
+.statGrid :is(i, svg) {
   animation-name: iconPulse;
   animation-duration: var(--dur-idle);
 }

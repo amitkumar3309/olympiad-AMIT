@@ -122,6 +122,42 @@ Verified in a browser: signed out, `/admin` lands on `/#login` with one dialog a
 superadmin session lands on `/admin`; a student session lands on `/dashboard`. The generic
 `Invalid credentials.` message is unchanged, so no error reveals a role.
 
+### Lucide on the landing page, and the glyphs are centred again
+
+**The icons were misaligned inside their tiles, and that was a bug I introduced.** The
+animation block set `display: inline-block` on every glyph, believing an inline `<i>` could
+not be transformed. Wrong twice over: `ui/Icon` is already `inline-flex` — which *is*
+transformable, only plain `display: inline` is not — and overriding it threw away the
+`inline-flex` + `line-height: 1` that centres the glyph, dropping each one onto the text
+baseline with descender space below it. The tile is `inline-grid; place-items: center`, so
+its child is a grid item and was blockified anyway; the override was never needed. Removed,
+and the glyph's centre now measures **0,0 against the tile's centre**.
+
+**The landing page's content icons are `lucide-react`.** The owner asked for this twice —
+the first time I flagged that `CLAUDE.md` forbids a second icon library and they chose CSS
+on Phosphor instead; asked again after two rounds of that, a repeated instruction is a
+decision. See the ADR. Scoped to the landing page's content: the feature and outcome tiles,
+the four steps, the hero eyebrow and facts, the participation figures and the podium medal.
+The same page's navbar, footer, FAQ caret and empty states stay Phosphor, as does every
+other route — the rule is narrowed, not deleted.
+
+Cost, measured rather than assumed: **+8.3 kB raw, +3.3 kB gzipped** for sixteen icons
+(227.75 → 236.01 kB; 70.19 → 73.51 kB gzipped). `lucide-react` tree-shakes and has zero
+runtime dependencies, so the failure that got `@phosphor-icons/web` reverted — a 3 MB SVG
+font emitted by the bundler — does not apply.
+
+`ui/IconTile` and `ui/StatTile` now take `string | ReactElement` for `icon`. A string is
+still the normal path and those components size it; an element is passed through untouched,
+so the caller owns its size. That matters because Lucide renders an `<svg>` with
+`width`/`height` **attributes** of 24 which CSS beats, so every size is stated explicitly in
+the landing stylesheet.
+
+**The motion is smoother.** Every loop is on a new `--ease-sine`
+(`cubic-bezier(0.37, 0, 0.63, 1)`) rather than `ease-in-out`. The standard curves decelerate
+hard at each end, which on a *loop* reads as a pause at the extremes and makes the motion
+tick rather than flow; `easeInOutSine` is the gentlest and the right default for anything
+with `animation-iteration-count: infinite`.
+
 ### The theme follows the OS, and the landing icons actually move
 
 Two corrections after the owner reported not seeing either change on the live site. Both

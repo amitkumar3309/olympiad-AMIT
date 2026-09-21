@@ -2,6 +2,24 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
+import {
+  Activity,
+  Award,
+  BadgeCheck,
+  BookOpen,
+  CalendarCheck,
+  ClipboardList,
+  Gift,
+  GraduationCap,
+  Medal,
+  School,
+  ShieldCheck,
+  Target,
+  Ticket,
+  TrendingUp,
+  UserPlus,
+  Users,
+} from 'lucide-react'
 import { Button, ButtonLink, Card, EmptyState, Icon, IconTile, Section, StatTile } from '../../components/ui'
 import { api } from '../../api/client'
 import type { LeaderboardRow, PublicStats } from '../../api/types'
@@ -83,25 +101,25 @@ import styles from './Landing.module.css'
 const FEATURES = [
   {
     tone: 'blue' as const,
-    icon: 'ph-target',
+    icon: <Target />,
     title: 'Practice',
     body: 'Questions for your class, by chapter and difficulty. Marked instantly, with the solution.',
   },
   {
     tone: 'orange' as const,
-    icon: 'ph-exam',
+    icon: <ClipboardList />,
     title: 'Mock tests',
     body: 'Full-length papers on the server’s clock. Answers save as you go.',
   },
   {
     tone: 'magenta' as const,
-    icon: 'ph-calendar-check',
+    icon: <CalendarCheck />,
     title: 'Daily challenge',
     body: 'One question a day, the same for everyone in your class.',
   },
   {
     tone: 'green' as const,
-    icon: 'ph-chart-line-up',
+    icon: <TrendingUp />,
     title: 'Performance insights',
     body: 'Accuracy by chapter and difficulty, from papers you have actually submitted.',
   },
@@ -110,22 +128,22 @@ const FEATURES = [
 /** The path from arriving here to sitting the paper. Each step is something the product does. */
 const STEPS = [
   {
-    icon: 'ph-user-plus',
+    icon: <UserPlus />,
     title: 'Register',
     body: 'Free. Confirm your email address before signing in.',
   },
   {
-    icon: 'ph-books',
+    icon: <BookOpen />,
     title: 'Prepare, free',
     body: 'Practice, mock tests and the daily challenge cost nothing. No card.',
   },
   {
-    icon: 'ph-ticket',
+    icon: <Ticket />,
     title: 'Enter the Olympiad',
     body: 'The sitting has an entry fee, shown in full before you pay.',
   },
   {
-    icon: 'ph-certificate',
+    icon: <Award />,
     title: 'Sit it, and be ranked',
     body: 'One attempt, in the announced window. Certificates are issued when results are released.',
   },
@@ -155,19 +173,19 @@ const STEPS = [
 const OUTCOMES = [
   {
     tone: 'gold' as const,
-    icon: 'ph-medal',
+    icon: <Medal />,
     title: 'A national rank',
     body: 'Placed against every student in your class. Equal scores share a rank.',
   },
   {
     tone: 'purple' as const,
-    icon: 'ph-certificate',
+    icon: <BadgeCheck />,
     title: 'A certificate anyone can check',
     body: 'Issued the moment results are released, with a code that verifies publicly.',
   },
   {
     tone: 'green' as const,
-    icon: 'ph-shield-check',
+    icon: <ShieldCheck />,
     title: 'A score you can trust',
     body: 'One attempt, marked on the server against the key captured when your paper was served.',
   },
@@ -296,7 +314,7 @@ export default function Landing() {
         <section className={styles.hero}>
           <div className={`container ${styles.heroInner}`}>
             <p className={styles.kicker}>
-              <Icon name="ph-medal" weight="bold" /> National-level mathematics olympiad
+              <Medal aria-hidden="true" /> National-level mathematics olympiad
             </p>
             {/* The year is owner-supplied and lives in `brand.ts`: nothing in the backend
                 knows it, so there is one place to change when the sitting moves. */}
@@ -328,21 +346,20 @@ export default function Landing() {
             </div>
 
             {/*
-              `size="lg"` (24px) rather than inheriting. These sat at `--text-sm` — 13px,
-              the size of the label beside them — which the owner reported as very small,
-              and they were: an icon at body size next to body text reads as punctuation
-              rather than as an icon. `ph-graduation-cap` replaces `ph-student`, which is
-              a busier glyph and turns to mush at this size.
+              **Lucide**, sized by `.heroFacts li svg` in the stylesheet (Milestone 28).
+              These sat at `--text-sm` — 13px, the size of the label beside them — which
+              the owner reported as very small, and they were: an icon at body size next
+              to body text reads as punctuation rather than as an icon.
             */}
             <ul className={styles.heroFacts}>
               <li>
-                <Icon name="ph-graduation-cap" weight="bold" size="lg" /> Class 3 to Class 12
+                <GraduationCap aria-hidden="true" /> Class 3 to Class 12
               </li>
               <li>
-                <Icon name="ph-buildings" weight="bold" size="lg" /> Any school board
+                <School aria-hidden="true" /> Any school board
               </li>
               <li>
-                <Icon name="ph-gift" weight="bold" size="lg" /> Free to prepare
+                <Gift aria-hidden="true" /> Free to prepare
               </li>
             </ul>
           </div>
@@ -352,10 +369,10 @@ export default function Landing() {
         {stats && (
           <section className={`container ${styles.statsSection}`} aria-label="Participation so far">
             <div className={styles.statGrid}>
-              <StatTile icon="ph-users-three" value={stats.studentsRegistered.toLocaleString()} label="Students registered" />
-              <StatTile icon="ph-user-plus" value={stats.registeredToday.toLocaleString()} label="Registered today" tone="success" />
-              <StatTile icon="ph-pulse" value={stats.studentsActiveToday.toLocaleString()} label="Active today" tone="success" />
-              <StatTile icon="ph-buildings" value={stats.schoolsRepresented.toLocaleString()} label="Schools represented" tone="neutral" />
+              <StatTile icon={<Users />} value={stats.studentsRegistered.toLocaleString()} label="Students registered" />
+              <StatTile icon={<UserPlus />} value={stats.registeredToday.toLocaleString()} label="Registered today" tone="success" />
+              <StatTile icon={<Activity />} value={stats.studentsActiveToday.toLocaleString()} label="Active today" tone="success" />
+              <StatTile icon={<School />} value={stats.schoolsRepresented.toLocaleString()} label="Schools represented" tone="neutral" />
             </div>
           </section>
         )}
@@ -399,7 +416,7 @@ export default function Landing() {
                   </span>
                   <div>
                     <h3>
-                      <Icon name={step.icon} weight="bold" /> {step.title}
+                      {step.icon} {step.title}
                     </h3>
                     <p>{step.body}</p>
                   </div>
@@ -478,7 +495,7 @@ export default function Landing() {
                       <span className={styles.championRank}>
                         {/* An icon beside the rank, never in place of it: "#4" and a medal
                             have to be comparable at a glance. */}
-                        {row.rank <= 3 && <Icon name="ph-medal" weight="bold" className={styles.championMedal} />}
+                        {row.rank <= 3 && <Medal aria-hidden="true" className={styles.championMedal} />}
                         <span className="tnum">#{row.rank}</span>
                       </span>
                       {/* The API publishes a first name and a last initial only — these are

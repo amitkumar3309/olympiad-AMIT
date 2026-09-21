@@ -418,10 +418,18 @@ look wrong however carefully it is tokenised — read them before touching a sur
   those two stylesheets; `ph-fill`, `ph-light`, `ph-thin` and `ph-duotone` match no `@font-face` and
   render an **invisible glyph** rather than falling back, which is why the type admits two weights.
   Never write the `<i className="ph-...">` by hand in new code. **No icon may be the only carrier of
-  meaning** — partly accessibility, partly because the font comes from a CDN at runtime. Do not add a
-  second icon library, and do not "fix" the CDN by installing `@phosphor-icons/web`: its `@font-face`
-  lists four formats including a 3 MB SVG font, all of which the bundler then emits (this was tried
-  and reverted — see the ADR).
+  meaning** — partly accessibility, partly because the font comes from a CDN at runtime. Do not
+  "fix" the CDN by installing `@phosphor-icons/web`: its `@font-face` lists four formats including
+  a 3 MB SVG font, all of which the bundler then emits (this was tried and reverted — see the ADR).
+  **The one exception is the landing page, which uses `lucide-react`** (owner, asked twice, 2026-09-21
+  — see the Milestone 28 ADR). That is scoped to the landing page's *content* icons; the same page's
+  navbar, footer, FAQ caret and empty states, and every other route, are still Phosphor. The rule is
+  **narrowed, not deleted**: do not add a third icon library, and do not spread Lucide to other pages
+  without a decision — converting the rest means touching every `ui/Icon` call site across ~50 routes.
+  `ui/IconTile` and `ui/StatTile` take `string | ReactElement` for this: a string is the normal path
+  and they size it, an element is passed through and the **caller** owns its size. Lucide renders an
+  `<svg>` whose `width`/`height` **attributes** are 24, which CSS beats — so a Lucide icon in a tile
+  must be sized in CSS or it is the right shape in the wrong box.
 - **Rules the types enforce, so review does not have to.** A `Field` cannot be constructed without a
   `label` (a placeholder is not a label — it disappears when anybody types). An icon-only `Button`
   cannot be constructed without an `aria-label`. A `Badge` always carries words, so a payment state can

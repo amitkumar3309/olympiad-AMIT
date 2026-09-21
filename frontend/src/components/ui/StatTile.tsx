@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import Icon from './Icon'
 import styles from './StatTile.module.css'
 
@@ -21,7 +21,12 @@ import styles from './StatTile.module.css'
 
 export interface StatTileProps {
   /** Phosphor glyph name, with or without the `ph-` prefix. */
-  icon: string
+  /**
+   * A Phosphor glyph name, or an already rendered element — the landing page passes
+   * a Lucide icon (Milestone 28; see the ADR). A string is the normal case and this
+   * component sizes it; an element is passed through, so the caller owns its size.
+   */
+  icon: string | ReactElement
   /** `null` for "no data", which is rendered as an em dash and never as zero. */
   value: ReactNode | null
   label: string
@@ -42,7 +47,7 @@ export default function StatTile({
   return (
     <div className={[styles.tile, className].filter(Boolean).join(' ')}>
       <span className={`${styles.iconWrap} ${styles[tone]}`}>
-        <Icon name={icon} weight="bold" size="md" />
+        {typeof icon === 'string' ? <Icon name={icon} weight="bold" size="md" /> : icon}
       </span>
       <div className={styles.text}>
         <p className={styles.label}>{label}</p>

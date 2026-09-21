@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { Button, ButtonLink, Icon } from './ui'
 import { lockScroll, unlockScroll } from './ui/scrollLock'
 import ThemeToggle from './ThemeToggle'
-import logo from '../assets/logo.png'
+import logoMark from '../assets/logo-mark.png'
 import { AMIT_FULL_FORM, AMIT_SHORT } from '../lib/brand'
 import styles from './Navbar.module.css'
 
@@ -148,13 +148,21 @@ export default function Navbar() {
       <div className="container">
       <div className={styles.inner}>
         {/*
-          The wordmark stays four letters (Milestone 22, Phase D). The expansion belongs
-          where a visitor is asking what the letters mean — the hero — not in the top bar
-          of every page, where it would be repeated past the point of being read.
+          **The mark is the emblem alone, not the full lockup** — `logo-mark.png`, cropped
+          from `logo.png` by `scripts/crop-logo-mark.js`.
 
-          It is carried on the image's `alt` and the link's `title` instead, so it is
-          still reachable by a screen reader, a search engine and a hover, at no cost to
-          the layout.
+          `logo.png` is a *stacked* lockup: the emblem occupies only the top half of the
+          square (y 56–682 of 1254), with the AMIT wordmark, the expansion and the
+          "Think Beyond Numbers" line under it. Rendered into a 32px box that made the
+          emblem itself about 16px, which is why it read as small — the box was mostly
+          the other four bands, downsampled into mush. The crop is the same emblem at
+          the same box size, twice as large on screen.
+
+          **The text beside it stays, and the two are not a duplication.** In the lockup
+          the wordmark is 237px of 1254 — 8px tall in this bar — and the expansion is
+          37px, about one pixel. None of the image's own text survives at header size, so
+          the span is the only legible instance of the name, not a second one. It is also
+          what a reader sees when the image has not loaded.
         */}
         <Link
           to="/"
@@ -162,7 +170,7 @@ export default function Navbar() {
           title={`${AMIT_SHORT} Olympiad — ${AMIT_FULL_FORM}`}
           onClick={() => setOpen(false)}
         >
-          <img src={logo} alt={`${AMIT_SHORT} Olympiad — ${AMIT_FULL_FORM}`} />
+          <img src={logoMark} alt="" aria-hidden="true" />
           <span>A.M.I.T. OLYMPIAD</span>
         </Link>
 
