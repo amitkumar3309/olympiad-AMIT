@@ -440,6 +440,23 @@ else that looks like a category grid is actually encoding a state.
 
 `/hall-of-fame` is worth the explicit 320px row: Milestone 26 found it **28px over** from
 a `minmax(330px, 1fr)` floor, so it is the page most likely to regress on width.
+## The frontend-only claim, proved
+
+`git diff` across the eight Milestone 27 commits touches **44 files, none of them under
+`backend/`**. The backend suite was run anyway, because "I did not touch it" and "it still
+works" are different statements:
+
+**1,289 tests passed across 36 files** (671s), which is exactly the figure
+[`PROJECT_STATE.md`](PROJECT_STATE.md) records at the close of Milestone 25 — so no test
+was added, removed or broken.
+
+One thing to keep straight when reading `git log`: the range `9b11450..HEAD` *does* contain
+a backend change, `backend/src/routes/v1/auth.routes.ts`. It belongs to **`88d41fb`**
+("One sign-in form: finish the adminLogin -> login merge"), which was already sitting
+unpushed on `main` when this milestone started and is not part of it. Milestone 27 is
+`56aa87e..HEAD`. That commit is also why `/auth/admin/login` now takes **`email`** rather
+than the `identifier` the student route takes — worth knowing before writing a login call.
+
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)

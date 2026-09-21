@@ -314,6 +314,44 @@
   --sky-600: #2a6aa8;
   --sky-700: #1f5285;
 
+  /**
+   * **Royal blue — the brand colour, restored in Milestone 28.**
+   *
+   * `--royal-500` `#0052ff` is not a new choice and not a sampled one: it is the
+   * value this product shipped with. It is in the **first commit** in the repository
+   * (the static `public/*.html` pages), and it became `--royal-blue: #0052ff` when
+   * the frontend was rebuilt in React. Milestone 23 re-mixed it to `#2f43e0`,
+   * Milestone 26 replaced it with a near-black action, and Milestone 27 with a deep
+   * green. The owner asked for the original back (2026-09-21).
+   *
+   * It is deliberately **not** CSS `royalblue` (`#4169e1`) — that was offered and
+   * declined. The token name is historical; `#0052ff` is the brand. Do not "correct"
+   * it. See the Milestone 28 ADR in `DECISIONS.md`.
+   *
+   * Named `--royal-*` rather than `--blue-*` because `--sky-*` already sits behind
+   * `--info`, and two ramps called blue is how the wrong one gets picked.
+   *
+   * The ramp is one hue (220.7°) at full saturation, stepped by lightness, then
+   * measured rather than assumed. The steps that matter:
+   *   - `500` is the action fill: white on it is **5.75:1**, so the button label
+   *     clears AA without needing a darker fill.
+   *   - `600` is the step that carries **words** — 7.44:1 on white, 6.53:1 on the
+   *     cream page and 5.86:1 on the sand band. `500` also passes on all three, but
+   *     reaches only 4.53:1 on sand, which is AA with nothing to spare; text uses
+   *     `600` for the same reason `--brand-text` uses `--orange-700`.
+   *   - `700` is the pressed state and the keycap edge.
+   */
+  --royal-50: #f0f5ff;
+  --royal-100: #d6e3ff;
+  --royal-200: #b3cbff;
+  --royal-300: #709eff;
+  --royal-400: #3d7cff;
+  --royal-500: #0052ff; /* THE BRAND — the original, from the first commit */
+  --royal-600: #0045d6; /* the only step that may carry words */
+  --royal-700: #0038ad;
+  --royal-800: #002c8a;
+  --royal-900: #002166;
+
   /* ==================================================================
      2. TYPE
      ================================================================== */
@@ -686,21 +724,30 @@
   --text-inverse: var(--ink-50);
 
   /**
-   * The standard action: the reference's deep green, with white text and a
-   * **lighter** green edge. There are two action colours in this language — this one
-   * is the default and the workhorse, and `--brand` below is the single
-   * high-emphasis call to action on a page.
+   * The standard action: **royal blue**, the brand colour (Milestone 28). This was
+   * the reference's deep green through Milestone 27; the owner asked for the
+   * original blue back. Everything else about the language is unchanged — the fill
+   * separation, the keycap edge, the type — this is a re-point of one hue.
+   *
+   * There are still **two** action colours: this is the default and the workhorse
+   * (every form, every dialog), and `--brand` below is the single high-emphasis
+   * call to action on a page. `--brand` stayed orange deliberately — see the ADR.
+   *
+   * The edge goes **darker** here, not lighter. That is the opposite of the green it
+   * replaces and the same as `--brand`: a lighter companion under a fill this
+   * saturated reads as a halo rather than as the side of a key. Green could take a
+   * lighter edge because green was nearly black.
    */
-  --primary: var(--ink-800);
-  --primary-hover: var(--ink-900);
-  --primary-active: var(--ink-950);
-  --primary-on: #ffffff; /* 13.39:1 */
-  --primary-edge: var(--green-mid); /* the reference's lighter companion */
+  --primary: var(--royal-500);
+  --primary-hover: var(--royal-600);
+  --primary-active: var(--royal-700);
+  --primary-on: #ffffff; /* 5.75:1 */
+  --primary-edge: var(--royal-700); /* darker companion — see above */
 
-  --primary-text: var(--ink-800);
-  --primary-soft: var(--fill-subtle);
-  --primary-soft-hover: var(--fill-muted);
-  --primary-border: var(--border-strong);
+  --primary-text: var(--royal-600); /* 7.44 surface / 6.53 cream / 5.86 sand */
+  --primary-soft: rgba(0, 82, 255, 0.08);
+  --primary-soft-hover: rgba(0, 82, 255, 0.14);
+  --primary-border: rgba(0, 82, 255, 0.32);
 
   /**
    * The call to action — orange, with an **ink** label. See the orange ramp above for
