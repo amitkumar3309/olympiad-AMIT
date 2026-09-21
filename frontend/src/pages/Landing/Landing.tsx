@@ -6,7 +6,6 @@ import {
   Activity,
   Award,
   BadgeCheck,
-  BookOpen,
   CalendarCheck,
   ClipboardList,
   Gift,
@@ -15,8 +14,8 @@ import {
   School,
   ShieldCheck,
   Target,
-  Ticket,
   TrendingUp,
+  Trophy,
   UserPlus,
   Users,
 } from 'lucide-react'
@@ -125,25 +124,28 @@ const FEATURES = [
   },
 ]
 
-/** The path from arriving here to sitting the paper. Each step is something the product does. */
+/**
+ * The path from arriving here to sitting the paper. Each step is something the product
+ * does.
+ *
+ * **No icon here.** Each step used to carry a glyph beside its title *as well as* the
+ * numbered marker to its left, which is two symbols for one idea — the owner asked for
+ * one, and the number is the one that carries the sequence.
+ */
 const STEPS = [
   {
-    icon: <UserPlus />,
     title: 'Register',
     body: 'Free. Confirm your email address before signing in.',
   },
   {
-    icon: <BookOpen />,
     title: 'Prepare, free',
     body: 'Practice, mock tests and the daily challenge cost nothing. No card.',
   },
   {
-    icon: <Ticket />,
     title: 'Enter the Olympiad',
     body: 'The sitting has an entry fee, shown in full before you pay.',
   },
   {
-    icon: <Award />,
     title: 'Sit it, and be ranked',
     body: 'One attempt, in the announced window. Certificates are issued when results are released.',
   },
@@ -170,6 +172,27 @@ const STEPS = [
  * The name-masking fact was not dropped — it moved to the FAQ, where a parent looking
  * for it will actually look.
  */
+/**
+ * The podium marker beside a top-three rank.
+ *
+ * **Colour-coded and shape-coded** (owner, 2026-09-21): a gold trophy, a silver medal,
+ * a bronze rosette. The colours are the `--medal-*` semantic pair, never a palette
+ * step — that distinction exists because the palette is *not* re-pointed per theme, so
+ * a component naming `--gold-400` directly gets one fixed colour in both and is wrong
+ * in one of them. These are declared and measured in each theme (4.24–4.62:1 in light,
+ * 6.41–8.97:1 in dark).
+ *
+ * The rank number sits beside this and is never replaced by it, so neither colour nor
+ * shape is the only carrier of meaning — which is what makes a colour-coded marker
+ * legal here at all.
+ */
+function PodiumMedal({ rank }: { rank: number }) {
+  if (rank === 1) return <Trophy aria-hidden="true" className={`${styles.championMedal} ${styles.medalGold}`} />
+  if (rank === 2) return <Medal aria-hidden="true" className={`${styles.championMedal} ${styles.medalSilver}`} />
+  if (rank === 3) return <Award aria-hidden="true" className={`${styles.championMedal} ${styles.medalBronze}`} />
+  return null
+}
+
 const OUTCOMES = [
   {
     tone: 'gold' as const,
@@ -338,7 +361,7 @@ export default function Landing() {
                 none of which a `<button>` running `scrollIntoView` could do.
               */}
               <ButtonLink to={registerHref} size="lg">
-                Register now
+                Register
               </ButtonLink>
               <Button size="lg" variant="outline" onClick={() => setLoginOpen(true)}>
                 Sign in
@@ -415,9 +438,7 @@ export default function Landing() {
                     {index + 1}
                   </span>
                   <div>
-                    <h3>
-                      {step.icon} {step.title}
-                    </h3>
+                    <h3>{step.title}</h3>
                     <p>{step.body}</p>
                   </div>
                 </li>
@@ -495,7 +516,7 @@ export default function Landing() {
                       <span className={styles.championRank}>
                         {/* An icon beside the rank, never in place of it: "#4" and a medal
                             have to be comparable at a glance. */}
-                        {row.rank <= 3 && <Medal aria-hidden="true" className={styles.championMedal} />}
+                        <PodiumMedal rank={row.rank} />
                         <span className="tnum">#{row.rank}</span>
                       </span>
                       {/* The API publishes a first name and a last initial only — these are
@@ -559,7 +580,7 @@ export default function Landing() {
             <p>Registering is free, and you can practise the same day.</p>
             <div className={styles.heroActions}>
               <ButtonLink to={registerHref} size="lg">
-                Register now
+                Register
               </ButtonLink>
               <Button size="lg" variant="ghost" onClick={() => setLoginOpen(true)}>
                 I already have an account

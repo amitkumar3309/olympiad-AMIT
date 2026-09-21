@@ -58,9 +58,21 @@ export default function Footer() {
           <h2 className={styles.colTitle}>Account</h2>
           <Link to="/#login">Sign in</Link>
           <Link to="/register">Register</Link>
-          {/* Moved out of the public header in Phase B: still one click from every
-              page, without a marketing site advertising its own admin door. */}
-          <Link to="/admin">Administrator</Link>
+          {/*
+            **There is no Administrator link here, and there must not be one.**
+
+            Phase B moved it out of the public *header* into this footer, reasoning that
+            it was then one click from every page without the header advertising it. The
+            footer is still the public UI on every page, so that only made it quieter,
+            not absent — and Milestone 28's rule is that there is exactly **one** sign-in
+            entry point for everybody. Staff use the same "Sign in" above; the server
+            returns their role and `roleHome()` sends them to `/admin`.
+
+            Two reasons it stays gone. It advertises where the admin door is on the most
+            public surface in the product; and it tells a *promoted* admin — an ordinary
+            student account carrying a role — that there is a separate door they should
+            be using, when there is not.
+          */}
         </nav>
 
         <div className={styles.col}>

@@ -430,9 +430,25 @@
   font-weight: var(--weight-bold);
 }
 
+/**
+ * The podium marker. Colour comes from the per-rank class below, not from here — see
+ * `PodiumMedal` in `Landing.tsx`. `--accent-text` (one gold for all three) was what
+ * this carried before the ranks were told apart.
+ */
 .championMedal {
-  color: var(--accent-text);
   font-size: var(--text-lg);
+}
+
+.medalGold {
+  color: var(--medal-gold);
+}
+
+.medalSilver {
+  color: var(--medal-silver);
+}
+
+.medalBronze {
+  color: var(--medal-bronze);
 }
 
 .championSchool {
@@ -587,9 +603,11 @@ svg.championMedal {
   height: 20px;
 }
 
+/* 22px, up from 16 — the owner asked for these to be bigger, and they are the one
+   decorative glyph on the page that is meant to be noticed. */
 svg.championMedal {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
 }
 
 /* ------------------------------------------------------- icon motion ---- */
