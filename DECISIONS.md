@@ -178,6 +178,25 @@ remove feedback rather than decoration, which is not what "white background" ask
 are the faintest steps of the brand blue, so the only tint anywhere in the product now
 belongs to the primary. If the request comes again, that is the line.
 
+## 2026-09-21 — Milestone 28: the podium is colour-coded, and colour is never the only signal
+
+**Context.** The owner asked for the Top scholars markers to be bigger, better, and
+colour-coded gold/silver/bronze for the first three ranks.
+
+**Decision: three shapes and three semantic colours, beside a number that still says the
+rank.** A gold trophy, a silver medal, a bronze rosette at 22px. Two rules constrain it.
+
+The colours are `--medal-gold` / `-silver` / `-bronze`, **not** `--gold-400` and friends.
+The palette is deliberately not re-pointed per theme, so a component naming a palette step
+gets one fixed colour in both themes and is wrong in one of them — which is exactly how
+the first-place medal once came to be `--gold-400` at 2.14:1 on white. These pairs exist
+for this case and were measured in both: 5.39 / 4.82 / 5.87 on a white card, and
+10.06 / 7.67 / 7.19 on the dark theme's blue card.
+
+And **the rank number stays beside the marker.** That is what makes a colour-coded marker
+legal here at all: a reader who cannot separate gold from bronze still reads "#1". Do not
+replace the number with the medal to tidy the row up.
+
 ## 2026-09-21 — Milestone 28: `lucide-react` on the landing page, overriding "no second icon library"
 
 **Context.** The owner asked for animated icons on the home page and named a React Lucide

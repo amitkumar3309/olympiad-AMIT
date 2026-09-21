@@ -200,6 +200,42 @@ hard at each end, which on a *loop* reads as a pause at the extremes and makes t
 tick rather than flow; `easeInOutSine` is the gentlest and the right default for anything
 with `animation-iteration-count: infinite`.
 
+### One marker per step, ranked podium medals, and a public admin link that should not have been there
+
+The "How it works" steps carried a glyph beside each title **and** a numbered marker to
+their left — two symbols for one idea. The glyphs are gone and the number carries the
+sequence; `icon` came off `STEPS` with them.
+
+The **podium markers tell the three ranks apart** now, and are bigger (16px → 22px): a
+gold trophy, a silver medal, a bronze rosette, through a small `PodiumMedal` component.
+The colours are the `--medal-gold` / `-silver` / `-bronze` semantic pair rather than
+palette steps — the palette is not re-pointed per theme, so a component naming
+`--gold-400` is right in one theme and wrong in the other, which is the rule that put
+those tokens there in the first place. Measured on the real surfaces: **5.39 / 4.82 /
+5.87** in light on a white card, **10.06 / 7.67 / 7.19** in dark on the blue card. The
+rank number still sits beside the marker, so neither colour nor shape is the only
+carrier of meaning.
+
+"Register now" is **"Register"** on all four buttons.
+
+**And the public footer still had an `Administrator` link to `/admin`, on every page.**
+That is the visible admin entry point removed at the top of this milestone, and it had
+been reported done — the verification grep looked for "admin login" and "administrator
+sign in", and a link labelled just *Administrator* matched neither. It was never a
+security hole (`/admin` has been gated since `8eb46aa`, so a guest clicking it was
+redirected to `/#login`), but it advertised where the admin door is and told a
+*promoted* admin there was a separate door for them when there is not. Removed. The
+navbar's Admin button stays: it renders inside `{isStaff && …}` in the signed-in branch,
+so it is navigation for somebody who already holds the role.
+
+**A note on how the `PodiumMedal` change was made**, because it broke the page for
+somebody else while it was in flight. The call site and the function declaration were
+written in two separate commands about a minute apart; in between, the file on disk had
+the call and not the declaration, Vite hot-reloaded exactly that, and a concurrent
+session opened the landing page to `ReferenceError: PodiumMedal is not defined` and a
+blank screen. Nothing was wrong with either half — only with shipping one logical change
+to a hot-reloaded file as two writes.
+
 ### The theme follows the OS, and the landing icons actually move
 
 Two corrections after the owner reported not seeing either change on the live site. Both

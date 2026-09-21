@@ -44,6 +44,18 @@ was run anyway. Four changes, all at the owner's request:
    (leaving it at `/admin` would have made a signed-out visit an infinite redirect to itself).
    `login()` always returned the role and every caller discarded it, so an administrator using
    the public form landed on the *student* dashboard; the role now routes through `roleHome()`.
+   **A later pass found one more**: the public footer still linked `Administrator` to `/admin`
+   on every page — the grep that first reported this item done searched for "admin login" and
+   "administrator sign in", and a link labelled simply *Administrator* matched neither. Removed.
+   It was never a security hole, since `/admin` was already gated, but it advertised the admin
+   door. The navbar's Admin button stays: it is inside `{isStaff && …}`, so it is navigation for
+   somebody who already holds the role.
+
+5. **Landing polish.** The "How it works" steps lost the glyph beside each title — it duplicated
+   the numbered marker beside it — the Top scholars markers became a gold trophy, a silver medal
+   and a bronze rosette at 22px (the `--medal-*` semantic pair, measured in both themes), and
+   "Register now" became "Register". The landing page's content icons are **`lucide-react`**,
+   which overrides the standing "no second icon library" rule for that one page only; see the ADR.
 
 Verified in a browser: `/admin` signed out lands on `/#login` with one dialog and no loop, a
 superadmin session lands on `/admin`, a student session lands on `/dashboard`, and every
