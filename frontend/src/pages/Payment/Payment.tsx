@@ -449,7 +449,7 @@ export default function Payment() {
               title="Your receipts"
               size="sm"
               as="h2"
-              description="An invoice for every payment we have received from you. The amount shown is what was actually charged at the time, so it does not change if the entry fee changes later."
+              description="Every payment you have made. Each amount is what was charged at the time, not today's fee."
             />
             <ul className={styles.invoiceList}>
               {invoices.map((invoice) => (

@@ -226,7 +226,7 @@ export default function Analytics() {
               icon="ph-chart-line"
               titleAs="h2"
               title="Nothing to measure yet"
-              description="Your accuracy, strongest and weakest chapters and progress over time are all worked out from questions you have answered — and you have not submitted anything yet. This page fills in by itself once you do."
+              description="Everything here is worked out from papers you have submitted, and there are none yet. Answer some questions and this page fills in."
               action={
                 <ButtonLink to="/practice" icon="ph-target">
                   Start practising

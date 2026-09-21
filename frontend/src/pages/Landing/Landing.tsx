@@ -270,7 +270,12 @@ export default function Landing() {
             </p>
             {/* The year is owner-supplied and lives in `brand.ts`: nothing in the backend
                 knows it, so there is one place to change when the sitting moves. */}
-            <h1 className={styles.wordmark}>A.M.I.T Maths Olympiad {AMIT_COMPETITION_YEAR}</h1>
+            {/* "A.M.I.T. Olympiad", not "A.M.I.T Maths Olympiad" (owner, 2026-09-21).
+                Matches the navbar wordmark, which already carried the trailing stop.
+                The printed certificate is still titled `A.M.I.T MATHS OLYMPIAD` and is
+                deliberately left alone — it is a record of what was handed to somebody,
+                and re-titling it would make new certificates disagree with issued ones. */}
+            <h1 className={styles.wordmark}>A.M.I.T. Olympiad {AMIT_COMPETITION_YEAR}</h1>
             {/* The expansion, directly under the name it expands. Nowhere else on this page. */}
             <p className={styles.fullForm}>{AMIT_FULL_FORM}</p>
             {/* "A year of preparation" was the first draft, and it is a claim about duration
