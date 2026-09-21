@@ -309,6 +309,79 @@ sweep, since the landing page is what renders it.
 which need a live token) and `ForcePasswordChange .card`. Both are a single centred card
 on the page, which is the case least likely to lose its fill separation — but that is an
 argument, not a measurement, and it is recorded as the latter.
+## Phase 6 — the student pages take the reference’s patterns (in progress)
+
+Owner’s scope decision: correctness everywhere, **patterns** on the student-facing
+routes, correctness only on the admin console — the reference is a marketing site with
+nothing to say about a dense table, and a coloured admin console would be worse rather
+than better.
+
+### Figures are set in the display face
+
+`--font-heading` is a *different family* from `--font-body` now, so a rule naming it is
+a real change where before Milestone 27 it would have been a no-op. `ui/StatTile`’s
+`.value` and the dashboard’s `.xpValue` both take `--font-heading` with
+`--tracking-display`, which is how the reference sets 900+, 92% and 4.9/5 — and most of
+why those read as *figures* rather than as sentences. `tabular-nums` stays, and matters
+more than before: a column of tiles whose digits are different widths jitters as the
+numbers update.
+
+Because it lands in `StatTile`, this reaches every page with a stat tile rather than
+just the dashboard.
+
+### Two more hand-rolled tiles became `ui/IconTile`
+
+The dashboard had **two** bespoke tinted squares: `.actionIcon` (42px, `--primary-soft`)
+on the three "Jump back in" rows, and `.levelIcon` (38px, `--success-soft`). Both are
+`ui/IconTile` now, so both get the pastel fill and the hard diagonal edge for free —
+which is what the reference puts beside a row of exactly this shape.
+
+The three action rows take **different tones** (blue, green, magenta): three things a
+reader has to tell apart is the one job a categorical colour actually has. The level
+glyph takes **gold**, because a level is a distinction tier, and gold is the one colour
+in this product reserved for something *earned* rather than for a bucket.
+
+Deleting the two classes rather than restyling them is the point: a primitive that
+already exists should not have a second implementation.
+
+### Declined: the dark-green headline panel
+
+The reference’s visual anchor is a **dark green stat panel** with cream text, and the
+dashboard’s XP/level card is its structural equivalent. It was not built, and the reason
+is worth recording rather than rediscovering:
+
+1. **It is a subtree polarity flip, which is the shape that has already failed twice**
+   this milestone (the pastel band, then the pinned band). `Progress` resolves `--text`,
+   `--text-muted`, `--surface-active` **and `--primary`** — and `--primary` is the panel
+   fill, so the bar would be the same colour as the card it sits on. Inverting it means
+   re-pointing four tokens inside two components that have their own semantics.
+2. **The reference’s panel is a marketing stat block** ("900+ learners since 2018").
+   The dashboard’s card is a *functional control*: a real value out of a real maximum,
+   which `CLAUDE.md` protects specifically. Turning it into a decorative anchor works
+   against what it is for.
+3. `Badge` tones are semantic and `Progress` must stay determinate. Re-pointing either
+   for visual effect is how those rules erode.
+
+If the owner wants the dark panel, the honest way to build it is a **new** component with
+no `Progress` or `Badge` inside it, and its own matched fill/text token pair — not a
+flipped `Card`.
+
+### Verified
+
+| Route | Width | Nodes | Contrast (light/dark) | Overflow | Invisible |
+|---|---|---|---|---|---|
+| `/dashboard` | 1265px | 113 | 0 / 0 | 0px | 0 |
+| `/dashboard` | 320px | 91 | 0 / 0 | 0px | 0 |
+| `/analytics` | 1265px | 128 | 0 / 0 | 0px | 0 |
+| `/analytics` | 320px | — | 0 / 0 | 0px | — |
+
+Computed: the action tiles are 56×56 pastels carrying `4px 4px 0` in their own
+companion with ink glyphs; the XP figure is Bricolage Grotesque 32px/700 at −2.56px
+(−0.08em), clamping to 24px at 320px where it fits its 74px parent exactly.
+
+`/analytics` at 320px reports a `TABLE` 193px wider than the viewport while the **page**
+overflows 0px. That is `TableScroll` working as documented — contained horizontal scroll,
+page never draggable off its edge — and not a finding.
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)
@@ -318,11 +391,10 @@ argument, not a measurement, and it is recorded as the latter.
   called a defect — they may sit on a dark panel — but they are the first thing to look at
   on those two pages. This predates Milestone 27 (gold-400 was a light fill in Milestone 26
   too); it is recorded here because that is where it will be fixed.
-- **Phase 6 — restructure the student pages** (owner’s scope decision, 2026-09-21):
-  correctness is done everywhere, and the ~15 student-facing routes now get Brightpath
-  *patterns* — pastel category cards, tinted bands, hard-edged tiles. The admin console
-  gets correctness only, deliberately: the reference is a marketing site with nothing to
-  say about a dense table, and a coloured admin console would be worse rather than better.
+- **Finish phase 6.** The dashboard is done. Still to look at with the reference in hand:
+  `/practice` (its chapter picker is the closest thing this product has to the
+  reference’s "Pick a program" pastel cards), `/rewards` (badges and the journey),
+  `/leaderboard` and `/hall-of-fame` (its people sections), and `/referrals`.
 - **The parameterised routes still need a look**, especially the three question runners,
   which `CLAUDE.md` calls one design in three files — so a change to one is a change to
   three. Reaching them needs a practice session and a mock attempt created through the UI.

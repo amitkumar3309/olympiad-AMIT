@@ -75,12 +75,26 @@
  * `1,253` set at -0.03em reads as a quantity, and the same figure at default tracking
  * reads as a list of digits. Tabular figures so a column of them stays aligned.
  */
+/**
+ * A figure is set in the **display face** (Milestone 27).
+ *
+ * The reference sets its headline figures — 900+, 92%, 4.9/5 — in Bricolage
+ * Grotesque at heavy negative tracking, and that is most of why they read as
+ * figures rather than as sentences. `--font-heading` is a different family from
+ * `--font-body` now, so this is a real change rather than a no-op: before
+ * Milestone 27 the two were the same face and a rule like this would have done
+ * nothing.
+ *
+ * `tabular-nums` stays, and matters more than ever: a column of stat tiles whose
+ * digits are different widths jitters as the numbers update.
+ */
 .value {
   margin: var(--space-1) 0 0;
+  font-family: var(--font-heading);
   font-size: var(--text-2xl);
   font-weight: var(--weight-semibold);
   line-height: var(--leading-snug);
-  letter-spacing: var(--tracking-tight);
+  letter-spacing: var(--tracking-display);
   color: var(--text);
   font-variant-numeric: tabular-nums;
   overflow-wrap: break-word;

@@ -14,6 +14,7 @@ import {
   EmptyState,
   ErrorState,
   Icon,
+  IconTile,
   Progress,
   SkeletonCards,
   SkeletonText,
@@ -179,9 +180,7 @@ export default function Dashboard() {
             </h2>
             <div className={styles.actionGrid}>
               <Link to="/practice" className={styles.actionCard}>
-                <span className={styles.actionIcon}>
-                  <Icon name="ph-target" weight="bold" size="md" />
-                </span>
+                <IconTile icon="ph-target" tone="blue" size="lg" />
                 <span className={styles.actionText}>
                   <span className={styles.actionTitle}>Practice</span>
                   <span className={styles.actionMeta}>
@@ -194,9 +193,7 @@ export default function Dashboard() {
               </Link>
 
               <Link to="/mock-tests" className={styles.actionCard}>
-                <span className={styles.actionIcon}>
-                  <Icon name="ph-exam" weight="bold" size="md" />
-                </span>
+                <IconTile icon="ph-exam" tone="green" size="lg" />
                 <span className={styles.actionText}>
                   <span className={styles.actionTitle}>Mock tests</span>
                   <span className={styles.actionMeta}>Sit a full paper against the clock</span>
@@ -205,9 +202,7 @@ export default function Dashboard() {
               </Link>
 
               <Link to="/daily-challenge" className={styles.actionCard}>
-                <span className={styles.actionIcon}>
-                  <Icon name="ph-dice-five" weight="bold" size="md" />
-                </span>
+                <IconTile icon="ph-dice-five" tone="magenta" size="lg" />
                 <span className={styles.actionText}>
                   <span className={styles.actionTitle}>Daily challenge</span>
                   <span className={styles.actionMeta}>One question a day, marked instantly</span>
@@ -233,9 +228,7 @@ export default function Dashboard() {
                     </Badge>
                     <p className={styles.xpValue}>{data.progress.xp.toLocaleString('en-IN')} XP</p>
                   </div>
-                  <span className={styles.levelIcon}>
-                    <Icon name="ph-trend-up" weight="bold" size="md" />
-                  </span>
+                  <IconTile icon="ph-trend-up" tone="gold" />
                 </div>
                 {/*
                   A real value out of a real maximum — XP into this level, out of what
