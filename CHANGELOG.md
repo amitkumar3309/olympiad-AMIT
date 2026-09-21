@@ -143,12 +143,21 @@ hover-only, which is effectively invisible: nobody hovers a marketing page delib
 (`iconPulse`), the hero eyebrow and podium medal (`iconSway`) — staggered by negative delays
 so they do not march in lockstep.
 
+That version was still too quiet — the owner's verdict was that the animation is minimal
+and should be properly visible. Two things were wrong: **3–4px over 3.6–5s reads as nothing
+happening**, and it animated the *glyph*, a ~20px mark inside a large coloured tile, leaving
+the part of the composition that actually catches the eye perfectly still. The **tile**
+moves now, measured on the running page at **16.4px of travel and −10°/+9°** over a 2.6s
+cycle — roughly four times the previous amplitude — with the glyph counter-rotating so the
+symbol stays legible while its tile tips.
+
 The mechanical catch, recorded because it is easy to hit: **an `animation` beats a
-`transition` on the same property**, so both on one element means the hover silently never
-applies. `IconTile` gives two elements — the glyph loops, the tile answers the pointer.
-Still transform-only with small amplitudes (3–4px, 4–5°) over the new `--dur-idle` /
-`--dur-idle-slow` tokens, for the same reason as before: a loop that never runs leaves the
-icon where it was; an opacity or entrance animation that never runs leaves content invisible.
+`transition` on the same property**. Once the tile is the thing looping, a hover
+`transform` on it silently never applies, so the pointer response moved to
+`filter: brightness()`. Not `box-shadow` — that carries `--edge-tile`, the keycap edge,
+which overriding would delete on hover. Still transform-only and still additive: a loop
+that never runs leaves the icon where it was; an opacity or entrance animation that never
+runs leaves content invisible.
 
 ### The dark theme: a black page with royal-blue cards
 

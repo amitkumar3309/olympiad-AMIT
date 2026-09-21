@@ -286,15 +286,20 @@ look wrong however carefully it is tokenised — read them before touching a sur
   class is applied in an effect after first paint, so `getComputedStyle` reports the *old*
   background mid-transition — this reported a white `body` under `.theme-dark` during the
   very change that introduced it.
-- **Landing-page icons animate continuously, and the loop is on the GLYPH while the hover is
-  on the TILE.** An `animation` beats a `transition` on the same property, so both on one
-  element means the hover silently never applies; `IconTile` gives two elements for exactly
-  this. The first version was hover-only and was effectively invisible — nobody hovers a
-  marketing page deliberately, and **a phone has no hover at all**. The loops are
-  **transform-only** with small amplitudes (3–4px, 4–5°) over `--dur-idle`, staggered by
-  negative delays. Transform-only is the same rule as everywhere else: a loop that never
-  runs leaves the icon where it was, whereas an opacity or entrance animation that never
-  runs leaves content invisible. Do not animate `opacity` here, and do not add an entrance.
+- **Landing-page icons animate continuously, the loop is on the TILE, and the hover is on a
+  DIFFERENT PROPERTY.** Two earlier attempts failed for instructive reasons. *Hover only*
+  was invisible — nobody hovers a marketing page deliberately and **a phone has no hover at
+  all**. *A loop of 3–4px over 3.6–5s on the glyph alone* was also invisible: too little
+  travel to register, and it moved a ~20px mark inside a large coloured tile while the tile
+  itself — the thing that catches the eye — stayed perfectly still. The current version
+  moves the **tile**, measured at **16.4px of travel and −10°/+9°** over `--dur-idle`
+  (2.6s), with the glyph counter-rotating so the symbol stays legible. Because the tile is
+  now looping on `transform`, and **an `animation` beats a `transition` on the same
+  property**, the pointer response had to move to `filter: brightness()` — not `box-shadow`,
+  which carries `--edge-tile` and would lose the keycap edge. Still **transform-only** and
+  still additive: a loop that never runs leaves the icon where it was, whereas an opacity or
+  entrance animation that never runs leaves content invisible. Do not animate `opacity`
+  here, and do not add an entrance.
 - **The interactive steps are deliberately NOT white, and that is not an oversight.**
   `--surface-hover`, `--surface-active` and `--surface-sunken` are the faintest steps of the
   brand blue (`--royal-25` / `--royal-50`). White versions of those three are the same as

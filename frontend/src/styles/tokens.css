@@ -678,13 +678,15 @@
    * **Idle motion** — a looping ambient animation, not a response to anything.
    *
    * An order of magnitude slower than the three above, and that gap is the point: a
-   * transition answers a user in 200ms, while something that moves on its own forever
-   * has to stay under the threshold of "did that just move?" or it becomes the only
-   * thing on the page. Only ever paired with a **small transform**; see the icon
-   * motion block in `Landing.module.css` for the rules that go with it.
+   * transition answers a user in 200ms, while something that moves on its own loops
+   * forever. The first values here were 3.6s/5s paired with 3-4px of travel, and the
+   * owner's verdict was that the result is not visible at all — a loop that slow and
+   * that small reads as nothing happening. These are the second attempt: quicker, and
+   * paired with roughly triple the amplitude. See the icon motion block in
+   * `Landing.module.css`, which holds the amplitudes and the reasoning.
    */
-  --dur-idle: 3.6s;
-  --dur-idle-slow: 5s;
+  --dur-idle: 2.6s;
+  --dur-idle-slow: 3.4s;
   --ease: cubic-bezier(0.44, 0, 0.56, 1); /* the reference's curve */
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);

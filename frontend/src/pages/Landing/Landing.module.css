@@ -538,39 +538,44 @@
  * glyphs looking unlike the ~50 other pages still on Phosphor. The owner chose this
  * route once that was pointed out. No dependency, no bundle cost.
  *
- * ## They loop, and the first version was wrong to make them hover-only
+ * ## Two earlier attempts, and what each got wrong
  *
- * The first attempt animated on hover alone. It was invisible: nobody hovers a
- * marketing page deliberately, and on a phone there is **no hover at all**, so on the
- * device most visitors use there was no animation whatsoever. These run continuously.
+ * **First: hover only.** Invisible. Nobody hovers a marketing page deliberately and a
+ * phone has *no hover at all*, so on the device most visitors use nothing moved.
  *
- * ## The rule they all obey: TRANSFORM ONLY
+ * **Second: a loop, but 3–4px over 3.6–5s on the glyph alone.** Also effectively
+ * invisible — the owner's words were that the animation is minimal and should be
+ * properly visible. Two things were wrong with it. The travel was small enough to
+ * read as nothing happening, and it was on the **glyph**, a ~20px mark inside a large
+ * coloured tile, so the part of the composition that actually catches the eye was
+ * perfectly still.
  *
- * Nothing here animates `opacity`, and there are no entrance animations. That is the
- * standing rule in CLAUDE.md about work delivered with the browser's rendering steps:
- * **a CSS animation may never run in a tab that is not compositing.** A fade-in that
- * never fires leaves content *invisible* — a real failure. A transform loop that never
- * fires leaves the icon exactly where it already was. Every effect here is additive:
- * the page is complete and correct with all of it switched off, which is also exactly
- * what a reader with `prefers-reduced-motion` gets, since `base.css` already flattens
- * every animation in the application with `!important`.
+ * **This version** moves the **tile** — the big coloured square — and moves it far
+ * enough to see: roughly triple the amplitude (8–12px of travel, 8–14 degrees) over
+ * `--dur-idle`, which is quicker than before. The glyph inside counter-rotates so the
+ * symbol stays legible while its tile tips.
  *
- * Transform is also the cheap property — it composites without layout or paint, so a
- * dozen looping icons cost nothing measurable.
+ * ## The hover had to change property, and this is the interesting constraint
  *
- * ## Amplitudes are small on purpose
+ * An `animation` beats a `transition` on the same property. Once the *tile* is the
+ * thing looping, a hover `transform` on that tile silently never applies — which is
+ * exactly the bug the previous version was shaped to avoid by keeping them on
+ * separate elements. Now that both want the tile, the pointer response moves to a
+ * **different property**: `filter: brightness()`, which no animation here touches.
+ * Not `box-shadow` — that carries `--edge-tile`, the keycap edge, and overriding it
+ * would delete the edge on hover.
  *
- * 3–4px and 4–5 degrees, over `--dur-idle`. Something that moves forever has to stay
- * under "did that just move?" or it becomes the only thing on the page. The stagger
- * delays below are literal because they are offsets that stop twelve icons marching in
- * lockstep — a per-element layout detail, not a design duration.
+ * ## Still transform-only, and still additive
  *
- * ## Why the loop is on the GLYPH and the hover is on the TILE
+ * Nothing animates `opacity`; there are no entrance animations. A CSS animation may
+ * never run in a tab that is not compositing, so a loop that does not fire leaves the
+ * icon exactly where it was, while a fade-in that does not fire leaves content
+ * *invisible*. Transform is also the cheap property — composited, no layout, no paint.
+ * `prefers-reduced-motion` needs nothing here: `base.css` flattens every animation in
+ * the application with `!important`.
  *
- * An `animation` beats a `transition` on the same property, so putting both on one
- * element means the hover silently never applies. `IconTile` renders
- * `<span class="tile"><i class="ph-…"></i></span>`, which gives two elements: the
- * **glyph loops**, the **tile answers the pointer**. Keep them separate.
+ * Stagger delays are literal negative offsets — a per-element detail that stops a dozen
+ * icons marching in lockstep, not a design duration.
  */
 
 @keyframes iconFloat {
@@ -579,17 +584,17 @@
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-10px);
   }
 }
 
 @keyframes iconSway {
   0%,
   100% {
-    transform: rotate(-5deg);
+    transform: rotate(-14deg);
   }
   50% {
-    transform: rotate(5deg);
+    transform: rotate(14deg);
   }
 }
 
@@ -599,7 +604,7 @@
     transform: scale(1);
   }
   50% {
-    transform: scale(1.09);
+    transform: scale(1.18);
   }
 }
 
@@ -609,16 +614,31 @@
     transform: translateY(0) rotate(0deg);
   }
   30% {
-    transform: translateY(-4px) rotate(-4deg);
+    transform: translateY(-12px) rotate(-10deg);
   }
   65% {
-    transform: translateY(-1px) rotate(4deg);
+    transform: translateY(-4px) rotate(9deg);
   }
 }
 
-/* A Phosphor glyph is an `<i>`, which is inline — an inline box cannot be transformed,
-   so every animated glyph needs this. Missing it is why an animation can look like it
-   simply did not apply. */
+/* The glyph counter-rotation, which keeps the symbol upright while its tile tips. */
+@keyframes glyphSteady {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(8deg);
+  }
+  65% {
+    transform: rotate(-7deg);
+  }
+}
+
+/* A Phosphor glyph is an `<i>`, which is inline — an inline box cannot be transformed.
+   Missing this is why an animation can look like it simply did not apply. */
+.feature > span,
+.outcome > span,
 .feature > span i,
 .outcome > span i,
 .kicker i,
@@ -631,57 +651,53 @@
   animation-timing-function: ease-in-out;
 }
 
-/* The four feature tiles. `iconBob` is the fullest movement on the page, because this
-   is the section the eye lands on first. */
-.feature > span i {
+/* ---- the four feature tiles: the fullest movement on the page ---- */
+
+.feature > span {
   animation-name: iconBob;
   animation-duration: var(--dur-idle);
 }
 
+.feature > span i {
+  animation-name: glyphSteady;
+  animation-duration: var(--dur-idle);
+}
+
+.featureGrid > *:nth-child(2) > span,
 .featureGrid > *:nth-child(2) > span i {
-  animation-delay: -0.9s;
+  animation-delay: -0.65s;
 }
 
+.featureGrid > *:nth-child(3) > span,
 .featureGrid > *:nth-child(3) > span i {
-  animation-delay: -1.8s;
+  animation-delay: -1.3s;
 }
 
+.featureGrid > *:nth-child(4) > span,
 .featureGrid > *:nth-child(4) > span i {
-  animation-delay: -2.7s;
+  animation-delay: -1.95s;
 }
 
-/* The three outcomes. A plain float — this section is further down and quieter. */
-.outcome > span i {
+/* ---- the three outcome tiles ---- */
+
+.outcome > span {
   animation-name: iconFloat;
   animation-duration: var(--dur-idle-slow);
 }
 
-.outcomeGrid > *:nth-child(2) > span i {
-  animation-delay: -1.6s;
+.outcomeGrid > *:nth-child(2) > span {
+  animation-delay: -1.1s;
 }
 
-.outcomeGrid > *:nth-child(3) > span i {
-  animation-delay: -3.2s;
+.outcomeGrid > *:nth-child(3) > span {
+  animation-delay: -2.2s;
 }
 
-/* The step markers and the glyph beside each step heading. */
+/* ---- the step markers and their heading glyphs ---- */
+
 .stepNumber {
-  animation: iconPulse var(--dur-idle-slow) ease-in-out infinite;
-}
-
-.steps li:nth-child(2) .stepNumber,
-.steps li:nth-child(2) h3 i {
-  animation-delay: -1.2s;
-}
-
-.steps li:nth-child(3) .stepNumber,
-.steps li:nth-child(3) h3 i {
-  animation-delay: -2.4s;
-}
-
-.steps li:nth-child(4) .stepNumber,
-.steps li:nth-child(4) h3 i {
-  animation-delay: -3.6s;
+  display: inline-flex;
+  animation: iconPulse var(--dur-idle) ease-in-out infinite;
 }
 
 .steps h3 i {
@@ -689,10 +705,26 @@
   animation-duration: var(--dur-idle);
 }
 
-/* The hero. The eyebrow's medal swings; the three facts float out of step. */
+.steps li:nth-child(2) .stepNumber,
+.steps li:nth-child(2) h3 i {
+  animation-delay: -0.65s;
+}
+
+.steps li:nth-child(3) .stepNumber,
+.steps li:nth-child(3) h3 i {
+  animation-delay: -1.3s;
+}
+
+.steps li:nth-child(4) .stepNumber,
+.steps li:nth-child(4) h3 i {
+  animation-delay: -1.95s;
+}
+
+/* ---- the hero ---- */
+
 .kicker i {
   animation-name: iconSway;
-  animation-duration: var(--dur-idle-slow);
+  animation-duration: var(--dur-idle);
 }
 
 .heroFacts li i {
@@ -701,30 +733,30 @@
 }
 
 .heroFacts li:nth-child(2) i {
-  animation-delay: -1.2s;
+  animation-delay: -0.85s;
 }
 
 .heroFacts li:nth-child(3) i {
-  animation-delay: -2.4s;
+  animation-delay: -1.7s;
 }
 
-/* Participation figures and the podium medal. `.statGrid i` reaches inside
-   `ui/StatTile` without this page needing to know that component's class names. */
+/* ---- participation figures and the podium medal ---- */
+
 .statGrid i {
   animation-name: iconPulse;
-  animation-duration: var(--dur-idle-slow);
+  animation-duration: var(--dur-idle);
 }
 
 .statGrid > *:nth-child(2) i {
-  animation-delay: -1.25s;
+  animation-delay: -0.65s;
 }
 
 .statGrid > *:nth-child(3) i {
-  animation-delay: -2.5s;
+  animation-delay: -1.3s;
 }
 
 .statGrid > *:nth-child(4) i {
-  animation-delay: -3.75s;
+  animation-delay: -1.95s;
 }
 
 .championMedal {
@@ -733,17 +765,17 @@
 }
 
 /**
- * The pointer response, on the TILE rather than the glyph — see the note above about
- * an animation beating a transition. The tile lifts and tips while the glyph keeps
- * looping inside it.
+ * The pointer response. `filter`, **not** `transform` — see the note at the top: the
+ * tile is looping on `transform`, and an animation beats a transition on the same
+ * property, so a hover transform here would never apply.
  */
-.feature > span:first-child,
-.outcome > span:first-child {
-  transition: transform var(--dur) var(--ease-out);
+.feature > span,
+.outcome > span {
+  transition: filter var(--dur) var(--ease-out);
 }
 
-.feature:hover > span:first-child,
-.feature:focus-within > span:first-child,
-.outcome:hover > span:first-child {
-  transform: translateY(-3px) scale(1.06);
+.feature:hover > span,
+.feature:focus-within > span,
+.outcome:hover > span {
+  filter: brightness(1.09) saturate(1.12);
 }
