@@ -931,6 +931,23 @@
   --medal-bronze: #8a5a2b; /* 4.62:1 worst */
 
   /**
+   * The plate the logo artwork sits on — white in **both** themes, which is why it is
+   * a token rather than `#fff` in `Navbar.module.css`.
+   *
+   * `assets/logo-mark.png` is opaque RGB drawn for paper: a navy circle, a navy `A`,
+   * an orange swoosh. On the dark theme's black page and royal-blue navbar the navy
+   * is all but invisible, and the artwork has no alpha to remove anyway. So the plate
+   * is theme-invariant by design — which is allowed here for the reason the `--cat-*`
+   * pastels are: nothing but a picture ever sits on it, so no text colour has to
+   * invert against it.
+   *
+   * Declared in both blocks like `--card-border`, so a future adjustment — a warmer
+   * plate in dark, say — is one line here rather than a `:global(.theme-dark)` in a
+   * CSS module.
+   */
+  --logo-plate: var(--ink-0);
+
+  /**
    * Status. Each has a **fill** (`--success`), a **solid** for a label-bearing
    * background (`--success-solid`), a **`-text`** dark enough to carry words on every
    * surface including its own tint, a **soft** tint and a **border**. The fill and
@@ -1141,6 +1158,10 @@
   --medal-gold: var(--gold-300); /* 8.97:1 worst */
   --medal-silver: var(--ink-300); /* 6.84:1 worst */
   --medal-bronze: #d9a273; /* 6.41:1 worst */
+
+  /* Unchanged on purpose — see the note in `:root`. The logo artwork is fixed-colour
+     and needs a light plate precisely *because* this theme is black. */
+  --logo-plate: var(--ink-0);
 
   /**
    * Status `-text` steps lighten to the `300` rung, which clears 6.79–8.97:1 on the

@@ -69,12 +69,40 @@
   text-decoration: none;
 }
 
+/**
+ * The emblem, as a circular badge (owner, 2026-09-21: circular, and clearly visible in
+ * both themes).
+ *
+ * 44px rather than 32 — but the size was only half of why it read as small. The image
+ * used to be the *whole* stacked lockup, in which the emblem is the top half and the
+ * AMIT wordmark, the expansion and the tagline are the rest; a 32px box therefore showed
+ * a ~16px emblem ringed by type too small to be anything but noise. `logo-mark.png` is
+ * that emblem alone, so the box is now all mark.
+ *
+ * **The asset is padded for this clip, so do not swap in a tighter crop.**
+ * `border-radius` at 50% slices anything outside the inscribed circle, and the emblem is
+ * wider than its own ring — the star clears it at the top right, the book at the bottom.
+ * The generator (`frontend/scripts/crop-logo-mark.cjs`) composites the emblem onto a
+ * white square sized from its **measured** enclosing circle, and prints how close the
+ * outermost ink lands to the edge: 93.8% of the radius.
+ *
+ * **The plate must not be made transparent.** The artwork is opaque RGB with no alpha,
+ * drawn in navy and orange — on the dark theme's black page and royal-blue pill that all
+ * but disappears. The white disc is what makes it legible there; in the light theme it is
+ * invisible against the white pill, so the circle a reader sees is the artwork's own ring.
+ * That is why this needs no border in either theme.
+ *
+ * `contain`, not `cover`: the source is square and so is the box, so nothing is cropped
+ * either way today — but `cover` silently trims a mark the day somebody supplies a
+ * non-square one, and a clipped logo is not an acceptable failure mode.
+ */
 .brand img {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
-  border-radius: var(--radius-xs);
-  object-fit: cover;
+  border-radius: var(--radius-pill);
+  background: var(--logo-plate);
+  object-fit: contain;
 }
 
 .brand span {
@@ -262,6 +290,14 @@
 
   .brand {
     font-size: var(--text-base);
+  }
+
+  /* The bar is 64px at every width, but the wordmark steps up here, so the mark does
+     too — 44px beside 16px type reads lighter than it does beside 13px. 48px is the
+     ceiling: the pill is 64px, and the 8px left either side is its breathing room. */
+  .brand img {
+    width: 48px;
+    height: 48px;
   }
 
   .desktopNav {

@@ -4,6 +4,77 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-09-21 — Milestone 28: the navbar mark is a circular badge of the emblem, and the wordmark beside it stays
+
+**Context.** The owner reported that the logo looked small in the public navbar, and asked
+whether removing the "A.M.I.T. OLYMPIAD" text beside it would be a good design decision.
+
+**Why it looked small was not the box.** `assets/logo.png` is a *stacked* lockup, and its
+bands measure (of 1254px): emblem `y 56–682`, the AMIT wordmark `y 704–940`, the expansion
+`y 981–1017`, a divider, and "Think Beyond Numbers". The emblem is therefore **half the
+square**, so a 32px box was rendering a ~16px emblem ringed by four bands of type too small
+to resolve. Enlarging the box alone would have scaled the mush up with the mark.
+
+**Decision 1: lift the emblem into its own asset, and draw it as a circle.**
+`assets/logo-mark.png` (256×256, 55 kB) is generated from `logo.png` by
+`frontend/scripts/crop-logo-mark.cjs` — dependency-free, on node's own `zlib`, so
+regenerating it does not add an image library to a frontend that has none. It is `.cjs`
+because `frontend/package.json` is `"type": "module"`, under which `require` in a `.js`
+file is a syntax error however the script is invoked. The navbar renders it at 44px, 48px
+from 1024px, clipped with `border-radius: 50%`. `logo.png` is untouched and is still what
+the printed certificate uses.
+
+**The generator pads; it does not crop tight, and that is load-bearing.** A circular clip
+slices anything outside the inscribed circle, and the emblem is wider than its own ring:
+measured, the ring's equator at `y 382–386` spans `x 294–958`, but the minimal circle
+enclosing *all* the ink is **radius 371 about (622, 372)** — the star clears the ring at
+the top right and the book clears it at the bottom. So the emblem is composited onto a
+white square sized from that measured radius plus 8% of margin, and the script asserts the
+result by printing how far the outermost ink lands from the centre (**93.8% of the
+radius**). Swapping in a tighter crop clips the star, and it will look like a rendering
+bug rather than a cropping mistake.
+
+A measured side effect: `logo.png` was in the **eager** bundle, because `Navbar` is imported
+by the eager `Landing`. It is now only in the lazy `Certificate` chunk, so the first paint
+no longer fetches **1.0 MB of PNG for a 32px slot** — it fetches 73 kB.
+
+**Decision 2: the text stays — removing it would have been the wrong call here.** The case
+for removing it is that the image already contains the name, so the two are a duplication.
+That is true of the *file* and false of the *rendering*: at 44px the lockup's wordmark is
+8px tall and its expansion about 1px. Three further reasons:
+
+- A logo-only header works for a mark people already know. This is a first competition year
+  for a brand nobody has seen, and the emblem is a detailed illustration — circle, `A`,
+  brain, book, π, √x, ∞, Σ — which at 44px is a shape, not a name.
+- The text is what survives when the image does not: a failed asset, `forced-colors`, a
+  reader who has scaled type up.
+- It is the link's accessible name.
+
+So the shape is the standard one it already almost was — **icon plus wordmark** — with the
+icon fixed rather than the wordmark deleted. What *was* redundant is gone: the image was
+carrying the full expansion on its `alt` **and** sitting next to the text, so the single
+link announced the name twice. The image is now `alt="" aria-hidden`.
+
+**Decision 3: `--logo-plate`, a theme-invariant white, as a token.** The artwork is opaque
+RGB with no alpha and is drawn in navy and orange — on the dark theme's black page and
+royal-blue pill it all but disappears, and there is no alpha to strip even if we wanted the
+plate gone. So the mark keeps a light plate in **both** themes. That is a palette-fixed
+value, which the token rules normally forbid; it is allowed here for the same reason the
+`--cat-*` pastels are, because nothing but a picture ever sits on it and no text colour has
+to invert against it. It is declared in `:root` **and** `.theme-dark` like `--card-border`,
+so adjusting it later is one line in `tokens.css` rather than a `:global(.theme-dark)` in a
+CSS module.
+
+**Consequences.** Do not point the navbar back at `logo.png`; do not tighten the asset's
+padding while the clip is a circle; do not make the plate transparent without re-drawing the
+artwork with alpha *and* a light-on-dark variant; and do not delete the wordmark text in
+favour of the image, which is the specific thing this entry exists to stop being
+re-litigated. Note the two themes deliberately differ in character here: in light the white
+disc is invisible against the white pill, so the circle a reader sees is the artwork's own
+ring, while in dark the disc itself is the badge. Both were checked; neither needs a border.
+
+---
+
 ## 2026-09-21 — Milestone 28: royal blue is the primary again, and it is `#0052FF` not `#4169E1`
 
 **Context.** The owner asked for "the project's ORIGINAL royal blue" back as the primary,

@@ -148,15 +148,14 @@ export default function Navbar() {
       <div className="container">
       <div className={styles.inner}>
         {/*
-          **The mark is the emblem alone, not the full lockup** — `logo-mark.png`, cropped
-          from `logo.png` by `scripts/crop-logo-mark.js`.
+          **The mark is the emblem alone, not the full lockup** — `logo-mark.png`, built
+          from `logo.png` by `scripts/crop-logo-mark.cjs`, and drawn as a circular badge.
 
           `logo.png` is a *stacked* lockup: the emblem occupies only the top half of the
           square (y 56–682 of 1254), with the AMIT wordmark, the expansion and the
           "Think Beyond Numbers" line under it. Rendered into a 32px box that made the
           emblem itself about 16px, which is why it read as small — the box was mostly
-          the other four bands, downsampled into mush. The crop is the same emblem at
-          the same box size, twice as large on screen.
+          the other four bands, downsampled into mush.
 
           **The text beside it stays, and the two are not a duplication.** In the lockup
           the wordmark is 237px of 1254 — 8px tall in this bar — and the expansion is
