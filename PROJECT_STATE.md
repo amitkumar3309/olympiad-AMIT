@@ -1,6 +1,50 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-08-31 (Milestone 24 — a real Class 9 daily challenge, its rollover clock, and a demo account: **complete**). Milestone 23 (the UI/UX modernisation, Phases A–H) closed before it._
+_Last updated: 2026-09-21 (Milestone 28 — royal blue restored as the primary, registration moved to its own route, "Ten classes, ten papers" removed, and one sign-in door with a role-based redirect: **complete**). Milestone 27 (the Brightpath visual language, phases 1–8) closed immediately before it._
+
+**Milestone 28 at a glance — frontend only.** No file under `backend/` was modified; the suite
+was run anyway. Four changes, all at the owner's request:
+
+1. **`--primary` is royal blue `#0052FF` again.** Recovered from git history — it is in the
+   **first commit** in this repository and was `--royal-blue: #0052ff` at the React rebuild,
+   before Milestone 23 re-mixed it, Milestone 26 made the action near-black and Milestone 27
+   made it a deep green. It is deliberately **not** CSS `royalblue` `#4169E1`; the owner was
+   offered both and chose `#0052FF`. A **colour change only** — the Brightpath language,
+   components, spacing and keycap edges are untouched, and `--brand` (the orange CTA) and every
+   semantic status colour were left alone. Delivered as a new `--royal-*` ramp rather than a
+   re-point of `--ink-*`, which is simultaneously the neutral *and* the cream page. Dark mode
+   lightens to `#7aa5ff` / `#9dc0ff` because `#0052ff` measures 3.10:1 on the near-black page
+   and 2.79:1 as text there. Notably the email template, the PWA manifest and the Razorpay
+   checkout theme had **never** migrated off `#0052ff`, so this re-unified the web layer with
+   the product's own transactional surfaces. **The page is white** (`--bg: #ffffff`), asked
+   for the same day so the blue stands out — which forced the one structural change in this
+   milestone: Milestone 27 separated a card from the page by the *fill step* between them, so
+   a white page collapsed that to 1.00:1 and `--card-border` had to become a real hairline
+   (`--ink-border-strong`, 1.44:1) instead of `transparent`. The cream/sand band, well and
+   hover steps became the faintest blues (`--royal-25` / `--royal-50`). A follow-up pass took
+   white to the **chrome** as well: `--surface-translucent` (the navbar pill, admin topbar and
+   mobile bottom bar) was still cream and is white now, and `--bg-subtle` / `--band-accent` are
+   white, so no tinted section band remains. The sidebar's current-page pill became
+   `--primary-soft`. Interactive states (`--surface-hover` / `-active` / `-sunken`, the
+   `--fill-*` alphas) are deliberately **left** as the faintest blues — a white hover state is a
+   deleted hover state. Dark mode untouched; all text contrast improved.
+2. **Registration is `/register`**, a real page (`pages/Register`) wrapping the unchanged
+   `pages/Auth/RegisterForm`, instead of a section on the landing scroll. The `?ref=` check
+   moved with it; the landing page carries an incoming `?ref=` across to its Register buttons.
+3. **"Ten classes, ten papers" is gone**, with its class grid, caption and styles. Eligibility
+   survives in the hero facts and the FAQ. The landing page's plain/tinted band alternation was
+   re-balanced, because that section and the registration section were both plain ones
+   separating tinted ones.
+4. **One sign-in door.** `/admin` no longer renders its own "Administrator sign in" card, is now
+   gated on `students:read`, and `RequirePermission`'s `signInPath` default moved to `/#login`
+   (leaving it at `/admin` would have made a signed-out visit an infinite redirect to itself).
+   `login()` always returned the role and every caller discarded it, so an administrator using
+   the public form landed on the *student* dashboard; the role now routes through `roleHome()`.
+
+Verified in a browser: `/admin` signed out lands on `/#login` with one dialog and no loop, a
+superadmin session lands on `/admin`, a student session lands on `/dashboard`, and every
+colour pair clears WCAG AA with headroom. Copy across the landing page was cut to a headline
+plus one or two lines without removing eligibility, fee or results facts.
 
 This file is the current snapshot. History belongs in [`CHANGELOG.md`](CHANGELOG.md). If this file and the code disagree, trust the code and fix this file.
 

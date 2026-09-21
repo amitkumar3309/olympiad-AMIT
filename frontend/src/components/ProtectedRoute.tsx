@@ -30,20 +30,36 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
  * A guest is sent to `signInPath` to sign in, because there is a route they could
  * take to succeed. Someone already signed in is shown the unauthorized state
  * instead — bouncing them would just look broken.
+ *
+ * `signInPath` defaults to the **public** sign-in, which opens the one dialog every
+ * user shares. It defaulted to `/admin` until Milestone 28, when that page stopped
+ * carrying a sign-in form of its own — and once `/admin` itself became gated, that old
+ * default would have sent a guest from `/admin` straight back to `/admin`, which is an
+ * infinite redirect rather than a sign-in prompt.
  */
 export function RequirePermission({
   permission,
   children,
-  signInPath = '/admin',
+  signInPath = '/#login',
+  unauthorized,
 }: {
   permission: Permission
   children: React.ReactNode
   signInPath?: string
+  /**
+   * Overrides the generic refusal for a route that can say something more useful.
+   * `/admin` is the case it exists for: "this area is for administrators, here is
+   * your dashboard" is worth more to a student who wandered in than "your account
+   * does not hold the permission this page requires". That copy lived inside
+   * `Admin.tsx` until Milestone 28 gated the route, and passing it here is what
+   * stopped it being lost when the page's own guard was deleted.
+   */
+  unauthorized?: React.ReactNode
 }) {
   const { state, can } = useAuth()
   if (state.status === 'loading') return <Spinner label="Checking your permissions..." />
   if (state.status === 'guest') return <Navigate to={signInPath} replace />
-  if (!can(permission)) return <Unauthorized />
+  if (!can(permission)) return <>{unauthorized ?? <Unauthorized />}</>
   return <>{children}</>
 }
 

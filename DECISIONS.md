@@ -4,6 +4,188 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-09-21 — Milestone 28: royal blue is the primary again, and it is `#0052FF` not `#4169E1`
+
+**Context.** The owner asked for "the project's ORIGINAL royal blue" back as the primary,
+explicitly as a **colour change only** — the Milestone 27 Brightpath language, its
+components, layout and spacing all stay. The instruction was to recover the exact original
+from git history and to fall back to `#4169E1` only if it could not be found.
+
+**Decision 1: the value is `#0052FF`, and the fallback was not needed.** It is traceable
+through the whole history:
+
+| Stage | Light | Dark |
+|---|---|---|
+| First commit `0fdd1b5` (static `public/*.html`) | `#0052FF` | — |
+| React rebuild `9dbdf27` (`theme.css`) | `--royal-blue: #0052ff` / `-dark: #0043d0` | `#4f46e5` / `#4338ca` |
+| Milestone 23 `6ffec1a` | `--blue-600: #2f43e0` | `#5b76f7` |
+| Milestone 26 | `--ink-900` (near-black) | — |
+| Milestone 27 | `--ink-800` (deep green) | `#6fbf94` |
+
+**`#0052FF` is deliberately NOT CSS `royalblue` (`#4169E1`).** It is an electric blue and
+the token has always been called `--royal-blue`; the name is historical and the value is
+the brand. This was put to the owner with both options and `#0052FF` was confirmed
+(2026-09-21). **Do not "correct" it** — that is exactly the well-intentioned change this
+paragraph exists to prevent.
+
+**Corroboration that it never really left.** Three surfaces were never migrated off it and
+still held `#0052ff` when this work started: `backend/src/lib/email.ts` (`BRAND.primary`),
+`frontend/public/manifest.json` (`theme_color`) and the Razorpay checkout theme in
+`Payment.tsx`. So the web token layer had drifted away from the product's own email, PWA
+and payment surfaces for two milestones. Restoring it *re-unified* them rather than
+introducing a new colour, which is also why "apply it to the email templates" needed no
+change.
+
+**Decision 2: a new `--royal-*` ramp, not a re-point of `--ink-*`.** In Brightpath the
+`--ink-*` ramp is doing double duty — it is the neutral (text, borders, the cream page
+`--ink-50`) *and* it was the action colour (`--ink-800`). Re-pointing it would have turned
+every word and the page itself blue. So the blue arrives as its own ten-step ramp and only
+the **semantic** `--primary-*` layer moves onto it. Named `--royal-*` rather than
+`--blue-*` because `--sky-*` already sits behind `--info`, and two ramps called blue is how
+the wrong one gets picked.
+
+**Decision 3: `--brand` stays orange.** Brightpath introduced *two* action colours — the
+workhorse `--primary` and a single high-emphasis `--brand` CTA, once per page. Only the
+primary was re-pointed. The owner's instruction was "keep the current redesigned frontend
+as-is, this is a colour change only", and the two-action system is part of that design;
+`--brand` is also not one of the semantic status colours the instruction protects, so the
+call could have gone either way. It is one line in `tokens.css` (`--brand: var(--royal-500)`
+plus its companions) if the owner would rather have a single blue action.
+
+**Decision 4: the dark theme lightens, and the reason is measured.** `#0052ff` is *not*
+reused on the near-black page: it reaches only **3.10:1** against `--bg` and **2.79:1** as
+text on `--surface`, which fails outright. Dark uses `#7aa5ff` (ink label, **6.53:1**;
+**7.34:1** against the page) with `#9dc0ff` for text (**8.72:1**). Hover **lightens** in
+dark, as `--brand` does, because the label is ink — darkening would eat the label's
+contrast rather than add to it.
+
+**Decision 5: the keycap edge goes darker, reversing the green's direction.** Brightpath's
+`--primary-edge` was a *lighter* green, which worked because the green was nearly black.
+Under a fill as saturated as `#0052ff` a lighter companion reads as a halo, so the edge is
+`--royal-700` — the same direction `--brand` already took.
+
+**Decision 6 (follow-up, same day): the page is white, and that costs the card its edge.**
+The owner saw the blue on the cream page and asked for a white background so it would stand
+out. `--bg` is `--ink-0` now. This is **not** a one-token change, because Milestone 27's
+first idea was that `--bg` (cream) and `--surface` (white) are *different colours and that
+step is the edge* — which is why a `Card` has no border and no shadow. A white page collapses
+that step to **1.00:1** and every card in the product disappears.
+
+So the fill separation is replaced by a hairline: `--card-border` is
+`--ink-border-strong` in the light theme (1.44:1 on white) rather than `transparent`. The
+ordinary 0.1 border measures 1.22:1, which is the conventional weight for a card edge — but
+the convention assumes a shadow or a fill step is also doing some of the work, and here
+neither is. **Shadows are not an option**: `--shadow-*` is the overlay scale and nothing
+that is part of the page may use one.
+
+The warm steps went with it. `--bg-subtle` (the section band), `--surface-sunken` and
+`--surface-hover` were cream and sand; left in place they would have read as cream stripes
+and wells *on* a white page, which is the thing being removed rather than less of it. They
+are the faintest steps of the brand blue now — `--royal-25` (`#f7faff`, added for this) and
+`--royal-50`. `--ink-50` / `--ink-100` stay in the palette; they are simply no longer the
+page. Dark mode is **untouched**.
+
+One latent bug surfaced: `/admin/questions`'s bulk bar used `var(--card-bg, var(--bg))` and
+`--card-bg` is **defined nowhere in the codebase**, so the fallback always won — an inset
+inside a card painted with the page colour. Invisible once the page went white. It is
+`--fill-subtle` now, which is what the alpha-fill rule required all along.
+
+Every text pair was re-measured on the new surfaces and all *improved*, because white is the
+lightest backdrop available: muted ink 5.66–5.90:1, body 8.98–9.51:1, `--primary-text`
+6.81–7.44:1.
+
+**Decision 7: white means the chrome too — but not the states.** The owner followed up with
+"white background everywhere, navbar and each and everywhere". Three more tokens went white:
+`--surface-translucent` (which was still *cream* at 82% — the navbar pill, the admin topbar
+and the mobile bottom bar, and therefore the most visible off-white in the product, on top of
+every page), `--bg-subtle` and `--band-accent`. There is no tinted section band left anywhere.
+
+What deliberately stayed tinted is `--surface-hover`, `--surface-active`, `--surface-sunken`
+and the `--fill-*` alpha fills. **A white hover state is a deleted hover state.** Those three
+tell a reader that a row answered them and that an inset is inset; turning them white would
+remove feedback rather than decoration, which is not what "white background" asks for. They
+are the faintest steps of the brand blue, so the only tint anywhere in the product now
+belongs to the primary. If the request comes again, that is the line.
+
+The same pass moved the sidebar's current-page pill from the neutral `--fill-muted` to
+`--primary-soft` — "sidebar highlights" were on the owner's original list, and the neutral
+tint dated from when `--primary` was near-black and a blue tint would have referred to
+nothing. It stays a **tint**: a solidly filled nav item is indistinguishable from a primary
+button, and a position is not an action.
+
+**Consequences.** `--royal-blue`, the legacy alias with zero references outside `tokens.css`,
+**is a true name again** after two milestones of being a lie. Every measured pair clears
+WCAG AA with headroom (verified in-browser, transitions suppressed first per the standing
+measurement rule). The `--cat-*` pastels, `--success`/`--warning`/`--danger`/`--info` and the
+whole `--ink-*` neutral are untouched.
+
+---
+
+## 2026-09-21 — Milestone 28: registration is a route, and there is one door for everybody
+
+**Context.** Three related owner requests: registration must be its own page rather than a
+section on the homepage scroll; the "Ten classes, ten papers" section must go; and there
+must be exactly one login entry point, with no admin door in the public UI and a
+role-based redirect after sign-in.
+
+**Decision 1: `/register` is a real page.** It rendered `<Landing />` and scrolled to
+`<section id="register">`, which meant reaching the form required loading the entire
+marketing page — every feature card, the public-stats request and the leaderboard request —
+and then jumping past all of it. `pages/Register` renders `pages/Auth/RegisterForm`
+unchanged; the form was not rewritten. A side effect worth recording: registration is now
+its own lazy chunk (15 kB), so the landing bundle got *smaller*.
+
+`AuthLayout` was deliberately **not** reused. It is capped at `30rem` for the four short
+email-reached pages, and the registration form is a three-step wizard with a two-column
+field grid.
+
+**The `?ref=` handling moved with the form.** `referralLinkFor()` builds
+`<app>/register?ref=<code>`, so this route is the destination of every referral link in the
+product — the reason it was declared at all (Milestone 22 Phase F, after the links were
+found rendering a blank page). The landing page additionally *carries a `?ref=` across* to
+its Register buttons, so a code shared as `<app>/?ref=CODE` is not silently dropped at the
+click.
+
+**Decision 2: removing a section means re-banding the page.** The landing page alternates
+plain and tinted sections. "Ten classes, ten papers" was a plain section between two tinted
+ones, and the registration section was a plain one between two more — deleting both on their
+own would have collapsed "How it works" + "Assurances" and "Top scholars" + "FAQ" into single
+undifferentiated stripes. Assurances and the FAQ are plain now and the alternation holds.
+Nothing factual was lost: eligibility is in the hero facts and answered directly in the FAQ.
+
+**Decision 3: one sign-in form, and the destination comes from the role.** `88d41fb` merged
+`adminLogin` into `login`, but two things survived it: `/admin` still rendered its own
+"Administrator sign in" card for guests, and **every caller of `login()` threw the returned
+role away** — `LoginDialog` called `onSignedIn?.()` with no argument and the landing page
+hardcoded `navigate('/dashboard')`. So an administrator using the one public form landed on
+the student dashboard. The role now rides through to `roleHome()` in `lib/roleHome.ts`, in
+one place, because two copies would eventually disagree and the one that disagreed would be
+the one a promoted admin happened to use.
+
+The role comes from the **server**, on the session response. `roleHome()` is allowed to be a
+plain role comparison precisely *because it decides nothing* — it picks a path. Capability is
+still `can()`, and the role → permission table is never reimplemented on the frontend.
+
+**Decision 4: `/admin` is gated on `students:read`.** It was deliberately ungated while it
+doubled as the admin sign-in form; with the form gone, an unauthenticated route rendering an
+admin shell is simply an unguarded admin route. `students:read` rather than a role literal
+(the standing rule), held by `admin` and `superadmin` and by no student, and the same
+permission `/admin/users` already uses.
+
+**This forced a second change, and missing it would have been a bug.** `RequirePermission`
+defaulted `signInPath` to `/admin` — correct while that page held a sign-in form. Once
+`/admin` was itself gated, that default would have sent a guest from `/admin` straight back
+to `/admin`: an infinite redirect rather than a sign-in prompt. The default is `/#login` now.
+
+**Consequences.** Verified in a browser: `/admin` while signed out lands on `/#login` with the
+single dialog open and no loop; a superadmin session lands on `/admin`; a student session lands
+on `/dashboard`. The generic `Invalid credentials.` message on `/auth/login` is unchanged, so
+nothing reveals a role. `/auth/admin/login` still exists and is still reachable only through
+the transparent `ADMIN_PORTAL_REQUIRED` retry — which the server returns only *after* the
+password is already correct, so it is not an enumeration oracle.
+
+---
+
 ## 2026-09-21 — Milestone 27: the Brightpath language, and the two ideas it reverses
 
 **Context.** The owner asked for the frontend to be redesigned against a third reference —

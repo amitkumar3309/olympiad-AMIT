@@ -195,10 +195,17 @@
  * That is the characteristic failure of a token re-point — nothing breaks, a
  * distinction just quietly disappears.
  *
- * It is `--bg-subtle` now: the sand band the reference alternates with its cream, which
+ * It is `--bg-subtle` now: the band the reference alternates with its page colour, which
  * is how it marks a section without drawing a line. `.stripeBlue` is the second tint
  * the reference uses, for the one band that should feel different rather than merely
  * next — it puts its people section on pale blue.
+ *
+ * **Both resolve to white in the light theme as of Milestone 28** (owner: white
+ * everywhere), so neither paints a visible band there at present; sections are
+ * separated by their own spacing and headings instead. The classes stay, and stay
+ * pointed at the *tokens*, for two reasons: the dark theme still tints both, and if a
+ * band is ever wanted back in light it is a one-line change in `tokens.css` rather
+ * than a hunt through this file. Do not hardcode a tint here.
  */
 .stripe {
   background: var(--bg-subtle);
@@ -366,43 +373,6 @@
     flex-direction: column;
     gap: var(--space-3);
   }
-}
-
-/* -------------------------------------------------------------- classes ---- */
-
-/**
- * The ten class levels, from `CLASS_LEVELS`. Numbers only, with the range spelled out
- * underneath — a row of ten "Class 7" chips is ten times the width for the same fact,
- * and on a phone it wrapped into a block of text nobody reads.
- */
-.classList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.classList li {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 60px;
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-pill);
-  background: var(--fill-subtle);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
-}
-
-.classCaption {
-  margin: var(--space-3) 0 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
 }
 
 /* ----------------------------------------------------------- assurances ---- */

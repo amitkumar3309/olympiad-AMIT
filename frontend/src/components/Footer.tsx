@@ -57,7 +57,7 @@ export default function Footer() {
         <nav className={styles.col} aria-label="Account">
           <h2 className={styles.colTitle}>Account</h2>
           <Link to="/#login">Sign in</Link>
-          <Link to="/#register">Register</Link>
+          <Link to="/register">Register</Link>
           {/* Moved out of the public header in Phase B: still one click from every
               page, without a marketing site advertising its own admin door. */}
           <Link to="/admin">Administrator</Link>

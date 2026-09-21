@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
-import { Button, Card, EmptyState, Icon, IconTile, Section, StatTile } from '../../components/ui'
+import { Button, ButtonLink, Card, EmptyState, Icon, IconTile, Section, StatTile } from '../../components/ui'
 import { api } from '../../api/client'
-import { CLASS_LEVELS, type LeaderboardRow, type PublicStats, type ReferralCheck } from '../../api/types'
+import type { LeaderboardRow, PublicStats } from '../../api/types'
 import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM } from '../../lib/brand'
+import { roleHome } from '../../lib/roleHome'
 import LoginDialog from '../Auth/LoginDialog'
-import RegisterForm from '../Auth/RegisterForm'
 import styles from './Landing.module.css'
 
 /**
@@ -37,6 +37,22 @@ import styles from './Landing.module.css'
  *
  * The four figures are real counts from `/public/stats` and render **only if they load** —
  * this page has never carried a placeholder headline number and must not start.
+ *
+ * ## Registration is not on this page (Milestone 28)
+ *
+ * It was a `<section id="register">` near the bottom, and every "Register now" button
+ * scrolled to it. It is a route now — `pages/Register` — and those buttons are ordinary
+ * links to it. Nothing here should scroll to a form, open one in a dialog, or render
+ * `RegisterForm`: a person who has decided to register should not have to load the
+ * marketing page to do it. The `?ref=` handling went with the form.
+ *
+ * ## The copy is deliberately short (Milestone 28)
+ *
+ * A headline and one or two lines per section, because the previous version explained
+ * each feature in two full sentences and a reader skips all of it. Shortening is not
+ * licence to overclaim: every sentence that survived still has to pass the test above,
+ * and the things a reader actually needs — who may enter, that preparing is free, that
+ * the sitting has a fee, where results come from — are all still stated.
  *
  * ## What it does not say
  *
@@ -69,33 +85,25 @@ const FEATURES = [
     tone: 'blue' as const,
     icon: 'ph-target',
     title: 'Practice',
-    body:
-      'Choose a chapter and a difficulty and work through questions written for your own class. ' +
-      'Marked the moment you answer, with the worked solution.',
+    body: 'Questions for your class, by chapter and difficulty. Marked instantly, with the solution.',
   },
   {
     tone: 'orange' as const,
     icon: 'ph-exam',
     title: 'Mock tests',
-    body:
-      'Full-length papers under a real clock the server keeps, so a refresh cannot buy you time. ' +
-      'Your answers save as you go.',
+    body: 'Full-length papers on the server’s clock. Answers save as you go.',
   },
   {
     tone: 'magenta' as const,
     icon: 'ph-calendar-check',
     title: 'Daily challenge',
-    body:
-      'One question a day for your class — the same question for everyone in it, fixed for the day, ' +
-      'so it is a shared problem rather than a random draw.',
+    body: 'One question a day, the same for everyone in your class.',
   },
   {
     tone: 'green' as const,
     icon: 'ph-chart-line-up',
     title: 'Performance insights',
-    body:
-      'Accuracy by chapter and by difficulty, drawn from papers you have actually submitted. ' +
-      'A strength or a weakness is only named once there is enough evidence for it.',
+    body: 'Accuracy by chapter and difficulty, from papers you have actually submitted.',
   },
 ]
 
@@ -104,22 +112,22 @@ const STEPS = [
   {
     icon: 'ph-user-plus',
     title: 'Register',
-    body: 'Your details, your school and a photograph. Free, and you confirm your email address before signing in.',
+    body: 'Free. Confirm your email address before signing in.',
   },
   {
     icon: 'ph-books',
     title: 'Prepare, free',
-    body: 'Practice, mock tests, the daily challenge and your performance page cost nothing. No card, no trial.',
+    body: 'Practice, mock tests and the daily challenge cost nothing. No card.',
   },
   {
     icon: 'ph-ticket',
     title: 'Enter the Olympiad',
-    body: 'The official sitting has an entry fee, shown in full before you pay. That is the only thing it buys.',
+    body: 'The sitting has an entry fee, shown in full before you pay.',
   },
   {
     icon: 'ph-certificate',
     title: 'Sit it, and be ranked',
-    body: 'One attempt, in the announced window. When the organisers release the results your certificate is issued with them.',
+    body: 'One attempt, in the announced window. Certificates are issued when results are released.',
   },
 ]
 
@@ -128,23 +136,17 @@ const ASSURANCES = [
   {
     icon: 'ph-shield-check',
     title: 'Marked on the server, never in your browser',
-    body:
-      'A paper is marked against the answer key captured when it was served to you, so editing a ' +
-      'question afterwards cannot change a mark you have already been given.',
+    body: 'Against the answer key captured when the paper was served, so a later edit cannot change your mark.',
   },
   {
     icon: 'ph-user-focus',
     title: 'A person approves every question',
-    body:
-      'Nothing reaches a student until an examiner publishes it, and a question cannot be published ' +
-      'without a worked solution and a resolvable answer key.',
+    body: 'Nothing is published without a worked solution and a resolvable answer key.',
   },
   {
     icon: 'ph-eye-slash',
     title: 'Children are not named in public',
-    body:
-      'The leaderboard and the certificate check show a first name and a last initial. Full names, ' +
-      'schools and contact details are never published.',
+    body: 'Public pages show a first name and a last initial. Never schools or contact details.',
   },
 ]
 
@@ -160,31 +162,23 @@ const FAQS = [
   },
   {
     q: 'What does it cost?',
-    a:
-      'Practice, mock tests, the daily challenge and your performance page are free. Only the official ' +
-      'Olympiad has an entry fee, and the exact amount is shown to you before you pay.',
+    a: 'Preparation is free. Only the official Olympiad has an entry fee, and the amount is shown before you pay.',
   },
   {
     q: 'Is there negative marking?',
-    a:
-      'It depends on the paper. Every question shows its marks and any penalty for a wrong answer before ' +
-      'you answer it, so you always know what a question is worth.',
+    a: 'It depends on the paper. Every question shows its marks and any penalty before you answer it.',
   },
   {
     q: 'When are results published?',
-    a:
-      'The organisers release them after the sitting has closed. They appear on your dashboard, and your ' +
-      'certificate is issued at the same moment.',
+    a: 'The organisers release them after the sitting closes. Your certificate is issued at the same moment.',
   },
   {
     q: 'How many times can I sit the Olympiad?',
-    a: 'Once. One attempt per student is enforced by the system rather than by a rule people have to remember.',
+    a: 'Once. The system enforces it.',
   },
   {
     q: 'What happens if my connection drops during a paper?',
-    a:
-      'Each answer is saved as you give it, and the clock belongs to the server, so sign back in and carry ' +
-      'on from where you were with the time that is genuinely left.',
+    a: 'Every answer is saved as you give it and the clock is the server’s. Sign back in and carry on.',
   },
   {
     q: 'Do I need to install anything?',
@@ -201,73 +195,42 @@ export default function Landing() {
   const [stats, setStats] = useState<PublicStats | null>(null)
   const [champions, setChampions] = useState<LeaderboardRow[] | null>(null)
 
-  /**
-   * The referral code from `?ref=` on the link they followed (Milestone 22, Phase F).
-   *
-   * Checked against the server before it is used, and the outcome is **shown either way**.
-   * That matters in both directions: a good code gets a "referred by" line so the student
-   * knows the link worked, and a bad one is dropped *visibly* — because the backend refuses
-   * the whole registration on a code that does not resolve, and losing somebody's
-   * registration over a friend's typo would be the worst possible behaviour here.
-   *
-   * `null` while it is being checked, and for a visitor who arrived without one.
-   */
-  const [referral, setReferral] = useState<ReferralCheck | null>(null)
   const [searchParams] = useSearchParams()
   const { pathname, hash } = useLocation()
 
   const [loginOpen, setLoginOpen] = useState(false)
 
   /**
-   * Somebody who followed a referral link came to register, so put them at the form.
+   * Where every "Register now" on this page points.
    *
-   * Scoped to `/register` rather than to the presence of `?ref=`, so an ordinary visit to
-   * the landing page still starts at the hero.
-   *
-   * **Instant, not smooth.** A smooth scroll reads better, but its failure mode is that
-   * nothing happens at all — and it is exactly what fails in environments that do not run
-   * scroll animations, including the browser this was verified in. Landing on the form is
-   * the point; the animation is decoration, and decoration is not worth a feature that
-   * silently does not work. It also means somebody who has asked for reduced motion is not
-   * given an animation they did not want.
+   * A `?ref=` that arrived on *this* URL is carried across, so a code shared as
+   * `<app>/?ref=CODE` rather than the `<app>/register?ref=CODE` that
+   * `referralLinkFor()` generates still reaches the form that reads it. Without this
+   * the code would be silently dropped at the moment the reader clicks through, and a
+   * dropped referral is invisible to everybody involved.
    */
-  useEffect(() => {
-    if (pathname !== '/register') return
-    // After the first paint, or the section is not laid out yet and the scroll goes nowhere.
-    const timer = window.setTimeout(
-      () => document.getElementById('register')?.scrollIntoView({ behavior: 'auto', block: 'start' }),
-      120,
-    )
-    return () => window.clearTimeout(timer)
-  }, [pathname])
+  const ref = searchParams.get('ref')?.trim()
+  const registerHref = ref ? `/register?ref=${encodeURIComponent(ref)}` : '/register'
 
   /**
-   * `/#login` and `/#register`, which the header and footer link to (Milestone 23,
-   * Phase B).
+   * `/#login`, which the header and footer link to (Milestone 23, Phase B).
    *
-   * The sign-in form is a panel on this page rather than a route of its own, so before
-   * this there was **no way to ask for it from anywhere else in the product** — a
-   * visitor on the leaderboard had to find their way back to the hero and hunt for the
-   * button. The hash is the smallest thing that fixes it without inventing a `/login`
-   * route and a second form.
+   * The sign-in form is a dialog on this page rather than a route of its own, so
+   * without this there would be **no way to ask for it from anywhere else in the
+   * product** — a visitor on the leaderboard would have to find their way back to the
+   * hero and hunt for the button.
    *
-   * `hash` is a dependency, so following the same link twice from two pages works;
-   * `scrollIntoView` is instant here for the reason the note above gives.
+   * `hash` is a dependency, so following the same link twice from two pages works.
+   *
+   * `#register` used to be handled here too, scrolling to the form further down. It is
+   * gone with the form: registration is `/register` now, and the header and footer link
+   * straight to it.
    */
   useEffect(() => {
-    if (hash === '#login') {
-      // Opening it is all this has to do: the dialog moves focus to its first field
-      // itself, the same way it does when the hero button opens it.
-      setLoginOpen(true)
-      return
-    }
-    if (hash === '#register') {
-      const timer = window.setTimeout(
-        () => document.getElementById('register')?.scrollIntoView({ behavior: 'auto', block: 'start' }),
-        120,
-      )
-      return () => window.clearTimeout(timer)
-    }
+    if (hash !== '#login') return
+    // Opening it is all this has to do: the dialog moves focus to its first field
+    // itself, the same way it does when the hero button opens it.
+    setLoginOpen(true)
   }, [hash])
 
   /**
@@ -284,18 +247,6 @@ export default function Landing() {
   }
 
   useEffect(() => {
-    const code = searchParams.get('ref')?.trim()
-    if (!code) return
-
-    void api
-      .get<ReferralCheck>(`/referrals/validate?code=${encodeURIComponent(code)}`)
-      .then(setReferral)
-      // A malformed code is a 400 from the schema. Recorded as invalid rather than
-      // swallowed, so the banner still tells the student it will not be applied.
-      .catch(() => setReferral({ valid: false, code: code.toUpperCase(), referrerName: null }))
-  }, [searchParams])
-
-  useEffect(() => {
     void api
       .get<{ stats: PublicStats }>('/public/stats')
       .then((res) => setStats(res.stats))
@@ -305,10 +256,6 @@ export default function Landing() {
       .then((res) => setChampions(res.leaderboard))
       .catch(() => setChampions([]))
   }, [])
-
-  function goToForm() {
-    document.getElementById('register')?.scrollIntoView({ behavior: 'auto', block: 'start' })
-  }
 
   return (
     <div>
@@ -329,22 +276,19 @@ export default function Landing() {
             {/* "A year of preparation" was the first draft, and it is a claim about duration
                 nothing in the product makes. What is true is the pricing rule the paywall
                 actually implements: preparation is free, the entry fee buys the sitting. */}
-            <p className={styles.tagline}>
-              Think faster. Solve smarter. Prepare for free — the entry fee buys your seat in the national paper,
-              and nothing else.
-            </p>
+            <p className={styles.tagline}>Prepare for free. The entry fee buys your seat in the national paper.</p>
 
             <div className={styles.heroActions}>
               {/*
-                `behavior: 'auto'`, not `'smooth'`: a smooth scroll silently does nothing
-                in environments that do not animate, and landing on the form is the point.
-                The same reasoning as the `/register` effect above.
+                A real link to `/register`, not a scroll and not a dialog (Milestone 28).
+                `ButtonLink` so middle-click, ⌘-click and "copy link address" all behave —
+                none of which a `<button>` running `scrollIntoView` could do.
               */}
-              <Button size="lg" iconAfter="ph-arrow-right" onClick={goToForm}>
+              <ButtonLink to={registerHref} size="lg" iconAfter="ph-arrow-right">
                 Register now
-              </Button>
+              </ButtonLink>
               <Button size="lg" variant="outline" icon="ph-sign-in" onClick={() => setLoginOpen(true)}>
-                Student sign in
+                Sign in
               </Button>
             </div>
 
@@ -385,7 +329,7 @@ export default function Landing() {
           className={`container ${styles.section}`}
           eyebrow="What you get"
           title="Four ways to prepare, all of them free"
-          lead="The entry fee buys a seat in the Olympiad. Everything you use to get ready for it does not."
+          lead="The entry fee buys a seat in the Olympiad. Getting ready for it costs nothing."
         >
           <div className={styles.featureGrid}>
             {FEATURES.map((feature) => (
@@ -423,41 +367,37 @@ export default function Landing() {
           </Section>
         </div>
 
-        {/* ------------------------------------------------------------- Classes */}
+        {/*
+          ------------------------------------------------------------ Assurances
+
+          The "Ten classes, ten papers" section sat between this and the one above it
+          and was removed in Milestone 28 at the owner's request, along with its class
+          grid and caption.
+
+          Its band moved rather than simply vanishing. The page alternates plain and
+          tinted sections, and that section was a plain one between two tinted ones —
+          deleting it on its own left "How it works" and this one as a single
+          undifferentiated stripe. So this section is plain now, and the alternation
+          holds again.
+
+          Nothing factual was lost with it: who may enter is in the hero facts
+          ("Class 3 to Class 12") and answered directly in the FAQ below.
+        */}
         <Section
           className={`container ${styles.section}`}
-          eyebrow="Who it is for"
-          title="Ten classes, ten papers"
-          lead="Questions, mock tests and the daily challenge are set per class, so a Class 4 student is never shown a Class 11 paper."
+          eyebrow="How it is run"
+          title="Things we can show you, not adjectives"
         >
-          {/* From `CLASS_LEVELS`, which mirrors the backend's own list — so this cannot
-              advertise a class the product would refuse at registration. */}
-          <ul className={styles.classList}>
-            {CLASS_LEVELS.map((level) => (
-              <li key={level}>{level.replace('Class ', '')}</li>
+          <div className={styles.assuranceGrid}>
+            {ASSURANCES.map((item) => (
+              <div className={styles.assurance} key={item.title}>
+                <IconTile icon={item.icon} tone="neutral" size="md" />
+                <h3>{item.title}</h3>
+                <p>{item.body}</p>
+              </div>
             ))}
-          </ul>
-          <p className={styles.classCaption}>Class 3 through Class 12</p>
+          </div>
         </Section>
-
-        {/* ---------------------------------------------------------- Assurances */}
-        <div className={styles.stripe}>
-          <Section
-            className={`container ${styles.section}`}
-            eyebrow="How it is run"
-            title="Things we can show you, not adjectives"
-          >
-            <div className={styles.assuranceGrid}>
-              {ASSURANCES.map((item) => (
-                <div className={styles.assurance} key={item.title}>
-                  <IconTile icon={item.icon} tone="neutral" size="md" />
-                  <h3>{item.title}</h3>
-                  <p>{item.body}</p>
-                </div>
-              ))}
-            </div>
-          </Section>
-        </div>
 
         {/* ------------------------------------------------------- Top scholars */}
         {/* The reference puts its people section on the pale blue band rather than the
@@ -475,7 +415,10 @@ export default function Landing() {
               <EmptyState
                 icon="ph-trophy"
                 title="Nobody is on the leaderboard yet"
-                description="XP is earned by practising, sitting mock tests and answering the daily challenge. Register below and you could be the first name here."
+                // "Register below" until Milestone 28, which was a direction to a form
+                // that is no longer on this page — the kind of copy that survives a
+                // layout change by describing one.
+                description="XP is earned by practising, sitting mock tests and answering the daily challenge. Register and you could be the first name here."
               />
             ) : (
               <ol className={styles.championGrid}>
@@ -516,49 +459,41 @@ export default function Landing() {
           </Section>
         </div>
 
-        {/* ------------------------------------------------------------ Register */}
-        <section id="register" className={`container ${styles.section}`}>
-          {/*
-            The form itself lives in `pages/Auth/RegisterForm` (Milestone 23, Phase C).
-            This page is a marketing surface that contains it; the two were one 749-line
-            file, and neither could be read without the other.
-          */}
-          <RegisterForm referral={referral} onRequestLogin={() => setLoginOpen(true)} />
-        </section>
+        {/*
+          ----------------------------------------------------------------- FAQ
 
-        {/* ----------------------------------------------------------------- FAQ */}
-        <div className={styles.stripe}>
-          <Section
-            className={`container ${styles.section} ${styles.faqSection}`}
-            eyebrow="Questions"
-            title="Before you register"
-          >
-            <div className={styles.faqList}>
-              {FAQS.map((f) => (
-                <details className={styles.faqItem} key={f.q}>
-                  <summary>
-                    <span>{f.q}</span>
-                    <Icon name="ph-caret-down" weight="bold" className={styles.faqCaret} />
-                  </summary>
-                  <p>{f.a}</p>
-                </details>
-              ))}
-            </div>
-          </Section>
-        </div>
+          The registration form was a `<section id="register">` here until Milestone 28.
+          It is `/register` now — see the note at the top of this file — which is also
+          why this section is no longer striped: it followed a plain section then, and
+          it follows the tinted "Top scholars" band now.
+        */}
+        <Section
+          className={`container ${styles.section} ${styles.faqSection}`}
+          eyebrow="Questions"
+          title="Before you register"
+        >
+          <div className={styles.faqList}>
+            {FAQS.map((f) => (
+              <details className={styles.faqItem} key={f.q}>
+                <summary>
+                  <span>{f.q}</span>
+                  <Icon name="ph-caret-down" weight="bold" className={styles.faqCaret} />
+                </summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </Section>
 
         {/* ------------------------------------------------------------ Final CTA */}
         <section className={`container ${styles.section}`}>
           <Card className={styles.cta}>
             <h2>Ready to sit the paper?</h2>
-            <p>
-              Registering is free and takes a few minutes. You can practise the same day — the entry fee only
-              applies when you enter the official Olympiad.
-            </p>
+            <p>Registering is free, and you can practise the same day.</p>
             <div className={styles.heroActions}>
-              <Button size="lg" iconAfter="ph-arrow-right" onClick={goToForm}>
+              <ButtonLink to={registerHref} size="lg" iconAfter="ph-arrow-right">
                 Register now
-              </Button>
+              </ButtonLink>
               <Button size="lg" variant="ghost" icon="ph-sign-in" onClick={() => setLoginOpen(true)}>
                 I already have an account
               </Button>
@@ -574,7 +509,15 @@ export default function Landing() {
         traps focus, closes on Escape, locks the page behind it, and on a phone it is a
         bottom sheet. See `pages/Auth/LoginDialog`.
       */}
-      <LoginDialog open={loginOpen} onClose={closeLogin} onSignedIn={() => navigate('/dashboard')} />
+      {/*
+        Redirects by **role** (Milestone 28). This used to send everybody to
+        `/dashboard`, which was right while staff had a sign-in form of their own and
+        wrong the moment the two forms merged: an administrator signing in here landed
+        on the student dashboard with no indication that `/admin` was where they meant
+        to be. The role comes from the server on the session response — see
+        `lib/roleHome.ts`.
+      */}
+      <LoginDialog open={loginOpen} onClose={closeLogin} onSignedIn={(role) => navigate(roleHome(role))} />
     </div>
   )
 }

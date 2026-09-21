@@ -2,6 +2,134 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-21 — Milestone 28: royal blue restored, registration on its own route, one sign-in door
+
+**Frontend only.** No API contract, model, permission, route guard on the backend, or piece of
+business logic changed. No file under `backend/` was modified; the backend suite was run anyway.
+
+### The primary colour is `#0052FF` again
+
+Recovered from git history rather than chosen: it is in the **first commit** in the repository
+and became `--royal-blue: #0052ff` at the React rebuild, before Milestone 23 re-mixed it,
+Milestone 26 replaced it with a near-black action and Milestone 27 with a deep green. It is
+deliberately **not** CSS `royalblue` `#4169E1`, which was offered and declined — the token name
+is historical, the value is the brand.
+
+Three surfaces had never migrated off it and still held `#0052ff`: the transactional email
+template, the PWA manifest `theme_color`, and the Razorpay checkout theme. The web token layer
+had been the odd one out for two milestones.
+
+- New ten-step `--royal-*` palette ramp in `tokens.css`. **Not** a re-point of `--ink-*`, which
+  in Brightpath is simultaneously the neutral *and* the page — re-pointing it would have turned
+  every word blue.
+- `--primary-*` re-pointed in both themes, with `--primary-text` on `--royal-600` (the step that
+  may carry words), the keycap `--primary-edge` going *darker* (reversing the green's direction,
+  which only worked because the green was nearly black), and blue-tinted `-soft` / `-border`.
+- Dark mode lightens to `#7aa5ff` / `#9dc0ff` rather than reusing `#0052ff`, which measures
+  **3.10:1** against the near-black page and **2.79:1** as text.
+- The focus ring is the brand blue, which is safe only because `base.css` draws it at
+  `outline-offset: 2px` — noted in the token comment, because removing that offset would make
+  the ring vanish on a `--primary` button.
+- `ChartCard`'s fallback colours, still on Milestone 23's indigo `#2f43e0` through two
+  re-points, now track the primary.
+- `--brand` (the orange, single-CTA-per-page action) was **left alone** — see the ADR.
+
+### The page is white, and the card edge moved with it
+
+Follow-up the same day: the owner asked for a white background so the blue would stand out.
+`--bg` is `#ffffff`. That is not a one-token change — Milestone 27 separated a card from the
+page **by the fill step between them**, which is why a `Card` has no border and no shadow. A
+white page collapses that step to 1.00:1 and every card disappears.
+
+- `--card-border` is a real hairline in light now (`--ink-border-strong`, **1.44:1** on
+  white) instead of `transparent`. The ordinary 0.1 border reads 1.22:1 — the usual weight
+  for a card edge, but the convention assumes a shadow or a fill step is helping, and here
+  neither is. Shadows remain banned on anything that is part of the page.
+- The warm surfaces went with it: `--bg-subtle`, `--surface-sunken` and `--surface-hover`
+  were cream and sand, which on a white page read as cream stripes rather than as less
+  warmth. They are `--royal-25` (`#f7faff`, added) and `--royal-50` now, so the only tint on
+  the page belongs to the primary. `--ink-50`/`--ink-100` stay in the palette; they are just
+  no longer the page.
+- Found doing it: `/admin/questions`'s bulk bar used `var(--card-bg, var(--bg))`, and
+  `--card-bg` is **defined nowhere** — so the fallback always won and an inset inside a card
+  was being painted with the page colour. Invisible once the page went white; it is
+  `--fill-subtle` now, which the alpha-fill rule required all along.
+- **Dark mode untouched.** All text contrast *improved*, white being the lightest backdrop:
+  muted 5.66–5.90:1, body 8.98–9.51:1, `--primary-text` 6.81–7.44:1.
+
+### White everywhere, navbar included
+
+A second pass after the owner asked for white on *every* surface, not only the page body:
+
+- **`--surface-translucent` was still cream** (`rgba(244, 240, 229, 0.82)`) — the sticky
+  navbar pill, the admin topbar and the mobile bottom bar. It is white at the same opacity
+  now. This was the most visible off-white left, because it sits on top of every page.
+- **`--bg-subtle` and `--band-accent` are white**, so there is no tinted section band left
+  anywhere. The `.stripe` / `.stripeBlue` classes stay, still pointed at their tokens: the
+  dark theme still tints them, and restoring a band should be one line rather than a hunt.
+- **The sidebar's current-page pill is `--primary-soft`** instead of the neutral
+  `--fill-muted` — "sidebar highlights" were on the owner's original list, and the neutral
+  tint was written when the primary was near-black and a blue tint would have meant nothing.
+  Still a tint, never `--primary` itself: a filled nav item reads as a button, and a
+  position is not an action.
+- **`/admin/questions`'s `.handoffHint` was an indigo literal** (`rgba(99, 102, 241, 0.08)`)
+  — Milestone 23's primary, which had survived two re-points without following either. It is
+  `--primary-soft` now.
+- **Deliberately left tinted:** `--surface-hover`, `--surface-active`, `--surface-sunken` and
+  the `--fill-*` alpha fills, all the faintest steps of the brand blue. White versions of
+  those are the same as deleting them — a row that does not answer a hover and an inset that
+  does not look inset are lost feedback rather than removed decoration.
+
+Audited live across `/`, `/leaderboard`, `/hall-of-fame`, `/gallery` and the signed-in
+`AppShell` (shared by the student and admin shells) by enumerating every element over
+6,000px² whose computed background is not white: the only survivors are the white navbar
+pill, blue buttons, and blue state tints. Dark mode verified unchanged.
+
+Every pair measured in-browser with transitions suppressed first: white on the action **5.75:1**,
+text on white/cream/sand **7.44 / 6.53 / 5.86**, dark ink label **6.53:1**, dark text **8.72:1**.
+`--royal-blue`, the legacy alias, is a true name again after two milestones.
+
+### Registration is a route
+
+`/register` rendered the landing page and scrolled to a section in it; it is `pages/Register` now.
+`RegisterForm` itself was not rewritten. The `?ref=` validation moved with it, and the landing
+page carries an incoming `?ref=` across to its Register buttons so a code shared against `/` is
+not dropped at the click. Registration is now its own 15 kB lazy chunk, so the landing bundle
+shrank rather than grew.
+
+### "Ten classes, ten papers" removed
+
+The section, its class grid, its caption and its stylesheet block are gone, along with the
+now-unused `CLASS_LEVELS` import. Eligibility survives in the hero facts and the FAQ. The page's
+plain/tinted alternation was re-balanced, because that section and the registration section were
+both *plain* ones separating *tinted* ones — deleting them without re-banding would have merged
+two pairs of sections into single undifferentiated stripes.
+
+### One sign-in door, and it sends you to the right place
+
+- `/admin` no longer renders its own "Administrator sign in" card. That form survived the
+  `88d41fb` merge; the state and styles behind it are deleted.
+- **Role-based redirect.** `login()` always returned the role and every caller discarded it, so an
+  administrator signing in through the public form landed on the *student* dashboard. `LoginDialog`
+  passes it through to `roleHome()` — admin/superadmin to `/admin`, student to `/dashboard`.
+- `/admin` is gated on `students:read`, and `RequirePermission`'s `signInPath` default moved from
+  `/admin` to `/#login` — leaving it would have made a signed-out visit to `/admin` an infinite
+  redirect to itself.
+- Navbar and footer "Register" links point at `/register` instead of the `/#register` anchor.
+- The hero's "Student sign in" is "Sign in": it is not student-only any more.
+
+Verified in a browser: signed out, `/admin` lands on `/#login` with one dialog and no loop; a
+superadmin session lands on `/admin`; a student session lands on `/dashboard`. The generic
+`Invalid credentials.` message is unchanged, so no error reveals a role.
+
+### Copy
+
+Landing page features, steps, assurances, FAQ answers, the hero tagline and the final CTA cut to a
+headline plus one or two lines. Nothing factual removed — eligibility, the free-to-prepare rule,
+that the sitting has a fee shown before payment, and how results are released all survive. One
+piece of copy was *wrong* rather than merely long: the empty leaderboard state said "Register
+below", directing readers to a form that is no longer on the page.
+
 ## 2026-09-20 — Milestone 26: a new visual language (phases 1–15 of the UI redesign)
 
 **Frontend only.** No API contract, model, permission, route guard or piece of business logic

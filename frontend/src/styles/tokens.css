@@ -39,12 +39,17 @@
  * Milestone 26's first and third ideas are **reversed** here. A change that
  * contradicts one of these will look wrong however carefully it is tokenised:
  *
- *  1. **Separation is by FILL — not by shadow, and not by border.** A white card sits
- *     on a warm cream page and that difference alone is the edge. The reference has
- *     **no border and no shadow on any card**; whole sections are tinted instead
- *     (cream → sand → pale blue). This is the opposite of Milestone 26, where a card
- *     was white-on-white and a soft shadow did the separating. `--shadow-*` survives
- *     here only for things that genuinely float — see the shadow section.
+ *  1. **Separation is by a HAIRLINE — and still never by a shadow.** This is the one
+ *     idea Milestone 28 changed. The reference puts a white card on a warm cream page
+ *     and lets that fill step *be* the edge, with no border and no shadow anywhere;
+ *     that is how this shipped through Milestone 27. The owner then asked for a
+ *     **white page**, so that step collapsed to 1.00:1 and the edge had to come from
+ *     somewhere — it is `--card-border`, a hairline, in both themes now. What did
+ *     **not** change is the prohibition that matters: `--shadow-*` is the overlay
+ *     scale (modal, drawer, menu, toast, tooltip) and nothing that is part of the
+ *     page may use one. Sections are still tinted rather than ruled, but the tints
+ *     are now the faintest steps of the brand blue (white → `--royal-25` → pale blue)
+ *     rather than cream → sand → pale blue.
  *  2. **Emphasis is a HARD OFFSET EDGE, and it belongs to controls and markers only.**
  *     The reference's signature is `0 4px 0` in a companion colour, with **zero
  *     blur** — a sticker or a keycap, not a lift. It is on buttons (vertical offset)
@@ -52,8 +57,11 @@
  *     card**. That is the `--edge-*` family, which is new in this milestone.
  *  3. **Colour is ABUNDANT and categorical.** Milestone 26 made colour scarce and the
  *     action near-black. Here the page itself is coloured, cards are pastel, and there
- *     are two action colours: a deep green standard action and an orange call to
+ *     are two action colours: the **royal-blue** standard action and an orange call to
  *     action. The six `--cat-*` hues are no longer confined to one component.
+ *     (Milestone 27 shipped that standard action as a deep green; Milestone 28
+ *     re-pointed it to the brand blue the product started with. Nothing else about
+ *     the language moved with it.)
  *
  * And one that does **not** change, because it was never about the reference:
  *
@@ -102,15 +110,21 @@
    * Ink — the neutral ramp, and the only ramp most of the product needs.
    *
    * Built on **`#14261d`, a very dark green, never black and never grey**. That one
-   * step is the reference's text colour; `--ink-800` (`#1b3428`) is its standard
-   * button and dark card; `--ink-600` (`#45564b`) is its secondary text;
-   * `--ink-50` (`#f4f0e5`) is the **page itself** and `--ink-100` (`#eae4d3`) the
-   * sand band that alternates with it. Five of the thirteen steps are therefore
+   * step is the reference's text colour; `--ink-800` (`#1b3428`) is its dark card —
+   * and was its standard button until Milestone 28 re-pointed the action to royal
+   * blue, so the ramp is now purely neutral; `--ink-600` (`#45564b`) is its secondary text;
+   * `--ink-50` (`#f4f0e5`) was the reference's **page** and `--ink-100` (`#eae4d3`) the
+   * sand band that alternated with it. Five of the thirteen steps are therefore
    * values read directly off the reference rather than interpolated.
    *
-   * Note what this means: unlike Milestone 26's ramp, **the page is not `--ink-0`**.
-   * White is a *card*, cream is the page. That single fact is idea (1) above, and it
-   * is why `--surface` and `--bg` are different colours here rather than both white.
+   * Milestone 27 made the page `--ink-50` and a card `--ink-0`, so the two were
+   * different colours and that step was the edge. **Milestone 28 put the page back to
+   * `--ink-0`** at the owner's request, so `--surface` and `--bg` are both white again
+   * and the edge is `--card-border`. `--ink-50` and `--ink-100` stay in the ramp —
+   * they are palette, still monotonic, and still what the warm steps interpolate
+   * through — but **neither is the page any more**. Do not reach for one as a
+   * background: that is what `--bg` / `--bg-subtle` are for, and they are white and a
+   * blue whisper now.
    *
    * The ramp is verified monotonic in relative luminance, so a step is always darker
    * than the one before it — which is what lets `--ink-200` be a border and
@@ -118,15 +132,15 @@
    */
   --ink-0: #ffffff;
   --ink-25: #faf8f1;
-  --ink-50: #f4f0e5; /* THE PAGE — measured off the reference */
-  --ink-100: #eae4d3; /* the sand band that alternates with it */
+  --ink-50: #f4f0e5; /* WAS the page until M28 — measured off the reference */
+  --ink-100: #eae4d3; /* WAS the sand band until M28 */
   --ink-200: #d5cfba;
   --ink-300: #b0b5a4;
   --ink-400: #8a9287;
   --ink-500: #6a7568;
   --ink-600: #45564b; /* secondary text — measured */
   --ink-700: #33453a;
-  --ink-800: #1b3428; /* the standard action, and the dark card — measured */
+  --ink-800: #1b3428; /* the dark card — measured. WAS the standard action until M28 */
   --ink-900: #14261d; /* THE INK — measured */
   --ink-950: #0b1711;
 
@@ -165,12 +179,18 @@
   --ink-border-strong: rgba(20, 38, 29, 0.18);
 
   /**
-   * Mid green — one step that is neither text nor page, used as a card fill and as
-   * the companion edge under the standard action. Kept out of the ink ramp because it
-   * is saturated: it would break the monotonic-neutral property above.
+   * Mid green — one step that is neither text nor page, kept out of the ink ramp
+   * because it is saturated: it would break the monotonic-neutral property above.
    *
    * It takes **white** text (4.72:1), not cream (4.14:1, which fails). That pair is
    * the reason both exist.
+   *
+   * **Currently unreferenced.** It was `--primary-edge`, the companion under the
+   * standard action, until Milestone 28 re-pointed that action to royal blue; the
+   * edge is `--royal-700` now. Kept rather than deleted because it is still the one
+   * saturated mid-green available as a card fill, and deleting a palette step is not
+   * a colour re-point. Do not reach for it as an edge under `--primary` again — the
+   * blue's companion is a *darker* blue, for the reason given at `--primary-edge`.
    */
   --green-mid: #497e64;
 
@@ -341,6 +361,7 @@
    *     `600` for the same reason `--brand-text` uses `--orange-700`.
    *   - `700` is the pressed state and the keycap edge.
    */
+  --royal-25: #f7faff; /* the faintest tint — bands and hovers on a white page (M28) */
   --royal-50: #f0f5ff;
   --royal-100: #d6e3ff;
   --royal-200: #b3cbff;
@@ -526,16 +547,31 @@
    * reason `--tooltip-bg` is one: a CSS Module cannot name `.theme-dark` without
    * `:global`, and a component that knows which theme it is in will be wrong in the
    * next one. Declared in **both** themes so the box never changes size between them.
+   *
+   * **It is a real hairline in this theme as of Milestone 28, not `transparent`.**
+   * It could be transparent while the page was cream and the card white, because the
+   * fill step *was* the edge (Milestone 27's first idea). The owner asked for a white
+   * page; `--surface` and `--bg` are now the same colour, that step is gone, and
+   * without this line every card in the product is invisible. Do not set it back to
+   * `transparent` without first giving cards their fill separation back.
+   *
+   * It is the **strong** ink border rather than the ordinary one. A hairline at 0.1
+   * alpha measures 1.22:1 against white, which is the conventional weight for a card
+   * edge — but the convention assumes a shadow or a fill step is also doing some of
+   * the work, and here neither is: this line is carrying the separation on its own.
+   * 0.18 measures 1.45:1, still unmistakably a hairline and not a rule.
    */
-  --card-border: transparent;
+  --card-border: var(--ink-border-strong);
 
   /**
    * **The accent section band**, and it is a token for the same reason
    * `--card-border` is: a CSS Module cannot name `.theme-dark`, and a component that
    * knows which theme it is in will be wrong in the next one.
    *
-   * The reference alternates its cream page with a sand band and a **pale blue** one.
-   * The sand band is just `--bg-subtle` and needs nothing. The pale blue one does,
+   * The reference alternates its page with a quiet band and a **pale blue** one.
+   * (Through Milestone 27 those were cream, sand and pale blue; since Milestone 28 the
+   * page is white and the quiet band is `--royal-25`.)
+   * The quiet band is just `--bg-subtle` and needs nothing. The pale blue one does,
    * because it is a `--cat-*` pastel and those are theme-invariant — so in the dark
    * theme it becomes a themed surface instead of staying bright.
    *
@@ -546,8 +582,15 @@
    * keeping: **pinning text on a container pins it for the whole subtree**, and a
    * subtree that contains a themed surface cannot be pinned. A band has descendants;
    * an `IconTile` has a glyph. That is why one can be invariant and the other cannot.
+   *
+   * **It is white in the light theme as of Milestone 28** — the owner asked for white
+   * everywhere, and this was the last tinted full-bleed band in the product. The
+   * token is kept rather than deleted, with its dark counterpart intact, because the
+   * whole reason it exists is the trap described above: if a tinted band ever comes
+   * back, it has to come back *here* and it has to stay themed. Re-point this one
+   * line; do not put `--cat-blue` on a section in a stylesheet.
    */
-  --band-accent: var(--cat-blue);
+  --band-accent: var(--ink-0);
 
   /**
    * Shadows — and read this before using one.
@@ -671,18 +714,50 @@
      ================================================================== */
 
   /**
-   * Surfaces. **`--bg` and `--surface` are different colours now**, which is the
-   * whole of idea (1): the page is warm cream and a card is white, and that step is
-   * the edge. `--bg-subtle` is the sand band the reference alternates with the cream
-   * to mark a section without drawing a line.
+   * Surfaces. **The page is white as of Milestone 28** (owner's request: the brand
+   * blue should stand out against it, and the warm cream read as off-white).
+   *
+   * ## This changes how a card is separated, and that is not optional
+   *
+   * Milestone 27's first idea was that `--bg` (cream) and `--surface` (white) are
+   * *different colours*, and that step alone is a card's edge — which is why a `Card`
+   * has **no border and no shadow**. A white page collapses that step to **1.00:1**
+   * and every card in the product disappears. So the fill separation is replaced by
+   * a hairline: `--card-border` below is a real colour in this theme now, not
+   * `transparent`. Shadows are **not** the answer — `--shadow-*` is the overlay scale
+   * and nothing that is part of the page may use one.
+   *
+   * ## The warm steps go with it
+   *
+   * `--ink-50` / `--ink-100` are cream and sand. Left in place they would read as
+   * stripes and wells of cream *on* a white page, which is the thing being removed
+   * rather than a smaller amount of it. The band, the sunken well and the row hover
+   * are the faintest steps of the brand blue instead, so the page reads as white and
+   * what tint there is belongs to the primary. The ink ramp keeps both steps — they
+   * are palette, and `--ink-100` is still the dark card's neighbour.
    */
-  --bg: var(--ink-50);
-  --bg-subtle: var(--ink-100);
+  /*
+   * **Every page-level surface is white** (owner, 2026-09-21: "white background
+   * everywhere, navbar and each and everywhere"). That is `--bg`, `--bg-subtle` and
+   * `--surface`: the page, the full-bleed section band and a card are now one colour,
+   * so there is no tinted stripe anywhere in the product and no off-white chrome.
+   * `--surface-translucent` (the navbar) is white too — see its note below.
+   *
+   * **The interactive steps are deliberately NOT white**, and that is not an
+   * oversight. `--surface-hover` and `--surface-active` are what tell a reader a row
+   * or a menu item responded to them, and `--surface-sunken` is what makes an inset
+   * look inset; white versions of all three are the same as deleting them, which
+   * costs real feedback rather than removing decoration. They are the faintest steps
+   * of the brand blue, so what little tint remains in the product belongs to the
+   * primary.
+   */
+  --bg: var(--ink-0);
+  --bg-subtle: var(--ink-0);
   --surface: var(--ink-0);
   --surface-raised: var(--ink-0);
-  --surface-sunken: var(--ink-100);
-  --surface-hover: var(--ink-25);
-  --surface-active: var(--ink-100);
+  --surface-sunken: var(--royal-50);
+  --surface-hover: var(--royal-25);
+  --surface-active: var(--royal-50);
 
   /**
    * **A nested fill is an ALPHA fill, and that is a correctness property rather than
@@ -703,7 +778,12 @@
    */
   --fill-subtle: rgba(20, 38, 29, 0.05);
   --fill-muted: rgba(20, 38, 29, 0.1);
-  --surface-translucent: rgba(244, 240, 229, 0.82);
+  /* The sticky navbar pill, the admin topbar and the mobile bottom bar. **White** at
+     82%, not the cream it was through Milestone 27 — this was the most visible piece
+     of off-white left after the page went white, because it sits at the top of every
+     page in the product. Translucent rather than solid on purpose: content scrolls
+     under it and the blur is what separates them. */
+  --surface-translucent: rgba(255, 255, 255, 0.82);
   --overlay: rgba(20, 38, 29, 0.55);
 
   /**
@@ -858,11 +938,18 @@
    * `.focus()` does **not** trigger `:focus-visible` — it is a keyboard heuristic —
    * so verify a focus ring statically, by checking that every `outline: none` pairs
    * with a replacement.
+   *
+   * The ring is the brand blue as of Milestone 28. That is safe on a blue button
+   * only because `base.css` draws it at `outline-offset: 2px`: the ring never
+   * touches the fill, it sits on the page, where it measures 5.05:1 on cream and
+   * 5.75:1 on white. If that offset is ever removed, the ring and a `--primary`
+   * fill become the same colour and the focus position disappears on exactly the
+   * control most likely to have it.
    */
-  --focus-ring: 0 0 0 3px rgba(20, 38, 29, 0.22);
+  --focus-ring: 0 0 0 3px rgba(0, 82, 255, 0.28);
   --focus-ring-danger: 0 0 0 3px rgba(224, 80, 60, 0.32);
   --focus-ring-width: 2px;
-  --focus-ring-color: var(--ink-900);
+  --focus-ring-color: var(--royal-500);
 
   /**
    * The tooltip is the one component that inverts against the page in the light theme
@@ -936,20 +1023,30 @@
   --text-inverse: var(--ink-900);
 
   /**
-   * The standard action inverts: a light green fill with an ink label, and a *darker*
-   * companion edge — the opposite direction to the light theme, where the edge is
-   * lighter than the fill. On a near-black page a lighter edge would read as a glow.
+   * The standard action inverts: a **royal-blue tint** with an ink label, and a
+   * darker companion edge. The edge direction is the same as the light theme's now
+   * that the action is blue in both, but for a different reason — on a near-black
+   * page a lighter edge reads as a glow.
+   *
+   * The light theme's `#0052ff` is **not** reused here, and the reason is measured
+   * rather than stylistic: it sits at only **3.10:1** against the near-black page,
+   * so the button barely separates from what it is on, and as a *text* colour on
+   * `--surface` it is **2.79:1**, which fails outright. `#7aa5ff` is the same hue
+   * lifted until both clear — 7.34:1 against the page, 6.53:1 for the ink label.
+   *
+   * Hover **lightens** rather than darkens, as `--brand` does, because the label is
+   * ink: darkening the fill would eat the label's contrast rather than add to it.
    */
-  --primary: #6fbf94;
-  --primary-hover: #8ed9ae;
-  --primary-active: #5fae83;
-  --primary-on: var(--ink-900); /* 7.21:1 */
-  --primary-edge: #3d7a5a;
+  --primary: #7aa5ff;
+  --primary-hover: #9dc0ff; /* lightens — ink label keeps 8.62:1 */
+  --primary-active: #6f9bff; /* 5.89:1 */
+  --primary-on: var(--ink-900); /* 6.53:1 */
+  --primary-edge: #3f63b8;
 
-  --primary-text: #8ed9ae; /* 9.69:1 on --surface */
-  --primary-soft: rgba(111, 191, 148, 0.14);
-  --primary-soft-hover: rgba(111, 191, 148, 0.22);
-  --primary-border: rgba(111, 191, 148, 0.35);
+  --primary-text: #9dc0ff; /* 8.72:1 on --surface */
+  --primary-soft: rgba(122, 165, 255, 0.14);
+  --primary-soft-hover: rgba(122, 165, 255, 0.22);
+  --primary-border: rgba(122, 165, 255, 0.35);
 
   /**
    * The call to action lightens so the ink label keeps its margin (6.37:1), and its
@@ -1040,8 +1137,10 @@
   --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.55);
   --shadow-xl: 0 24px 64px -4px rgba(0, 0, 0, 0.65);
 
-  --focus-ring: 0 0 0 3px rgba(240, 236, 225, 0.3);
-  --focus-ring-color: #f0ece1;
+  /* The blue tint, not the light theme's `#0052ff`: the ring sits on the near-black
+     page, where the vivid step reaches only 3.10:1. This one reads 7.34:1. */
+  --focus-ring: 0 0 0 3px rgba(122, 165, 255, 0.32);
+  --focus-ring-color: #7aa5ff;
 
   --tooltip-bg: var(--surface-raised);
   --tooltip-text: var(--text);
@@ -1060,8 +1159,10 @@
  *
  * `--royal-blue` is a particular case: Milestone 26 reduced it to **zero references
  * outside this file**, so it survives only as a safety net. It points at `--primary`,
- * which in this language is a deep green — the name has been a lie since Milestone 26
- * and is kept for the same reason the alias is.
+ * and as of Milestone 28 the name is **true again** — the alias resolves to the same
+ * `#0052ff` it held when it was written. It had been a lie for two milestones (a
+ * near-black action, then a deep green). Keep the alias anyway: it costs two lines
+ * and it is the safety net for anything that still names it.
  */
 :root,
 .theme-dark {

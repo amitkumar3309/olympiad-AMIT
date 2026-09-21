@@ -1,0 +1,39 @@
+/**
+ * The registration route (Milestone 28).
+ *
+ * Deliberately thin: `RegisterForm` brings its own card, its own grid and its own
+ * responsive behaviour, because it was written to sit inside the landing page and was
+ * not rewritten when it moved here. All this file does is give it a page to sit on and
+ * a heading above it.
+ *
+ * Not `AuthLayout`, which the four email-reached pages share: that is capped at 30rem
+ * for a single short form, and the registration form is a three-step wizard with a
+ * two-column field grid. Putting it in a 30rem column would make every field full
+ * width and the page about twice as long.
+ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.wrap {
+  flex: 1;
+  /* `--space-16` at the bottom so the last field is never flush against the footer on
+     a phone, where the submit button is the last thing in the viewport. */
+  padding-block: var(--space-8) var(--space-16);
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-2xl);
+}
+
+.lead {
+  margin: 0 0 var(--space-8);
+  max-width: 44ch;
+  color: var(--text-muted);
+  font-size: var(--text-lg);
+}

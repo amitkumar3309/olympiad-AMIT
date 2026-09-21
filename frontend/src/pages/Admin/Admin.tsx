@@ -1,27 +1,21 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Alert,
   Badge,
-  Button,
   ButtonLink,
   Card,
   CardHeader,
   EmptyState,
-  Field,
   Icon,
-  Input,
-  PasswordInput,
   SkeletonCards,
-  Spinner,
   StatTile,
   Table,
   TableScroll,
 } from '../../components/ui'
 import ChartCard from '../../components/ChartCard'
-import Unauthorized from '../../components/Unauthorized'
 import { useAuth } from '../../context/AuthContext'
-import { humanizeError, humanizeSignInError } from '../../lib/errors'
+import { humanizeError } from '../../lib/errors'
 import { api } from '../../api/client'
 import type { AdminStats, ManagedAccount, Pagination, Permission } from '../../api/types'
 import AdminShell from './AdminShell'
@@ -87,12 +81,13 @@ interface Overview {
 }
 
 export default function Admin() {
-  const { state, can, login } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const { can } = useAuth()
 
+  /*
+   * Always true now that the route is gated on this very permission, and kept as the
+   * effect's guard rather than deleted: it is what stops the three admin queries being
+   * fired by a render that should not have happened, and it costs one boolean.
+   */
   const canReadStudents = can('students:read')
   const [overview, setOverview] = useState<Overview | null>(null)
   const [loadingOverview, setLoadingOverview] = useState(false)
@@ -146,86 +141,20 @@ export default function Admin() {
     }
   }, [canReadStudents])
 
-  async function handleLogin(e: FormEvent) {
-    e.preventDefault()
-    setError('')
-    setSubmitting(true)
-    try {
-      await login(email.trim(), password)
-    } catch (err) {
-      setError(humanizeSignInError(err))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  if (state.status === 'loading') return <Spinner label="Loading the admin portal" />
-
-  if (state.status === 'guest') {
-    return (
-      // Follows the global theme rather than forcing dark, which used to make this
-      // form dark while the navbar above it stayed light.
-      <div className={styles.loginWrap}>
-        <main id="main-content" className={styles.loginCard}>
-          <span className={styles.loginIcon}>
-            <Icon name="ph-shield-check" weight="bold" size="lg" />
-          </span>
-          <h1 className={styles.loginTitle}>Administrator sign in</h1>
-          <p className={styles.loginLead}>Manage students, the question bank, assessments and analytics.</p>
-
-          {error && (
-            <Alert tone="danger" title="We could not sign you in" className={styles.loginAlert}>
-              {error}
-            </Alert>
-          )}
-
-          {/*
-            Both fields were previously a `<label>` with no `htmlFor` beside an `<input>`
-            with no `id` — so neither was labelled for a screen reader, and tapping the
-            label did not focus the field. `Field` makes that association impossible to
-            forget (Milestone 23, Phase C).
-          */}
-          <form className={styles.loginForm} onSubmit={handleLogin} noValidate>
-            <Field label="Email or mobile number" required>
-              <Input
-                autoComplete="username"
-                autoFocus
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </Field>
-
-            <Field label="Password" required>
-              <PasswordInput
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </Field>
-
-            <Button type="submit" fullWidth size="lg" loading={submitting} icon="ph-sign-in">
-              {submitting ? 'Signing in' : 'Sign in'}
-            </Button>
-          </form>
-
-          <p className={styles.loginHint}>
-            Administrators promoted from a student account sign in here with the same email or mobile number and
-            password they use on the <Link to="/">home page</Link>.
-          </p>
-        </main>
-      </div>
-    )
-  }
-
-  // Signed in, but without administrative capability — a student who navigated here.
-  if (!canReadStudents) {
-    return (
-      <Unauthorized
-        title="This area is for administrators"
-        detail="You are signed in, but your account does not have administrative permissions. Head back to your dashboard to see your own progress."
-      />
-    )
-  }
+  /*
+   * There is no sign-in form here any more (Milestone 28).
+   *
+   * This page used to render an "Administrator sign in" card for a guest, which is why
+   * the route was left ungated and why `RequirePermission` defaulted its `signInPath`
+   * to `/admin`. That made the product advertise where its admin door was, and it told
+   * a *promoted* admin — an ordinary student account with a role — that they were at
+   * the wrong one. `88d41fb` merged the two forms; this removes the form that was left
+   * behind, and the route is gated on `students:read` in `App.tsx` instead.
+   *
+   * So the three states this used to handle are all handled before the page renders:
+   * loading and guest by the guard, and "signed in without permission" by the
+   * `Unauthorized` it renders. Keeping copies here would be dead code that looks live.
+   */
 
   return (
     <AdminShell title="Dashboard" subtitle="Every figure here is counted from a collection">

@@ -226,13 +226,19 @@
  * sees one item with a background where the others have none, and one item set
  * heavier. `aria-current` carries it for a screen reader.
  *
- * Deliberately a *tint*, not the near-black `--primary`. An ink-filled nav item would
- * be identical to a primary button, and a position is not an action. The 3px left
- * marker that used to sit here is gone: a bar hanging off the flat edge of a pill
- * reads as a rendering artefact, and the fill already does its job.
+ * Deliberately a *tint* — `--primary-soft`, never `--primary` itself. A solidly filled
+ * nav item would be identical to a primary button, and a position is not an action.
+ * That rule is unchanged from Milestone 27; what changed in Milestone 28 is the tint's
+ * hue. It was the neutral `--fill-muted`, written when `--primary` was near-black and a
+ * blue tint would have referred to nothing; the brand colour is royal blue now, so the
+ * current-page marker is a soft blue and the sidebar highlight belongs to the primary
+ * like every other highlight in the product.
+ *
+ * The 3px left marker that used to sit here is gone: a bar hanging off the flat edge of
+ * a pill reads as a rendering artefact, and the fill already does its job.
  */
 .itemActive {
-  background: var(--fill-muted);
+  background: var(--primary-soft);
   color: var(--text);
   font-weight: var(--weight-semibold);
 }

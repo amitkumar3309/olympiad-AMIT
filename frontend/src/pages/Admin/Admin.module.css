@@ -6,71 +6,6 @@
  * when the student and admin shells became one component. This file is the page again.
  */
 
-.loginWrap {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
-  padding: var(--space-8) var(--gutter);
-  background: var(--bg);
-}
-
-@media (min-width: 768px) {
-  .loginWrap {
-    align-items: center;
-  }
-}
-
-.loginCard {
-  width: 100%;
-  max-width: 26rem;
-  padding: clamp(var(--space-6), 5vw, var(--space-10));
-  background: var(--surface);
-  /* The new card treatment (Milestone 26) — see the note in `Card.module.css`. */
-  border: var(--border-width) solid var(--card-border);
-  border-radius: var(--radius-xl);
-  box-shadow: none;
-}
-
-.loginIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  margin-bottom: var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--primary-soft);
-  color: var(--primary-text);
-}
-
-.loginTitle {
-  margin: 0 0 var(--space-2);
-  font-size: var(--text-xl);
-}
-
-.loginLead {
-  margin: 0 0 var(--space-5);
-  font-size: var(--text-sm);
-  line-height: var(--leading-normal);
-  color: var(--text-muted);
-}
-
-.loginAlert {
-  margin-bottom: var(--space-4);
-}
-
-/* Left-aligned, unlike the heading above it: a column of labelled fields centred on
-   the card is what the old shared `text-align: center` produced, and it made every
-   label float away from the box it belonged to. */
-.loginForm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  text-align: left;
-}
-
 /* ==========================================================================
    Quick actions — the tasks an administrator arrives to do
    ========================================================================== */
@@ -153,21 +88,6 @@
 .tableCard {
   margin-bottom: var(--space-5);
   margin-top: 20px;
-}
-
-.loginHint {
-  margin: var(--space-5) 0 0;
-  padding-top: var(--space-4);
-  border-top: var(--border-width) solid var(--border-subtle);
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-  color: var(--text-muted);
-}
-
-.loginHint a {
-  color: var(--primary-text);
-  font-weight: var(--weight-semibold);
-  text-decoration: underline;
 }
 
 @media (max-width: 900px) {

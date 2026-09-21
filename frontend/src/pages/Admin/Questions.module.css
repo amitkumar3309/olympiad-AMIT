@@ -365,7 +365,11 @@
   margin-bottom: 12px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--card-bg, var(--bg));
+  /* An inset inside a card, so it takes an ALPHA fill — which is guaranteed to be a
+     step against whatever it sits on. `--card-bg` was never defined anywhere, so this
+     always fell through to `var(--bg)`; that read as a tint only while the page was
+     cream, and went to white-on-white when Milestone 28 made the page white. */
+  background: var(--fill-subtle);
 }
 
 .bulkPick {
@@ -469,7 +473,9 @@
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: rgba(99, 102, 241, 0.08);
+  /* `--primary-soft`, not the indigo literal this carried since Milestone 23 — that
+     was the primary of the day and survived two re-points without following them. */
+  background: var(--primary-soft);
   color: var(--text-main);
   font-size: var(--text-sm);
   line-height: 1.6;

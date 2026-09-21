@@ -130,11 +130,14 @@ export default function ChartCard({ title, type, labels, data, label, tone = 'pr
 }
 
 function readColors(tone: NonNullable<ChartCardProps['tone']>) {
-  const series = token(`--${tone}`, '#2f43e0')
+  // The fallbacks are only reached if the custom property cannot be read at all.
+  // They track `--primary`, which is the brand blue `#0052ff` again as of Milestone 28
+  // (they had been left on Milestone 23's indigo through two re-points).
+  const series = token(`--${tone}`, '#0052ff')
   return {
     series,
     // A translucent version of the same token, so the fill follows the theme too.
-    fill: token(`--${tone}-soft`, 'rgba(47, 67, 224, 0.16)'),
+    fill: token(`--${tone}-soft`, 'rgba(0, 82, 255, 0.16)'),
     axis: token('--text-muted', '#64748b'),
     grid: token('--border-subtle', 'rgba(148, 163, 184, 0.2)'),
     tooltipBg: token('--tooltip-bg', '#0f172a'),

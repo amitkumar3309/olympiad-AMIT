@@ -60,7 +60,10 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             from a production build
   src/pages/NotFound/       the catch-all (M23 E). Without it an unmatched path
                             renders NOTHING, which looks like a crash
-  src/pages/Auth/           sign-in + registration (rendered BY the landing page)
+  src/pages/Register/       THE registration route (M28). Wraps Auth/RegisterForm and
+                            owns the ?ref= check. Registration is NOT on the landing page
+  src/pages/Auth/           the sign-in dialog + the registration FORM (rendered by
+                            pages/Register)
                             and the four pages reached from an email (M23 C)
   src/components/layout/    THE app shell + THE navigation model (M23 B):
                             AppShell.tsx renders the chrome for BOTH signed-in
@@ -241,10 +244,37 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 **The three ideas the current language rests on.** A change that contradicts one of these will
 look wrong however carefully it is tokenised — read them before touching a surface.
 
-- **Separation is by FILL — not by shadow, and not by border.** A `Card` is white on a warm
-  cream page (`--surface` `#ffffff` on `--bg` `#f4f0e5`) with **no border and no shadow**, and
-  that step alone is the edge. Whole sections are tinted instead — cream, sand
-  (`--bg-subtle`), or the accent band. The reference has no shadow on any card in it: a
+- **Separation is by a HAIRLINE, and still never by a shadow (changed in Milestone 28).**
+  Milestone 27 put a white `Card` on a warm cream page (`--surface` `#ffffff` on `--bg`
+  `#f4f0e5`) with **no border and no shadow**, and that fill step alone was the edge. The
+  owner asked for a **white page** so the brand blue would stand out; `--surface` and `--bg`
+  are both `#ffffff` now, that step is **1.00:1**, and without a border every card in the
+  product is invisible. So `--card-border` is a real hairline in *both* themes —
+  `--ink-border-strong` in light (1.44:1 on white; the ordinary 0.1 border measures 1.22:1,
+  which is the usual weight for a card edge but assumes a shadow or a fill step is helping,
+  and here neither is). **Do not set `--card-border` back to `transparent`** without first
+  giving cards their fill separation back.
+- **Every page-level surface in the light theme is white, including the navbar** (owner,
+  2026-09-21: "white background everywhere, navbar and each and everywhere"). That is `--bg`,
+  `--bg-subtle`, `--surface`, `--band-accent` **and `--surface-translucent`** — the last is
+  the sticky navbar pill, the admin topbar and the mobile bottom bar, and it was the most
+  visible off-white left after the page went white because it sits on top of every page.
+  There is no tinted section band anywhere now; sections are separated by spacing, headings
+  and card hairlines. The `.stripe` / `.stripeBlue` classes stay, still pointed at their
+  tokens, because the dark theme still tints them and because restoring a band should be one
+  line in `tokens.css` rather than a hunt through a page stylesheet.
+- **The interactive steps are deliberately NOT white, and that is not an oversight.**
+  `--surface-hover`, `--surface-active` and `--surface-sunken` are the faintest steps of the
+  brand blue (`--royal-25` / `--royal-50`). White versions of those three are the same as
+  deleting them: a row that does not respond to a hover and an inset that does not look
+  inset are lost feedback, not removed decoration. Same for `--fill-subtle` / `--fill-muted`,
+  the alpha fills that group things inside a card. If someone asks for "white everywhere"
+  again, this is the line — chrome and page surfaces are white, *states* keep their tint.
+- **A highlight belongs to the primary.** The current-page pill in the sidebar is
+  `--primary-soft`, not a neutral tint. It was `--fill-muted` while `--primary` was
+  near-black, when a blue tint would have referred to nothing. It must stay a *tint* and
+  never `--primary` itself: a solidly filled nav item is indistinguishable from a primary
+  button, and a position is not an action. The reference has no shadow on any card in it: a
   census returned only its pill buttons and its icon tiles, and the three soft shadows it did
   return belonged to the "Made in Framer" badge. **`--shadow-*` is the OVERLAY scale now** —
   modal, drawer, menu, toast, tooltip — and nothing that is part of the page may use one. The
@@ -260,6 +290,11 @@ look wrong however carefully it is tokenised — read them before touching a sur
   `background: var(--bg)` to mean "an inset inside a card", which worked while `--bg` was a
   near-white step against a white surface — and collapsed to **1.00:1 against its own parent**
   the moment `--bg` became the page. Nothing errored; a distinction simply disappeared.
+  **This rule got sharper in Milestone 28, not softer:** `--bg` is now plain `#ffffff`, the
+  same colour as `--surface`, so an inset painted with it is invisible rather than merely
+  flat. One survivor was found then — `/admin/questions`'s bulk bar used
+  `var(--card-bg, var(--bg))`, and `--card-bg` was **never defined anywhere**, so the
+  fallback always won and had been quietly supplying the page colour to an inset.
 - **Type is TIGHT, and the display face carries it.** Bricolage Grotesque for headings and
   figures (600, **700** for a hero — 700 *is* used now), Instrument Sans for body at **400**.
   Negative tracking is for **display sizes only**: −0.08em at 30px and up, −0.04em at 24px.
@@ -270,7 +305,14 @@ look wrong however carefully it is tokenised — read them before touching a sur
   input and table cell already uses, and half this product is dense administrative tables a
   marketing page has no equivalent of. The reference's 16px is `--text-md`.
 - **Colour is ABUNDANT and categorical, and there are TWO action colours.** `--primary` is
-  `--ink-800`, a deep green — the workhorse, on every form and dialog. **`--brand`** is the
+  **royal blue `#0052FF`** (`--royal-500`) as of Milestone 28 — the workhorse, on every form
+  and dialog. It was `--ink-800`, a deep green, for the length of Milestone 27; the owner
+  asked for the product's original brand blue back, and it is a **re-point of the semantic
+  layer only** — the language, the components, the spacing and the keycap edges are
+  unchanged. It is deliberately **not** CSS `royalblue` `#4169E1`; the token name
+  `--royal-blue` is historical and `#0052FF` is the brand, confirmed by the owner. The blue
+  is its own `--royal-*` ramp rather than a re-point of `--ink-*`, because that ramp is
+  simultaneously the neutral **and** the page. See the Milestone 28 ADR. **`--brand`** is the
   orange call to action, for the one thing a page wants pressed: **once per page**, because
   three of them is the same as none. Its label is **ink, not white** — the reference puts
   white there and it measures 3.05:1.
@@ -640,7 +682,9 @@ look wrong however carefully it is tokenised — read them before touching a sur
 - **There is exactly one referral path: `services/referralService.ts`** (Milestone 22, Phase E). Five rules travel with it. **Attribution happens once, at registration, and is decided by the unique index on `Referral.referred`** — that one index is what makes "one referrer per registration", "no duplicate attribution" and "never reassigned" all true, and a handler check could not, because on serverless a read and its write land in different invocations. **A referral converts on captured money**, from inside `capturePayment()` — never on a registration, and deliberately **not** via `hasEntryEntitlement()`, which returns `true` when the fee is switched off and would therefore pay out on every registration the moment an administrator disabled the paywall. **The reward amount is snapshotted at conversion** and **no request may ever supply one**: the admin routes move a row along `pending_conversion → no_reward | accrued → approved → paid | rejected`, each a conditional write, with paying deliberately unreachable from `accrued`. **The referred students are masked** by `displayNameFor()` on both the public validate endpoint and the student's own list — a referral list is a list of children and the reader is not staff. And **whether the referred student paid is derived from `Payment`**, never stored on the referral; `convertedAt` records only when we observed it, which is why read paths reconcile a stale row.
 - **The referral console may move a reward, never invent one.** `/admin/referrals` offers only the transitions the API accepts — Approve on `accrued`, Mark paid only on `approved`, nothing once paid or rejected — and **no request it makes carries an amount**, because the amount was snapshotted at conversion. Do not add an amount field to a row action. Its totals are **programme-wide sums**, not page sums: "what do we owe?" must not change as somebody pages. `referredHasPaid` is derived from the payment record at read time rather than read off the referral row. Reading the console is `students:read`; the three acts that move money are `referrals:write`.
 - **The student Refer & Earn page shows no reward figures when there is no reward.** With `settings.rewardEnabled` false, `/referrals` says the programme is not running and renders **no earnings tiles** — three tiles reading ₹0.00 look like a fault rather than an honest empty state — and it must not promise that a future reward will cover past referrals, because the amount is snapshotted at conversion. The referred students are shown **masked** (`displayNameFor()`), like the public leaderboard. The register page validates a `?ref=` code **before** the form is submitted and shows the outcome either way, sending only a confirmed one: the backend refuses the whole registration on a code that does not resolve, so an unchecked one costs a real registration over somebody else's typo.
-- **`/register` exists only because the referral link points at it.** `referralLinkFor()` builds `<app>/register?ref=<code>`; the route renders the landing page and scrolls to the form. There is **no catch-all route** in this app, so a path nobody declared renders a blank page — which is exactly what every referral link did until the Phase F browser pass. Check the route exists whenever the backend starts generating a URL the frontend has to answer.
+- **`/register` is a page of its own (Milestone 28), and it is also where every referral link lands.** `referralLinkFor()` builds `<app>/register?ref=<code>`, which is why the route had to exist at all — a path nobody declared rendered a blank page, which is exactly what every referral link did until the Phase F browser pass. Until Milestone 28 the route rendered the **landing page** and scrolled to a `<section id="register">` in it; it renders `pages/Register` now, which wraps the unchanged `pages/Auth/RegisterForm`. Three things travel with that: the `?ref=` **must** still be validated before submit (the backend refuses the whole registration on a code that does not resolve, so an unchecked one costs a real registration over somebody else's typo); the landing page **carries an incoming `?ref=` across** to its Register buttons so a code shared against `/` is not dropped at the click; and there is no inline form, scroll-to-anchor or registration modal on the landing page any more — do not reintroduce one. Check the route exists whenever the backend starts generating a URL the frontend has to answer.
+- **There is ONE sign-in entry point, and the destination comes from the role.** `pages/Auth/LoginDialog` is it — reached from `/#login`, the hero, and the register page. `/admin` does **not** have a sign-in form (it had one until Milestone 28, which is also why it used to be ungated) and no "Admin login" link may go back into the public UI: it advertises where the admin door is, and it tells a *promoted* admin — an ordinary student account with a role — that they are at the wrong one. After a successful sign-in the redirect is `roleHome()` in `lib/roleHome.ts`, resolved from the **server-supplied** role: staff to `/admin`, a student to `/dashboard`. Never hardcode `navigate('/dashboard')` after `login()` — every caller did, which is how an administrator came to land on the student dashboard. `roleHome()` is allowed to compare a role because it only picks a path; a *capability* decision still goes through `can()`.
+- **`/admin` is gated on `students:read`, and `RequirePermission`'s `signInPath` defaults to `/#login`.** Those two facts are load-bearing together: the default was `/admin` while that page held the sign-in form, and leaving it there after gating `/admin` turns a signed-out visit to `/admin` into an **infinite redirect to itself** rather than a sign-in prompt.
 - **No referral reward rule was ever specified, so none was invented.** `ReferralSettings` defaults to `rewardEnabled: false` and `rewardAmount: 0`, and every surface must say the programme is not running rather than display ₹0 as though it were an offer. **Eligibility is deliberately not configurable** — an amount is a business decision, a rule about when money is owed is a correctness one, and a configurable version could quietly pay out on registration alone. If the owner sets an amount, it applies to the next conversion only.
 - **A `unique` + `sparse` field must have NO `default`.** `sparse` skips documents where the field is *absent*, not where it is `null` — so `default: null` makes every document carry an explicit null, the index treats them as equal, and the **second** document ever created fails on a duplicate key. `Student.referralCode` was written that way first and eleven tests failed on the *root administrator's own provisioning*. See `TROUBLESHOOTING.md`.
 - **There is exactly one destructive bulk path: `services/contentResetService.ts`** (Milestone 22), gated on `content:reset` — **super admin only**, beside `users:delete`. Five properties travel with it and none is optional. **It refuses rather than cascades**: a reset that would orphan rows answers 409 naming its blockers and the scope to reset first (daily challenges → mock tests → questions → chapters), and the check is re-run *inside* `performReset()` because the dialog that was confirmed may be stale. **The official exam is a blocker with no resolution** — do not add a reset for it, its results and certificates are permanent. **A typed phrase per scope** is required by the route (not the schema, which cannot see the path param). **XP is never deleted** — attempts go with their paper because an attempt with no paper cannot be rendered, but `StudentActivity` is a record of something that really happened. And **the preview writes nothing and states real counts plus what survives**, because a warning that only threatens gets clicked through. It deliberately overrides `deleteQuestion()`'s refusal to hard-delete a published question, which is precisely why it is confined to one role and audited with per-collection counts.

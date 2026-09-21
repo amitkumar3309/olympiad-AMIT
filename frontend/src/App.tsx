@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute, RequirePermission, RequirePaidEntry } from './components/ProtectedRoute'
 import ForcePasswordChange from './components/ForcePasswordChange'
+import Unauthorized from './components/Unauthorized'
 import ToastProvider from './components/ui/ToastProvider'
 import Spinner from './components/Spinner'
 /* Eager on purpose: it is the entry route, so deferring it would add a round trip
@@ -104,6 +105,7 @@ const MockTests = lazy(() => import('./pages/MockTests/MockTests'))
 const Certificate = lazy(() => import('./pages/Certificate/Certificate'))
 const Report = lazy(() => import('./pages/Report/Report'))
 const Result = lazy(() => import('./pages/Result/Result'))
+const Register = lazy(() => import('./pages/Register/Register'))
 const VerifyEmail = lazy(() => import('./pages/Auth/VerifyEmail'))
 const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/Auth/ResetPassword'))
@@ -146,15 +148,16 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           {/*
-            The destination of every referral link — `referralLinkFor()` builds
-            `<app>/register?ref=<code>` (Milestone 22, Phase E).
+            Registration, and the destination of every referral link —
+            `referralLinkFor()` builds `<app>/register?ref=<code>` (Milestone 22, Phase E).
 
-            It renders the landing page, which is where the registration form lives, and
-            the page scrolls straight to it. Added in Phase F after the browser pass:
-            the link was being generated for a path with no route behind it, so following
-            one rendered a blank page. There is no catch-all route to have caught it.
+            It rendered `<Landing />` and scrolled to a section until Milestone 28, when
+            the owner asked for registration to be a page of its own. The route was
+            declared in Phase F after the browser pass found referral links landing on a
+            path with no route behind it; it is a real page now, but the reason it must
+            keep existing is unchanged.
           */}
-          <Route path="/register" element={<Landing />} />
+          <Route path="/register" element={<Register />} />
           {/* Public auth flows — reached from emailed links, so they must not be gated. */}
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -170,9 +173,44 @@ export default function App() {
           <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/hall-of-fame" element={<HallOfFame />} />
-          {/* The admin entry point doubles as the root-admin sign-in form, so it is
-              not permission-gated; it renders its own unauthorized state instead. */}
-          <Route path="/admin" element={<Admin />} />
+          {/*
+            The admin entry point. **Gated**, as of Milestone 28.
+
+            It was deliberately ungated until then, because the page doubled as the
+            root administrator's sign-in form — the one door staff had. `88d41fb`
+            merged that form into the single public one and Milestone 28 deleted what
+            was left of it, so the exemption had outlived its reason: an unauthenticated
+            route rendering an admin console shell is now just an unguarded admin route.
+
+            `students:read` rather than a role literal, per the rule in CLAUDE.md. It is
+            held by `admin` and `superadmin` and by no student, and it is the same
+            permission `/admin/users` uses. A guest is sent to the public sign-in and a
+            signed-in student gets `Unauthorized` — bouncing somebody who is already
+            signed in just looks broken.
+
+            This is not the security boundary. Every admin API call re-reads the role
+            from the database (`requirePermission`), so this only decides what the UI
+            offers.
+          */}
+          <Route
+            path="/admin"
+            element={
+              <RequirePermission
+                permission="students:read"
+                // The page's own copy, kept when its internal guard was deleted: a
+                // student who wandered here is better served by "here is your
+                // dashboard" than by the generic permission refusal.
+                unauthorized={
+                  <Unauthorized
+                    title="This area is for administrators"
+                    detail="You are signed in, but your account does not have administrative permissions. Head back to your dashboard to see your own progress."
+                  />
+                }
+              >
+                <Admin />
+              </RequirePermission>
+            }
+          />
           <Route
             path="/admin/users"
             element={

@@ -1,5 +1,46 @@
 # TROUBLESHOOTING.md
 
+## Gating a route that used to hold its own sign-in form makes it redirect to itself forever
+
+**Symptom.** After putting a guard on `/admin`, a signed-out visitor who opens `/admin` gets a
+hanging page or a browser "too many redirects" error instead of a sign-in prompt. Signed-in
+users are unaffected, so it survives a quick check.
+
+**Cause.** `RequirePermission` sends a **guest** to `signInPath`, and that default was
+`/admin` — correct for years, because `/admin` rendered the administrator's own sign-in card
+and was therefore the place a guest *could* go to succeed. Milestone 28 deleted that form and
+gated the route. The guard then sent a guest from `/admin` to `/admin`, which re-ran the guard.
+
+**Fix.** The default is `/#login` (the single public sign-in dialog). The general rule: a
+guard's "go here to sign in" target must be a route that is **reachable while signed out**. If
+you gate a page, check nothing points at it as an escape hatch — `grep` for its path as a
+`signInPath`, a `Navigate to=`, or a redirect target before you add the guard.
+
+**Related.** The same change removed the reason the exemption existed. If you find a route
+deliberately left ungated, look for a comment explaining what it does for a signed-out
+visitor; when that behaviour goes, the exemption usually should too.
+
+## After merging two sign-in forms, one role lands on the wrong page
+
+**Symptom.** An administrator signs in through the normal form with correct credentials and
+arrives on the **student dashboard**. Nothing errors, the session is real, and typing `/admin`
+manually works — so it reads as a missing link rather than a bug.
+
+**Cause.** `AuthContext.login()` has always resolved to the role from the session response,
+but every caller threw it away: `LoginDialog` called `onSignedIn?.()` with no argument and the
+landing page hardcoded `navigate('/dashboard')`. While staff had a separate sign-in form this
+was invisible, because the *form* decided the destination. Merging the forms (`88d41fb`) made
+one hardcoded destination serve both roles.
+
+**Fix.** `login()`'s resolved role is passed to `onSignedIn(role)` and resolved through
+`roleHome()` in `lib/roleHome.ts` — one place, because two would eventually disagree. The role
+comes from the server, so this is navigation rather than authorization; `/admin` is gated
+independently.
+
+**The general shape.** When you merge two entry points into one, anything the *choice of entry
+point* used to encode silently becomes wrong. Search for what the removed path used to imply,
+not just for references to it.
+
 ## A page-level accessibility sweep reports pages clean that are actually broken
 
 **Symptom.** A structural sweep (an `h1` per page, no heading skips, no horizontal overflow,

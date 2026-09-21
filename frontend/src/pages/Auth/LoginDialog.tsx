@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth, ApiError } from '../../context/AuthContext'
+import type { Role } from '../../api/types'
 import { Alert, Button, Field, Input, Modal, PasswordInput } from '../../components/ui'
 import { humanizeSignInError } from '../../lib/errors'
 import styles from './LoginDialog.module.css'
@@ -43,11 +44,16 @@ export interface LoginDialogProps {
   open: boolean
   onClose: () => void
   /**
-   * Where to go once the session exists. The landing page sends them to the dashboard,
-   * which is what it did before this was extracted — a signed-in student left on the
-   * marketing page is not a sign-in.
+   * Where to go once the session exists — a signed-in user left on the marketing page
+   * is not a sign-in.
+   *
+   * It is handed the **role the server returned**, because the destination depends on
+   * it: staff belong in `/admin` and a student on their dashboard. Until Milestone 28
+   * this took no argument and every caller hardcoded the student dashboard, so an
+   * administrator using the one public form was dropped on the wrong page. Resolve it
+   * with `roleHome()` rather than branching here; see the note in `lib/roleHome.ts`.
    */
-  onSignedIn?: () => void
+  onSignedIn?: (role: Role) => void
 }
 
 const FORM_ID = 'login-form'
@@ -89,8 +95,11 @@ export default function LoginDialog({ open, onClose, onSignedIn }: LoginDialogPr
 
     setSubmitting(true)
     try {
-      await login(identifier.trim(), password)
-      onSignedIn?.()
+      // `login()` resolves to the role from the session response. Pass it on rather
+      // than discarding it: it is the only thing that can tell a promoted admin from
+      // a student, and both arrive through this one form.
+      const role = await login(identifier.trim(), password)
+      onSignedIn?.(role)
     } catch (err) {
       setNeedsVerification(err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED')
       setError(humanizeSignInError(err))

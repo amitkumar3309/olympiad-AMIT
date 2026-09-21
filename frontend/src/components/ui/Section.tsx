@@ -33,7 +33,7 @@ import styles from './Section.module.css'
  * itself with `useId`.
  *
  * `id` is kept separate from the heading's id on purpose: one is where you jump to
- * (`/#register`), the other is what names the region.
+ * (an in-page anchor), the other is what names the region.
  *
  * ## There is no "accent word"
  *
