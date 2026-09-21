@@ -30,7 +30,7 @@
   /* The new card treatment (Milestone 26) — see the note in `Card.module.css`. */
   border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
+  box-shadow: none;
 }
 
 .loginIcon {
@@ -93,7 +93,7 @@
   background: var(--surface);
   border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
   text-decoration: none;
   transition:
     box-shadow var(--dur) var(--ease),
@@ -103,7 +103,7 @@
 /* The shadow deepens and the tile rises 1px — not the 4–6px lift that makes a grid of
    cards jump around under a moving pointer. A transform, so nothing around it reflows. */
 .quickCard:hover {
-  box-shadow: var(--shadow-lg);
+  background: var(--surface-hover);
   transform: translateY(-1px);
 }
 

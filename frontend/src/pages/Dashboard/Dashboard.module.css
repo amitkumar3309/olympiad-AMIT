@@ -45,7 +45,7 @@
   background: var(--surface);
   border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
   text-decoration: none;
   transition:
     box-shadow var(--dur) var(--ease),
@@ -54,7 +54,7 @@
 
 /* 1px, not 4–6px: a grid of cards that jumps under a moving pointer is decoration. */
 .actionCard:hover {
-  box-shadow: var(--shadow-lg);
+  background: var(--surface-hover);
   transform: translateY(-1px);
 }
 

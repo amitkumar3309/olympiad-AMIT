@@ -71,7 +71,7 @@
 .unreadItem {
   border-left: 3px solid var(--primary);
   background: var(--surface);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .item.busy {

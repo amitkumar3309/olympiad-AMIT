@@ -94,7 +94,7 @@
 .pill .tabActive {
   background: var(--surface);
   color: var(--text);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 /* ---------- count ------------------------------------------------------ */

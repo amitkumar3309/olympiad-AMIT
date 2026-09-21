@@ -120,7 +120,7 @@
   background: var(--surface);
   color: var(--text);
   font-weight: var(--weight-semibold);
-  box-shadow: var(--shadow-xs);
+  box-shadow: none;
 }
 
 /* A coarse pointer still gets the 44px floor — the compact height above is for the

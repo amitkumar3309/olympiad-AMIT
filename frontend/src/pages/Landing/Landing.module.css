@@ -490,7 +490,7 @@
 .faqItem {
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 .faqItem summary {

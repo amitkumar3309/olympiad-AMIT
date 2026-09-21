@@ -5,7 +5,7 @@
   background: var(--surface);
   border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
+  box-shadow: none;
   padding: clamp(var(--space-6), 4vw, var(--space-10));
 }
 

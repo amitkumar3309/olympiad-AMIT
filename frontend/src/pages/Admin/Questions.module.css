@@ -35,7 +35,7 @@
   border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .sortRow {
@@ -152,7 +152,7 @@
   border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: var(--shadow-md);
+  box-shadow: none;
 }
 
 .busy {

@@ -31,7 +31,7 @@
      lifting shadow. See the note in `Card.module.css` for `--card-border`. */
   border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-xl);
+  box-shadow: none;
 }
 
 .title {

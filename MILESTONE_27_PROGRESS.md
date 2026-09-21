@@ -247,6 +247,68 @@ the remaining admin console, and every parameterised route (`/practice/:sessionI
 `/result`, `/certificate`) which needs data a seed does not create. The three question
 runners are the most important of those and are **specifically flagged in `CLAUDE.md`**
 as one design in three files.
+## Phase 5 — no page surface has a shadow (done)
+
+Phase 2 flattened `ui/Card`. It did not flatten the **twenty-four other page surfaces**
+that were carrying `--shadow-*` directly, which is how `/dashboard` ended up with flat
+cards beside lifted action cards — two separation systems on one screen.
+
+An audit split every `--shadow-*` reference by its enclosing selector: **24 page
+surfaces against 6 genuine overlays.** Eighteen base rules became `box-shadow: none`
+and two hover rules that deepened a shadow became a fill shift (`--surface-hover`),
+which is the same treatment `ui/Card`’s `.interactive` got.
+
+**Four were deliberately kept, and the reason is the same in each case — they are not
+part of the page:**
+
+- `AppShell .skipLink` — appears *over* content when focused.
+- `AppShell .bottomNav` — fixed over content on a phone.
+- `Navbar .inner` — a sticky bar that content scrolls under.
+- `Certificate .certificate` — a **document**, not a product surface. The shadow is what
+  makes it read as a sheet of paper, which is the one place in this product where
+  "floating" is the correct metaphor rather than a leftover.
+
+Two `--shadow-xs` lifts on *active* states also went: `Navbar .linkActive` and
+`ui/Tabs .pill .tabActive`. An active nav item or tab is marked by its **fill** in this
+language; a 1px shadow on a pill was doing the job colour already does.
+
+So `--shadow-*` now means exactly what its comment in `tokens.css` claims: the overlay
+scale, for the modal, the drawer, the menu, the toast and the tooltip — the five things
+a marketing-page reference never had to solve.
+
+### The check that made this safe
+
+Flattening a card is only correct if a **fill** still separates it, and a card nested on
+another white card would have gone invisible. So the sweep gained a third probe: for
+every element larger than 80×32 that sets its own background and has **no** shadow,
+border or outline, composite it over its parent’s effective background and flag anything
+under **1.02:1**.
+
+It found one thing on its first run — `AppShell`’s sidebar at 1.00:1 — which is the
+documented intentional case (page colour, separated by one hairline). The probe was
+only checking `border-top`, so a `border-right` looked like no border at all. With all
+four edges checked: **0 invisible surfaces on every route swept.**
+
+### Verified
+
+| Route | Nodes | Contrast (light/dark) | Overflow | Invisible surfaces |
+|---|---|---|---|---|
+| `/admin/questions` | 239 | 0 / 0 | 0px | 0 |
+| `/rewards` | 128 | 0 / 0 | 0px | 0 |
+| `/dashboard` | 94 | 0 / 0 | 0px | 0 |
+| `/admin` | 72 | 0 / 0 | 0px | 0 |
+| `/notifications` | 37 | 0 / 0 | 0px | 0 |
+| `/gallery` | 30 | 0 / 0 | 0px | 0 |
+
+Between them these cover `StatTile`, `Table`’s card, `Dashboard`’s `.actionCard`,
+`Notifications`’ `.unreadItem`, both gallery tiles, `Admin`’s `.quickCard`, and
+`Questions`’ `.filters` and `.card`. `RegisterForm .card` is covered by the landing
+sweep, since the landing page is what renders it.
+
+**Not verified in a browser:** `AuthLayout .card` (the four pages reached from an email,
+which need a live token) and `ForcePasswordChange .card`. Both are a single centred card
+on the page, which is the case least likely to lose its fill separation — but that is an
+argument, not a measurement, and it is recorded as the latter.
 ## What is left
 
 - **An open finding for the page sweep:** `--accent-strong` (gold-400, **2.14:1 on white**)
@@ -256,7 +318,7 @@ as one design in three files.
   called a defect — they may sit on a dark panel — but they are the first thing to look at
   on those two pages. This predates Milestone 27 (gold-400 was a light fill in Milestone 26
   too); it is recorded here because that is where it will be fixed.
-- **Phase 5 — restructure the student pages** (owner’s scope decision, 2026-09-21):
+- **Phase 6 — restructure the student pages** (owner’s scope decision, 2026-09-21):
   correctness is done everywhere, and the ~15 student-facing routes now get Brightpath
   *patterns* — pastel category cards, tinted bands, hard-edged tiles. The admin console
   gets correctness only, deliberately: the reference is a marketing site with nothing to
@@ -284,6 +346,18 @@ as one design in three files.
   the single most important finding of the extraction.
 - **Verify the rounded hex, not the computed float.** `--amber-600` needed a second pass
   because the first candidate computed 4.5034:1 against white and rounded to 4.50.
+- **Measure overflow against an *explicitly emulated* viewport.** A hidden Browser pane
+  reports `documentElement.clientWidth` of **0**, so every element on the page appears to
+  overflow and `scrollWidth - clientWidth` reads as the full content width. One sweep
+  reported 168px of overflow on a page that has none. Call `resize_window` with a real
+  width first; the page-level figure is the only one that matters, and an SVG `path`
+  bounding box (KaTeX) will show as a 6,000px offender while the page overflows 0px.
+- **The preview servers die, and the frontend outlives the backend.** Both exited twice
+  during this milestone — once because the preview tool health-checked port 57957 while
+  Vite had taken 5174. A dead backend looks like a working page full of empty states, so
+  a sweep can quietly measure nothing and report zero failures. **Check `/ready` before
+  trusting a run**, and wait for the page to actually paint: 4s after a cold start gave
+  `nodes: 1` on pages that render 128 nodes once loaded.
 - **`npm run dev` may not land on the port the preview tool reports.** 5173 was taken, the
   tool assigned 57957, Vite chose 5174, and the tab at 57957 rendered a blank page that
   looked exactly like a CSS parse error. Read the server log for the real port.
