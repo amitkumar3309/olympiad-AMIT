@@ -23,7 +23,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
 import MathText from '../../components/MathText'
-import { dailyChallengeHandoff, mockTestHandoff } from './questionHandoff'
+import { dailyQuizHandoff, mockTestHandoff } from './questionHandoff'
 import { Alert, Button, ButtonLink, Icon, Spinner } from '../../components/ui'
 import styles from './Questions.module.css'
 import { humanizeError } from '../../lib/errors'
@@ -247,7 +247,7 @@ export default function Questions() {
     [questions, selected],
   )
   const toMockTest = useMemo(() => mockTestHandoff(selectedQuestions), [selectedQuestions])
-  const toDailyChallenge = useMemo(() => dailyChallengeHandoff(selectedQuestions), [selectedQuestions])
+  const toDailyQuiz = useMemo(() => dailyQuizHandoff(selectedQuestions), [selectedQuestions])
 
   /** Asks the backend what a student of this class would find, using the picker's own function. */
   const loadAvailability = useCallback(async (classLevel: ClassLevel) => {
@@ -506,21 +506,21 @@ export default function Questions() {
                   Create mock test
                 </Button>
 
-                {/* Phase I. One question, and it has to be published — a student may only ever be
-                    served a published question. */}
+                {/* Milestone 30. Unpublished, single-choice questions with a solution — a
+                    prize quiz must not be one a student can already read in Practice. */}
                 <Button
                   variant="outline"
-                  disabled={bulkBusy || 'reason' in toDailyChallenge}
+                  disabled={bulkBusy || 'reason' in toDailyQuiz}
                   title={
-                    'reason' in toDailyChallenge
-                      ? toDailyChallenge.reason
-                      : 'Schedule this question as a daily challenge'
+                    'reason' in toDailyQuiz
+                      ? toDailyQuiz.reason
+                      : 'Schedule these questions as Daily Quizzes'
                   }
                   onClick={() => {
-                    if ('url' in toDailyChallenge) navigate(toDailyChallenge.url)
+                    if ('url' in toDailyQuiz) navigate(toDailyQuiz.url)
                   }}
                 >
-                  Schedule daily challenge
+                  Schedule as Daily Quiz
                 </Button>
 
                 {/*
@@ -530,12 +530,12 @@ export default function Questions() {
                   Phase G audit flagged under "no hover-only information". The `title`
                   stays for a mouse user who hovers before reading.
                 */}
-                {('reason' in toMockTest || 'reason' in toDailyChallenge) && (
+                {('reason' in toMockTest || 'reason' in toDailyQuiz) && (
                   <p className={styles.bulkReason}>
                     {'reason' in toMockTest
                       ? toMockTest.reason
-                      : 'reason' in toDailyChallenge
-                        ? toDailyChallenge.reason
+                      : 'reason' in toDailyQuiz
+                        ? toDailyQuiz.reason
                         : null}
                   </p>
                 )}
@@ -551,9 +551,9 @@ export default function Questions() {
             invisible to a keyboard user, and "the button is greyed out" is the commonest way an
             admin panel wastes somebody's afternoon.
           */}
-          {selected.length > 0 && 'reason' in toMockTest && 'reason' in toDailyChallenge && (
+          {selected.length > 0 && 'reason' in toMockTest && 'reason' in toDailyQuiz && (
             <p className={styles.handoffHint}>
-              {toMockTest.reason === toDailyChallenge.reason ? toMockTest.reason : `${toMockTest.reason} ${toDailyChallenge.reason}`}
+              {toMockTest.reason === toDailyQuiz.reason ? toMockTest.reason : `${toMockTest.reason} ${toDailyQuiz.reason}`}
             </p>
           )}
 

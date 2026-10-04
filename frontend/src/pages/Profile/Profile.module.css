@@ -437,3 +437,24 @@
     font-size: var(--text-md);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   The Daily Quiz (Milestone 30): prize details and the quiz history, full width.
+--------------------------------------------------------------------------- */
+
+.prizeCard,
+.fullRow {
+  grid-column: 1 / -1;
+  min-width: 0;
+  scroll-margin-top: var(--space-20);
+}
+
+.prizeCard {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.prizeForm {
+  display: grid;
+  gap: var(--space-4);
+}

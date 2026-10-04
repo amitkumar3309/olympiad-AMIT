@@ -87,3 +87,24 @@ export function formatCompactDuration(totalSeconds: number): string {
   if (minutes > 0) return `${minutes}m`
   return 'under a minute'
 }
+
+/**
+ * A competition day key (`2026-11-08`) as a date: `"Sun, 8 Nov 2026"`. The key already
+ * *is* an IST calendar date, so it is read as IST midnight and never re-derived from a
+ * device's clock — a browser in another time zone must not relabel a day.
+ */
+export function formatDayKey(day: string): string {
+  return formatDate(`${day}T00:00:00+05:30`)
+}
+
+/**
+ * A server-measured solve time: `"42.3 s"`, `"1 min 12 s"`, `"2 h 4 min"`. Tenths below a
+ * minute, because a Daily Quiz winner can be decided by them.
+ */
+export function formatSolveTime(ms: number): string {
+  if (ms < 60_000) return `${(Math.max(0, ms) / 1000).toFixed(1)} s`
+  const { days, hours, minutes, seconds } = splitDuration(ms / 1000)
+  const totalHours = days * 24 + hours
+  if (totalHours > 0) return `${totalHours} h ${minutes} min`
+  return `${minutes} min ${seconds} s`
+}

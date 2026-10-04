@@ -233,8 +233,8 @@ export default function Analytics() {
                 </ButtonLink>
               }
               secondaryAction={
-                <ButtonLink to="/daily-challenge" variant="secondary" icon="ph-dice-five">
-                  Today’s challenge
+                <ButtonLink to="/daily-quiz" variant="secondary" icon="ph-lightning">
+                  Today’s quiz
                 </ButtonLink>
               }
             />
@@ -386,7 +386,7 @@ export default function Analytics() {
               </TableScroll>
               {analytics.notes.includes('pace-unavailable-daily-challenge-has-no-clock') && (
                 <p className={styles.muted}>
-                  The daily challenge is not timed, so it counts toward your accuracy but not toward your pace.
+                  The Daily Quiz counts toward your accuracy but not toward your pace — and only once its answer has unlocked.
                 </p>
               )}
               {analytics.notes.includes('some-answered-questions-have-since-been-deleted') && (

@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute, RequirePermission, RequirePaidEntry } from './components/ProtectedRoute'
@@ -42,8 +42,9 @@ const AdminMockTests = lazy(() => import('./pages/Admin/MockTests'))
 const AdminMockTestForm = lazy(() => import('./pages/Admin/MockTestForm'))
 const AdminMockTestResults = lazy(() => import('./pages/Admin/MockTestResults'))
 /** The daily challenge renders a question, so it carries KaTeX too (Milestone 8). */
-const DailyChallengePage = lazy(() => import('./pages/DailyChallenge/DailyChallenge'))
-const AdminDailyChallenges = lazy(() => import('./pages/Admin/DailyChallenges'))
+const DailyQuizPage = lazy(() => import('./pages/DailyQuiz/DailyQuiz'))
+const AdminDailyQuiz = lazy(() => import('./pages/Admin/DailyQuiz'))
+const AdminDailyQuizDetail = lazy(() => import('./pages/Admin/DailyQuizDetail'))
 /** Gamification (Milestone 9). Neither page renders maths, but both are secondary
  *  destinations, so they are split out to keep the entry bundle for the pages every
  *  student opens on arrival. */
@@ -391,16 +392,26 @@ export default function App() {
               </RequirePermission>
             }
           />
-          {/* Scheduling the daily challenge. Optional by design — an unscheduled day
-              is filled automatically — so this page is a curation tool, not a chore. */}
+          {/* Running the Daily Quiz (Milestone 30): the calendar, scheduling, bulk import,
+              each quiz's figures and winners, the prize desk and the settings. */}
           <Route
-            path="/admin/daily-challenges"
+            path="/admin/daily-quiz"
             element={
               <RequirePermission permission="challenges:write">
-                <AdminDailyChallenges />
+                <AdminDailyQuiz />
               </RequirePermission>
             }
           />
+          <Route
+            path="/admin/daily-quiz/:groupId"
+            element={
+              <RequirePermission permission="challenges:write">
+                <AdminDailyQuizDetail />
+              </RequirePermission>
+            }
+          />
+          {/* The console's old address, kept so a bookmark lands on its replacement. */}
+          <Route path="/admin/daily-challenges" element={<Navigate to="/admin/daily-quiz" replace />} />
           {/* The XP award table. Its own permission because it is the one setting that
               changes what every future event is worth for everybody at once. */}
           <Route
@@ -528,15 +539,17 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          {/* --- Daily challenge (Milestone 8). Free. --- */}
+          {/* --- The Daily Quiz (Milestone 30; the daily challenge before it). Free. --- */}
           <Route
-            path="/daily-challenge"
+            path="/daily-quiz"
             element={
               <ProtectedRoute>
-                <DailyChallengePage />
+                <DailyQuizPage />
               </ProtectedRoute>
             }
           />
+          {/* The old address, kept so a bookmark or an old notification still arrives. */}
+          <Route path="/daily-challenge" element={<Navigate to="/daily-quiz" replace />} />
           {/**
            * `/exam` was the old practice paper — real questions, but no marking, because
            * nothing could grade them. The Practice Zone supersedes it entirely, so this

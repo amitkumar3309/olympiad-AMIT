@@ -1,0 +1,45 @@
+/* `/daily-quiz`: the quiz, and beside it from a laptop up, how winners are chosen. */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .layout {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+.main {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.aside {
+  min-width: 0;
+}
+
+.headline {
+  margin: 0 0 var(--space-2);
+  font-weight: var(--weight-bold);
+  color: var(--primary-text);
+}
+
+.rule {
+  margin: 0 0 var(--space-3);
+  line-height: var(--leading-normal);
+  color: var(--text-body);
+}
+
+.points {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-body);
+  line-height: var(--leading-normal);
+}

@@ -27,11 +27,11 @@ import { ACTIVITY_LABELS, type ActivityEntry, type DashboardData, type Paginatio
 import styles from './Dashboard.module.css'
 
 /**
- * Code-split because it renders question content through KaTeX (~300 KB). Every
- * student opens this dashboard, so that cost is paid only when their class actually
- * has a published challenge to show. See `DailyChallengeCard.tsx`.
+ * Code-split because it renders question content through KaTeX (~300 KB). The card is
+ * `components/DailyQuizPanel` — the same component as `/daily-quiz`, so the dashboard
+ * and the page can never disagree about what a student may do (brief §6.4).
  */
-const DailyChallengeCard = lazy(() => import('./DailyChallengeCard'))
+const DailyQuizPanel = lazy(() => import('../../components/DailyQuizPanel'))
 
 /**
  * The student dashboard.
@@ -201,11 +201,11 @@ export default function Dashboard() {
                 <Icon name="ph-caret-right" size="sm" className={styles.actionChevron} />
               </Link>
 
-              <Link to="/daily-challenge" className={styles.actionCard}>
-                <IconTile icon="ph-dice-five" tone="magenta" size="lg" />
+              <Link to="/daily-quiz" className={styles.actionCard}>
+                <IconTile icon="ph-lightning" tone="magenta" size="lg" />
                 <span className={styles.actionText}>
-                  <span className={styles.actionTitle}>Daily challenge</span>
-                  <span className={styles.actionMeta}>One question a day, marked instantly</span>
+                  <span className={styles.actionTitle}>Daily Quiz</span>
+                  <span className={styles.actionMeta}>One question a day — win a prize</span>
                 </span>
                 <Icon name="ph-caret-right" size="sm" className={styles.actionChevron} />
               </Link>
@@ -286,12 +286,12 @@ export default function Dashboard() {
             <Suspense
               fallback={
                 <Card>
-                  <CardHeader title="Today's challenge" size="sm" as="h3" />
-                  <SkeletonText lines={3} label="Loading today's challenge" />
+                  <CardHeader title="Today’s Daily Quiz" size="sm" as="h3" />
+                  <SkeletonText lines={3} label="Loading today’s quiz" />
                 </Card>
               }
             >
-              <DailyChallengeCard />
+              <DailyQuizPanel variant="card" />
             </Suspense>
 
             {/* --------- Practice available for this class --------- */}
@@ -423,7 +423,7 @@ export default function Dashboard() {
                   size="sm"
                   icon="ph-list-dashes"
                   title="Nothing recorded yet"
-                  description="Practice, mock tests and the daily challenge all appear here as you go, with the XP each one earned."
+                  description="Practice, mock tests and the Daily Quiz all appear here as you go, with the XP each one earned."
                 />
               ) : (
                 <>

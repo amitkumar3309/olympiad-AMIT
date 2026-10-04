@@ -76,7 +76,7 @@ export const STUDENT_NAV: NavGroup[] = [
       // a paper is open.
       { to: '/practice', label: 'Practice Zone', icon: 'ph-target', match: ['/practice'] },
       { to: '/mock-tests', label: 'Mock Tests', icon: 'ph-exam', match: ['/mock-tests'] },
-      { to: '/daily-challenge', label: 'Daily Challenge', icon: 'ph-dice-five' },
+      { to: '/daily-quiz', label: 'Daily Quiz', icon: 'ph-lightning' },
     ],
   },
   {
@@ -127,7 +127,7 @@ export const STUDENT_BOTTOM_NAV: NavItem[] = [
   { to: '/dashboard', label: 'Home', icon: 'ph-squares-four' },
   { to: '/practice', label: 'Practice', icon: 'ph-target', match: ['/practice'] },
   { to: '/mock-tests', label: 'Tests', icon: 'ph-exam', match: ['/mock-tests'] },
-  { to: '/daily-challenge', label: 'Challenge', icon: 'ph-dice-five' },
+  { to: '/daily-quiz', label: 'Daily Quiz', icon: 'ph-lightning' },
 ]
 
 /**
@@ -173,7 +173,7 @@ export const ADMIN_NAV: NavGroup[] = [
     label: 'Assessments',
     items: [
       { to: '/admin/mock-tests', label: 'Mock Tests', icon: 'ph-exam', permission: 'mocktests:write', match: ['/admin/mock-tests'] },
-      { to: '/admin/daily-challenges', label: 'Daily Challenge', icon: 'ph-dice-five', permission: 'challenges:write' },
+      { to: '/admin/daily-quiz', label: 'Daily Quiz', icon: 'ph-lightning', permission: 'challenges:write', match: ['/admin/daily-quiz'] },
       { to: '/admin/exams', label: 'Official Exam', icon: 'ph-graduation-cap', permission: 'exam:write' },
       { to: '/admin/certificates', label: 'Certificates', icon: 'ph-medal', permission: 'certificates:write' },
     ],

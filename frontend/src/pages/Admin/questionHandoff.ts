@@ -1,8 +1,8 @@
 import type { AdminQuestion, ClassLevel } from '../../api/types'
 
 /**
- * Handing a selection of questions from the Question Bank to the Mock Test or Daily Challenge
- * author (Milestone 21, Phases H and I).
+ * Handing a selection of questions from the Question Bank to the Mock Test author or the Daily Quiz
+ * console (Milestone 21, Phases H and I; the Daily Quiz since Milestone 30).
  *
  * ## Why a query string rather than router state
  *
@@ -17,7 +17,7 @@ import type { AdminQuestion, ClassLevel } from '../../api/types'
  * ## Why the rules live here and not in the button
  *
  * Both destinations refuse things the Question Bank could otherwise offer — a mock test's paper must
- * be all one class, a daily challenge needs a *published* question — and the honest behaviour is to
+ * be all one class, a Daily Quiz needs an *unpublished* one — and the honest behaviour is to
  * **explain why the action is unavailable** rather than to navigate somewhere that then rejects the
  * selection. Putting the check next to the URL builder means the button's tooltip and the
  * destination's validation are derived from the same statement of the rule.
@@ -57,22 +57,39 @@ export function mockTestHandoff(questions: readonly AdminQuestion[]): { url: str
   return { url: `/admin/mock-tests/new?${params.toString()}` }
 }
 
-/** Whether a selection can become a daily challenge, and why not when it cannot. */
-export function dailyChallengeHandoff(questions: readonly AdminQuestion[]): { url: string } | { reason: string } {
-  if (questions.length !== 1) {
-    return { reason: 'A daily challenge is one question — select exactly one.' }
-  }
-  const question = questions[0]!
+/** The most questions one hand-off to the Daily Quiz may carry — the bulk planner's own ceiling. */
+export const MAX_QUIZ_HANDOFF = 60
 
-  /**
-   * The service requires a published question, because a student may only ever be served one. Saying
-   * so here means the button explains itself instead of the form refusing after the examiner has
-   * chosen a date.
-   */
-  if (question.status !== 'published') {
-    return { reason: 'A daily challenge needs a published question. Publish it first.' }
+/**
+ * Whether a selection can become Daily Quizzes, and why not when it cannot (Milestone 30).
+ *
+ * The opposite rule to the old daily challenge, deliberately: a Daily Quiz carries a prize, so
+ * its question must be **unpublished** — a published question's solution is already readable in
+ * Practice, and the answer would be one search away. The question also has to be single choice
+ * with a worked solution, because the solution is what unlocks the next day. One question opens
+ * the scheduler; several open the bulk planner, one day each.
+ */
+export function dailyQuizHandoff(questions: readonly AdminQuestion[]): { url: string } | { reason: string } {
+  if (questions.length === 0) return { reason: 'Select a question first.' }
+  if (questions.length > MAX_QUIZ_HANDOFF) {
+    return { reason: `Schedule at most ${MAX_QUIZ_HANDOFF} quizzes at a time.` }
+  }
+  if (questions.some((q) => q.status === 'published')) {
+    return {
+      reason:
+        'A Daily Quiz needs an unpublished question — a published one’s solution is already open in Practice. Use a draft; it can be published for practice once the quiz’s answer is revealed.',
+    }
+  }
+  if (questions.some((q) => q.status === 'archived')) {
+    return { reason: 'An archived question cannot be a Daily Quiz.' }
+  }
+  if (questions.some((q) => q.type !== 'single_choice')) {
+    return { reason: 'A Daily Quiz is single choice — one correct option out of 2 to 6.' }
+  }
+  if (questions.some((q) => !q.solution || q.solution.trim().length === 0)) {
+    return { reason: 'Every Daily Quiz needs a worked solution, because it unlocks the next day. Add one first.' }
   }
 
-  const params = new URLSearchParams({ classLevel: question.classLevel, questionId: question.id })
-  return { url: `/admin/daily-challenges?${params.toString()}` }
+  const params = new URLSearchParams({ questions: questions.map((q) => q.id).join(',') })
+  return { url: `/admin/daily-quiz?${params.toString()}` }
 }

@@ -443,9 +443,20 @@ export type AuditAction =
   | 'mocktest.updated'
   | 'mocktest.status.changed'
   | 'mocktest.deleted'
+  | 'questions.imported'
   | 'dailychallenge.scheduled'
   | 'dailychallenge.updated'
   | 'dailychallenge.deleted'
+  | 'dailyquiz.scheduled'
+  | 'dailyquiz.updated'
+  | 'dailyquiz.deleted'
+  | 'dailyquiz.winners.computed'
+  | 'dailyquiz.winner.confirmed'
+  | 'dailyquiz.winner.disqualified'
+  | 'dailyquiz.winner.published'
+  | 'dailyquiz.winner.contacted'
+  | 'dailyquiz.winner.delivered'
+  | 'dailyquiz.settings.updated'
   | 'reward.settings.updated'
   | 'subject.changed'
   | 'topic.changed'
@@ -463,6 +474,7 @@ export interface AuditEntry {
     | 'question'
     | 'mocktest'
     | 'dailychallenge'
+    | 'dailyquiz'
     | 'subject'
     | 'topic'
     | 'gallery'
@@ -495,7 +507,7 @@ export type AnalyticsSurface = 'practice' | 'mock_test' | 'daily_challenge' | 'o
 export const SURFACE_LABELS: Record<AnalyticsSurface, string> = {
   practice: 'Practice',
   mock_test: 'Mock tests',
-  daily_challenge: 'Daily challenge',
+  daily_challenge: 'Daily Quiz',
   official_exam: 'Official exam',
 }
 
@@ -1046,6 +1058,12 @@ export interface OwnProfile {
   classLevel: ClassLevel | null
   schoolName: string | null
   address: string | null
+  /** What a Daily Quiz prize needs (Milestone 30). */
+  city: string | null
+  guardianPhone: string | null
+  guardianEmail: string | null
+  hideFromPublicLists: boolean
+  prizeEligibility: QuizEligibility
   /** Identity fields — displayed, but not editable here. See profileSchemas.ts. */
   mobile: string
   email: string
@@ -1068,6 +1086,11 @@ export interface ProfileUpdateInput {
   classLevel: ClassLevel
   schoolName: string
   address: string
+  /** Optional keys: absent leaves the stored value, `null` clears it (Milestone 30). */
+  city?: string | null
+  guardianPhone?: string | null
+  guardianEmail?: string | null
+  hideFromPublicLists?: boolean
 }
 
 /** Mirrors `ACTIVITY_TYPES` in `backend/src/models/StudentActivity.ts`. */
@@ -1094,7 +1117,7 @@ export const ACTIVITY_LABELS: Record<ActivityType, { label: string; icon: string
   password_changed: { label: 'Changed your password', icon: 'ph-lock-key' },
   practice_completed: { label: 'Completed a practice session', icon: 'ph-target' },
   mock_test_completed: { label: 'Completed a mock test', icon: 'ph-exam' },
-  daily_challenge_completed: { label: 'Answered the daily challenge', icon: 'ph-dice-five' },
+  daily_challenge_completed: { label: 'Solved the Daily Quiz', icon: 'ph-dice-five' },
 }
 
 export interface ActivityEntry {
@@ -1531,152 +1554,390 @@ export interface StudentQuestion {
 }
 
 /**
- * The daily challenge (Milestone 8).
+ * The Daily Quiz (Milestone 30, Phase 2) — the daily challenge, upgraded into a prize quiz.
  *
- * `DailyChallengeToday` splits into two states the same way the mock-test types do, and
- * for the same reason: `attempt` is `null` until the student has answered, and the
- * answer key lives only on `DailyChallengeResult`. A component handed the unanswered
- * shape cannot read a correct answer out of it — there is no field to read.
+ * The answer key is absent from every type a student receives **until the reveal**: a
+ * quiz's correct option and worked solution exist only on `QuizReveal`, which the server
+ * sends from the next IST midnight. Before then there is no field to read them from, so a
+ * component cannot leak what it was never given — the same discipline the mock-test types
+ * follow.
  */
-/** Who decided a day's question: a member of staff, or the automatic fill. */
-export type ChallengeSource = 'scheduled' | 'automatic'
+export type QuizPhase = 'upcoming' | 'open' | 'revealed'
+export type QuizState = 'not-started' | 'in-progress' | 'submitted'
+export type WinnerRule = 'FASTEST_CORRECT' | 'FIRST_CORRECT' | 'MANUAL'
+export type WinnerStatus = 'provisional' | 'confirmed' | 'published' | 'disqualified'
 
-export interface DailyChallenge {
-  day: string
-  challengeId: string
-  classLevel: ClassLevel
-  /**
-   * Whether a member of staff chose today's question or the bank filled the day itself.
-   * The page says both that the question changes at midnight and that staff may change
-   * it sooner, and those two sentences are only honest together.
-   */
-  source: ChallengeSource
-  question: StudentQuestion
+/** What a prize winner must have, by name (`lib/dailyQuiz.ts` on the backend). */
+export type EligibilityRequirement =
+  | 'verified-email'
+  | 'active-account'
+  | 'name'
+  | 'class'
+  | 'school'
+  | 'city'
+  | 'guardian-phone'
+
+export const ELIGIBILITY_LABELS: Record<EligibilityRequirement, string> = {
+  'verified-email': 'a verified email address',
+  'active-account': 'an active account',
+  name: 'your full name',
+  class: 'your class',
+  school: 'your school',
+  city: 'your city',
+  'guardian-phone': 'a parent or guardian’s phone number',
 }
 
-/**
- * When today's challenge stops being today's — **the server's clock, not the browser's**.
- *
- * The boundary is IST midnight, so a browser in another timezone would compute a
- * different instant and a device with a wrong clock would compute an arbitrary one. Both
- * figures are sent because they fail differently: `secondsRemaining` is a duration and
- * therefore immune to clock skew, while `nextChangeAt` is absolute and therefore immune
- * to a timer throttled in a background tab. A countdown uses the first to render and the
- * second to correct itself; it never concludes on its own that the day has turned.
- */
-export interface ChallengeRollover {
-  nextChangeAt: string
-  secondsRemaining: number
-  timezone: string
+export interface QuizEligibility {
+  eligible: boolean
+  missing: EligibilityRequirement[]
 }
 
-export interface DailyChallengeResult {
+export interface QuizClassRange {
+  min: number
+  max: number
+  label: string
+}
+
+/** The prize and the rule, as any visitor may read them. */
+export interface QuizPrizeInfo {
+  prizeHeadline: string
+  prizeText: string
+  /** Whole rupees, or null — and null is the default: no figure is shown until one is set. */
+  cashAmount: number | null
+  winnerRule: WinnerRule
+  winnersPerQuiz: number
+  /** Generated from the same settings the server ranks by. Print verbatim. */
+  howWinnersAreChosen: string
+  instantResult: boolean
+  xpForCorrect: number
+}
+
+/** Today's quiz before Start: no question, no options, no key. */
+export interface QuizMeta {
   id: string
+  groupId: string
   day: string
+  classRange: QuizClassRange
+  topic: string | null
+  difficulty: Difficulty | null
+  opensAt: string
+  closesAt: string
+  revealAt: string
+  phase: QuizPhase
+}
+
+export interface QuizOption {
+  /** Opaque — `o` and ten hex digits. Never a position, never the answer. */
+  id: string
+  text: string
+  /** The letter painted on the tile in this student's order. Display only. */
+  letter: string
+}
+
+export interface QuizQuestion {
+  text: string
+  options: QuizOption[]
+}
+
+/** Present only from the reveal. */
+export interface QuizReveal {
+  correctOptionId: string | null
+  correctOptionText: string | null
+  solution: string | null
+}
+
+export interface QuizResult {
   submittedAt: string
+  solveTimeMs: number | null
+  selectedOptionId: string | null
+  /** Null while results are held until the reveal (`instantResult` off). */
+  isCorrect: boolean | null
   xpAwarded: number
-  isCorrect: boolean
-  awardedMarks: number
-  marks: number
-  response: {
-    selectedOptionKeys: string[]
-    numericResponse: number | null
-    /** `fill_blank` only: what the student typed, verbatim. */
-    textResponse?: string | null
-    booleanResponse: boolean | null
-  }
-  correctAnswer: {
-    optionKeys: string[]
-    booleanAnswer: boolean | null
-    numericAnswer: number | null
-    tolerance: number | null
-    acceptedAnswers?: string[]
-  }
-  explanation: string | null
-  /** The question has been edited since it was answered. */
-  revisionChanged: boolean
+  xpPending: boolean
+  revealAt: string
+  revealed: boolean
+  reveal: QuizReveal | null
 }
 
-export interface ChallengeStreak {
-  current: number
-  longest: number
-}
-
-export interface DailyChallengeToday {
-  challenge: DailyChallenge | null
-  /** Null until answered. Its presence is what makes the reveal reachable. */
-  attempt: DailyChallengeResult | null
-  streak?: ChallengeStreak
-  completedCount?: number
-  reward?: { xp: number; claimed: boolean }
+export interface DailyQuizToday {
+  /** The server's clock — every countdown on the page is offset from this. */
+  serverNow: string
   today: string
-  /** Sent in every state, including the empty ones. */
-  rollover?: ChallengeRollover
-  reason?: 'none-published' | 'no-class'
+  prize: QuizPrizeInfo
+  eligibility: QuizEligibility
+  streak: { current: number; longest: number }
+  /** The student's most recent earlier quiz, once its answer is unlocked. */
+  previous: { day: string; topic: string | null; isCorrect: boolean; revealed: boolean } | null
+  quiz: QuizMeta | null
+  reason: 'no-class' | 'none-scheduled' | null
+  state: QuizState | null
+  startedAt: string | null
+  /** Only after Start. */
+  question: QuizQuestion | null
+  /** Only after submitting. */
+  result: QuizResult | null
+  /** When there is no quiz today: when the next one for this class opens, if any is set. */
+  nextQuizAt: string | null
 }
 
-export interface DailyChallengeAnswerResponse {
-  attempt: DailyChallengeResult
-  /** True when today's answer was already in — nothing was re-graded or re-paid. */
-  alreadyAnswered: boolean
-  /** What *this* request awarded: 0 on a repeat submission. */
+export interface DailyQuizStartResponse extends DailyQuizToday {
+  alreadyStarted: boolean
+}
+
+export interface DailyQuizSubmitResponse extends DailyQuizToday {
+  /** True when today's answer was already in: nothing was re-marked or re-paid. */
+  alreadySubmitted: boolean
+  /** What this request earned — 0 for a repeat, and 0 while held until the reveal. */
   xpAwarded: number
-  streak: ChallengeStreak
-  completedCount: number
 }
 
-/** One row of the student's own challenge history. */
-export interface DailyChallengeHistoryEntry {
-  id: string
+export interface QuizHistoryRow {
   day: string
-  submittedAt: string
-  isCorrect: boolean
-  awardedMarks: number
-  marks: number
-  xpAwarded: number
+  status: 'submitted' | 'not-submitted' | 'in-progress'
+  topic: string | null
   questionText: string | null
-  subject: QuestionRef | null
-  topic: QuestionRef | null
+  options: QuizOption[]
+  selectedOptionId: string | null
+  selectedOptionText: string | null
+  isCorrect: boolean | null
+  solveTimeMs: number | null
+  xpAwarded: number
+  xpPending: boolean
+  revealAt: string
+  revealed: boolean
+  reveal: QuizReveal | null
+  won: boolean
 }
 
-export interface DailyChallengeHistoryResponse {
-  attempts: DailyChallengeHistoryEntry[]
-  streak: ChallengeStreak
-  completedCount: number
+export interface QuizHistorySummary {
+  attempted: number
+  correct: number
+  accuracy: number | null
+  currentStreak: number
+  longestStreak: number
+  wins: number
+}
+
+export interface DailyQuizHistoryResponse {
+  serverNow: string
+  attempts: QuizHistoryRow[]
+  summary: QuizHistorySummary
   pagination: Pagination
 }
 
-// --- Admin ---
-
-export interface AdminDailyChallenge {
-  id: string
+export interface PublicQuizWinner {
   day: string
-  classLevel: ClassLevel
-  source: ChallengeSource
-  marks: number
+  displayName: string
+  classLevel: ClassLevel | null
+  place: string | null
+  prizeText: string | null
+}
+
+// --- Staff ---
+
+export interface QuizStats {
+  started: number
+  submitted: number
+  correct: number
+  correctPercent: number | null
+  medianSolveMs: number | null
+}
+
+/** A staff view: the answer key is here, because staff wrote it. */
+export interface AdminQuiz {
+  groupId: string
+  day: string
+  phase: QuizPhase
+  classRange: QuizClassRange
+  classLevels: ClassLevel[]
+  source: 'scheduled' | 'automatic'
+  /** False for a day from before the Daily Quiz, which carries no snapshot. */
+  playable: boolean
   question: {
     id: string
-    questionText: string | null
-    type: QuestionType | null
+    text: string | null
+    topic: string | null
     difficulty: Difficulty | null
-    status: QuestionStatus | null
-    subject: QuestionRef | null
-    topic: QuestionRef | null
+    options: Array<{ id: string; text: string }>
+    correctOptionId: string | null
+    solution: string | null
   }
-  attempts: number
-  correct: number
-  /** Of those who answered; null when nobody did. */
-  correctPercent: number | null
+  stats: QuizStats
+  winner: { name: string; status: WinnerStatus } | null
   createdByLabel: string | null
   createdAt: string
 }
 
-export interface AdminDailyChallengeListResponse {
-  challenges: AdminDailyChallenge[]
-  /** The server's competition day — never computed in the browser. */
+export interface QuizCalendarDay {
+  day: string
+  coveredClasses: number[]
+  /** `legacy`: a daily challenge from before the quiz, holding the slot without being a quiz. */
+  quizzes: Array<{ groupId: string; min: number; max: number; label: string; legacy: boolean }>
+}
+
+export interface QuizCalendar {
   today: string
-  upcoming: string[]
+  days: QuizCalendarDay[]
+  warnings: Array<{ group: string; label: string; day: string; missingClasses: number[] }>
+}
+
+export interface AdminDailyQuizListResponse {
+  quizzes: AdminQuiz[]
+  calendar: QuizCalendar
   pagination: Pagination
+}
+
+export interface QuizCandidate {
+  id: string
+  questionText: string
+  classLevel: ClassLevel
+  difficulty: Difficulty
+  topic: string | null
+  status: QuestionStatus
+  optionCount: number
+  ready: boolean
+}
+
+export interface QuizCandidatesResponse {
+  candidates: QuizCandidate[]
+  pagination: Pagination
+}
+
+export interface QuizSettings {
+  prizeHeadline: string
+  prizeText: string
+  cashAmount: number | null
+  winnerRule: WinnerRule
+  winnersPerQuiz: number
+  instantResult: boolean
+  updatedAt: string | null
+  updatedByLabel: string | null
+}
+
+export interface QuizWinnerRow {
+  id: string
+  groupId: string
+  day: string
+  classMin: number
+  classMax: number
+  rank: number
+  status: WinnerStatus
+  reason: string | null
+  ruleUsed: WinnerRule
+  solveTimeMs: number | null
+  submittedAt: string
+  /** How many other correct answers came from the same connection. A prompt, never a verdict. */
+  sharedIpCount: number
+  prizeText: string | null
+  cashAmount: number | null
+  confirmedAt: string | null
+  publishedAt: string | null
+  contactedAt: string | null
+  deliveredAt: string | null
+  decidedByLabel: string | null
+  student: {
+    studentId: string
+    name: string
+    classLevel: ClassLevel | null
+    schoolName: string | null
+    city: string | null
+    email: string
+    emailVerified: boolean
+    guardianPhone: string | null
+    guardianEmail: string | null
+    eligibility: QuizEligibility
+  } | null
+  /** On the prize desk only: whether the quiz this came from still exists. */
+  quizExists?: boolean
+}
+
+export type WinnerAction = 'confirm' | 'disqualify' | 'publish' | 'contacted' | 'delivered'
+
+export interface AdminQuizDetailResponse {
+  quiz: AdminQuiz
+  winners: QuizWinnerRow[]
+}
+
+export interface ComputeWinnersResponse {
+  correctCount: number
+  ineligible: Array<{ studentId: string | null; name: string | null; solveTimeMs: number | null; missing: EligibilityRequirement[] }>
+  winners: QuizWinnerRow[]
+}
+
+export type PrizeDeskView = 'outstanding' | 'published' | 'disqualified' | 'all'
+
+export interface PrizeDeskResponse {
+  winners: QuizWinnerRow[]
+  /** Programme-wide, not this page's: confirmed but unannounced, or announced and not yet delivered. */
+  outstanding: number
+  pagination: Pagination
+}
+
+export interface BulkPlanRow {
+  questionId: string
+  questionText: string | null
+  day: string | null
+  error: string | null
+}
+
+export interface QuizImportPlan {
+  day: string
+  classMin: number
+  classMax: number
+  label: string
+}
+
+/** One previewed row. `question` goes back to the server unchanged on approval. */
+export interface QuizImportRow {
+  clientId: string
+  sourceRef: string
+  plan: QuizImportPlan | null
+  question: QuizImportQuestion
+  problems: string[]
+  warnings: Array<{ code: string; message: string }>
+}
+
+/** The importer's candidate, as the server previewed it. Opaque to the console beyond display. */
+export interface QuizImportQuestion {
+  clientId: string
+  sourceRef: string
+  questionText: string
+  type: QuestionType
+  options: Array<{ text: string; isCorrect: boolean }>
+  booleanAnswer: boolean | null
+  numericAnswer: number | null
+  tolerance: number | null
+  acceptedAnswers: string[]
+  solution: string | null
+  marks: number
+  negativeMarks: number
+  tags: string[]
+  topic: string
+  topicName: string
+  subtopic: string | null
+  classLevel: ClassLevel
+  difficulty: Difficulty
+}
+
+export interface QuizImportPreviewResponse {
+  batchId: string | null
+  rows: QuizImportRow[]
+  refused: Array<{ index: number; reason: string }>
+  duplicates: Array<{ index: number; reason: string }>
+  failures: Array<{ sourceRef: string; reason: string }>
+  unknownChapters: string[]
+  batchWarnings: Array<{ code: string; message: string }>
+  summary: { ready: number; withProblems: number; refused: number }
+}
+
+export type QuizImportOutcomeRow =
+  | { clientId: string; sourceRef: string; status: 'scheduled'; day: string; label: string; groupId: string; questionId: string }
+  | { clientId: string; sourceRef: string; status: 'saved-not-scheduled'; day: string; label: string; questionId: string; reason: string }
+  | { clientId: string; sourceRef: string; status: 'refused'; reason: string }
+
+export interface QuizImportApproveResponse {
+  rows: QuizImportOutcomeRow[]
+  scheduled: number
 }
 
 /**
@@ -2449,7 +2710,7 @@ export interface VerificationResponse {
 // ---------------------------------------------------------------------------
 
 /** Mirrors `IMPORT_FILE_KINDS` in `backend/src/lib/importTypes.ts`. */
-export const IMPORT_FILE_KINDS = ['excel', 'docx', 'image'] as const
+export const IMPORT_FILE_KINDS = ['excel', 'docx', 'image', 'csv', 'json'] as const
 export type ImportFileKind = (typeof IMPORT_FILE_KINDS)[number]
 
 /**

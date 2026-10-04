@@ -81,18 +81,24 @@ const KIND_LABELS: Record<ImportFileKind, string> = {
   excel: 'Excel',
   docx: 'Word',
   image: 'Photographs',
+  csv: 'CSV',
+  json: 'JSON',
 }
 
 const KIND_ACCEPT: Record<ImportFileKind, string> = {
   excel: '.xlsx',
   docx: '.docx',
   image: '.jpg,.jpeg,.png,.webp',
+  csv: '.csv',
+  json: '.json',
 }
 
 const KIND_ICONS: Record<ImportFileKind, string> = {
   excel: 'ph-file-xls',
   docx: 'ph-file-doc',
   image: 'ph-image',
+  csv: 'ph-file-csv',
+  json: 'ph-brackets-curly',
 }
 
 /** A file the examiner has chosen, already encoded for the JSON body. */
@@ -599,7 +605,7 @@ export default function QuestionImport() {
               <p className={styles.basis}>{parser.basis}</p>
               {parser.extraction === 'model' && (
                 <p className={styles.modelTag}>
-                  <Icon name="ph-sparkle" weight="bold" /> This format is read by a language model. The other two are not.
+                  <Icon name="ph-sparkle" weight="bold" /> This format is read by a language model. The others are not.
                 </p>
               )}
               {!parser.available && (
@@ -611,7 +617,7 @@ export default function QuestionImport() {
             </>
           )}
 
-          {kind === 'excel' && (
+          {(kind === 'excel' || kind === 'csv' || kind === 'json') && (
             <p className={styles.templateRow}>
               <button type="button" className={styles.secondary} disabled={busy !== null} onClick={() => void downloadTemplate()}>
                 <Icon name="ph-download-simple" weight="bold" /> {busy === 'template' ? 'Building…' : 'Download the Excel template'}
@@ -620,6 +626,20 @@ export default function QuestionImport() {
                 Column order and heading capitalisation do not matter. The template explains every column.
               </span>
             </p>
+          )}
+
+          {(kind === 'csv' || kind === 'json') && (
+            <ul className={styles.conventions}>
+              <li>The same columns as the Excel template, in any order — download it above to see them</li>
+              <li>
+                {kind === 'csv'
+                  ? 'Save from Excel or Google Sheets as “CSV UTF-8”, so maths symbols and ₹ survive'
+                  : 'An array of objects, one per question, keyed by the column names — an "options" array works too'}
+              </li>
+              <li>
+                Separate several accepted answers with <code>|</code>, never a comma
+              </li>
+            </ul>
           )}
 
           {kind === 'docx' && (

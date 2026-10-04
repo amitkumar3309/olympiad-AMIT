@@ -1,0 +1,280 @@
+/*
+  The Daily Quiz console (Milestone 30, Phase 2): the calendar, the bulk tools, a quiz's
+  own page, the winner table and the prize desk. Shared by every file of the console so
+  the five read as one screen. Tokens only; mobile first.
+*/
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.muted {
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+
+.warnText {
+  font-size: var(--type-small);
+  color: var(--danger-text);
+}
+
+.figure {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+}
+
+.rank {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-bold);
+}
+
+.inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.inlineLink {
+  font-weight: var(--weight-semibold);
+  color: var(--primary-text);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dialogBody {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.helpList,
+.problemList {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-left: var(--space-5);
+  line-height: var(--leading-normal);
+}
+
+.helpList {
+  color: var(--text-body);
+}
+
+.problemList {
+  font-size: var(--type-small);
+}
+
+.questionCell {
+  min-width: 16rem;
+  max-width: 32rem;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- the calendar ------------------------------------------------------ */
+
+.calendar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 768px) {
+  .calendar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.calendarDay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+
+.calendarDay[data-today='true'] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.calendarDate {
+  flex: 0 0 8.5rem;
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+}
+
+.calendarQuizzes {
+  display: flex;
+  flex: 1 1 10rem;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.calendarChip {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--fill-subtle);
+  color: var(--primary-text);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.calendarChip:hover {
+  background: var(--fill-muted);
+}
+
+/* A pre-quiz daily challenge holding the slot: shown, so it can be found and removed. */
+.calendarChip[data-legacy='true'] {
+  background: var(--warning-soft);
+  color: var(--warning-text);
+}
+
+/* ---------- class range and the question picker ------------------------------ */
+
+.rangePicker {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.customRange {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.picker {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.pickerList {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.pickerItem {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.pickerItem[data-selected='true'] {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.pickerItem input {
+  flex-shrink: 0;
+  margin-top: 0.3em;
+}
+
+.pickerText {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pickerMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---------- a quiz's own page ------------------------------------------------- */
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  gap: var(--space-3);
+}
+
+.questionText {
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  overflow-wrap: anywhere;
+}
+
+.staffOptions {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.staffOptions li {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
+
+.staffOptions li[data-correct='true'] {
+  background: var(--success-soft);
+}
+
+.solution {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-subtle);
+  overflow-wrap: anywhere;
+}
+
+.solution h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-small);
+  font-weight: var(--weight-bold);
+  color: var(--text-muted);
+}
+
+/* ---------- the winner table -------------------------------------------------- */
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

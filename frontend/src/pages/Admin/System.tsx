@@ -43,9 +43,9 @@ import styles from './System.module.css'
 
 /** In the order the API accepts them: each reset's blockers are resolved by the one above. */
 const RESET_SCOPES: Array<{ scope: ResetScope; note: string }> = [
-  { scope: 'daily-challenges', note: 'Nothing depends on a scheduled day, so this one is never blocked.' },
-  { scope: 'mock-tests', note: 'Blocked while a daily challenge is set from a question in a paper.' },
-  { scope: 'questions', note: 'Blocked while a mock test or a daily challenge still uses a question.' },
+  { scope: 'daily-challenges', note: 'Nothing depends on a scheduled quiz, so this one is never blocked. Confirmed, announced and disqualified winners are kept.' },
+  { scope: 'mock-tests', note: 'Nothing depends on a mock test, so this one is never blocked. XP already earned is kept.' },
+  { scope: 'questions', note: 'Blocked while a mock test or a Daily Quiz still uses a question.' },
   { scope: 'chapters', note: 'Blocked while any question is still filed under a chapter.' },
 ]
 

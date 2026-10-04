@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import { Alert, Button, ErrorState, Icon, SkeletonCards, Spinner } from '../../components/ui'
 import { api } from '../../api/client'
@@ -14,6 +14,8 @@ import {
 } from '../../api/types'
 import { PHOTO_ACCEPT_ATTRIBUTE, formatBytes, readPhotoFile, type SelectedPhoto } from '../../lib/photo'
 import EntryFeeCard from '../../components/EntryFeeCard'
+import DailyQuizHistory from '../../components/DailyQuizHistory'
+import PrizeDetails from './PrizeDetails'
 import styles from './Profile.module.css'
 import { humanizeError } from '../../lib/errors'
 
@@ -150,6 +152,17 @@ export default function Profile() {
   useEffect(() => {
     void load()
   }, [load])
+
+  /**
+   * `/profile#prize-details` and `/profile#daily-quiz-history` are linked from the Daily
+   * Quiz. The router does not scroll to a fragment on its own, and the sections only exist
+   * once the profile has loaded, so this does it then.
+   */
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (!profile || !hash) return
+    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' })
+  }, [profile, hash])
 
   /**
    * Loaded separately from the profile, and deliberately not blocking it: a failure
@@ -495,6 +508,21 @@ export default function Profile() {
               account. It renders nothing once paid, or when no fee is charged.
           --------------------------------------------------------------- */}
           <EntryFeeCard />
+
+          {/* ---------------------------------------------------------------
+              The Daily Quiz (Milestone 30): what a prize needs, and every day played.
+          --------------------------------------------------------------- */}
+          <PrizeDetails
+            key={`${profile.city}|${profile.guardianPhone}|${profile.guardianEmail}|${profile.hideFromPublicLists}`}
+            profile={profile}
+            onSaved={(next) => {
+              setProfile(next)
+              setForm(formFrom(next))
+            }}
+          />
+          <div className={styles.fullRow}>
+            <DailyQuizHistory />
+          </div>
 
           {/* ---------------------------------------------------------------
               Account settings

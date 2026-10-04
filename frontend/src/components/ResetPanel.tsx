@@ -72,14 +72,14 @@ interface ResetPanelProps {
 const SCOPE_TITLES: Record<ResetScope, string> = {
   questions: 'Reset the Question Bank',
   'mock-tests': 'Reset all mock tests',
-  'daily-challenges': 'Reset all daily challenges',
+  'daily-challenges': 'Reset the Daily Quiz',
   chapters: 'Reset all chapters',
 }
 
 const SCOPE_BLURBS: Record<ResetScope, string> = {
   questions: 'Deletes every question — published, draft, in review and archived. Chapters are kept.',
   'mock-tests': 'Deletes every mock test and every attempt students have made at one.',
-  'daily-challenges': 'Deletes every scheduled challenge and every answer students have given.',
+  'daily-challenges': 'Deletes every scheduled quiz, every answer and every unreviewed winner candidate. Prize decisions and the settings are kept.',
   chapters: 'Deletes every chapter and subtopic. The subject itself is kept.',
 }
 
