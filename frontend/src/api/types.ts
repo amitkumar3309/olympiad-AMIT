@@ -76,6 +76,11 @@ export interface RegisterInput {
   /** A base64 data URL, e.g. `data:image/jpeg;base64,...`. Max 2 MB decoded. */
   photo: string
   /**
+   * Where they were going — the Login Gate sends `/daily-quiz` (Milestone 30). Carried
+   * into the verification link; only an exact path from `lib/nextPath.ts` is ever sent.
+   */
+  next?: string
+  /**
    * The referral code from `?ref=` on the link they followed (Milestone 22).
    *
    * Sent **only when it has been validated** against `GET /referrals/validate`. The

@@ -1,10 +1,11 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import type { Permission } from '../api/types'
 import Spinner from './Spinner'
 import Unauthorized from './Unauthorized'
 import StudentShell from './StudentShell'
 import EntryFeeRequired from './EntryFeeRequired'
+import { safeNext, signInHref } from '../lib/nextPath'
 
 /**
  * Route-level gates. These are the only place a page should be authorized; pages
@@ -16,10 +17,25 @@ import EntryFeeRequired from './EntryFeeRequired'
  * editing client state or calling the API directly gains nothing.
  */
 
+/**
+ * Where a guest goes instead of a signed-in page: the sign-in dialog, with the page they
+ * wanted kept as `?next=` so signing in brings them straight back (Milestone 30, Phase 3).
+ *
+ * Until then a guest was sent to `/` with nothing open — no prompt, no explanation, and
+ * the page they asked for forgotten (INTERACTION_AUDIT D2). Only an exact path from
+ * `lib/nextPath.ts` is kept; any other page still opens the dialog, without a destination.
+ */
+function useGuestRedirect(): string {
+  const { pathname } = useLocation()
+  return signInHref(safeNext(pathname))
+}
+
 /** Requires a signed-in student account. */
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { state } = useAuth()
+  const guestRedirect = useGuestRedirect()
   if (state.status === 'loading') return <Spinner label="Checking your session..." />
+  if (state.status === 'guest') return <Navigate to={guestRedirect} replace />
   if (state.status !== 'student') return <Navigate to="/" replace />
   return <>{children}</>
 }
@@ -77,7 +93,9 @@ export function RequirePermission({
  */
 export function RequirePaidEntry({ feature, children }: { feature: string; children: React.ReactNode }) {
   const { state, hasPaid } = useAuth()
+  const guestRedirect = useGuestRedirect()
   if (state.status === 'loading') return <Spinner label="Checking your session..." />
+  if (state.status === 'guest') return <Navigate to={guestRedirect} replace />
   if (state.status !== 'student') return <Navigate to="/" replace />
   if (!hasPaid)
     return (

@@ -24,6 +24,7 @@ import { api } from '../../api/client'
 import type { LeaderboardRow, PublicStats } from '../../api/types'
 import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM } from '../../lib/brand'
 import { roleHome } from '../../lib/roleHome'
+import { safeNext } from '../../lib/nextPath'
 import LoginDialog from '../Auth/LoginDialog'
 import styles from './Landing.module.css'
 
@@ -605,7 +606,11 @@ export default function Landing() {
         to be. The role comes from the server on the session response — see
         `lib/roleHome.ts`.
       */}
-      <LoginDialog open={loginOpen} onClose={closeLogin} onSignedIn={(role) => navigate(roleHome(role))} />
+      <LoginDialog
+        open={loginOpen}
+        onClose={closeLogin}
+        onSignedIn={(role) => navigate(safeNext(searchParams.get('next')) ?? roleHome(role))}
+      />
     </div>
   )
 }

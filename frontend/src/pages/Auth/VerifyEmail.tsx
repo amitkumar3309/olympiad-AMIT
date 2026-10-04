@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Alert, Button, Field, Input, Spinner } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
 import { SUPPORT } from '../../lib/brand'
+import { safeNext, signInHref } from '../../lib/nextPath'
 import { formatCooldown, useResendCooldown } from '../../lib/resendCooldown'
 import AuthLayout, { AuthStatus } from './AuthLayout'
 import styles from './AuthLayout.module.css'
@@ -46,6 +47,8 @@ export default function VerifyEmail() {
   const navigate = useNavigate()
   const { verifyEmail, resendVerification } = useAuth()
   const token = params.get('token')
+  /** Where they were going before they registered (Milestone 30) — kept through sign-in. */
+  const next = safeNext(params.get('next'))
 
   const [phase, setPhase] = useState<Phase>(token ? 'verifying' : 'noToken')
   const [message, setMessage] = useState('')
@@ -108,7 +111,7 @@ export default function VerifyEmail() {
       setResendNotice('')
       setResendError('')
       try {
-        const result = await resendVerification(resendEmail.trim())
+        const result = await resendVerification(resendEmail.trim(), next)
         setResendNotice(result.message)
         cooldown.start(result.nextResendAt, resendEmail.trim())
       } catch (err) {
@@ -117,7 +120,7 @@ export default function VerifyEmail() {
         setResending(false)
       }
     },
-    [resendEmail, resendVerification, cooldown],
+    [resendEmail, resendVerification, cooldown, next],
   )
 
   if (phase === 'verifying') {
@@ -141,8 +144,8 @@ export default function VerifyEmail() {
             </>
           }
           actions={
-            <Button icon="ph-sign-in" onClick={() => navigate('/#login')}>
-              Continue to sign in
+            <Button icon="ph-sign-in" onClick={() => navigate(signInHref(next))}>
+              {next === '/daily-quiz' ? 'Sign in to play today’s Daily Quiz' : 'Continue to sign in'}
             </Button>
           }
         />
@@ -226,7 +229,7 @@ export default function VerifyEmail() {
       </p>
 
       <div className={styles.formFooter}>
-        <Link to="/#login">Back to sign in</Link>
+        <Link to={signInHref(next)}>Back to sign in</Link>
         <Link to="/">Home</Link>
       </div>
     </AuthLayout>

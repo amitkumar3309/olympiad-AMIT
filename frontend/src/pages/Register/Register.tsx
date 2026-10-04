@@ -5,6 +5,7 @@ import Footer from '../../components/Footer'
 import { api } from '../../api/client'
 import type { ReferralCheck } from '../../api/types'
 import { roleHome } from '../../lib/roleHome'
+import { safeNext } from '../../lib/nextPath'
 import LoginDialog from '../Auth/LoginDialog'
 import RegisterForm from '../Auth/RegisterForm'
 import styles from './Register.module.css'
@@ -47,6 +48,13 @@ export default function Register() {
   const [referral, setReferral] = useState<ReferralCheck | null>(null)
   const [loginOpen, setLoginOpen] = useState(false)
 
+  /**
+   * Where they were going (Milestone 30): the Login Gate's "Create free account" sends
+   * `?next=/daily-quiz`. It goes into the verification link, and signing in from this
+   * page goes straight there. Only an exact allowed path survives `safeNext()`.
+   */
+  const next = safeNext(searchParams.get('next'))
+
   useEffect(() => {
     const code = searchParams.get('ref')?.trim()
     if (!code) return
@@ -73,7 +81,7 @@ export default function Register() {
         <h1 className={styles.title}>Register</h1>
         <p className={styles.lead}>Free to join. Confirm your email address and you can start practising.</p>
 
-        <RegisterForm referral={referral} onRequestLogin={() => setLoginOpen(true)} />
+        <RegisterForm referral={referral} next={next} onRequestLogin={() => setLoginOpen(true)} />
       </main>
 
       <Footer />
@@ -87,7 +95,7 @@ export default function Register() {
       <LoginDialog
         open={loginOpen}
         onClose={() => setLoginOpen(false)}
-        onSignedIn={(role) => navigate(roleHome(role))}
+        onSignedIn={(role) => navigate(next ?? roleHome(role))}
       />
     </div>
   )
