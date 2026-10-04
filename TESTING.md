@@ -67,7 +67,18 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > **installed Microsoft Edge** at 1280px and at 390px: sign in → start today's quiz → submit through
 > the confirm dialog → "Correct!" → the profile history shows it with the answer locked → the
 > server clock moves a day (`POST /__e2e/clock`) → the worked solution is there. A second test
-> replays a submit from the page and checks the first result stands. Four tests, about 40 seconds.
+> replays a submit from the page and checks the first result stands. **Phase 3 added
+> `homepage.spec.ts`**: a guest presses the floating Daily Quiz button → the Login Gate → signs in →
+> lands on the quiz; a new student registers from the gate → opens the link from their verification
+> email (`GET /__e2e/last-link` reads it from the outbox — the e2e SMTP is a dead port) → signs in →
+> lands on the quiz, the destination kept in `?next=` the whole way; a guest opening `/practice` is
+> sent to the sign-in dialog and back; the homepage never scrolls sideways. Reduced motion is on in
+> that file so the floating button holds still enough to click. **Twelve tests**, about a minute.
+>
+> **The sample questions** — `npm run verify:samples` in `frontend/` recomputes the answer to every
+> "Can you crack this?" question independently (arithmetic, brute force, a breadth-first search) and
+> fails unless the marked option is the one and only correct one; mutation-checked. Node 24 runs the
+> TypeScript directly. Run it after any edit to `src/pages/Landing/sampleQuestions.ts`.
 > It needs nothing installed beyond `npm ci` and Edge; on a machine without Edge, run
 > `npx playwright install chromium` and remove `channel: 'msedge'` from `playwright.config.ts`.
 

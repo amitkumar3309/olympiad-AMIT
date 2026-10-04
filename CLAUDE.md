@@ -61,7 +61,12 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   src/components/Illustration.tsx + illustrations.ts
                             the launch artwork by name; files are discovered in
                             src/assets/illustrations/ at BUILD time (M30)
-  src/components/DailyQuizFab.tsx  the floating Daily Quiz button (M30)
+  src/components/DailyQuizFab.tsx  the floating Daily Quiz button (M30); HomeQuizFab.tsx
+                            wires it to GET /me/daily-quiz/status on the homepage, and
+                            LoginGate.tsx is what a guest meets when they press it
+  src/lib/siteConfig.ts     THE homepage's switches: HOME_SECTIONS (the order) and every
+                            other tunable (M30 Phase 3)
+  src/lib/nextPath.ts       THE ?next= allow-list, mirroring backend/src/lib/nextPaths.ts
   src/components/DailyQuizPanel.tsx  THE Daily Quiz, every state (M30 Phase 2) —
                             the /daily-quiz page and the dashboard card render
                             the same component
@@ -76,6 +81,9 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             ("Sun, 8 Nov 2026 • 10:00 AM"), countdown text (M30)
   public/fonts/             the self-hosted font files + their OFL licences (M30)
   src/pages/<Page>/         one folder per route, colocated .module.css
+  src/pages/Landing/sections/  the homepage, one file per section (M30 Phase 3);
+                            sampleQuestions.ts + scripts/verify-sample-questions.ts
+  src/pages/Legal/          /rewards/rules and the four policy drafts (TODO(legal-review))
   src/pages/DesignSystem/   the primitive reference — DEVELOPMENT ONLY, absent
                             from a production build
   src/pages/NotFound/       the catch-all (M23 E). Without it an unmatched path
@@ -209,6 +217,8 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                               candidate, no ExcelQuestion/DocxQuestion
   src/lib/importAnswerText.ts THE one reading of a human-written answer,
                               shared by every format. Pure, no I/O
+  src/lib/nextPaths.ts        THE allow-list of in-app paths a verification link may
+                              carry back to (M30 Phase 3); mirrored by the frontend
   src/lib/ooxml.ts            which OOXML file this is, and whether it holds
                               Word equations — answered without inflating it
   src/validation/uploadSchemas.ts  magic-byte + size + filename validation for
@@ -591,6 +601,27 @@ look wrong however carefully it is tokenised — read them before touching a sur
   tick recomputes from the wall clock (so a tab that throttled `setInterval` for hours still reads
   correctly), and reaching zero calls `onComplete`, on which the page **re-asks the server** — it
   never swaps in tomorrow's quiz itself, because it has no authority to decide the day has turned.
+- **The homepage is composed from `lib/siteConfig.ts`** (Milestone 30 Phase 3): `HOME_SECTIONS`
+  is the order, and every other homepage tunable lives beside it. Each section fetches what it shows
+  and **renders nothing it cannot back** — no placeholder figure, no invented winner. The Boss Battle
+  and Month-End Booster are absent on purpose (PLAN.md Q6), not switched off.
+- **`next` is an exact allow-list, mirrored**: `backend/src/lib/nextPaths.ts` and
+  `frontend/src/lib/nextPath.ts` — change both together. Never a pattern ("starts with /"): the
+  value is put into the verification email, and a pattern is how an open redirect gets written. An
+  unknown value is dropped, not refused. A guarded page sends a guest to `signInHref(next)`
+  (`/?next=…#login`), never to a bare `/`.
+- **Every public list names a child through `publicListingFor()`** (leaderboardService), which
+  applies the profile's "hide me from public lists" before `displayNameFor()`: an opted-out student
+  keeps their rank as "A Class 7 student", no school, no city. A new board must use it.
+- **The podium is drawn only when ranks 1, 2 and 3 are distinct.** Equal XP shares a rank, and three
+  level students on steps 1-2-3 is a false ranking — the table with the real ranks is shown instead.
+- **A homepage sample question is verified by a script and published by a person.** Each answer in
+  `pages/Landing/sampleQuestions.ts` must have an independent check in
+  `scripts/verify-sample-questions.ts` (`npm run verify:samples`); a tab appears only with five
+  `reviewed: true` questions. Do not mark a drafted question reviewed without the owner.
+- **The legal pages are drafts, `TODO(legal-review)`**, and invent no business term — no refund
+  window, organiser address or jurisdiction. Questions are in `docs/launch/LEGAL_REVIEW.md`. The rules
+  page fetches the winner rule and prize from `GET /daily-quiz/info`; do not type either into it.
 - **The Daily Quiz is one component, `components/DailyQuizPanel`** (Milestone 30 Phase 2), rendered
   by `/daily-quiz` and by the dashboard card, so the two cannot disagree about what a student may
   do. It decides nothing: the server sends the state (`not-started` / `in-progress` /
@@ -788,7 +819,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
 - **The referral console may move a reward, never invent one.** `/admin/referrals` offers only the transitions the API accepts — Approve on `accrued`, Mark paid only on `approved`, nothing once paid or rejected — and **no request it makes carries an amount**, because the amount was snapshotted at conversion. Do not add an amount field to a row action. Its totals are **programme-wide sums**, not page sums: "what do we owe?" must not change as somebody pages. `referredHasPaid` is derived from the payment record at read time rather than read off the referral row. Reading the console is `students:read`; the three acts that move money are `referrals:write`.
 - **The student Refer & Earn page shows no reward figures when there is no reward.** With `settings.rewardEnabled` false, `/referrals` says the programme is not running and renders **no earnings tiles** — three tiles reading ₹0.00 look like a fault rather than an honest empty state — and it must not promise that a future reward will cover past referrals, because the amount is snapshotted at conversion. The referred students are shown **masked** (`displayNameFor()`), like the public leaderboard. The register page validates a `?ref=` code **before** the form is submitted and shows the outcome either way, sending only a confirmed one: the backend refuses the whole registration on a code that does not resolve, so an unchecked one costs a real registration over somebody else's typo.
 - **`/register` is a page of its own (Milestone 28), and it is also where every referral link lands.** `referralLinkFor()` builds `<app>/register?ref=<code>`, which is why the route had to exist at all — a path nobody declared rendered a blank page, which is exactly what every referral link did until the Phase F browser pass. Until Milestone 28 the route rendered the **landing page** and scrolled to a `<section id="register">` in it; it renders `pages/Register` now, which wraps the unchanged `pages/Auth/RegisterForm`. Three things travel with that: the `?ref=` **must** still be validated before submit (the backend refuses the whole registration on a code that does not resolve, so an unchecked one costs a real registration over somebody else's typo); the landing page **carries an incoming `?ref=` across** to its Register buttons so a code shared against `/` is not dropped at the click; and there is no inline form, scroll-to-anchor or registration modal on the landing page any more — do not reintroduce one. Check the route exists whenever the backend starts generating a URL the frontend has to answer.
-- **There is ONE sign-in entry point, and the destination comes from the role.** `pages/Auth/LoginDialog` is it — reached from `/#login`, the hero, and the register page. `/admin` does **not** have a sign-in form (it had one until Milestone 28, which is also why it used to be ungated) and no "Admin login" link may go back into the public UI: it advertises where the admin door is, and it tells a *promoted* admin — an ordinary student account with a role — that they are at the wrong one. After a successful sign-in the redirect is `roleHome()` in `lib/roleHome.ts`, resolved from the **server-supplied** role: staff to `/admin`, a student to `/dashboard`. Never hardcode `navigate('/dashboard')` after `login()` — every caller did, which is how an administrator came to land on the student dashboard. `roleHome()` is allowed to compare a role because it only picks a path; a *capability* decision still goes through `can()`. **The footer is not an exception.** It carried an `Administrator` link to `/admin` until Milestone 28, on the reasoning that moving it out of the header was enough — but a footer is on every public page, so that made it quieter rather than absent. When checking this, search for the **label** as well as the path: the grep that reported this item complete looked for "admin login" and "administrator sign in" and missed a link named simply `Administrator`. The navbar's Admin button is fine and should stay — it renders inside `{isStaff && …}` in the signed-in branch, so it is navigation for somebody who already holds the role rather than a public door.
+- **There is ONE sign-in entry point, and the destination comes from the role.** `pages/Auth/LoginDialog` is it — reached from `/#login` (the header, the footer, a guarded page via `/?next=…#login`), the Login Gate, the homepage's closing call to action and the register page. `/admin` does **not** have a sign-in form (it had one until Milestone 28, which is also why it used to be ungated) and no "Admin login" link may go back into the public UI: it advertises where the admin door is, and it tells a *promoted* admin — an ordinary student account with a role — that they are at the wrong one. After a successful sign-in the redirect is `roleHome()` in `lib/roleHome.ts`, resolved from the **server-supplied** role: staff to `/admin`, a student to `/dashboard`. Never hardcode `navigate('/dashboard')` after `login()` — every caller did, which is how an administrator came to land on the student dashboard. `roleHome()` is allowed to compare a role because it only picks a path; a *capability* decision still goes through `can()`. **The footer is not an exception.** It carried an `Administrator` link to `/admin` until Milestone 28, on the reasoning that moving it out of the header was enough — but a footer is on every public page, so that made it quieter rather than absent. When checking this, search for the **label** as well as the path: the grep that reported this item complete looked for "admin login" and "administrator sign in" and missed a link named simply `Administrator`. The navbar's Admin button is fine and should stay — it renders inside `{isStaff && …}` in the signed-in branch, so it is navigation for somebody who already holds the role rather than a public door.
 - **`/admin` is gated on `students:read`, and `RequirePermission`'s `signInPath` defaults to `/#login`.** Those two facts are load-bearing together: the default was `/admin` while that page held the sign-in form, and leaving it there after gating `/admin` turns a signed-out visit to `/admin` into an **infinite redirect to itself** rather than a sign-in prompt.
 - **No referral reward rule was ever specified, so none was invented.** `ReferralSettings` defaults to `rewardEnabled: false` and `rewardAmount: 0`, and every surface must say the programme is not running rather than display ₹0 as though it were an offer. **Eligibility is deliberately not configurable** — an amount is a business decision, a rule about when money is owed is a correctness one, and a configurable version could quietly pay out on registration alone. If the owner sets an amount, it applies to the next conversion only.
 - **A `unique` + `sparse` field must have NO `default`.** `sparse` skips documents where the field is *absent*, not where it is `null` — so `default: null` makes every document carry an explicit null, the index treats them as equal, and the **second** document ever created fails on a duplicate key. `Student.referralCode` was written that way first and eleven tests failed on the *root administrator's own provisioning*. See `TROUBLESHOOTING.md`.

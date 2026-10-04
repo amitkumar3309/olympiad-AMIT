@@ -528,6 +528,13 @@ Photos still are **not re-encoded**, so EXIF (including any GPS tags a phone wro
 
 `GET /leaderboard`, `GET /hall-of-fame` and `GET /public/stats` are readable **without authentication** — an explicit decision by the project owner, taken so the landing page shows a real standing rather than the invented one it carried. What bounds the exposure:
 
+- **A student may hide from every public list** (Milestone 30 Phase 3): the profile's "hide me from
+  public lists" makes the leaderboard, the Hall of Fame and the Daily Quiz winners list name them only
+  as "A Class 7 student", with no school and no city — they keep their rank, so nobody below moves up.
+  `publicListingFor()` beside `displayNameFor()` is the one place it is decided; until Phase 3 only
+  the winners list read the switch. The competitor number (`studentId`) stays in the row's JSON as a
+  key and is never displayed; the public result portal already resolves an ID to a masked name, so it
+  adds nothing beyond what that portal publishes.
 - Names are published as a **first name plus a last initial** ("Ishaan V."), never in full. The entrants are children in classes 5–12 and the landing page is public and indexable, so a full legal name beside a school and a class would identify a minor to anyone on the internet. `displayNameFor()` in `services/leaderboardService.ts` is the single place that decides this — the Hall of Fame publishes through the same function, so Milestone 10's four new boards did not add a second answer to "how much of a child's name does this product publish?". Widening it is a deliberate one-line change and the owner's call.
 - No email address, mobile number, home address, date of birth or parent name is in the payload. Tests stringify the **whole** response body and assert the surname, email address, mobile number and address are absent — not just that the fields the page reads are clean.
 - `limit` is validated and **capped at 50**.
@@ -1028,3 +1035,22 @@ unknown chapter is an error reported against that row.
    v3/v5/v6 when `buf` is supplied). It is **not reachable**: exceljs calls only `uuid.v4()` and never
    passes `buf`, verified by reading `node_modules/exceljs/lib`. Worth re-checking if exceljs is ever
    upgraded or its usage changes.
+
+## Redirects after sign-in and verification (Milestone 30, Phase 3)
+
+The Login Gate and the guarded pages carry where the student was going as `?next=`, and the
+registration and resend routes put it into the **verification email** (`&next=` on the link) so it
+survives the gap between registering and signing in. That email is sent from our address to
+whatever address was typed — not necessarily the typist's — so an open redirect there would be a
+phishing tool with our name on it.
+
+- **An exact allow-list, never a pattern.** `backend/src/lib/nextPaths.ts` (twelve in-app paths) and
+  its mirror `frontend/src/lib/nextPath.ts`. A "starts with /" check is how `//evil.example`,
+  `/\evil.example` and encoded schemes get through; an exact match cannot be argued with.
+- **Dropped, not refused.** The schema `.catch(undefined)`s anything else, so a hostile value costs the
+  attacker nothing and the student their destination — never their registration. Tested with five
+  hostile values (a URL, `//host`, `/\host`, a query string, `/admin`).
+- **Never stored.** It is destructured out of the body before `Student.create()`; a test asserts the
+  account has no such field.
+- The frontend applies the same list before navigating (`safeNext()`), so a tampered `?next=` in the
+  address bar is ignored there too.

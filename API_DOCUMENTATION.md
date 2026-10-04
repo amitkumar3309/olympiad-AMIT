@@ -1068,6 +1068,9 @@ Today's quiz for the caller's class and their state in it. Settles any XP that w
 | `result` | Only after submitting: `{ submittedAt, solveTimeMs, selectedOptionId, isCorrect, xpAwarded, xpPending, revealAt, revealed, reveal }`. `isCorrect` is null while results are held until the reveal; `reveal` (`correctOptionId`, `correctOptionText`, `solution`) is null until the reveal. |
 | `nextQuizAt` | When nothing is scheduled today: when the next quiz for the class opens, or null. |
 
+#### Test-only: `GET /__e2e/last-link?to=<email>` (Phase 3)
+Mounted only with `E2E_TEST_HOOKS=true`, never in production, and refusing any database not named `*-e2e` — the same three locks as `/__e2e/clock`, `/reset` and `/seed`. Returns `{ link }`, the URL in the newest verification email queued to that address (read from `EmailOutbox`), so the browser suite can walk register → verify → quiz. 404 when none.
+
 #### `GET /api/v1/me/daily-quiz/status`
 The floating Daily Quiz button's state (Phase 3), cheap enough for every homepage visit: `{ serverNow, state, closesAt, revealAt, nextQuizAt }`. `state` is `live` (not started), `in-progress` (started, not submitted), `done` (submitted), `none` (nothing scheduled today — `nextQuizAt` is when the next one for the class opens, or null) or `no-class`. `closesAt`/`revealAt` are set when there is a quiz today. **Nothing about the question, its options or the result** — that is the route above. Does not settle held XP.
 
