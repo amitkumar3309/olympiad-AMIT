@@ -1,0 +1,265 @@
+/* ---------- the wrapper: position, entrance, float -----------------------
+   Fixed bottom-right: 28px from the edges on a desktop, 16px plus the safe area on a
+   phone. Above content and the sticky header, below every overlay and toast. */
+.fab {
+  position: fixed;
+  /* Flex, not block: an inline-flex pill in a block box sits on a text line and gains
+     a few pixels of descender space under it, which the ring would then trace. */
+  display: flex;
+  right: var(--space-4);
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  z-index: var(--z-fab);
+  /* Enters ~800ms after first paint, so it never competes with the page's own first
+     paint (or its LCP). Opacity + transform only. */
+  animation:
+    fab-enter var(--dur-entrance) var(--ease-out) 800ms both,
+    fab-float var(--dur-idle) var(--ease-sine) calc(800ms + var(--dur-entrance)) infinite;
+}
+
+@media (min-width: 768px) {
+  .fab {
+    right: 28px;
+    bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* In the flow — the design-system page. No entrance and no float: it is a specimen. */
+.inline {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  animation: none;
+}
+
+@keyframes fab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+@keyframes fab-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+/* ---------- the pill ------------------------------------------------------ */
+
+.pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-2) var(--space-5) var(--space-2) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--gradient-fab);
+  color: var(--gradient-on);
+  box-shadow: var(--shadow-fab);
+  font-family: var(--font-body);
+  text-decoration: none;
+  cursor: pointer;
+  /* The streak is clipped to the pill. */
+  overflow: hidden;
+  isolation: isolate;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+
+/* The soft ring that breathes out from the pill at rest. A pseudo-element, so the ring
+   can scale without the pill itself moving — and outside the clipped area. */
+.fab::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 0 var(--primary-border);
+  animation: fab-ring calc(var(--dur-idle) * 0.8) var(--ease-out) 1.6s infinite;
+  pointer-events: none;
+}
+
+@keyframes fab-ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--primary-border);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+
+/* The light streak: a diagonal band of white swept across the pill. */
+.pill::after {
+  content: '';
+  position: absolute;
+  inset: -20% auto -20% -60%;
+  width: 45%;
+  background: linear-gradient(100deg, transparent, var(--fab-streak), transparent);
+  transform: translateX(0) skewX(-18deg);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.pill:hover,
+.pill:focus-visible {
+  transform: scale(1.04);
+  box-shadow: var(--shadow-fab-hover);
+}
+
+.pill:hover::after,
+.pill:focus-visible::after {
+  animation: fab-sweep var(--dur-sweep) var(--ease-out);
+}
+
+.pill:active {
+  transform: scale(var(--press-scale));
+}
+
+.pill:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 3px;
+}
+
+@keyframes fab-sweep {
+  0% {
+    opacity: 1;
+    transform: translateX(0) skewX(-18deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(420%) skewX(-18deg);
+  }
+}
+
+/* A touch screen has no hover, so the shine comes by itself — a sweep in the first
+   ~12% of a slow loop, then nothing until the next one. */
+@media (hover: none) {
+  .pill::after {
+    animation: fab-sweep-idle var(--dur-idle-slow) var(--ease-out) 2s infinite;
+  }
+}
+
+@keyframes fab-sweep-idle {
+  0% {
+    opacity: 1;
+    transform: translateX(0) skewX(-18deg);
+  }
+  12% {
+    opacity: 1;
+    transform: translateX(420%) skewX(-18deg);
+  }
+  12.01%,
+  100% {
+    opacity: 0;
+    transform: translateX(0) skewX(-18deg);
+  }
+}
+
+/* ---------- contents ------------------------------------------------------ */
+
+.icon {
+  position: relative;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background: var(--fab-icon-disc);
+}
+
+/* Today's quiz is live. The ring is the same breathing as the Badge's LIVE dot. */
+.liveDot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--live);
+  border: 2px solid var(--surface);
+}
+
+.liveDot::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: var(--live);
+  animation: fab-live var(--dur-pulse) var(--ease-out) infinite;
+}
+
+@keyframes fab-live {
+  from {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.text {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: start;
+}
+
+.title {
+  font-size: var(--text-base);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+  white-space: nowrap;
+}
+
+.line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  white-space: nowrap;
+}
+
+/* Collapsed: the icon alone, in a 56px circle — the accessible name is unchanged. */
+.collapsed {
+  padding: var(--space-2);
+  gap: 0;
+}
+
+.collapsed .text {
+  display: none;
+}
+
+/* ---------- reduced motion -------------------------------------------------
+   No float, no ring, no sweep — only the brighter glow on hover and focus. `base.css`
+   already collapses durations; this removes the loops outright so nothing ends a frame
+   away from rest. */
+@media (prefers-reduced-motion: reduce) {
+  .fab,
+  .fab::before,
+  .pill::after,
+  .liveDot::after {
+    animation: none;
+  }
+
+  .pill:hover,
+  .pill:focus-visible {
+    transform: none;
+  }
+}

@@ -43,7 +43,23 @@ export interface AvatarProps {
    * beside it, which is the usual case in a table or a list row.
    */
   decorative?: boolean
+  /**
+   * Gives the initials a tint chosen from the name (Milestone 30). For the public
+   * boards, where **other students are always shown by initials** — they are minors,
+   * and only a student's own photograph is ever shown to them — and a column of
+   * identical grey circles is hard to scan. Deterministic, so a name keeps its colour.
+   */
+  tint?: boolean
   className?: string
+}
+
+const TINTS = 6
+
+/** A stable small hash of the name — the same student is the same colour on every board. */
+function tintOf(name: string): number {
+  let hash = 0
+  for (const ch of name) hash = (hash * 31 + ch.codePointAt(0)!) | 0
+  return Math.abs(hash) % TINTS
 }
 
 /**
@@ -66,11 +82,13 @@ function initialsOf(name: string): string {
   return initials || '•'
 }
 
-export default function Avatar({ name, src, size = 'md', decorative, className }: AvatarProps) {
+export default function Avatar({ name, src, size = 'md', decorative, tint, className }: AvatarProps) {
   const [failed, setFailed] = useState(false)
   const showImage = Boolean(src) && !failed
 
-  const classes = [styles.avatar, styles[size], className].filter(Boolean).join(' ')
+  const classes = [styles.avatar, styles[size], tint ? styles[`tint${tintOf(name)}`] : '', className]
+    .filter(Boolean)
+    .join(' ')
   const hidden = decorative ? { 'aria-hidden': true as const } : {}
 
   if (showImage) {

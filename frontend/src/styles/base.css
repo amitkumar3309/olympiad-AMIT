@@ -42,20 +42,20 @@ html {
 }
 
 /**
- * Body carries three things every element inherits, and they are the reason the
- * redesign reaches pages nobody edited:
+ * Body carries what every element inherits, which is how a type change reaches pages
+ * nobody edited:
  *
- *  - **Weight 500, not 400.** Medium is the body weight in this language. At 400,
- *    Geist reads thin and the interface loses its density.
- *  - **Negative tracking, applied once.** `--tracking-body` is -0.02em, and being on
- *    `body` means every module inherits it without a single one being touched.
- *  - **16px, not 15px.** `--text-base` (15px) stays the *control* size — inputs,
- *    table cells — while prose is a step up.
+ *  - **The body role size**, `--type-body`: 15px on a phone, 16px on a desktop (the
+ *    launch brief's §5.2). `--text-base` (15px) stays the *control* size — inputs,
+ *    table cells.
+ *  - **Weight 400.** Plus Jakarta is sturdy enough at 400 that body copy does not need
+ *    the 500 Geist did; the heading weights carry the hierarchy instead.
+ *  - **`--tracking-body`, applied once** — 0 now, and still the one lever for all of it.
  */
 body {
   margin: 0;
   font-family: var(--font-body);
-  font-size: var(--text-md);
+  font-size: var(--type-body);
   font-weight: var(--weight-normal);
   line-height: var(--leading-normal);
   letter-spacing: var(--tracking-body);
@@ -71,18 +71,15 @@ body {
 }
 
 /**
- * Headings: one family, and the character comes from weight and tracking.
+ * Headings: one family, and the character comes from **weight** (Milestone 30).
  *
- * `--font-heading` is **Geist**, the same family as the body. Poppins is gone.
+ * Plus Jakarta Sans at **700** — the launch mockups set every heading bold, and the
+ * hero at 800 (that one is the page's job, not this file's). The sizes are the brief's
+ * role scale: an `h1` is a page title, an `h2` a section title, an `h3` a card title.
+ * Pick the tag for the document outline and let a component re-size it if it must;
+ * never skip a level to get a smaller heading.
  *
- * Two rules do the work here, and both run counter to the usual defaults:
- *
- *  - **Weight is 600 and stops there.** Not 700, not 800. In this language a heading
- *    is distinguished by *size and tightness*, and a bold weight at 48px closes up
- *    the counters and reads as shouting.
- *  - **Tracking tightens as size grows** — -0.02em at 18px, -0.04em at 48px. The
- *    same tracking applied flat would make the small headings illegible and leave
- *    the large ones looking spaced out. Each step below sets its own.
+ * Tracking tightens only slightly and only as size grows — Plus Jakarta is a wide face.
  */
 h1,
 h2,
@@ -92,7 +89,7 @@ h5,
 h6 {
   margin: 0 0 0.5em;
   font-family: var(--font-heading);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-snug);
   color: var(--text);
@@ -102,25 +99,22 @@ h6 {
 }
 
 h1 {
-  font-size: var(--text-3xl);
-  line-height: var(--leading-tight);
+  font-size: var(--type-page-title);
   letter-spacing: var(--tracking-display);
 }
 
 h2 {
-  font-size: var(--text-2xl);
+  font-size: var(--type-section-title);
   letter-spacing: var(--tracking-tight);
 }
 
-/* 24px takes -0.04em, not the -0.06em above it: that is what the reference measures
-   at this size, and -0.06em on a 24px card title starts closing the counters. */
 h3 {
-  font-size: var(--text-xl);
+  font-size: var(--type-card-title);
   letter-spacing: var(--tracking-snug);
 }
 
 h4 {
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
 }
 
 h5,

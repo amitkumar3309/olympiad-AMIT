@@ -1,0 +1,146 @@
+.scroller {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  /* Room for the focus ring and the current stage's breathing art. */
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-md);
+  scrollbar-width: thin;
+}
+
+.track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(112px, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: max-content;
+}
+
+@media (min-width: 1024px) {
+  .track {
+    min-width: 0;
+    grid-auto-columns: minmax(0, 1fr);
+  }
+}
+
+.stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  text-align: center;
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+.artWrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 84px;
+}
+
+.art {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.current .art {
+  animation: journey-breathe var(--dur-idle) var(--ease-sine) infinite;
+}
+
+@keyframes journey-breathe {
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.locked .art {
+  filter: grayscale(0.85);
+  opacity: 0.55;
+}
+
+/* The tick / padlock, sitting on the art's lower edge like the mockup's. */
+.marker {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  translate: -50% 0;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--surface);
+}
+
+.marker:empty {
+  display: none;
+}
+
+.done .marker {
+  background: var(--success-solid);
+  color: var(--success-on);
+}
+
+.locked .marker {
+  background: var(--text-muted);
+  color: var(--surface);
+}
+
+.caption {
+  margin-top: var(--space-2);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+}
+
+.currentPill {
+  margin-top: var(--space-2);
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--primary-on);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-bold);
+}
+
+.title {
+  font-size: var(--type-small);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+  line-height: var(--leading-snug);
+}
+
+.locked .title {
+  color: var(--text-muted);
+}
+
+/* The connector: from this stage's art to the next one's, drawn left to right. */
+.connector {
+  position: absolute;
+  top: 42px;
+  left: calc(50% + 52px);
+  width: calc(100% - 104px + var(--space-2));
+  height: 2px;
+  border-radius: 1px;
+  background: var(--border-strong);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  transition: transform var(--dur-entrance) var(--ease-out);
+}
+
+.connectorDone {
+  background: var(--primary);
+}
+
+[data-drawn='true'] .connector {
+  transform: scaleX(1);
+}

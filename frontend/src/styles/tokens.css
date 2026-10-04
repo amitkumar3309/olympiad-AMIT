@@ -2,112 +2,183 @@
  * DESIGN TOKENS — the single source of truth for colour, type, space, radius,
  * shadow, motion and layering in this application.
  *
- * Milestone 23 Phase A created this file. Milestone 26 re-pointed it onto a
- * near-black/white language measured from Tokko. **Milestone 27 re-points it again**,
- * onto the Brightpath reference, and this time the change is not only a recolour —
- * two of the three ideas underneath it invert. Read the next section before touching
- * a surface.
+ * Milestone 23 Phase A created this file; Milestones 26, 27 and 28 re-pointed it three
+ * times. **Milestone 30 (the Diwali launch) re-points it onto the two launch mockups**
+ * in `docs/design/` — `mockup-landing.jpeg` and `mockup-dashboard.jpeg` — and the brief
+ * in `docs/launch/LAUNCH_SPEC.md` §5. Read the next section before touching a surface.
  *
- * Every value here was measured off the live reference with `getComputedStyle` and
- * then **verified with WCAG arithmetic before being written**, not eyeballed. Where
- * the reference itself fails a contrast threshold, the reference loses; those cases
- * are named in the comments beside the tokens that record the decision.
+ * The mockups are AI-generated JPEGs, so every value below was **sampled, then solved
+ * numerically for WCAG AA** before being written (the solver's figures are recorded
+ * beside the tokens). Where the mockup itself fails a threshold, the mockup loses — two
+ * cases are named below: its muted grey (4.39:1 on its own page) and its pale sidebar
+ * gradient (2.97:1 under a white label).
  *
  * ## How to use this file
  *
  * Nothing in `src/` may hardcode a colour, a radius, a shadow, a duration or a font
  * size. Reach for a token here instead, and if none fits, add one *here* rather than
  * inventing a value in a component — that is the whole mechanism by which fifty pages
- * stay recognisably one product. It is also why this milestone's recolour reaches all
- * 54 routes without editing them: a sweep confirmed that **no file outside this one
- * references a palette step**, so the ramps below can be replaced wholesale.
+ * stay recognisably one product, and why this re-point reaches every route without
+ * editing them.
  *
  * ## Three layers, in order
  *
- *  1. **Palette** (`--ink-900`, `--cat-blue`, …) — raw ramps. A component must
+ *  1. **Palette** (`--ink-900`, `--royal-500`, …) — raw ramps. A component must
  *     **never** reference these directly; they exist so the semantic layer below can
  *     be re-pointed in one place.
  *  2. **Semantic** (`--surface`, `--text-muted`, `--danger-soft`, …) — what a value
  *     *means*. This is the layer components use, and the only layer the dark theme
  *     redefines.
- *  3. **Legacy aliases** (`--royal-blue`, `--gold`, `--text-main`) — the names the
- *     pre-Milestone-23 CSS modules already reference. Kept working deliberately; they
- *     retire page by page as each is redesigned.
+ *  3. **Legacy aliases** (`--royal-blue`, `--gold`, `--text-main`) — names the
+ *     pre-Milestone-23 CSS modules still reference. Kept working deliberately.
  *
- * ## THE THREE IDEAS THIS LANGUAGE IS BUILT ON
+ * ## The spec's token names, mapped onto this file
  *
- * Milestone 26's first and third ideas are **reversed** here. A change that
+ * The launch brief names its tokens `--brand-600`, `--ink-900` and so on. They are
+ * mapped onto this file's existing scheme rather than added beside it, because
+ * `--brand` already means "the one call to action" here and a palette ramp called
+ * `--brand-*` next to it is how the wrong one gets picked:
+ *
+ *   spec `--brand-600` #1D63F6 → `--royal-500` → `--primary`
+ *   spec `--brand-700` #154FD0 → `--royal-600` → `--primary-hover`, `--primary-text`
+ *   spec `--brand-400` #5794FE → `--royal-400`
+ *   spec `--brand-50`  #EEF5FE → `--royal-50`
+ *   spec `--bg` / `--surface` / `--border` / `--track` → same names (`--track` is
+ *        `--progress-track`)
+ *   spec `--ink-900/700/500` → `--text` / `--text-body` / `--text-muted`
+ *   spec `--success`, `--danger`, `--gold`, `--orange`, `--purple` → the status
+ *        semantics, `--accent`, and the `--cat-*` glyph colours
+ *
+ * ## THE FOUR IDEAS THIS LANGUAGE IS BUILT ON (Milestone 30)
+ *
+ * Milestone 28's "no shadow on any card" and Milestone 27's "hard offset edge" are
+ * **both retired** here — the mockups have soft cards and flat controls. A change that
  * contradicts one of these will look wrong however carefully it is tokenised:
  *
- *  1. **Separation is by a HAIRLINE — and still never by a shadow.** This is the one
- *     idea Milestone 28 changed. The reference puts a white card on a warm cream page
- *     and lets that fill step *be* the edge, with no border and no shadow anywhere;
- *     that is how this shipped through Milestone 27. The owner then asked for a
- *     **white page**, so that step collapsed to 1.00:1 and the edge had to come from
- *     somewhere — it is `--card-border`, a hairline, in both themes now. What did
- *     **not** change is the prohibition that matters: `--shadow-*` is the overlay
- *     scale (modal, drawer, menu, toast, tooltip) and nothing that is part of the
- *     page may use one. Sections are still tinted rather than ruled, but the tints
- *     are now the faintest steps of the brand blue (white → `--royal-25` → pale blue)
- *     rather than cream → sand → pale blue.
- *  2. **Emphasis is a HARD OFFSET EDGE, and it belongs to controls and markers only.**
- *     The reference's signature is `0 4px 0` in a companion colour, with **zero
- *     blur** — a sticker or a keycap, not a lift. It is on buttons (vertical offset)
- *     and on small icon tiles and step numbers (diagonal offset). It is **never on a
- *     card**. That is the `--edge-*` family, which is new in this milestone.
- *  3. **Colour is ABUNDANT and categorical.** Milestone 26 made colour scarce and the
- *     action near-black. Here the page itself is coloured, cards are pastel, and there
- *     are two action colours: the **royal-blue** standard action and an orange call to
- *     action. The six `--cat-*` hues are no longer confined to one component.
- *     (Milestone 27 shipped that standard action as a deep green; Milestone 28
- *     re-pointed it to the brand blue the product started with. Nothing else about
- *     the language moved with it.)
- *
- * And one that does **not** change, because it was never about the reference:
- *
- *  4. **Type is tight.** Still negative tracking, but now carried by a display face —
- *     Bricolage Grotesque for headings (600–700, −0.04em to −0.08em) over Instrument
- *     Sans for everything else. Note `--tracking-body` is now **0**: the reference
- *     tracks its body copy normally and only its headings tightly, which is the
- *     opposite of Milestone 26's single inherited −0.02em.
+ *  1. **A card is a white surface on a pale blue page, with a hairline AND a soft
+ *     layered shadow.** `--bg` is `#f4f8fe`, `--surface` is white, and the card's edge
+ *     is `--card-border` plus `--card-shadow` together. Neither alone: the fill step is
+ *     only 1.05:1 and a shadow with no line looks like a smudge on a phone in sunlight.
+ *     `--shadow-*` remains the **overlay** scale (modal, menu, toast, tooltip); a card
+ *     uses `--card-shadow`, which is deliberately much quieter.
+ *  2. **One action colour, and emphasis is FILL versus OUTLINE.** `--primary` is the
+ *     brand blue `#1d63f6`. A page's single loudest action is `--brand`, which is the
+ *     same blue with a soft glow (`--shadow-brand`) — the orange call to action of
+ *     Milestone 27 is gone, because the mockups have no orange button at all. The hard
+ *     `0 4px 0` keycap edge is retired: the `--edge-*` geometry tokens survive at zero
+ *     so nothing that still names one breaks, and press feedback is a 0.98 scale.
+ *  3. **Colour is categorical, in TINTED tiles with a saturated glyph.** The six
+ *     `--cat-*` fills are pale tints of the mockup's accent hues, each with a
+ *     `-glyph` (the saturated icon colour, ≥3:1 on its own tint) and an `-on` (ink,
+ *     for any words on the tint). Gold is achievement, green is correct, red is wrong
+ *     or urgent — status colours keep their meaning and are never used as categories.
+ *  4. **Type is Plus Jakarta Sans, everywhere, and weight carries the hierarchy** —
+ *     800 for a hero, 700 for headings, 600 for labels, 400/500 for body. It replaces
+ *     both Bricolage Grotesque and Instrument Sans, so this is one fewer family than
+ *     Milestone 27, not one more. Caveat appears only in the two handwritten accents
+ *     the mockups use. Tracking is only slightly negative and only at display sizes:
+ *     Plus Jakarta is a wide face and does not need Bricolage's −0.08em.
  *
  * ## Dark mode
  *
  * `ThemeContext` puts `.theme-dark` on `document.documentElement` — the same element
  * `:root` matches. Both selectors have identical specificity (0,1,0), so **source
  * order is what makes dark mode win**: the `.theme-dark` block must stay *below*
- * `:root`. Anything added to one needs a counterpart in the other, or it is simply
- * missing in the theme that lacks it.
+ * `:root`. Anything added to one needs a counterpart in the other.
  *
- * The reference is light-only (it carries no `prefers-color-scheme: dark` rule at
- * all), so the dark theme below is **derived, and verified independently**.
- *
- * **Milestone 28 re-pointed it too**: it is a *black* page with **royal-blue cards**
- * (`--bg: #000000`, `--surface: #121e47`) and a cool near-white text ramp. It was a
- * green near-black with warm cream text, derived from Brightpath — which, once the
- * light theme became white with a royal-blue primary, left the two themes looking like
- * different products. The blue card is the same hue family as `--primary`. Every
- * figure is recorded beside the tokens.
- *
- * Two consequences worth knowing: the hard offset edge *survives* into dark mode,
- * where a blurred shadow could not — a zero-blur offset in a darker companion still
- * reads on a black page — and the six categorical pastels are **theme-invariant**,
- * because they are already light fills carrying ink text and they measure 9–12:1 on a
- * dark surface exactly as they do on white.
+ * The mockups are light-only. The dark theme keeps the owner's 2026-09-21 decision — a
+ * **black page with royal-blue cards** — re-checked against the new primary, and every
+ * token added in this milestone has a dark counterpart below.
  *
  * ## Breakpoints (documented here, declared in each module)
  *
  * CSS custom properties cannot be used in a media query, so the breakpoints are a
  * convention rather than a token. **Mobile is the base case — no media query.** The
- * queries below are `min-width`, added only to *widen* a layout that already works:
+ * queries are `min-width`, added only to *widen* a layout that already works:
  *
  *   - `480px`  — large phones (two-up tiles become possible)
- *   - `768px`  — tablets; the point at which drawers become permanent sidebars
- *   - `1024px` — small laptops
- *   - `1280px` — desktop; the container reaches its maximum
+ *   - `768px`  — tablets
+ *   - `1024px` — small laptops; the point at which drawers become permanent sidebars
+ *   - `1280px` — desktop; the three-column dashboard
  *
- * A `max-width` query is still correct for one job — hiding a desktop-only affordance.
+ * The launch brief's QA widths are 360, 390, 414, 768, 1024, 1280, 1440 and 1920.
  */
+
+/* ==========================================================================
+   FONTS — self-hosted (Milestone 30, Phase 1)
+   ==========================================================================
+
+   Served from `public/fonts/`, copied from the `@fontsource-variable/*` 5.3.0
+   packages (SIL OFL 1.1 — the licence files sit beside the fonts). Self-hosted so
+   there is no render-blocking third-party stylesheet before first paint, and so the
+   main face can be preloaded from `index.html` — which needs a stable URL, which is
+   why these live in `public/` with the version in the file name rather than being
+   bundled with a content hash. `vercel.json` gives `/fonts/*` a one-year immutable
+   cache for the same reason: a new version is a new file name.
+
+   Latin only, plus Plus Jakarta's Latin-Extended file, which is where **₹ (U+20B9)**
+   lives. `unicode-range` means a browser fetches that second file only on a page that
+   actually prints a rupee sign. Verified in a browser: the rupee renders in Plus
+   Jakarta itself, not in a fallback face.
+
+   `font-display: swap` everywhere: text is readable in a system face immediately and
+   re-renders when the file arrives, rather than staying invisible on a slow phone. */
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('/fonts/plus-jakarta-sans-latin-wght-5.3.0.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url('/fonts/plus-jakarta-sans-latin-ext-wght-5.3.0.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113,
+    U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/geist-mono-latin-wght-5.3.0.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('/fonts/cinzel-latin-wght-5.3.0.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 700;
+  src: url('/fonts/caveat-latin-wght-5.3.0.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 :root {
   /* ==================================================================
@@ -115,211 +186,166 @@
      ================================================================== */
 
   /**
-   * Ink — the neutral ramp, and the only ramp most of the product needs.
+   * Ink — the neutral ramp, now a **navy slate** rather than Milestone 27's green.
    *
-   * Built on **`#14261d`, a very dark green, never black and never grey**. That one
-   * step is the reference's text colour; `--ink-800` (`#1b3428`) is its dark card —
-   * and was its standard button until Milestone 28 re-pointed the action to royal
-   * blue, so the ramp is now purely neutral; `--ink-600` (`#45564b`) is its secondary text;
-   * `--ink-50` (`#f4f0e5`) was the reference's **page** and `--ink-100` (`#eae4d3`) the
-   * sand band that alternated with it. Five of the thirteen steps are therefore
-   * values read directly off the reference rather than interpolated.
-   *
-   * Milestone 27 made the page `--ink-50` and a card `--ink-0`, so the two were
-   * different colours and that step was the edge. **Milestone 28 put the page back to
-   * `--ink-0`** at the owner's request, so `--surface` and `--bg` are both white again
-   * and the edge is `--card-border`. `--ink-50` and `--ink-100` stay in the ramp —
-   * they are palette, still monotonic, and still what the warm steps interpolate
-   * through — but **neither is the page any more**. Do not reach for one as a
-   * background: that is what `--bg` / `--bg-subtle` are for, and they are white and a
-   * blue whisper now.
-   *
-   * The ramp is verified monotonic in relative luminance, so a step is always darker
-   * than the one before it — which is what lets `--ink-200` be a border and
-   * `--ink-300` a disabled fill without checking each one by hand.
+   * Three steps are the mockups' own values: `--ink-900` `#0b1533` is the heading
+   * colour, `--ink-700` `#3f4556` the body copy, `--ink-50` `#f4f8fe` the page. The
+   * others are interpolated, and the ramp is verified monotonic in luminance so a step
+   * is always darker than the one before it.
    */
   --ink-0: #ffffff;
-  --ink-25: #faf8f1;
-  --ink-50: #f4f0e5; /* WAS the page until M28 — measured off the reference */
-  --ink-100: #eae4d3; /* WAS the sand band until M28 */
-  --ink-200: #d5cfba;
-  --ink-300: #b0b5a4;
-  --ink-400: #8a9287;
-  --ink-500: #6a7568;
-  --ink-600: #45564b; /* secondary text — measured */
-  --ink-700: #33453a;
-  --ink-800: #1b3428; /* the dark card — measured. WAS the standard action until M28 */
-  --ink-900: #14261d; /* THE INK — measured */
-  --ink-950: #0b1711;
+  --ink-25: #f9fbff;
+  --ink-50: #f4f8fe; /* THE PAGE — sampled */
+  --ink-100: #e8eef5; /* the progress track — sampled */
+  --ink-200: #d5dde9;
+  --ink-300: #b4bfd0;
+  --ink-400: #8a94a8;
+  --ink-500: #6b7489; /* the mockup's muted grey — 4.39:1 on the page, so NOT a text colour */
+  --ink-600: #4f586c;
+  --ink-700: #3f4556; /* body copy — sampled */
+  --ink-800: #1f2a47;
+  --ink-900: #0b1533; /* THE INK — sampled */
+  --ink-950: #060b1d;
 
   /**
-   * **The invariant ink set** — the one group in this file that `.theme-dark` must
-   * NOT override.
+   * **The invariant ink set** — the one group `.theme-dark` must NOT override.
    *
-   * Its job today is modest: the light theme’s `--text-*` and `--border-*` point at
-   * it, so there is exactly one definition of "ink on a light surface" rather than two
-   * that can drift. It is documented at this length because of what it is *for* next.
+   * The light theme's `--text-*` and `--border-*` point here, and anything that must
+   * stay dark on a theme-invariant light fill (a `--cat-*` tint, a podium step) pins
+   * to these. **Pinning text on a container pins it for the whole subtree**, so only
+   * pin a container whose content is a leaf — a glyph, a numeral, a label. A container
+   * holding a `Card` cannot be pinned: the card paints `--surface`, which is dark blue
+   * in the dark theme, and pinned ink on it measures 1.00:1.
    *
-   * The six `--cat-*` pastels are theme-invariant — a light fill carrying ink, in both
-   * themes. `--text` and `--text-muted` are the opposite: they invert to a warm
-   * off-white in the dark theme. Put one behind the other and you get cream on pale
-   * blue at **1.09:1**, which is what a pale-blue section band measured the first time
-   * one was added here. Milestone 26 never hit this because it confined the pastels to
-   * `IconTile`, which pins `color` to the fill’s own `-on`.
+   * Text is an **alpha** of the navy, not a solid step, so one value composites
+   * correctly on white, the page, every tint and every pastel. Solved worst cases
+   * across all of them: body **8.78:1**, muted **5.14:1** (both on `--cat-purple`),
+   * subtle 3.34:1 — which is glyph-only, never words.
    *
-   * **The constraint that makes this subtle:** pinning text on a container pins it for
-   * the whole subtree, and a subtree containing a *themed* surface cannot be pinned —
-   * a `Card` inside a pinned band paints `--surface`, near-black in dark, and its text
-   * was left as ink at 1.00:1. So an invariant fill is only safe where the content on
-   * it is a leaf: a glyph, a numeral, a label. `IconTile` and the landing page’s step
-   * markers qualify; a section band does not, which is why `--band-accent` goes themed
-   * in dark rather than staying pastel.
-   *
-   * Pin against these when you add a pastel surface that holds only leaf content. Do
-   * not pin a container that holds cards.
+   * Borders are an alpha of a **blue**, not of the ink: `rgba(47, 97, 172, 0.12)` over
+   * white is exactly the mockup's `#e6ecf5`, and over the pale page it stays blue rather
+   * than going grey.
    */
   --ink-text: var(--ink-900);
-  --ink-text-body: rgba(20, 38, 29, 0.84);
-  --ink-text-muted: rgba(20, 38, 29, 0.7);
-  --ink-text-subtle: rgba(20, 38, 29, 0.5);
-  --ink-border: rgba(20, 38, 29, 0.1);
-  --ink-border-subtle: rgba(20, 38, 29, 0.06);
-  --ink-border-strong: rgba(20, 38, 29, 0.18);
+  --ink-text-body: rgba(11, 21, 51, 0.8);
+  --ink-text-muted: rgba(11, 21, 51, 0.64);
+  --ink-text-subtle: rgba(11, 21, 51, 0.5);
+  --ink-border: rgba(47, 97, 172, 0.12);
+  --ink-border-subtle: rgba(47, 97, 172, 0.07);
+  --ink-border-strong: rgba(47, 97, 172, 0.22);
 
   /**
-   * Mid green — one step that is neither text nor page, kept out of the ink ramp
-   * because it is saturated: it would break the monotonic-neutral property above.
+   * **Royal blue — the brand.** Milestone 28 restored `#0052ff`; the launch mockups
+   * sample at **`#1d63f6`**, slightly lighter and softer, and the brief adopts the
+   * mockup (owner, 2026-10-04: the Phase 0 plan's Q1). The name `--royal-*` is kept
+   * because `--sky-*` already sits behind `--info` and `--brand` already means the
+   * call to action.
    *
-   * It takes **white** text (4.72:1), not cream (4.14:1, which fails). That pair is
-   * the reason both exist.
-   *
-   * **Currently unreferenced.** It was `--primary-edge`, the companion under the
-   * standard action, until Milestone 28 re-pointed that action to royal blue; the
-   * edge is `--royal-700` now. Kept rather than deleted because it is still the one
-   * saturated mid-green available as a card fill, and deleting a palette step is not
-   * a colour re-point. Do not reach for it as an edge under `--primary` again — the
-   * blue's companion is a *darker* blue, for the reason given at `--primary-edge`.
+   *   - `500` is the action fill: white on it is **5.04:1**.
+   *   - `600` (`#154fd0`, the mockup's pressed blue) is the step that carries
+   *     **words** — 6.05:1 at worst, on the hover tint. `500` as text reaches only
+   *     4.44:1 there, which is why text never uses it.
+   *   - `450` is the lightest blue a white label survives on (4.58:1). It is the light
+   *     end of every gradient that carries text; the mockup's `#5794fe` (`400`) under
+   *     white measures 2.97:1 and is decoration only.
    */
-  --green-mid: #497e64;
+  --royal-25: #f8fbff;
+  --royal-50: #eef5fe; /* sampled — the "you" row, soft fills */
+  --royal-100: #dce8fd;
+  --royal-200: #bcd3fc;
+  --royal-300: #8db5fb;
+  --royal-400: #5794fe; /* sampled — decoration only; white on it is 2.97:1 */
+  --royal-450: #2a6cf7; /* the lightest blue that still carries a white label (4.58:1) */
+  --royal-500: #1d63f6; /* THE BRAND — sampled */
+  --royal-600: #154fd0; /* sampled — hover, pressed, and the only blue for words */
+  --royal-700: #1240a8;
+  --royal-800: #0f3383;
+  --royal-900: #0b265f;
 
   /**
-   * The categorical set — six **pastels**, each carrying ink text and each with a
-   * darker **`-edge`** companion for the hard offset.
+   * The categorical set — six pale **tints**, each with a saturated **`-glyph`** (the
+   * icon colour, solved to ≥3:1 on its own tint) and an ink **`-on`** (for words).
    *
-   * Four of the six are measured off the reference (blue, green/lime, magenta/pink,
-   * orange/peach, with their edges). Lilac and purple are derived in the same
-   * register, and purple went through three candidates before one cleared the
-   * muted-text floor — `#cdbcea` measured **4.44:1** for `--text-muted`, just under
-   * AA, which is exactly the class of defect Milestone 26's Phase G audit found 109
-   * times. It is `#c9c6f0` for that reason and no other.
+   * Hues are the mockups' accents: orange is the streak flame, blue the brand, magenta
+   * the statistics pink, purple achievements, green success, gold the XP star. The
+   * names are bucket labels, not colour claims — `IconTile`'s `tone` is the public
+   * API over them. **These are theme-invariant**: a pale tint carrying a saturated
+   * glyph reads on the dark theme's blue card as well as on white.
    *
-   * **The names are Milestone 26's, deliberately.** They are bucket labels, not
-   * colour claims — `IconTile`'s `tone` prop is the only public API over them, and
-   * re-pointing values rather than renaming tokens is what kept this a one-file
-   * change. `--cat-purple` is a periwinkle; it differs from `--cat-lilac` by 1.15:1,
-   * which is enough to tell two adjacent tiles apart.
-   *
-   * Every `-on` is now **ink**, in both themes. Milestone 26 needed a mixed set
-   * because its hues were saturated; a pastel is a light fill by definition, so ink
-   * measures 9.04–11.93:1 on all six and the special cases disappear. **These six are
-   * theme-invariant** — they are not redefined in `.theme-dark`, because a light
-   * pastel reads on a dark surface at 9–12:1 just as it does on cream.
-   *
-   * Unlike Milestone 26, these are **not confined to `ui/IconTile`** — the reference
-   * uses them as card and section fills too. What still holds: they are fills, never
-   * words, and they are not wired into `Badge`, whose tones are semantic.
+   * The `-edge` tokens are **retired** (the hard offset is gone) and kept only as
+   * `transparent`, so a stylesheet that still names one draws nothing rather than
+   * failing.
    */
-  --cat-orange: #f9d8c0; /* peach — measured */
-  --cat-orange-on: var(--ink-900); /* 11.78:1 */
-  --cat-orange-edge: #ba9275; /* measured */
-  --cat-blue: #c9e0f2; /* measured */
-  --cat-blue-on: var(--ink-900); /* 11.65:1 */
-  --cat-blue-edge: #5488b2; /* measured */
-  --cat-magenta: #f6d7e8; /* pink — measured */
-  --cat-magenta-on: var(--ink-900); /* 11.93:1 */
-  --cat-magenta-edge: #be8fa9; /* measured */
-  --cat-purple: #c9c6f0; /* derived — see the note above */
-  --cat-purple-on: var(--ink-900); /* 9.68:1 */
-  --cat-purple-edge: #8b7fb8;
-  --cat-green: #d6e59a; /* lime — measured */
-  --cat-green-on: var(--ink-900); /* 11.73:1 */
-  --cat-green-edge: #a0af64; /* measured */
-  --cat-lilac: #ded3f0; /* derived */
-  --cat-lilac-on: var(--ink-900); /* 11.08:1 */
-  --cat-lilac-edge: #9b8cc0;
+  --cat-orange: #fff1eb;
+  --cat-orange-glyph: #d9541f; /* 3.63:1 */
+  --cat-orange-on: var(--ink-900);
+  --cat-blue: #eaf1fe;
+  --cat-blue-glyph: #1d63f6; /* 4.44:1 */
+  --cat-blue-on: var(--ink-900);
+  --cat-magenta: #fdeef5;
+  --cat-magenta-glyph: #d63d80; /* 3.87:1 */
+  --cat-magenta-on: var(--ink-900);
+  --cat-purple: #f1ebfe;
+  --cat-purple-glyph: #7340e0; /* 5.10:1 */
+  --cat-purple-on: var(--ink-900);
+  --cat-green: #e3f8ee;
+  --cat-green-glyph: #0b8a5f; /* 3.93:1 */
+  --cat-green-on: var(--ink-900);
+  --cat-lilac: #f5f1fe;
+  --cat-lilac-glyph: #7c4ef0; /* 4.49:1 */
+  --cat-lilac-on: var(--ink-900);
+  --cat-gold: #fef5df;
+  --cat-gold-glyph: #b77d00; /* 3.25:1 — the sampled #f8b11e is 2.2:1 on its tint */
+  --cat-gold-on: var(--ink-900);
+  --cat-orange-edge: transparent;
+  --cat-blue-edge: transparent;
+  --cat-magenta-edge: transparent;
+  --cat-purple-edge: transparent;
+  --cat-green-edge: transparent;
+  --cat-lilac-edge: transparent;
 
   /**
-   * Orange — the **call to action**, and the brand mark's own colour.
-   *
-   * This is the reference's highest-emphasis button, and it is the one place the
-   * reference is simply wrong: it puts **white on `#e8722c`, which measures 3.05:1**
-   * and fails AA for normal text. Ours takes **ink** (5.19:1). That is not a
-   * compromise on fidelity — the fill is identical, only the label changed.
-   *
-   * Two more consequences, both measured: `--brand-hover` **lightens** rather than
-   * darkens, because darkening breaks the ink label (`#c85a18` gives ink 3.72:1 and
-   * white 4.26:1 — neither clears). And the ramp needs a dark step for words:
-   * `#9e4512` is the only one that carries text on every surface it can land on
-   * (4.75:1 worst case, on the sand band).
+   * Gold — **achievement**: XP, trophies, the first place on a podium, a certificate.
+   * `--gold-400` is the mockup's `#f8b11e`. A bright step for decoration and dark
+   * steps for words and marks, because a usable gold and a legible gold are not the
+   * same colour.
    */
-  --orange-50: #fdf0e6;
-  --orange-100: #fad9c0;
-  --orange-300: #f0a56d;
-  --orange-400: #f08a4a;
-  --orange-500: #e8722c; /* THE CTA — measured */
-  --orange-600: #c85a18;
-  --orange-700: #9e4512; /* the only step that may carry words */
+  --gold-50: #fef7e6;
+  --gold-100: #fdebc0;
+  --gold-200: #fbd98a;
+  --gold-300: #f8c24f;
+  --gold-400: #f8b11e; /* sampled — XP and trophies */
+  --gold-500: #d4910a;
+  --gold-600: #a87006; /* a mark on white: 4.21:1 */
+  --gold-700: #7d5304; /* words: 5.95:1 at worst */
+
+  /** Orange — the streak. `--orange-400` is the mockup's `#f97a4a`. */
+  --orange-50: #fff1eb;
+  --orange-100: #fedccf;
+  --orange-300: #fca582;
+  --orange-400: #f97a4a; /* sampled — the streak */
+  --orange-500: #e8622f;
+  --orange-600: #c44d1f;
+  --orange-700: #9c3c16;
+
+  /** Purple — achievements. `--purple-500` is the mockup's `#8b5cf6`. */
+  --purple-50: #f3eefe;
+  --purple-100: #e6dcfd;
+  --purple-500: #8b5cf6; /* sampled */
+  --purple-600: #7340e0;
+  --purple-700: #5b2fb8;
 
   /**
-   * Gold, narrowed to one job: **achievement**. Certificates, medals, the Hall of
-   * Fame, a distinction tier. It is the one colour in the product that means
-   * something on its own, which is why it is not in the categorical set — those are
-   * arbitrary labels, this one is earned.
-   *
-   * Warmed slightly against the cream page, and it keeps the Milestone 26 shape: a
-   * bright step for decoration and a dark step for words, because a usable gold and a
-   * legible gold are not the same colour.
-   *
-   * **There is deliberately no `--accent-solid`.** Every other status has one — a dark
-   * fill that carries a white label — and gold does not, because gold’s whole job is
-   * to look like gold: the steps bright enough to read as an award (`--gold-300`,
-   * `--gold-400`) are light fills that take **ink**, and a `--gold-600` badge with a
-   * white label is just a brown badge. One was added in Milestone 27 for symmetry with
-   * the other four ramps, went unused, and its existence immediately caused
-   * `--accent-on` to be set to white against a light fill. It was removed rather than
-   * documented.
+   * Status ramps. Green and red are the mockups' own (`#12b981` correct, `#e5484d`
+   * wrong, `#0f7a4f` and `#b42e33` their text steps); amber and sky are unchanged.
+   * Each `700` carries words on every light surface, each `600` takes a white label.
    */
-  --gold-50: #fdf6e3;
-  --gold-100: #f9e9ba;
-  --gold-200: #f2da8a;
-  --gold-300: #edc95a;
-  --gold-400: #d9ab22;
-  --gold-500: #a87f0c;
-  --gold-600: #87650a;
-  --gold-700: #6b5008;
-
-  /**
-   * Status. Four ramps, kept semantic and kept visually apart from the categorical
-   * pastels — a reader has to tell "this failed" from "this is chapter three", and
-   * the pastels are light while these are saturated.
-   *
-   * All four were re-mixed into the warm register and then **solved numerically**
-   * against three thresholds at once: the `700` step must carry words on white,
-   * cream, sand and its own two soft tints; the `600` step must take either white or
-   * ink as a label; the `500` step must reach 3:1 as a non-text mark on cream.
-   *
-   * Amber is the hard one, as always — it sits where neither white nor ink clears on
-   * a mid step. `--amber-600` is `#a46609` because that is where **white** reaches
-   * 4.5:1 *after hex rounding*; the first candidate computed 4.5034:1 and rounded
-   * back down to 4.50, which is the kind of near-miss that only shows up if you
-   * verify the value you actually wrote rather than the one you calculated.
-   */
-  --green-50: #eaf5ee;
-  --green-100: #cde9d8;
-  --green-300: #7cc79b;
-  --green-500: #2e9b61;
-  --green-600: #1d7f4c;
-  --green-700: #13633a;
+  --green-50: #e7f8f1;
+  --green-100: #c8eedf;
+  --green-300: #6fd6ae;
+  --green-500: #12b981; /* sampled — correct, LIVE */
+  --green-600: #0f7a4f; /* sampled success ink — white label 5.36:1, as text 4.73:1 at worst */
+  --green-700: #0b6342;
 
   --amber-50: #fdf4e3;
   --amber-100: #fae6bf;
@@ -328,12 +354,12 @@
   --amber-600: #a46609; /* white clears 4.5:1 here, and not one step lighter */
   --amber-700: #8f5709;
 
-  --red-50: #fdefec;
-  --red-100: #fad8d2;
-  --red-300: #f0a196;
-  --red-500: #e0503c;
-  --red-600: #c43a28;
-  --red-700: #9e2c1e;
+  --red-50: #fce1e6; /* sampled — the countdown chip */
+  --red-100: #f8c4cd;
+  --red-300: #f08a90;
+  --red-500: #e5484d; /* sampled — wrong */
+  --red-600: #c93338; /* white label 5.23:1 */
+  --red-700: #b42e33; /* sampled danger ink — 5.05:1 on its own chip */
 
   --sky-50: #eaf2fb;
   --sky-100: #cfe1f6;
@@ -342,167 +368,94 @@
   --sky-600: #2a6aa8;
   --sky-700: #1f5285;
 
-  /**
-   * **Royal blue — the brand colour, restored in Milestone 28.**
-   *
-   * `--royal-500` `#0052ff` is not a new choice and not a sampled one: it is the
-   * value this product shipped with. It is in the **first commit** in the repository
-   * (the static `public/*.html` pages), and it became `--royal-blue: #0052ff` when
-   * the frontend was rebuilt in React. Milestone 23 re-mixed it to `#2f43e0`,
-   * Milestone 26 replaced it with a near-black action, and Milestone 27 with a deep
-   * green. The owner asked for the original back (2026-09-21).
-   *
-   * It is deliberately **not** CSS `royalblue` (`#4169e1`) — that was offered and
-   * declined. The token name is historical; `#0052ff` is the brand. Do not "correct"
-   * it. See the Milestone 28 ADR in `DECISIONS.md`.
-   *
-   * Named `--royal-*` rather than `--blue-*` because `--sky-*` already sits behind
-   * `--info`, and two ramps called blue is how the wrong one gets picked.
-   *
-   * The ramp is one hue (220.7°) at full saturation, stepped by lightness, then
-   * measured rather than assumed. The steps that matter:
-   *   - `500` is the action fill: white on it is **5.75:1**, so the button label
-   *     clears AA without needing a darker fill.
-   *   - `600` is the step that carries **words** — 7.44:1 on white, 6.53:1 on the
-   *     cream page and 5.86:1 on the sand band. `500` also passes on all three, but
-   *     reaches only 4.53:1 on sand, which is AA with nothing to spare; text uses
-   *     `600` for the same reason `--brand-text` uses `--orange-700`.
-   *   - `700` is the pressed state and the keycap edge.
-   */
-  --royal-25: #f7faff; /* the faintest tint — bands and hovers on a white page (M28) */
-  --royal-50: #f0f5ff;
-  --royal-100: #d6e3ff;
-  --royal-200: #b3cbff;
-  --royal-300: #709eff;
-  --royal-400: #3d7cff;
-  --royal-500: #0052ff; /* THE BRAND — the original, from the first commit */
-  --royal-600: #0045d6; /* the only step that may carry words */
-  --royal-700: #0038ad;
-  --royal-800: #002c8a;
-  --royal-900: #002166;
-
   /* ==================================================================
      2. TYPE
      ================================================================== */
 
   /**
-   * Two interface families, and they are **not** the same face — which is the one
-   * structural difference from Milestone 26, where `--font-heading` deliberately
-   * aliased `--font-body` and a heading got its character from weight and tracking
-   * alone.
+   * **Plus Jakarta Sans for everything** a reader reads — headings, body, tables,
+   * inputs. The brief's test was "keep the existing font if it is a clean geometric
+   * sans close to the mockups"; Bricolage Grotesque is a quirky optical-size
+   * grotesque and set side by side against the mockup it was visibly narrower, so it
+   * failed that test. Plus Jakarta has true tabular figures (verified: `111` and `000`
+   * measure identically with `tabular-nums`), which the timers and score columns rely on.
    *
-   * **Bricolage Grotesque** (variable, 300–800) is the display face: headings,
-   * figures, the wordmark. **Instrument Sans** (variable) is everything else — body
-   * copy, tables, inputs, labels. That pairing is the reference's, and the division
-   * matters for this product specifically: Bricolage has a lot of character and is
-   * tiring at 15px down a column of two hundred admin table rows.
-   *
-   * `--font-mono` is unchanged and stays **Geist Mono** — it is referenced 79 times
-   * across 33 files for serials, ids and figures, and a proportional substitute would
-   * break column alignment. `--font-display` stays **Cinzel** for the two logotype
-   * surfaces (the landing wordmark and the printed certificate) and nothing else.
-   *
-   * That is four families where Milestone 26 had three, and unlike that milestone
-   * this one does **not** get to claim it saved bytes: it costs roughly one extra
-   * variable face. Both new families are variable and requested from Google Fonts in
-   * `index.html`, which is the only place they are named outside this file.
+   * `--font-heading` survives as a name and is now the same family as `--font-body`;
+   * the heading character comes from weight. `--font-mono` stays Geist Mono (serials,
+   * ids). `--font-display` stays Cinzel for the printed certificate. `--font-hand` is
+   * Caveat, for the two handwritten accents in the mockups and nothing else.
    */
   --font-body:
-    'Instrument Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-heading:
-    'Bricolage Grotesque', 'Instrument Sans', system-ui, -apple-system, sans-serif;
+    'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: var(--font-body);
   --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
+  --font-hand: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive;
 
   /**
-   * A ramp, not a free-for-all.
-   *
-   * **`--text-base` stays 15px.** The reference runs its body copy at 16px, and it
-   * was tempting to move the whole ramp up to match — but 15px is what every input
-   * and table cell in this product already uses, and half of it is dense
-   * administrative tables that a marketing page has no equivalent of. The reference's
-   * 16px body maps to `--text-md`, which already existed. Nothing below `--text-base`
-   * moved either; **11px is the floor** and anything smaller is a mistake, not a size.
-   *
-   * The four largest steps are fluid `clamp()`, re-pointed onto the reference's own
-   * endpoints: its H1 measures 62px at a 1024px viewport and 103px at 1440px, its
-   * section headings 50–56px, its leads 32px. The **floor of each clamp is the phone
-   * size** and is the value that matters most; a fixed px headline would re-introduce
-   * the media queries these replaced.
+   * The general ramp — what the existing fifty pages are sized on. Unchanged in value
+   * so no page reflows by accident. **11px is the floor**; nothing smaller is a size.
    */
   --text-2xs: 0.6875rem; /* 11px — uppercase micro-labels only. The floor. */
   --text-xs: 0.75rem; /* 12px */
   --text-sm: 0.8125rem; /* 13px */
   --text-base: 0.9375rem; /* 15px — default UI text, tables, inputs */
-  --text-md: 1rem; /* 16px — the reference's body size */
-  --text-lg: 1.125rem; /* 18px — body copy and leads */
-  --text-xl: 1.5rem; /* 24px — card title */
+  --text-md: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.5rem; /* 24px */
   --text-2xl: clamp(1.5rem, 1.2rem + 1.5vw, 2rem); /* 24 → 32 */
   --text-3xl: clamp(1.875rem, 1.1rem + 3.8vw, 3.125rem); /* 30 → 50 */
   --text-4xl: clamp(2.25rem, 1.2rem + 5.2vw, 3.5rem); /* 36 → 56 */
-  --text-5xl: clamp(2.5rem, 0.6rem + 9.4vw, 6.4375rem); /* 40 → 103 — hero only */
+  --text-5xl: clamp(2.5rem, 0.6rem + 9.4vw, 6.4375rem); /* 40 → 103 */
 
   /**
-   * Leading. Tighter at the top than Milestone 26's, because the reference sets its
-   * hero at exactly 1.0 and its section headings at 1.1.
+   * **The role scale** — the brief's §5.2, as roles rather than sizes. Fluid between a
+   * 360px phone and a 1440px desktop; the floor of each clamp is the phone size and is
+   * the value that matters most. Rem-based ends, so a reader's larger default font
+   * still enlarges them.
    *
-   * `--leading-normal` is **1.4** — the reference's own body figure, and close enough
-   * to the 1.45 it replaces that no paragraph reflows badly. Do not take the display
-   * figures down further: 1.0 works on a two-line hero and turns a three-line heading
-   * into a solid block.
+   *   hero 36 → 56 · page title 26 → 32 · section title 22 → 28 · card title 16 → 18
+   *   body 15 → 16 · small 13 · micro 12
    */
+  --type-hero: clamp(2.25rem, 1.833rem + 1.852vw, 3.5rem);
+  --type-page-title: clamp(1.625rem, 1.5rem + 0.556vw, 2rem);
+  --type-section-title: clamp(1.375rem, 1.25rem + 0.556vw, 1.75rem);
+  --type-card-title: clamp(1rem, 0.958rem + 0.185vw, 1.125rem);
+  --type-stat: clamp(1.25rem, 1.167rem + 0.37vw, 1.5rem); /* a stat card's figure, 20 → 24 */
+  --type-body: clamp(0.9375rem, 0.9167rem + 0.0926vw, 1rem);
+  --type-small: 0.8125rem;
+  --type-micro: 0.75rem;
+
   --leading-none: 1;
-  --leading-tight: 1; /* display only — the reference's hero */
-  --leading-snug: 1.15; /* section headings */
-  --leading-normal: 1.4; /* body copy — the reference's figure */
+  --leading-tight: 1.08; /* display — a hero two lines tall */
+  --leading-snug: 1.22; /* headings */
+  --leading-normal: 1.5; /* body copy */
   --leading-relaxed: 1.6;
   --leading-loose: 1.75;
 
-  /**
-   * Weight. **700 is in use now**, which it explicitly was not in Milestone 26 — the
-   * reference sets its hero in Bricolage 700 and its section headings in 600. Body
-   * copy is 400, not 500: with a display face doing the heading work, the body no
-   * longer has to carry weight to feel deliberate.
-   */
+  /** Weight carries the hierarchy (idea 4): 800 hero, 700 headings, 600 labels. */
   --weight-normal: 400; /* body */
-  --weight-medium: 500; /* emphasis, card titles, button labels */
-  --weight-semibold: 600; /* headings */
-  --weight-bold: 700; /* the hero, and figures */
-  --weight-black: 800;
+  --weight-medium: 500; /* emphasis in running text */
+  --weight-semibold: 600; /* labels, buttons, table headers */
+  --weight-bold: 700; /* headings, figures */
+  --weight-black: 800; /* the hero, and headline figures */
 
   /**
-   * Tracking, and **this is the trap in this milestone**.
-   *
-   * Milestone 26 applied `--tracking-body: -0.02em` **once, to `body`** in
-   * `base.css`, and that single inherited declaration is how its type change reached
-   * fifty pages with none of them edited. The mechanism is kept; the **value is now
-   * `0`**, because the reference tracks body copy normally and reserves negative
-   * tracking for display sizes only. So the same one-line lever that tightened
-   * everything now un-tightens everything, and the character moves into the headings.
-   *
-   * Measured off the reference: 62px hero −0.06em, 50–56px headings −0.08em, 32px
-   * leads −0.08em, 24px card titles −0.04em, 20px −0.06em, 16px body normal.
+   * Tracking. Plus Jakarta is a wide face, so display sizes tighten only slightly and
+   * body copy is set as drawn. `--tracking-body` is still applied once, to `body`.
    */
-  --tracking-display: -0.08em; /* 30px and up */
-  --tracking-tight: -0.06em; /* the hero, and 20px headings */
-  --tracking-snug: -0.04em; /* 24px card titles */
-  --tracking-body: 0; /* applied once, to `body` — was -0.02em */
+  --tracking-display: -0.025em; /* 28px and up */
+  --tracking-tight: -0.02em; /* 20–28px */
+  --tracking-snug: -0.01em; /* card titles, buttons */
+  --tracking-body: 0;
   --tracking-normal: 0;
   --tracking-wide: 0.02em;
-  --tracking-caps: 0.06em; /* uppercase micro-labels need the air */
+  --tracking-caps: 0.06em; /* uppercase eyebrows need the air */
 
   /* ==================================================================
-     3. SPACE
+     3. SPACE — a 4px grid
      ================================================================== */
 
-  /**
-   * The reference is built on a **10px** rhythm rather than the 4/8px one this scale
-   * uses (its gaps tally 4, 6, 10, 20, 30, 40, 50, 80 and its section padding
-   * 100/110/130px on tablet, 150px on desktop). The scale is **not** re-pointed to
-   * match: a 4px base subdivides more usefully in dense admin layouts, and every
-   * existing page is already built on it. What did change is `--section-gap`, which
-   * now reaches the reference's generous desktop figure.
-   */
   --space-0: 0;
   --space-1: 4px;
   --space-2: 8px;
@@ -518,138 +471,70 @@
   --space-24: 96px;
   --space-32: 128px;
 
-  --section-gap: clamp(64px, 9vw, 150px); /* the reference's desktop figure */
-  --block-gap: clamp(24px, 3.5vw, 48px);
+  /* The mockups are denser than the Brightpath reference was: sections sit ~48–64px
+     apart on a desktop, not 150. */
+  --section-gap: clamp(48px, 6vw, 88px);
+  --block-gap: clamp(20px, 2.6vw, 32px);
 
   /* ==================================================================
-     4. RADIUS, BORDER, SHADOW, EDGE
+     4. RADIUS, BORDER, SHADOW
      ================================================================== */
 
-  /**
-   * Radius, re-pointed onto the reference's four observed values: **10px** on small
-   * tiles and controls, **16px** on a programme card, **20px** on the main card, and
-   * a full pill. Everything is flatter than Milestone 26, whose card was 32px.
-   */
-  --radius-xs: 6px; /* chips, tags, the focus ring's own rounding */
-  --radius-sm: 10px; /* inputs, small controls, icon tiles — measured */
-  --radius-md: 14px; /* inner panels, nested surfaces */
-  --radius-lg: 16px; /* programme cards — measured */
-  --radius-xl: 20px; /* THE card, and a page section — measured */
-  --radius-2xl: 28px; /* an outer shell around cards */
-  --radius-pill: 999px; /* the reference writes 100px; same result */
+  /** Card 16px, banner 20–24px, pill fully round (brief §5.3). */
+  --radius-xs: 6px; /* chips, the focus ring's own rounding */
+  --radius-sm: 10px; /* inputs, small controls */
+  --radius-md: 12px; /* inner panels, option tiles, icon tiles */
+  --radius-lg: 16px; /* THE card */
+  --radius-xl: 20px; /* a large banner */
+  --radius-2xl: 24px; /* the hero banner, an outer shell */
+  --radius-pill: 999px;
 
   --border-width: 1px;
 
-  /**
-   * Borders are **nearly invisible and are not how anything separates** — the
-   * reference has no border on any card. They survive for the few jobs a fill cannot
-   * do: a table divider, the well around an input, the outline on a secondary button.
-   * Re-tinted from neutral grey to the green ink so they sit correctly on cream.
-   */
   --border: var(--ink-border);
   --border-subtle: var(--ink-border-subtle);
   --border-strong: var(--ink-border-strong);
 
   /**
-   * `--card-border` is a token rather than a rule inside `Card.module.css` for the
-   * reason `--tooltip-bg` is one: a CSS Module cannot name `.theme-dark` without
-   * `:global`, and a component that knows which theme it is in will be wrong in the
-   * next one. Declared in **both** themes so the box never changes size between them.
-   *
-   * **It is a real hairline in this theme as of Milestone 28, not `transparent`.**
-   * It could be transparent while the page was cream and the card white, because the
-   * fill step *was* the edge (Milestone 27's first idea). The owner asked for a white
-   * page; `--surface` and `--bg` are now the same colour, that step is gone, and
-   * without this line every card in the product is invisible. Do not set it back to
-   * `transparent` without first giving cards their fill separation back.
-   *
-   * It is the **strong** ink border rather than the ordinary one. A hairline at 0.1
-   * alpha measures 1.22:1 against white, which is the conventional weight for a card
-   * edge — but the convention assumes a shadow or a fill step is also doing some of
-   * the work, and here neither is: this line is carrying the separation on its own.
-   * 0.18 measures 1.45:1, still unmistakably a hairline and not a rule.
+   * The card's edge is **two** tokens and they work together (idea 1): the hairline
+   * (1.19:1 against white — the mockup's `#e6ecf5`) and a soft two-layer shadow. Both
+   * are tokens rather than rules in `Card.module.css` because the dark theme needs a
+   * different answer — a shadow has nowhere to fall on a black page — and a CSS Module
+   * cannot name `.theme-dark`. Declared in both themes so a box never changes size.
    */
-  --card-border: var(--ink-border-strong);
+  --card-border: var(--ink-border);
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
+  --card-shadow-hover: 0 2px 4px rgba(16, 24, 40, 0.05), 0 14px 32px rgba(16, 24, 40, 0.1);
+  --card-radius: var(--radius-lg);
 
   /**
-   * **The accent section band**, and it is a token for the same reason
-   * `--card-border` is: a CSS Module cannot name `.theme-dark`, and a component that
-   * knows which theme it is in will be wrong in the next one.
-   *
-   * The reference alternates its page with a quiet band and a **pale blue** one.
-   * (Through Milestone 27 those were cream, sand and pale blue; since Milestone 28 the
-   * page is white and the quiet band is `--royal-25`.)
-   * The quiet band is just `--bg-subtle` and needs nothing. The pale blue one does,
-   * because it is a `--cat-*` pastel and those are theme-invariant — so in the dark
-   * theme it becomes a themed surface instead of staying bright.
-   *
-   * The first attempt kept it pastel in both themes and pinned the text on it to ink
-   * with a utility class. That fixed the band and broke the **cards inside it**: a
-   * `Card` paints `--surface`, which is near-black in the dark theme, so its text was
-   * pinned to ink on a dark fill at **1.00:1**. The lesson is narrow and worth
-   * keeping: **pinning text on a container pins it for the whole subtree**, and a
-   * subtree that contains a themed surface cannot be pinned. A band has descendants;
-   * an `IconTile` has a glyph. That is why one can be invariant and the other cannot.
-   *
-   * **It is white in the light theme as of Milestone 28** — the owner asked for white
-   * everywhere, and this was the last tinted full-bleed band in the product. The
-   * token is kept rather than deleted, with its dark counterpart intact, because the
-   * whole reason it exists is the trap described above: if a tinted band ever comes
-   * back, it has to come back *here* and it has to stay themed. Re-point this one
-   * line; do not put `--cat-blue` on a section in a stylesheet.
+   * **The accent section band**, a token for the reason `--card-border` is one: a band
+   * holds themed cards, so it cannot be a theme-invariant pastel (cream text on it
+   * measured 1.09:1 once). In this theme it is the brand's faintest tint.
    */
-  --band-accent: var(--ink-0);
+  --band-accent: var(--royal-50);
 
   /**
-   * Shadows — and read this before using one.
-   *
-   * **The reference has no shadow on any card, panel or section.** Separation is by
-   * fill (idea 1). So these five tokens are no longer the card's lift; they are
-   * reserved for the things that genuinely **float above** the page and that the
-   * reference — a marketing site with no overlay UI at all — never had to solve: the
-   * modal, the drawer, the menu, the toast, the tooltip. A dropdown with no elevation
-   * over a cream page is unreadable, and no amount of fidelity to a landing page
-   * changes that.
-   *
-   * They are warm-tinted to the green ink so an overlay does not read as grey against
-   * cream. If you are reaching for one of these on something that is *part of the
-   * page*, you want a fill instead.
+   * Overlay shadows — the modal, the drawer, the menu, the toast, the tooltip. Not a
+   * card: a card uses `--card-shadow`. Navy-tinted so an overlay does not read grey
+   * against the blue page.
    */
-  --shadow-xs: 0 1px 2px rgba(20, 38, 29, 0.05);
-  --shadow-sm: 0 2px 6px rgba(20, 38, 29, 0.07);
-  --shadow-md: 0 10px 20px rgba(20, 38, 29, 0.1);
-  --shadow-lg: 0 16px 36px rgba(20, 38, 29, 0.12);
-  --shadow-xl: 0 20px 48px -4px rgba(20, 38, 29, 0.18);
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-sm: 0 2px 6px rgba(16, 24, 40, 0.08);
+  --shadow-md: 0 10px 20px rgba(16, 24, 40, 0.1);
+  --shadow-lg: 0 16px 36px rgba(16, 24, 40, 0.12);
+  --shadow-xl: 0 20px 48px -4px rgba(16, 24, 40, 0.2);
 
   /**
-   * THE EDGE — new in Milestone 27, and the reference's actual signature.
-   *
-   * A hard offset with **zero blur** in a companion colour: `0 4px 0` under a button,
-   * `3px 3px 0` under a small tile. It reads as a sticker or a keycap rather than a
-   * lift, and it is the reason the design looks the way it does.
-   *
-   * Two rules travel with it. **It belongs to controls and markers, never to a
-   * card** — a card separates by fill, and putting an edge on one makes a page of
-   * boxes look like a page of buttons. And **the colour comes from the element**, not
-   * from here: each fill has its own `-edge` companion (`--primary-edge`,
-   * `--brand-edge`, `--cat-*-edge`), because the companion is a designed pair and not
-   * a formula — the reference's green button takes a *lighter* green edge while its
-   * orange button takes a darker orange one.
-   *
-   * `--edge-*` below are the **geometries**, written as a `box-shadow` with the colour
-   * left off. A component composes one with its own colour:
-   * `box-shadow: var(--edge-control) var(--primary-edge)`.
-   *
-   * The press interaction that goes with this is a **collapse**, not a colour change:
-   * translate the control down by the offset and shrink the edge to zero, so it
-   * behaves like something physically pressed. That is also why `--brand-hover`
-   * lightens instead of darkening — the depth cue is the edge, so the colour is free.
+   * **Retired: the hard offset edge** (Milestone 27). The geometries are zero so the
+   * stylesheets that still compose one — the legacy landing page — draw nothing until
+   * they are rewritten. Do not use these in new code.
    */
-  --edge-width: 4px;
-  --edge-control: 0 4px 0 0; /* buttons — vertical only */
-  --edge-control-sm: 0 2px 0 0; /* compact controls */
-  --edge-tile: 3px 3px 0 0; /* small markers — diagonal */
-  --edge-tile-lg: 4px 4px 0 0; /* larger tiles — diagonal */
+  --edge-width: 0px;
+  --edge-control: 0 0 0 0;
+  --edge-control-sm: 0 0 0 0;
+  --edge-tile: 0 0 0 0;
+  --edge-tile-lg: 0 0 0 0;
 
   --blur-panel: 16px;
 
@@ -658,48 +543,28 @@
      ================================================================== */
 
   /**
-   * `--ease` is the reference's own curve, `cubic-bezier(0.44, 0, 0.56, 1)` — a
-   * symmetrical ease that is slower in and out than a standard material curve.
+   * The brief's §5.7 timing: **120–180ms micro, 220–320ms UI, 450–700ms entrances**,
+   * ease-out for anything entering. Motion explains a change or points at the one
+   * thing that matters — the Daily Quiz — and is never the same fade on every section.
    *
-   * The reference runs it at **400ms**, which is right for a scroll-triggered
-   * marketing animation and wrong for a button in an admin table. The durations stay
-   * close to Milestone 26's; only `--dur-slow` moved, for the one case where
-   * something large enters.
-   *
-   * `prefers-reduced-motion` is honoured **once**, in `base.css`. Do not re-handle it
-   * per component. And remember that a CSS transition cannot advance while the tab is
-   * not compositing, so `getComputedStyle` will report the *start* value in a hidden
-   * preview — a measurement artifact, not a bug.
+   * `prefers-reduced-motion` is honoured **once**, in `base.css`. And a CSS transition
+   * cannot advance while a tab is not compositing, so `getComputedStyle` reports the
+   * *start* value in a hidden preview — a measurement artifact, not a bug.
    */
-  --dur-fast: 120ms;
-  --dur: 200ms;
-  --dur-slow: 320ms;
-  /**
-   * **Idle motion** — a looping ambient animation, not a response to anything.
-   *
-   * An order of magnitude slower than the three above, and that gap is the point: a
-   * transition answers a user in 200ms, while something that moves on its own loops
-   * forever. The first values here were 3.6s/5s paired with 3-4px of travel, and the
-   * owner's verdict was that the result is not visible at all — a loop that slow and
-   * that small reads as nothing happening. These are the second attempt: quicker, and
-   * paired with roughly triple the amplitude. See the icon motion block in
-   * `Landing.module.css`, which holds the amplitudes and the reasoning.
-   */
-  --dur-idle: 2.6s;
-  --dur-idle-slow: 3.4s;
-  /**
-   * The curve for a **looping** animation, and it is not `--ease`.
-   *
-   * `ease-in-out` and the reference's own curve are tuned for a movement that starts
-   * and stops — they decelerate hard at each end, which on a loop reads as a pause at
-   * the extremes, so the motion ticks rather than flows. This is `easeInOutSine`: the
-   * gentlest standard curve, and the one that makes a repeating transform look
-   * continuous. Use it for anything with `animation-iteration-count: infinite`.
-   */
-  --ease-sine: cubic-bezier(0.37, 0, 0.63, 1);
-  --ease: cubic-bezier(0.44, 0, 0.56, 1); /* the reference's curve */
-  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --dur-fast: 150ms; /* micro: press, hover, a tick */
+  --dur: 240ms; /* UI: a state change */
+  --dur-slow: 320ms; /* a panel, a sheet */
+  --dur-entrance: 600ms; /* something entering the page */
+  --dur-idle: 3s; /* a gentle loop — the FAB's float */
+  --dur-idle-slow: 6s; /* the FAB's shine sweep on a touch screen */
+  --dur-pulse: 1.8s; /* the LIVE dot's ring */
+  --dur-sweep: 700ms; /* the FAB's light streak on hover */
+  --dur-celebrate: 1.4s; /* the confetti burst — the brief caps it at 1.5s */
+  --ease-sine: cubic-bezier(0.37, 0, 0.63, 1); /* loops */
+  --ease: cubic-bezier(0.44, 0, 0.56, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* entrances: fast, then settle */
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --press-scale: 0.98;
 
   /* ==================================================================
      6. LAYERING
@@ -709,6 +574,7 @@
   --z-raised: 10;
   --z-sticky: 20;
   --z-header: 30;
+  --z-fab: 40; /* above content and the header, below every overlay and toast */
   --z-drawer-backdrop: 55;
   --z-drawer: 60;
   --z-modal-backdrop: 69;
@@ -720,22 +586,13 @@
      7. LAYOUT
      ================================================================== */
 
-  /**
-   * `--container-width` stays 1200px; the reference's content column measures 1365px
-   * at a 1440px viewport, which is wider than this product wants for reading.
-   * `--container-wide` widened to 1400px for the landing page, which is the one
-   * surface that should match the reference's breadth.
-   *
-   * `--tap-target` stays **44px** and is not negotiable: the reference's own pill
-   * buttons measure 42px, and that is below the floor. Accessibility is one of the
-   * things "the design wins" does not reach.
-   */
+  /** ≈1200px for the homepage, ≈1440px for the dashboard (brief §5.3). */
   --container-width: 1200px;
   --container-narrow: 720px;
-  --container-wide: 1400px;
-  --gutter: clamp(18px, 4.5vw, 32px);
+  --container-wide: 1440px;
+  --gutter: clamp(16px, 4vw, 32px);
 
-  --tap-target: 44px; /* the reference is 42px; the floor wins */
+  --tap-target: 44px; /* not negotiable */
   --sidebar-width: 272px;
   --header-height: 64px;
   --bottom-nav-height: 62px;
@@ -745,161 +602,101 @@
      ================================================================== */
 
   /**
-   * Surfaces. **The page is white as of Milestone 28** (owner's request: the brand
-   * blue should stand out against it, and the warm cream read as off-white).
-   *
-   * ## This changes how a card is separated, and that is not optional
-   *
-   * Milestone 27's first idea was that `--bg` (cream) and `--surface` (white) are
-   * *different colours*, and that step alone is a card's edge — which is why a `Card`
-   * has **no border and no shadow**. A white page collapses that step to **1.00:1**
-   * and every card in the product disappears. So the fill separation is replaced by
-   * a hairline: `--card-border` below is a real colour in this theme now, not
-   * `transparent`. Shadows are **not** the answer — `--shadow-*` is the overlay scale
-   * and nothing that is part of the page may use one.
-   *
-   * ## The warm steps go with it
-   *
-   * `--ink-50` / `--ink-100` are cream and sand. Left in place they would read as
-   * stripes and wells of cream *on* a white page, which is the thing being removed
-   * rather than a smaller amount of it. The band, the sunken well and the row hover
-   * are the faintest steps of the brand blue instead, so the page reads as white and
-   * what tint there is belongs to the primary. The ink ramp keeps both steps — they
-   * are palette, and `--ink-100` is still the dark card's neighbour.
+   * Surfaces. The page is the mockups' pale blue; a card is white (idea 1). The three
+   * interactive steps are the faintest brand tints, so what little tint the chrome has
+   * belongs to the primary.
    */
-  /*
-   * **Every page-level surface is white** (owner, 2026-09-21: "white background
-   * everywhere, navbar and each and everywhere"). That is `--bg`, `--bg-subtle` and
-   * `--surface`: the page, the full-bleed section band and a card are now one colour,
-   * so there is no tinted stripe anywhere in the product and no off-white chrome.
-   * `--surface-translucent` (the navbar) is white too — see its note below.
-   *
-   * **The interactive steps are deliberately NOT white**, and that is not an
-   * oversight. `--surface-hover` and `--surface-active` are what tell a reader a row
-   * or a menu item responded to them, and `--surface-sunken` is what makes an inset
-   * look inset; white versions of all three are the same as deleting them, which
-   * costs real feedback rather than removing decoration. They are the faintest steps
-   * of the brand blue, so what little tint remains in the product belongs to the
-   * primary.
-   */
-  --bg: var(--ink-0);
-  --bg-subtle: var(--ink-0);
+  --bg: var(--ink-50);
+  --bg-subtle: var(--royal-50);
   --surface: var(--ink-0);
   --surface-raised: var(--ink-0);
-  --surface-sunken: var(--royal-50);
-  --surface-hover: var(--royal-25);
-  --surface-active: var(--royal-50);
+  --surface-sunken: #eef3fb;
+  --surface-hover: #f5f8fe;
+  --surface-active: var(--cat-blue);
 
   /**
-   * **A nested fill is an ALPHA fill, and that is a correctness property rather than
-   * a stylistic one.**
-   *
-   * `--fill-subtle` and `--fill-muted` darken *whatever they sit on*, so a step
-   * against the parent is guaranteed by construction. A surface token cannot promise
-   * that: eighteen declarations across ten files said `background: var(--bg)` to mean
-   * "a recessed inset inside a card", which worked while `--bg` was a near-white
-   * `--ink-25` against a white `--surface` — and in Milestone 27 `--bg` became the
-   * page itself, so every one of those sitting on the page rather than in a card
-   * collapsed to **1.00:1 against its own parent**: an invisible surface, with nothing
-   * to error on.
-   *
-   * So: `--bg` and `--bg-subtle` are for an element that **is** a page or a
-   * full-bleed band. Anything nested inside a surface uses one of these two. The rule
-   * survives the next re-point, which a hand-picked pair of surface tokens would not.
+   * **A nested fill is an ALPHA fill** — `--fill-subtle` / `--fill-muted` darken
+   * whatever they sit on, so a step against the parent is guaranteed by construction.
+   * `--bg` and `--bg-subtle` are only for an element that *is* a page or a band.
    */
-  --fill-subtle: rgba(20, 38, 29, 0.05);
-  --fill-muted: rgba(20, 38, 29, 0.1);
-  /* The sticky navbar pill, the admin topbar and the mobile bottom bar. **White** at
-     82%, not the cream it was through Milestone 27 — this was the most visible piece
-     of off-white left after the page went white, because it sits at the top of every
-     page in the product. Translucent rather than solid on purpose: content scrolls
-     under it and the blur is what separates them. */
-  --surface-translucent: rgba(255, 255, 255, 0.82);
-  --overlay: rgba(20, 38, 29, 0.55);
+  --fill-subtle: rgba(47, 97, 172, 0.06);
+  --fill-muted: rgba(47, 97, 172, 0.11);
+  --surface-translucent: rgba(255, 255, 255, 0.86); /* the sticky navbar, blurred */
+  --overlay: rgba(11, 21, 51, 0.55);
 
   /**
-   * Text. Alpha rather than solid steps, so a value lands correctly on white, on
-   * cream, on the sand band **and** on any of the six pastels — which is now a real
-   * requirement rather than a nicety, because the reference puts body copy on pastel
-   * cards.
-   *
-   * Every one of these was verified against all nine surfaces text can land on.
-   * `--text-muted` is the **floor**: its worst case is 4.62:1 (on `--cat-purple`) and
-   * nothing lighter may carry words. `--text-subtle` measures 2.88–3.16:1 and is for
-   * **non-text glyphs only** — it is not a quiet text colour.
+   * The three soft tints the mockups use as whole-card fills — the maths thought
+   * (mint), the Boss Battle (cream), the Month-End Booster (aqua). Themed, because a
+   * card holds themed content; in the dark theme they become a lifted surface.
    */
+  --surface-mint: #eafbe1;
+  --surface-cream: #fefaee;
+  --surface-aqua: #f4fdfc;
+
+  /** Text — see the invariant ink set for the solved figures. */
   --text: var(--ink-text);
   --text-body: var(--ink-text-body);
   --text-muted: var(--ink-text-muted);
   --text-subtle: var(--ink-text-subtle);
-  --text-inverse: var(--ink-50);
+  --text-inverse: #ffffff;
 
   /**
-   * The standard action: **royal blue**, the brand colour (Milestone 28). This was
-   * the reference's deep green through Milestone 27; the owner asked for the
-   * original blue back. Everything else about the language is unchanged — the fill
-   * separation, the keycap edge, the type — this is a re-point of one hue.
-   *
-   * There are still **two** action colours: this is the default and the workhorse
-   * (every form, every dialog), and `--brand` below is the single high-emphasis
-   * call to action on a page. `--brand` stayed orange deliberately — see the ADR.
-   *
-   * The edge goes **darker** here, not lighter. That is the opposite of the green it
-   * replaces and the same as `--brand`: a lighter companion under a fill this
-   * saturated reads as a halo rather than as the side of a key. Green could take a
-   * lighter edge because green was nearly black.
+   * The action: **the brand blue** (idea 2). One colour; emphasis is fill versus
+   * outline. `--primary-edge` is retired and points at the hover step so nothing that
+   * names it breaks.
    */
   --primary: var(--royal-500);
   --primary-hover: var(--royal-600);
   --primary-active: var(--royal-700);
-  --primary-on: #ffffff; /* 5.75:1 */
-  --primary-edge: var(--royal-700); /* darker companion — see above */
-
-  --primary-text: var(--royal-600); /* 7.44 surface / 6.53 cream / 5.86 sand */
-  --primary-soft: rgba(0, 82, 255, 0.08);
-  --primary-soft-hover: rgba(0, 82, 255, 0.14);
-  --primary-border: rgba(0, 82, 255, 0.32);
-
-  /**
-   * The call to action — orange, with an **ink** label. See the orange ramp above for
-   * why it is ink and not the white the reference uses (3.05:1).
-   *
-   * Used sparingly: one per page, for the thing we actually want pressed. A page with
-   * three orange buttons has none.
-   */
-  --brand: var(--orange-500);
-  --brand-hover: var(--orange-400); /* lightens — darkening breaks the ink label */
-  --brand-active: var(--orange-500);
-  --brand-on: var(--ink-900); /* 5.19:1 */
-  --brand-edge: #b26e45; /* measured off the reference */
-  --brand-text: var(--orange-700); /* the only step that carries words */
-  --brand-soft: var(--orange-50);
-  --brand-border: var(--orange-100);
+  --primary-on: #ffffff; /* 5.04:1 */
+  --primary-edge: var(--royal-600);
+  --primary-text: var(--royal-600); /* 6.05:1 at worst */
+  --primary-soft: rgba(29, 99, 246, 0.08);
+  --primary-soft-hover: rgba(29, 99, 246, 0.14);
+  --primary-border: rgba(29, 99, 246, 0.32);
 
   /**
-   * The label colour for each solid status fill. **Not all of them are white** in
-   * every theme — this is the split that stops "Paid" rendering at 2.22:1, which is
-   * what Milestone 26's Phase G audit found 109 times.
+   * The brand gradient — the sidebar's current page, the Daily Quiz button. **Both
+   * ends carry a white label**, so the light end is `--royal-450` (4.58:1), not the
+   * mockup's `#5794fe` (2.97:1). The difference is visible only side by side; a
+   * failed label is visible to everyone.
    */
-  --success-on: #ffffff; /* 5.01:1 on --success-solid */
-  --warning-on: #ffffff; /* 4.68:1 on --warning-solid */
-  --danger-on: #ffffff; /* 5.27:1 */
+  --gradient-primary: linear-gradient(90deg, var(--royal-500) 0%, var(--royal-450) 100%);
+  --gradient-fab: linear-gradient(135deg, var(--royal-450) 0%, var(--royal-600) 100%);
+  --gradient-on: #ffffff;
+
+  /**
+   * The call to action — **the one loudest control on a page**, and now the same blue
+   * as the action with a soft glow under it (idea 2). Milestone 27's orange is gone.
+   */
+  --brand: var(--royal-500);
+  --brand-hover: var(--royal-600);
+  --brand-active: var(--royal-700);
+  --brand-on: #ffffff;
+  --brand-edge: var(--royal-600);
+  --brand-text: var(--royal-600);
+  --brand-soft: var(--primary-soft);
+  --brand-border: var(--primary-border);
+  --shadow-brand: 0 8px 20px -6px rgba(29, 99, 246, 0.5);
+
+  /** The Daily Quiz button's glow at rest, and the brighter one it gains on hover. */
+  --shadow-fab: 0 10px 24px -6px rgba(21, 79, 208, 0.55);
+  --shadow-fab-hover: 0 0 0 6px rgba(29, 99, 246, 0.16), 0 16px 36px -6px rgba(21, 79, 208, 0.7);
+  /** The light streak swept across it, and the disc its icon sits in. Light on the
+      gradient in both themes, so declared once. */
+  --fab-streak: rgba(255, 255, 255, 0.55);
+  --fab-icon-disc: rgba(255, 255, 255, 0.2);
+
+  /** Label colour on each solid status fill. */
+  --success-on: #ffffff; /* 5.36:1 */
+  --warning-on: #ffffff; /* 4.68:1 */
+  --danger-on: #ffffff; /* 5.23:1 */
   --info-on: #ffffff; /* 5.64:1 */
 
-  /**
-   * Gold is the exception, and it is **ink in both themes**.
-   *
-   * Its two consumers (`Badge`, `IconTile`) both fill with `--accent-strong`, which is
-   * `--gold-400` — a *light* fill. White on it measures **2.14:1**; ink measures 7.40:1.
-   * This was briefly set to white on the assumption that it paired with a dark solid
-   * step, and the design-system page caught it at 2.14:1 within the hour. Gold has no
-   * dark solid step on purpose: see the note on the ramp above.
-   */
-  --accent-on: var(--ink-900); /* 7.40:1 on --accent-strong */
+  /** Gold is a light fill, so its label is ink (9.66:1). */
+  --accent-on: var(--ink-900);
 
-  /**
-   * Gold — achievement, and nothing else.
-   */
+  /** Gold — achievement, and nothing else. */
   --accent: var(--gold-300);
   --accent-strong: var(--gold-400);
   --accent-text: var(--gold-700);
@@ -907,55 +704,30 @@
   --accent-border: var(--gold-200);
 
   /**
-   * The three podium medals, and they are tokens because a **palette step cannot
-   * serve both themes**.
-   *
-   * `/hall-of-fame` and `/leaderboard` both drew the first-place medal in
-   * `--accent-strong` (`--gold-400`), which measures **2.14:1 on white and 1.88:1 on
-   * the cream page** — below even the 3:1 a non-text graphic needs, so the gold medal
-   * was the least visible of the three. Third place used `--gold-600` directly, which
-   * is fine in this theme and near-invisible in the dark one, because the palette is
-   * not re-pointed per theme — only the semantic layer is. That asymmetry is the whole
-   * reason these exist.
-   *
-   * Each value is verified against the worst surface it can land on: white, cream and
-   * sand here; the three dark surfaces below. Bronze is a literal because there is no
-   * bronze ramp and this is its only use — a whole ramp for one glyph would be worse.
-   *
-   * Note the medals are **not** the only carrier of rank: the position is written
-   * beside the glyph, which is why 3:1 visibility is the requirement rather than the
-   * three being tellable apart by hue.
+   * Medal GLYPHS (≥3:1 as a mark — the rank is always written beside them) and
+   * podium FILLS (the mockup's pedestals: decoration under pinned ink text).
    */
-  --medal-gold: var(--gold-600); /* 4.24:1 worst */
-  --medal-silver: var(--ink-500); /* 3.80:1 worst */
-  --medal-bronze: #8a5a2b; /* 4.62:1 worst */
+  --medal-gold: var(--gold-600); /* 3.95:1 on the page */
+  --medal-silver: #7a8599; /* 3.49:1 on the page */
+  --medal-bronze: #9a5b2a; /* 5.05:1 on the page */
+  --podium-gold: #e8ac53;
+  --podium-silver: #c7d7ec;
+  --podium-bronze: #e7b089;
+  --podium-gold-step: linear-gradient(180deg, var(--gold-200), var(--podium-gold));
+  --podium-silver-step: linear-gradient(180deg, var(--ink-25), var(--podium-silver));
+  --podium-bronze-step: linear-gradient(180deg, var(--orange-50), var(--podium-bronze));
 
-  /**
-   * The plate the logo artwork sits on — white in **both** themes, which is why it is
-   * a token rather than `#fff` in `Navbar.module.css`.
-   *
-   * `assets/logo-mark.png` is opaque RGB drawn for paper: a navy circle, a navy `A`,
-   * an orange swoosh. On the dark theme's black page and royal-blue navbar the navy
-   * is all but invisible, and the artwork has no alpha to remove anyway. So the plate
-   * is theme-invariant by design — which is allowed here for the reason the `--cat-*`
-   * pastels are: nothing but a picture ever sits on it, so no text colour has to
-   * invert against it.
-   *
-   * Declared in both blocks like `--card-border`, so a future adjustment — a warmer
-   * plate in dark, say — is one line here rather than a `:global(.theme-dark)` in a
-   * CSS module.
-   */
+  /** The logo artwork's plate — white in both themes (the art is opaque, for paper). */
   --logo-plate: var(--ink-0);
 
   /**
-   * Status. Each has a **fill** (`--success`), a **solid** for a label-bearing
-   * background (`--success-solid`), a **`-text`** dark enough to carry words on every
-   * surface including its own tint, a **soft** tint and a **border**. The fill and
-   * the `-text` are different colours and that is the point of both existing.
+   * Status: a **fill** (`--success`), a **solid** that takes a label, a **`-text`**
+   * for words, a **soft** tint and a **border**. Fill and text are different colours
+   * and that is the point of both existing. Correct is success; wrong is danger.
    */
   --success: var(--green-500);
   --success-solid: var(--green-600);
-  --success-text: var(--green-700);
+  --success-text: var(--green-600); /* the mockup's success ink, 4.73:1 at worst */
   --success-soft: var(--green-50);
   --success-border: var(--green-100);
 
@@ -981,28 +753,35 @@
   --neutral-text: var(--text-muted);
   --neutral-border: var(--border);
 
+  /** The LIVE dot. A mark beside the word "LIVE", never instead of it. */
+  --live: var(--green-500);
+
+  /** The progress-bar track — the mockup's `#e8eef5`. */
+  --progress-track: var(--ink-100);
+
   /**
-   * Focus. One global ring, declared once in `base.css`. Note a programmatic
-   * `.focus()` does **not** trigger `:focus-visible` — it is a keyboard heuristic —
-   * so verify a focus ring statically, by checking that every `outline: none` pairs
-   * with a replacement.
-   *
-   * The ring is the brand blue as of Milestone 28. That is safe on a blue button
-   * only because `base.css` draws it at `outline-offset: 2px`: the ring never
-   * touches the fill, it sits on the page, where it measures 5.05:1 on cream and
-   * 5.75:1 on white. If that offset is ever removed, the ring and a `--primary`
-   * fill become the same colour and the focus position disappears on exactly the
-   * control most likely to have it.
+   * **Series colours** — the mockups' five subject hues, in their order. A chart, a
+   * row of progress bars or a set of chapter markers cycles through these. Every bar
+   * drawn in one prints its value beside it, so the 2.1:1 of the three light hues
+   * against the track is decoration, not the only carrier of the figure.
    */
-  --focus-ring: 0 0 0 3px rgba(0, 82, 255, 0.28);
-  --focus-ring-danger: 0 0 0 3px rgba(224, 80, 60, 0.32);
+  --series-1: #1c63f6; /* Algebra */
+  --series-2: #fb8057; /* Geometry */
+  --series-3: #0ebc85; /* Trigonometry */
+  --series-4: #9865f4; /* Coordinate Geometry */
+  --series-5: #fc7bb3; /* Statistics & Probability */
+
+  /**
+   * Focus. One global ring, declared once in `base.css`, drawn at `outline-offset:
+   * 2px` so it sits on the page rather than on a blue control — where it would be the
+   * same colour as the fill.
+   */
+  --focus-ring: 0 0 0 3px rgba(29, 99, 246, 0.28);
+  --focus-ring-danger: 0 0 0 3px rgba(229, 72, 77, 0.32);
   --focus-ring-width: 2px;
   --focus-ring-color: var(--royal-500);
 
-  /**
-   * The tooltip is the one component that inverts against the page in the light theme
-   * and matches it in the dark one, which is why these are tokens.
-   */
+  /** The tooltip inverts against the page in this theme and matches it in the dark. */
   --tooltip-bg: var(--ink-900);
   --tooltip-text: var(--ink-50);
   --tooltip-border: transparent;
@@ -1010,62 +789,24 @@
 
 /**
  * ==================================================================
- * DARK THEME — derived, because the reference has none.
+ * DARK THEME — derived, because the mockups have none.
  * ==================================================================
  *
- * **This block must stay below `:root`.** `.theme-dark` and `:root` both match
- * `document.documentElement` with identical specificity (0,1,0), so source order is
- * the only reason dark mode wins. Anything added to one needs a counterpart here.
+ * **This block must stay below `:root`.** Same specificity; source order decides.
  *
- * Derived from the light palette and then **verified independently** against every
- * surface and tint: the warm off-white `#f0ece1` carries `--text` at 10.19–15.86:1,
- * `--text-body` at 7.74–11.28:1 and `--text-muted` at 5.66–7.72:1 across all seven
- * dark surfaces.
+ * The owner's 2026-09-21 decision stands: a **black page with royal-blue cards**
+ * (`--bg: #000`, `--surface: #121e47`) and a cool near-white text ramp. Measured:
+ * card vs page 1.30:1 (so the blue `--card-border` at 1.72:1 draws the edge), text on
+ * a card 14.38:1, muted 7.62:1 (6.75:1 on the raised surface), `--primary` as a fill
+ * 6.64:1 on a card with an 8.30:1 label.
  *
- * Four decisions worth keeping:
- *
- *  - **The page stays green, not grey.** The whole ramp is a very dark green so the
- *    dark theme is recognisably the same product; a neutral charcoal would throw away
- *    the one thing that makes the light theme distinctive.
- *  - **The hard offset edge survives.** This is the happy consequence of idea (2): a
- *    *blurred* shadow has nowhere to fall on a near-black page, which is why
- *    Milestone 26 flattened `--shadow-xs/sm` to `none` here. A zero-blur offset in a
- *    darker companion still reads, so the design's signature does not disappear in
- *    dark mode. The soft `--shadow-md/lg/xl` — the overlay scale — do deepen, because
- *    an overlay still has to lift.
- *  - **The six categorical pastels are NOT redefined.** They are light fills carrying
- *    ink text and they measure 9.15–12.16:1 against `--surface` here, so re-pointing
- *    them would be work with no reader-visible benefit. Their edges are not redefined
- *    either. That is 12 tokens Milestone 26 had to override and this one does not.
- *  - **`--card-border` becomes a real hairline**, because with no shadow *and* no
- *    fill step to speak of, a card on a near-black page needs something.
+ * Three rules for what this milestone added: **no card shadow** (a shadow has nowhere
+ * to fall on black — the hairline does the work), **the three tinted card fills become
+ * a lifted surface** (they hold themed content, so they cannot stay pastel), and **the
+ * categorical tints, series colours and podium fills are NOT redefined** — they are
+ * theme-invariant light fills or marks, and their content is pinned or a leaf.
  */
 .theme-dark {
-  /**
-   * **Black page, royal-blue cards** (owner, 2026-09-21).
-   *
-   * Through Milestone 27 this theme was a *green* near-black — `--bg: #0f1a14`, cards
-   * `#18241d`, warm cream text — because it was derived from the Brightpath reference,
-   * whose whole palette is warm. With the light theme now white with a royal-blue
-   * primary, that left the two themes belonging to different products.
-   *
-   * So the page is **true black** and a card is **`#121e47`, a deep royal blue** —
-   * the same hue family as `--primary`, two ramp steps down in lightness. Every figure
-   * below was measured rather than picked:
-   *
-   *   card vs the black page   1.30:1   (a visible step; the blue `--card-border`
-   *                                      at 1.72:1 against the card is what draws
-   *                                      the actual edge, which is why that token
-   *                                      exists in this theme at all)
-   *   --text on a card        14.38:1
-   *   --text-muted on a card   7.62:1   (and 7.2–8.1:1 on every other dark surface)
-   *   --primary as a fill      6.64:1 on a card, 8.65:1 on the page
-   *   --primary-text           8.77:1 on a card
-   *
-   * The text ramp went from warm cream to a **cool near-white**: `#f0ece1` on a blue
-   * card reads as a yellow cast, and the alpha steps composite over everything, so the
-   * cast would have reached every muted label in the product.
-   */
   --bg: #000000;
   --bg-subtle: #080c18;
   --surface: #121e47; /* THE CARD — royal blue */
@@ -1076,22 +817,22 @@
 
   --fill-subtle: rgba(238, 242, 251, 0.06);
   --fill-muted: rgba(238, 242, 251, 0.12);
-  /* The navbar, the admin topbar and the mobile bottom bar — the card colour, so the
-     chrome belongs to the same blue as everything it floats over. */
-  --surface-translucent: rgba(18, 30, 71, 0.82);
+  --surface-translucent: rgba(18, 30, 71, 0.86);
   --overlay: rgba(0, 0, 0, 0.78);
+
+  --surface-mint: var(--surface-raised);
+  --surface-cream: var(--surface-raised);
+  --surface-aqua: var(--surface-raised);
 
   /* Borders are the blue, not a neutral: on a blue card a grey hairline reads as dirt. */
   --border: rgba(122, 165, 255, 0.18);
   --border-subtle: rgba(122, 165, 255, 0.1);
   --border-strong: rgba(122, 165, 255, 0.32);
 
-  /* Carries the card edge here. A 1.30:1 fill step alone is too quiet on black — the
-     same reason this token stopped being `transparent` in the light theme. */
   --card-border: rgba(122, 165, 255, 0.28);
+  --card-shadow: none;
+  --card-shadow-hover: none;
 
-  /* A bright pastel band would be a hole in a black page, and it cannot carry themed
-     cards. In this theme the accent band is simply a lifted surface. */
   --band-accent: var(--surface-raised);
 
   --text: #eef2fb;
@@ -1101,45 +842,35 @@
   --text-inverse: #04070f;
 
   /**
-   * The standard action inverts: a **royal-blue tint** with an ink label, and a
-   * darker companion edge. The edge direction is the same as the light theme's now
-   * that the action is blue in both, but for a different reason — on a near-black
-   * page a lighter edge reads as a glow.
-   *
-   * The light theme's `#0052ff` is **not** reused here, and the reason is measured
-   * rather than stylistic: it sits at only **3.10:1** against the near-black page,
-   * so the button barely separates from what it is on, and as a *text* colour on
-   * `--surface` it is **2.79:1**, which fails outright. `#7aa5ff` is the same hue
-   * lifted until both clear — 7.34:1 against the page, 6.53:1 for the ink label.
-   *
-   * Hover **lightens** rather than darkens, as `--brand` does, because the label is
-   * ink: darkening the fill would eat the label's contrast rather than add to it.
+   * The action inverts to a light blue with a dark label. `#1d63f6` is not reused: on
+   * the black page it would barely separate from what it sits on, and as text on the
+   * blue card it fails outright. Hover lightens, because the label is dark.
    */
   --primary: #7aa5ff;
-  --primary-hover: #9dc0ff; /* lightens — the label keeps 10.95:1 */
-  --primary-active: #6f9bff; /* 7.49:1 */
-  /* The neutral near-black, not `--ink-900`: this theme is no longer green, and the
-     blue-black is both consistent and a better label (8.30:1 against 6.53:1). */
+  --primary-hover: #9dc0ff;
+  --primary-active: #6f9bff;
   --primary-on: #04070f; /* 8.30:1 */
   --primary-edge: #3f63b8;
-
   --primary-text: #9dc0ff; /* 8.77:1 on the blue card */
   --primary-soft: rgba(122, 165, 255, 0.14);
   --primary-soft-hover: rgba(122, 165, 255, 0.22);
   --primary-border: rgba(122, 165, 255, 0.35);
 
-  /**
-   * The call to action lightens so the ink label keeps its margin (6.37:1), and its
-   * text step lightens to `--orange-300`, which reads 7.88:1 on `--surface`.
-   */
-  --brand: var(--orange-400);
-  --brand-hover: #f59c63;
-  --brand-active: var(--orange-500);
-  --brand-on: var(--ink-900); /* 6.37:1 */
-  --brand-edge: #a85a2a;
-  --brand-text: var(--orange-300); /* 7.88:1 on --surface */
-  --brand-soft: rgba(232, 114, 44, 0.16);
-  --brand-border: rgba(232, 114, 44, 0.34);
+  --gradient-primary: linear-gradient(90deg, #7aa5ff 0%, #9dc0ff 100%);
+  --gradient-fab: linear-gradient(135deg, #9dc0ff 0%, #6f9bff 100%);
+  --gradient-on: #04070f;
+
+  --brand: #7aa5ff;
+  --brand-hover: #9dc0ff;
+  --brand-active: #6f9bff;
+  --brand-on: #04070f;
+  --brand-edge: #3f63b8;
+  --brand-text: #9dc0ff;
+  --brand-soft: var(--primary-soft);
+  --brand-border: var(--primary-border);
+  --shadow-brand: 0 8px 22px -8px rgba(122, 165, 255, 0.45);
+  --shadow-fab: 0 10px 26px -8px rgba(122, 165, 255, 0.5);
+  --shadow-fab-hover: 0 0 0 6px rgba(122, 165, 255, 0.2), 0 16px 36px -6px rgba(122, 165, 255, 0.6);
 
   --success-on: var(--ink-900);
   --warning-on: var(--ink-900);
@@ -1150,44 +881,22 @@
   --accent: var(--gold-300);
   --accent-strong: var(--gold-200);
   --accent-text: var(--gold-200);
-  --accent-soft: rgba(217, 171, 34, 0.14);
-  --accent-border: rgba(217, 171, 34, 0.3);
+  --accent-soft: rgba(248, 177, 30, 0.14);
+  --accent-border: rgba(248, 177, 30, 0.3);
 
-  /* The medals lighten, like every other mark in this theme. Verified against
-     `--bg`, `--surface` and `--surface-raised`. */
-  --medal-gold: var(--gold-300); /* 8.97:1 worst */
-  --medal-silver: var(--ink-300); /* 6.84:1 worst */
-  --medal-bronze: #d9a273; /* 6.41:1 worst */
+  --medal-gold: var(--gold-300);
+  --medal-silver: #c3cad8;
+  --medal-bronze: #d9a273;
 
-  /* Unchanged on purpose — see the note in `:root`. The logo artwork is fixed-colour
-     and needs a light plate precisely *because* this theme is black. */
   --logo-plate: var(--ink-0);
 
-  /**
-   * Status `-text` steps lighten to the `300` rung, which clears 6.79–8.97:1 on the
-   * dark surfaces and 6.43–8.39:1 on its own soft tint.
-   *
-   * **`--success-solid` and `--warning-solid` lighten to that same rung**, and danger
-   * and info deliberately do not. It is the light-theme rule applied in the same
-   * place: green and amber are *light* hues, so a mid step cannot carry a label with
-   * any margin. Ink on `--green-500` measures **4.51:1** and on `--amber-500`
-   * **4.44:1** — one scrapes AA by 0.01 and the other fails, and a 0.01 margin is not
-   * a pass, it is luck. On the `300` rung they are 7.93:1 and 9.52:1.
-   *
-   * Danger and info stay saturated with white labels (5.27:1 and 5.64:1), because a
-   * pale pink badge reads less urgent than a red one and they have the headroom to
-   * stay red. Uniformity is not the goal; legibility with margin is.
-   *
-   * So in this theme the `300` rung is both the light fill that carries ink **and**
-   * the text colour that reads on a dark surface. That is one value doing two jobs
-   * rather than a mistake: both jobs ask the same question of it — is this light
-   * enough against near-black.
-   */
+  /* Green and amber solids lighten to their 300 rung so a dark label clears with
+     margin; danger and info stay saturated with white labels. */
   --success: var(--green-500);
   --success-solid: var(--green-300);
   --success-text: var(--green-300);
-  --success-soft: rgba(46, 155, 97, 0.14);
-  --success-border: rgba(46, 155, 97, 0.3);
+  --success-soft: rgba(18, 185, 129, 0.14);
+  --success-border: rgba(18, 185, 129, 0.3);
 
   --warning: var(--amber-500);
   --warning-solid: var(--amber-300);
@@ -1198,8 +907,8 @@
   --danger: var(--red-500);
   --danger-solid: var(--red-600);
   --danger-text: var(--red-300);
-  --danger-soft: rgba(224, 80, 60, 0.16);
-  --danger-border: rgba(224, 80, 60, 0.32);
+  --danger-soft: rgba(229, 72, 77, 0.16);
+  --danger-border: rgba(229, 72, 77, 0.32);
 
   --info: var(--sky-500);
   --info-solid: var(--sky-600);
@@ -1211,18 +920,14 @@
   --neutral-text: var(--text-muted);
   --neutral-border: var(--border);
 
-  /**
-   * The overlay scale deepens; the hard `--edge-*` geometries are untouched, because
-   * a zero-blur offset works on any background.
-   */
+  --progress-track: rgba(122, 165, 255, 0.16);
+
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.45);
   --shadow-md: 0 10px 24px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.55);
   --shadow-xl: 0 24px 64px -4px rgba(0, 0, 0, 0.65);
 
-  /* The blue tint, not the light theme's `#0052ff`: the ring sits on the near-black
-     page, where the vivid step reaches only 3.10:1. This one reads 7.34:1. */
   --focus-ring: 0 0 0 3px rgba(122, 165, 255, 0.32);
   --focus-ring-color: #7aa5ff;
 
@@ -1236,17 +941,8 @@
  * 9. LEGACY ALIASES — load-bearing, not leftovers.
  * ==================================================================
  *
- * The names the pre-Milestone-23 CSS modules already reference. They are what let
- * un-migrated pages inherit a redesign without being edited, and they retire page by
- * page as each is redesigned. Do not delete one while a page still uses it, and do
- * not build new code on them.
- *
- * `--royal-blue` is a particular case: Milestone 26 reduced it to **zero references
- * outside this file**, so it survives only as a safety net. It points at `--primary`,
- * and as of Milestone 28 the name is **true again** — the alias resolves to the same
- * `#0052ff` it held when it was written. It had been a lie for two milestones (a
- * near-black action, then a deep green). Keep the alias anyway: it costs two lines
- * and it is the safety net for anything that still names it.
+ * Names the pre-Milestone-23 CSS modules still reference; they retire page by page.
+ * `--royal-blue` resolves to `--primary`, which is the brand blue in both themes.
  */
 :root,
 .theme-dark {

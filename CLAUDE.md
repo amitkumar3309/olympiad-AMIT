@@ -31,7 +31,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 
 ## Technology Stack
 
-- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **twenty-five** primitives in `src/components/ui` — one file each; several export more than one component. Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`; **no icon library is installed as a dependency**. Fonts (Milestone 27): **Bricolage Grotesque** (headings and figures), **Instrument Sans** (body, tables, inputs), **Geist Mono** (serials and tabular numbers — 79 references across 33 files), Cinzel (the landing wordmark and the printed certificate only). Geist itself is gone. That is **four** families where Milestone 26 had three, and unlike that milestone this one does **not** save bytes — it costs roughly one extra variable face. `--font-heading` is no longer an alias of `--font-body`: a display face does the heading work now, and the division matters for this product because Bricolage is tiring at 15px down two hundred admin table rows. The families are named in exactly **two** places, `index.html` and `tokens.css`. Linter: `oxlint`.
+- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **thirty-four** primitives in `src/components/ui` — one file each; several export more than one component. Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg in `index.html`), always through `components/ui/Icon.tsx`, plus **`lucide-react`** on the two launch surfaces (homepage, student dashboard). Fonts (Milestone 30): **Plus Jakarta Sans** (everything a reader reads — headings and body; it replaced both Bricolage Grotesque and Instrument Sans), **Geist Mono** (serials and ids), **Cinzel** (the printed certificate), **Caveat** (the mockups' two handwritten accents only). **All self-hosted** from `public/fonts/` (OFL, the `@fontsource-variable/*` 5.3.0 files, version in the file name), declared with `@font-face` at the top of `tokens.css` — the **only** place a family is named — and the main Latin file preloaded from `index.html`, whose `href` must match `tokens.css` exactly. There is no Google Fonts request. Linter: `oxlint`.
 - **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. One AI dependency: **`@google/genai`** (question drafting only — see the Milestone 20 ADR, which supersedes Milestone 17's decision against an SDK; it is `require`d rather than `import`ed for a packaging reason documented at the top of `services/geminiQuestionGenerator.ts`). Modular structure since Milestone 1 (`config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/`). Uses `zod` (validation), `pino` (logging), `helmet`, `express-rate-limit`. Linter: `eslint` + `typescript-eslint`. Tests: `vitest` + `supertest`.
 - **Database**: MongoDB via Mongoose.
 - **Auth**: short-lived access JWT + rotating opaque refresh token, both in `httpOnly` cookies; passwords hashed with `bcryptjs` (cost 12). Email via `nodemailer` over SMTP.
@@ -51,10 +51,20 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             prefers-reduced-motion honoured once
   src/styles/utilities.css  six layout utilities + the five pre-existing global
                             classes (.card, .form-control, ...), kept working
-  src/components/ui/        THE design system: 20 domain-agnostic primitives
+  src/components/ui/        THE design system: 34 domain-agnostic primitives
                             (one .tsx each; Input.tsx alone exports five) +
-                            index.ts barrel. A component belongs here only if it
-                            knows nothing about this product (M23 A)
+                            index.ts barrel + motion.ts (hooks with timer
+                            fallbacks) + clock.ts. A component belongs here only
+                            if it knows nothing about this product (M23 A; M30
+                            added CountUp, Reveal, OptionTile, Countdown, Podium,
+                            LeaderboardTable, JourneyTrack, ActivityList, Confetti)
+  src/components/Illustration.tsx + illustrations.ts
+                            the launch artwork by name; files are discovered in
+                            src/assets/illustrations/ at BUILD time (M30)
+  src/components/DailyQuizFab.tsx  the floating Daily Quiz button (M30)
+  src/lib/format.ts         THE number/date formatting: en-IN grouping, IST dates
+                            ("Sun, 8 Nov 2026 • 10:00 AM"), countdown text (M30)
+  public/fonts/             the self-hosted font files + their OFL licences (M30)
   src/pages/<Page>/         one folder per route, colocated .module.css
   src/pages/DesignSystem/   the primitive reference — DEVELOPMENT ONLY, absent
                             from a production build
@@ -234,35 +244,28 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - Route guards: `ProtectedRoute` (requires a student account) and `RequirePermission` (requires a capability) in `src/components/ProtectedRoute.tsx`. `AdminRoute` was **removed** in Milestone 3 — use `RequirePermission permission="..."`, which renders the `Unauthorized` component for a signed-in user rather than silently redirecting.
 - Read permissions with `can('...')` from `useAuth()`. The permission list arrives from the backend on every auth response; **never** reimplement the role → permission mapping on the frontend, and never branch on `state.status` to decide whether something administrative is allowed (`status` says which *kind* of account is signed in, not what it may do — a promoted admin has `status: 'student'`). Wrap new authenticated pages in these rather than checking `state.status` ad hoc in the page body (existing pages do check `state.status` for conditional rendering, e.g. to show a preview vs. real data — that's fine; the *route-level* gate should still use the wrapper).
 
-## Design System (Milestone 23 Phase A; re-pointed in Milestone 26, and again in Milestone 27)
+## Design System (Milestone 23 Phase A; re-pointed in 26, 27 and 28, and onto the launch mockups in Milestone 30)
 
-> **Milestone 27 reversed two of Milestone 26’s three ideas.** If you are reading a comment
-> or a commit message that argues for a soft shadow under a card, or for a single near-black
-> action, it predates this. The ideas below are current; the Milestone 27 ADR in
-> [`DECISIONS.md`](DECISIONS.md) records why each changed.
+> **Milestone 30 (the Diwali launch) re-pointed the language onto the two launch mockups**
+> (`docs/design/`). It reversed Milestone 28's "white page, no card shadow" and retired
+> Milestone 27's hard offset edge and orange call to action. If a comment or a commit message
+> argues for a hairline-only card, a keycap edge, an orange button or Bricolage Grotesque, it
+> predates this. The Milestone 30 Phase 1 ADR in [`DECISIONS.md`](DECISIONS.md) records why.
 
-**The three ideas the current language rests on.** A change that contradicts one of these will
+**The four ideas the current language rests on.** A change that contradicts one of these will
 look wrong however carefully it is tokenised — read them before touching a surface.
 
-- **Separation is by a HAIRLINE, and still never by a shadow (changed in Milestone 28).**
-  Milestone 27 put a white `Card` on a warm cream page (`--surface` `#ffffff` on `--bg`
-  `#f4f0e5`) with **no border and no shadow**, and that fill step alone was the edge. The
-  owner asked for a **white page** so the brand blue would stand out; `--surface` and `--bg`
-  are both `#ffffff` now, that step is **1.00:1**, and without a border every card in the
-  product is invisible. So `--card-border` is a real hairline in *both* themes —
-  `--ink-border-strong` in light (1.44:1 on white; the ordinary 0.1 border measures 1.22:1,
-  which is the usual weight for a card edge but assumes a shadow or a fill step is helping,
-  and here neither is). **Do not set `--card-border` back to `transparent`** without first
-  giving cards their fill separation back.
-- **Every page-level surface in the light theme is white, including the navbar** (owner,
-  2026-09-21: "white background everywhere, navbar and each and everywhere"). That is `--bg`,
-  `--bg-subtle`, `--surface`, `--band-accent` **and `--surface-translucent`** — the last is
-  the sticky navbar pill, the admin topbar and the mobile bottom bar, and it was the most
-  visible off-white left after the page went white because it sits on top of every page.
-  There is no tinted section band anywhere now; sections are separated by spacing, headings
-  and card hairlines. The `.stripe` / `.stripeBlue` classes stay, still pointed at their
-  tokens, because the dark theme still tints them and because restoring a band should be one
-  line in `tokens.css` rather than a hunt through a page stylesheet.
+- **A card is a white surface on a PALE BLUE page, with a hairline AND a soft shadow.** `--bg`
+  is `#f4f8fe`, `--surface` white, and the edge is `--card-border` (the mockups' `#e6ecf5`,
+  1.19:1) **plus** `--card-shadow` (two soft layers) together, at `--card-radius` 16px. Neither
+  alone: the fill step is 1.05:1 and a shadow with no line is a smudge on a phone in sunlight.
+  In the dark theme `--card-shadow` is `none` and the blue hairline does the work. **`--shadow-*`
+  is still the OVERLAY scale** (modal, drawer, menu, toast, tooltip); a card uses `--card-shadow`.
+  Only a card that is genuinely a link lifts on hover (2px and `--card-shadow-hover`).
+- **The page is pale blue; chrome and cards are white.** `--bg` `#f4f8fe`, `--bg-subtle` /
+  `--band-accent` the brand's faintest tint, `--surface-translucent` a white navbar pill. The
+  mockups' three tinted cards are `--surface-mint` / `-cream` / `-aqua` — **themed**, because a
+  card holds themed text (they become `--surface-raised` in dark).
 - **The dark theme is a BLACK page with ROYAL-BLUE cards** (owner, 2026-09-21). `--bg` is
   `#000000` and `--surface` is **`#121e47`**, a deep blue in the same hue family as
   `--primary`; the text ramp is a cool near-white (`#eef2fb`) and the borders are the blue,
@@ -310,7 +313,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
   default for an icon *inside* a sentence; it is the wrong one for an icon *labelling* one.
 - **The interactive steps are deliberately NOT white, and that is not an oversight.**
   `--surface-hover`, `--surface-active` and `--surface-sunken` are the faintest steps of the
-  brand blue (`--royal-25` / `--royal-50`). White versions of those three are the same as
+  brand blue. White versions of those three are the same as
   deleting them: a row that does not respond to a hover and an inset that does not look
   inset are lost feedback, not removed decoration. Same for `--fill-subtle` / `--fill-muted`,
   the alpha fills that group things inside a card. If someone asks for "white everywhere"
@@ -319,59 +322,50 @@ look wrong however carefully it is tokenised — read them before touching a sur
   `--primary-soft`, not a neutral tint. It was `--fill-muted` while `--primary` was
   near-black, when a blue tint would have referred to nothing. It must stay a *tint* and
   never `--primary` itself: a solidly filled nav item is indistinguishable from a primary
-  button, and a position is not an action. The reference has no shadow on any card in it: a
-  census returned only its pill buttons and its icon tiles, and the three soft shadows it did
-  return belonged to the "Made in Framer" badge. **`--shadow-*` is the OVERLAY scale now** —
-  modal, drawer, menu, toast, tooltip — and nothing that is part of the page may use one. The
-  four exceptions are things that float over content (`.skipLink`, `.bottomNav`, the sticky
-  `Navbar .inner`) and the printed certificate, which is a *document*.
-  **`--card-border`** stays a token for the reason `--tooltip-bg` is one, and it is now a real
-  hairline in **both** themes — a fill step alone is too quiet in either. Declared in both so
-  the box never changes size between them.
+  button, and a position is not an action. **`--shadow-*` is the OVERLAY scale** — modal,
+  drawer, menu, toast, tooltip — plus the things that float over content (`.skipLink`,
+  `.bottomNav`, the sticky `Navbar .inner`, the Daily Quiz button's `--shadow-fab`) and the
+  printed certificate. A card's shadow is `--card-shadow`, never a `--shadow-*` step.
+  **`--card-border`** and `--card-shadow` are tokens for the reason `--tooltip-bg` is one, and
+  both are declared in both themes so the box never changes size between them.
 - **A nested fill is an ALPHA fill.** `--fill-subtle` / `--fill-muted` darken whatever they
   sit on, so a step against the parent is guaranteed by construction. `--bg` and `--bg-subtle`
   are only for an element that **is** a page or a full-bleed band. Eighteen declarations said
   `background: var(--bg)` to mean "an inset inside a card", which worked while `--bg` was a
   near-white step against a white surface — and collapsed to **1.00:1 against its own parent**
   the moment `--bg` became the page. Nothing errored; a distinction simply disappeared.
-  **This rule got sharper in Milestone 28, not softer:** `--bg` is now plain `#ffffff`, the
-  same colour as `--surface`, so an inset painted with it is invisible rather than merely
-  flat. One survivor was found then — `/admin/questions`'s bulk bar used
+  It got sharper in Milestone 28 (when `--bg` was `#ffffff`, the same colour as `--surface`)
+  and it still holds with `--bg` at `#f4f8fe` — 1.05:1 against a card is invisible in
+  practice. One survivor was found in Milestone 28 — `/admin/questions`'s bulk bar used
   `var(--card-bg, var(--bg))`, and `--card-bg` was **never defined anywhere**, so the
   fallback always won and had been quietly supplying the page colour to an inset.
-- **Type is TIGHT, and the display face carries it.** Bricolage Grotesque for headings and
-  figures (600, **700** for a hero — 700 *is* used now), Instrument Sans for body at **400**.
-  Negative tracking is for **display sizes only**: −0.08em at 30px and up, −0.04em at 24px.
-  **`--tracking-body` is `0`** — it is still applied **once, to `body`**, which is how a type
-  change reaches fifty pages unedited, and that same one-line lever now *un*-tightens body
-  copy. `--leading-normal` is **1.4**, the reference's own body figure.
-  **`--text-base` stays 15px** and did not follow the reference to 16px: it is what every
-  input and table cell already uses, and half this product is dense administrative tables a
-  marketing page has no equivalent of. The reference's 16px is `--text-md`.
-- **Colour is ABUNDANT and categorical, and there are TWO action colours.** `--primary` is
-  **royal blue `#0052FF`** (`--royal-500`) as of Milestone 28 — the workhorse, on every form
-  and dialog. It was `--ink-800`, a deep green, for the length of Milestone 27; the owner
-  asked for the product's original brand blue back, and it is a **re-point of the semantic
-  layer only** — the language, the components, the spacing and the keycap edges are
-  unchanged. It is deliberately **not** CSS `royalblue` `#4169E1`; the token name
-  `--royal-blue` is historical and `#0052FF` is the brand, confirmed by the owner. The blue
-  is its own `--royal-*` ramp rather than a re-point of `--ink-*`, because that ramp is
-  simultaneously the neutral **and** the page. See the Milestone 28 ADR. **`--brand`** is the
-  orange call to action, for the one thing a page wants pressed: **once per page**, because
-  three of them is the same as none. Its label is **ink, not white** — the reference puts
-  white there and it measures 3.05:1.
-  The six `--cat-*` hues are **pastels** and every `-on` is **ink** (9.0–11.9:1), so
-  Milestone 26’s mixed set is gone. They are **no longer confined to `ui/IconTile`** — the
-  reference fills cards and section bands with them. What still holds: they are fills, never
-  words, and they are **not** wired into `Badge`, whose tones are semantic.
-- **Emphasis is a HARD OFFSET EDGE, on controls and markers only.** `0 4px 0` with **zero
-  blur** under a button (vertical), `3px 3px 0` under an icon tile or step marker (diagonal) —
-  a keycap, not a lift. `--edge-*` holds the *geometries*; the colour comes from the element,
-  because each fill has a **designed** companion rather than a computed one (the green action
-  takes a *lighter* green edge, the orange one a darker orange). Pressing **collapses** the
-  edge: travel down by the offset, shrink it to zero. **Never put an edge on a card** — a page
-  of edged boxes reads as a page of buttons. It survives into dark mode, where a blurred
-  shadow could not.
+- **Type is Plus Jakarta Sans everywhere, and WEIGHT carries the hierarchy** (Milestone 30).
+  It replaced **both** Bricolage Grotesque and Instrument Sans: 800 for a hero, 700 for headings
+  and figures, 600 for labels and buttons, 400/500 for body. Use the **role scale** for anything
+  new — `--type-hero` (36 → 56px), `--type-page-title` (26 → 32), `--type-section-title`
+  (22 → 28), `--type-card-title` (16 → 18), `--type-stat` (20 → 24), `--type-body` (15 → 16),
+  `--type-small` 13, `--type-micro` 12; `h1`–`h3`, `Section` and `CardHeader` already use it.
+  The older `--text-*` ramp stays so un-migrated pages do not reflow; **`--text-base` stays 15px**
+  (inputs, table cells). Tracking is only slightly negative and only at display sizes — Plus
+  Jakarta is a wide face. `--font-hand` (Caveat) is for the mockups' two handwritten accents and
+  nothing else. Plus Jakarta has **true tabular figures** — use `tabular-nums` on every timer,
+  score and figure column.
+- **One action colour, and emphasis is FILL versus OUTLINE.** `--primary` is the mockups'
+  **`#1d63f6`** (`--royal-500`; white label 5.04:1); words in blue use `--primary-text`
+  (`#154fd0`, never the fill). `primary` is solid, `secondary` a white pill with a hairline, `link`
+  text with an arrow. **`--brand` is the same blue with a soft glow** (`--shadow-brand`) for the
+  one loudest action on a page — once per page. There is no orange button any more. Every
+  gradient that carries a white label runs no lighter than `--royal-450` `#2a6cf7` (4.58:1): the
+  mockups' own sidebar gradient under white is 2.97:1.
+- **Colour is categorical, in TINTED tiles with SATURATED glyphs.** Each `--cat-*` is a pale tint
+  with a `-glyph` (solved to ≥3:1 on its own tint) and an ink `-on` for words; `--cat-gold` is
+  achievement. They are theme-invariant. Status colours keep their meaning (green correct, red
+  wrong/urgent, gold achievement) and are never used as categories; `--series-1..5` are the
+  mockups' five subject hues for charts and progress bars, which always print their value beside
+  them. The `--cat-*-edge` tokens are retired (`transparent`).
+- **The hard offset edge is RETIRED** (Milestone 27's keycap). `--edge-*` geometries are zero, so
+  the legacy stylesheets that still compose one draw nothing; press feedback is a
+  `--press-scale` (0.98) on `:active`. Do not reintroduce an edge.
 - **A theme-invariant fill may only sit under LEAF content.** The `--cat-*` pastels are the
   same in both themes; `--text`, `--text-muted`, `--primary-text` and the borders invert. Put
   one behind the other and you get cream on pale blue at **1.09:1**. Pinning the text on the
@@ -421,12 +415,12 @@ look wrong however carefully it is tokenised — read them before touching a sur
   meaning** — partly accessibility, partly because the font comes from a CDN at runtime. Do not
   "fix" the CDN by installing `@phosphor-icons/web`: its `@font-face` lists four formats including
   a 3 MB SVG font, all of which the bundler then emits (this was tried and reverted — see the ADR).
-  **The one exception is the landing page, which uses `lucide-react`** (owner, asked twice, 2026-09-21
-  — see the Milestone 28 ADR). That is scoped to the landing page's *content* icons; the same page's
-  navbar, footer, FAQ caret and empty states, and every other route, are still Phosphor. The rule is
-  **narrowed, not deleted**: do not add a third icon library, and do not spread Lucide to other pages
-  without a decision — converting the rest means touching every `ui/Icon` call site across ~50 routes.
-  `ui/IconTile` and `ui/StatTile` take `string | ReactElement` for this: a string is the normal path
+  **The exception is the two launch surfaces, which use `lucide-react`**: the homepage (Milestone 28)
+  and, since Milestone 30, the student dashboard and the launch components built for them
+  (`DailyQuizFab`, `Illustration`'s placeholders) — PLAN.md Q11. Every other route is still Phosphor.
+  Do not add a third icon library, and do not spread Lucide further without a decision — converting
+  the rest means touching every `ui/Icon` call site across ~50 routes.
+  `ui/IconTile`, `ui/StatTile` and `ui/Button` take `string | ReactElement` for this: a string is the normal path
   and they size it, an element is passed through and the **caller** owns its size. Lucide renders an
   `<svg>` whose `width`/`height` **attributes** are 24, which CSS beats — so a Lucide icon in a tile
   must be sized in CSS or it is the right shape in the wrong box.
@@ -600,13 +594,40 @@ look wrong however carefully it is tokenised — read them before touching a sur
   `--success-solid` is 3.77:1 and on `--warning-solid` 3.19:1, because green and amber are
   light fills. The only `color: #fff` left in `src/` is the gallery lightbox, over a
   photograph.
-- **`--text-muted` is the floor, and it does not go on a tint.** It is the green ink at **70%**
-  alpha (Milestone 27 — the `--slate-*` ramp it names in older commits no longer exists), and
+- **`--text-muted` is the floor.** It is the navy ink at **64%** alpha (Milestone 30), and
   alpha rather than a solid step is the point: it composites against whatever it lands on, so
-  one value works on white, on cream, on the sand band **and** on any of the six `--cat-*`
-  pastels. Verified against all nine: worst case **4.62:1**, on `--cat-purple`. Nothing lighter
-  may carry words; `--text-subtle` (2.88–3.16:1) is for non-text glyphs only and is not a quiet
-  text colour. The rule exists because Phase G measured the old value at 4.28:1 on a soft tint.
+  one value works on white, the pale page, the tinted cards **and** every `--cat-*` tint.
+  Solved worst case **5.14:1**, on `--cat-purple`. The mockups' own muted grey `#6b7489`
+  measures **4.39:1** on its own page — that is why it is not used. Nothing lighter may carry
+  words; `--text-subtle` (3.3:1) is for non-text glyphs only and is not a quiet text colour.
+- **Motion is for explaining a change or pointing at the Daily Quiz — and it can never hide
+  content** (Milestone 30). `CountUp` counts once on first view, `Reveal` brings a block in once
+  (use it sparingly — never the same fade on every section), `Confetti` is CSS-only and ≤1.5s.
+  Every hook in `ui/motion.ts` has a **timer fallback**, because an `IntersectionObserver`
+  callback or an animation frame may never arrive in a tab that is not compositing:
+  `useInView` reports visible if the observer never reports at all, `useCountUp` snaps to the
+  final value when its duration ends. A `CountUp` also renders the final figure in an `sr-only`
+  span, so a screen reader and a copy-paste never meet a half-counted number. Reduced motion
+  shows everything final and still. Animate `transform` and `opacity` only (a glow on the small
+  Daily Quiz button is the one exception).
+- **A countdown displays the server's clock** — `ui/Countdown` generalises the rule
+  `ChallengeCountdown` already followed: the caller passes `offsetMs` from `clockOffset()`
+  (measured when the response arrived), every tick recomputes from the wall clock, a countdown
+  rounds **up** so it never shows 0 early, and reaching zero calls `onComplete` so the page
+  re-asks the server. `role="timer"`, so it is never announced every second.
+- **Numbers and dates go through `lib/format.ts`**: `formatNumber` (Indian grouping,
+  `1,08,320`), `formatDateTime` (`Sun, 8 Nov 2026 • 10:00 AM`, always Asia/Kolkata whatever the
+  device's zone), `formatClock` / `formatCompactDuration` for countdowns. Older pages still call
+  `toLocaleString` directly; new code does not.
+- **Illustrations are files in `src/assets/illustrations/`, found at build time** — never
+  `public/`, never hotlinked. `components/Illustration.tsx` uses a file when one with the
+  registered name exists and otherwise draws a placeholder (a tint and one line icon, no text),
+  and nothing is requested that is not there, because a 404 is a console error on every page.
+  `docs/launch/ASSETS_NEEDED.md` is the owner's list. Never reproduce the mockup art: its
+  lettering is garbled.
+- **`/dev/ui` is the same page as `/design-system`** (the launch brief's name for it) —
+  development only, every primitive in every state, including the nine launch primitives and the
+  Daily Quiz button's four states.
 - **A state that IS the page takes `titleAs`.** `EmptyState` and `ErrorState` default to an
   `h3`, which is right inside a card that already sits under a section heading and wrong when
   the state is the whole route — the document then skips from the shell's `h1` to an `h3`.

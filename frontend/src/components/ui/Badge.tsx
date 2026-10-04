@@ -41,6 +41,12 @@ export interface BadgeProps {
   icon?: string
   /** A leading dot, for a live/scheduled/closed style state. */
   dot?: boolean
+  /**
+   * A leading dot that **pulses** — "this is happening now" (the Daily Quiz's LIVE
+   * pill). The word is still required; the pulse is a second channel, and it stops
+   * under reduced motion.
+   */
+  live?: boolean
   /** Uppercase micro-label treatment, for a dense table column. */
   uppercase?: boolean
   className?: string
@@ -54,6 +60,7 @@ export default function Badge({
   size = 'md',
   icon,
   dot,
+  live,
   uppercase,
   className,
   title,
@@ -71,7 +78,9 @@ export default function Badge({
 
   return (
     <span className={classes} title={title}>
-      {dot && <span className={styles.dot} aria-hidden="true" />}
+      {(dot || live) && (
+        <span className={[styles.dot, live ? styles.live : ''].filter(Boolean).join(' ')} aria-hidden="true" />
+      )}
       {icon && <Icon name={icon} weight="bold" size={size === 'sm' ? 'xs' : 'sm'} />}
       {children}
     </span>

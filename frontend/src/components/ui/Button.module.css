@@ -1,46 +1,26 @@
 /**
- * **Every button is a pill** (Milestone 26).
+ * **Every button is a pill** (Milestone 26), and as of Milestone 30 **every button is
+ * flat** — the launch mockups' "Register for Free", "Submit Answer" and "Get Notified"
+ * are solid blue pills with no keycap edge under them.
  *
- * The `pill` prop still exists and resolves to the same radius, so the call sites
- * that pass it are untouched — it is simply no longer what makes a button a pill.
+ * The pill is doing real work rather than decoration: cards, inputs and tags here are
+ * rectangles with a modest radius, so a fully rounded control is the one shape that can
+ * only be an action.
  *
- * This is the dominant shape in the reference (98 uses against 66 for its card
- * radius) and it is doing real work rather than decoration: cards, cells, inputs and
- * tags in this product are all rectangles with a modest radius, so a fully-rounded
- * control is the one shape that can only be an action. On a dense administrative
- * table that is what tells you at a glance what is pressable.
- */
-/**
- * **The raised edge** (Milestone 27). A filled button carries `0 4px 0` in a
- * companion colour with **zero blur** — the reference's signature, and a keycap
- * rather than a lift.
- *
- * Three variables drive it so that one base rule serves every variant:
- *
- *  - `--btn-edge` is the companion **colour**, set by the variant. It defaults to
- *    transparent, so a flat variant paints nothing.
- *  - `--btn-lift` is how far the edge extends. `0px` by default.
- *  - `--btn-press` is how far the button travels on `:active`. It is a separate
- *    variable because a flat button still needs press feedback (1px) while a raised
- *    one must travel its own full offset so the edge visibly collapses.
- *
- * The colour is not computed from the fill. Each companion is a *designed* pair: the
- * reference's green button takes a **lighter** green edge while its orange button
- * takes a darker orange one, and no formula produces both.
+ * **Press feedback is a 0.98 scale** (the brief's §5.7), on `:active`, so it costs no
+ * JavaScript and cannot stick. The page's one loudest action (`brand`) carries a soft
+ * glow underneath instead of an edge — the only way it differs from `primary`.
  */
 .btn {
-  --btn-edge: transparent;
-  --btn-lift: 0px;
-  --btn-press: 1px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   border: var(--border-width) solid transparent;
   border-radius: var(--radius-pill);
-  box-shadow: 0 var(--btn-lift) 0 0 var(--btn-edge);
+  box-shadow: none;
   font-family: var(--font-body);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   line-height: var(--leading-none);
   letter-spacing: var(--tracking-snug);
   text-align: center;
@@ -52,27 +32,11 @@
     border-color var(--dur-fast) var(--ease),
     color var(--dur-fast) var(--ease),
     box-shadow var(--dur-fast) var(--ease),
-    transform var(--dur-fast) var(--ease);
+    transform var(--dur-fast) var(--ease-out);
 }
 
-/**
- * Press feedback: the edge **collapses**.
- *
- * The button travels down by exactly its own offset and the edge shrinks to zero, so
- * it behaves like something physically pressed against the page rather than something
- * that dimmed. That is the interaction the hard edge implies, and it is why
- * `--brand-hover` *lightens* rather than darkens — the depth cue is the edge, so the
- * colour is free to do something else.
- *
- * A flat variant keeps the old 1px nudge via the `--btn-press` default: small enough
- * that nobody consciously notices, large enough that a tap feels acknowledged on a
- * phone where there was no hover state to confirm the target first.
- *
- * `:active` rather than a class, so it costs no JavaScript and cannot stick.
- */
 .btn:active:not(:disabled):not([aria-disabled='true']) {
-  transform: translateY(var(--btn-press));
-  box-shadow: 0 0 0 0 var(--btn-edge);
+  transform: scale(var(--press-scale));
 }
 
 .btn:disabled,
@@ -88,10 +52,8 @@
    the 44px target — the compact size exists for dense desktop tables, and on a
    phone that density is not a saving, it is a mis-tap. */
 
-/* 48px is the reference's own button height, and it is the `md` here because `md` is
-   what a page's real actions use. `sm` stays compact for a mouse-driven admin table. */
 .sm {
-  min-height: 34px;
+  min-height: 36px;
   padding: 0 var(--space-4);
   font-size: var(--text-sm);
   gap: var(--space-1);
@@ -106,7 +68,7 @@
 .lg {
   min-height: 56px;
   padding: 0 var(--space-8);
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
 }
 
 @media (pointer: coarse) {
@@ -114,18 +76,6 @@
     min-height: var(--tap-target);
     padding: 0 var(--space-5);
   }
-}
-
-/* The compact size takes a thinner edge: 4px under a 34px control is heavier than
-   4px under a 48px one, and the edge should read as the same thickness of material at
-   every size. Two class selectors, so this beats the variant rule that sets the full
-   offset, and scoped to the raised variants so a ghost button keeps its 1px nudge. */
-.sm.primary,
-.sm.brand,
-.sm.secondary,
-.sm.danger {
-  --btn-lift: 2px;
-  --btn-press: 2px;
 }
 
 .fullWidth {
@@ -144,7 +94,7 @@
 }
 
 .iconOnly.sm {
-  width: 34px;
+  width: 36px;
 }
 
 .iconOnly.md {
@@ -163,24 +113,8 @@
 
 /* ---------- variants ----------------------------------------------------- */
 
-/**
- * The standard action: a **deep green pill with a lighter green edge**.
- *
- * There are two action colours in this language, which is the reverse of Milestone
- * 26 — and the split is by *emphasis*, not by hue preference. `primary` is the
- * workhorse and belongs on every form, table row and dialog; `brand` below is the
- * single loudest action on a page. Milestone 26's reasoning still holds underneath:
- * what broke before was one saturated blue doing five unrelated jobs, and the fix is
- * that a colour has one job, not that colour is banned.
- *
- * In the dark theme `--primary` flips to a light green with an ink label and a
- * *darker* edge — the direction of the companion inverts, because on a near-black
- * page a lighter edge reads as a glow rather than as material.
- */
+/** The action: a solid brand-blue pill with a white label (5.04:1). */
 .primary {
-  --btn-edge: var(--primary-edge);
-  --btn-lift: var(--edge-width);
-  --btn-press: var(--edge-width);
   background: var(--primary);
   color: var(--primary-on);
 }
@@ -194,27 +128,15 @@
 }
 
 /**
- * The call to action — **orange, with an ink label** (Milestone 27).
- *
- * The loudest control in the product, for the one thing a page actually wants
- * pressed. Use it **once per page**: three orange buttons on a screen is the same as
- * none.
- *
- * The label is **ink, not white**. The reference puts white here and it measures
- * 3.05:1, which fails AA for normal text; ink on the same fill is 5.19:1. The fill is
- * unchanged — only the label moved — so this costs nothing in fidelity. It is the
- * same defect class Milestone 26's Phase G audit found 109 times.
- *
- * Hover **lightens** rather than darkens, which is unusual and deliberate: darkening
- * breaks the ink label (`--orange-600` gives ink 3.72:1 and white 4.26:1 — neither
- * clears), and the depth cue here is the edge rather than the tone.
+ * The page's **one loudest action** — the hero's "Register for free". The same blue
+ * as `primary` with a soft glow under it; use it **once per page**, because three of
+ * them is the same as none. (Until Milestone 30 this was an orange pill; the mockups
+ * have no orange control at all.)
  */
 .brand {
-  --btn-edge: var(--brand-edge);
-  --btn-lift: var(--edge-width);
-  --btn-press: var(--edge-width);
   background: var(--brand);
   color: var(--brand-on);
+  box-shadow: var(--shadow-brand);
 }
 
 .brand:hover:not(:disabled) {
@@ -226,32 +148,25 @@
 }
 
 /**
- * The standard partner to a primary action: a **tinted pill, not a bordered box**.
- *
- * `--fill-subtle` is the reference's own secondary treatment, and it is the right one
- * here for a structural reason — a card now has no border, so a bordered button
- * sitting on it would be the only drawn line in view and would read as the louder of
- * the two controls.
+ * The partner to a primary action — the mockups' "Explore More" and "I already have
+ * an account": **a white pill with a hairline**, ink label. On the pale blue page a
+ * white fill is enough to read as a control; the line keeps it one on a white card.
  */
-/* The reference's own secondary treatment is a pale pill under a **full-strength ink
-   edge** — the one place the companion is far darker than the fill, which is what lets
-   a quiet button still read as raised. */
 .secondary {
-  --btn-edge: var(--primary);
-  --btn-lift: var(--edge-width);
-  --btn-press: var(--edge-width);
-  background: var(--fill-subtle);
-  border-color: transparent;
+  background: var(--surface);
+  border-color: var(--border-strong);
   color: var(--text);
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--fill-muted);
+  border-color: var(--primary-border);
+  background: var(--surface-hover);
+  color: var(--primary-text);
 }
 
 /* Kept as its own variant because thirty-seven pre-existing call sites pass
-   `variant="outline"`. The one place a drawn line is still correct: an action that
-   must read as available without claiming any weight at all. */
+   `variant="outline"`: a line and no fill, for an action that must read as available
+   without claiming any weight. */
 .outline {
   background: transparent;
   border-color: var(--border-strong);
@@ -259,18 +174,18 @@
 }
 
 .outline:hover:not(:disabled) {
-  border-color: var(--primary);
+  border-color: var(--primary-border);
   background: var(--fill-subtle);
 }
 
 /* A tinted action: more presence than a ghost, less than a primary. */
 .subtle {
-  background: var(--fill-subtle);
-  color: var(--text);
+  background: var(--primary-soft);
+  color: var(--primary-text);
 }
 
 .subtle:hover:not(:disabled) {
-  background: var(--fill-muted);
+  background: var(--primary-soft-hover);
 }
 
 .ghost {
@@ -284,9 +199,6 @@
 }
 
 .danger {
-  --btn-edge: var(--danger-text);
-  --btn-lift: var(--edge-width);
-  --btn-press: var(--edge-width);
   background: var(--danger-solid);
   color: var(--danger-on);
 }
@@ -297,6 +209,36 @@
 
 .danger:focus-visible {
   outline-color: var(--danger);
+}
+
+/**
+ * **A link that is a button** — the mockups' "View all →", "View full journey →".
+ * Text and a trailing arrow, no fill, no padding beyond what the touch target needs.
+ * It keeps the 44px touch floor on a coarse pointer (via `.sm`/`.md` above) but draws
+ * nothing around it; an underline on hover says it is pressable.
+ */
+.link {
+  min-height: auto;
+  padding: var(--space-1) 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--primary-text);
+  font-size: var(--text-sm);
+}
+
+.link:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.link:active:not(:disabled) {
+  transform: none;
+}
+
+@media (pointer: coarse) {
+  .link {
+    min-height: var(--tap-target);
+  }
 }
 
 /* ---------- loading -----------------------------------------------------

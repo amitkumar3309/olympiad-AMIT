@@ -1,31 +1,22 @@
 /**
- * A card is **a white surface on a cream page, a 20px radius, and nothing else** — no
- * border, and as of Milestone 27 **no shadow either**.
+ * A card is **a white surface on the pale blue page, with a hairline and a soft
+ * two-layer shadow, at a 16px radius** (Milestone 30 — the launch mockups).
  *
- * That is the single decision this visual language rests on, and it is the reverse of
- * Milestone 26's. Separation comes from the **fill**: `--surface` is white,
- * `--bg` is `#f4f0e5`, and that step alone is the edge. The reference has no border
- * and no shadow on any card in it — a shadow census returned only its pill buttons
- * and its icon tiles, and the three soft shadows it did return belonged to the
- * "Made in Framer" badge rather than the template.
+ * Both edges, together: the fill step against `--bg` is only 1.05:1 and a shadow alone
+ * reads as a smudge on a phone in sunlight. All three values are tokens
+ * (`--card-border`, `--card-shadow`, `--card-radius`) because the dark theme needs a
+ * different answer — a shadow has nowhere to fall on a black page, so there it is
+ * `none` and the blue hairline does the work — and a CSS Module cannot name
+ * `.theme-dark`. The border is declared in both themes so the box never changes size.
  *
- * **Do not give a card the `--edge-*` treatment.** The hard offset belongs to
- * controls and markers; a page of edged boxes reads as a page of buttons. If a card
- * needs to stand out more, change its fill — that is what the six `--cat-*` pastels
- * and `--bg-subtle` are for.
- *
- * `--card-border` carries the dark theme, and it is a token rather than a theme rule
- * inside this file: **transparent in the light theme, a hairline in the dark one**.
- * In light, cream-against-white does the separating; in dark, `--surface` and `--bg`
- * are both near-black and a fill step alone is too quiet, so the hairline becomes
- * real. Declared in both so the box never changes size between themes — a 1px reflow
- * on every card is what makes a theme switch feel broken.
+ * If a card needs to stand out more, change its fill (`--surface-mint`, `-cream`,
+ * `-aqua` are the mockups' tinted cards) rather than adding weight to its edge.
  */
 .card {
   background: var(--surface);
   border: var(--border-width) solid var(--card-border);
-  border-radius: var(--radius-xl);
-  box-shadow: none;
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
   /* A card in a flex or grid row must be allowed to be narrower than its content,
      or a table inside it pushes the page sideways. This one line prevents most
      horizontal-overflow bugs in a card layout. */
@@ -61,45 +52,44 @@
 }
 
 /**
- * Padding is fluid and generous: 24px on a small phone, 40px once there is room.
- * The Brightpath reference runs 30px on its step cards and 40px on its dark stat
- * panel, and the roominess is most of why its surfaces feel calm rather than packed.
+ * Padding is fluid: 16–20px on a phone, 24px once there is room. The mockups' cards
+ * are denser than the Brightpath reference's 40px — a dashboard of eleven widgets
+ * cannot afford that much air.
  */
 .pad-none {
   padding: 0;
 }
 
 .pad-sm {
-  padding: clamp(var(--space-4), 2.5vw, var(--space-5));
+  padding: clamp(var(--space-3), 1.8vw, var(--space-4));
 }
 
 .pad-md {
-  padding: clamp(var(--space-6), 3.5vw, var(--space-10));
+  padding: clamp(var(--space-4), 2.4vw, var(--space-6));
 }
 
 .pad-lg {
-  padding: clamp(var(--space-8), 4.5vw, var(--space-12));
+  padding: clamp(var(--space-6), 3.2vw, var(--space-8));
 }
 
 /**
- * Hover on a card that is genuinely a link.
- *
- * With no shadow to deepen, the hover is a **fill shift plus a 2px rise** — not the
- * 4–6px lift that makes a grid of cards jump around under a moving pointer, and a
- * transform rather than a margin so nothing around it reflows.
- *
- * It deliberately does **not** grow an edge on hover: an edge would make the card
- * momentarily look like a button, and the rule is that cards never carry one.
+ * Hover on a card that is genuinely a link — **only** clickable cards lift (the
+ * brief's §5.7). A 2px rise and a deeper shadow, as a transform so nothing around it
+ * reflows, and small enough that a grid of cards does not jump under a moving pointer.
  */
 .interactive {
   transition:
-    background-color var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
+    box-shadow var(--dur) var(--ease-out),
+    transform var(--dur) var(--ease-out);
 }
 
 .interactive:hover {
-  background: var(--surface-hover);
+  box-shadow: var(--card-shadow-hover);
   transform: translateY(-2px);
+}
+
+.interactive:active {
+  transform: translateY(0) scale(var(--press-scale));
 }
 
 .interactive:focus-within {
@@ -113,7 +103,7 @@
 .header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
 
@@ -121,30 +111,29 @@
   min-width: 0;
 }
 
-/* Semibold, not bold — see the heading note in `base.css`. Weight goes down as size
-   goes up, and every card on a page carrying bold emphasis is a page with no
-   hierarchy left to spend. */
+/* The card-title role (16 → 18px) at the heading weight — the mockups' "Recent
+   Activity", "Upcoming Events". `sm` is a step quieter for a card inside a card. */
 .title {
   margin: 0;
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-snug);
-  letter-spacing: var(--tracking-tight);
+  letter-spacing: var(--tracking-snug);
   color: var(--text);
 }
 
 .titleSm {
   margin: 0;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-snug);
   color: var(--text);
 }
 
 .description {
-  margin: var(--space-2) 0 0;
+  margin: var(--space-1) 0 0;
   max-width: 64ch;
-  font-size: var(--text-md);
+  font-size: var(--type-small);
   line-height: var(--leading-normal);
   color: var(--text-muted);
 }

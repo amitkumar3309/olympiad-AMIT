@@ -4,6 +4,78 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-04 — Milestone 30 Phase 1: the launch mockups' design language (supersedes most of Milestones 27 and 28)
+
+**Context.** The Diwali launch brief (`docs/launch/LAUNCH_SPEC.md`) asks for the homepage and the
+student dashboard to match two mockups (`docs/design/`), and gives its own token table (§5). Those
+mockups contradict four rules this repository recorded as owner decisions on 2026-09-21: a **white
+page everywhere**, **no shadow on any card**, primary **`#0052FF`**, and the Brightpath **hard offset
+edge** on controls. The Phase 0 plan listed this as Q1 with a recommendation to follow the mockups;
+the owner replied "continue" with no override (2026-10-04), which under the brief's own rule makes the
+recommendation the decision.
+
+**Decision.** Re-point the token layer — not individual pages — onto the mockups, so every one of the
+54 routes inherits one language:
+
+1. **Page `#f4f8fe`, white cards with a hairline *and* a soft two-layer shadow, 16px radius.** New
+   tokens `--card-shadow` (`none` in dark) and `--card-radius`. `--shadow-*` stays the overlay scale.
+2. **One action colour, `#1d63f6`** (the mockups' blue; `--royal-500`). `--brand` — the orange call to
+   action of Milestone 27 — becomes the same blue with a soft glow (`--shadow-brand`); the mockups have
+   no orange control. The hard offset edge is retired: `--edge-*` geometries are zero (so the legacy
+   landing page's references draw nothing) and press feedback is a 0.98 scale.
+3. **Tinted icon tiles with saturated glyphs.** Each `--cat-*` fill gains a `-glyph`, solved to ≥3:1 on
+   its own tint; `-on` stays ink for words. A seventh, `--cat-gold`, for achievement.
+4. **Plus Jakarta Sans for UI and headings**, replacing **both** Bricolage Grotesque and Instrument Sans;
+   weight carries hierarchy (800 hero, 700 headings, 600 labels). Caveat for the two handwritten accents.
+   Geist Mono and Cinzel unchanged. **All self-hosted** from `public/fonts/` (OFL files from the
+   `@fontsource-variable/*` 5.3.0 packages, fetched with `npm pack` — no dependency added), the main face
+   preloaded, `font-display: swap`, Latin plus Plus Jakarta's Latin-Extended file (where ₹ lives, fetched
+   only on a page that prints one). `/fonts/*` gets a one-year immutable cache in `vercel.json`; the
+   version is in the file name.
+5. **A role type scale** (`--type-hero`, `-page-title`, `-section-title`, `-card-title`, `-body`,
+   `-small`, `-micro`, plus `--type-stat`) with the brief's phone → desktop endpoints, alongside the
+   existing ramp rather than replacing it, so no un-migrated page reflows by accident. `h1`–`h3` and
+   `Section`/`CardHeader` moved onto it.
+
+**Two places the mockup loses, measured.** Its muted grey `#6b7489` is 4.39:1 on its own page — muted
+text is navy ink at 64% instead (5.14:1 at worst, on a pastel). Its sidebar gradient `#4f8ffb → #5794fe`
+under white is 2.97:1 — `--gradient-primary` runs `#1d63f6 → #2a6cf7`, the lightest blue that still
+carries a white label (4.58:1).
+
+**A Phase 0 recommendation was corrected.** The plan said to keep Bricolage + Instrument Sans because
+Plus Jakarta "would be a fifth family". That was wrong: Plus Jakarta replaces two families, so the count
+goes down. Set side by side against the mockup in a browser, Bricolage (a quirky optical-size grotesque)
+failed the brief's own test of "a clean geometric sans close to the mockups"; Plus Jakarta passed, has
+true tabular figures (verified) and draws ₹ itself (verified). The owner should know this changed after
+the plan was approved; it is two lines in `tokens.css` to revert.
+
+**Nine domain-agnostic primitives** for the mockups (`CountUp`, `Reveal`, `OptionTile`/`OptionGroup`,
+`Countdown`, `Podium`, `LeaderboardTable`, `JourneyTrack`, `ActivityList`, `Confetti`) and two
+product-aware components (`Illustration`, `DailyQuizFab`). Every motion hook has a **timer fallback**,
+because an `IntersectionObserver` callback or an animation frame may never arrive in a tab that is not
+compositing — the standing rule in `CLAUDE.md`.
+
+**Illustrations live in `src/assets/illustrations/`, not `public/illustrations/`** as the brief
+suggested. They are discovered with `import.meta.glob` at build time, so a file that exists is used and
+one that does not is never requested. Probing `public/` for an absent file costs a 404 — which the
+browser logs as a console error on every page, failing the Phase 5 crawler — and bundled files get a
+content hash. The requirement that mattered (drop art in, no code change) is met.
+
+**Alternatives considered.** (a) Apply the mockup language to the two redesigned pages only — rejected:
+two languages in one product is the drift the token layer exists to prevent, and the re-point costs one
+file. (b) Keep `#0052FF` — viable (the difference is small), but the brief names `#1d63f6` and the owner
+did not override it. (c) Bundle fonts through `@fontsource` imports — rejected for the main face, because
+a hashed URL cannot be preloaded from `index.html`.
+
+**Consequences.** Every page moved at once and was spot-checked (landing, dashboard, admin question bank,
+`/dev/ui`) in both themes: 0 WCAG AA failures across 120 dashboard text nodes in each theme and 560/572
+reference-page nodes, the only flags being disabled controls (exempt). No horizontal overflow at 360,
+390, 414, 768, 1280, 1440 or 1920px. One regression was caught and fixed in the same phase: Plus Jakarta
+is wider, and a two-up `StatTile` at 390px broke "REPRESENTED" mid-word — the tile now wraps its text
+below the icon instead. Milestones 27 and 28's design ADRs below carry a "superseded" note.
+
+---
+
 ## 2026-09-27 — Milestone 29: `trust proxy` is `1` (not `true`), and the Mongo pool is capped at 5
 
 **Context.** A scale audit ([`SCALE_READINESS.md`](SCALE_READINESS.md)) found two defects that only
@@ -139,6 +211,8 @@ ring, while in dark the disc itself is the badge. Both were checked; neither nee
 
 ## 2026-09-21 — Milestone 28: royal blue is the primary again, and it is `#0052FF` not `#4169E1`
 
+> **Superseded on 2026-10-04 by the Milestone 30 Phase 1 ADR above.** The primary is the launch mockups' `#1d63f6`, and the page is `#f4f8fe` with soft-shadowed cards rather than white with hairlines.
+
 **Context.** The owner asked for "the project's ORIGINAL royal blue" back as the primary,
 explicitly as a **colour change only** — the Milestone 27 Brightpath language, its
 components, layout and spacing all stay. The instruction was to recover the exact original
@@ -260,6 +334,8 @@ legal here at all: a reader who cannot separate gold from bronze still reads "#1
 replace the number with the medal to tidy the row up.
 
 ## 2026-09-21 — Milestone 28: `lucide-react` on the landing page, overriding "no second icon library"
+
+> **Widened on 2026-10-04 (Milestone 30, PLAN.md Q11):** Lucide is used on the two redesigned surfaces — the homepage and the student dashboard — and in the launch components built for them (`DailyQuizFab`, `Illustration`'s placeholders). Phosphor stays everywhere else; still no third library.
 
 **Context.** The owner asked for animated icons on the home page and named a React Lucide
 library. `CLAUDE.md` says **"Do not add a second icon library"** — this product's icons are
@@ -424,6 +500,8 @@ password is already correct, so it is not an enumeration oracle.
 ---
 
 ## 2026-09-21 — Milestone 27: the Brightpath language, and the two ideas it reverses
+
+> **Superseded on 2026-10-04 by the Milestone 30 Phase 1 ADR above.** The hard offset edge, the orange call to action and the Bricolage/Instrument pairing are all retired; cards carry a soft shadow again.
 
 **Context.** The owner asked for the frontend to be redesigned against a third reference —
 `https://brightpath-wbs.framer.website/`, an education/tutoring Framer template — one day

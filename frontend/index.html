@@ -28,32 +28,24 @@
     <meta property="og:type" content="website" />
 
     <!--
-      Fonts (Milestone 23 Phase A; replaced in Milestone 26, replaced again in 27).
+      Fonts (Milestone 30, Phase 1): **self-hosted**, declared in `src/styles/tokens.css`.
 
-      **Bricolage Grotesque for headings, Instrument Sans for everything else.** That
-      pairing is the Brightpath reference’s, and the division is load-bearing for this
-      product: Bricolage has a lot of character and is tiring at 15px down a column of
-      two hundred admin table rows, so it is the display face only.
+      Plus Jakarta Sans for everything a reader reads, Geist Mono for serials and ids,
+      Cinzel for the printed certificate, Caveat for the two handwritten accents. There is
+      no third-party font stylesheet any more, so nothing render-blocking stands between
+      the HTML and first paint.
 
-      **Geist Mono survives for figures** — it is referenced 79 times across 33 files
-      for serials, ids and tabular numbers, and a proportional substitute would break
-      column alignment. **Cinzel survives for the two logotype surfaces** — the
-      landing wordmark and the printed certificate — and nothing else. Geist is gone.
-
-      That is four families where Milestone 26 had three, and unlike that milestone
-      this one does **not** get to claim it saved bytes: it costs roughly one extra
-      variable face. Both new families are variable, so the cost is one file each
-      rather than one per weight.
-
-      These names appear in exactly two places: here, and `--font-body` /
-      `--font-heading` in `src/styles/tokens.css`. Nothing in `src/` names a family
-      directly, which is what made swapping them a two-file change.
+      This preload is the one face every page uses, at the Latin subset that every page
+      needs. `crossorigin` is required even for a same-origin font: fonts are always
+      fetched in CORS mode, and a preload without it is downloaded twice. If the file
+      name changes in `tokens.css`, change it here too.
     -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Instrument+Sans:wght@400..700&family=Geist+Mono:wght@400..600&family=Cinzel:wght@600;700&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/plus-jakarta-sans-latin-wght-5.3.0.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <!--
       Phosphor is the product's single icon library (~87 distinct glyphs across the

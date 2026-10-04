@@ -3,30 +3,25 @@ import Icon from './Icon'
 import styles from './IconTile.module.css'
 
 /**
- * A glyph in a coloured tile — **the only place the categorical palette appears.**
+ * A glyph in a tinted tile — the mockups' stat and feature icons.
  *
- * ## Why colour was confined to one component
+ * ## What colour means here
  *
- * This visual language reduces actions to near-black, which frees colour to *mean*
- * something instead of decorating. That only works if colour is scarce and
- * consistent, and the way to guarantee both is to give it exactly one home. A feature
- * card's icon, a subject marker, a step number, an empty state's glyph — all of them
- * are this component with a different `tone`.
- *
- * Two things are therefore **not** offered, and their absence is the design:
+ * A `tone` is a **bucket**, not a status: which kind of thing this is (the streak,
+ * XP, a chapter), never whether something succeeded. Two things are therefore **not**
+ * offered, and their absence is the design:
  *
  *  - **No coloured buttons.** An action is `--primary`. A lilac "Save" would be
  *    indistinguishable from a lilac "Chapter 3" marker two rows above it.
- *  - **No coloured text.** `--cat-*` values are fills; `Badge` carries semantic tones
- *    (success, warning, danger) and says what something *is*, which is a different
- *    job from saying which *bucket* it is in.
+ *  - **No coloured text.** `--cat-*` values are fills and glyphs; `Badge` carries
+ *    semantic tones (success, warning, danger) and says what something *is*.
  *
- * ## The `-on` colour is not always white
+ * ## Fill and glyph are a solved pair
  *
- * White on `--cat-orange` measures 3.08:1 — below even the 3:1 a non-text graphic
- * needs. Orange, green and lilac are light fills and take ink; blue, magenta and
- * purple are dark enough for white. Each pairing is declared beside its hue in
- * `tokens.css` rather than assumed here.
+ * Each tone is a pale `--cat-*` tint with a saturated `--cat-*-glyph` (Milestone 30),
+ * solved to at least 3:1 on its own tint in `tokens.css` — the mockup's own gold star
+ * on cream measures 2.2:1, which is why the gold glyph is a deeper gold than the XP
+ * colour.
  *
  * ## It is decorative by default
  *

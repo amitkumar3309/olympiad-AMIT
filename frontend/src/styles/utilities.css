@@ -174,20 +174,17 @@
    ========================================================================== */
 
 /**
- * The surface every existing page builds on. Re-pointed in Milestone 26 so the whole
- * product reads as one generation of design even before its page is rewritten:
- * **no visible border, a 32px radius, a real lifting shadow, and much more padding.**
- *
- * `--card-border` is transparent in the light theme and a hairline in the dark one —
- * the separation is the shadow's job on white and the line's job on near-black. The
- * declaration stays in both so the box never changes size between themes.
+ * The surface every existing page builds on, kept identical to `ui/Card` so a page
+ * still on this class and a page on the component read as one product: white on the
+ * pale blue page, a hairline **and** a soft shadow, a 16px radius (Milestone 30). The
+ * dark theme sets `--card-shadow` to `none` and lets the blue hairline do the work.
  */
 .card {
   background: var(--surface);
   border: var(--border-width) solid var(--card-border);
-  border-radius: var(--radius-xl);
-  box-shadow: none;
-  padding: clamp(var(--space-6), 3.5vw, var(--space-10));
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  padding: clamp(var(--space-5), 2.4vw, var(--space-6));
 }
 
 /**

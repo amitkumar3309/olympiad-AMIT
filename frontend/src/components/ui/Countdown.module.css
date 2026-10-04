@@ -1,0 +1,48 @@
+/* Tabular figures everywhere: a countdown whose digits change width jitters every
+   second, which is exactly what the brief asks us not to ship. */
+.countdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.clock {
+  font-size: inherit;
+  letter-spacing: var(--tracking-snug);
+}
+
+.compact {
+  font-size: inherit;
+  white-space: nowrap;
+}
+
+.units {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.unit {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 52px;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: var(--border-width) solid var(--card-border);
+}
+
+.unitValue {
+  font-size: var(--type-section-title);
+  font-weight: var(--weight-black);
+  line-height: var(--leading-none);
+}
+
+.unitLabel {
+  margin-top: var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}

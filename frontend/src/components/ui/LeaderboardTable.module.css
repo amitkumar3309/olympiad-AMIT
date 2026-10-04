@@ -1,0 +1,99 @@
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--type-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: start;
+  vertical-align: middle;
+}
+
+.table thead th {
+  padding-block: var(--space-2);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+
+.table tbody tr + tr td,
+.table tbody tr + tr th {
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.start {
+  text-align: start;
+}
+
+.center {
+  text-align: center !important;
+}
+
+.end {
+  text-align: end !important;
+}
+
+.rankCol {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.rank {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.nameCell {
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.person {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.name {
+  overflow-wrap: anywhere;
+}
+
+.you {
+  font-weight: var(--weight-bold);
+}
+
+/* The reader's row: the faintest brand tint, with the words in the brand's text blue.
+   Rounded at the ends so it reads as one highlighted row, not five tinted cells. */
+.highlight td,
+.highlight th {
+  background: var(--primary-soft);
+  color: var(--primary-text);
+}
+
+.highlight td:first-child {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.highlight td:last-child {
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.highlight .rank {
+  color: var(--primary-text);
+}
+
+.gap td {
+  padding-block: var(--space-1);
+  text-align: center;
+  color: var(--text-muted);
+  letter-spacing: var(--tracking-caps);
+}

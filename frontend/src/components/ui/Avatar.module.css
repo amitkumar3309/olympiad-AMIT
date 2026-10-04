@@ -44,3 +44,36 @@
   height: 56px;
   font-size: var(--text-md);
 }
+
+/* Tinted initials (Milestone 30): the categorical tints with ink letters — the
+   saturated glyph colours are only 3:1, which is enough for an icon and not for
+   letters. Theme-invariant, like every `--cat-*` fill, so the ink is pinned. */
+.tint0 {
+  background: var(--cat-blue);
+  color: var(--cat-blue-on);
+}
+
+.tint1 {
+  background: var(--cat-orange);
+  color: var(--cat-orange-on);
+}
+
+.tint2 {
+  background: var(--cat-green);
+  color: var(--cat-green-on);
+}
+
+.tint3 {
+  background: var(--cat-purple);
+  color: var(--cat-purple-on);
+}
+
+.tint4 {
+  background: var(--cat-magenta);
+  color: var(--cat-magenta-on);
+}
+
+.tint5 {
+  background: var(--cat-gold);
+  color: var(--cat-gold-on);
+}
