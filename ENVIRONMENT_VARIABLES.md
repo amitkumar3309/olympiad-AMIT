@@ -326,3 +326,14 @@ is the knob that bounds an afternoon of importing.
 Neither needs to be set for the feature to work. Add them to Vercel only if you want to change a
 default, and — as with every backend variable — **never to the frontend project**, which reads no
 environment variables at all.
+
+## End-to-end test hooks (Milestone 30, Phase 2)
+
+| Variable | Required? | What it does | Where to get it | Example |
+| --- | --- | --- | --- | --- |
+| `E2E_TEST_HOOKS` | **never set it** (default `false`) | Mounts the browser test suite's hooks — `/__e2e/clock` (move the Daily Quiz's clock), `/__e2e/reset` (empty the database) and `/__e2e/seed` (create a test student and today's quiz). Set **only** by `backend/scripts/e2e-server.ts`, which runs the backend on a throwaway in-memory database for `npm run e2e`. | — | `false` |
+
+Three locks keep these hooks out of every real deployment, and none of them is this variable alone:
+`config` forces it off whenever `NODE_ENV=production`; the hooks are only mounted when it is on; and
+each hook refuses unless the **connected** database's name ends in `-e2e`. **Do not add it to Vercel,
+to `backend/.env`, or anywhere else** — there is no situation outside the test suite that needs it.

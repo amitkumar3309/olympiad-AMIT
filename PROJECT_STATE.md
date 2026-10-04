@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-04 (**Milestone 30 — the Diwali launch: Phase 1, the design system, complete
-on branch `feat/diwali-launch`; waiting for the owner's "continue" before Phase 2**). Milestone 29
+_Last updated: 2026-10-04 (**Milestone 30 — the Diwali launch: Phase 2, the Daily Quiz core, complete
+on branch `feat/diwali-launch`; waiting for the owner's "continue" before Phase 3**). Milestone 29
 (a full test pass, a scale audit, and the five infrastructure fixes it found) closed immediately
 before it._
 
@@ -16,7 +16,7 @@ The work happens in phases, and each one stops for the owner's approval.
   Daily Quiz and is being upgraded, not duplicated. Eight pre-existing defects are logged in
   [`docs/launch/INTERACTION_AUDIT.md`](docs/launch/INTERACTION_AUDIT.md), the important one being
   **D1: a fill-in-the-blank daily challenge can never be answered** (no input on the page, and the
-  route drops `textResponse`) — fixed in Phase 2.
+  route drops `textResponse`) — resolved in Phase 2 by construction: a Daily Quiz is single choice.
 - **Phase 1 (design system) — done, frontend only.** The token layer was re-pointed onto the two
   launch mockups, so all 54 routes moved at once: a pale blue page (`#f4f8fe`), white cards with a
   hairline **and** a soft shadow at 16px, one action colour (`#1d63f6`), tinted icon tiles with
@@ -28,7 +28,26 @@ The work happens in phases, and each one stops for the owner's approval.
   See the Milestone 30 Phase 1 ADR. Verified in a browser: 0 WCAG AA failures on the dashboard in
   either theme, none on the reference page beyond disabled controls, no horizontal overflow from
   360 to 1920px. **No file under `backend/` changed.**
-- **Phase 2 (the Daily Quiz core) is next.** It is the first phase that changes the backend.
+- **Phase 2 (the Daily Quiz core) — done.** The daily challenge **is** the Daily Quiz now (see the
+  Milestone 30 Phase 2 ADR). One quiz a day per class range, scheduled by staff — **no automatic
+  fill** — from an unpublished bank question, snapshotted with opaque option ids and a per-student
+  order. Start records the server's clock; one attempt; right/wrong at once (a setting), the correct
+  option and worked solution **only from the next IST midnight** through one gate, `revealOf()`;
+  +20 XP for a correct answer only. Winners: computed after the close by the configured rule,
+  confirmed and announced by a person, disqualified with a reason, contacted and delivered — all
+  audited — with a prize desk across quizzes and a public, masked recent-winners list. Bulk import of
+  CSV/JSON/Excel through the existing question importer (CSV and JSON are now importer formats).
+  Student side: `/daily-quiz`, the dashboard card (the same component), profile prize details and
+  quiz history. Admin side: `/admin/daily-quiz` (calendar, scheduling, import, prize desk, settings)
+  and each quiz's page. Tests: backend **1324 / 38 files**; a new **Playwright** suite (`npm run e2e`
+  in `frontend/`) runs the brief's flow at desktop and 390px against an in-memory backend, moving the
+  server clock a day to watch the solution unlock — 4/4. Not yet built: the homepage, the floating
+  button's wiring, the Rewards section and the rules page (Phase 3).
+- **Owner facts still needed** (PLAN.md §5): Q3 the prize budget (three groups a day ≈ 90 prizes a
+  month), Q7 the journey content, Q8 the Logic/Reasoning/Brainstorming sample questions, Q9 which
+  phone number and email are right. **Before launch the owner must load at least the first two weeks
+  of quiz questions** (Admin → Daily Quiz → Import a file; the template is there).
+- **Phase 3 (homepage, floating button, Rewards section, rules page) is next.**
 
 ## Milestone 29 at a glance
 

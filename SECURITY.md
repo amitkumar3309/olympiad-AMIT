@@ -614,6 +614,49 @@ machine-written questions as hand-written ones.
 
 ---
 
+## The Daily Quiz — a prize quiz (Milestone 30, Phase 2)
+
+Real prizes, including cash, raise the value of every shortcut. What the quiz defends, and how:
+
+1. **The answer key never reaches a student before the reveal.** `revealOf()` in
+   `services/dailyChallengeService.ts` is the only student-facing reader of the key; it returns
+   nothing before the quiz's `revealAt` (the next IST midnight). The question appears only after
+   Start, options carry opaque random ids (`o` + 10 hex) in a per-student order, and the bank's
+   `a/b/c/d` keys never leave the server. `tests/dailyQuiz.test.ts` stringifies every student
+   response — today's state, Start, submit, history and both public routes — at noon, at 23:59:59
+   and at midnight, and requires the key and the solution to be absent before and present after.
+   The client bundle contains field *names*, never data.
+2. **One attempt, decided by the database.** `DailyChallengeAttempt` is unique per student per day;
+   a repeat submission returns the first result and never re-marks or re-pays. Start is unique per
+   student per day too, so the solve-time clock cannot be restarted.
+3. **The server owns time and correctness.** No request carries a time, a solve time or an outcome;
+   an answer after midnight is refused and not stored. `lib/clock.ts` cannot be moved in production.
+4. **The quiz question is out of reach until the reveal.** It must be unpublished to be scheduled, and
+   the bank refuses to publish it before its reveal — otherwise its solution would sit in Practice.
+5. **Multiple accounts.** Instant right/wrong lets one person with several accounts find the answer
+   by elimination. Mitigations, as the brief prescribes: a verified email is required to play (sign-in
+   requires it), registration is rate limited, an **HMAC of the client IP** (keyed with `JWT_SECRET`,
+   truncated, never the address) is stored per start and submission, and the winner review shows how
+   many other correct answers came from the same connection. **A flag is a prompt for a person, never a
+   disqualification** — siblings and whole schools share one connection. `instantResult` can be turned
+   off in the settings, which holds the result until the reveal as well.
+6. **Nothing about a prize is public until a person decides.** Winners are computed provisionally after
+   the close, confirmed, then published — each step a conditional write, each audited. The public list
+   shows a first name, last initial, class and city or school (or only the class, for a student who
+   opted out); guardian contact details appear only on the staff winner table, behind
+   `challenges:write`.
+7. **Rate limits.** Start and submit share a per-*student* limiter (`dailyQuizLimiter`, 30 per 10
+   minutes), keyed on the account so a school on one Wi-Fi is not throttled as one person.
+
+### The end-to-end test hooks
+
+`/__e2e/clock`, `/__e2e/reset` and `/__e2e/seed` can move the quiz clock, empty a database and create a
+verified account — exactly what must never exist in a real deployment. Three independent locks: they are
+mounted only when `E2E_TEST_HOOKS=true`; `config` forces that off when `NODE_ENV=production`; and each
+hook refuses unless the connected database's name ends in `-e2e`. They are mounted ahead of the rate
+limiter and the origin check, which is acceptable only because of those locks. A backend test asserts
+they answer 404 in a normal app.
+
 ## Remaining Gaps, in priority order
 
 Items 1 and 5 of the previous list — CSRF and administrative rate limiting — were closed by the 2026-08-17 audit and now have sections of their own above.

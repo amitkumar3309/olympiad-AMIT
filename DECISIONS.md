@@ -4,6 +4,74 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-04 — Milestone 30 Phase 2: the Daily Quiz is the daily challenge, upgraded — one prize quiz a day per class range
+
+**Context.** The launch brief (§6) asks for a Daily Quiz with a prize: one question a day for a class
+group, one attempt, right or wrong at once, the answer and a worked solution the next day, admin
+scheduling and bulk import, and winners chosen by a rule and approved by a person. The product
+already had a daily challenge (Milestone 8) — one question a day per class, answered once, marked by
+the server — and the brief's first rule is to extend rather than duplicate. The owner approved the
+Phase 0 plan's recommendations (Q2 XP for correct answers, Q3 class groups with the budget decided
+per day, Q4 no automatic fill, Q12 prize copy, Q13 eligibility fields) by replying "continue".
+
+**Decision.**
+
+1. **Upgrade, don't duplicate.** `DailyChallenge` stays one document per class per day — its unique
+   `{day, classLevel}` index is what refuses overlapping class ranges — and a quiz for a range is that
+   many documents sharing a `groupId` and an identical `content` snapshot. No `DailyQuiz` collection.
+   The old student routes and console are removed, not kept alongside: their answer view revealed the
+   key on submission.
+2. **No automatic fill.** The old fill picked a *published* practice question, whose solution is
+   readable in Practice — a prize quiz drawn from it could be looked up inside our own product. A day
+   nobody scheduled has no quiz; the console warns three days ahead per class group.
+3. **A quiz question is unpublished, and snapshotted.** Scheduling requires a draft or in-review,
+   single-choice question with 2–6 options, exactly one correct and a worked solution, for a class in
+   the range, never used on another day; the bank refuses to publish it until its reveal and refuses to
+   delete it once used. The quiz copies the content with fresh opaque option ids, so a later edit to
+   the bank changes nothing a student saw.
+4. **Start and submit are separate records.** `DailyQuizStart` (unique per student per day) is the
+   server's clock for the solve time and the proof the question was seen; `DailyChallengeAttempt`
+   still means "submitted". Start is idempotent, so the clock cannot be restarted.
+5. **One reveal gate, `revealOf()`.** The correct option and the solution exist in a student response
+   only from the next IST midnight. `instantResult` (default on, owner's request) shows right or wrong
+   at once — never which option was right. Option order is a deterministic per-student shuffle, so a
+   letter means nothing across two screens.
+6. **One injectable clock, `lib/clock.ts`.** All quiz logic reads `now()`. Tests freeze it; the
+   end-to-end hooks offset it; production cannot move it. Nothing runs at midnight — phases are
+   derived from timestamps.
+7. **20 XP for a correct answer, nothing for a wrong one** (Q2, reversing the Milestone 8 ADR's
+   pay-for-answering, whose reason — paying for correctness rewards looking it up — does not survive
+   the owner's R7, "ChatGPT is their choice"). A submitted answer still counts toward the streak. With
+   instant results off, the XP waits for the reveal, because paying it at once would tell the student
+   they were right.
+8. **Winners: computed by the rule, decided by a person.** `FASTEST_CORRECT` (server-measured solve
+   time, ties to the earlier submission) by default, `FIRST_CORRECT` and `MANUAL` configurable; only
+   eligible students (verified email, active account, name, class, school, city, guardian phone);
+   provisional → confirmed → published, or disqualified with a reason; conditional writes throughout,
+   with a re-count after confirmation so two simultaneous confirmations cannot both win one prize. The
+   prize is snapshotted at confirmation. A shared connection is flagged (an HMAC of the IP, never the
+   address) as a prompt, never a disqualification. The public rule text is generated from the same
+   settings the ranking reads.
+9. **The bulk import goes through the question importer.** CLAUDE.md allows one path from a file to
+   the bank; the quiz import previews with `previewImport()`, saves with `approveImport()` and only
+   then schedules. CSV and JSON became importer formats read by the Excel parser's own row reader, so
+   three tabular formats cannot disagree about a row.
+10. **Prize decisions outlive the quiz.** A content reset of the Daily Quiz deletes quizzes, starts,
+    answers and provisional candidates, and keeps every confirmed, published and disqualified winner;
+    a winner row carries its own day, class range and prize, and the prize desk lists winners across
+    all quizzes so contacting and delivering never depends on a quiz still existing.
+11. **Analytics and the Hall of Fame count revealed days only**, so no figure moves at the moment an
+    answer lands.
+
+**Consequences.** A pre-Milestone-30 daily challenge still holds its `{day, classLevel}` slot without
+being a quiz; the calendar marks it "old challenge" and scheduling over it says so. `scripts/seed-demo.ts`
+no longer schedules anything — a prize quiz's questions come from the owner — and
+`scripts/seed-dev-quizzes.ts` exists for local development only. Three class groups a day with one
+winner each is about 90 prizes a month; the budget is the owner's (PLAN.md Q3), and the model supports
+any range per day.
+
+---
+
 ## 2026-10-04 — Milestone 30 Phase 2: Playwright for the browser end-to-end suite, against an in-memory backend
 
 **Context.** The launch brief requires an end-to-end test of the Daily Quiz at desktop and 390px
@@ -797,6 +865,8 @@ keeps the queue correct, and a deployment that raised them would reintroduce the
 ---
 
 ## 2026-08-31 — The daily challenge's countdown is served, never computed in the browser
+
+> **Carried forward on 2026-10-04 (Milestone 30 Phase 2).** The principle stands; the component does not — `ChallengeCountdown` and `rollover` went with the daily challenge, and the Daily Quiz's countdowns are `ui/Countdown` offset from the `serverNow` every quiz response carries.
 
 **Context.** The demo needed a visible answer to "when does this question change?". The
 competition day is an **IST** calendar day, decided by `lib/competitionDay.ts` — nothing else in
@@ -2709,6 +2779,8 @@ This is the first `DECISIONS.md` for the project (created during the 2026-08-04 
 
 ## 2026-08-12 — A day's challenge is pinned to a document, not recomputed on every request
 
+> **Partly superseded on 2026-10-04 by the Milestone 30 Phase 2 Daily Quiz ADR.** A day is still a stored document, but nothing computes one any more: there is no automatic pick, and a quiz exists only because staff scheduled it.
+
 **Decision**: `DailyChallenge` is a real collection with one document per `{day, classLevel}`. A day nobody scheduled is **materialised on first request** — the deterministic pick is computed once, written, and served from then on. Every later read, and every attempt, refers to that document.
 
 **Reason**: the previous implementation took `hash(day) % countOfPublishedQuestions` and `skip`ped that far into the bank on every request. That is stable only while the bank is, and the bank is not: **publishing a single question changed which question "today" was, mid-day, for every student in the class.** It also made a past day unrecoverable — "what was Tuesday's challenge?" could only be answered by re-running the hash against a bank that had since moved, which is to say it could not be answered. Once students can *answer* the challenge, both problems stop being cosmetic: an attempt has to refer to something fixed.
@@ -2732,6 +2804,8 @@ This is the first `DECISIONS.md` for the project (created during the 2026-08-04 
 ---
 
 ## 2026-08-12 — The daily challenge reveals immediately, and pays for answering rather than for being right
+
+> **Superseded on 2026-10-04 by the Milestone 30 Phase 2 Daily Quiz ADR.** The Daily Quiz shows right or wrong at once but reveals the correct option and the solution only the next day, and pays 20 XP for a correct answer and nothing for a wrong one (PLAN.md Q2).
 
 **Decision**: submitting reveals the correct answer and the author's explanation at once — there is no disclosure policy, unlike a mock test. The reward is `daily_challenge_completed`, 15 XP, once per competition day, awarded for a **graded submission regardless of correctness**. A blank submission is refused rather than stored. Negative marking is forced to 0 whatever the question carries.
 
