@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-09-27 (**Milestone 29 — a full test pass and a scale audit**: complete, and
-**no file under `backend/src` or `frontend/src` was changed by it**). Milestone 28 (royal blue
+_Last updated: 2026-09-27 (**Milestone 29 — a full test pass, a scale audit, and the two P0
+fixes it found**: complete. Phase A changed nothing; **Phase B changed three backend files**). Milestone 28 (royal blue
 restored as the primary, registration on its own route, one sign-in door with a role-based
 redirect) closed immediately before it._
 
@@ -22,14 +22,18 @@ after submission does contain them.
 
 **Three scale findings, none of them a product bug, all of them unfixed as of this writing:**
 
-1. **`app.set('trust proxy')` is never called.** Behind Vercel's proxy every visitor shares one
-   `req.ip`, so every per-IP rate limit is a single platform-wide bucket. Reproduced live: ten
-   distinct client IPs signing in gave `200` then twelve consecutive `429`s. That is **10
-   sign-ins per 15 minutes for the whole platform**. It is a guaranteed outage on the first busy
-   morning, and a two-line fix.
-2. **No `maxPoolSize`.** Mongoose defaults to 100 connections per process; five concurrent Vercel
-   instances exhaust an Atlas shared tier's 500-connection cap and it refuses new connections.
-   One-line fix.
+1. ✅ **`app.set('trust proxy')` was never called — FIXED in Phase B.** Behind Vercel's proxy
+   every visitor shared one `req.ip`, so every per-IP rate limit was a single platform-wide
+   bucket: ten distinct client IPs signing in gave `200` then twelve consecutive `429`s, i.e.
+   **10 sign-ins per 15 minutes for the whole platform**. `app.set('trust proxy', 1)` is in
+   `src/app.ts` now — **`1`, not `true`**, because `true` trusts a client-supplied
+   `X-Forwarded-For` and lets anyone forge their address. Verified: fourteen sign-ins from
+   fourteen addresses all `200`, while twelve attempts from **one** address still give exactly
+   10 through and 2 blocked, and the audit trail records the real client address.
+2. ✅ **No `maxPoolSize` — FIXED in Phase B.** Mongoose defaults to 100 connections per process
+   and five concurrent Vercel instances would exhaust an Atlas shared tier's 500-connection cap.
+   `config.mongo.maxPoolSize` is **5** with a 30-second idle reap. Verified: 60 concurrent
+   requests left **9** connections open, against 121 before.
 3. **`/leaderboard` and `/me/dashboard` ceiling at ~30 req/s**, against 1,205 for `/auth/me`.
    `explain`: a COLLSCAN of 20,012 activity rows plus 1,004 `$lookup` fetches, ~100 ms, run
    **three times** per leaderboard request and **five** per dashboard. Derived-on-read stays —
@@ -38,9 +42,19 @@ after submission does contain them.
 The write path measured healthy: **148 answer-saves/second** at 100 concurrent students and
 **100 simultaneous submissions in 0.7 s, zero errors**.
 
-**Nothing was fixed.** The four-line changes are specified in `SCALE_READINESS.md` and not
-applied; Redis is a dependency and a cost decision the owner has not taken, so `DECISIONS.md`
-carries no Milestone 29 ADR.
+**Phase B fixed the two P0 findings** (three files, four effective lines; typecheck, lint,
+compile clean, the end-to-end harness still 87/87 and the suite still 1289/1289), and the ADR in
+`DECISIONS.md` records why `1` and why `5`. **Still open**, all recorded in
+[`SCALE_READINESS.md`](SCALE_READINESS.md): the rate limiter's `MemoryStore` (the limits are keyed
+correctly now but still reset on a cold start — that is the Redis case), the ~30 req/s ceiling,
+the missing `Student.status` index, and Vercel's commercial-use licence. Redis remains a
+dependency and a cost decision the owner has not taken.
+
+**One number now wants attention that did not before.** `loginLimiter` is 10 per 15 minutes per
+IP, and a school computer lab behind one NAT address gets ten sign-ins and thirty 429s. That lab
+was equally stuck beforehand (the budget was 10 platform-wide), so this is **not a regression** —
+but a cohort in a school computer room is this product's normal case, so raise it to ~40 or key
+the limiter on the submitted identifier.
 
 **Milestone 28 at a glance — frontend only.** No file under `backend/` was modified; the suite
 was run anyway. Four changes, all at the owner's request:

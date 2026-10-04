@@ -2,6 +2,67 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-27 — Milestone 29 Phase B: the two P0 scale fixes, applied and verified
+
+Phase A measured; this applies the two fixes it found. **Three files, four effective lines of
+configuration, no behaviour change to any feature.**
+
+### `app.set('trust proxy', 1)` in `src/app.ts`
+
+Vercel terminates TLS and proxies to this function, so Express saw Vercel's socket address and
+reported it as `req.ip` — **the same value for every visitor on earth**. Two things read it.
+
+`express-rate-limit` keys on `req.ip`, so every per-IP limit was one bucket shared by the whole
+platform: ten sign-ins per fifteen minutes *in total*, ten registrations per hour, and a general
+budget of 300 calls that sixty students loading a dashboard would exhaust. And `recordAudit()`,
+`lib/session.ts` and the sign-in handler all store `req.ip`, so every administrative action was
+attributed to the proxy.
+
+**`1`, not `true`.** `true` trusts the whole forwarded chain including the part a client
+supplied, which would let anyone forge an address and walk around the limits this restores.
+
+Verified against a running server, with the commands that exposed the defect:
+
+- five requests from three distinct `X-Forwarded-For` addresses now draw on **three separate
+  budgets** (`299, 299, 298, 298, 299`), where one counter previously fell `146 → 145 → 144`;
+- **fourteen** sign-ins from fourteen distinct addresses all returned `200`. The same sequence
+  before gave one `200` and **thirteen 429s**;
+- brute force is still blocked: twelve attempts from **one** address gave exactly **10 through,
+  2 refused**;
+- an audit row records `49.37.200.15` instead of the proxy.
+
+### `maxPoolSize: 5` in `config.mongo`, consumed by `db/connection.ts`
+
+Mongoose defaults to **100 connections per process**, and on serverless every concurrent instance
+is its own process — so five busy instances would exhaust an Atlas shared tier's 500-connection
+cap, past which Atlas *refuses* connections rather than queueing. Five rather than one because
+several handlers `Promise.all` over four queries (the dashboard, `getPublicStats()`) and a pool
+of one would serialise them; `maxIdleTimeMS: 30_000` reaps sockets so a warm container does not
+hold five for ever. It lives in `config.mongo` beside `serverSelectionTimeoutMS`, per the rule
+that config is derived in one place.
+
+Verified: 60 concurrent requests left **9** MongoDB connections open across every client, against
+**121** measured before the cap.
+
+### Gates
+
+Typecheck, lint and compile clean. The end-to-end harness re-run against the patched backend:
+**87/87**. Suite: **1289/1289**.
+
+### What is still open, and one thing to watch
+
+Of the five findings in [`SCALE_READINESS.md`](SCALE_READINESS.md), **P0-1 and P0-3 are closed**.
+Still open: the limiter's `MemoryStore` (needs Redis — the limits are now keyed correctly but
+still reset on a cold start), the ~30 req/s ceiling on `/leaderboard` and `/me/dashboard`, the
+missing `Student.status` index, and Vercel's commercial-use licence.
+
+**`loginLimiter` now needs a number it did not need before.** At 10 per 15 minutes per IP, a
+school computer lab behind one NAT address gets ten sign-ins and thirty 429s. That lab was
+**equally stuck before** this change, when the budget was 10 for the entire platform — so it is
+not a regression, and the fix is a strict improvement everywhere. But a cohort sitting in a
+school computer room is this product's normal case, so the number wants raising to ~40, or the
+limiter wants keying on the submitted identifier instead of the address.
+
 ## 2026-09-27 — Milestone 29: a full test pass and a scale audit for 1,000 concurrent students
 
 **Nothing under `backend/src` or `frontend/src` changed.** This milestone is a *measurement*,

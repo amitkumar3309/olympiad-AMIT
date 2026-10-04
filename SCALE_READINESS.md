@@ -3,8 +3,28 @@
 _Written 2026-09-27. A full test pass of frontend + backend + database, and the plan for
 carrying **1,000 concurrent students** without the platform falling over._
 
-This file is a **report and a plan**, not a record of work done to the product. Nothing in
-`src/` was changed to produce it. Where it says "fix", that fix has **not** been applied yet.
+This file is a **report and a plan**. It was written before any fix was applied.
+
+> **Both P0 fixes were applied on 2026-09-27 and verified live.** `app.set('trust proxy', 1)`
+> is in `src/app.ts` and `maxPoolSize: 5` / `maxIdleTimeMS: 30_000` are in `config.mongo`,
+> consumed by `db/connection.ts`. What the verification showed, on the same commands that
+> exposed the defects:
+>
+> - Five requests from three distinct `X-Forwarded-For` addresses now draw on **three separate
+>   budgets** (`299, 299, 298, 298, 299`), where before one counter fell `146 → 145 → 144`.
+> - **Fourteen** sign-ins from fourteen distinct client addresses all returned `200`. Before the
+>   fix the same sequence gave one `200` and thirteen `429`s.
+> - Brute-force protection is intact: twelve attempts from **one** address gave exactly **10
+>   through and 2 blocked**.
+> - The audit trail records the real client address (`49.37.200.15`) instead of the proxy.
+> - After 60 concurrent requests, MongoDB reported **9** open connections across every client,
+>   against 121 measured before the cap.
+>
+> Gates after the change: typecheck, lint and compile clean, the 87-assertion end-to-end harness
+> still **87/87**, and the suite still **1289/1289**.
+>
+> **Step 3 (the `Student.status` index) and step 4 (Redis) are still outstanding.**
+
 
 ---
 
@@ -129,7 +149,7 @@ responsive — but it is a capacity fact to plan for.
 
 ## Part 3 — Findings, worst first
 
-### 🔴 P0-1. Every student in the country shares one rate-limit bucket
+### ✅ P0-1 — FIXED 2026-09-27. Every student in the country shared one rate-limit bucket
 
 **`app.set('trust proxy', …)` is never called** (confirmed: no occurrence anywhere in `backend/src`).
 Express therefore reports `req.ip` as the *socket* address. Behind Vercel's proxy that is an
@@ -170,7 +190,7 @@ This is not a performance problem. It is a **guaranteed outage on the first busy
 
 **The fix is two lines** (see Part 4, step 1).
 
-### 🔴 P0-2. The rate limiter's memory store cannot work on serverless
+### 🔴 P0-2. The rate limiter's memory store cannot work on serverless (STILL OPEN — needs Redis)
 
 `express-rate-limit` is used with its default `MemoryStore`. On Vercel each serverless instance
 has its own memory, so:
@@ -185,7 +205,7 @@ has its own memory, so:
 **This is the case for Redis.** A shared store is the only way a limit means anything across
 instances. See Part 4, step 4.
 
-### 🔴 P0-3. Database connection exhaustion
+### ✅ P0-3 — FIXED 2026-09-27. Database connection exhaustion
 
 **No `maxPoolSize` is set anywhere** (confirmed: no occurrence in `backend/src` or `backend/scripts`).
 Mongoose therefore defaults to **100 connections per process**.
@@ -308,7 +328,7 @@ Worth stating, because a scaling pass is where good decisions get broken:
 Ordered by *outage prevented per line changed*. Steps 1–3 are free and small. Step 4 is where
 Redis enters.
 
-### Step 1 — Trust the proxy (2 lines, fixes the worst problem)
+### ✅ Step 1 — Trust the proxy (APPLIED 2026-09-27)
 
 In `backend/src/app.ts`, immediately after `const app = express();`:
 
@@ -333,13 +353,21 @@ curl -s -D - -o /dev/null -H "X-Forwarded-For: 203.0.113.10" http://localhost:80
 Run it twice with two *different* `X-Forwarded-For` values. Before the fix the number keeps
 falling. After the fix each address gets its own fresh count.
 
-> ⚠️ Do this **before** step 4, and re-check the limits afterwards. Today's numbers were written
-> for a world where they were platform-wide; once they are genuinely per-IP, `loginLimiter`'s 10
-> per 15 minutes is right for one person but wrong for **a school computer lab behind one NAT
-> address**, where 40 children legitimately share an IP. Raise it to ~40 per 15 minutes, or key
-> the login limiter on the submitted identifier instead of the IP.
+> ⚠️ **Now that this is applied, `loginLimiter` needs re-tuning and has not been.** Its 10 per
+> 15 minutes is right for one person and wrong for **a school computer lab behind one NAT
+> address**, where 40 children legitimately share a public IP: ten of them sign in and thirty get
+> a 429. Measured after the fix — twelve attempts from one address gave exactly 10 through and 2
+> blocked, which is the limiter working correctly and the *number* being wrong for a shared
+> address.
+>
+> To be precise about what changed: that lab was **equally stuck before** the fix (the budget was
+> 10 for the whole platform), so this is not a regression — it is a pre-existing limit that is now
+> **bounded to one lab instead of taking the whole country down with it**. The fix is a strict
+> improvement everywhere. But a cohort sitting in a school computer room is this product's normal
+> case, so raise it to ~40 per 15 minutes, or key the login limiter on the submitted identifier
+> rather than the IP, which targets the account actually being guessed at.
 
-### Step 2 — Cap the connection pool (1 line, prevents the hard wall)
+### ✅ Step 2 — Cap the connection pool (APPLIED 2026-09-27)
 
 In `backend/src/db/connection.ts`, inside `mongoose.connect(...)`:
 
@@ -363,7 +391,7 @@ With `maxPoolSize: 5`, 500 connections supports **100 concurrent instances** ins
 
 **Verify:** watch Atlas → Metrics → Connections during a busy period. It should plateau, not climb.
 
-### Step 3 — Index what the landing page scans (1 line + a migration)
+### ⏳ Step 3 — Index what the landing page scans (NOT YET APPLIED)
 
 In `backend/src/models/Student.ts`, beside the existing indexes:
 
@@ -375,7 +403,7 @@ studentSchema.index({ status: 1 });
 Mongoose builds it on the next connection with `autoIndex` on. On a large production collection,
 build it in Atlas with `background: true` first so the build does not block writes.
 
-### Step 4 — Add Redis
+### ⏳ Step 4 — Add Redis (NOT YET APPLIED — awaiting your decision)
 
 This is the step that needs your decision, because it adds a dependency and (possibly) a cost.
 Redis buys you **three** things in this product, in this order of value:

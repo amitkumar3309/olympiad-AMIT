@@ -58,6 +58,30 @@ const IMPORT_UPLOAD_PATHS = ['/api/v1/admin/questions/import', '/api/admin/quest
 export function createApp() {
   const app = express();
 
+  /**
+   * Vercel terminates TLS and proxies to this function, so the socket address Express
+   * sees is Vercel's, not the student's. Without this, `req.ip` is **the same value for
+   * every visitor on earth**, which breaks two things that both read it.
+   *
+   * `express-rate-limit` keys on `req.ip`, so every per-IP limit in
+   * `middleware/rateLimiter.ts` was really one bucket shared by the whole platform:
+   * ten sign-ins per fifteen minutes *in total*, ten registrations per hour, and a
+   * general budget of 300 calls that sixty students loading a dashboard would exhaust.
+   * Measured before this line existed: ten requests from ten distinct client addresses
+   * produced one 200 and nine 429s.
+   *
+   * And `recordAudit()`, `lib/session.ts` and the sign-in handler all store `req.ip`,
+   * so every administrative action was attributed to the proxy — an audit trail with
+   * nothing to correlate on.
+   *
+   * **`1`, not `true`.** `true` trusts the whole `X-Forwarded-For` chain including the
+   * part a client supplied, which would let anyone forge their address and walk around
+   * the very limits this restores. `1` trusts exactly one proxy hop, which is what sits
+   * in front of this function. Locally there is no proxy and no `X-Forwarded-For`, so
+   * `req.ip` stays the real socket address either way.
+   */
+  app.set('trust proxy', 1);
+
   app.disable('x-powered-by');
   app.use(helmet());
   app.use(requestLogger);

@@ -4,6 +4,65 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-09-27 — Milestone 29: `trust proxy` is `1` (not `true`), and the Mongo pool is capped at 5
+
+**Context.** A scale audit ([`SCALE_READINESS.md`](SCALE_READINESS.md)) found two defects that only
+exist behind a serverless platform, which is why 1289 passing tests never saw them. Both are
+one-value decisions where the obvious value is the wrong one, so they are recorded here.
+
+**Decision 1: `app.set('trust proxy', 1)`, not `true`.**
+
+Without any setting, Express reports `req.ip` as the socket address — Vercel's proxy, identical
+for every visitor. `express-rate-limit` keys on `req.ip`, so every per-IP limit was one
+platform-wide bucket (measured: ten distinct client addresses signing in gave one `200` and
+thirteen `429`s), and `recordAudit()` attributed every administrative action to the proxy.
+
+`true` would also fix `req.ip`, and it is what most snippets show. It is wrong here: `true` trusts
+the **entire** `X-Forwarded-For` chain, including the leftmost entry, which is supplied by the
+client and can say anything. An attacker would then forge a fresh address per request and walk
+straight around the limits this exists to restore — turning a broken limiter into an absent one.
+`1` trusts exactly one hop, which is what Vercel is. If a second proxy is ever put in front
+(Cloudflare, say), this becomes `2` — it is a count of hops, not a boolean.
+
+Locally there is no proxy and no `X-Forwarded-For`, so `req.ip` is the real socket address either
+way and development is unaffected.
+
+**Decision 2: `maxPoolSize: 5`, in `config.mongo` rather than an env var.**
+
+Mongoose defaults to **100 connections per process**. On serverless every concurrent instance is
+its own process, so the default is multiplied by however many instances the platform runs: five
+busy instances exhaust an Atlas shared tier's 500-connection cap, past which Atlas **refuses**
+connections rather than queueing — a hard failure under exactly the load you least want one.
+
+Not `1`, which is the common serverless advice: several handlers here issue queries concurrently
+(`/me/dashboard` and `getPublicStats()` both `Promise.all` over four), and a pool of one would
+serialise them for no benefit. Five keeps that parallelism and still turns 500 connections into
+headroom for a hundred instances. `maxIdleTimeMS: 30_000` reaps sockets so a warm container does
+not hold five open indefinitely.
+
+It is **not** an environment variable, following `serverSelectionTimeoutMS` directly above it: a
+value that must be reasoned about together with the Atlas tier is better read in code beside the
+comment explaining it than discovered in a dashboard. Add a variable when a deployment genuinely
+needs a different number.
+
+**Consequences.**
+
+- Measured after: three distinct addresses draw on three budgets; fourteen sign-ins from fourteen
+  addresses all succeed; twelve from **one** address still stop at ten; audit rows carry the real
+  client address; 60 concurrent requests leave **9** MongoDB connections open, against 121 before.
+- **`loginLimiter`'s number is now load-bearing in a way it was not.** At 10 per 15 minutes per
+  IP, a school computer lab behind one NAT address gets ten sign-ins and thirty refusals. That lab
+  was equally stuck before (the budget was 10 platform-wide), so this is not a regression — but
+  this product's normal case *is* a cohort in a school computer room. Raise it, or key the login
+  limiter on the submitted identifier, which targets the account being guessed at rather than
+  everyone sharing an address. Not done here; it is a product decision about how much guessing to
+  permit.
+- **This does not make the limits durable.** The store is still `MemoryStore`: per instance, reset
+  on every cold start. Per-account lockout (`MAX_FAILED_LOGINS`) remains the real brute-force
+  control until a shared store exists. That is the Redis decision, still untaken.
+
+---
+
 ## 2026-09-21 — Milestone 28: the navbar mark is a circular badge of the emblem, and the wordmark beside it stays
 
 **Context.** The owner reported that the logo looked small in the public navbar, and asked

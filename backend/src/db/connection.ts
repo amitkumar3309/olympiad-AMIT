@@ -67,6 +67,10 @@ export async function connectDB(): Promise<void> {
 
   connectingPromise = mongoose.connect(config.mongoUri, {
     serverSelectionTimeoutMS: config.mongo.serverSelectionTimeoutMS,
+    // Bounded on purpose — see the comment on `config.mongo.maxPoolSize`. The
+    // default of 100 is per *process*, and serverless multiplies processes.
+    maxPoolSize: config.mongo.maxPoolSize,
+    maxIdleTimeMS: config.mongo.maxIdleTimeMS,
   });
   try {
     await connectingPromise;

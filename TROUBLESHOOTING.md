@@ -1,6 +1,6 @@
 # TROUBLESHOOTING.md
 
-> ## "Too many login attempts" for students who have not tried before (2026-09-27)
+> ## ✅ FIXED — "Too many login attempts" for students who have not tried before (2026-09-27)
 >
 > **Symptom.** Shortly after a busy period starts, students who have never signed in that day get
 > `429 Too many login attempts. Please try again in a few minutes.` Registration starts returning
@@ -25,15 +25,25 @@
 > If the number keeps falling across different addresses, they share a bucket. After the fix each
 > address gets its own fresh count.
 >
-> **Fix.** `app.set('trust proxy', 1)` in `src/app.ts`, then re-tune the limits for a *real* per-IP
-> world (a school lab shares one NAT address, so `loginLimiter`'s 10 is too low), then move the
-> store to Redis so the limits survive a cold start. See
-> [`SCALE_READINESS.md`](SCALE_READINESS.md). **Not yet applied as of 2026-09-27.**
+> **Fixed 2026-09-27:** `app.set('trust proxy', 1)` in `src/app.ts`. Re-run the curl above with
+> two different addresses and each gets its own fresh count. **`1`, not `true`** — `true` trusts
+> a client-supplied `X-Forwarded-For`, which would let anyone forge an address.
 >
-> **Related symptom, same root cause family.** Requests failing with MongoDB connection errors
-> under load: `maxPoolSize` is not set, so Mongoose opens up to **100 connections per serverless
-> instance**, and five concurrent instances exhaust an Atlas shared tier's 500-connection cap.
-> Fix is `maxPoolSize: 5` in `db/connection.ts`.
+> **If you still see 429s after this, it is one of two different problems, not this one:**
+>
+> - **A whole school getting 429s on sign-in.** That is `loginLimiter` at 10 per 15 minutes
+>   meeting a computer lab behind one NAT address, where 40 children really do share a public IP.
+>   It is working as written; the number is wrong for this product. Raise it, or key the login
+>   limiter on the submitted identifier.
+> - **429s that come and go for no reason.** The store is still `MemoryStore`, so the counter
+>   lives in one serverless instance and resets on a cold start. Redis is the fix — step 4 of
+>   [`SCALE_READINESS.md`](SCALE_READINESS.md).
+>
+> **Related symptom, fixed in the same change.** Requests failing with MongoDB connection errors
+> under load: `maxPoolSize` was unset, so Mongoose opened up to **100 connections per serverless
+> instance** and five concurrent instances exhausted an Atlas shared tier's 500-connection cap.
+> `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
+> requests left **9** connections open across all clients, against 121 before.
 
 ## Gating a route that used to hold its own sign-in form makes it redirect to itself forever
 

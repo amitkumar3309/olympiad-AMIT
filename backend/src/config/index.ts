@@ -104,6 +104,24 @@ export const config = {
     // platform killed it instead of returning a clean 503. Tests use a very
     // short value so the no-database path fails fast.
     serverSelectionTimeoutMS: isTest ? 300 : 8000,
+    /**
+     * Mongoose defaults to **100 connections per process**, and on a serverless
+     * platform every concurrent instance is its own process — so the default is
+     * multiplied by however many instances the platform decides to run.
+     *
+     * An Atlas shared tier allows **500 connections in total**, which five busy
+     * instances would exhaust; past that Atlas *refuses* new connections, so this is
+     * a hard failure rather than a slowdown. A small pool turns the same 500 into
+     * headroom for a hundred instances.
+     *
+     * Five rather than one: a serverless invocation handles a single request, but
+     * several of this product's handlers issue queries concurrently (the dashboard
+     * and `getPublicStats()` both `Promise.all` over four), and a pool of one would
+     * serialise them. Idle sockets are reaped so a warm container holding the pool
+     * open between requests does not keep five of them for ever.
+     */
+    maxPoolSize: 5,
+    maxIdleTimeMS: 30_000,
   },
   jwtSecret,
   publicAppUrl,

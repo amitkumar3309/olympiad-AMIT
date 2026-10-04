@@ -1,6 +1,6 @@
 # SECURITY.md
 
-> ### Open issue added 2026-09-27 (Milestone 29): `trust proxy` is never set, so every per-IP control is platform-wide
+> ### ✅ RESOLVED 2026-09-27 (Milestone 29): `trust proxy` was never set, so every per-IP control was platform-wide
 >
 > **`app.set('trust proxy', …)` does not appear anywhere in `backend/src`.** Express therefore
 > reports `req.ip` as the *socket* address. Behind Vercel's proxy that is an internal address
@@ -22,13 +22,26 @@
 >   `auth.routes.ts` all store `req.ip`. Every administrative action, session and sign-in is
 >   attributed to Vercel's proxy, so in an incident there is nothing to correlate on.
 >
-> **Fix:** `app.set('trust proxy', 1)` in `src/app.ts` — `1`, not `true`, because `true` trusts a
-> client-supplied `X-Forwarded-For` and lets anyone forge their address. Then re-tune the limits,
-> which were written for a world where they were platform-wide: `loginLimiter`'s 10 per 15
-> minutes is right for one person and **wrong for a school computer lab behind one NAT address**,
-> where 40 children legitimately share an IP. And move the store to Redis, or the limits still
-> mean nothing across instances. Full detail and the step-by-step plan are in
-> [`SCALE_READINESS.md`](SCALE_READINESS.md). **Not yet applied.**
+> **Fixed the same day.** `app.set('trust proxy', 1)` is in `src/app.ts` — **`1`, not `true`**,
+> because `true` trusts the client-supplied part of `X-Forwarded-For` and would let anyone forge
+> their address and walk around the very limits this restores. Verified live: fourteen sign-ins
+> from fourteen distinct client addresses all returned `200` (before: one `200`, thirteen `429`s),
+> twelve attempts from **one** address gave exactly 10 through and 2 blocked, and an audit row
+> now records `49.37.200.15` rather than the proxy.
+>
+> **Two parts of this remain open, and neither is cosmetic:**
+>
+> - **The store is still `MemoryStore`.** The limits are now correctly keyed but still live in one
+>   serverless instance and still reset on every cold start, so they bound a single instance
+>   rather than the platform. Per-account lockout (`MAX_FAILED_LOGINS`) remains the durable
+>   brute-force control. Moving the store to Redis is step 4 of
+>   [`SCALE_READINESS.md`](SCALE_READINESS.md).
+> - **`loginLimiter`'s number was written for a platform-wide bucket and has not been re-tuned.**
+>   At 10 per 15 minutes per IP, a school computer lab behind one NAT address gets ten sign-ins
+>   and thirty 429s. That lab was equally stuck before the fix, so it is not a regression — but a
+>   cohort sitting in a school computer room is this product's normal case. Raise it, or key the
+>   login limiter on the submitted identifier, which targets the account actually being guessed
+>   at rather than everyone sharing an address.
 >
 > **Re-verified the same day and still holding:** the CSRF origin check in `middleware/csrf.ts`
 > refuses a cross-origin `POST` with **403** while leaving reads alone; an unknown email and a
