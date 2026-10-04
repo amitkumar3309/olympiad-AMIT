@@ -1407,6 +1407,15 @@ export interface PublicStats {
   registeredToday: number
   schoolsRepresented: number
   studentsActiveToday: number
+  /** Questions answered correctly, platform-wide (Milestone 30). */
+  questionsSolved: number
+}
+
+/** `GET /public/journey` — the nine milestones, words only (Milestone 30). */
+export interface PublicJourneyStage {
+  id: string
+  title: string
+  description: string
 }
 
 /**

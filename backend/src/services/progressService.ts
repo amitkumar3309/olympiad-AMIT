@@ -1,7 +1,15 @@
-import type { Types } from 'mongoose';
+import type { PipelineStage, Types } from 'mongoose';
 import { daysBetween, shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
 import { levelProgressFor, type LevelProgress } from '../lib/xp';
-import { ExamAttempt, Student, StudentActivity, type ActivityType } from '../models';
+import {
+  DailyChallengeAttempt,
+  ExamAttempt,
+  MockTestAttempt,
+  PracticeSession,
+  Student,
+  StudentActivity,
+  type ActivityType,
+} from '../models';
 
 /**
  * Derives everything the dashboard reports about a student from their real
@@ -256,6 +264,36 @@ export interface PublicStats {
   registeredToday: number;
   schoolsRepresented: number;
   studentsActiveToday: number;
+  /** Questions answered **correctly**, platform-wide — see `countQuestionsSolved()`. */
+  questionsSolved: number;
+}
+
+/** Sums a `correctCount` over every submitted paper of one kind. */
+async function sumCorrect(rows: Promise<Array<{ n: number }>>): Promise<number> {
+  const [row] = await rows;
+  return row?.n ?? 0;
+}
+
+/**
+ * "Questions solved" on the homepage (Milestone 30, Phase 3): every question answered
+ * **correctly** — "solved" means solved, not attempted — across practice, mock tests, the
+ * official Olympiad and the Daily Quiz.
+ *
+ * Each paper already stores its own `correctCount` when it is graded, so this is four
+ * small sums rather than an unwind over every answer. Daily Quiz answers count only once
+ * their day is revealed, the rule every public figure about the quiz follows: a counter
+ * that moved the moment somebody answered today's question correctly would be a public
+ * correctness signal before the answer unlocks.
+ */
+async function countQuestionsSolved(today: DayKey): Promise<number> {
+  const submitted: PipelineStage[] = [{ $match: { status: 'submitted' } }, { $group: { _id: null, n: { $sum: '$correctCount' } } }];
+  const [practice, mock, exam, quiz] = await Promise.all([
+    sumCorrect(PracticeSession.aggregate<{ n: number }>(submitted)),
+    sumCorrect(MockTestAttempt.aggregate<{ n: number }>(submitted)),
+    sumCorrect(ExamAttempt.aggregate<{ n: number }>(submitted)),
+    DailyChallengeAttempt.countDocuments({ 'answer.isCorrect': true, day: { $lt: today } }),
+  ]);
+  return practice + mock + exam + quiz;
 }
 
 /**
@@ -267,11 +305,12 @@ export async function getPublicStats(today: DayKey = todayKey()): Promise<Public
   // The day key is an IST date, so its midnight is 5:30 earlier in UTC terms.
   startOfToday.setUTCMinutes(startOfToday.getUTCMinutes() - (5 * 60 + 30));
 
-  const [studentsRegistered, registeredToday, schools, activeStudentsToday] = await Promise.all([
+  const [studentsRegistered, registeredToday, schools, activeStudentsToday, questionsSolved] = await Promise.all([
     Student.countDocuments({ status: 'active' }),
     Student.countDocuments({ status: 'active', registeredAt: { $gte: startOfToday } }),
     Student.distinct('schoolName', { status: 'active' }),
     StudentActivity.distinct('student', { occurredOn: today }),
+    countQuestionsSolved(today),
   ]);
 
   return {
@@ -280,5 +319,43 @@ export async function getPublicStats(today: DayKey = todayKey()): Promise<Public
     // Legacy accounts have no school name; an empty value is not a school.
     schoolsRepresented: schools.filter((name): name is string => typeof name === 'string' && name.trim().length > 0).length,
     studentsActiveToday: activeStudentsToday.length,
+    questionsSolved,
   };
+}
+
+/** How long one computation of the public figures is served — the brief's "≈10 min". */
+export const PUBLIC_STATS_TTL_MS = 10 * 60 * 1000;
+
+let statsCache: { day: DayKey; expiresAt: number; stats: PublicStats } | null = null;
+let statsInFlight: Promise<PublicStats> | null = null;
+
+/**
+ * The public figures, computed at most once per ten minutes per process (Milestone 30).
+ *
+ * The homepage is the most-requested page in the product and these are seven queries
+ * over whole collections, so they are cached here as well as at the edge
+ * (`Cache-Control` on the route). A cold serverless instance computes once; concurrent
+ * requests share one computation rather than starting seven queries each. The cache is
+ * also keyed by the competition day, so "registered today" never carries yesterday's
+ * figure past IST midnight.
+ */
+export async function getCachedPublicStats(now: number = Date.now(), today: DayKey = todayKey()): Promise<PublicStats> {
+  if (statsCache && statsCache.day === today && statsCache.expiresAt > now) return statsCache.stats;
+  if (!statsInFlight) {
+    statsInFlight = getPublicStats(today)
+      .then((stats) => {
+        statsCache = { day: today, expiresAt: Date.now() + PUBLIC_STATS_TTL_MS, stats };
+        return stats;
+      })
+      .finally(() => {
+        statsInFlight = null;
+      });
+  }
+  return statsInFlight;
+}
+
+/** Tests only: forget the cached figures. */
+export function resetPublicStatsCache(): void {
+  statsCache = null;
+  statsInFlight = null;
 }

@@ -805,13 +805,20 @@ Real aggregations, all of them. `public/stats` and `leaderboard` were hardcoded 
 `GET /leaderboard` and `GET /hall-of-fame` live in `routes/v1/leaderboard.routes.ts` (the leaderboard moved there from `misc.routes.ts` in Milestone 10). The leaderboard applies `attachUserIfPresent`, which attaches session claims when a cookie is present and **never rejects** — it grants nothing and is not a gate, it exists so one public endpoint can differ in *content* for a signed-in caller rather than being duplicated as a second ranking surface.
 
 ### `GET /api/v1/public/stats`
-`{ stats: { studentsRegistered, registeredToday, schoolsRepresented, studentsActiveToday } }`. Real counts of accounts in good standing, distinct school names among them, and students with any activity today. A fresh deployment truthfully answers zero for all four, and the landing page renders that.
+`{ stats: { studentsRegistered, registeredToday, schoolsRepresented, studentsActiveToday, questionsSolved } }`. Real counts of accounts in good standing, distinct school names among them, and students with any activity today. A fresh deployment truthfully answers zero for all of them, and the landing page renders that.
+
+**`questionsSolved`** (Milestone 30, Phase 3) is questions answered **correctly** — the sum of `correctCount` over submitted practice sessions, mock-test attempts and Olympiad attempts, plus correct Daily Quiz answers whose day is **revealed** (before today; a counter that moved when somebody got today's question right would be a public correctness signal).
+
+**Cached**: one computation is served for ten minutes per process (`getCachedPublicStats()`, keyed by the competition day so "registered today" resets at IST midnight), and the response carries `Cache-Control: public, max-age=60, s-maxage=600, stale-while-revalidate=60` so the edge may hold it for the same ten minutes.
+
+### `GET /api/v1/public/journey`
+`{ stages: [{ id, title, description }] }` — the nine journey milestones from `lib/journey.ts`, in order, for the homepage's programme overview (Milestone 30, Phase 3; the owner chose the platform's own milestones over the mockup's invented six months, PLAN.md Q7). Words only — the measures stay in code. No database; `Cache-Control: public, max-age=3600`.
 
 ### `GET /api/v1/leaderboard`
 **Extended in Milestone 10** with scopes, periods, pagination and the caller's own standing. The response still carries the same `leaderboard` array it always did, so existing callers (the landing page, the dashboard) were unaffected — everything else is an addition alongside it.
 
 ```
-{ leaderboard: [{ rank, studentId, displayName, classLevel, schoolName, xp }],
+{ leaderboard: [{ rank, studentId, displayName, classLevel, schoolName, city, xp }],
   scope, classLevel, period,
   window: { from, to },
   pagination: { page, limit, total, totalPages },
@@ -832,6 +839,7 @@ Query parameters — **and this is the entire input surface**:
 
 - **No request may state an XP total, a score or a rank.** Those fields are not filtered out by the handler — they are absent from the zod schema, and `validate()` replaces the query with the parse result, so an extra key cannot reach the service. Every number is a `$sum` over rows this backend wrote. A test sends `?xp=999999&rank=1&displayName=Hacker` and asserts nothing changes; there is no write method on this resource.
 - `displayName` is a **first name plus a last initial** ("Ishaan V."). The entrants are schoolchildren and this endpoint is public and indexable, so a full legal name beside a school and a class is not published. Tests assert the full name, email address, mobile number and address are absent from the whole response body.
+- **A student who opted out of public lists** (`hideFromPublicLists`, set on the profile) keeps their rank but is listed as `"A Class 7 student"` with `schoolName` and `city` null (Milestone 30, Phase 3). `publicListingFor()` in `leaderboardService.ts` decides it for every public list — this board, the Hall of Fame and the Daily Quiz winners.
 - **Scope.** A class board ranks *within* the class — the Class 9 leader is #1 there even if they are #6 overall.
 - **Period.** A period board sums XP earned inside a window of **competition days** (IST), so everyone's week begins at the same instant. `window` states the days summed, so a page never has to guess. `from` is `null` for all time.
 - **Ties share a rank** (standard competition ranking: 1, 2, 2, 4). The order *within* a tie is deterministic: XP descending, then whoever reached the total first, then the account id. See [`DECISIONS.md`](DECISIONS.md).
@@ -855,7 +863,7 @@ Five fixed boards, each `{ code, title, description, icon, entries, emptyReason 
 - **A board with nothing behind it comes back empty with an `emptyReason`** naming what would fill it. Nothing is ever padded with a placeholder entry.
 - **There is deliberately no official-exam board.** `ExamAttempt` and `Result` are written by nothing, so it would be permanently empty at best and fabricated at worst.
 - `totals` — `studentsRanked`, `xpAwarded`, `mockTestsGraded`, `challengesAnswered`, `practiceSessionsCompleted`. All live counts.
-- Same name masking and same exclusion of accounts not in good standing as the leaderboard, through the same `displayNameFor()`.
+- Same name masking, the same public-list opt-out and the same exclusion of accounts not in good standing as the leaderboard, through the same `publicListingFor()`.
 
 ---
 
