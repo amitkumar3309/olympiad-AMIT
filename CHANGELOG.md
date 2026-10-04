@@ -2,6 +2,64 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-04 — Milestone 30 Phase 1: the launch design system
+
+The Diwali launch brief (`docs/launch/LAUNCH_SPEC.md`) asks for the homepage and the student
+dashboard to match two mockups. Phase 1 builds the design system they need and re-points the token
+layer onto them, so the whole product moves at once; the pages themselves are rebuilt in Phases 3
+and 4. **Frontend only — no file under `backend/` changed.** Branch `feat/diwali-launch`.
+
+### What changed for every page
+
+- **Colour.** A pale blue page `#f4f8fe`; white cards with a hairline **and** a soft two-layer shadow
+  at 16px (`--card-shadow`, `--card-radius`); one action colour, the mockups' `#1d63f6`. `--brand`
+  is that blue with a glow — the orange call to action is gone, as is Milestone 27's hard offset
+  edge (its tokens are zero, press is a 0.98 scale). Text is navy ink; icon tiles are pale tints with
+  saturated glyphs. Every value was solved for WCAG AA before it was written; two mockup values were
+  overruled (its muted grey is 4.39:1 on its own page, its sidebar gradient 2.97:1 under white).
+- **Type.** Plus Jakarta Sans for headings and body, replacing both Bricolage Grotesque and
+  Instrument Sans — chosen over the Phase 0 recommendation after a side-by-side render against the
+  mockup; it also has true tabular figures and draws ₹ itself (both verified). A role scale
+  (`--type-hero` … `--type-micro`) with the brief's phone → desktop sizes; headings bold.
+- **Fonts are self-hosted.** `public/fonts/` (OFL, `@fontsource-variable/*` 5.3.0, fetched with
+  `npm pack` — no dependency), declared in `tokens.css`, the main face preloaded, a one-year
+  immutable cache in `vercel.json`. The Google Fonts stylesheet is gone.
+
+### New
+
+- **Nine primitives** in `components/ui`: `CountUp`, `Reveal`, `OptionTile` + `OptionGroup` (a
+  native radio group), `Countdown` (a display of the server's clock) + `clockOffset`, `Podium`,
+  `LeaderboardTable`, `JourneyTrack`, `ActivityList`, `Confetti` — plus `motion.ts`, whose hooks
+  all fall back to a timer so nothing can stay hidden or half-counted in a non-compositing tab.
+- `Button` gained a `link` variant and Lucide icons; `StatTile` a `value-first` layout with a
+  worded delta; `Badge` a pulsing `live` dot; `Avatar` a name-derived `tint`.
+- **`components/DailyQuizFab`** — the floating Daily Quiz button's four states, float, ring and
+  hover "shine" (wired to data in Phase 3). **`components/Illustration`** — the launch art by name,
+  found in `src/assets/illustrations/` at build time, a placeholder until it exists;
+  `docs/launch/ASSETS_NEEDED.md` lists all fifteen.
+- **`lib/format.ts`** — Indian digit grouping and IST dates in the brief's format.
+- **`/dev/ui`** — the brief's name for the development-only `/design-system`, which now shows every
+  new primitive in every state.
+- Development tooling: `API_PROXY_TARGET` overrides the Vite proxy, and two `.claude/launch.json`
+  entries run this branch's backend on 8091 and frontend on 5180, so a worktree no longer competes
+  with the main checkout for 8081.
+
+### Verified
+
+`tsc -b`, `oxlint` (no new warnings) and `vite build` pass. In a browser against a local database:
+0 WCAG AA failures across 120 dashboard text nodes in each theme; on `/dev/ui` the only flags are
+disabled controls (exempt); no horizontal overflow at 360, 390, 414, 768, 1280, 1440 or 1920px; the
+option tiles behave as a radio group (click, then arrow keys); count-ups land on the exact figure.
+One regression was found and fixed in the phase: Plus Jakarta is wider, and two stat tiles across a
+390px phone broke "REPRESENTED" mid-word — the tile now moves its text below the icon instead.
+Screenshots are in `docs/launch/screenshots/phase-1/`.
+
+### Found, not fixed (logged for Phase 5)
+
+A signed-out page logs two `401`s to the console (`/auth/me`, then `/auth/refresh` — the session
+probe), which would fail the launch brief's "no console errors" crawler on every public page.
+`INTERACTION_AUDIT.md` D9.
+
 ## 2026-09-27 — Milestone 29 Phase E: `paymentLimiter` is 300 per hour, and Phase D under-reported it
 
 The one limiter whose refusal costs revenue rather than patience. **Measured before: 5 of a class

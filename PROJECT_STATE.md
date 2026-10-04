@@ -1,9 +1,33 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-09-27 (**Milestone 29 — a full test pass, a scale audit, and the two P0
-fixes it found**: complete. Phase A changed nothing; **Phase B changed three backend files**). Milestone 28 (royal blue
-restored as the primary, registration on its own route, one sign-in door with a role-based
-redirect) closed immediately before it._
+_Last updated: 2026-10-04 (**Milestone 30 — the Diwali launch: Phase 1, the design system, complete
+on branch `feat/diwali-launch`; waiting for the owner's "continue" before Phase 2**). Milestone 29
+(a full test pass, a scale audit, and the limiter fixes it found) closed immediately before it._
+
+## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
+
+The brief is [`docs/launch/LAUNCH_SPEC.md`](docs/launch/LAUNCH_SPEC.md); the plan, the decisions in
+force and the open owner questions are [`docs/launch/PLAN.md`](docs/launch/PLAN.md); the task-by-task
+state is [`docs/launch/PROGRESS.md`](docs/launch/PROGRESS.md) — **read PROGRESS.md first** to resume.
+The work happens in phases, and each one stops for the owner's approval.
+
+- **Phase 0 (discovery) — done.** No product code changed. The existing daily challenge *is* the
+  Daily Quiz and is being upgraded, not duplicated. Eight pre-existing defects are logged in
+  [`docs/launch/INTERACTION_AUDIT.md`](docs/launch/INTERACTION_AUDIT.md), the important one being
+  **D1: a fill-in-the-blank daily challenge can never be answered** (no input on the page, and the
+  route drops `textResponse`) — fixed in Phase 2.
+- **Phase 1 (design system) — done, frontend only.** The token layer was re-pointed onto the two
+  launch mockups, so all 54 routes moved at once: a pale blue page (`#f4f8fe`), white cards with a
+  hairline **and** a soft shadow at 16px, one action colour (`#1d63f6`), tinted icon tiles with
+  saturated glyphs, and **Plus Jakarta Sans** replacing both Bricolage Grotesque and Instrument Sans.
+  Fonts are **self-hosted** (`public/fonts/`, no Google request). The hard offset edge and the orange
+  call to action are retired. Nine new primitives (`CountUp`, `Reveal`, `OptionTile`, `Countdown`,
+  `Podium`, `LeaderboardTable`, `JourneyTrack`, `ActivityList`, `Confetti`), two product components
+  (`DailyQuizFab`, `Illustration`), `lib/format.ts`, and `/dev/ui` (an alias of `/design-system`).
+  See the Milestone 30 Phase 1 ADR. Verified in a browser: 0 WCAG AA failures on the dashboard in
+  either theme, none on the reference page beyond disabled controls, no horizontal overflow from
+  360 to 1920px. **No file under `backend/` changed.**
+- **Phase 2 (the Daily Quiz core) is next.** It is the first phase that changes the backend.
 
 ## Milestone 29 at a glance — measurement, not change
 

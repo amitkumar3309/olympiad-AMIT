@@ -29,6 +29,7 @@ Paths are relative to `frontend/src/`. Routes are declared only in `App.tsx`; gu
 | D6 | `components/Footer.tsx:53` vs `navigation.ts:104` | Two certificate pages, `/certificate` (footer) and `/my-certificates` (sidebar), both read `/me/certificates` | Low | 5 — pick one, redirect the other |
 | D7 | `components/layout/navigation.ts:141` | Admin "Dashboard" item has no permission while its route needs `students:read` (only staff ever see the admin shell, so not reachable as a dead end today) | Low | 5 |
 | D8 | `pages/Gallery/Gallery.tsx:104-107` | Lightbox overlay is a clickable `div` with no Escape handling or focus trap (should be `ui/Modal`) | Low | 5 |
+| D9 | `context/AuthContext.tsx` session probe (found in Phase 1) | A **signed-out** page logs `401` errors to the console: `GET /auth/me` → 401, then `POST /auth/refresh` → 401 (doubled by React StrictMode in development). The browser logs every failed request as a console error, so the brief's crawler (§9: "no console errors") would fail every public page. Needs a probe that answers a guest without an error status (e.g. a `200 { authenticated: false }` session endpoint) — a backend contract change, so it is decided in Phase 5 rather than slipped in | Medium | 5 |
 
 ## Route inventory (52 declared)
 
