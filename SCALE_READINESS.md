@@ -3,35 +3,30 @@
 _Written 2026-09-27. A full test pass of frontend + backend + database, and the plan for
 carrying **1,000 concurrent students** without the platform falling over._
 
-This file is a **report and a plan**. It was written before any fix was applied.
+This file is the **report and the plan**, written before any fix was applied. Five fixes have
+landed since; the per-phase history is in [`CHANGELOG.md`](CHANGELOG.md) and the current snapshot
+is in [`PROJECT_STATE.md`](PROJECT_STATE.md). Findings below are marked ✅ or ⏳ individually.
 
-> **Both P0 fixes were applied on 2026-09-27 and verified live.** `app.set('trust proxy', 1)`
-> is in `src/app.ts` and `maxPoolSize: 5` / `maxIdleTimeMS: 30_000` are in `config.mongo`,
-> consumed by `db/connection.ts`. What the verification showed, on the same commands that
-> exposed the defects:
+> ### Status as of 2026-09-27
 >
-> - Five requests from three distinct `X-Forwarded-For` addresses now draw on **three separate
->   budgets** (`299, 299, 298, 298, 299`), where before one counter fell `146 → 145 → 144`.
-> - **Fourteen** sign-ins from fourteen distinct client addresses all returned `200`. Before the
->   fix the same sequence gave one `200` and thirteen `429`s.
-> - Brute-force protection is intact: twelve attempts from **one** address gave exactly **10
->   through and 2 blocked**.
-> - The audit trail records the real client address (`49.37.200.15`) instead of the proxy.
-> - After 60 concurrent requests, MongoDB reported **9** open connections across every client,
->   against 121 measured before the cap.
+> **Fixed and verified live:** `app.set('trust proxy', 1)` (14 sign-ins from 14 addresses all
+> succeed, was 1 of 14; audit rows carry the real client address); `maxPoolSize: 5` (60 concurrent
+> requests leave **9** MongoDB connections open, was 121); and three limiter numbers re-chosen for
+> a school rather than a household — `loginLimiter` **50**/15 min, `registerLimiter` **50**/hour,
+> `paymentLimiter` **300**/hour. A class of 40 behind one NAT address now signs in, registers and
+> **completes checkout** completely; before, checkout got **5 of 40** through.
 >
-> Gates after the change: typecheck, lint and compile clean, the 87-assertion end-to-end harness
-> still **87/87**, and the suite still **1289/1289**.
+> Password-guessing protection is unchanged throughout: `MAX_FAILED_LOGINS` (5) locks an
+> **account** for 15 minutes regardless of how many addresses an attacker uses.
 >
-> **Phase C then raised `loginLimiter` from 10 to 50 per 15 minutes**, because Phase B is what
-> first gave that number a real client address to apply to. A 40-student school lab behind one NAT
-> address now signs in completely (40/40, against 10/40 before), one address still stops at
-> exactly 50, and per-account lockout still fires at 5 — it is `MAX_FAILED_LOGINS`, not this
-> limiter, that stops password guessing.
+> **Still open:** the limiters' `MemoryStore` (step 4 — every number is per serverless instance
+> and resets on a cold start, so **raising numbers is the symptom and a shared store is the
+> fix**), the ~30 req/s ceiling on `/leaderboard` and `/me/dashboard` (step 4 again), the
+> `Student.status` index (step 3), four more household-sized limiters, and Vercel's
+> commercial-use licence.
 >
-> **Step 3 (the `Student.status` index) and step 4 (Redis) are still outstanding**, as is
-> `registerLimiter`, which has the same NAT problem at 10 per hour.
-
+> Gates on every change: typecheck, lint and compile clean, the end-to-end harness **87/87**, the
+> suite **1289/1289**.
 
 ---
 
@@ -582,22 +577,51 @@ for a week and back down afterwards, and pay for the week.
 
 > _"I don't want things to crash or anything to become vulnerable."_
 
-**Will it crash at 1,000 concurrent students, as it stands today?** Yes — but not for the reason
-you would expect. The database and the application code are *fine*: 1,289 tests pass, the write
-path handled 100 simultaneous exam submissions in 0.7 seconds with zero errors, and no functional
-defect was found anywhere. What fails is the **rate limiter**, which today treats the entire
-internet as one visitor and will start returning "Too many login attempts" at roughly the **11th
-student**, followed by connection exhaustion at Atlas once Vercel scales past five instances.
+**Rewritten 2026-09-27, after the fixes landed.** The original answer to the first question was
+"yes, it will crash" — kept in [`CHANGELOG.md`](CHANGELOG.md) rather than here, because this
+section should say what is true now.
 
-**Is it vulnerable?** The security fundamentals are genuinely strong — the answer key never
-reaches a client early, grading is server-side, authorization re-reads the role from the database,
-tokens rotate and replays are dead, account enumeration is closed, the paywall is mounted rather
-than called, and public boards mask children's names. I could not find a way through any of them.
-The open items are the **documented** CSRF-token gap (partly mitigated by a working Origin check)
-and the fact that, until step 1 lands, the per-IP protections are not per-IP at all — which is a
-brute-force exposure as much as an availability one, since a cold start resets the counter.
+**Will it crash at 1,000 concurrent students?** The two things that *guaranteed* an outage are
+gone. The platform-wide rate-limit bucket — which would have started refusing sign-ins at roughly
+the **11th student in the country** — is now a real per-client budget, and the unbounded
+connection pool that would have exhausted Atlas once Vercel scaled past five instances is capped.
+Measured after: a class of 40 behind one school address signs in, registers and completes
+checkout completely, where checkout previously got 5 of 40 through.
 
-**The shortest path to safe:** steps 1, 2 and 3 are **four lines of code** and remove both P0
-outages. Step 4 (Redis) removes the 30 req/s ceiling on your two busiest pages. Nothing here
-requires rearchitecting anything, and none of it touches the product decisions the codebase has
-been careful about.
+**What would still hurt**, in the order it would bite:
+
+1. **The landing page and the dashboard**, at ~30 req/s each. 1,000 students arriving at once
+   need 1,000 leaderboard calls; at 30/s that is **33 seconds of queue**, which reads as a hung
+   page rather than an error. This is the one remaining thing that fails under *ordinary* load
+   rather than under attack, and caching it is the single highest-value change left.
+2. **The mail provider.** 1,000 registrations is 1,000 verification emails, and free tiers are
+   100–500 *per day*. A student who never gets a link **cannot sign in at all** — verification is
+   required — so this converts directly into refund requests. Size the plan before opening
+   registration.
+3. **Atlas M0's shared CPU**, if the whole cohort sits the paper in one window.
+
+**Is it vulnerable?** The security fundamentals are genuinely strong, and I tried: the answer key
+never reaches a client early, grading is server-side, authorization re-reads the role from the
+database, tokens rotate and replays are dead, account enumeration is closed, the paywall is
+mounted rather than called, public boards mask children's names, and a cross-origin `POST` is
+refused. I could not find a way through any of them.
+
+Two open items, and I want to be precise about the second because this whole session has been
+circling it:
+
+- The **documented CSRF-token gap**, partly mitigated by a working Origin check — unchanged, and
+  worth re-reviewing before a paid product carrying children's data goes live at scale.
+- **The rate limits are correctly keyed but not durable.** They live in each serverless
+  instance's memory and reset on every cold start, so they bound one instance rather than the
+  deployment. Per-account lockout (`MAX_FAILED_LOGINS`, 5 attempts → 15-minute lock) is what
+  actually stops somebody guessing a child's password, and that is real and account-scoped. But
+  **credential stuffing — one password tried against many accounts — is only loosely bounded**
+  until a shared store exists.
+
+**The honest summary.** Five fixes landed and each was measured before and after, but three of
+them were *numbers*, and raising a number that resets on a cold start is treating a symptom.
+**The shared store is the fix that makes any limit mean something, and the cache is the fix that
+removes the only remaining ordinary-load failure.** Both are the same decision — step 4 — and it
+is a dependency and a cost against the ₹0 target, which is why it is the owner's to take rather
+than mine. Nothing here requires rearchitecting anything, and none of it touches the product
+decisions this codebase has been careful about.

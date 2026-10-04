@@ -1,70 +1,95 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-09-27 (**Milestone 29 — a full test pass, a scale audit, and the two P0
-fixes it found**: complete. Phase A changed nothing; **Phase B changed three backend files**). Milestone 28 (royal blue
-restored as the primary, registration on its own route, one sign-in door with a role-based
-redirect) closed immediately before it._
+_Last updated: 2026-09-27 (**Milestone 29 — a full test pass, a scale audit, and the five
+infrastructure fixes it found**: complete, five phases). Milestone 28 (royal blue restored as the
+primary, registration on its own route, one sign-in door with a role-based redirect) closed
+immediately before it._
 
-## Milestone 29 at a glance — measurement, not change
+## Milestone 29 at a glance
 
-The owner asked for the whole application to be tested and for a plan to carry **1,000
-concurrent students**. The full report is [`SCALE_READINESS.md`](SCALE_READINESS.md); the
-numbers below are the summary, and they were produced by running things, not by reading code.
+The owner asked for the whole application to be tested — frontend, backend and database — and for
+a plan to carry **1,000 concurrent students** at launch. The report is
+[`SCALE_READINESS.md`](SCALE_READINESS.md); the per-phase history is in
+[`CHANGELOG.md`](CHANGELOG.md). This is the resulting state.
 
-**Everything functional passed.** `npm test --prefix backend` → **1289 passed / 1289 across 36
-files**; backend typecheck, compile and lint clean; frontend lint clean and the production build
-at **236 kB / 73.5 kB gzipped**; an 87-assertion end-to-end HTTP harness against a real MongoDB,
-a real backend and the real frontend → **87/87**; and a browser pass over landing, register,
-sign-in, dashboard, practice, leaderboard and the `/admin` gate. **No functional defect was
-found.** In particular the answer-key properties hold under test: a served paper contains none of
-`isCorrect`, `solution`, `booleanAnswer`, `numericAnswer` or `tolerance`, and the review view
-after submission does contain them.
+**Nothing under `frontend/src` changed. Three backend files did**, none of them a route, a model,
+a service or a piece of business logic: `app.ts`, `config/index.ts`, `db/connection.ts` and
+`middleware/rateLimiter.ts`. No API contract, permission, route guard or schema moved.
 
-**Three scale findings, none of them a product bug, all of them unfixed as of this writing:**
+### What the testing established
 
-1. ✅ **`app.set('trust proxy')` was never called — FIXED in Phase B.** Behind Vercel's proxy
-   every visitor shared one `req.ip`, so every per-IP rate limit was a single platform-wide
-   bucket: ten distinct client IPs signing in gave `200` then twelve consecutive `429`s, i.e.
-   **10 sign-ins per 15 minutes for the whole platform**. `app.set('trust proxy', 1)` is in
-   `src/app.ts` now — **`1`, not `true`**, because `true` trusts a client-supplied
-   `X-Forwarded-For` and lets anyone forge their address. Verified: fourteen sign-ins from
-   fourteen addresses all `200`, while twelve attempts from **one** address still give exactly
-   10 through and 2 blocked, and the audit trail records the real client address.
-2. ✅ **No `maxPoolSize` — FIXED in Phase B.** Mongoose defaults to 100 connections per process
-   and five concurrent Vercel instances would exhaust an Atlas shared tier's 500-connection cap.
-   `config.mongo.maxPoolSize` is **5** with a 30-second idle reap. Verified: 60 concurrent
-   requests left **9** connections open, against 121 before.
-3. **`/leaderboard` and `/me/dashboard` ceiling at ~30 req/s**, against 1,205 for `/auth/me`.
-   `explain`: a COLLSCAN of 20,012 activity rows plus 1,004 `$lookup` fetches, ~100 ms, run
-   **three times** per leaderboard request and **five** per dashboard. Derived-on-read stays —
-   the result needs caching, not storing.
+Run against a real MongoDB, a real backend process and the real frontend — not mocks:
 
-The write path measured healthy: **148 answer-saves/second** at 100 concurrent students and
-**100 simultaneous submissions in 0.7 s, zero errors**.
+| | |
+|---|---|
+| `npm test --prefix backend` | **1289 passed / 1289**, 36 files |
+| typecheck / compile / lint, both apps | clean |
+| frontend production build | **236 kB / 73.5 kB gzipped** |
+| end-to-end HTTP harness, 87 assertions | **87 / 87** |
+| browser pass, 7 routes | all render, no product errors |
 
-**Phase B fixed the two P0 findings** (three files, four effective lines; typecheck, lint,
-compile clean, the end-to-end harness still 87/87 and the suite still 1289/1289), and the ADR in
-`DECISIONS.md` records why `1` and why `5`. **Still open**, all recorded in
-[`SCALE_READINESS.md`](SCALE_READINESS.md): the rate limiter's `MemoryStore` (the limits are keyed
-correctly now but still reset on a cold start — that is the Redis case), the ~30 req/s ceiling,
-the missing `Student.status` index, and Vercel's commercial-use licence. Redis remains a
-dependency and a cost decision the owner has not taken.
+**No functional defect was found.** The properties this codebase is most careful about were
+confirmed by exercise rather than by reading: a served paper contains none of `isCorrect`,
+`solution`, `booleanAnswer`, `numericAnswer` or `tolerance` and the post-submission review does;
+the official exam answers **402** to an unpaid student while practice and the daily challenge stay
+free; an unknown email and a wrong password return byte-identical messages; refresh tokens rotate
+and replays are dead; the public leaderboard caps an anonymous caller at 100 masked rows; and a
+student and an anonymous caller are refused every admin route on **both** URL prefixes.
 
-**Phase C then raised `loginLimiter` from 10 to 50 per 15 minutes**, because Phase B is what
-first gave that number a real client address to apply to. A school computer lab behind one NAT
-address — this product's normal case — now signs in completely: **40 of 40**, against 10 of 40
-before. It does not weaken password-guessing protection, which was never this limiter's job:
-`MAX_FAILED_LOGINS` (5) locks an account for 15 minutes **per account**, verified unchanged. One
-address still stops at exactly 50. **Phase D raised `registerLimiter` to 50 per hour** as well (40 of 40
-register, ceiling at 50) and **audited the rest**: seven more limiters were sized for one
-household and are now applied to a whole school. **Phase E then raised `paymentLimiter` to 300 per hour**, and
-corrected Phase D in the process: a checkout is about **six** limiter-counted calls, not one, so
-30/hour was never 30 students but **five**. Measured: **5 of a class of 40** completed checkout
-before, **40 of 40** after. Four limiters remain sized for one household — `challengeLimiter`
-30/hour, `mockTestLimiter` 60/hour, `tokenSubmitLimiter` 20/15 min, `emailActionLimiter` 5/hour —
-and the Phase D capacity table should be read as an **upper bound**, since every row divides by
-one where the real cost is two or more. None was changed; the durable answer to all of them is the
-shared store, since with `MemoryStore` every figure is per instance and resets on a cold start.
+### What the load testing established
+
+A cohort-sized dataset — **1,000 students, 20,012 `StudentActivity` rows** — driven at 1/25/100/250
+concurrent clients against a single process.
+
+**The write path is healthy**: **148 answer-saves/second** at 100 concurrent students, and **100
+simultaneous submissions in 0.7 s with zero errors**. The conditional-write design behind
+`finalizeAttempt()` does what it was built to do.
+
+**The read path has one cliff.** `/health` 8,715 req/s, `/auth/me` 1,205, `/practice/options` 916,
+`/me/rewards` 497, `/public/stats` 228 — then **`/me/dashboard` 33 and `/leaderboard` 30**, which
+are the two busiest pages in the product.
+
+### Fixed
+
+1. **`app.set('trust proxy', 1)`** in `src/app.ts`. Behind Vercel's proxy every visitor shared one
+   `req.ip`, so every per-IP rate limit was a single platform-wide bucket — **10 sign-ins per 15
+   minutes for the whole platform** — and every audit row recorded the proxy. `1`, not `true`,
+   because `true` trusts a client-supplied `X-Forwarded-For`. Verified: 14 sign-ins from 14
+   addresses all `200` (was 1 `200`, 13 `429`s), 12 attempts from **one** address still stop at
+   10, audit rows carry the real address.
+2. **`maxPoolSize: 5`** (with `maxIdleTimeMS: 30_000`) in `config.mongo`. Mongoose defaults to 100
+   connections **per process** and serverless multiplies processes, so five instances would
+   exhaust an Atlas shared tier's 500-connection cap. Verified: 60 concurrent requests left **9**
+   connections open, against 121 before.
+3. **Three limiter numbers re-chosen for a school rather than a household**, which only became
+   possible once (1) gave them a real client address. `loginLimiter` 10 → **50**/15 min (a lab of
+   40 signs in completely, was 10 of 40). `registerLimiter` 10 → **50**/hour (40 of 40 register,
+   was 10 of 40). `paymentLimiter` 30 → **300**/hour (**40 of 40 complete checkout, was 5 of 40**
+   — a checkout is ~6 limiter-counted calls, not one). None weakens password-guessing protection:
+   `MAX_FAILED_LOGINS` (5) locks an **account** for 15 minutes regardless of address, verified
+   unchanged.
+
+The ADR in [`DECISIONS.md`](DECISIONS.md) records why `1` and why `5`.
+
+### Open, in priority order
+
+1. **The rate limiters use `MemoryStore`.** Every number above is per serverless instance and
+   resets on a cold start, so none is enforced across the deployment. **Raising numbers is
+   treating the symptom; a shared store is the fix.** This is the Redis decision — a dependency
+   and a cost against the ₹0 target, and therefore the owner's to take.
+2. **`/leaderboard` and `/me/dashboard` at ~30 req/s.** A COLLSCAN of every activity row plus one
+   `$lookup` per student, ~100 ms, run **three times** per leaderboard request and **five** per
+   dashboard. Derived-on-read stays — a stored rank can drift from the XP it ranks — so the result
+   needs **caching**, not storing. Same Redis decision.
+3. **Four limiters still sized for one household**: `challengeLimiter` 30/hour, `mockTestLimiter`
+   60/hour, `tokenSubmitLimiter` 20/15 min, `emailActionLimiter` 5/hour. None costs revenue when
+   it refuses, which is why payment went first. The capacity table in `CHANGELOG.md` (Phase D) is
+   an **upper bound** — every row divides the budget by one where the real per-student cost is two
+   or more.
+4. **No index on `Student.status`**, so `/public/stats` runs two collection scans on the public
+   landing page.
+5. **Vercel's free tier forbids commercial use** and this product charges ₹199. A licence problem,
+   not a technical one, and the first thing to resolve before launch.
 
 **Milestone 28 at a glance — frontend only.** No file under `backend/` was modified; the suite
 was run anyway. Four changes, all at the owner's request:
