@@ -85,7 +85,8 @@ interface AuthContextValue {
    */
   refreshSession: () => Promise<void>
   verifyEmail: (token: string) => Promise<string>
-  resendVerification: (email: string) => Promise<ResendResult>
+  /** `next` (Milestone 30) is carried into the new link — an exact path from `lib/nextPath.ts`, or omitted. */
+  resendVerification: (email: string, next?: string | null) => Promise<ResendResult>
   forgotPassword: (email: string) => Promise<string>
   resetPassword: (token: string, password: string) => Promise<string>
 }
@@ -220,10 +221,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.message
   }, [])
 
-  const resendVerification = useCallback(async (email: string): Promise<ResendResult> => {
+  const resendVerification = useCallback(async (email: string, next?: string | null): Promise<ResendResult> => {
     // The whole response, not just the message: `nextResendAt` is what the cooldown
     // countdown is driven by, and it must come from the server rather than the browser.
-    return api.post<ResendResult>('/auth/resend-verification', { email })
+    return api.post<ResendResult>('/auth/resend-verification', { email, ...(next ? { next } : {}) })
   }, [])
 
   const forgotPassword = useCallback(async (email: string) => {

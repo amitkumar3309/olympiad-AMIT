@@ -5,7 +5,8 @@ import { requirePermission } from '../../middleware/auth';
 import { publicLookupLimiter } from '../../middleware/rateLimiter';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
-import { getPublicStats } from '../../services/progressService';
+import { getCachedPublicStats } from '../../services/progressService';
+import { JOURNEY_STAGES } from '../../lib/journey';
 import { findEarnedCertificates, findPublishedResult, getAdminStats } from '../../services/resultService';
 import { studentIdParamSchema } from '../../validation/userSchemas';
 
@@ -31,11 +32,30 @@ const router = Router();
  */
 router.get('/public/stats', ensureDb, async (_req: Request, res: Response) => {
   try {
-    sendSuccess(res, 200, { stats: await getPublicStats() });
+    const stats = await getCachedPublicStats();
+    // Shared caches (Vercel's edge) may hold it for the same ten minutes the process does;
+    // a browser re-asks after one. Nothing personal is in it.
+    res.set('Cache-Control', 'public, max-age=60, s-maxage=600, stale-while-revalidate=60');
+    sendSuccess(res, 200, { stats });
   } catch (err) {
     logger.error({ err }, 'Failed to load public stats');
     sendError(res, 500, 'Could not load the competition figures right now.');
   }
+});
+
+/**
+ * The journey's stages, for the homepage's programme overview (Milestone 30, Phase 3).
+ *
+ * The owner chose to show the platform's own nine milestones rather than the mockup's
+ * invented six-month journey (PLAN.md Q7), so the homepage reads them from the one
+ * definition the dashboard's progress is computed from — `lib/journey.ts` — rather than
+ * a second copy in the frontend. Titles and descriptions only: the measures are code.
+ */
+router.get('/public/journey', (_req: Request, res: Response) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  sendSuccess(res, 200, {
+    stages: JOURNEY_STAGES.map(({ id, title, description }) => ({ id, title, description })),
+  });
 });
 
 /**

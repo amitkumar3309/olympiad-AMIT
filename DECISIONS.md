@@ -4,6 +4,53 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-04 — Milestone 30 Phase 3: the homepage is composed from configuration, and the way into the quiz keeps its destination
+
+**Context.** The brief's Phase 3 (§7) rebuilds the homepage to the landing mockup, adds a floating
+Daily Quiz button whose press asks a guest to sign in first (the owner's R4/R5), a Rewards section
+(R2/R3), a rules page and legal pages. The owner answered the four open Phase 0 questions on
+2026-10-04: three class groups a day (Q3), map the platform's nine milestones rather than the
+mockup's six months (Q7), Claude drafts the Logic/Reasoning/Brainstorming samples for review (Q8),
+and the contact details (Q9).
+
+**Decision.**
+
+1. **The order of the homepage is data.** `lib/siteConfig.ts` lists the sections (`HOME_SECTIONS`)
+   with every other tunable — which figures show, the sample-question clock, how many winners and
+   scholars, whether the button stays up on a day with no quiz. Each section fetches what it shows
+   and renders nothing it cannot back; there is no placeholder figure anywhere.
+2. **`next` is an exact allow-list, carried in the verification link.** Registration creates no
+   session and the email link is the only thing that crosses the gap, so the Login Gate's
+   destination rides in it (`/verify-email?token=…&next=/daily-quiz`). The list
+   (`backend/src/lib/nextPaths.ts`, mirrored by `frontend/src/lib/nextPath.ts`) is exact paths only —
+   a pattern is how an open redirect gets written, and this value is put into an email sent from our
+   address to whatever address was typed. An unknown value is **dropped, not refused**: it only
+   steers navigation, and refusing a registration over it would be worse.
+3. **A guarded page sends a guest to the sign-in dialog with `?next=`** (`/?next=%2Fpractice#login`)
+   instead of to a bare homepage (INTERACTION_AUDIT D2). The dialog stays the one sign-in entry point.
+4. **The journey is the nine real milestones** (`GET /public/journey`, read from `lib/journey.ts`, the
+   definition the dashboard measures), shown neutral on the homepage (`JourneyTrack`'s `upcoming`
+   state). The mockup's themed months have no programme behind them.
+5. **The podium is drawn only when it is true.** Equal XP shares a rank, and at launch many students
+   hold the same few XP; steps 1-2-3 over three level students would be a false ranking. Otherwise the
+   table shows everybody with the real, shared rank.
+6. **The public-list opt-out is decided once, for every board** — `publicListingFor()` beside
+   `displayNameFor()`: an opted-out student keeps their rank and is listed as "A Class 7 student" with
+   no school or city. The profile switch from Phase 2 had been honoured by the winners list only.
+7. **Sample questions are verified by a script, and published by a person.** Every answer is
+   recomputed independently (`npm run verify:samples`, Node's own TypeScript support — no dependency);
+   a tab appears only with five owner-reviewed questions.
+8. **Legal pages are drafts that invent nothing.** Written from what the code collects and does; no
+   refund window, organiser address or jurisdiction. Each is `TODO(legal-review)`, with the open
+   questions in `docs/launch/LEGAL_REVIEW.md`. The rules page fetches the winner rule and the prize
+   from the settings rather than restating them.
+
+**Consequences.** The navbar's About points at an "About the Olympiad" section describing the
+competition — never the name, whose expansion is still shown once, unexplained. The Boss Battle and
+Month-End Booster stay absent (Q6). The "Can you crack this?" section is lazy-loaded because it alone
+needs KaTeX; the homepage's main bundle grew ~11.5 kB gzipped. The floating button holds no clock of
+its own: its countdowns are offsets of the server's `serverNow`, and at zero it asks again.
+
 ## 2026-10-04 — Milestone 30 Phase 2: the Daily Quiz is the daily challenge, upgraded — one prize quiz a day per class range
 
 **Context.** The launch brief (§6) asks for a Daily Quiz with a prize: one question a day for a class

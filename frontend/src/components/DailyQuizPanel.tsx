@@ -28,8 +28,9 @@ import {
   type QuizHistoryRow,
   type QuizPrizeInfo,
 } from '../api/types'
-import { formatDayKey, formatNumber, formatSolveTime, formatTime } from '../lib/format'
+import { formatDayKey, formatSolveTime, formatTime } from '../lib/format'
 import { humanizeError } from '../lib/errors'
+import { prizeLine } from '../lib/dailyQuizCopy'
 import styles from './DailyQuizPanel.module.css'
 
 /**
@@ -75,12 +76,6 @@ function writeSelection(key: string, value: string | null): void {
   } catch {
     // Private browsing or blocked storage: the choice simply is not remembered.
   }
-}
-
-/** "a surprise gift and a cash prize", with the amount only when one has been set. */
-function prizeLine(prize: QuizPrizeInfo): string {
-  const cash = prize.cashAmount !== null && prize.cashAmount > 0 ? ` (₹${formatNumber(prize.cashAmount)})` : ''
-  return `${prize.prizeText}${cash}`
 }
 
 function ruleHint(prize: QuizPrizeInfo): string | null {

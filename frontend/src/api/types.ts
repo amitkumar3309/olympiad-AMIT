@@ -76,6 +76,11 @@ export interface RegisterInput {
   /** A base64 data URL, e.g. `data:image/jpeg;base64,...`. Max 2 MB decoded. */
   photo: string
   /**
+   * Where they were going — the Login Gate sends `/daily-quiz` (Milestone 30). Carried
+   * into the verification link; only an exact path from `lib/nextPath.ts` is ever sent.
+   */
+  next?: string
+  /**
    * The referral code from `?ref=` on the link they followed (Milestone 22).
    *
    * Sent **only when it has been validated** against `GET /referrals/validate`. The
@@ -1179,10 +1184,14 @@ export interface AchievementSummary {
 export interface LeaderboardRow {
   rank: number
   studentId: string
-  /** First name plus last initial — the backend never publishes a child's full name. */
+  /**
+   * First name plus last initial — the backend never publishes a child's full name. For a
+   * student who opted out of public lists it is "A Class 7 student", and both places are null.
+   */
   displayName: string
   classLevel: string | null
   schoolName: string | null
+  city: string | null
   xp: number
 }
 
@@ -1403,6 +1412,15 @@ export interface PublicStats {
   registeredToday: number
   schoolsRepresented: number
   studentsActiveToday: number
+  /** Questions answered correctly, platform-wide (Milestone 30). */
+  questionsSolved: number
+}
+
+/** `GET /public/journey` — the nine milestones, words only (Milestone 30). */
+export interface PublicJourneyStage {
+  id: string
+  title: string
+  description: string
 }
 
 /**
@@ -1723,6 +1741,17 @@ export interface DailyQuizHistoryResponse {
   attempts: QuizHistoryRow[]
   summary: QuizHistorySummary
   pagination: Pagination
+}
+
+/** `GET /me/daily-quiz/status` — the floating button's state (Milestone 30, Phase 3). */
+export interface DailyQuizStatus {
+  serverNow: string
+  state: 'live' | 'in-progress' | 'done' | 'none' | 'no-class'
+  /** Set when there is a quiz today. */
+  closesAt: string | null
+  revealAt: string | null
+  /** With `none`: when the next quiz for the student's class opens, or null. */
+  nextQuizAt: string | null
 }
 
 export interface PublicQuizWinner {

@@ -3,6 +3,7 @@ import { CLASS_LEVELS } from '../lib/classLevels';
 import { MAX_PHOTO_BYTES } from '../models/StudentPhoto';
 import { imageDataUrl } from './imageSchemas';
 import { referralCode } from './referralSchemas';
+import { NEXT_PATHS } from '../lib/nextPaths';
 
 /** Indian-style 10-digit mobile, tolerant of spaces/dashes which we strip. */
 export const mobile = z
@@ -118,6 +119,13 @@ export const dateOfBirth = z
  */
 export const photo = imageDataUrl(MAX_PHOTO_BYTES, 'photo');
 
+/**
+ * Where to send the student after they verify (Milestone 30) — one of `NEXT_PATHS`, or
+ * nothing. Anything else is dropped rather than refused: it only steers navigation, and
+ * `lib/nextPaths.ts` explains why the list is exact.
+ */
+export const nextPath = z.enum(NEXT_PATHS).optional().catch(undefined);
+
 export const registerSchema = z.object({
   firstName: requiredName('First name'),
   middleName: optionalName('Middle name'),
@@ -146,6 +154,8 @@ export const registerSchema = z.object({
    * meets that refusal only if they typed one in by hand.
    */
   referralCode: referralCode.optional(),
+  /** The Login Gate's destination, carried into the verification link. */
+  next: nextPath,
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
@@ -170,7 +180,7 @@ export const verifyEmailSchema = z.object({
   token: z.string().trim().min(1, 'Verification token is required'),
 });
 
-export const resendVerificationSchema = z.object({ email });
+export const resendVerificationSchema = z.object({ email, next: nextPath });
 
 export const forgotPasswordSchema = z.object({ email });
 

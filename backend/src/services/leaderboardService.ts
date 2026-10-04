@@ -136,6 +136,51 @@ export function displayNameFor(account: {
   return lastPart ? `${firstPart} ${lastPart.charAt(0).toUpperCase()}.` : firstPart;
 }
 
+/** The account fields a public list may read. Nothing else is ever projected for one. */
+export interface PublicListAccount {
+  firstName?: string | null;
+  lastName?: string | null;
+  fullName?: string | null;
+  classLevel?: string | null;
+  schoolName?: string | null;
+  city?: string | null;
+  hideFromPublicLists?: boolean | null;
+}
+
+/** How a list names a student who opted out: "A Class 7 student" — the class, nothing else. */
+export function anonymousNameFor(classLevel: string | null | undefined): string {
+  const level = classLevel?.trim();
+  return level ? `A ${level} student` : 'A student';
+}
+
+/**
+ * How a student appears on a **list** anyone can read — the leaderboards, the Hall of
+ * Fame and the Daily Quiz winners (Milestone 30; brief §3).
+ *
+ * A student who ticked "hide me from public lists" on their profile keeps their place —
+ * a rank is still theirs, and removing them would move everybody below — but is named
+ * only by class, with no school and no city. Everybody else is named by `displayNameFor()`
+ * and placed by city or school, the brief's public-display rule for minors.
+ *
+ * The opt-out is decided here and nowhere else, so a new board cannot forget it. Until
+ * this existed the profile switch was honoured by the winners list alone, while the
+ * leaderboard — the most-read public list, and on the homepage since Phase 3 — ignored it.
+ */
+export function publicListingFor(account: PublicListAccount): {
+  displayName: string;
+  schoolName: string | null;
+  city: string | null;
+} {
+  if (account.hideFromPublicLists === true) {
+    return { displayName: anonymousNameFor(account.classLevel), schoolName: null, city: null };
+  }
+  return {
+    displayName: displayNameFor(account),
+    schoolName: account.schoolName?.trim() || null,
+    city: account.city?.trim() || null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // The pipeline
 // ---------------------------------------------------------------------------
@@ -145,7 +190,9 @@ export interface LeaderboardRow {
   studentId: string;
   displayName: string;
   classLevel: string | null;
+  /** Null for a student who opted out of public lists — see `publicListingFor()`. */
   schoolName: string | null;
+  city: string | null;
   xp: number;
 }
 
@@ -158,6 +205,8 @@ interface LeaderboardAggregateRow {
   fullName?: string;
   classLevel?: string;
   schoolName?: string;
+  city?: string;
+  hideFromPublicLists?: boolean;
 }
 
 /**
@@ -215,6 +264,8 @@ const ROW_PROJECTION: PipelineStage = {
     fullName: '$account.fullName',
     classLevel: '$account.classLevel',
     schoolName: '$account.schoolName',
+    city: '$account.city',
+    hideFromPublicLists: '$account.hideFromPublicLists',
   },
 };
 
@@ -290,9 +341,8 @@ export async function getLeaderboardPage(
     return {
       rank: currentRank,
       studentId: row.studentId,
-      displayName: displayNameFor(row),
+      ...publicListingFor(row),
       classLevel: row.classLevel ?? null,
-      schoolName: row.schoolName ?? null,
       xp: row.xp,
     };
   });

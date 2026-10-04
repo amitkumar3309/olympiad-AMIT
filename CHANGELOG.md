@@ -2,6 +2,47 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-04 — Milestone 30 Phase 3: the homepage, the floating Daily Quiz button and the Login Gate
+
+The public homepage was rebuilt to the landing mockup, with the owner's R2–R5 at its centre: a
+Rewards section, a floating Daily Quiz button, and sign-in first. Branch `feat/diwali-launch-phase-3`.
+
+### Visitors and students
+
+- **The homepage**, top to bottom: the hero (A.M.I.T. Olympiad 2027, four true chips, Register for
+  free / Go to dashboard); live figures — students, schools, **questions solved**, active today;
+  **"Can you crack this?"** — a sample question with a 30-second clock and instant feedback, then
+  "Play today's Daily Quiz"; **Rewards** — "Solve daily. Win daily.", the Daily Quiz Champion card,
+  real badges, recent winners and how winners are chosen; About; How it works; **the journey** — the
+  nine milestones the dashboard tracks; Top Scholars; FAQ; "Ready to sit the paper?".
+- **The floating Daily Quiz button**: "Today's quiz is live", "Done for today · See result — Answer
+  unlocks in 2h 4m", or when the next quiz opens. It shines on hover, floats, shrinks while a phone
+  scrolls and lifts clear of the footer.
+- **The Login Gate**: a guest who presses it is asked to sign in or create an account first — and
+  lands on the quiz afterwards, even after registering and opening the verification email.
+- Opening any signed-in page while signed out now opens the sign-in dialog and comes back to it.
+- **A new header** (section links that show where you are, an avatar menu) and **footer** (a Legal
+  column; the confirmed phone `+91-97828-70716` and `support@amitolympiad.me`).
+- **Daily Quiz & Rewards Rules** and Privacy, Terms, Refund & Cancellation and Contact pages —
+  drafts for the owner's legal review.
+- "Hide me from public lists" now applies to the leaderboard and the Hall of Fame too, not only the
+  winners list.
+
+### Under the hood
+
+- `GET /public/stats` gains `questionsSolved` and a 10-minute cache; `GET /public/journey` (the nine
+  milestones, words only); `GET /me/daily-quiz/status` (the button's state, three indexed reads).
+- `next` on registration and resend: an exact allow-list (`lib/nextPaths.ts`), dropped otherwise,
+  appended to the verification link, never stored.
+- `publicListingFor()` decides the public-list opt-out for every board; leaderboard rows carry `city`.
+- `lib/siteConfig.ts` holds the homepage's switches; `lib/dailyQuizCopy.ts` the one prize sentence.
+- 25 sample questions in `pages/Landing/sampleQuestions.ts`, each answer recomputed independently by
+  `scripts/verify-sample-questions.ts` (`npm run verify:samples`; mutation-checked). Logic, Reasoning
+  and Brainstorming are Claude's drafts awaiting the owner (`docs/launch/SAMPLE_QUESTIONS.md`).
+- `AMIT_SHORT` is `A.M.I.T.` with its stop (PLAN.md Q10).
+- Tests: backend 1336 / 38 files; E2E `homepage.spec.ts` (button → gate → sign in → quiz; register →
+  verify → quiz; guarded page → sign in → back; no sideways scroll), at desktop and 390px.
+
 ## 2026-10-04 — Milestone 30 Phase 2: the Daily Quiz core
 
 The daily challenge became the **Daily Quiz** — one question a day per class range, with a prize

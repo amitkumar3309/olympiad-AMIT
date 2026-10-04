@@ -1,0 +1,245 @@
+/* The Rewards section (Milestone 30, Phase 3). Mobile first; tokens only. */
+
+/* A full-bleed band: the section reads as its own stop on the page. */
+.band {
+  background: var(--band-accent);
+}
+
+.section {
+  padding-block: var(--space-12);
+}
+
+.cards {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 900px) {
+  .cards {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+}
+
+.card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  min-width: 0;
+}
+
+/* The Daily Quiz Champion — the prize card — sits on the warm tint, art beside the words. */
+.champion {
+  background: var(--surface-cream);
+}
+
+@media (min-width: 560px) {
+  .champion {
+    grid-template-columns: 140px minmax(0, 1fr);
+    align-items: center;
+  }
+}
+
+.championArt {
+  width: 120px;
+}
+
+/* The one card with a sparkle: a slow diagonal light that crosses it every few seconds.
+   Transform only; it is clipped to the card and never covers its words for long. */
+.shine {
+  position: absolute;
+  inset: -20% auto -20% -40%;
+  width: 30%;
+  background: linear-gradient(100deg, transparent, var(--fab-streak), transparent);
+  transform: translateX(0) skewX(-18deg);
+  opacity: 0.6;
+  pointer-events: none;
+  animation: champion-shine var(--dur-idle-slow) var(--ease-out) 1.5s infinite;
+}
+
+@keyframes champion-shine {
+  0% {
+    transform: translateX(0) skewX(-18deg);
+  }
+  25%,
+  100% {
+    transform: translateX(560%) skewX(-18deg);
+  }
+}
+
+.cardBody {
+  position: relative;
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  min-width: 0;
+}
+
+.cardEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.cardEyebrow svg {
+  width: 16px;
+  height: 16px;
+  color: var(--medal-gold);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.cardText {
+  margin: 0;
+  color: var(--text-body);
+  font-size: var(--type-small);
+  line-height: var(--leading-normal);
+}
+
+.inlineIcon {
+  /* `base.css` makes every svg a block; this one sits inside a sentence. */
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+  color: var(--success-text);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-1) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badges li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--cat-purple);
+  color: var(--cat-purple-on);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-semibold);
+}
+
+.badges svg {
+  width: 14px;
+  height: 14px;
+  color: var(--cat-purple-glyph);
+}
+
+/* ---------- recent winners --------------------------------------------- */
+
+.winners {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-8);
+  min-width: 0;
+}
+
+.winnersTitle,
+.howTitle {
+  margin: 0;
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+}
+
+.firstWinner {
+  margin: 0;
+  padding: var(--space-4);
+  border: var(--border-width) dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-body);
+  font-weight: var(--weight-medium);
+}
+
+/* A contained scroller: the page never drags sideways. */
+.winnerRow {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, 1fr);
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-1);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  list-style: none;
+  border-radius: var(--radius-md);
+  scrollbar-width: thin;
+}
+
+.winner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+.winnerText {
+  display: grid;
+  min-width: 0;
+}
+
+.winnerName {
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.winnerMeta,
+.winnerDay {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--type-micro);
+}
+
+/* ---------- how winners are chosen ------------------------------------- */
+
+.how {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+  margin-top: var(--space-8);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: var(--border-width) solid var(--card-border);
+}
+
+.howText {
+  margin: 0;
+  color: var(--text-body);
+  line-height: var(--leading-normal);
+}
+
+.rulesLink {
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+}

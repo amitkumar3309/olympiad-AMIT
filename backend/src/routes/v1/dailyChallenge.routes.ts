@@ -17,6 +17,7 @@ import {
   listQuizHistory,
   publicQuizInfo,
   publicRecentWinners,
+  quizStatusFor,
   quizSummary,
   resolveQuizFor,
   startQuiz,
@@ -101,6 +102,23 @@ router.get('/me/daily-quiz', requireAuth(), noStore, ensureDb, async (req: Reque
     sendSuccess(res, 200, payload);
   } catch (err) {
     logger.error({ err }, 'Failed to load the Daily Quiz');
+    sendError(res, 500, 'Could not load today’s quiz. Please try again.');
+  }
+});
+
+/**
+ * The floating button's state (Milestone 30, Phase 3): live, in progress, done, nothing
+ * scheduled, or no class on the profile — and the instants a countdown needs. Cheap on
+ * purpose: the homepage asks on every visit. Rewards are not settled here; the quiz page
+ * and the history do that.
+ */
+router.get('/me/daily-quiz/status', requireAuth(), noStore, ensureDb, async (req: Request, res: Response) => {
+  try {
+    const student = await loadSelf(req, res);
+    if (!student) return;
+    sendSuccess(res, 200, await quizStatusFor(student, now()));
+  } catch (err) {
+    logger.error({ err }, 'Failed to load the Daily Quiz status');
     sendError(res, 500, 'Could not load today’s quiz. Please try again.');
   }
 });

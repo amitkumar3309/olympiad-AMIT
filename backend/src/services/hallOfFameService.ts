@@ -1,7 +1,7 @@
 import type { PipelineStage, Types } from 'mongoose';
 import { todayKey, type DayKey } from '../lib/competitionDay';
 import { DailyChallengeAttempt, MockTestAttempt, PracticeSession, StudentActivity } from '../models';
-import { displayNameFor, getLeaderboardPage } from './leaderboardService';
+import { getLeaderboardPage, publicListingFor } from './leaderboardService';
 import { summariseStreak } from './progressService';
 
 /**
@@ -35,7 +35,8 @@ import { summariseStreak } from './progressService';
  *
  * ## Names, and who appears
  *
- * Boards are public, so names come from `displayNameFor()` — the one function that
+ * Boards are public, so names come from `publicListingFor()` (which applies a student's
+ * opt-out from public lists, then `displayNameFor()`) — the one place that
  * decides how much of a child's name this product publishes — and only accounts in good
  * standing appear, filtered *before* the limit so a suspended account cannot consume a
  * place and silently shorten a board.
@@ -110,6 +111,15 @@ interface AccountFields {
   fullName?: string;
   classLevel?: string;
   schoolName?: string;
+  city?: string;
+  /** The profile's public-list opt-out — honoured by `publicListingFor()`. */
+  hideFromPublicLists?: boolean;
+}
+
+/** The name and school a board may print for one account, opt-out applied. */
+function listed(account: AccountFields): { displayName: string; schoolName: string | null } {
+  const { displayName, schoolName } = publicListingFor(account);
+  return { displayName, schoolName };
 }
 
 /**
@@ -250,9 +260,8 @@ async function mockMasters(limit: number): Promise<HallOfFameBoard> {
       const percent = Math.round(row.best.percent * 10) / 10;
       return {
         studentId: account.studentId,
-        displayName: displayNameFor(account),
+        ...listed(account),
         classLevel: account.classLevel ?? null,
-        schoolName: account.schoolName ?? null,
         value: percent,
         valueLabel: `${percent}% · ${row.best.score}/${row.best.maxMarks}`,
         achievedOn: row.best.submittedAt ?? null,
@@ -309,9 +318,8 @@ async function streakLegends(limit: number, today: DayKey): Promise<HallOfFameBo
       const streak = summariseStreak(row.days, today);
       return {
         studentId: account.studentId,
-        displayName: displayNameFor(account),
+        ...listed(account),
         classLevel: account.classLevel ?? null,
-        schoolName: account.schoolName ?? null,
         value: streak.longest,
         valueLabel: `${streak.longest} day${streak.longest === 1 ? '' : 's'}`,
         achievedOn: null,
@@ -379,9 +387,8 @@ async function challengeChampions(limit: number): Promise<HallOfFameBoard> {
         const account = accountOf(row);
         return {
           studentId: account.studentId,
-          displayName: displayNameFor(account),
+          ...listed(account),
           classLevel: account.classLevel ?? null,
-          schoolName: account.schoolName ?? null,
           value: row.value,
           valueLabel: `${row.value} correct`,
           achievedOn: row.lastAt ?? null,
@@ -422,9 +429,8 @@ async function practiceDevotees(limit: number): Promise<HallOfFameBoard> {
         const account = accountOf(row);
         return {
           studentId: account.studentId,
-          displayName: displayNameFor(account),
+          ...listed(account),
           classLevel: account.classLevel ?? null,
-          schoolName: account.schoolName ?? null,
           value: row.value,
           valueLabel: `${row.value} session${row.value === 1 ? '' : 's'}`,
           achievedOn: row.lastAt ?? null,

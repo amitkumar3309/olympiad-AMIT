@@ -5,6 +5,7 @@ import { humanizeError } from '../../lib/errors'
 import { PASSWORD_RULES, passwordProblem } from '../../lib/passwordPolicy'
 import { formatCooldown, useResendCooldown } from '../../lib/resendCooldown'
 import { SUPPORT } from '../../lib/brand'
+import type { NextPath } from '../../lib/nextPath'
 import { CLASS_LEVELS, type ClassLevel, type ReferralCheck } from '../../api/types'
 import styles from './RegisterForm.module.css'
 
@@ -142,9 +143,11 @@ export interface RegisterFormProps {
   referral: ReferralCheck | null
   /** Opens the sign-in dialog — offered once the account exists. */
   onRequestLogin: () => void
+  /** Where they were going (Milestone 30) — carried into the verification link. Already allow-listed. */
+  next?: NextPath | null
 }
 
-export default function RegisterForm({ referral, onRequestLogin }: RegisterFormProps) {
+export default function RegisterForm({ referral, onRequestLogin, next = null }: RegisterFormProps) {
   const { register, resendVerification } = useAuth()
 
   const [step, setStep] = useState<WizardStep>('details')
@@ -293,6 +296,8 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
          * banner above the form has already told the student when one is being dropped.
          */
         ...(referral?.valid ? { referralCode: referral.code } : {}),
+        // The Login Gate's destination, so the verification link brings them back to it.
+        ...(next ? { next } : {}),
       })
       setRegisteredId(result.student.studentId)
       cooldown.start(result.nextResendAt, form.email.trim())
@@ -309,7 +314,7 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
     setResendResult(null)
     setResending(true)
     try {
-      const result = await resendVerification(form.email.trim())
+      const result = await resendVerification(form.email.trim(), next)
       setResendResult({ ok: true, message: result.message })
       cooldown.start(result.nextResendAt, form.email.trim())
     } catch (err) {

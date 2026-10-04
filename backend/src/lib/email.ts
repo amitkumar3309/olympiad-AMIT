@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
 import { logger } from './logger';
+import type { NextPath } from './nextPaths';
 
 export interface OutboundEmail {
   to: string;
@@ -359,8 +360,12 @@ function textFooter(): string {
  * the preheader carries the instruction so it is legible from the inbox list without
  * opening anything.
  */
-export function buildVerificationEmail(to: string, token: string): OutboundEmail {
-  const url = `${config.publicAppUrl}/verify-email?token=${encodeURIComponent(token)}`;
+export function buildVerificationEmail(to: string, token: string, next?: NextPath): OutboundEmail {
+  // `next` is one of the exact in-app paths in `lib/nextPaths.ts` — the type admits
+  // nothing else — so the link can only ever lead back into this site.
+  const url =
+    `${config.publicAppUrl}/verify-email?token=${encodeURIComponent(token)}` +
+    (next ? `&next=${encodeURIComponent(next)}` : '');
   const hours = config.auth.emailVerifyTtlHours;
 
   return {

@@ -1,0 +1,264 @@
+/* "Can you crack this?" (Milestone 30, Phase 3). Mobile first; tokens only. */
+
+.section {
+  padding-block: var(--space-6);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .card {
+    padding: var(--space-6) var(--space-8);
+  }
+}
+
+/* ---------- header ------------------------------------------------------ */
+
+.header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+.headerIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: var(--cat-gold);
+  color: var(--cat-gold-glyph);
+}
+
+.headerIcon svg {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-section-title);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+  text-transform: uppercase;
+}
+
+.lead {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-small);
+}
+
+/* The clock chip — on its own row on a phone, at the end of the header from 640px. */
+.timer {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  border: var(--border-width) solid var(--accent-border);
+  color: var(--text);
+  font-size: var(--type-stat);
+  font-weight: var(--weight-bold);
+}
+
+.timer svg {
+  width: 20px;
+  height: 20px;
+}
+
+@media (min-width: 640px) {
+  .header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .timer {
+    grid-column: auto;
+    justify-self: end;
+  }
+}
+
+/* ---------- tabs + body ------------------------------------------------- */
+
+.withTabs {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.tabs {
+  min-width: 0;
+}
+
+.panel {
+  min-width: 0;
+}
+
+/* From a laptop the tabs stand in a column to the left, as in the mockup. */
+@media (min-width: 1024px) {
+  .withTabs {
+    grid-template-columns: 200px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .tabs {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .tabs > * {
+    justify-content: flex-start;
+  }
+}
+
+.play {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .play {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
+    align-items: start;
+  }
+}
+
+.questionCol {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.question {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.options {
+  min-width: 0;
+}
+
+/* ---------- feedback ---------------------------------------------------- */
+
+.feedback:empty {
+  display: none;
+}
+
+.result {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--border);
+  background: var(--surface-sunken);
+}
+
+.correct {
+  border-color: var(--success-border);
+  background: var(--success-soft);
+}
+
+.incorrect,
+.timeout {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+}
+
+.verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.verdict svg {
+  width: 18px;
+  height: 18px;
+  color: var(--success-text);
+}
+
+.explanation {
+  color: var(--text-body);
+  font-size: var(--type-small);
+  line-height: var(--leading-normal);
+}
+
+/* ---------- side -------------------------------------------------------- */
+
+.side {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
+}
+
+/* The two long labels ("Play today's Daily Quiz and win prizes") wrap inside the column
+   rather than pushing it — and the page — wider than the screen. */
+.wrapLabel {
+  white-space: normal;
+  line-height: var(--leading-snug);
+  padding-block: var(--space-2);
+  text-align: center;
+}
+
+.bulb {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .bulb {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-2);
+  }
+}
+
+/* The second handwritten accent on the page (Caveat — see `tokens.css`). */
+.hand {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: var(--text-xl);
+  line-height: 1.05;
+  color: var(--primary-text);
+}
+
+.after {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro);
+  text-align: center;
+}

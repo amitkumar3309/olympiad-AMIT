@@ -1,12 +1,13 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
-import type mongoose from 'mongoose';
+import mongoose from 'mongoose';
 import app from '../src/app';
-import { Student, StudentActivity } from '../src/models';
+import { DailyChallengeAttempt, MockTestAttempt, PracticeSession, Student, StudentActivity } from '../src/models';
 import { dayKeyOf, daysBetween, isDayKey, shiftDay, todayKey } from '../src/lib/competitionDay';
 import { levelProgressFor, XP_AWARDS } from '../src/lib/xp';
 import { summariseAchievements } from '../src/lib/achievements';
-import { summariseStreak } from '../src/services/progressService';
+import { getCachedPublicStats, resetPublicStatsCache, summariseStreak } from '../src/services/progressService';
+import { JOURNEY_STAGES } from '../src/lib/journey';
 import { displayNameFor } from '../src/services/leaderboardService';
 import { recordActivity } from '../src/services/activityService';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
@@ -31,6 +32,8 @@ afterAll(stopTestDb);
 afterEach(async () => {
   await clearTestDb();
   clearTestInbox();
+  // The public figures are cached per process for ten minutes; each test starts cold.
+  resetPublicStatsCache();
 });
 
 /**
@@ -521,7 +524,88 @@ describe('GET /public/stats', () => {
       registeredToday: 0,
       schoolsRepresented: 0,
       studentsActiveToday: 0,
+      questionsSolved: 0,
     });
+  });
+
+  it('counts questions answered correctly — submitted papers and revealed Daily Quizzes only', async () => {
+    const { studentId } = await registerVerifyLogin(app);
+    const student = (await Student.findOne({ studentId }))!._id as mongoose.Types.ObjectId;
+    const today = todayKey();
+
+    const practice = { student, filters: { classLevel: 'Class 9' as const }, totalQuestions: 5, maxMarks: 20 };
+    await PracticeSession.create({ ...practice, status: 'submitted', submittedAt: new Date(), correctCount: 3 });
+    // Abandoned half-way: none of its answers were ever submitted, so none count.
+    await PracticeSession.create({ ...practice, status: 'in_progress', correctCount: 5 });
+
+    await MockTestAttempt.create({
+      test: new mongoose.Types.ObjectId(),
+      student,
+      attemptNumber: 1,
+      status: 'submitted',
+      totalQuestions: 10,
+      maxMarks: 40,
+      durationMinutes: 30,
+      score: 16,
+      correctCount: 4,
+      startedAt: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 60_000),
+      submittedAt: new Date(),
+    });
+
+    const quizAnswer = (day: string, isCorrect: boolean) =>
+      DailyChallengeAttempt.create({
+        challenge: new mongoose.Types.ObjectId(),
+        student,
+        day,
+        answer: {
+          question: new mongoose.Types.ObjectId(),
+          revision: 1,
+          type: 'single_choice',
+          marks: 1,
+          negativeMarks: 0,
+          correctOptionKeys: ['a'],
+          selectedOptionKeys: [isCorrect ? 'a' : 'b'],
+          isCorrect,
+          awardedMarks: isCorrect ? 1 : 0,
+        },
+        xpAwarded: 0,
+        submittedAt: new Date(),
+      });
+    await quizAnswer(shiftDay(today, 1), true); // yesterday's, revealed: counts
+    await quizAnswer(shiftDay(today, 2), false); // revealed but wrong: does not
+    await quizAnswer(today, true); // today's is not revealed yet: does not
+
+    const res = await request(app).get(`${API}/public/stats`).expect(200);
+    expect(res.body.stats.questionsSolved).toBe(3 + 4 + 1);
+  });
+
+  it('serves one computation for ten minutes, and says so to shared caches', async () => {
+    await registerVerifyLogin(app);
+    const first = await request(app).get(`${API}/public/stats`).expect(200);
+    expect(first.body.stats.studentsRegistered).toBe(1);
+    expect(first.headers['cache-control']).toContain('s-maxage=600');
+
+    await registerVerifyLogin(app, otherStudent);
+    const cached = await request(app).get(`${API}/public/stats`).expect(200);
+    expect(cached.body.stats.studentsRegistered).toBe(1);
+
+    // Past the ten minutes, the figures are recomputed.
+    const later = await getCachedPublicStats(Date.now() + 11 * 60_000);
+    expect(later.studentsRegistered).toBe(2);
+  });
+});
+
+describe('GET /public/journey', () => {
+  it('lists the nine milestones from the one definition, words only', async () => {
+    const res = await request(app).get(`${API}/public/journey`).expect(200);
+
+    expect(res.body.stages).toHaveLength(JOURNEY_STAGES.length);
+    expect(res.body.stages.map((s: { id: string }) => s.id)).toEqual(JOURNEY_STAGES.map((s) => s.id));
+    for (const stage of res.body.stages) {
+      expect(Object.keys(stage).sort()).toEqual(['description', 'id', 'title']);
+    }
+    expect(res.headers['cache-control']).toContain('public');
   });
 });
 

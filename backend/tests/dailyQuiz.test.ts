@@ -114,12 +114,14 @@ describe('authentication', () => {
     expect((await request(app).post(`${API}/me/daily-quiz/start`)).status).toBe(401);
     expect((await request(app).post(`${API}/me/daily-quiz/submit`).send({ selectedOptionId: 'o0123456789' })).status).toBe(401);
     expect((await request(app).get(`${API}/me/daily-quiz/history`)).status).toBe(401);
+    expect((await request(app).get(`${API}/me/daily-quiz/status`)).status).toBe(401);
   });
 
   it('has no end-to-end hooks unless they are switched on — they reset databases', async () => {
     expect((await request(app).post('/__e2e/reset')).status).toBe(404);
     expect((await request(app).post('/__e2e/clock').send({ advanceDays: 1 })).status).toBe(404);
     expect((await request(app).post('/__e2e/seed').send({})).status).toBe(404);
+    expect((await request(app).get('/__e2e/last-link?to=someone@example.com')).status).toBe(404);
   });
 
   it('serves the public prize information without one, generated from the settings', async () => {
@@ -127,6 +129,54 @@ describe('authentication', () => {
     expect(res.body.info.cashAmount).toBeNull();
     expect(res.body.info.xpForCorrect).toBe(XP_AWARDS.daily_challenge_completed);
     expect(res.body.info.howWinnersAreChosen).toMatch(/fastest solve time/i);
+  });
+});
+
+// ===========================================================================
+// The floating button's status (Phase 3)
+// ===========================================================================
+
+describe('GET /me/daily-quiz/status', () => {
+  const status = (cookies: Record<string, string>) =>
+    request(app).get(`${API}/me/daily-quiz/status`).set('Cookie', cookieHeader(cookies));
+
+  it('walks live → in progress → done, and never carries the question', async () => {
+    await seedTodaysQuiz();
+    const { cookies } = await registerVerifyLogin(app);
+
+    const live = await status(cookies).expect(200);
+    expect(live.body).toMatchObject({ state: 'live', closesAt: quizWindow(today()).closesAt.toISOString() });
+    expect(live.headers['cache-control']).toContain('no-store');
+
+    await start(cookies).expect(201);
+    expect((await status(cookies).expect(200)).body.state).toBe('in-progress');
+
+    const { wrong } = await optionIds();
+    await submit(cookies, wrong).expect(200);
+    const done = await status(cookies).expect(200);
+    expect(done.body).toMatchObject({ state: 'done', revealAt: quizWindow(today()).revealAt.toISOString() });
+
+    // Nothing about the question, the options or the result — that is the quiz page's.
+    const body = JSON.stringify(done.body);
+    expect(body).not.toContain('options');
+    expect(body).not.toContain('isCorrect');
+    expect(Object.keys(done.body).sort()).toEqual(['closesAt', 'nextQuizAt', 'revealAt', 'serverNow', 'state', 'success']);
+  });
+
+  it('says when the next quiz opens when there is none today', async () => {
+    const { adminCookies, taxonomy } = await seedAdmin();
+    const questionId = await draftQuestion(adminCookies, taxonomy);
+    const tomorrow = shiftDay(today(), -1);
+    await schedule(adminCookies, { day: tomorrow, classMin: 9, classMax: 12, questionId }).expect(201);
+    const { cookies } = await registerVerifyLogin(app);
+
+    const res = await status(cookies).expect(200);
+    expect(res.body).toMatchObject({ state: 'none', nextQuizAt: quizWindow(tomorrow).opensAt.toISOString() });
+  });
+
+  it('answers none with no next date on an empty calendar', async () => {
+    const { cookies } = await registerVerifyLogin(app);
+    expect((await status(cookies).expect(200)).body).toMatchObject({ state: 'none', nextQuizAt: null });
   });
 });
 

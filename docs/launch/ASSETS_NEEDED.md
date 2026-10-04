@@ -30,20 +30,24 @@ _Milestone 30, Phase 1. Owner action: commission, license or draw these, then dr
 | `maths-doodles` | Homepage hero background, behind the headline | 480 × 360 | Faint line doodles — a protractor, a cube, a graph, π, √ — in brand blue at low contrast. SVG ideal. |
 | `light-bulb` | "Can you crack this?" card and the dashboard's Daily Quiz card, beside "Think · Analyse · Solve · Grow" | 160 × 140 | A line-drawn light bulb with a few rays. SVG ideal. |
 | `paper-plane` | "How it works" — the plane at the end of the dashed path | 120 × 80 | A line-drawn paper plane. SVG ideal. |
-| `journey-number-forest` | Six-Month Journey, stage 1 | 120 × 104 | Trees — "Number Forest". |
-| `journey-logic-valley` | Six-Month Journey, stage 2 | 120 × 104 | A stylised brain or valley — "Logic Valley". |
-| `journey-algebra-castle` | Six-Month Journey, stage 3 | 120 × 104 | A small castle — "Algebra Castle". |
-| `journey-geometry-temple` | Six-Month Journey, stage 4 | 120 × 104 | A triangular temple — "Geometry Temple". |
-| `journey-speed-arena` | Six-Month Journey, stage 5 | 120 × 104 | A lightning-themed arena — "Speed Arena". |
-| `journey-olympiad-kingdom` | Six-Month Journey, stage 6 | 120 × 104 | A golden palace — "Olympiad Kingdom". |
+| `journey-enrolled` | Journey (homepage + dashboard), step 1 "Enrolled" | 120 × 104 | A student signing up — a badge or a name card. |
+| `journey-verified` | Journey, step 2 "Email verified" | 120 × 104 | An envelope with a tick. |
+| `journey-first-practice` | Journey, step 3 "First practice" | 120 × 104 | A target with an arrow in it. |
+| `journey-first-quiz` | Journey, step 4 "First Daily Quiz" | 120 × 104 | A lightning bolt over a question card. |
+| `journey-habit` | Journey, step 5 "Three days running" | 120 × 104 | A small flame — a streak. |
+| `journey-first-mock` | Journey, step 6 "First mock test" | 120 × 104 | A test paper on a clipboard. |
+| `journey-level-3` | Journey, step 7 "Level 3" | 120 × 104 | Steps or a rising arrow. |
+| `journey-seasoned` | Journey, step 8 "Ten practice sessions" | 120 × 104 | A short stack of books. **No titles on the spines.** |
+| `journey-olympiad-ready` | Journey, step 9 "Olympiad ready" | 120 × 104 | A medal or a podium. |
 | `trophy` | Sunday Math Boss Battle card (only if the Boss Battle is approved — PLAN.md Q6) | 220 × 220 | A gold trophy with a little sparkle. |
 | `gift-box` | Month-End Booster card and the Rewards section's Daily Quiz Champion card | 200 × 200 | A wrapped gift box with confetti. |
 | `book-stack` | Dashboard welcome banner, right side | 360 × 220 | A desk with a stack of books and a pencil cup. **No titles on the spines.** |
 | `plant` | Dashboard "Today's maths thought" card | 120 × 140 | A small potted sprout. |
 | `mountain-climber` | Homepage final call to action, and the dashboard's motivational card | 360 × 260 | A student with a backpack planting a flag on a summit. |
 
-The journey stages are needed only if the owner supplies the programme content (PLAN.md Q7); until then
-that section stays hidden and these six files are not urgent.
+The owner chose (2026-10-04, PLAN.md Q7) to show the platform's own **nine journey milestones** rather
+than the mockup's six themed months, so the journey files are named after those milestones. They are
+shown on the homepage now, with placeholders until the art arrives.
 
 ## What the page shows until a file exists
 

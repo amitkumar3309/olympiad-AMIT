@@ -1,7 +1,8 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-04 (**Milestone 30 — the Diwali launch: Phase 2, the Daily Quiz core, complete
-on branch `feat/diwali-launch-phase-2` (PR #2); waiting for the owner's "continue" before Phase 3**). Milestone 29
+_Last updated: 2026-10-04 (**Milestone 30 — the Diwali launch: Phase 3, the homepage, the floating Daily
+Quiz button, the Login Gate, the Rewards section and the rules and legal pages, complete on branch
+`feat/diwali-launch-phase-3`; waiting for the owner's "continue" before Phase 4**). Milestone 29
 (a full test pass, a scale audit, and the five infrastructure fixes it found) closed immediately
 before it._
 
@@ -41,13 +42,32 @@ The work happens in phases, and each one stops for the owner's approval.
   quiz history. Admin side: `/admin/daily-quiz` (calendar, scheduling, import, prize desk, settings)
   and each quiz's page. Tests: backend **1324 / 38 files**; a new **Playwright** suite (`npm run e2e`
   in `frontend/`) runs the brief's flow at desktop and 390px against an in-memory backend, moving the
-  server clock a day to watch the solution unlock — 4/4. Not yet built: the homepage, the floating
-  button's wiring, the Rewards section and the rules page (Phase 3).
-- **Owner facts still needed** (PLAN.md §5): Q3 the prize budget (three groups a day ≈ 90 prizes a
-  month), Q7 the journey content, Q8 the Logic/Reasoning/Brainstorming sample questions, Q9 which
-  phone number and email are right. **Before launch the owner must load at least the first two weeks
-  of quiz questions** (Admin → Daily Quiz → Import a file; the template is there).
-- **Phase 3 (homepage, floating button, Rewards section, rules page) is next.**
+  server clock a day to watch the solution unlock — 4/4.
+- **Phase 3 (the homepage and the way into the quiz) — done.** The homepage is rebuilt to the landing
+  mockup, its sections listed in `lib/siteConfig.ts` (`HOME_SECTIONS`) and each showing only what it
+  can back: the hero, real figures (`GET /public/stats`, now with **questions solved** and a 10-minute
+  cache), "Can you crack this?" (25 sample questions, every answer recomputed by
+  `npm run verify:samples`; only the owner-reviewed Mathematics tab is live), the **Rewards** section
+  (the owner's prize wording, recent published winners, the server's own "how winners are chosen"),
+  About, How it works, the journey (**the nine real milestones**, `GET /public/journey`), Top Scholars
+  (a podium only when the top three ranks are really 1-2-3), FAQ, the closing call to action. The
+  **floating Daily Quiz button** takes its state from `GET /me/daily-quiz/status`; a guest meets the
+  **Login Gate**, and `?next=` (an exact allow-list, mirrored front and back) carries the destination
+  through sign-in, registration **and the verification email**. A guest opening any signed-in page
+  now lands on the sign-in dialog and returns there (D2). New header (section links with a
+  you-are-here, an avatar menu) and footer (a Legal column). `/rewards/rules` plus Privacy, Terms,
+  Refund and Contact pages — **drafts marked `TODO(legal-review)`**, questions in
+  `docs/launch/LEGAL_REVIEW.md`. Every public list now honours "hide me from public lists"
+  (`publicListingFor()`). Contact details are the owner's (`+91-97828-70716`,
+  `support@amitolympiad.me`); the name is `A.M.I.T.` with its stop. Tests: backend **1336 / 38
+  files**; E2E adds the homepage → button → gate → quiz, register → verify → quiz and the guarded-page
+  redirect.
+- **Owner actions** (PLAN.md §5; all four Phase 0 questions answered 2026-10-04): review the legal
+  drafts (`LEGAL_REVIEW.md`, including the refund policy, which was not guessed); review the drafted
+  Logic/Reasoning/Brainstorming questions (`docs/launch/SAMPLE_QUESTIONS.md`); **load at least the
+  first two weeks of quiz questions before launch** (Admin → Daily Quiz → Import a file); update
+  `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` in Vercel if they are set there.
+- **Phase 4 (the student dashboard) is next.**
 
 ## Milestone 29 at a glance
 

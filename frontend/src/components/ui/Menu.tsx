@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import Icon from './Icon'
@@ -85,6 +85,12 @@ export interface MenuProps {
   /** A visible label on the trigger. Without it the trigger is icon-only. */
   triggerLabel?: string
   triggerIcon?: string
+  /**
+   * Replaces the trigger's icon and label entirely — an account menu's avatar and first
+   * name (Milestone 30). The button keeps `label` as its accessible name, so include the
+   * visible text in it ("Account menu for Asha") — WCAG's label-in-name rule.
+   */
+  trigger?: ReactNode
   /** Which edge of the trigger the panel lines up with. */
   align?: 'start' | 'end'
   className?: string
@@ -113,6 +119,7 @@ export default function Menu({
   items,
   triggerLabel,
   triggerIcon = 'ph-dots-three-vertical',
+  trigger,
   align = 'end',
   className,
 }: MenuProps) {
@@ -247,7 +254,7 @@ export default function Menu({
 
   const triggerClasses = [
     styles.trigger,
-    triggerLabel ? styles.triggerLabelled : styles.triggerIconOnly,
+    trigger ? styles.triggerCustom : triggerLabel ? styles.triggerLabelled : styles.triggerIconOnly,
     className,
   ]
     .filter(Boolean)
@@ -263,11 +270,15 @@ export default function Menu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        aria-label={triggerLabel ? undefined : label}
-        title={triggerLabel ? undefined : label}
+        aria-label={trigger || !triggerLabel ? label : undefined}
+        title={trigger || triggerLabel ? undefined : label}
       >
-        <Icon name={triggerIcon} weight="bold" size="sm" />
-        {triggerLabel}
+        {trigger ?? (
+          <>
+            <Icon name={triggerIcon} weight="bold" size="sm" />
+            {triggerLabel}
+          </>
+        )}
       </button>
 
       {open &&

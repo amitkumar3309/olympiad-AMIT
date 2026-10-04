@@ -1,0 +1,138 @@
+/* "How it works" (Milestone 30, Phase 3). Mobile first; tokens only. */
+
+.section {
+  position: relative;
+  padding-block: var(--space-12);
+}
+
+/* The dashed flight path and its plane, top right of the section on a laptop. */
+.flight {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .flight {
+    position: absolute;
+    top: var(--space-8);
+    right: 0;
+    display: block;
+    width: 380px;
+    height: 80px;
+    pointer-events: none;
+  }
+}
+
+.path {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Drawn with a dash pattern rather than a stroke-dasharray trick, so the dashes survive:
+   a mask of solid stroke over the dashed line is what animates. */
+.path path {
+  fill: none;
+  stroke: var(--primary-border);
+  stroke-width: 2;
+  stroke-dasharray: 0.012 0.012;
+  stroke-linecap: round;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 1200ms var(--ease-out);
+}
+
+.flight[data-drawn='true'] .path path {
+  clip-path: inset(0 0 0 0);
+}
+
+.plane {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  width: 34px;
+  height: 34px;
+  color: var(--primary-text);
+  transform: rotate(8deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .path path {
+    clip-path: none;
+    transition: none;
+  }
+}
+
+/* ---------- the four steps --------------------------------------------- */
+
+.steps {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 640px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Each step is a link — a card that is genuinely a link may lift on hover (CLAUDE.md). */
+.step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  height: 100%;
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  color: inherit;
+  text-decoration: none;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+
+.step:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+}
+
+.step:active {
+  transform: scale(var(--press-scale));
+}
+
+.stepIcon {
+  width: 22px;
+  height: 22px;
+}
+
+.number {
+  justify-self: start;
+  font-size: var(--type-stat);
+  font-weight: var(--weight-black);
+  color: var(--text);
+}
+
+.title {
+  grid-column: 1 / -1;
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.body {
+  grid-column: 1 / -1;
+  color: var(--text-body);
+  font-size: var(--type-small);
+  line-height: var(--leading-normal);
+}

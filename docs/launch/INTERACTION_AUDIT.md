@@ -22,9 +22,9 @@ Paths are relative to `frontend/src/`. Routes are declared only in `App.tsx`; gu
 | # | Where | Problem | Severity | Fix in phase |
 |---|---|---|---|---|
 | D1 | `pages/DailyChallenge/DailyChallenge.tsx:91-117,301` + `backend/src/routes/v1/dailyChallenge.routes.ts:246-250` | A `fill_blank` daily challenge can never be answered: the page has no text input, and the route drops `textResponse` even though the schema accepts it. The automatic picker does not exclude the type. | **High** — a whole day's quiz can be unanswerable | ✅ **Resolved in Phase 2** — the page and the automatic picker are gone; a Daily Quiz is single choice by construction (`quizQuestionProblem()`) |
-| D2 | `pages/Leaderboard/Leaderboard.tsx:303`, `pages/NotFound/NotFound.tsx:37` | "Sign in" / "My dashboard" link to `/dashboard`; a guest is bounced by `ProtectedRoute` to `/` **without** the sign-in dialog opening | Medium | 5 (and `ProtectedRoute` should send guests to `/#login?next=` — Phase 3 Login Gate work) |
+| D2 | `pages/Leaderboard/Leaderboard.tsx:303`, `pages/NotFound/NotFound.tsx:37` | "Sign in" / "My dashboard" link to `/dashboard`; a guest is bounced by `ProtectedRoute` to `/` **without** the sign-in dialog opening | Medium | ✅ **Resolved in Phase 3** — `ProtectedRoute` and `RequirePaidEntry` send a guest to `/?next=<page>#login`: the sign-in dialog opens and signing in returns to the page (E2E `homepage.spec.ts`). The two `/dashboard` links now reach the dialog that way |
 | D3 | `pages/Profile/Profile.tsx:575` | Password hint says "8 characters, a letter and a number"; the real policy also needs upper, lower and a special character, and the form does not check before sending | Medium | 5 |
-| D4 | `pages/Landing/Landing.tsx:418` | Four feature cards are `interactive` (hover lift) but do nothing — `Card` documents `interactive` as "only for a card that is genuinely a link" | Low | 3 (landing rebuild) |
+| D4 | `pages/Landing/Landing.tsx:418` | Four feature cards are `interactive` (hover lift) but do nothing — `Card` documents `interactive` as "only for a card that is genuinely a link" | Low | ✅ **Resolved in Phase 3** — every About card is a real link (Practice, Mock tests, Insights) or runs the Daily Quiz flow |
 | D5 | `pages/Rewards/Rewards.tsx:212-217` | `<Link><Button>` — a button nested in a link (invalid interactive nesting) | Low | 5 |
 | D6 | `components/Footer.tsx:53` vs `navigation.ts:104` | Two certificate pages, `/certificate` (footer) and `/my-certificates` (sidebar), both read `/me/certificates` | Low | 5 — pick one, redirect the other |
 | D7 | `components/layout/navigation.ts:141` | Admin "Dashboard" item has no permission while its route needs `students:read` (only staff ever see the admin shell, so not reachable as a dead end today) | Low | 5 |
@@ -95,37 +95,43 @@ Phase 2), `/rewards/rules`, `/privacy`, `/terms`, `/refund-policy`, `/contact`, 
 
 | Component | Label | Element | Destination / action | Status | Final |
 |---|---|---|---|---|---|
-| Navbar.tsx:95 | Leaderboard · Hall of Fame · Gallery · Verify a certificate | Link | `/leaderboard` `/hall-of-fame` `/gallery` `/verify` | ✅ | — |
-| Navbar.tsx:116 | Admin (if `students:read`) | ButtonLink | `/admin` | ✅ | — |
-| Navbar.tsx:121 | Dashboard (student) | ButtonLink | `/dashboard` | ✅ | — |
-| Navbar.tsx:125 | Sign out | Button | `logout()` → `/` | ✅ | — |
-| Navbar.tsx:131 | Sign in (guest) | ButtonLink | `/#login` (opens dialog) | ✅ | — |
-| Navbar.tsx:134 | Register (guest) | ButtonLink | `/register` | ✅ | — |
-| Navbar.tsx:166 | Logo | Link | `/` | ✅ | — |
-| Navbar.tsx:181/186 | Theme toggle | button | toggle theme | ✅ | — |
-| Navbar.tsx:187/214 | Open/Close menu, backdrop | button / div | mobile panel | ✅ | — |
-| Footer.tsx:45-47 | Leaderboard · Hall of Fame · Event gallery | Link | routes | ✅ | — |
-| Footer.tsx:52-54 | Check a result · Certificate · Verify a certificate | Link | `/result` `/certificate` `/verify` | ⚠️ D6 | — |
-| Footer.tsx:59-60 | Sign in · Register | Link | `/#login`, `/register` | ✅ | — |
-| Footer.tsx:80 | +91-97828-70716 | `tel:` | `tel:+919782870716` | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
-| Footer.tsx:84 | support@amitolympiad.me | `mailto:` | same | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
+| Navbar | Home · About · How it works · FAQ | Link | `/`, `/#about`, `/#how-it-works`, `/#faq` — scrolls on the homepage, highlights the section in view | ✅ Phase 3 | — |
+| Navbar | Leaderboards · Gallery | Link | `/leaderboard`, `/gallery` | ✅ | — |
+| Navbar | Logo | Link | `/` (scrolls to top on the homepage) | ✅ | — |
+| Navbar | Sign in · Register (guest) | ButtonLink | `/#login` (opens dialog) · `/register` | ✅ | — |
+| Navbar | Account menu (student): Dashboard · My Profile · Sign out | Menu | `/dashboard` · `/profile` · `logout()` | ✅ Phase 3 | — |
+| Navbar | Admin (if `students:read`) | ButtonLink | `/admin` | ✅ | — |
+| Navbar | Theme toggle · Open/Close menu · backdrop | button / div | theme · mobile panel | ✅ | — |
+| Footer | Leaderboard · Hall of Fame · Event gallery | Link | routes | ✅ | — |
+| Footer | Check a result · Certificates · Verify a certificate | Link | `/result` `/certificate` `/verify` | ⚠️ D6 | — |
+| Footer | Sign in · Register | Link | `/#login`, `/register` | ✅ | — |
+| Footer | Privacy Policy · Terms of Use · Daily Quiz & Rewards Rules · Refund & Cancellation · Contact us | Link | `/privacy` `/terms` `/rewards/rules` `/refunds` `/contact` (drafts, `TODO(legal-review)`) | ✅ Phase 3 | — |
+| Footer | +91-97828-70716 | `tel:` | `tel:+919782870716` | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
+| Footer | support@amitolympiad.me | `mailto:` | same | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
 | DeveloperCredit.tsx:38 | Sachin Kukkar | a, new tab, `noopener noreferrer` | sachinkukkar.tech | ✅ | — |
-| Landing.tsx:363 / 582 | Register | ButtonLink | `/register` (`?ref=` carried) | ✅ | — |
-| Landing.tsx:366 / 585 | Sign in · I already have an account | Button | opens LoginDialog | ✅ | — |
-| Landing.tsx:418 | 4 feature cards | Card `interactive` | none | ⚠️ D4 | — |
-| Landing.tsx:484 | Verify a certificate | Link | `/verify` | ✅ | — |
-| Landing.tsx:539/543 | See the full leaderboard · Hall of Fame | Link | routes | ✅ | — |
-| Landing.tsx:565 | FAQ items | details/summary | expand | ✅ | — |
-| LoginDialog.tsx:124/132 | Cancel · Sign in | Button / submit | close · `POST /auth/login` → `roleHome()` | ✅ | — |
+| Landing › Hero | Register for free (guest) / Go to dashboard (student) · Explore more | ButtonLink | `/register` (`?ref=` carried) / `/dashboard` · `/#how-it-works` | ✅ Phase 3 | — |
+| Landing › Can you crack this? | 4 options · Submit answer (disabled until chosen) · Try another · Play today's Daily Quiz and win prizes | radio group / Button | instant feedback · next question · the Daily Quiz flow | ✅ Phase 3 | — |
+| Landing › Rewards | Play today's quiz · verify · Read the Daily Quiz & Rewards Rules · winners row (scrollable) | Button / Link | the Daily Quiz flow · `/verify` · `/rewards/rules` | ✅ Phase 3 | — |
+| Landing › About | Practice · Mock tests · Daily Quiz · Performance insights | Link / Button | `/practice` `/mock-tests` the Daily Quiz flow `/analytics` (a guest signs in first, `?next=`) | ✅ Phase 3 (D4) | — |
+| Landing › How it works | 4 steps | Link | `/register` `/practice` `/payment` `/result` | ✅ Phase 3 | — |
+| Landing › Journey | View full journey | Button | dialog with the nine milestones | ✅ Phase 3 | — |
+| Landing › Top Scholars | View full leaderboard | ButtonLink | `/leaderboard` | ✅ Phase 3 | — |
+| Landing › FAQ | 9 items | details/summary | expand | ✅ | — |
+| Landing › CTA | Register now · I already have an account (guest) / Go to your dashboard | ButtonLink / Button | `/register` · opens LoginDialog / `/dashboard` | ✅ Phase 3 | — |
+| HomeQuizFab | Daily Quiz (guest) | button | opens the Login Gate | ✅ Phase 3 (E2E) | — |
+| HomeQuizFab | Today's quiz is live / Done for today · See result / Next quiz in … / Add your class to play (student) | Link | `/daily-quiz` | ✅ Phase 3 | — |
+| LoginGate | Create free account · Sign in · How rewards work · close | ButtonLink / Button / Link | `/register?next=%2Fdaily-quiz` · LoginDialog → `/daily-quiz` · `/rewards/rules` | ✅ Phase 3 (E2E) | — |
+| Legal pages | Policies sidebar · My Profile · `mailto:` · `tel:` | Link / a | routes · support | ✅ Phase 3 | — |
+| LoginDialog.tsx:124/132 | Cancel · Sign in | Button / submit | close · `POST /auth/login` → `?next=` (allow-listed) else `roleHome()` | ✅ | — |
 | LoginDialog.tsx:143 | Send me a new verification link | Link | `/verify-email` | ✅ | — |
 | LoginDialog.tsx:178 | Forgot your password? | Link | `/forgot-password` | ✅ | — |
 | ForgotPassword / ResetPassword / VerifyEmail | all buttons + links (12) | various | real routes / real endpoints | ✅ | — |
 | RegisterForm.tsx:356-728 | Review and continue · error summary · Remove photo · Back · Create my account · I have verified · Resend · support mailto | various | real | ✅ | — |
 | Leaderboard.tsx:145-296 | scope, class, period, paging, retry | buttons / select | real | ✅ | — |
-| Leaderboard.tsx:303 | Sign in | Link | `/dashboard` | ⚠️ D2 | — |
+| Leaderboard.tsx:303 | Sign in | Link | `/dashboard` → a guest gets the sign-in dialog with `?next=` | ✅ D2 resolved | — |
 | HallOfFame.tsx:103/182 | Try again · See the full leaderboard | | | ✅ | — |
 | Gallery.tsx:75-107 | item · paging · lightbox close | | | ⚠️ D8 | — |
-| NotFound.tsx:32/37 | Go to the home page · My dashboard | ButtonLink | `/` · `/dashboard` | ⚠️ D2 | — |
+| NotFound.tsx:32/37 | Go to the home page · My dashboard | ButtonLink | `/` · `/dashboard` (a guest gets the sign-in dialog with `?next=`) | ✅ D2 resolved | — |
 
 ## Interaction inventory — student surfaces
 

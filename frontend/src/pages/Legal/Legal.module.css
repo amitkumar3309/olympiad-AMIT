@@ -1,0 +1,150 @@
+/* The legal pages (Milestone 30, Phase 3). A readable measure; tokens only. */
+
+.page {
+  min-height: 100vh;
+}
+
+.wrap {
+  display: grid;
+  gap: var(--space-8);
+  padding-block: var(--space-8) var(--space-12);
+}
+
+@media (min-width: 1024px) {
+  .wrap {
+    grid-template-columns: minmax(0, 1fr) 240px;
+    align-items: start;
+  }
+}
+
+.article {
+  min-width: 0;
+  max-width: 46rem;
+  padding: var(--space-6) var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+}
+
+@media (min-width: 768px) {
+  .article {
+    padding: var(--space-8) var(--space-10);
+  }
+}
+
+.header {
+  margin-bottom: var(--space-6);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-page-title);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+}
+
+.lead {
+  margin: var(--space-2) 0 0;
+  color: var(--text-body);
+  font-size: var(--type-body);
+  line-height: var(--leading-normal);
+}
+
+.updated {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-small);
+}
+
+.body {
+  color: var(--text-body);
+  line-height: var(--leading-relaxed);
+}
+
+.body h2 {
+  margin: var(--space-8) 0 var(--space-2);
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.body h2:first-child {
+  margin-top: 0;
+}
+
+.body p,
+.body ul,
+.body ol {
+  margin: 0 0 var(--space-3);
+}
+
+.body ul,
+.body ol {
+  padding-left: var(--space-6);
+}
+
+.body li + li {
+  margin-top: var(--space-1);
+}
+
+.body a,
+.help a,
+.related a {
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+}
+
+/* A figure the server supplied — the prize, the winner rule — set apart from the prose. */
+.fromSettings {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--primary-border);
+  border-radius: var(--radius-sm);
+  background: var(--fill-subtle);
+  color: var(--text);
+}
+
+.help {
+  margin-top: var(--space-8);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--type-small);
+}
+
+.help p {
+  margin: 0;
+}
+
+.related {
+  min-width: 0;
+}
+
+.relatedTitle {
+  margin: 0 0 var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.related ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.related a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  font-size: var(--type-small);
+  text-decoration: none;
+}
+
+.related a:hover {
+  text-decoration: underline;
+}

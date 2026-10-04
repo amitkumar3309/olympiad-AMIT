@@ -50,7 +50,7 @@ import {
 } from '../models';
 import { findImplicitSubject, type Actor } from './taxonomyService';
 import { gradeEntry } from './grading';
-import { displayNameFor } from './leaderboardService';
+import { publicListingFor } from './leaderboardService';
 
 /**
  * The Daily Quiz — scheduling one, serving today's, the Start/submit pair, the reveal,
@@ -887,6 +887,39 @@ export async function todayPayload(input: TodayInput) {
     result: attempt ? quizResultView(attempt, served, settings, at) : null,
     nextQuizAt: null,
   };
+}
+
+/** Where today stands for one student, for the floating button — see `quizStatusFor()`. */
+export type QuizStatus = 'live' | 'in-progress' | 'done' | 'none' | 'no-class';
+
+/**
+ * The floating Daily Quiz button's state (Milestone 30, Phase 3 — brief §7.2): three
+ * indexed reads, no question, no option, no result. It says only whether today's quiz is
+ * waiting, started or done for this student, and the instants a countdown needs.
+ *
+ * `todayPayload()` answers the same question with everything the quiz page renders; the
+ * homepage asks this instead on every visit, so it stays cheap. Both take the quiz from
+ * `resolveQuizFor()`, so the button and the page cannot disagree about whether there is one.
+ */
+export async function quizStatusFor(student: StudentDocument, at: Date) {
+  const today = todayOf(at);
+  const base = { serverNow: at.toISOString(), closesAt: null, revealAt: null, nextQuizAt: null };
+  if (!isClassLevel(student.classLevel)) return { ...base, state: 'no-class' as QuizStatus };
+
+  const challenge = await resolveQuizFor(student.classLevel, today);
+  if (!challenge) {
+    const next = await nextQuizDay(student.classLevel, today);
+    return { ...base, state: 'none' as QuizStatus, nextQuizAt: next ? quizWindow(next).opensAt.toISOString() : null };
+  }
+
+  const studentId = asId(student._id);
+  const [submitted, started] = await Promise.all([
+    DailyChallengeAttempt.exists({ student: studentId, day: today }),
+    DailyQuizStart.exists({ student: studentId, day: today }),
+  ]);
+  const window = quizWindow(today);
+  const state: QuizStatus = submitted ? 'done' : started ? 'in-progress' : 'live';
+  return { ...base, state, closesAt: window.closesAt.toISOString(), revealAt: window.revealAt.toISOString() };
 }
 
 /**
@@ -1734,12 +1767,13 @@ export async function publicRecentWinners(limit: number) {
     .map((row) => {
       const student = row.student as unknown as StudentDocument | null;
       if (!student || student.status !== 'active') return null;
-      const hidden = student.hideFromPublicLists === true;
+      // The same opt-out every public list applies — decided in one place.
+      const listing = publicListingFor(student);
       return {
         day: row.day,
-        displayName: hidden ? `A ${student.classLevel ?? ''} student`.replace(/\s+/g, ' ').trim() : displayNameFor(student),
+        displayName: listing.displayName,
         classLevel: student.classLevel ?? null,
-        place: hidden ? null : (student.city?.trim() || student.schoolName?.trim() || null),
+        place: listing.city ?? listing.schoolName,
         prizeText: row.prizeText ?? null,
       };
     })

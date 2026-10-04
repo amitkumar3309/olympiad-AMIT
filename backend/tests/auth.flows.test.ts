@@ -204,6 +204,44 @@ async function ageOutstandingLink(minutes = 6): Promise<void> {
   );
 }
 
+describe('the Login Gate destination in the verification link (Milestone 30)', () => {
+  const latestVerifyEmail = () => [...getTestInbox()].reverse().find((mail) => mail.subject.includes('Verify'))!;
+
+  it('carries an allowed next path through registration into the link', async () => {
+    await request(app).post(`${API}/auth/register`).send({ ...validStudent, next: '/daily-quiz' }).expect(201);
+
+    const mail = latestVerifyEmail();
+    expect(mail.text).toMatch(/\/verify-email\?token=[^&\s]+&next=%2Fdaily-quiz/);
+    // The token still reads cleanly with the destination after it.
+    await request(app).post(`${API}/auth/verify-email`).send({ token: tokenFromLatestEmail('Verify') }).expect(200);
+  });
+
+  it('drops anything that is not an exact in-app path — the registration still succeeds', async () => {
+    for (const next of ['https://evil.example/', '//evil.example', '/\\evil.example', '/daily-quiz?x=1', '/admin']) {
+      clearTestInbox();
+      await clearTestDb();
+      await request(app).post(`${API}/auth/register`).send({ ...validStudent, next }).expect(201);
+      const mail = latestVerifyEmail();
+      expect(mail.text, `next=${next}`).not.toContain('next=');
+      expect(mail.text).not.toContain('evil.example');
+    }
+  });
+
+  it('never stores the destination on the account', async () => {
+    await request(app).post(`${API}/auth/register`).send({ ...validStudent, next: '/daily-quiz' }).expect(201);
+    const stored = await Student.findOne({ email: validStudent.email }).lean();
+    expect(stored).not.toHaveProperty('next');
+  });
+
+  it('carries it through a resend as well', async () => {
+    await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);
+    await ageOutstandingLink();
+
+    await request(app).post(`${API}/auth/resend-verification`).send({ email: validStudent.email, next: '/daily-quiz' }).expect(200);
+    expect(latestVerifyEmail().text).toContain('&next=%2Fdaily-quiz');
+  });
+});
+
 describe('the resend cooldown', () => {
   it('refuses a second link while the first is still fresh, and keeps that first link working', async () => {
     await request(app).post(`${API}/auth/register`).send(validStudent).expect(201);

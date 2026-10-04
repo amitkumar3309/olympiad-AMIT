@@ -6,9 +6,9 @@ _Last updated 2026-10-04._
 
 ## Current state
 
-**Phase 2 (the Daily Quiz core) complete and pushed as branch `feat/diwali-launch-phase-2` (PR #2,
-based on `main` after PR #1 was merged).** Phase 3 — the homepage, the floating button's wiring, the
-Login Gate, the Rewards section and the rules page — continues on top of it.
+**Phase 3 (the homepage and the way into the Daily Quiz) complete on branch
+`feat/diwali-launch-phase-3`** (PR #3), replayed onto `main` after PR #2 was squash-merged
+(`964260c`). **Waiting for the owner's "continue" before Phase 4 (the student dashboard).**
 
 ## Tasks
 
@@ -32,20 +32,57 @@ Login Gate, the Rewards section and the rules page — continues on top of it.
 | 2 | `seed-dev-quizzes.ts` (local only, answers checked in code); `seed-demo.ts` no longer schedules | ✅ done |
 | 2 | Browser check of the student flow and the admin console on the local dev servers | ✅ done |
 | 2 | Docs: ADRs, CLAUDE.md, API, schema, security, env, testing, feature status, state, changelog, troubleshooting | ✅ done |
-| 3 | Homepage, FAB wiring, Login Gate, Rewards, rules page, legal drafts | ⬜ next |
-| 4 | Student dashboard | ⬜ |
+| 3 | Owner's answers applied: contact details (Phase 2 branch, PR #2), Q3/Q7/Q8/Q9 recorded in PLAN.md | ✅ done |
+| 3 | Public-list opt-out on every board (`publicListingFor()`), leaderboard rows carry `city` | ✅ done |
+| 3 | `GET /public/stats` + `questionsSolved` + 10-minute cache; `GET /public/journey` | ✅ done |
+| 3 | `GET /me/daily-quiz/status` for the floating button | ✅ done |
+| 3 | `next` allow-list through registration, resend and the verification link (backend + frontend); guarded pages → sign-in with `?next=` (D2) | ✅ done |
+| 3 | 25 sample questions + `npm run verify:samples` (mutation-checked); `SAMPLE_QUESTIONS.md` review sheet | ✅ done |
+| 3 | Primitive extensions (Menu trigger, Tabs element icons, JourneyTrack `upcoming`, FAB `style`) | ✅ done |
+| 3 | Header (section links + you-are-here, avatar menu, frosted on scroll) and footer (Legal column) | ✅ done |
+| 3 | Homepage rebuilt from `lib/siteConfig.ts`: hero, stats, crack-this, Rewards, About (D4), How it works, journey (9 milestones), Top Scholars, FAQ, CTA | ✅ done |
+| 3 | Floating button wired (status, countdowns, collapse, footer lift) + Login Gate | ✅ done |
+| 3 | `/rewards/rules` + Privacy, Terms, Refund, Contact drafts (`TODO(legal-review)`); `LEGAL_REVIEW.md` | ✅ done |
+| 3 | `A.M.I.T.` with its stop (Q10) | ✅ done |
+| 3 | Tests: backend 1336 / 38; E2E 12/12 (adds button → gate → quiz, register → verify → quiz, guarded page, no sideways scroll) | ✅ done |
+| 3 | Browser check at 1280 and 390 (light), screenshots in `docs/launch/screenshots/phase-3/` | ✅ done |
+| 3 | Docs: ADR, CLAUDE.md, API, security, testing, feature status, state, changelog, audit | ✅ done |
+| 4 | Student dashboard | ⬜ next |
 | 5 | Every button and link (D1–D9), crawler | ⬜ |
 | 6 | Launch readiness + `LAUNCH_REPORT.md` | ⬜ |
 
 ## Open questions for the owner
 
-All four answered on 2026-10-04 (PLAN.md §5 decision log): **Q3** three class groups a day; **Q7** map the
-nine existing milestones in the mockup's style; **Q8** Claude drafts Logic / Reasoning / Brainstorming,
-the owner reviews before any goes live; **Q9** `+91-97828-70716` (exactly that format) and
-`support@amitolympiad.me` — applied on the Phase 2 branch. **Owner actions:** load at least the first two
-weeks of quiz questions before launch (Admin → Daily Quiz → Import a file — the CSV template is there),
-and if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel project, update them
-(a set variable beats the new default).
+All four Phase 0 questions were answered on 2026-10-04 (PLAN.md §5): **Q3** three class groups a day;
+**Q7** map the nine existing milestones; **Q8** Claude drafts Logic / Reasoning / Brainstorming, the
+owner reviews; **Q9** `+91-97828-70716` and `support@amitolympiad.me`. New, from Phase 3:
+
+- **Legal review** — `docs/launch/LEGAL_REVIEW.md`: the organiser's legal name and address, governing
+  law, a grievance contact, **the refund policy** (not guessed — money), data retention, prize delivery
+  and tax handling.
+- **Sample questions** — `docs/launch/SAMPLE_QUESTIONS.md`: approve or change the 18 drafted Logic,
+  Reasoning and Brainstorming questions; only Mathematics is on the homepage until then.
+- **Owner actions**: load at least the first two weeks of quiz questions before launch (Admin → Daily
+  Quiz → Import a file); if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel
+  project, update them (a set variable beats the new default); supply the illustrations
+  (`ASSETS_NEEDED.md` — placeholders until then).
+
+## Phase 3 — deviations from the landing mockup, and why
+
+Compared side by side with `docs/design/mockup-landing.jpeg` (screenshots in
+`docs/launch/screenshots/phase-3/`):
+
+| Mockup | Built | Why |
+|---|---|---|
+| Sunday Math Boss Battle and Month-End Booster cards | Absent | The events do not exist (PLAN.md Q6); a reward card is a promise. |
+| "Your 6-Month Mathematical Journey" (Number Forest → Olympiad Kingdom) | "Your journey to the Olympiad" — the nine real milestones | Owner's choice (Q7): no programme calendar sits behind the themed months. |
+| Four question tabs | Mathematics only, no tab row | The other three are drafts awaiting the owner (Q8); a tab row of one is a control with nothing to choose. |
+| Options always four in a row | Four in a row for short answers, one per row for wordy ones | Sentences in quarter-width tiles broke mid-word on a phone. |
+| Stat sub-lines "across India", "solving now…" | Labels only | Schools are free text (not countable as "across India"); "active today" is since IST midnight, not now. |
+| A podium of three | A podium only when ranks 1-2-3 are distinct, else the table | Equal XP shares a rank; level students on steps 1-2-3 would be a false ranking. |
+| Illustrations (student, trophy, gift, journey scenes, climber) | Placeholders | Art not supplied yet — `ASSETS_NEEDED.md`; dropping files in needs no code. |
+| The mockup's sample question | Corrected (123/7 is an option) | The mockup's version had no correct option (brief Appendix B). |
+| — | "About the Olympiad" and FAQ sections | Targets of the navbar's About and FAQ links (not visible in the mockup's crop). |
 
 ## Notes for the next session
 
@@ -59,7 +96,11 @@ and if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel
 - Seeded local accounts come from the project's own scripts (`scripts/seed-demo.ts`,
   `scripts/dev-local.ts`, `frontend/e2e/fixtures.ts`); do not paste their credentials into chat.
 - **E2E:** `npm run e2e` in `frontend/` starts its own backend (in-memory DB, port 8092) and Vite
-  (5181) and drives the installed Edge. Phase 3 should add the homepage → FAB → login gate flow there.
+  (5181) and drives the installed Edge — 12 tests. `homepage.spec.ts` turns reduced motion on so the
+  floating button holds still enough to click.
+- **The local database** behind `launch-backend-local-db` carries Milestone 29's load-test accounts
+  (~1,000 "Scale S." students at the same XP), so the homepage there shows real but odd figures and
+  no podium (the top three are tied) — that is the tie rule working, not a bug.
 - Commit `943a336` (the calendar fix) accidentally carries the deletion of the old Daily Challenge
   frontend files — they were staged by `git rm` — and `4fd2b34` is their replacement; its message
   calls the first one `856fede`, its hash before the branch was replayed onto `main` for PR #2.
