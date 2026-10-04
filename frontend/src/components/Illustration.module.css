@@ -11,20 +11,24 @@
 }
 
 /* The placeholder: two soft brand-tint blooms and one line icon. Tints, so it reads
-   as "art goes here" rather than as a grey error box. */
+   as "art goes here" rather than as a grey error box.
+
+   **Themed tints only** (Milestone 30 Phase 3). It used the `--cat-*` pastels, which are
+   the same in both themes — on the dark page they became bright, blurry blobs behind every
+   homepage illustration. `--primary-soft` and `--accent-soft` are re-pointed for dark. */
 .placeholder {
   display: grid;
   place-items: center;
   border-radius: var(--radius-xl);
   background:
-    radial-gradient(60% 60% at 30% 30%, var(--cat-blue), transparent 70%),
-    radial-gradient(55% 55% at 72% 70%, var(--cat-purple), transparent 70%),
+    radial-gradient(60% 60% at 30% 30%, var(--primary-soft), transparent 70%),
+    radial-gradient(55% 55% at 72% 70%, var(--accent-soft), transparent 70%),
     var(--fill-subtle);
 }
 
 .placeholderIcon {
   width: 38%;
   height: 38%;
-  color: var(--cat-blue-glyph);
+  color: var(--primary-text);
   opacity: 0.55;
 }
