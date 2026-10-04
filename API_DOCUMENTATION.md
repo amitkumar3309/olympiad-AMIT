@@ -1067,6 +1067,9 @@ Today's quiz for the caller's class and their state in it. Settles any XP that w
 | `result` | Only after submitting: `{ submittedAt, solveTimeMs, selectedOptionId, isCorrect, xpAwarded, xpPending, revealAt, revealed, reveal }`. `isCorrect` is null while results are held until the reveal; `reveal` (`correctOptionId`, `correctOptionText`, `solution`) is null until the reveal. |
 | `nextQuizAt` | When nothing is scheduled today: when the next quiz for the class opens, or null. |
 
+#### `GET /api/v1/me/daily-quiz/status`
+The floating Daily Quiz button's state (Phase 3), cheap enough for every homepage visit: `{ serverNow, state, closesAt, revealAt, nextQuizAt }`. `state` is `live` (not started), `in-progress` (started, not submitted), `done` (submitted), `none` (nothing scheduled today — `nextQuizAt` is when the next one for the class opens, or null) or `no-class`. `closesAt`/`revealAt` are set when there is a quiz today. **Nothing about the question, its options or the result** — that is the route above. Does not settle held XP.
+
 #### `POST /api/v1/me/daily-quiz/start`
 Shows the question and starts the server's clock (a `DailyQuizStart` row). **201** when started, **200** with `alreadyStarted: true` on a repeat — the clock never restarts, and the option order never changes. **409** with no class, no quiz today, or outside the quiz's window. Rate limited per student (30 / 10 min). Returns the whole of today's state.
 

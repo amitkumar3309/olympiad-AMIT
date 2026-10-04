@@ -889,6 +889,39 @@ export async function todayPayload(input: TodayInput) {
   };
 }
 
+/** Where today stands for one student, for the floating button — see `quizStatusFor()`. */
+export type QuizStatus = 'live' | 'in-progress' | 'done' | 'none' | 'no-class';
+
+/**
+ * The floating Daily Quiz button's state (Milestone 30, Phase 3 — brief §7.2): three
+ * indexed reads, no question, no option, no result. It says only whether today's quiz is
+ * waiting, started or done for this student, and the instants a countdown needs.
+ *
+ * `todayPayload()` answers the same question with everything the quiz page renders; the
+ * homepage asks this instead on every visit, so it stays cheap. Both take the quiz from
+ * `resolveQuizFor()`, so the button and the page cannot disagree about whether there is one.
+ */
+export async function quizStatusFor(student: StudentDocument, at: Date) {
+  const today = todayOf(at);
+  const base = { serverNow: at.toISOString(), closesAt: null, revealAt: null, nextQuizAt: null };
+  if (!isClassLevel(student.classLevel)) return { ...base, state: 'no-class' as QuizStatus };
+
+  const challenge = await resolveQuizFor(student.classLevel, today);
+  if (!challenge) {
+    const next = await nextQuizDay(student.classLevel, today);
+    return { ...base, state: 'none' as QuizStatus, nextQuizAt: next ? quizWindow(next).opensAt.toISOString() : null };
+  }
+
+  const studentId = asId(student._id);
+  const [submitted, started] = await Promise.all([
+    DailyChallengeAttempt.exists({ student: studentId, day: today }),
+    DailyQuizStart.exists({ student: studentId, day: today }),
+  ]);
+  const window = quizWindow(today);
+  const state: QuizStatus = submitted ? 'done' : started ? 'in-progress' : 'live';
+  return { ...base, state, closesAt: window.closesAt.toISOString(), revealAt: window.revealAt.toISOString() };
+}
+
 /**
  * The student's most recent quiz before today, if its answer is now unlocked — so the
  * quiz page can say "Yesterday's answer is unlocked" and link to it.
