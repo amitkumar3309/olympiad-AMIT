@@ -597,6 +597,24 @@ describe('scheduling', () => {
     expect(res.body.quizzes[0].classRange.label).toBe('Classes 9–12');
   });
 
+  it('shows a daily challenge from before the quiz as holding its day, and says so when scheduling over it', async () => {
+    const { adminCookies, taxonomy } = await seedAdmin();
+    const questionId = await draftQuestion(adminCookies, taxonomy);
+    // A pre-Milestone-30 document: a class and a day, no snapshot.
+    await DailyChallenge.create({ day: today(), classLevel: 'Class 9', question: questionId, source: 'automatic', marks: 4 });
+
+    const list = await request(app).get(`${API}/admin/daily-quiz`).set('Cookie', cookieHeader(adminCookies)).expect(200);
+    const day = list.body.calendar.days[0];
+    expect(day.quizzes).toEqual([expect.objectContaining({ legacy: true, label: 'Class 9 · old challenge' })]);
+    // Not counted as covering Class 9, so the gap warning still names it.
+    expect(day.coveredClasses).toEqual([]);
+    expect(list.body.calendar.warnings.find((w: { group: string }) => w.group === '9-12').missingClasses).toContain(9);
+
+    const refused = await schedule(adminCookies, { day: today(), classMin: 9, classMax: 12, questionId });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error).toMatch(/from before the Daily Quiz/);
+  });
+
   it('records scheduling in the audit trail', async () => {
     await seedTodaysQuiz();
     expect(await AuditLog.countDocuments({ action: 'dailyquiz.scheduled' })).toBe(1);

@@ -312,10 +312,15 @@ export async function scheduleQuiz(
   const classes = classesInRange(input.classMin, input.classMax);
   const range = { min: input.classMin, max: input.classMax };
 
-  const taken = await DailyChallenge.find({ day: input.day, classLevel: { $in: classes } }).select('classLevel');
+  const taken = await DailyChallenge.find({ day: input.day, classLevel: { $in: classes } }).select('classLevel content');
   if (taken.length > 0) {
     const names = taken.map((doc) => doc.classLevel).join(', ');
-    throw ApiError.conflict(`${names} already ${taken.length === 1 ? 'has' : 'have'} a Daily Quiz on ${input.day}.`);
+    const legacy = taken.every((doc) => !doc.content);
+    throw ApiError.conflict(
+      legacy
+        ? `${names} still ${taken.length === 1 ? 'has' : 'have'} a daily challenge from before the Daily Quiz on ${input.day}. Remove it from the Daily Quiz console first.`
+        : `${names} already ${taken.length === 1 ? 'has' : 'have'} a Daily Quiz on ${input.day}.`,
+    );
   }
 
   const { question, topicName } = await requireQuizQuestion(input.questionId, range, input.day);
@@ -1257,21 +1262,33 @@ export function adminQuizView(group: GroupRow, stats: QuizStats | undefined, at:
 export async function quizCalendar(at: Date = now(), count = 14) {
   const today = todayOf(at);
   const days = Array.from({ length: count }, (_unused, index) => shiftDay(today, -index));
-  const docs = await DailyChallenge.find({ day: { $gte: today, $lte: days[days.length - 1]! }, content: { $ne: null } })
-    .select('day classLevel groupId classMin classMax')
+  const docs = await DailyChallenge.find({ day: { $gte: today, $lte: days[days.length - 1]! } })
+    .select('day classLevel groupId classMin classMax content')
     .lean();
 
   const coveredByDay = new Map<DayKey, Set<number>>();
-  const groupsByDay = new Map<DayKey, Map<string, { groupId: string; min: number; max: number; label: string }>>();
+  const groupsByDay = new Map<DayKey, Map<string, { groupId: string; min: number; max: number; label: string; legacy: boolean }>>();
   for (const doc of docs) {
     const n = classNumber(doc.classLevel as ClassLevel);
-    if (!coveredByDay.has(doc.day)) coveredByDay.set(doc.day, new Set());
-    coveredByDay.get(doc.day)!.add(n);
+    // A daily challenge from before the quiz holds its class's slot but is not a quiz: it is
+    // listed (so the administrator can see what is blocking the day, and remove it) and
+    // never counted as covering the class.
+    const legacy = !doc.content;
+    if (!legacy) {
+      if (!coveredByDay.has(doc.day)) coveredByDay.set(doc.day, new Set());
+      coveredByDay.get(doc.day)!.add(n);
+    }
     const min = doc.classMin ?? n;
     const max = doc.classMax ?? n;
     const groupId = String(doc.groupId ?? doc._id);
     if (!groupsByDay.has(doc.day)) groupsByDay.set(doc.day, new Map());
-    groupsByDay.get(doc.day)!.set(groupId, { groupId, min, max, label: classRangeLabel(min, max) });
+    groupsByDay.get(doc.day)!.set(groupId, {
+      groupId,
+      min,
+      max,
+      label: legacy ? `${classRangeLabel(min, max)} · old challenge` : classRangeLabel(min, max),
+      legacy,
+    });
   }
 
   const warnings: Array<{ group: string; label: string; day: DayKey; missingClasses: number[] }> = [];
