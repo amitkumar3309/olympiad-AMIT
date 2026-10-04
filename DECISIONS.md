@@ -4,6 +4,38 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-04 — Milestone 30 Phase 2: Playwright for the browser end-to-end suite, against an in-memory backend
+
+**Context.** The launch brief requires an end-to-end test of the Daily Quiz at desktop and 390px
+mobile — start, submit, result, history locked, *move the clock to the next day*, solution visible
+(§6.8) — and later phases need the same harness for the homepage flow, the link crawler and axe.
+CLAUDE.md requires an ADR before any frontend test framework is added. PLAN.md §7 listed
+`@playwright/test` as a dev dependency, and the owner approved the plan.
+
+**Decision.**
+
+1. **`@playwright/test`, as a frontend dev dependency only** — nothing ships to a browser. Apache-2.0,
+   maintained by Microsoft. No unit-test framework is added to the frontend: the brief asks for
+   behaviour in a real browser, and a component test runner would be a second harness to maintain.
+2. **The installed Microsoft Edge (`channel: 'msedge'`)** rather than Playwright's downloaded browsers,
+   so a run needs no 150 MB download on this machine. CI (none exists yet) would run
+   `npx playwright install chromium` and drop the channel.
+3. **The backend runs on an in-memory MongoDB** (`backend/scripts/e2e-server.ts`, the same
+   `mongodb-memory-server` the backend tests use), so the suite can never touch production *or* a
+   developer's local data. Playwright's `webServer` starts it and a Vite server pointed at it.
+4. **Test-only hooks behind three locks.** `/__e2e/clock`, `/__e2e/reset` and `/__e2e/seed` exist only
+   when `E2E_TEST_HOOKS=true`, never when `NODE_ENV=production` (forced off in `config`), and each
+   refuses unless the connected database's name ends in `-e2e`. Moving the clock moves only
+   `lib/clock.ts`'s offset — the Daily Quiz's clock — so sessions and token expiry are unaffected.
+5. **One worker.** The suite shares one database and one server clock, so tests run serially.
+
+**Consequences.** `npm run e2e` in `frontend/` is the entry point (it starts both servers). The seeded
+student's credentials are test values in `frontend/e2e/fixtures.ts`, valid only on the throwaway
+database. A route that resets a database exists in the codebase; the three locks above, and a backend
+test asserting the hooks are absent by default, are what keep it out of every real deployment.
+
+---
+
 ## 2026-10-04 — Milestone 30 Phase 1: the launch mockups' design language (supersedes most of Milestones 27 and 28)
 
 **Context.** The Diwali launch brief (`docs/launch/LAUNCH_SPEC.md`) asks for the homepage and the
