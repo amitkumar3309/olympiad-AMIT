@@ -50,6 +50,40 @@
       "env": {
         "REQUIRE_EMAIL_VERIFICATION": "true"
       }
+    },
+    {
+      "name": "launch-backend-local-db",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "backend",
+        "run",
+        "dev:local"
+      ],
+      "port": 8091,
+      "autoPort": false,
+      "env": {
+        "PORT": "8091",
+        "FRONTEND_URL": "http://localhost:5180"
+      }
+    },
+    {
+      "name": "launch-frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5180"
+      ],
+      "port": 5180,
+      "autoPort": true,
+      "env": {
+        "API_PROXY_TARGET": "http://localhost:8091"
+      }
     }
   ]
 }
