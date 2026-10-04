@@ -1,0 +1,31 @@
+/* Transform and opacity only — the two properties a browser can animate without
+   re-laying-out the page, which is what holds 60fps on a mid-range phone. */
+.reveal {
+  transition:
+    opacity var(--dur-entrance) var(--ease-out) var(--reveal-delay, 0ms),
+    transform var(--dur-entrance) var(--ease-out) var(--reveal-delay, 0ms);
+}
+
+.reveal[data-reveal='pending'] {
+  opacity: 0;
+}
+
+.up[data-reveal='pending'] {
+  transform: translateY(16px);
+}
+
+.rise {
+  transform-origin: 50% 100%;
+}
+
+.rise[data-reveal='pending'] {
+  transform: scaleY(0.2);
+}
+
+/* A printed page has no scroll to reveal on. */
+@media print {
+  .reveal[data-reveal='pending'] {
+    opacity: 1;
+    transform: none;
+  }
+}

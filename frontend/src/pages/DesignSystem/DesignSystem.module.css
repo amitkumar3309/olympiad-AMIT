@@ -181,3 +181,40 @@
   text-align: center;
   overflow-wrap: anywhere;
 }
+
+/* ---------- Milestone 30 specimens ---------------------------------------- */
+
+.split {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.illustrationGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr));
+  gap: var(--space-4);
+}
+
+.illustrationCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.fabRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+  /* Room for the ring and the hover glow, which spill outside each pill. */
+  padding: var(--space-4) 0;
+}

@@ -1,0 +1,171 @@
+/* A fieldset carries a browser default border, padding and a min-width of
+   min-content — the last is how a long option pushes a page sideways. */
+.group {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.legend {
+  margin-bottom: var(--space-2);
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+}
+
+@media (min-width: 360px) {
+  .cols-2,
+  .cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  .cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---------- the tile ------------------------------------------------------ */
+
+.tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* The native radio stays in the tree for keyboard and screen-reader behaviour, and
+   off the screen for everyone else. */
+.input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  pointer-events: none;
+}
+
+.tile:hover:not(.disabled) {
+  border-color: var(--primary-border);
+  background: var(--surface-hover);
+}
+
+.tile:active:not(.disabled) {
+  transform: scale(var(--press-scale));
+}
+
+/* The one focus ring, drawn on the tile because the input itself is invisible. A
+   browser without `:has()` still rings the letter, so focus is never lost. */
+.input:focus-visible + .letter {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.tile:has(.input:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.tile:has(.input:focus-visible) .letter {
+  outline: none;
+}
+
+.letter {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--fill-subtle);
+  color: var(--text);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease),
+    transform var(--dur) var(--ease-out);
+}
+
+/* A step up from body size: an answer is the thing being read, and a fraction drawn
+   inline by KaTeX is a size smaller than the text around it. */
+.content {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+/* Selected: border, tint AND a filled letter — three channels, so the choice is
+   unmistakable without colour vision and on a washed-out phone screen. */
+.selected {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.selected .letter {
+  background: var(--primary);
+  color: var(--primary-on);
+  transform: scale(1.08);
+}
+
+.correct {
+  border-color: var(--success-solid);
+  background: var(--success-soft);
+}
+
+.correct .letter {
+  background: var(--success-solid);
+  color: var(--success-on);
+}
+
+/* Calm, not alarming: the brief asks for a no-shake incorrect state. */
+.incorrect {
+  border-color: var(--danger-solid);
+  background: var(--danger-soft);
+}
+
+.incorrect .letter {
+  background: var(--danger-solid);
+  color: var(--danger-on);
+}
+
+.mark {
+  flex-shrink: 0;
+  display: inline-flex;
+}
+
+.correct .mark {
+  color: var(--success-text);
+}
+
+.incorrect .mark {
+  color: var(--danger-text);
+}
+
+.disabled {
+  cursor: default;
+}
+
+/* A locked tile that is neither chosen nor marked fades back, so the eye goes to the
+   ones that carry the result. */
+.disabled:not(.selected):not(.correct):not(.incorrect) {
+  opacity: 0.6;
+}

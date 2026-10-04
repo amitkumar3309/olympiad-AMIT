@@ -1,0 +1,41 @@
+/* Absolutely positioned over whatever relative box the caller puts it in, and never
+   catches a pointer: a celebration must not block the button beside it. */
+.burst {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: var(--z-raised);
+}
+
+.piece,
+.dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 12px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: confetti-fly var(--dur-celebrate) var(--ease-out) var(--delay, 0ms) forwards;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+@keyframes confetti-fly {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--angle)) translateY(0) rotate(0);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--angle)) translateY(calc(var(--distance) * -1)) rotate(var(--spin));
+  }
+}

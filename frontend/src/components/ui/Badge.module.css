@@ -34,6 +34,33 @@
   flex-shrink: 0;
 }
 
+/* The LIVE dot: the green mark, and a ring that breathes out from it. A transform and
+   an opacity on a pseudo-element, so nothing around it moves. */
+.live {
+  position: relative;
+  background: var(--live);
+}
+
+.live::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--live);
+  animation: badge-live var(--dur-pulse) var(--ease-out) infinite;
+}
+
+@keyframes badge-live {
+  from {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
 /* ---------- soft (default) ---------------------------------------------
    A tinted background with the readable text token — never the solid fill
    colour as text, which is the mistake that made amber labels unreadable. */

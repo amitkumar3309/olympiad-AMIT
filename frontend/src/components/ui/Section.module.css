@@ -51,13 +51,13 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-3);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-pill);
   background: var(--fill-subtle);
   color: var(--text-muted);
   font-size: var(--text-2xs);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-snug);
   text-transform: uppercase;
   letter-spacing: var(--tracking-caps);
@@ -90,10 +90,10 @@
 }
 
 .lead {
-  margin: var(--space-4) 0 0;
+  margin: var(--space-2) 0 0;
   max-width: 62ch;
   color: var(--text-muted);
-  font-size: var(--text-lg);
+  font-size: var(--type-body);
   line-height: var(--leading-normal);
 }
 
@@ -105,22 +105,25 @@
 }
 
 .body {
-  margin-top: var(--block-gap);
+  margin-top: var(--space-6);
   min-width: 0;
 }
 
 /* ---------- sizes -------------------------------------------------------- */
 
+/* The brief's role scale (Milestone 30): compact is a card title, default a section
+   title (22 → 28px), page a page title (26 → 32px). All bold — weight carries the
+   hierarchy in this language. */
 .size-compact .title {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-semibold);
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-snug);
 }
 
 .size-compact .lead {
-  margin-top: var(--space-2);
-  font-size: var(--text-md);
+  margin-top: var(--space-1);
+  font-size: var(--type-small);
 }
 
 .size-compact .eyebrow {
@@ -128,28 +131,25 @@
 }
 
 .size-compact .body {
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
 }
 
 .size-default .title {
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
+  font-size: var(--type-section-title);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-snug);
   letter-spacing: var(--tracking-tight);
 }
 
-/* The page's opening block. Display sizing and the tightest tracking in the ramp —
-   at 40px and up the letters have to form a shape rather than a row of glyphs. */
 .size-page .title {
-  font-size: var(--text-3xl);
-  font-weight: var(--weight-semibold);
-  line-height: var(--leading-tight);
+  font-size: var(--type-page-title);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
   letter-spacing: var(--tracking-display);
 }
 
 .size-page .lead {
-  font-size: var(--text-xl);
-  line-height: var(--leading-snug);
+  font-size: var(--text-md);
 }
 
 /* ---------- centred ------------------------------------------------------ */

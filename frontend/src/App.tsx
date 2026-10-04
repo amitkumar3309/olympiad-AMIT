@@ -587,8 +587,10 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          {/* Development only — see the note beside the import. */}
+          {/* Development only — see the note beside the import. `/dev/ui` is the name the
+              launch brief (Milestone 30) gives the same page; one page, two addresses. */}
           {DesignSystem && <Route path="/design-system" element={<DesignSystem />} />}
+          {DesignSystem && <Route path="/dev/ui" element={<DesignSystem />} />}
           {/*
             The catch-all. Without it React Router renders nothing for an unmatched path,
             which is a blank white page — indistinguishable from a crash, and exactly what

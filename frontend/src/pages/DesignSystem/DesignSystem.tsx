@@ -1,7 +1,14 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { ArrowRight, Flame, Star, Target, Trophy, ChartColumn } from 'lucide-react'
 import { ApiError } from '../../api/client'
 import ThemeToggle from '../../components/ThemeToggle'
+import MathText from '../../components/MathText'
+import DailyQuizFab from '../../components/DailyQuizFab'
+import Illustration from '../../components/Illustration'
+import { ILLUSTRATION_NAMES } from '../../components/illustrations'
+import { formatDateTime } from '../../lib/format'
 import {
+  ActivityList,
   Alert,
   Avatar,
   Badge,
@@ -13,8 +20,17 @@ import {
   CardFooter,
   CardHeader,
   Checkbox,
+  Confetti,
+  Countdown,
+  CountUp,
   IconTile,
+  JourneyTrack,
+  LeaderboardTable,
   Menu,
+  OptionGroup,
+  OptionTile,
+  Podium,
+  Reveal,
   Section,
   DataCard,
   DataCardList,
@@ -45,6 +61,34 @@ import {
   useToast,
 } from '../../components/ui'
 import styles from './DesignSystem.module.css'
+
+/** Sample options for the option-tile specimen. The question is the launch mockup's,
+    with its options corrected (the mockup offered none that was right: the answer is
+    123/7 — see `LAUNCH_SPEC.md`, Appendix B). */
+const SAMPLE_OPTIONS = [
+  { id: 'o-7f3a', tex: '$\\frac{115}{7}$' },
+  { id: 'o-2c91', tex: '$\\frac{119}{7}$' },
+  { id: 'o-9d04', tex: '$\\frac{123}{7}$' },
+  { id: 'o-51be', tex: '$\\frac{127}{7}$' },
+]
+const LETTERS = ['A', 'B', 'C', 'D']
+
+const SAMPLE_JOURNEY = [
+  { key: 'm1', caption: 'Month 1', title: 'Number Forest', state: 'done' as const },
+  { key: 'm2', caption: 'Month 2', title: 'Logic Valley', state: 'done' as const },
+  { key: 'm3', caption: 'Month 3', title: 'Algebra Castle', state: 'current' as const },
+  { key: 'm4', caption: 'Month 4', title: 'Geometry Temple', state: 'locked' as const },
+  { key: 'm5', caption: 'Month 5', title: 'Speed Arena', state: 'locked' as const },
+  { key: 'm6', caption: 'Month 6', title: 'Olympiad Kingdom', state: 'locked' as const },
+]
+const JOURNEY_ART = [
+  'journey-number-forest',
+  'journey-logic-valley',
+  'journey-algebra-castle',
+  'journey-geometry-temple',
+  'journey-speed-arena',
+  'journey-olympiad-kingdom',
+] as const
 
 /**
  * The design-system reference — **development only**, never routed in production
@@ -129,6 +173,17 @@ export default function DesignSystem() {
   const [page, setPage] = useState(3)
   const [search, setSearch] = useState('Aarav')
   const [checked, setChecked] = useState(true)
+  const [choice, setChoice] = useState<string | null>(null)
+  const [burst, setBurst] = useState<number | null>(null)
+  // Sample instants for the countdown specimens, fixed at mount.
+  const [instants] = useState(() => {
+    const now = Date.now()
+    return {
+      inTwoDays: new Date(now + (2 * 86_400 + 14 * 3_600 + 37 * 60) * 1000),
+      inFiveHours: new Date(now + (5 * 3_600 + 12 * 60) * 1000),
+      startedAgo: new Date(now - (1 * 60 + 47) * 1000),
+    }
+  })
 
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth)
@@ -186,6 +241,20 @@ export default function DesignSystem() {
               ['--text', 'text'],
               ['--text-body', 'text-body'],
               ['--text-muted', 'text-muted'],
+              ['--surface-mint', 'surface-mint'],
+              ['--surface-cream', 'surface-cream'],
+              ['--surface-aqua', 'surface-aqua'],
+              ['--progress-track', 'progress-track'],
+              ['--live', 'live'],
+              ['--series-1', 'series-1'],
+              ['--series-2', 'series-2'],
+              ['--series-3', 'series-3'],
+              ['--series-4', 'series-4'],
+              ['--series-5', 'series-5'],
+              ['--podium-gold', 'podium-gold'],
+              ['--podium-silver', 'podium-silver'],
+              ['--podium-bronze', 'podium-bronze'],
+              ['--gradient-primary', 'gradient-primary'],
             ].map(([token, name]) => (
               <div key={token} className={styles.swatch}>
                 <span className={styles.swatchChip} style={{ background: `var(${token})` }} />
@@ -197,57 +266,51 @@ export default function DesignSystem() {
 
         <Group title="Typography">
           <p className={styles.note}>
-            <strong>Two families: Bricolage Grotesque over Instrument Sans.</strong> Milestone 26 ran the
-            whole interface on one face and got a heading&rsquo;s character from weight and tracking alone;
-            Milestone 27 gives headings a display face, because the Brightpath reference does and because
-            Bricolage is tiring at 15px down two hundred admin table rows. Geist Mono survives for figures
-            (79 references across 33 files) and Cinzel for the two logotype surfaces.
-          </p>
-          <p className={styles.note}>
-            <strong>Tracking is now negative only on display sizes.</strong> This is the trap in the
-            milestone: <code>--tracking-body</code> is applied <em>once, to <code>body</code></em>, which
-            is how a type change reaches fifty pages unedited — and its value went from −0.02em to
-            <strong>0</strong>. So the same one-line lever that tightened everything now un-tightens it,
-            and the character moves into the headings (−0.08em at 30px and up). Body weight went 500 →
-            <strong>400</strong> for the same reason: the display face carries the hierarchy now.
+            <strong>Plus Jakarta Sans, everywhere a reader reads</strong> (Milestone 30) — headings, body,
+            tables, inputs. It replaces both Bricolage Grotesque and Instrument Sans, and weight carries the
+            hierarchy: 800 for a hero, 700 for headings, 600 for labels, 400/500 for body. Self-hosted, with
+            true tabular figures (<span className="tnum">111</span> and <span className="tnum">000</span>
+            measure the same) and the rupee sign in its own face: ₹199. Geist Mono stays for serials, Cinzel
+            for the printed certificate, Caveat for two handwritten accents and nothing else.
           </p>
           <div className={styles.typeStack}>
             <p
               style={{
-                fontSize: 'var(--text-5xl)',
-                fontFamily: 'var(--font-heading)',
-                fontWeight: 700,
+                fontSize: 'var(--type-hero)',
+                fontWeight: 'var(--weight-black)' as CSSProperties['fontWeight'],
                 letterSpacing: 'var(--tracking-display)',
                 margin: 0,
                 lineHeight: 'var(--leading-tight)',
+                color: 'var(--text)',
               }}
             >
-              A national mathematics olympiad
+              Sample hero <span style={{ color: 'var(--primary)' }}>2027</span>
             </p>
-            <p className={styles.typeMeta}>text-5xl · Bricolage Grotesque 700 · tracking −0.08em · leading 1.0 · fluid 40→103px</p>
+            <p className={styles.typeMeta}>--type-hero · 800 · fluid 36 → 56px</p>
 
-            <h1 style={{ margin: 0 }}>Heading 1 — text-3xl · 600 · −0.08em</h1>
-            <h2 style={{ margin: 0 }}>Heading 2 — text-2xl · 600 · −0.06em</h2>
-            <h3 style={{ margin: 0 }}>Heading 3 — text-xl · 600 · −0.04em</h3>
-            <h4 style={{ margin: 0 }}>Heading 4 — text-lg · 600 · −0.04em</h4>
+            <h1 style={{ margin: 0 }}>Page title — --type-page-title · 700 · 26 → 32px</h1>
+            <h2 style={{ margin: 0 }}>Section title — --type-section-title · 700 · 22 → 28px</h2>
+            <h3 style={{ margin: 0 }}>Card title — --type-card-title · 700 · 16 → 18px</h3>
+            <h4 style={{ margin: 0 }}>Heading 4 — text-md · 700</h4>
 
-            <p className="prose" style={{ margin: 0 }}>
-              Running prose uses the <code>.prose</code> utility: text-lg at leading-relaxed with a
-              68-character measure. Brightpath runs body at 1.4 and that is what
-              <code>--leading-normal</code> now is; prose gets more room again on top of it. Long words
-              such as <code>AMIT_0000</code> wrap rather than pushing the page sideways.
-            </p>
             <p style={{ margin: 0 }}>
-              Body copy at the element default — text-md, weight 400, leading 1.4, tracking 0 inherited
-              from <code>body</code>. That one inherited declaration is how the type change reached fifty
-              pages without any of them being edited, in both directions.
+              Body copy at the element default — <code>--type-body</code>, 15px on a phone and 16px on a
+              desktop, weight 400, leading 1.5. Long words such as <code>AMIT_0000</code> wrap rather than
+              pushing the page sideways.
             </p>
-            <p className="muted" style={{ margin: 0, fontSize: 'var(--text-sm)' }}>
-              Secondary copy at text-sm, muted — ink at 70%, 5.9:1 on white and 4.6:1 at its worst (on
-              <code>--cat-purple</code>). Nothing lighter carries words.
+            <p className="muted" style={{ margin: 0, fontSize: 'var(--type-small)' }}>
+              Small, muted — <code>--type-small</code> (13px) in navy ink at 64%: 5.14:1 at its worst, on
+              the purple tint. Nothing lighter carries words.
+            </p>
+            <p style={{ margin: 0, fontSize: 'var(--type-micro)', color: 'var(--text-muted)' }}>
+              Micro — <code>--type-micro</code> (12px), for a delta or a timestamp.
             </p>
             <p className="eyebrow" style={{ margin: 0 }}>Eyebrow · text-2xs uppercase</p>
             <p className="mono" style={{ margin: 0 }}>Geist Mono 1234567890 · tabular figures</p>
+            <p style={{ margin: 0, fontFamily: 'var(--font-hand)', fontSize: 'var(--type-page-title)', color: 'var(--primary-text)' }}>
+              Think · Solve · Grow
+            </p>
+            <p className={styles.typeMeta}>--font-hand (Caveat) — the two handwritten accents only</p>
           </div>
         </Group>
 
@@ -293,21 +356,13 @@ export default function DesignSystem() {
           </Row>
         </Group>
 
-        <Group title="IconTile — a marker, with a hard edge">
+        <Group title="IconTile — a tint with a saturated glyph">
           <p className={styles.note}>
-            <strong>The six categorical hues are pastels now, and every <code>-on</code> is ink</strong>
-            (9.0–11.9:1). Milestone 26 needed a mixed set because its hues were saturated — white on its
-            orange measured 3.08:1 — and a pastel is a light fill by definition, so the special cases are
-            gone. They are also no longer <em>confined</em> to this component: Brightpath fills cards and
-            whole sections with them. What still holds is that they are fills, never words, and are not
-            wired into <code>Badge</code>, whose tones are semantic.
-          </p>
-          <p className={styles.note}>
-            The tile carries a <strong>hard diagonal offset</strong> — <code>3px 3px 0</code>, zero blur,
-            in a darker companion of its own fill. Note the direction: <em>diagonal</em> on a marker,
-            <em>vertical</em> on a button. A button is something you press down; a tile is something
-            sitting on the page. Unlike the soft shadow it replaces, it survives into the dark theme —
-            a zero-blur offset needs nowhere to cast.
+            <strong>A pale tint and a saturated glyph</strong>, as in the launch mockups — the gold star on
+            cream, the orange flame on peach. Each glyph is solved to at least 3:1 on its own tint; the
+            mockup&rsquo;s own gold star measures 2.2:1, which is why the gold glyph is a deeper gold than
+            the XP colour. The hard diagonal edge of Milestone 27 is retired. Tones are buckets, never
+            status and never words — <code>Badge</code> carries meaning.
           </p>
           <Row label="Tones — categories, never actions and never words">
             <IconTile icon="ph-target" tone="blue" />
@@ -344,6 +399,14 @@ export default function DesignSystem() {
           </Row>
           <Row label="A broken source falls back; it does not show a broken image">
             <Avatar name="Sneha Rao" src="/this-photo-does-not-exist.png" size="md" />
+          </Row>
+          <Row label="tint — other students on a public board are always initials, coloured by name">
+            <Avatar name="Sample Rehaan M." size="md" tint />
+            <Avatar name="Sample Priyal K." size="md" tint />
+            <Avatar name="Sample Vivaan P." size="md" tint />
+            <Avatar name="Sample Ishita M." size="md" tint />
+            <Avatar name="Sample Kunal T." size="md" tint />
+            <Avatar name="Sample Ananya P." size="md" tint />
           </Row>
         </Group>
 
@@ -401,26 +464,25 @@ export default function DesignSystem() {
 
         <Group title="Buttons">
           <p className={styles.note}>
-            <strong>A filled button carries a hard offset edge</strong> — <code>0 4px 0</code> in a
-            companion colour, zero blur: a keycap rather than a lift. Pressing it <em>collapses</em> that
-            edge, travelling down by exactly its own offset. The companion is a designed pair, not a
-            formula — the green action takes a <em>lighter</em> green edge while the orange one takes a
-            darker orange. A flat variant keeps the older 1px nudge.
-          </p>
-          <p className={styles.note}>
-            <strong>There are two action colours.</strong> <code>primary</code> (deep green) is the
-            workhorse; <code>brand</code> (orange) is the loudest control in the product and belongs
-            <em>once per page</em>. Its label is <strong>ink, not white</strong> — the reference uses
-            white and it measures 3.05:1, where ink on the same fill is 5.19:1.
+            <strong>Flat pills, one action colour</strong> (Milestone 30). Emphasis is fill versus
+            outline: <code>primary</code> is the solid brand blue (white label, 5.04:1),
+            <code> secondary</code> the mockups&rsquo; white pill with a hairline, <code>link</code> text with
+            an arrow. <code>brand</code> is the same blue with a soft glow, for the one loudest action on a
+            page — use it once. Pressing is a 0.98 scale; the keycap edge is retired.
           </p>
           <Row label="Variants">
             <Button variant="primary">Primary</Button>
-            <Button variant="brand">Brand</Button>
+            <Button variant="brand" iconAfter={<ArrowRight size={18} />}>
+              Brand
+            </Button>
             <Button variant="secondary">Secondary</Button>
             <Button variant="outline">Outline</Button>
             <Button variant="subtle">Subtle</Button>
             <Button variant="ghost">Ghost</Button>
             <Button variant="danger">Danger</Button>
+            <Button variant="link" iconAfter={<ArrowRight size={16} />}>
+              View all
+            </Button>
           </Row>
           <Row label="Sizes">
             <Button size="sm">Small</Button>
@@ -477,6 +539,17 @@ export default function DesignSystem() {
             </Badge>
             <Badge tone="primary" uppercase size="sm">
               Draft
+            </Badge>
+          </Row>
+          <Row label="The launch pills — LIVE, a countdown chip, difficulty, Soon">
+            <Badge tone="success" live uppercase size="sm">
+              Live
+            </Badge>
+            <Badge tone="danger">2d 14h</Badge>
+            <Badge tone="neutral">Moderate</Badge>
+            <Badge tone="primary">Class 10</Badge>
+            <Badge tone="neutral" variant="outline" size="sm">
+              Soon
             </Badge>
           </Row>
         </Group>
@@ -567,22 +640,20 @@ export default function DesignSystem() {
 
         <Group title="Cards">
           <p className={styles.note}>
-            <strong>A card has no border and no shadow.</strong> Separation is the fill:
-            <code>--surface</code> is white, <code>--bg</code> is <code>#f4f0e5</code>, and that step
-            alone is the edge. This is the reverse of Milestone 26, where a card was white-on-white and a
-            soft shadow did the separating. <strong>Do not give a card the <code>--edge-*</code>
-            treatment</strong> — the hard offset belongs to controls and markers, and a page of edged
-            boxes reads as a page of buttons. If a card needs more presence, change its fill.
-          </p>
-          <p className={styles.note}>
-            <code>--card-border</code> is transparent in light and a hairline in dark, because
-            <code>--surface</code> and <code>--bg</code> are both near-black there and a fill step alone
-            is too quiet. It is declared in both themes so the box never changes size between them.
+            <strong>A white card on the pale blue page, with a hairline and a soft two-layer shadow</strong>,
+            at a 16px radius (Milestone 30). Both edges, together: the fill step alone is 1.05:1 and a
+            shadow alone reads as a smudge in sunlight. In the dark theme <code>--card-shadow</code> is
+            <code> none</code> and the blue hairline does the work. Only a card that is genuinely a link
+            lifts on hover.
           </p>
           <div className="grid-auto" style={{ '--grid-min': '260px' } as CSSProperties}>
             <Card>
-              <CardHeader title="Default" description="White on cream. No border, no shadow." size="sm" as="h3" />
+              <CardHeader title="Default" description="Hairline and soft shadow." size="sm" as="h3" />
               <CardBody>Padding is fluid: 16px on a phone, 24px when there is room.</CardBody>
+            </Card>
+            <Card style={{ background: 'var(--surface-mint)' }}>
+              <CardHeader title="Tinted" description="--surface-mint, -cream, -aqua: the mockups' tinted cards." size="sm" as="h3" />
+              <CardBody>A lifted surface in the dark theme, because a card holds themed text.</CardBody>
             </Card>
             <Card tone="sunken">
               <CardHeader title="Sunken" description="For a nested panel." size="sm" as="h3" />
@@ -601,6 +672,61 @@ export default function DesignSystem() {
             <StatTile icon="ph-currency-inr" label="Sample total" value="₹24,875" tone="success" hint="Sample only" />
             <StatTile icon="ph-clock-countdown" label="Sample pending" value="7" tone="warning" />
             <StatTile icon="ph-chart-line-up" label="Average score" value={null} hint="null renders an em dash, never 0" />
+          </div>
+          <p className={styles.note}>
+            <strong>value-first</strong> — the mockups&rsquo; stat card: a tinted icon, the figure, the label,
+            and a delta whose words carry the direction. Pass a <code>CountUp</code> as the value and it counts
+            up the first time it is on screen (Indian grouping; the final value is what a screen reader hears).
+          </p>
+          <div className="grid-auto" style={{ '--grid-min': '180px' } as CSSProperties}>
+            <StatTile
+              layout="value-first"
+              icon={<Star size={20} fill="currentColor" />}
+              iconTone="gold"
+              value={<CountUp value={1240} />}
+              label="Total XP (sample)"
+              delta={{ text: '+120 this week', direction: 'up' }}
+            />
+            <StatTile
+              layout="value-first"
+              icon={<Trophy size={20} />}
+              iconTone="gold"
+              value="#48"
+              label="Global rank (sample)"
+              delta={{ text: 'out of 12,458' }}
+            />
+            <StatTile
+              layout="value-first"
+              icon={<Flame size={20} />}
+              iconTone="orange"
+              value={<CountUp value={12} />}
+              label="Day streak (sample)"
+              delta={{ text: 'Keep it going!', direction: 'up' }}
+            />
+            <StatTile
+              layout="value-first"
+              icon={<Target size={20} />}
+              iconTone="blue"
+              value={<CountUp value={108320} />}
+              label="Questions solved (sample)"
+              delta={{ text: '+25 this week', direction: 'up' }}
+            />
+            <StatTile
+              layout="value-first"
+              icon={<ChartColumn size={20} />}
+              iconTone="purple"
+              value="75%"
+              label="Accuracy (sample)"
+              delta={{ text: '4 points below last month', direction: 'down' }}
+            />
+            <StatTile
+              layout="value-first"
+              icon={<ChartColumn size={20} />}
+              iconTone="blue"
+              value={null}
+              label="Accuracy, no data (sample)"
+              delta={{ text: 'Answer a question to see this' }}
+            />
           </div>
         </Group>
 
@@ -847,6 +973,205 @@ export default function DesignSystem() {
               </Button>
             </Tooltip>
           </Row>
+        </Group>
+
+        {/* ------------------------------------------- Milestone 30: the launch primitives */}
+        <Group title="Motion — CountUp and Reveal">
+          <p className={styles.note}>
+            Motion explains a change or points at the one thing that matters. <code>CountUp</code> counts
+            once, the first time a figure is on screen; <code>Reveal</code> brings a block in once. Both
+            stop under reduced motion, and both fall back to the final state on a timer if the browser never
+            delivers an observer callback or an animation frame — nothing can stay hidden or half-counted.
+          </p>
+          <Row label="CountUp — Indian grouping">
+            <span style={{ fontSize: 'var(--type-section-title)', fontWeight: 800 }}>
+              <CountUp value={108320} />
+            </span>
+            <span style={{ fontSize: 'var(--type-section-title)', fontWeight: 800 }}>
+              <CountUp value={2341} />
+            </span>
+          </Row>
+          <div className="grid-auto" style={{ '--grid-min': '200px' } as CSSProperties}>
+            {(['up', 'fade', 'rise'] as const).map((variant, i) => (
+              <Reveal key={variant} variant={variant} delay={i * 120}>
+                <Card tone="sunken" padding="sm">
+                  <p style={{ margin: 0 }}>
+                    <code>variant=&quot;{variant}&quot;</code>, delay {i * 120}ms
+                  </p>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+        </Group>
+
+        <Group title="OptionTile — the A–D answer choice">
+          <p className={styles.note}>
+            A real radio group: arrow keys move between choices, Space selects, one Tab stop. The chosen tile
+            is marked three ways — border, tint and a filled letter — and a marked answer carries an icon and
+            words, never colour alone. The content is a <code>MathText</code> passed in; the tile knows
+            nothing about questions.
+          </p>
+          <Row label="Interactive — idle, hover, selected">
+            <div style={{ width: '100%' }}>
+              <OptionGroup legend="Sample: choose an answer" value={choice} onChange={setChoice} columns={4}>
+                {SAMPLE_OPTIONS.map((option, i) => (
+                  <OptionTile key={option.id} value={option.id} letter={LETTERS[i]!}>
+                    <MathText>{option.tex}</MathText>
+                  </OptionTile>
+                ))}
+              </OptionGroup>
+            </div>
+          </Row>
+          <Row label="Marked — the reader chose B, which was wrong; C was right. Locked.">
+            <div style={{ width: '100%' }}>
+              <OptionGroup legend="Sample: a marked answer" value="o-2c91" onChange={() => undefined} columns={4} disabled>
+                {SAMPLE_OPTIONS.map((option, i) => (
+                  <OptionTile
+                    key={option.id}
+                    value={option.id}
+                    letter={LETTERS[i]!}
+                    result={option.id === 'o-9d04' ? 'correct' : option.id === 'o-2c91' ? 'incorrect' : undefined}
+                  >
+                    <MathText>{option.tex}</MathText>
+                  </OptionTile>
+                ))}
+              </OptionGroup>
+            </div>
+          </Row>
+        </Group>
+
+        <Group title="Countdown — a display of the server's clock">
+          <p className={styles.note}>
+            Every tick computes the remaining time from the wall clock plus the server offset — it never
+            counts its own ticks, so a throttled tab reads correctly the moment it is looked at. At zero it
+            calls <code>onComplete</code> and the page re-asks the server; it never decides a day has turned.
+            <code> role=&quot;timer&quot;</code>, so a screen reader is not told every second.
+          </p>
+          <Row label="clock · compact · elapsed (direction=up)">
+            <span style={{ fontSize: 'var(--type-section-title)' }}>
+              <Countdown target={instants.inFiveHours} label="Sample: time until the answer unlocks" />
+            </span>
+            <Badge tone="danger">
+              <Countdown target={instants.inTwoDays} variant="compact" label="Sample: time until the event" />
+            </Badge>
+            <span>
+              Elapsed{' '}
+              <Countdown target={instants.startedAgo} direction="up" label="Sample: time since you started" />
+            </span>
+          </Row>
+          <Row label="units — the Boss Battle card">
+            <Countdown target={instants.inTwoDays} variant="units" label="Sample: time until the next battle" />
+          </Row>
+          <p className={styles.note}>
+            Dates read like the brief asks, in IST whatever the device&rsquo;s zone: {formatDateTime(instants.inTwoDays)}.
+          </p>
+        </Group>
+
+        <Group title="Podium and LeaderboardTable">
+          <p className={styles.note}>
+            Drawn 2 – 1 – 3, read 1, 2, 3: the DOM is an ordered list in rank order. Other students are
+            always initials (they are minors) and their names arrive already masked from the server. The
+            table never sorts or ranks — it prints rows in the order given, which is how equal XP shows as an
+            equal rank. Below: the steps rise on first view.
+          </p>
+          <div className={styles.split}>
+            <Card>
+              <Podium
+                label="Sample: top three"
+                entries={[
+                  { rank: 1, name: 'Sample R.', value: '195 XP', meta: 'Class 12 · Delhi', avatar: <Avatar name="Sample R" tint size="lg" decorative /> },
+                  { rank: 2, name: 'Sample S.', value: '185 XP', meta: 'Class 12', avatar: <Avatar name="Sample S" tint size="lg" decorative /> },
+                  { rank: 3, name: 'Sample P.', value: '150 XP', meta: 'Class 5', avatar: <Avatar name="Sample P" tint size="lg" decorative /> },
+                ]}
+              />
+            </Card>
+            <Card>
+              <LeaderboardTable
+                caption="Sample: today's top five in Class 10, and you"
+                columns={['XP']}
+                rows={[
+                  { key: 'a', rank: 1, name: 'Sample R.', avatar: <Avatar name="Sample R" tint size="sm" decorative />, cells: ['2,450'], rankMarker: <Trophy size={14} color="var(--medal-gold)" aria-hidden /> },
+                  { key: 'b', rank: 2, name: 'Sample S.', avatar: <Avatar name="Sample S" tint size="sm" decorative />, cells: ['2,320'] },
+                  { key: 'c', rank: 2, name: 'Sample T.', avatar: <Avatar name="Sample T" tint size="sm" decorative />, cells: ['2,320'] },
+                  { key: 'd', rank: 4, name: 'Sample V.', avatar: <Avatar name="Sample V" tint size="sm" decorative />, cells: ['2,180'] },
+                  { key: 'e', rank: 5, name: 'Sample K.', avatar: <Avatar name="Sample K" tint size="sm" decorative />, cells: ['1,050'] },
+                  { key: 'me', rank: 48, name: 'Sample You', avatar: <Avatar name="Sample You" tint size="sm" decorative />, cells: ['640'], highlight: true, gapBefore: true },
+                ]}
+              />
+            </Card>
+          </div>
+        </Group>
+
+        <Group title="JourneyTrack">
+          <p className={styles.note}>
+            Done, current or locked — said in words to a screen reader, then repeated by a tick, a
+            &ldquo;Current&rdquo; pill and a padlock. Connectors draw left to right on first view; the current
+            stage breathes. On a phone it scrolls inside itself (keyboard-reachable), never the page.
+          </p>
+          <Card>
+            <JourneyTrack
+              label="Sample: six-month journey"
+              stages={SAMPLE_JOURNEY.map((stage, i) => ({ ...stage, art: <Illustration name={JOURNEY_ART[i]!} /> }))}
+            />
+          </Card>
+        </Group>
+
+        <Group title="ActivityList">
+          <Card style={{ maxWidth: 480 }}>
+            <CardHeader title="Recent activity (sample)" size="sm" as="h3" actions={<Button variant="link" size="sm" iconAfter={<ArrowRight size={14} />}>View all</Button>} />
+            <ActivityList
+              items={[
+                { key: '1', icon: 'ph-check-circle', tone: 'green', title: 'Solved a Daily Quiz (sample)', time: 'Today, 10:12 AM', value: '+20 XP' },
+                { key: '2', icon: 'ph-chart-bar', tone: 'blue', title: 'Completed a practice set (sample)', time: 'Yesterday, 6:45 PM', value: '+25 XP' },
+                { key: '3', icon: 'ph-trophy', tone: 'gold', title: 'Reached level 5 (sample)', time: 'Sun, 4 Oct 2026, 4:30 PM' },
+              ]}
+            />
+          </Card>
+        </Group>
+
+        <Group title="Confetti">
+          <p className={styles.note}>
+            A light burst for a correct answer: CSS only, transform and opacity, at most 1.5 seconds, nothing
+            under reduced motion, and it removes itself on a timer.
+          </p>
+          <Row>
+            <div style={{ position: 'relative' }}>
+              <Button onClick={() => setBurst((n) => (n ?? 0) + 1)}>Fire a burst</Button>
+              <Confetti burstKey={burst} />
+            </div>
+          </Row>
+        </Group>
+
+        <Group title="Illustration — placeholders until the art arrives">
+          <p className={styles.note}>
+            Each name is drawn from <code>src/assets/illustrations/</code> when a file with that name exists
+            there, and otherwise as this placeholder — a tint and one line icon, never a person and never
+            text. Nothing is requested that is not there, so a missing file is never a 404. The full list is
+            in <code>docs/launch/ASSETS_NEEDED.md</code>.
+          </p>
+          <div className={styles.illustrationGrid}>
+            {ILLUSTRATION_NAMES.map((name) => (
+              <figure key={name} className={styles.illustrationCell}>
+                <Illustration name={name} />
+                <figcaption className={styles.iconName}>{name}</figcaption>
+              </figure>
+            ))}
+          </div>
+        </Group>
+
+        <Group title="Daily Quiz button — all four states">
+          <p className={styles.note}>
+            Shown in the flow here; on the homepage it is fixed bottom-right and floats. Hover or focus one
+            for the light streak and the brighter glow — the &ldquo;shine&rdquo; the owner asked for. On a
+            touch screen the streak sweeps by itself every few seconds.
+          </p>
+          <div className={styles.fabRow}>
+            <DailyQuizFab placement="inline" state="guest" onClick={() => toast.info('Sample: the Login Gate would open')} />
+            <DailyQuizFab placement="inline" state="live" to="/design-system" />
+            <DailyQuizFab placement="inline" state="done" to="/design-system" detail="Answer unlocks in 5h 12m" />
+            <DailyQuizFab placement="inline" state="upcoming" to="/design-system" detail="Next quiz in 2h 10m" />
+            <DailyQuizFab placement="inline" state="live" to="/design-system" collapsed />
+          </div>
         </Group>
 
         <Group title="Icons">

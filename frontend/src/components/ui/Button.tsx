@@ -1,4 +1,4 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react'
+import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactElement, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import Icon from './Icon'
 import styles from './Button.module.css'
@@ -13,27 +13,16 @@ import styles from './Button.module.css'
  * props (`variant` of `primary | outline | danger | ghost`, and `fullWidth`) are all
  * still honoured, so those pages pick up the new treatment without being touched.
  *
- * ## Shape and colour (Milestone 26, re-pointed in Milestone 27)
+ * ## Shape and colour (Milestone 30 — the launch mockups)
  *
- * **Every button is a pill.** Milestone 23 had deliberately un-pilled them; the
- * visual language puts that back, and for a better reason than fashion — cards,
- * cells, inputs and tags here are all rectangles with a modest radius, so a
- * fully-rounded control is the one shape that can only be an action.
+ * **Every button is a flat pill.** The hard offset edge Milestone 27 put under filled
+ * buttons is retired; pressing is a 0.98 scale. There is **one action colour**, the
+ * brand blue, and emphasis is fill versus outline: `primary` is solid, `secondary` a
+ * white pill with a hairline, `link` text with an arrow. `brand` is the same blue with
+ * a soft glow, for the one loudest action on a page.
  *
- * The `pill` prop is kept and still resolves to the same radius, so no call site
- * changed. It is simply no longer the thing that makes a button a pill.
- *
- * **A filled button now carries a hard offset edge** — `0 4px 0` in a companion
- * colour with zero blur, which is the reference signature. Pressing it *collapses*
- * that edge: the button travels down by exactly its own offset and the edge shrinks
- * to zero, so it behaves like something pressed against the page. A flat variant
- * keeps the older 1px nudge. See `Button.module.css` for the three variables that
- * drive it.
- *
- * There are **two action colours**: `primary` (deep green) is the workhorse and
- * `brand` (orange) is the single loudest action on a page. Milestone 26 had one
- * near-black action; the reasoning that produced it still holds — a colour should
- * have one job — but the reference has two, split by emphasis.
+ * `icon` takes a Phosphor glyph name **or** a rendered element — the redesigned pages
+ * use Lucide (see the Milestone 28 and 30 ADRs), and the caller sizes an element.
  *
  * ## Loading
  *
@@ -50,10 +39,10 @@ import styles from './Button.module.css'
  */
 
 /**
- * `brand` is the orange call to action, added in Milestone 27. It is the loudest
- * control in the product and belongs **once per page** — three of them is the same
- * as none. Everything else is unchanged, so the 37 call sites passing `outline` and
- * the forty pages importing the old `components/Button` keep working.
+ * `brand` is the one loudest action on a page (once per page — three of them is the
+ * same as none). `link` is a text action with an arrow — "View all →". Everything
+ * else is unchanged, so the 37 call sites passing `outline` and the forty pages
+ * importing the old `components/Button` keep working.
  */
 export type ButtonVariant =
   | 'primary'
@@ -63,8 +52,12 @@ export type ButtonVariant =
   | 'subtle'
   | 'ghost'
   | 'danger'
+  | 'link'
 
 export type ButtonSize = 'sm' | 'md' | 'lg'
+
+/** A Phosphor glyph name, or a rendered icon element whose size the caller owns. */
+export type ButtonIcon = string | ReactElement
 
 interface CommonProps {
   variant?: ButtonVariant
@@ -75,12 +68,17 @@ interface CommonProps {
    * as of Milestone 26. Kept so the call sites that pass it do not have to change.
    */
   pill?: boolean
-  /** Phosphor glyph name, drawn before the label. */
-  icon?: string
-  /** Phosphor glyph name, drawn after the label — a chevron, an external-link mark. */
-  iconAfter?: string
+  /** Drawn before the label. */
+  icon?: ButtonIcon
+  /** Drawn after the label — a chevron, an arrow, an external-link mark. */
+  iconAfter?: ButtonIcon
   children?: ReactNode
   className?: string
+}
+
+function renderIcon(icon: ButtonIcon | undefined) {
+  if (!icon) return null
+  return typeof icon === 'string' ? <Icon name={icon} weight="bold" /> : icon
 }
 
 function classesFor({
@@ -112,13 +110,9 @@ function Inner({
 }: Pick<CommonProps, 'icon' | 'iconAfter' | 'children'> & { loading?: boolean }) {
   return (
     <>
-      {loading ? (
-        <span className={styles.spinner} aria-hidden="true" />
-      ) : (
-        icon && <Icon name={icon} weight="bold" />
-      )}
+      {loading ? <span className={styles.spinner} aria-hidden="true" /> : renderIcon(icon)}
       {children}
-      {iconAfter && !loading && <Icon name={iconAfter} weight="bold" />}
+      {!loading && renderIcon(iconAfter)}
     </>
   )
 }
@@ -126,7 +120,7 @@ function Inner({
 type ButtonOwnProps = CommonProps & {
   loading?: boolean
 } & (
-    | { iconOnly: true; 'aria-label': string; icon: string }
+    | { iconOnly: true; 'aria-label': string; icon: ButtonIcon }
     | { iconOnly?: false }
   )
 

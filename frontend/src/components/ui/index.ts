@@ -5,7 +5,11 @@
  *
  *     import { Button, Card, Section, Field, Input, Badge } from '../../components/ui'
  *
- * ## Twenty-five primitives, and no near-duplicates
+ * ## Thirty-four primitives, and no near-duplicates
+ *
+ * Twenty-five through Milestone 26; Milestone 30 added nine for the launch mockups
+ * (`CountUp`, `Reveal`, `OptionTile`, `Countdown`, `Podium`, `LeaderboardTable`,
+ * `JourneyTrack`, `ActivityList`, `Confetti`) — see the block at the end of the file.
  *
  * Milestone 26 added five — `Section`, `IconTile`, `Avatar`, `Menu`, `Breadcrumb` —
  * and the discipline that matters is the ones it did **not** add. There is no
@@ -36,7 +40,7 @@ export { default as Icon } from './Icon'
 export type { IconProps, IconSize, IconWeight } from './Icon'
 
 export { default as Button, ButtonLink } from './Button'
-export type { ButtonProps, ButtonSize, ButtonVariant } from './Button'
+export type { ButtonProps, ButtonSize, ButtonVariant, ButtonIcon } from './Button'
 
 export { default as Card, CardHeader, CardBody, CardFooter } from './Card'
 export type { CardProps, CardHeaderProps } from './Card'
@@ -127,4 +131,43 @@ export { default as Steps } from './Steps'
 export type { Step, StepsProps } from './Steps'
 
 export { default as StatTile } from './StatTile'
-export type { StatTileProps } from './StatTile'
+export type { StatTileProps, StatDelta } from './StatTile'
+
+/* ---------------------------------------------------------------------------
+   Milestone 30 (the Diwali launch), Phase 1 — the primitives the launch mockups need.
+   Each is domain-agnostic: a podium does not know it is ranking students, an option
+   tile does not know it is a quiz. The product-aware pieces built on them
+   (`DailyQuizFab`, `Illustration`) live in `components/`.
+   --------------------------------------------------------------------------- */
+
+/** Motion hooks. Each has a timer fallback — see the note in the file. */
+export { usePrefersReducedMotion, useInView, useCountUp } from './motion'
+export type { InViewOptions } from './motion'
+
+export { default as CountUp } from './CountUp'
+export type { CountUpProps } from './CountUp'
+
+export { default as Reveal } from './Reveal'
+export type { RevealProps } from './Reveal'
+
+export { default as OptionTile, OptionGroup } from './OptionTile'
+export type { OptionTileProps, OptionGroupProps } from './OptionTile'
+
+export { default as Countdown } from './Countdown'
+export { clockOffset } from './clock'
+export type { CountdownProps } from './Countdown'
+
+export { default as Podium } from './Podium'
+export type { PodiumProps, PodiumEntry } from './Podium'
+
+export { default as LeaderboardTable } from './LeaderboardTable'
+export type { LeaderboardTableProps, LeaderboardRow } from './LeaderboardTable'
+
+export { default as JourneyTrack } from './JourneyTrack'
+export type { JourneyTrackProps, JourneyStage } from './JourneyTrack'
+
+export { default as ActivityList } from './ActivityList'
+export type { ActivityListProps, ActivityItem } from './ActivityList'
+
+export { default as Confetti } from './Confetti'
+export type { ConfettiProps } from './Confetti'
