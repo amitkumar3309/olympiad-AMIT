@@ -1,63 +1,112 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { Button, ButtonLink, Icon } from './ui'
+import { Avatar, Button, ButtonLink, Icon, Menu, usePrefersReducedMotion } from './ui'
 import { lockScroll, unlockScroll } from './ui/scrollLock'
 import ThemeToggle from './ThemeToggle'
 import logoMark from '../assets/logo-mark.png'
-import { AMIT_FULL_FORM, AMIT_SHORT } from '../lib/brand'
+import { AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_TAGLINE } from '../lib/brand'
 import styles from './Navbar.module.css'
 
 /**
- * The public header, on every page a signed-out visitor can reach.
+ * The public header, on every page a signed-out visitor can reach (redesigned for the
+ * launch mockup in Milestone 30, Phase 3 — brief §7.1 #1).
  *
- * ## What changed in Milestone 23, Phase B
+ * ## Six destinations, three of them on the homepage
  *
- * It carried eight links in one row, which on a phone became a full-width dropdown
- * with no way to close it except the burger, and on a desktop gave equal weight to
- * "Gallery" and "Verify Certificate" — and to **Admin**, which a marketing page was
- * advertising to every visitor.
+ * Home, About, How it works and FAQ are sections of the homepage; Leaderboards and
+ * Gallery are pages. A section link is an ordinary link to `/#section` — from another
+ * page it lands on the homepage at that section, and on the homepage it scrolls there
+ * (`Landing` follows the hash). While the homepage is open the link for the section
+ * being read is highlighted, so the bar doubles as a "you are here".
  *
- * Now: four public destinations, a theme toggle, and one call to action. The two
- * certificate/result *lookups* moved to the footer, which is where a utility belongs;
- * the admin door moved there too, so it is still one click from anywhere without being
- * the loudest thing in the header. Nothing became unreachable.
+ * Hall of Fame and Verify a certificate left the bar for the footer, where every other
+ * lookup already lives; nothing became unreachable.
  *
- * **A signed-out visitor now has a Sign in button**, which they did not before — the
- * login form is a panel on the landing page, and there was no way to ask for it from
- * anywhere else. It links to `/#login`, which the landing page opens on arrival.
+ * ## No flash of the wrong account state
+ *
+ * Until the session check answers, the account area is an empty box of the right size —
+ * not "Sign in", which a signed-in student would see flicker away. Signed in, an avatar
+ * menu (Dashboard, My Profile, Sign out) replaces Sign in and Register; staff also get
+ * Admin, which is navigation for somebody who holds the role, not a public door.
+ *
+ * ## It settles in when you scroll
+ *
+ * At the top of a page the bar is transparent over the hero. Once the page moves it
+ * gains a frosted surface and a shadow, so content passing underneath stays legible.
  *
  * The mobile panel is a real disclosure: Escape closes it, a press outside closes it,
  * changing route closes it, focus moves into it and returns to the burger, and it is
  * removed from the tab order while shut.
  */
 
-interface PublicLink {
+interface NavLink {
   to: string
   label: string
+  /** The homepage section this link scrolls to, if it is one. */
+  section?: SectionKey
 }
 
-/** The four public destinations. Kept short deliberately — see the note above. */
-const PUBLIC_LINKS: PublicLink[] = [
-  { to: '/leaderboard', label: 'Leaderboard' },
-  { to: '/hall-of-fame', label: 'Hall of Fame' },
+type SectionKey = 'home' | 'about' | 'how-it-works' | 'faq'
+
+const LINKS: NavLink[] = [
+  { to: '/', label: 'Home', section: 'home' },
+  { to: '/#about', label: 'About', section: 'about' },
+  { to: '/#how-it-works', label: 'How it works', section: 'how-it-works' },
+  { to: '/leaderboard', label: 'Leaderboards' },
   { to: '/gallery', label: 'Gallery' },
-  { to: '/verify', label: 'Verify a certificate' },
+  { to: '/#faq', label: 'FAQ', section: 'faq' },
 ]
+
+/** The homepage sections the bar can point at, in page order. */
+const SPY_SECTIONS: Exclude<SectionKey, 'home'>[] = ['about', 'how-it-works', 'faq']
+
+/**
+ * Which homepage section is being read: the one spanning a line a third of the way down
+ * the window. Above the first it is Home; between the anchored sections (the journey, the
+ * leaderboard) it is none — highlighting "How it works" while somebody reads Top Scholars
+ * would be a wrong "you are here".
+ */
+function sectionInView(): SectionKey | null {
+  const line = window.innerHeight * 0.35
+  const first = document.getElementById(SPY_SECTIONS[0]!)
+  if (!first || first.getBoundingClientRect().top > line) return 'home'
+  for (const id of SPY_SECTIONS) {
+    const rect = document.getElementById(id)?.getBoundingClientRect()
+    if (rect && rect.top <= line && rect.bottom > line) return id
+  }
+  return null
+}
 
 export default function Navbar() {
   const { state, can, logout } = useAuth()
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const reducedMotion = usePrefersReducedMotion()
   const [open, setOpen] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
+  const [section, setSection] = useState<SectionKey | null>('home')
   const panelRef = useRef<HTMLDivElement>(null)
   const burgerRef = useRef<HTMLButtonElement>(null)
 
+  const onHome = pathname === '/'
   const signedIn = state.status === 'student' || state.status === 'admin'
   const isStaff = can('students:read')
 
   /* Route change closes the panel — including a browser back. */
   useEffect(() => setOpen(false), [pathname])
+
+  /* The frosted bar once the page has moved, and — on the homepage — the section in view. */
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 8)
+      if (onHome) setSection(sectionInView())
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [onHome])
 
   useEffect(() => {
     if (!open) return
@@ -87,90 +136,145 @@ export default function Navbar() {
     navigate('/')
   }
 
-  const links = (
-    <>
-      {PUBLIC_LINKS.map((link) => {
-        const current = pathname === link.to || pathname.startsWith(`${link.to}/`)
-        return (
-          <Link
-            key={link.to}
-            to={link.to}
-            className={current ? styles.linkActive : styles.link}
-            aria-current={current ? 'page' : undefined}
-          >
-            {link.label}
-          </Link>
-        )
-      })}
-    </>
-  )
+  /** "Home" on the homepage scrolls back to the top rather than doing nothing. */
+  function onHomeClick(event: MouseEvent<HTMLAnchorElement>) {
+    setOpen(false)
+    if (!onHome) return
+    event.preventDefault()
+    window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' })
+    navigate('/', { replace: true })
+  }
+
+  function isCurrent(link: NavLink): boolean {
+    if (link.section) return onHome && section === link.section
+    return pathname === link.to || pathname.startsWith(`${link.to}/`)
+  }
+
+  const links = LINKS.map((link) => {
+    const current = isCurrent(link)
+    return (
+      <Link
+        key={link.to}
+        to={link.to}
+        className={current ? styles.linkActive : styles.link}
+        // A section is a location on this page; a route is a page.
+        aria-current={current ? (link.section ? 'location' : 'page') : undefined}
+        onClick={link.section === 'home' ? onHomeClick : () => setOpen(false)}
+      >
+        {link.label}
+      </Link>
+    )
+  })
+
+  const firstName = state.status === 'student' ? state.student.firstName : null
 
   /*
-    Both are shown to a promoted admin, deliberately: they hold `students:read` *and*
-    have a student record with their own progress, so "which one did they mean?" has no
-    single answer. The root administrator has no student record and gets Admin alone.
+    Signed in: the avatar menu, plus Admin for staff. A promoted admin holds
+    `students:read` *and* has a student record, so they get both; the root administrator
+    has no student record and gets Admin and Sign out.
   */
-  const account = signedIn ? (
-    <>
-      {isStaff && (
-        <ButtonLink to="/admin" variant="outline" size="sm" icon="ph-shield-check">
-          Admin
+  const account =
+    state.status === 'loading' ? (
+      <span className={styles.accountPending} aria-hidden="true" />
+    ) : signedIn ? (
+      <>
+        {isStaff && (
+          <ButtonLink to="/admin" variant="secondary" size="sm" icon="ph-shield-check">
+            Admin
+          </ButtonLink>
+        )}
+        {state.status === 'student' ? (
+          <Menu
+            label={`Account menu for ${firstName}`}
+            align="end"
+            trigger={
+              <>
+                <Avatar
+                  name={state.student.fullName || firstName || 'Student'}
+                  // Their own photo — other students only ever get initials.
+                  src={`/api/v1/students/${state.student.studentId}/photo`}
+                  size="sm"
+                  decorative
+                />
+                <span className={styles.accountName}>{firstName}</span>
+                <ChevronDown size={16} strokeWidth={2.25} aria-hidden="true" />
+              </>
+            }
+            items={[
+              { label: 'Dashboard', icon: 'ph-squares-four', to: '/dashboard' },
+              { label: 'My Profile', icon: 'ph-user', to: '/profile' },
+              { separator: true },
+              { label: 'Sign out', icon: 'ph-sign-out', onSelect: () => void handleLogout() },
+            ]}
+          />
+        ) : (
+          <Button variant="ghost" size="sm" icon="ph-sign-out" onClick={() => void handleLogout()}>
+            Sign out
+          </Button>
+        )}
+      </>
+    ) : (
+      <>
+        <ButtonLink to="/#login" variant="secondary" size="sm">
+          Sign in
         </ButtonLink>
-      )}
-      {state.status === 'student' && (
-        <ButtonLink to="/dashboard" size="sm" icon="ph-squares-four">
-          Dashboard
+        <ButtonLink to="/register" size="sm">
+          Register
         </ButtonLink>
-      )}
-      <Button variant="ghost" size="sm" icon="ph-sign-out" onClick={() => void handleLogout()}>
-        Sign out
-      </Button>
-    </>
-  ) : (
-    <>
-      <ButtonLink to="/#login" variant="outline" size="sm">
-        Sign in
-      </ButtonLink>
-      <ButtonLink to="/register" size="sm">
-        Register
-      </ButtonLink>
-    </>
-  )
+      </>
+    )
+
+  /* The phone panel lists the account actions as plain links: a menu inside a menu is
+     one disclosure too many on a small screen. */
+  const panelAccount =
+    state.status === 'loading' ? null : signedIn ? (
+      <>
+        {state.status === 'student' && (
+          <>
+            <ButtonLink to="/dashboard" icon="ph-squares-four">
+              Dashboard
+            </ButtonLink>
+            <ButtonLink to="/profile" variant="secondary" icon="ph-user">
+              My Profile
+            </ButtonLink>
+          </>
+        )}
+        {isStaff && (
+          <ButtonLink to="/admin" variant="secondary" icon="ph-shield-check">
+            Admin
+          </ButtonLink>
+        )}
+        <Button variant="ghost" icon="ph-sign-out" onClick={() => void handleLogout()}>
+          Sign out
+        </Button>
+      </>
+    ) : (
+      <>
+        <ButtonLink to="/register">Register</ButtonLink>
+        <ButtonLink to="/#login" variant="secondary">
+          Sign in
+        </ButtonLink>
+      </>
+    )
 
   return (
-    <header className={styles.nav}>
-      {/*
-        Two elements, not one. `.container` owns the maximum width and the gutter, so
-        the pill inside it is inset from the window edge at every width; putting both
-        jobs on one element makes the pill touch the screen edges on a phone, because
-        `.container`'s gutter is *inside* padding.
-      */}
-      <div className="container">
-      <div className={styles.inner}>
+    <header className={styles.nav} data-scrolled={scrolled ? 'true' : 'false'}>
+      <div className={`container ${styles.inner}`}>
         {/*
-          **The mark is the emblem alone, not the full lockup** — `logo-mark.png`, built
-          from `logo.png` by `scripts/crop-logo-mark.cjs`, and drawn as a circular badge.
-
-          `logo.png` is a *stacked* lockup: the emblem occupies only the top half of the
-          square (y 56–682 of 1254), with the AMIT wordmark, the expansion and the
-          "Think Beyond Numbers" line under it. Rendered into a 32px box that made the
-          emblem itself about 16px, which is why it read as small — the box was mostly
-          the other four bands, downsampled into mush.
-
-          **The text beside it stays, and the two are not a duplication.** In the lockup
-          the wordmark is 237px of 1254 — 8px tall in this bar — and the expansion is
-          37px, about one pixel. None of the image's own text survives at header size, so
-          the span is the only legible instance of the name, not a second one. It is also
-          what a reader sees when the image has not loaded.
+          **The mark is the emblem alone** — `logo-mark.png`, built from `logo.png` by
+          `scripts/crop-logo-mark.cjs` — **and the name beside it is text.** In the full
+          lockup the wordmark is 8px tall at this size and the expansion one pixel, so the
+          text is the only legible instance of the name in the header, not a second one.
+          The expansion is on the link's `title`, never on screen here (CLAUDE.md).
         */}
-        <Link
-          to="/"
-          className={styles.brand}
-          title={`${AMIT_SHORT} Olympiad — ${AMIT_FULL_FORM}`}
-          onClick={() => setOpen(false)}
-        >
+        <Link to="/" className={styles.brand} title={`${AMIT_OLYMPIAD} — ${AMIT_FULL_FORM}`} onClick={onHomeClick}>
           <img src={logoMark} alt="" aria-hidden="true" />
-          <span>A.M.I.T. OLYMPIAD</span>
+          <span className={styles.brandText}>
+            <span className={styles.brandName}>{AMIT_OLYMPIAD}</span>
+            <span className={styles.brandTagline} aria-hidden="true">
+              {AMIT_TAGLINE}
+            </span>
+          </span>
         </Link>
 
         <nav className={styles.desktopNav} aria-label="Primary">
@@ -190,9 +294,8 @@ export default function Navbar() {
             className={styles.burger}
             aria-label={open ? 'Close menu' : 'Open menu'}
             aria-expanded={open}
-            // Only while the panel exists. It is mounted on demand, so naming it when
-            // it is closed is an IDREF pointing at nothing — the same defect `Tabs`
-            // had, found on this page by the Phase C sweep.
+            // Only while the panel exists: naming it when it is closed is an IDREF
+            // pointing at nothing.
             aria-controls={open ? 'public-nav-panel' : undefined}
             onClick={() => setOpen((o) => !o)}
           >
@@ -200,14 +303,11 @@ export default function Navbar() {
           </button>
         </div>
       </div>
-      </div>
 
       {/*
-        Mounted only while open, rather than hidden with CSS. Two reasons: a hidden
-        copy of the same links is a second `Primary` navigation landmark that a screen
-        reader lists on every page, and a panel that merely slides off-screen keeps its
-        links in the tab order. The desktop nav above is `display: none` on a phone,
-        which does remove it from both.
+        Mounted only while open, rather than hidden with CSS: a hidden copy of the same
+        links is a second `Primary` landmark a screen reader lists on every page, and a
+        panel that merely slides off-screen keeps its links in the tab order.
       */}
       {open && (
         <>
@@ -216,7 +316,7 @@ export default function Navbar() {
             <nav className={styles.panelNav} aria-label="Primary">
               {links}
             </nav>
-            <div className={styles.panelActions}>{account}</div>
+            {panelAccount && <div className={styles.panelActions}>{panelAccount}</div>}
           </div>
         </>
       )}

@@ -1,100 +1,60 @@
 /**
- * The public header. Mobile is the base case: brand + theme + burger, with the links
- * in a panel below. From 1024px the links and the account actions come out into the bar.
+ * The public header (Milestone 30, Phase 3 — the landing mockup's bar).
  *
- * 1024 rather than 768 because the row holds four link labels, a theme toggle and two
- * buttons; at 800px those wrap into two lines, and a header that changes height as you
- * sign in is worse than a burger.
- */
-
-/**
- * The header is a **floating pill**, not a bar across the top of the window.
+ * Mobile is the base case: brand + theme + burger, with the links in a panel below. From
+ * 1024px the links and the account actions come out into the bar — 1024 rather than 768
+ * because the row holds six links, a theme toggle and two buttons, and a header that
+ * changes height as you sign in is worse than a burger.
  *
- * `.nav` itself is transparent and only provides the sticky behaviour and the space
- * above the pill; `.inner` is the visible surface. The page genuinely scrolls behind
- * and above it, which is what the detachment is for — a full-width opaque bar cuts
- * the window in two and makes every page start 60px down.
+ * A **full-width bar**, as in the mockup, rather than Milestone 28's floating pill: it is
+ * transparent over the top of the page and becomes a frosted surface with a soft shadow
+ * once the page scrolls (`data-scrolled`, set by the component).
  */
 .nav {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
-  padding-block: var(--space-4) 0;
   background: transparent;
+  border-bottom: var(--border-width) solid transparent;
+  transition:
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
 }
 
-/**
- * The fade behind the floating pill.
- *
- * Without it, content scrolling up into the gap above the pill is cut off at the
- * viewport edge mid-letter, which reads as a clipping bug. A short gradient from the
- * page colour to nothing, painted *behind* the pill and ignoring the pointer — so the
- * pill still floats and what passes behind it dissolves.
- */
-.nav::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: calc(100% + var(--space-6));
-  pointer-events: none;
-  background: linear-gradient(to bottom, var(--bg) 40%, transparent);
+.nav[data-scrolled='true'] {
+  background: var(--surface-translucent);
+  backdrop-filter: blur(var(--blur-panel));
+  -webkit-backdrop-filter: blur(var(--blur-panel));
+  border-bottom-color: var(--border-subtle);
+  box-shadow: var(--shadow-sm);
 }
 
 .inner {
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  min-height: 64px;
-  padding-inline: var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--surface-translucent);
-  backdrop-filter: blur(var(--blur-panel));
-  -webkit-backdrop-filter: blur(var(--blur-panel));
-  box-shadow: var(--shadow-md);
+  min-height: 68px;
 }
+
+/* ---------- brand ------------------------------------------------------- */
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  padding-left: var(--space-2);
-  font-family: var(--font-heading);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-snug);
   color: var(--text);
   text-decoration: none;
 }
 
 /**
- * The emblem, as a circular badge (owner, 2026-09-21: circular, and clearly visible in
- * both themes).
- *
- * 44px rather than 32 — but the size was only half of why it read as small. The image
- * used to be the *whole* stacked lockup, in which the emblem is the top half and the
- * AMIT wordmark, the expansion and the tagline are the rest; a 32px box therefore showed
- * a ~16px emblem ringed by type too small to be anything but noise. `logo-mark.png` is
- * that emblem alone, so the box is now all mark.
- *
- * **The asset is padded for this clip, so do not swap in a tighter crop.**
- * `border-radius` at 50% slices anything outside the inscribed circle, and the emblem is
- * wider than its own ring — the star clears it at the top right, the book at the bottom.
- * The generator (`frontend/scripts/crop-logo-mark.cjs`) composites the emblem onto a
- * white square sized from its **measured** enclosing circle, and prints how close the
- * outermost ink lands to the edge: 93.8% of the radius.
- *
- * **The plate must not be made transparent.** The artwork is opaque RGB with no alpha,
- * drawn in navy and orange — on the dark theme's black page and royal-blue pill that all
- * but disappears. The white disc is what makes it legible there; in the light theme it is
- * invisible against the white pill, so the circle a reader sees is the artwork's own ring.
- * That is why this needs no border in either theme.
- *
- * `contain`, not `cover`: the source is square and so is the box, so nothing is cropped
- * either way today — but `cover` silently trims a mark the day somebody supplies a
- * non-square one, and a clipped logo is not an acceptable failure mode.
+ * The emblem, as a circular badge (owner, 2026-09-21). **The asset is padded for this
+ * clip, so do not swap in a tighter crop** — the star and the book clear the emblem's own
+ * ring, and `scripts/crop-logo-mark.cjs` sizes the white plate from the measured circle.
+ * **The plate must not be made transparent**: the artwork is opaque navy and orange and
+ * all but vanishes on the dark theme without it.
  */
 .brand img {
   width: 44px;
@@ -105,9 +65,30 @@
   object-fit: contain;
 }
 
-.brand span {
+.brandText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.brandName {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-black);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.brandTagline {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -117,12 +98,11 @@
 .linkActive {
   display: inline-flex;
   align-items: center;
-  min-height: 34px;
+  min-height: 36px;
   padding: 0 var(--space-4);
   border-radius: var(--radius-pill);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-snug);
   color: var(--text-muted);
   text-decoration: none;
   white-space: nowrap;
@@ -132,27 +112,21 @@
 }
 
 .link:hover {
-  background: var(--surface);
+  background: var(--surface-hover);
   color: var(--text);
 }
 
 /**
- * The current page is a **white pill inside the tinted group**, and set heavier.
- *
- * Two signals and neither is hue: one item has a raised surface where the others have
- * none, and one item is semibold. The inset underline this replaced could not survive
- * the pill radius — a 2px rule inside a rounded shape stops short of both ends and
- * reads as a rendering fault.
+ * Where you are: a **tint of the primary**, never the primary itself — a solidly filled
+ * link is indistinguishable from a button, and a position is not an action (CLAUDE.md).
+ * Set heavier too, so the state is not carried by hue alone.
  */
 .linkActive {
-  background: var(--surface);
-  color: var(--text);
+  background: var(--primary-soft);
+  color: var(--primary-text);
   font-weight: var(--weight-semibold);
-  box-shadow: none;
 }
 
-/* A coarse pointer still gets the 44px floor — the compact height above is for the
-   desktop row, where the pill is one of four inside a 64px bar. */
 @media (pointer: coarse) {
   .link,
   .linkActive {
@@ -163,21 +137,6 @@
 .desktopNav,
 .desktopActions {
   display: none;
-}
-
-/**
- * The links live in their own tinted sub-pill inside the bar.
- *
- * Straight from the reference, and it earns its place: it groups "places you can go"
- * and separates them from "things you can do" (the sign-in and register buttons at
- * the other end) without a divider, a heading or any extra chrome.
- */
-@media (min-width: 1024px) {
-  .desktopNav {
-    padding: var(--space-1);
-    border-radius: var(--radius-pill);
-    background: var(--fill-subtle);
-  }
 }
 
 .mobileActions {
@@ -203,6 +162,23 @@
   background: var(--surface-hover);
 }
 
+/* ---------- account ----------------------------------------------------- */
+
+/* The account area while the session check is in flight: reserved, not "Sign in". */
+.accountPending {
+  display: inline-block;
+  width: 180px;
+  height: 36px;
+}
+
+.accountName {
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+}
+
 /* ---------- mobile panel ------------------------------------------------ */
 
 .backdrop {
@@ -213,11 +189,6 @@
   animation: nav-fade var(--dur) var(--ease-out);
 }
 
-/**
- * The mobile panel hangs under the pill and is inset to match it, rather than
- * spanning the window. A full-bleed sheet under a floating pill looks like two
- * unrelated elements that happen to touch.
- */
 .panel {
   position: absolute;
   top: 100%;
@@ -227,7 +198,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  max-height: calc(100dvh - 120px);
+  max-height: calc(100dvh - 96px);
   overflow-y: auto;
   overscroll-behavior: contain;
   margin-top: var(--space-2);
@@ -247,11 +218,6 @@
 .panelNav .linkActive {
   padding: var(--space-2) var(--space-4);
   font-size: var(--text-base);
-}
-
-.panelNav .linkActive {
-  background: var(--fill-muted);
-  box-shadow: none;
 }
 
 .panelActions {
@@ -283,21 +249,17 @@
 
 @media (min-width: 1024px) {
   .inner {
-    min-height: 64px;
-    gap: var(--space-5);
-    padding-inline: var(--space-3);
+    gap: var(--space-4);
+    min-height: 76px;
   }
 
-  .brand {
-    font-size: var(--text-base);
-  }
-
-  /* The bar is 64px at every width, but the wordmark steps up here, so the mark does
-     too — 44px beside 16px type reads lighter than it does beside 13px. 48px is the
-     ceiling: the pill is 64px, and the 8px left either side is its breathing room. */
   .brand img {
     width: 48px;
     height: 48px;
+  }
+
+  .brandName {
+    font-size: var(--text-base);
   }
 
   .desktopNav {
