@@ -72,9 +72,16 @@ export const AMIT_COMPETITION_YEAR = '2027'
  * than literals: one place per app to change.
  */
 export const SUPPORT = {
-  email: 'support@amitolympiad.com',
-  phone: '+91 9782870716',
+  email: 'support@amitolympiad.me',
+  // Owner-supplied, 2026-10-04, in exactly this format — print it as written.
+  phone: '+91-97828-70716',
 } as const
+
+/**
+ * The helpline as a `tel:` href — digits and the leading `+` only. RFC 3966 tolerates the
+ * dashes, but not every dialer does, and the displayed format is the owner's, not a dialer's.
+ */
+export const SUPPORT_TEL_HREF = `tel:${SUPPORT.phone.replace(/[^\d+]/g, '')}`
 
 /**
  * Who built the site, and where to find them.

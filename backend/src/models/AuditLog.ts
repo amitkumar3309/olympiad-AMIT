@@ -82,6 +82,21 @@ export const AUDIT_ACTIONS = [
   /** A scheduled daily challenge was removed before anyone attempted it. */
   'dailychallenge.deleted',
   /**
+   * The Daily Quiz (Milestone 30). Scheduling, changing and removing a quiz, and every
+   * step of choosing a prize winner — each is a decision about who a child's prize goes
+   * to, so each is recorded with who took it.
+   */
+  'dailyquiz.scheduled',
+  'dailyquiz.updated',
+  'dailyquiz.deleted',
+  'dailyquiz.winners.computed',
+  'dailyquiz.winner.confirmed',
+  'dailyquiz.winner.disqualified',
+  'dailyquiz.winner.published',
+  'dailyquiz.winner.contacted',
+  'dailyquiz.winner.delivered',
+  'dailyquiz.settings.updated',
+  /**
    * The XP award table was changed. Recorded because it alters what every future
    * event is worth for every student — and because the thing it cannot do (re-price
    * history) is worth being able to demonstrate from the trail.
@@ -156,6 +171,7 @@ export const AUDIT_TARGET_TYPES = [
   'question',
   'mocktest',
   'dailychallenge',
+  'dailyquiz',
   'subject',
   'topic',
   'gallery',

@@ -34,6 +34,21 @@ export interface StudentDocument extends Document {
   classLevel: ClassLevel;
   schoolName: string;
   address: string;
+  /**
+   * The four Daily Quiz prize fields (Milestone 30, Phase 2) — all optional, all
+   * self-service, none required to *play*. A prize winner needs a city and a parent or
+   * guardian's phone (`lib/dailyQuiz.ts → prizeEligibility`), because the prize is
+   * delivered through a parent after the organisers verify the winner. Accounts created
+   * before these existed simply lack them; nothing is back-filled.
+   */
+  city?: string | null;
+  guardianPhone?: string | null;
+  guardianEmail?: string | null;
+  /**
+   * Keeps the student's name off public lists — a winner who opted out is announced as
+   * "A Class 9 student" rather than by first name and initial (brief §3: they are minors).
+   */
+  hideFromPublicLists?: boolean;
   mobile: string;
   email: string;
   passwordHash: string;
@@ -144,6 +159,11 @@ const studentSchema = new Schema<StudentDocument>({
   classLevel: { type: String, enum: CLASS_LEVELS, required: requiredOnCreate },
   schoolName: { type: String, required: requiredOnCreate, trim: true },
   address: { type: String, required: requiredOnCreate, trim: true },
+  // Daily Quiz prize fields (Milestone 30). Optional; see the interface above.
+  city: { type: String, default: null, trim: true },
+  guardianPhone: { type: String, default: null, trim: true },
+  guardianEmail: { type: String, default: null, lowercase: true, trim: true },
+  hideFromPublicLists: { type: Boolean, default: false },
   // `required` is scoped like the registration details above, so the bootstrap
   // super admin (which has no mobile number) can be created. The index options are
   // deliberately untouched: `required` is application-level validation, so this

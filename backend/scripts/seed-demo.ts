@@ -3,32 +3,34 @@ import mongoose from 'mongoose';
 import { connectDB, disconnectDB } from '../src/db/connection';
 import { assertConfiguredForWrites } from '../src/lib/envGuard';
 import { hashPassword } from '../src/lib/password';
-import { todayKey, shiftDay, type DayKey } from '../src/lib/competitionDay';
+import { todayKey } from '../src/lib/competitionDay';
 import {
-  DailyChallenge,
   Payment,
   Question,
   Student,
   StudentPhoto,
-  type QuestionDocument,
   type StudentDocument,
 } from '../src/models';
 import { getPaymentSettings } from '../src/services/paymentService';
-import { resolveChallengeFor, scheduleChallenge } from '../src/services/dailyChallengeService';
+import { resolveQuizFor } from '../src/services/dailyChallengeService';
 import { grantReward } from '../src/services/rewardService';
 
 /**
- * Provisions the Class 9 demo: one student account, and a deliberately chosen daily
- * challenge for their class (Milestone 24).
+ * Provisions the Class 9 demo: one student account (Milestone 24).
  *
  *   npx tsx scripts/seed-demo.ts                    # report only, writes nothing
  *   npx tsx scripts/seed-demo.ts --write            # provision it
- *   npx tsx scripts/seed-demo.ts --write --days=7   # pin a whole demo week (max 14)
  *   npx tsx scripts/seed-demo.ts --write --unpaid   # skip the entry-fee record
  *
- * Run it from inside `backend/`, not the repo root. Run `seed-class9.ts` first — this
- * script refuses rather than inventing a question, because a daily challenge may only
- * ever serve a **published** question for the student's own class.
+ * Run it from inside `backend/`, not the repo root. Run `seed-class9.ts` first, so the
+ * demo has published questions to practise.
+ *
+ * **It no longer schedules the Daily Quiz** (Milestone 30). It used to pin a week of
+ * daily challenges from the published bank; the Daily Quiz carries a real prize, may only
+ * be set from an *unpublished* question (a published one's solution is readable in
+ * Practice), and its questions come from the owner — never from a script (brief §6.8).
+ * Schedule one from Admin → Daily Quiz, or load a file there. For a local database,
+ * `scripts/seed-dev-quizzes.ts` sets a few verified quizzes.
  *
  * ## Why a script and not a fixture or a route
  *
@@ -61,14 +63,6 @@ import { grantReward } from '../src/services/rewardService';
 const WRITE = process.argv.includes('--write');
 const UNPAID = process.argv.includes('--unpaid');
 
-/** `--days=3` pins today plus the next two. Defaults to today only. */
-const DAYS = (() => {
-  const raw = process.argv.find((arg) => arg.startsWith('--days='))?.slice('--days='.length);
-  const parsed = Number(raw ?? 1);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 14) return 1;
-  return parsed;
-})();
-
 function flag(name: string, fallback: string): string {
   return process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 }
@@ -94,8 +88,6 @@ const DEMO = {
   schoolName: 'Sunrise Public School, Jaipur',
   address: '14 Vidya Marg, Jaipur, Rajasthan 302001',
 } as const;
-
-const ACTOR = { id: null, label: 'seed-demo' };
 
 // ---------------------------------------------------------------------------
 // A placeholder photograph
@@ -320,150 +312,13 @@ async function ensurePayment(student: StudentDocument): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// The daily challenge
-// ---------------------------------------------------------------------------
-
-/**
- * Chooses the run of questions the demo week will show.
- *
- * **A week of challenges is a spread, not the top of the bank** — the same rule
- * `suggestPaper()` follows for a whole-syllabus paper, and for the same reason. Taking
- * whatever comes first by `_id` produced, on its first outing, three coordinate-geometry
- * questions on consecutive days, two of them near-identical ("every point on the
- * $x$-axis has…" and "in which quadrant does $(x,y)$ lie when…"). Nothing was *wrong*
- * with that week; it just showed one chapter and one question type, which is the
- * opposite of what a week of challenges is for.
- *
- * So: round-robin the chapters, least-used first, and within the chosen chapter prefer a
- * question type the previous day did not use. Stable tie-breaks on chapter and question
- * id throughout, so a re-run against the same bank plans the same week — a seed that
- * shuffled would make "what will Thursday show?" unanswerable before Thursday.
- */
-class WeekPlanner {
-  /** Candidates grouped by chapter, each list in a stable order. */
-  private readonly byChapter = new Map<string, QuestionDocument[]>();
-  /** How many days each chapter has already supplied, so the next pick can level it. */
-  private readonly chapterUses = new Map<string, number>();
-  private lastType: string | null = null;
-
-  private constructor(candidates: QuestionDocument[], used: Set<string>) {
-    for (const question of candidates) {
-      if (used.has(String(question._id))) continue;
-      const chapter = String(question.topic ?? 'unfiled');
-      const list = this.byChapter.get(chapter);
-      if (list) list.push(question);
-      else this.byChapter.set(chapter, [question]);
-    }
-    for (const chapter of this.byChapter.keys()) this.chapterUses.set(chapter, 0);
-  }
-
-  /** Only published questions carrying a worked solution are ever offered. */
-  static async load(classLevel: typeof DEMO.classLevel, used: Set<string>): Promise<WeekPlanner> {
-    const candidates = await Question.find({
-      classLevel,
-      status: 'published',
-      solution: { $ne: null },
-    }).sort({ _id: 1 });
-    return new WeekPlanner(candidates, used);
-  }
-
-  /**
-   * Counts a day that was **already** pinned before this run against its chapter.
-   *
-   * Without this the plan levels only its own picks, so a re-run that extends an
-   * existing week can repeat a chapter the week already used — which is exactly what
-   * happened on the first seven-day run: Polynomials on the 2nd (pinned earlier) and
-   * again on the 5th. The type is recorded too, so the next pick still prefers a
-   * different format from the day before it.
-   */
-  note(question: QuestionDocument): void {
-    const chapter = String(question.topic ?? 'unfiled');
-    this.chapterUses.set(chapter, (this.chapterUses.get(chapter) ?? 0) + 1);
-    this.lastType = question.type;
-  }
-
-  /** The next day's question, or null once the bank is exhausted. */
-  next(): QuestionDocument | null {
-    // Least-used chapter wins; ties break on the chapter id, so the order is total.
-    const chapters = [...this.byChapter.entries()]
-      .filter(([, list]) => list.length > 0)
-      .sort((a, b) => (this.chapterUses.get(a[0])! - this.chapterUses.get(b[0])!) || (a[0] < b[0] ? -1 : 1));
-    const chosen = chapters[0];
-    if (!chosen) return null;
-
-    const [chapter, list] = chosen;
-    // A different question type from yesterday when this chapter can offer one — it is a
-    // preference, not a constraint, because chapter spread matters more than variety of
-    // format and some chapters are all one type.
-    const index = Math.max(
-      0,
-      list.findIndex((question) => question.type !== this.lastType),
-    );
-    const [question] = list.splice(index, 1);
-    if (!question) return null;
-
-    this.chapterUses.set(chapter, this.chapterUses.get(chapter)! + 1);
-    this.lastType = question.type;
-    return question;
-  }
-}
-
-async function ensureChallenges(): Promise<void> {
-  const today = todayKey();
-  // Every question any pinned day already uses, so a week never repeats one and a
-  // re-run extends the run rather than duplicating it.
-  const used = new Set<string>(
-    (await DailyChallenge.find({ classLevel: DEMO.classLevel }).select('question')).map((challenge) =>
-      String(challenge.question),
-    ),
-  );
-  const planner = await WeekPlanner.load(DEMO.classLevel, used);
-
-  for (let offset = 0; offset < DAYS; offset += 1) {
-    // `shiftDay` counts *backwards*, so a negative value moves forward. Getting this the
-    // wrong way round is a documented trap (see lib/competitionDay.ts).
-    const day: DayKey = shiftDay(today, -offset);
-
-    const existing = await DailyChallenge.findOne({ day, classLevel: DEMO.classLevel });
-    if (existing) {
-      const question = await Question.findById(existing.question).select('questionText topic type');
-      if (question) planner.note(question);
-      console.log(
-        `  = ${day} already set (${existing.source}): ${question?.questionText.slice(0, 60) ?? '(missing question)'}…`,
-      );
-      continue;
-    }
-
-    const question = planner.next();
-    if (!question) {
-      console.error(`  ✗ no unused published ${DEMO.classLevel} question left for ${day}.`);
-      return;
-    }
-
-    if (!WRITE) {
-      console.log(`  (would schedule ${day}: ${question.questionText.slice(0, 60)}…)`);
-      continue;
-    }
-
-    // Through the service, so the rules that make a question schedulable — it exists, it
-    // is published, it is for this class, the day is not in the past — are the same ones
-    // the admin console is held to.
-    const challenge = await scheduleChallenge(
-      { day, classLevel: DEMO.classLevel, questionId: String(question._id) },
-      ACTOR,
-    );
-    console.log(`  + ${day} scheduled (${challenge.marks} marks): ${question.questionText.slice(0, 60)}…`);
-  }
-}
-
-// ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
   console.log('Provisioning the Class 9 demo.');
   assertConfiguredForWrites({ script: 'seed-demo.ts', allowLocal: process.argv.includes('--local') });
   console.log(
     WRITE
-      ? 'Mode: WRITE — the account, the entry fee and the challenge will be written.\n'
+      ? 'Mode: WRITE — the account and the entry fee will be written.\n'
       : 'Mode: report only. Re-run with --write to provision.\n',
   );
 
@@ -472,21 +327,10 @@ async function main(): Promise<void> {
   const published = await Question.countDocuments({ classLevel: DEMO.classLevel, status: 'published' });
   console.log(`Published ${DEMO.classLevel} questions: ${published}`);
   if (published === 0) {
-    console.error(
-      [
-        '',
-        `REFUSING TO RUN — there is no published ${DEMO.classLevel} question to set as a challenge.`,
-        '',
-        '  A daily challenge only ever serves a published question for the student’s own',
-        '  class, so this would provision an account whose challenge page is empty.',
-        '',
-        '  Publish the Class 9 bank first:',
-        '      npx tsx scripts/seed-class9.ts --write',
-        '',
-      ].join('\n'),
-    );
-    await disconnectDB();
-    process.exit(2);
+    console.log('  (none to practise — run `npx tsx scripts/seed-class9.ts --write` to publish the Class 9 bank)');
+  }
+  if (process.argv.some((arg) => arg.startsWith('--days='))) {
+    console.log('  --days is no longer used: this script does not schedule the Daily Quiz any more.');
   }
 
   console.log('\nStudent account');
@@ -501,27 +345,15 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log(`\nDaily challenge (${DAYS} day${DAYS === 1 ? '' : 's'} from today)`);
-  await ensureChallenges();
-
-  /**
-   * What the demo actually resolves to.
-   *
-   * In write mode this goes through the same service a student's request does, so the
-   * line reports the product's answer rather than the script's. In report-only mode it
-   * **must not**: `resolveChallengeFor()` pins an automatic challenge when none exists,
-   * which is a write — a dry run did exactly that on its first outing, and a dry run
-   * that writes is a dry run nobody can trust (the same trap the taxonomy half of
-   * `lib/seedQuestions.ts` documents).
-   */
-  const resolved = WRITE
-    ? await resolveChallengeFor(DEMO.classLevel, todayKey())
-    : await DailyChallenge.findOne({ day: todayKey(), classLevel: DEMO.classLevel });
-  const resolvedQuestion = resolved ? await Question.findById(resolved.question).select('questionText type') : null;
+  // A read: `resolveQuizFor()` never fills a day automatically (PLAN.md Q4), so asking
+  // writes nothing, in either mode.
+  const quiz = await resolveQuizFor(DEMO.classLevel, todayKey());
 
   console.log(`\n${'-'.repeat(60)}`);
   console.log(`Today (IST)        : ${todayKey()}`);
-  console.log(`Today’s challenge  : ${resolvedQuestion ? `${resolvedQuestion.type} · ${resolvedQuestion.questionText.slice(0, 50)}…` : '(none)'}`);
+  console.log(
+    `Today’s Daily Quiz : ${quiz?.content ? `${quiz.content.questionText.slice(0, 50)}…` : '(none scheduled — set one in Admin → Daily Quiz)'}`,
+  );
   if (student) {
     console.log(`Sign in with       : ${student.email}  /  ${DEMO.password}`);
     console.log(`  (mobile also works: ${student.mobile})`);

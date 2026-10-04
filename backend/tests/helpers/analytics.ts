@@ -212,7 +212,9 @@ export async function seedChallengeAttempt(options: {
   totalsFor(entries);
   const entry = entries[0]!;
 
-  const submittedAt = options.submittedAt ?? new Date();
+  // Yesterday by default: a Daily Quiz answer counts in analytics only once its day is
+  // revealed (Milestone 30), so an answer "now" is deliberately invisible until midnight.
+  const submittedAt = options.submittedAt ?? new Date(Date.now() - 24 * 60 * 60 * 1000);
   const day = dayKeyOf(submittedAt);
 
   const challenge = await DailyChallenge.create({

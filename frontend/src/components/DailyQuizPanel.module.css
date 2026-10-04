@@ -1,0 +1,237 @@
+/*
+  The Daily Quiz panel (Milestone 30, Phase 2) — every state of today's quiz, on the
+  page and in the dashboard card. Tokens only; mobile is the base case and the one
+  media query widens the summary into a row.
+*/
+
+.card {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.closes {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  font-size: var(--type-small);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.day {
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+}
+
+.facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-body);
+}
+
+.facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  line-height: var(--leading-normal);
+}
+
+.facts li > i {
+  flex-shrink: 0;
+  margin-top: 0.2em;
+  color: var(--primary-text);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.note {
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+
+.elapsed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: start;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.question {
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.confirmChoice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.confirmLetter {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--primary-on);
+  font-size: var(--type-small);
+  font-weight: var(--weight-bold);
+}
+
+/* ---------- the result ------------------------------------------------------ */
+
+.result {
+  overflow: hidden;
+}
+
+.verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.verdict p {
+  margin: var(--space-1) 0 0;
+  color: var(--text-body);
+}
+
+.correct .verdict {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.incorrect .verdict {
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.held .verdict {
+  background: var(--info-soft);
+  color: var(--info-text);
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.summary div {
+  min-width: 0;
+}
+
+.summary dt {
+  font-size: var(--type-micro);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.summary dd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.unlock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-subtle);
+  color: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- empty, and the unlocked answer ----------------------------------- */
+
+.nextQuiz {
+  margin: 0;
+  padding: 0 var(--space-4) var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.outcome {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.solution {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-subtle);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.solution h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-small);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.historyLink {
+  justify-self: start;
+  font-weight: var(--weight-semibold);
+  color: var(--primary-text);
+}

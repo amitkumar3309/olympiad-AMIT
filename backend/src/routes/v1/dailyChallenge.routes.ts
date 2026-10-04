@@ -1,70 +1,74 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import type { Types } from 'mongoose';
 import { requireAuth } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
-import { challengeLimiter } from '../../middleware/rateLimiter';
+import { dailyQuizLimiter } from '../../middleware/rateLimiter';
 import { Student, type StudentDocument } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
+import { now } from '../../lib/clock';
+import { dayKeyOf } from '../../lib/competitionDay';
 import { isClassLevel } from '../../lib/classLevels';
-import { todayKey } from '../../lib/competitionDay';
 import { respondToServiceError } from '../../lib/serviceError';
-import { grantReward, resolveXpFor } from '../../services/rewardService';
+import { resolveXpFor } from '../../services/rewardService';
 import {
-  attemptHistoryView,
-  attemptResultView,
-  challengeQuestionView,
-  findOwnAttempt,
-  getChallengeFacts,
-  listOwnAttempts,
-  loadChallengeQuestion,
-  loadQuestionsByIds,
-  resolveChallengeFor,
-  rolloverView,
-  submitChallengeAnswer,
+  getQuizSettings,
+  listQuizHistory,
+  publicQuizInfo,
+  publicRecentWinners,
+  quizSummary,
+  resolveQuizFor,
+  startQuiz,
+  submitQuiz,
+  todayPayload,
 } from '../../services/dailyChallengeService';
+import { rewardSubmission, settlePendingQuizRewards } from '../../services/dailyQuizRewards';
 import {
-  answerChallengeSchema,
-  listChallengeHistoryQuerySchema,
-  type AnswerChallengeBody,
-  type ListChallengeHistoryQuery,
+  publicWinnersQuerySchema,
+  quizHistoryQuerySchema,
+  submitQuizSchema,
+  type PublicWinnersQuery,
+  type QuizHistoryQuery,
+  type SubmitQuizBody,
 } from '../../validation/dailyChallengeSchemas';
 
 /**
- * The daily challenge, from the student's side (Milestone 8).
+ * The Daily Quiz, from the student's side (Milestone 30, Phase 2) — the daily challenge's
+ * routes, upgraded. The old `/me/daily-challenge` paths are gone: their answer view
+ * revealed the correct answer and the solution at once, which a prize quiz cannot do.
  *
- * One question a day for the student's own class: view it, answer it, get the result
- * and the explanation immediately, and earn the day's XP once.
+ *  - `GET  /me/daily-quiz`         today's quiz and this student's state in it
+ *  - `POST /me/daily-quiz/start`   show the question and start the server's clock
+ *  - `POST /me/daily-quiz/submit`  answer it, once
+ *  - `GET  /me/daily-quiz/history` every quiz day, with solutions once unlocked
+ *  - `GET  /daily-quiz/info`       public: the prize and how winners are chosen
+ *  - `GET  /daily-quiz/winners`    public: recent published winners
  *
  * ## What is not negotiable from the client
  *
- * **The day.** No route here accepts one. Which day it is comes from
- * `lib/competitionDay.ts` (an IST calendar day), so a student cannot claim yesterday's
- * reward by naming yesterday, and a browser in another timezone cannot disagree about
- * which challenge is today's.
+ * **The day and every instant** — `lib/clock.ts → now()`, read once per request so one
+ * response can never mix two days. **The outcome** — marked server-side against the
+ * quiz's own snapshot. **The answer key** — never in any response before the reveal;
+ * `revealOf()` in the service is the only reader, and a test stringifies every response
+ * on both sides of midnight.
  *
- * **The reward.** `grantReward()` (the Milestone 9 engine) decides it: it resolves what
- * the event is worth from the award table plus any administrator override, and writes it
- * through `recordActivity()`, which caps `daily_challenge_completed` at once per
- * competition day. Combined with the unique index on `{student, day}`, claiming twice
- * takes two independent guarantees failing.
- *
- * **The outcome.** Grading is server-side against the snapshot the attempt stores.
- * Nothing in a request body describes correctness, and the unanswered view carries no
- * answer key to compare against.
- *
- * Gated with `requireAuth()` rather than a permission, like the rest of `/me`: the
- * requirement is an identity ("my own challenge"), the account always comes from the
- * token's `sub`, and no route here accepts a student id.
+ * Gated with `requireAuth()` like the rest of `/me`: the requirement is an identity ("my
+ * own quiz"), the account always comes from the token, and no route accepts a student id.
+ * Every personal response is `Cache-Control: private, no-store`.
  */
 const router = Router();
 
-/** The caller's own account. The root admin has no student record, so no class. */
+/** Personal responses must never be stored by a browser, a proxy or a CDN. */
+function noStore(_req: Request, res: Response, next: NextFunction): void {
+  res.set('Cache-Control', 'private, no-store');
+  next();
+}
+
 async function loadSelf(req: Request, res: Response): Promise<StudentDocument | null> {
   const sub = req.user?.sub;
   if (!sub) {
-    sendError(res, 404, 'The root administrator has no daily challenge. Sign in with a student account.');
+    sendError(res, 404, 'The root administrator has no Daily Quiz. Sign in with a student account.');
     return null;
   }
   const student = await Student.findById(sub);
@@ -75,217 +79,120 @@ async function loadSelf(req: Request, res: Response): Promise<StudentDocument | 
   return student;
 }
 
-function studentId(student: StudentDocument): Types.ObjectId {
-  return student._id as Types.ObjectId;
-}
+const idOf = (student: StudentDocument): Types.ObjectId => student._id as Types.ObjectId;
 
-/**
- * What answering today is worth, so the page can promise the right number before it is
- * claimed. Resolved through the reward engine rather than read from the code table, so
- * an administrator's override shows here too — a page advertising 15 XP while the engine
- * pays 25 would be a small lie told very often.
- */
-async function rewardXp(): Promise<number> {
-  return resolveXpFor('daily_challenge_completed');
+async function payloadFor(student: StudentDocument, at: Date) {
+  const [settings, xpForCorrect] = await Promise.all([getQuizSettings(), resolveXpFor('daily_challenge_completed')]);
+  return { settings, payload: await todayPayload({ student, settings, xpForCorrect, at }) };
 }
 
 // ---------------------------------------------------------------------------
 // Today
 // ---------------------------------------------------------------------------
 
+router.get('/me/daily-quiz', requireAuth(), noStore, ensureDb, async (req: Request, res: Response) => {
+  try {
+    const at = now();
+    const student = await loadSelf(req, res);
+    if (!student) return;
+
+    await settlePendingQuizRewards(idOf(student), at);
+    const { payload } = await payloadFor(student, at);
+    sendSuccess(res, 200, payload);
+  } catch (err) {
+    logger.error({ err }, 'Failed to load the Daily Quiz');
+    sendError(res, 500, 'Could not load today’s quiz. Please try again.');
+  }
+});
+
 /**
- * Today's challenge for the caller's class, and their own attempt at it.
+ * Presses Start: the question appears, and the server's clock starts.
  *
- * One endpoint for both states, decided by the server:
- *  - **not answered yet** → the answer-stripped question, and no reveal anywhere in the
- *    payload;
- *  - **answered** → the question plus the result: what they chose, whether it was
- *    right, the correct answer and the author's explanation.
- *
- * The reveal is safe here in a way it would not be for a mock test, and for a stated
- * reason: an attempt document only exists once the student has answered, so there is no
- * path that reveals anything to someone who has not. A daily challenge has no
- * disclosure policy on purpose — its entire point is to teach one question a day, and
- * withholding the explanation until some later window would defeat that.
- *
- * Both `/me/daily-challenge` and the older bare `/daily-challenge` are served, because
- * the second is the path already published in API_DOCUMENTATION.md.
+ * Idempotent — a second press returns the same start, so the clock never restarts. A
+ * student who has already submitted today gets their submitted state back rather than an
+ * error. Responds with the whole of today's state, so the page has one shape to render.
  */
-router.get(
-  ['/me/daily-challenge', '/daily-challenge'],
+router.post(
+  '/me/daily-quiz/start',
   requireAuth(),
+  noStore,
+  dailyQuizLimiter,
   ensureDb,
   async (req: Request, res: Response) => {
     try {
+      const at = now();
       const student = await loadSelf(req, res);
       if (!student) return;
 
-      const today = todayKey();
-
       if (!isClassLevel(student.classLevel)) {
-        sendSuccess(res, 200, {
-          challenge: null,
-          attempt: null,
-          reason: 'no-class',
-          today,
-          rollover: rolloverView(),
-        });
+        sendError(res, 409, 'Add your class to your profile to play the Daily Quiz.');
         return;
       }
 
-      const challenge = await resolveChallengeFor(student.classLevel, today);
+      const challenge = await resolveQuizFor(student.classLevel, dayKeyOf(at));
       if (!challenge) {
-        // Not a 404: "there is no challenge today" is a normal answer while the bank
-        // has nothing published for this class.
-        sendSuccess(res, 200, {
-          challenge: null,
-          attempt: null,
-          reason: 'none-published',
-          today,
-          rollover: rolloverView(),
-        });
+        sendError(res, 409, 'There is no Daily Quiz for your class today.');
         return;
       }
 
-      const question = await loadChallengeQuestion(challenge);
-      if (!question) {
-        // The pinned question has been hard-deleted. Only ever possible for a
-        // never-published question, which could not have been pinned — so this is a
-        // belt-and-braces path, reported honestly rather than as a crash.
-        logger.error(
-          { challengeId: String(challenge._id), questionId: String(challenge.question) },
-          'Daily challenge points at a missing question',
-        );
-        sendSuccess(res, 200, {
-          challenge: null,
-          attempt: null,
-          reason: 'none-published',
-          today,
-          rollover: rolloverView(),
-        });
-        return;
-      }
-
-      const attempt = await findOwnAttempt(studentId(student), today);
-      const facts = await getChallengeFacts(studentId(student), today);
-
-      sendSuccess(res, 200, {
-        challenge: challengeQuestionView(challenge, question),
-        attempt: attempt ? attemptResultView(attempt, question) : null,
-        streak: { current: facts.currentChallengeStreak, longest: facts.longestChallengeStreak },
-        completedCount: facts.challengesCompleted,
-        reward: { xp: await rewardXp(), claimed: attempt !== null },
-        today,
-        /**
-         * When this question stops being today's, as the **server** counts it. The page
-         * ticks a display down from it and refetches at zero; it never concludes for
-         * itself that the day has turned. See `rolloverView()`.
-         */
-        rollover: rolloverView(),
+      const { created } = await startQuiz({
+        challenge,
+        student: idOf(student),
+        ip: req.ip,
+        userAgent: req.get('user-agent') ?? null,
+        at,
       });
+
+      const { payload } = await payloadFor(student, at);
+      sendSuccess(res, created ? 201 : 200, { ...payload, alreadyStarted: !created });
     } catch (err) {
-      logger.error({ err }, 'Failed to load the daily challenge');
-      sendError(res, 500, 'Could not load today’s challenge. Please try again.');
+      respondToServiceError(res, err, {
+        log: 'Failed to start the Daily Quiz',
+        fallback: 'Could not start the quiz. Please try again.',
+      });
     }
   },
 );
 
-// ---------------------------------------------------------------------------
-// Answering
-// ---------------------------------------------------------------------------
-
 /**
- * Answers today's challenge.
+ * Answers today's quiz, once.
  *
- * Idempotent by design rather than by accident: the second submission of the day
- * returns the stored attempt with `alreadyAnswered: true` and `xpAwarded: 0`. That is a
- * **200, not a 409** — from the student's point of view they have answered today, and
- * an error would invite them to try again — but nothing is re-graded and nothing is
- * re-paid.
- *
- * The order of writes matters and is deliberate: the attempt is created first, so the
- * unique index has already decided whether this is today's one submission before any
- * reward is considered. `grantReward()` then says what was actually awarded, and
- * only that figure is written back onto the attempt — so a failed award leaves an
- * honest `xpAwarded: 0` rather than a claim the student was never paid.
+ * The second submission is a **200 with `alreadySubmitted: true`**, not an error: the
+ * student has answered, and an error would invite another try. Nothing is re-marked and
+ * nothing re-paid. `xpAwarded` is what **this request** earned — 0 for a repeat, and 0 for
+ * now when results are held until the reveal.
  */
 router.post(
-  '/me/daily-challenge/answer',
+  '/me/daily-quiz/submit',
   requireAuth(),
-  challengeLimiter,
-  validate({ body: answerChallengeSchema }),
+  noStore,
+  dailyQuizLimiter,
+  validate({ body: submitQuizSchema }),
   ensureDb,
   async (req: Request, res: Response) => {
     try {
+      const at = now();
       const student = await loadSelf(req, res);
       if (!student) return;
 
-      if (!isClassLevel(student.classLevel)) {
-        sendError(res, 409, 'Add your class to your profile before answering the daily challenge.');
-        return;
-      }
-
-      const today = todayKey();
-      const challenge = await resolveChallengeFor(student.classLevel, today);
-      if (!challenge) {
-        sendError(res, 409, 'There is no challenge for your class today.');
-        return;
-      }
-
-      const question = await loadChallengeQuestion(challenge);
-      if (!question) {
-        sendError(res, 409, 'Today’s challenge is unavailable. Please tell your administrator.');
-        return;
-      }
-
-      const body = req.body as AnswerChallengeBody;
-      const { attempt, created } = await submitChallengeAnswer({
-        challenge,
-        question,
-        student: studentId(student),
-        answer: {
-          selectedOptionKeys: body.selectedOptionKeys,
-          numericResponse: body.numericResponse,
-          booleanResponse: body.booleanResponse,
-        },
+      const { selectedOptionId } = req.body as SubmitQuizBody;
+      const { attempt, created } = await submitQuiz({
+        student: idOf(student),
+        selectedOptionId,
+        ip: req.ip,
+        userAgent: req.get('user-agent') ?? null,
+        at,
       });
 
-      // The reward. `grantReward` owns both what the event is worth and the
-      // once-per-day rule; this route neither knows nor decides either. All it
-      // contributes is `created` — whether this request was the one that produced the
-      // attempt, which is the one fact the engine cannot see for itself.
-      if (created) {
-        const outcome = await grantReward({
-          student: studentId(student),
-          event: 'daily_challenge_completed',
-          detail: attempt.answer.isCorrect ? 'Correct' : 'Answered',
-        });
-        if (outcome.xpAwarded > 0) {
-          attempt.xpAwarded = outcome.xpAwarded;
-          await attempt.save();
-        }
-      }
+      const settings = await getQuizSettings();
+      const xpAwarded = created ? await rewardSubmission(attempt, settings.instantResult) : 0;
 
-      const facts = await getChallengeFacts(studentId(student), today);
-
-      sendSuccess(res, 200, {
-        attempt: attemptResultView(attempt, question),
-        alreadyAnswered: !created,
-        /**
-         * What **this request** awarded, which is 0 for a repeat submission — not the
-         * attempt's stored total, which would still read 15 and let a client show
-         * "+15 XP" every time the button was pressed. The ledger was never at risk;
-         * the *claim on screen* was, and that is the half a student would notice.
-         * The attempt's own figure stays inside `attempt` for the record.
-         */
-        xpAwarded: created ? attempt.xpAwarded : 0,
-        streak: { current: facts.currentChallengeStreak, longest: facts.longestChallengeStreak },
-        completedCount: facts.challengesCompleted,
-      });
+      const { payload } = await payloadFor(student, at);
+      sendSuccess(res, 200, { ...payload, alreadySubmitted: !created, xpAwarded });
     } catch (err) {
       respondToServiceError(res, err, {
-        log: 'Failed to answer the daily challenge',
-        fallback: 'Could not submit your answer. Please try again.',
+        log: 'Failed to submit a Daily Quiz answer',
+        fallback: 'Could not submit your answer. Please try again — it has not been counted yet.',
       });
     }
   },
@@ -295,44 +202,72 @@ router.post(
 // History
 // ---------------------------------------------------------------------------
 
-/**
- * The caller's own past challenges, newest day first, with the streak derived from
- * them. Carries the question text and whether they were right — everything in it is
- * about attempts they have already made, so there is nothing left to withhold.
- */
 router.get(
-  '/me/daily-challenge/history',
+  '/me/daily-quiz/history',
   requireAuth(),
-  validate({ query: listChallengeHistoryQuerySchema }),
+  noStore,
+  validate({ query: quizHistoryQuerySchema }),
   ensureDb,
   async (req: Request, res: Response) => {
     try {
+      const at = now();
       const student = await loadSelf(req, res);
       if (!student) return;
 
-      const { page, limit } = req.query as unknown as ListChallengeHistoryQuery;
-      const today = todayKey();
-      const [{ attempts, total }, facts] = await Promise.all([
-        listOwnAttempts(studentId(student), { page, limit }),
-        getChallengeFacts(studentId(student), today),
+      await settlePendingQuizRewards(idOf(student), at);
+      const { page, limit } = req.query as unknown as QuizHistoryQuery;
+      const settings = await getQuizSettings();
+      const [{ rows, total }, summary] = await Promise.all([
+        listQuizHistory(idOf(student), { page, limit }, settings, at),
+        quizSummary(idOf(student), settings, at),
       ]);
 
-      // Looked up by the ids the **attempts** snapshotted, not by what their challenges
-      // point at now: a future day's challenge can be re-pointed, and a history row has
-      // to describe the question the student actually answered.
-      const questions = await loadQuestionsByIds(attempts.map((attempt) => attempt.answer.question));
-
       sendSuccess(res, 200, {
-        attempts: attempts.map((attempt) =>
-          attemptHistoryView(attempt, questions.get(String(attempt.answer.question)) ?? null),
-        ),
-        streak: { current: facts.currentChallengeStreak, longest: facts.longestChallengeStreak },
-        completedCount: facts.challengesCompleted,
+        serverNow: at.toISOString(),
+        attempts: rows,
+        summary,
         pagination: { page, limit, total, totalPages: Math.max(1, Math.ceil(total / limit)) },
       });
     } catch (err) {
-      logger.error({ err }, 'Failed to load the daily challenge history');
-      sendError(res, 500, 'Could not load your challenge history. Please try again.');
+      logger.error({ err }, 'Failed to load the Daily Quiz history');
+      sendError(res, 500, 'Could not load your quiz history. Please try again.');
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Public
+// ---------------------------------------------------------------------------
+
+/**
+ * The prize and the rule, for the Rewards section, the Login Gate and the rules page —
+ * the sentence about how winners are chosen is generated from the settings the
+ * computation itself reads, so the two cannot disagree.
+ */
+router.get('/daily-quiz/info', ensureDb, async (_req: Request, res: Response) => {
+  try {
+    const [settings, xpForCorrect] = await Promise.all([getQuizSettings(), resolveXpFor('daily_challenge_completed')]);
+    res.set('Cache-Control', 'public, max-age=60');
+    sendSuccess(res, 200, { info: publicQuizInfo(settings, xpForCorrect) });
+  } catch (err) {
+    logger.error({ err }, 'Failed to load the Daily Quiz info');
+    sendError(res, 500, 'Could not load the quiz details. Please try again.');
+  }
+});
+
+/** Recently published winners — masked names, class, city or school; nothing else. */
+router.get(
+  '/daily-quiz/winners',
+  validate({ query: publicWinnersQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const { limit } = req.query as unknown as PublicWinnersQuery;
+      res.set('Cache-Control', 'public, max-age=60');
+      sendSuccess(res, 200, { winners: await publicRecentWinners(limit) });
+    } catch (err) {
+      logger.error({ err }, 'Failed to load the Daily Quiz winners');
+      sendError(res, 500, 'Could not load the winners. Please try again.');
     }
   },
 );

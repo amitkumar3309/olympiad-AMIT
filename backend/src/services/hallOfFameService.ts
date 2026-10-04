@@ -359,7 +359,10 @@ interface CountedRow {
  */
 async function challengeChampions(limit: number): Promise<HallOfFameBoard> {
   const rows = await DailyChallengeAttempt.aggregate<CountedRow>([
-    { $match: { 'answer.isCorrect': true } },
+    // Revealed days only (Milestone 30): today's Daily Quiz is still open, and a public
+    // board that moved when somebody answered it correctly would publish correctness
+    // before the answer is unlocked.
+    { $match: { 'answer.isCorrect': true, day: { $lt: todayKey() } } },
     { $group: { _id: '$student', value: { $sum: 1 }, lastAt: { $max: '$submittedAt' } } },
     ...JOIN_ACTIVE_ACCOUNT,
     { $sort: { value: -1, lastAt: 1, _id: 1 } },

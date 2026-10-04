@@ -130,7 +130,7 @@ export default function HallOfFame() {
         </div>
         <div className="card">
           <div className={styles.totalValue}>{totals.challengesAnswered.toLocaleString('en-IN')}</div>
-          <div className={styles.totalLabel}>Challenges answered</div>
+          <div className={styles.totalLabel}>Daily Quiz answers</div>
         </div>
         <div className="card">
           <div className={styles.totalValue}>{totals.practiceSessionsCompleted.toLocaleString('en-IN')}</div>
@@ -144,8 +144,8 @@ export default function HallOfFame() {
           <div>
             <strong>Every board is still open.</strong>
             <p>
-              Nothing here has been won yet, so nothing is shown. Practise, sit a mock test or answer the daily
-              challenge and the first names on this page could be yours.
+              Nothing here has been won yet, so nothing is shown. Practise, sit a mock test or answer the Daily
+              Quiz and the first names on this page could be yours.
             </p>
           </div>
         </div>

@@ -589,6 +589,21 @@ describe('trends', () => {
     expect(analytics.paceTrend.some((point) => point.surface === 'daily_challenge')).toBe(false);
   });
 
+  it('keeps today’s Daily Quiz answer out of the figures until its answer is revealed', async () => {
+    const admin = await createAdminSession(app);
+    const student = await registerVerifyLogin(app, otherStudent);
+    const { maths } = await twoTopicTaxonomy(admin.cookies);
+    const id = await publish(admin.cookies, maths);
+
+    // Answered right now: an accuracy figure that moved would say whether it was right.
+    await seedChallengeAttempt({ studentId: student.studentId, questionId: id, outcome: 'correct', submittedAt: new Date() });
+
+    const account = await mongoose.model('Student').findOne({ studentId: student.studentId });
+    const analytics = await getStudentAnalytics(account!._id as never);
+    expect(analytics.bySurface.find((row) => row.surface === 'daily_challenge')).toMatchObject({ attempts: 0, answered: 0 });
+    expect(analytics.overall.attempts).toBe(0);
+  });
+
   it('says so when the only data has no clock, instead of reporting a pace of zero', async () => {
     const admin = await createAdminSession(app);
     const student = await registerVerifyLogin(app, otherStudent);

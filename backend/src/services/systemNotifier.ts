@@ -4,6 +4,7 @@ import {
   Result,
   Student,
   CERTIFICATE_TIER_TITLES,
+  type DailyQuizWinnerDocument,
   type ExamDocument,
   type MockTestDocument,
   type StudentDocument,
@@ -11,6 +12,7 @@ import {
 import { logger } from '../lib/logger';
 import { postSystemNotification } from './notificationService';
 import {
+  dailyQuizWinnerCopy,
   examPublishedCopy,
   mockTestPublishedCopy,
   passwordChangedCopy,
@@ -213,4 +215,25 @@ export async function notifyPasswordChanged(student: StudentDocument): Promise<v
 export async function notifyPasswordChangedById(studentId: Types.ObjectId): Promise<void> {
   const student = await Student.findById(studentId);
   if (student) await notifyPasswordChanged(student);
+}
+
+/**
+ * Tells a Daily Quiz winner they won, once an administrator has **published** them
+ * (Milestone 30). Never on computation or confirmation — nothing about a prize is said to
+ * a child until a person has checked it. Keyed on the winner row, so publishing the same
+ * winner twice (a retried request) cannot tell them twice.
+ */
+export async function notifyDailyQuizWinner(winner: DailyQuizWinnerDocument, student: StudentDocument): Promise<void> {
+  await attempt('dailyquiz.winner_published', () =>
+    postSystemNotification({
+      event: 'dailyquiz.winner_published',
+      copy: dailyQuizWinnerCopy({
+        day: winner.day,
+        prizeText: winner.prizeText ?? null,
+        cashAmount: winner.cashAmount ?? null,
+      }),
+      target: { audience: 'student', student },
+      dedupeKey: `dailyquiz-winner:${String(winner._id)}`,
+    }),
+  );
 }

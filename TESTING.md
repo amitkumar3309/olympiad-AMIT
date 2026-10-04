@@ -37,6 +37,40 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Milestone 30 Phase 2 (2026-10-04): 1324 passing backend tests across 38 files, and a browser
+> end-to-end suite.** The daily challenge became the Daily Quiz, so `tests/dailyChallenge.test.ts`
+> was replaced by three files:
+>
+> - **`tests/dailyQuizRules.test.ts`** (pure, no database) — IST day bounds at 23:59:59 against
+>   00:00:00 and the 18:30 UTC boundary, the quiz's phase from timestamps, opaque ids and the
+>   deterministic per-student shuffle, the winner rules with ties, eligibility and a missing solve
+>   time, the IP hash, class ranges and quiz days as a spreadsheet writes them, and the CSV and JSON
+>   table readers.
+> - **`tests/dailyQuiz.test.ts`** (real database) — 401 without a session; Start idempotent; one
+>   attempt however it is retried; an answer after midnight refused and recorded as not submitted;
+>   class targeting; the entry fee not gating it; staff routes refused to a student on both
+>   prefixes; **the answer key absent from every student response before the reveal and present
+>   after** (checked at noon, 23:59:59 and midnight); 20 XP only for a correct answer, and held until
+>   the reveal when instant results are off; the winners lifecycle end to end; the public list's
+>   masking and opt-out; prize decisions surviving a reset; the bank's publish and delete guards;
+>   the picker's filters; and the `/__e2e` hooks absent from a normal app. The clock is **frozen**
+>   with `freezeClock()` (`lib/clock.ts`), never mocked per call — at noon IST by default, so no test
+>   straddles a midnight it did not ask for.
+> - **`tests/dailyQuizImport.test.ts`** — the CSV and JSON templates import as they stand; a preview
+>   writes nothing and reports every problem on its row (past day, unreadable day or classes,
+>   clashes with the calendar and within the file, no solution, two correct options); approval
+>   re-checks and saves drafts with `csv_import` provenance; the Question Bank's own CSV import.
+>
+> **The browser suite** — `npm run e2e` in `frontend/` (Playwright, see the ADR). It starts
+> `backend/scripts/e2e-server.ts` (the backend on an **in-memory** MongoDB named
+> `amit-olympiad-e2e`, with `E2E_TEST_HOOKS=true`) and a Vite server pointed at it, then drives the
+> **installed Microsoft Edge** at 1280px and at 390px: sign in → start today's quiz → submit through
+> the confirm dialog → "Correct!" → the profile history shows it with the answer locked → the
+> server clock moves a day (`POST /__e2e/clock`) → the worked solution is there. A second test
+> replays a submit from the page and checks the first result stands. Four tests, about 40 seconds.
+> It needs nothing installed beyond `npm ci` and Edge; on a machine without Edge, run
+> `npx playwright install chromium` and remove `channel: 'msedge'` from `playwright.config.ts`.
+
 The backend has a working test suite: **1289 passing tests across 36 files** (`backend/tests/`), re-measured on 2026-09-20 at the close of Milestone 25 Phase C. Milestone 25 added **seventeen** in one new file, `tests/emailDelivery.test.ts` — ten in Phase B (the keep-alive, the sweep, delivery timing, abandonment) and **seven in Phase C about the message itself**: that the link, expiry and single-use rule appear in **both** the HTML and the plain-text part; that the "you will not be able to sign in until it is used" sentence is present, because without it an unverified student reads a failed sign-in as a wrong password and resets it; that the support address is reachable from the email as well as the screens; that the document loads **nothing** from anywhere (no `<img>`, `<script>`, `<link>` or `@import`, and every URL in it starts with `publicAppUrl`); that it stays under 10 KB, since Gmail clips past ~102 KB and can hide the one button; and that **staff-authored text is escaped rather than becoming markup**. The baseline it added to was **1272 across 35** — note that this line previously said **1258**, which was wrong by fourteen and had been carried forward since Milestone 24; `PROJECT_STATE.md` had the right figure. That is precisely why the instruction at the end of this paragraph exists.
 
 **A cold machine produces three failures that are not failures.** The first run on a fresh checkout reported `mockTests`, `questionBank` and `questionImport` as failed *suites*, each with `Hook timed out in 60000ms` on `beforeAll(startTestDb, 60_000)`. That is `mongodb-memory-server` starting a real `mongod` for the first time — all three passed on their own immediately afterwards (219/219) and the next full run was green. If every failure in a run is a `startTestDb` timeout, suspect the harness, not the code.
@@ -182,11 +216,17 @@ npm run lint --prefix frontend
 npm run build --prefix frontend
 ```
 
+The browser end-to-end suite (Milestone 30) — starts its own servers on ports 8092 and 5181:
+
+```bash
+npm run e2e --prefix frontend
+```
+
 Watch mode during development: `npm run test:watch --prefix backend`.
 
 ## Framework Choice
 
-vitest + supertest, chosen in [`DECISIONS.md`](DECISIONS.md) (2026-08-04). vitest was preferred over Jest for ESM-native startup and lower config overhead alongside `tsx`; supertest exercises the exported Express app in-process without binding a port. Frontend unit tests (vitest + React Testing Library) and end-to-end tests (Playwright) remain recommended but unimplemented — propose in `DECISIONS.md` before installing.
+vitest + supertest, chosen in [`DECISIONS.md`](DECISIONS.md) (2026-08-04). vitest was preferred over Jest for ESM-native startup and lower config overhead alongside `tsx`; supertest exercises the exported Express app in-process without binding a port. End-to-end tests use **Playwright** since Milestone 30 (see its ADR in `DECISIONS.md`). Frontend *unit* tests (vitest + React Testing Library) remain unimplemented — propose in `DECISIONS.md` before installing.
 
 ## What Is Covered
 

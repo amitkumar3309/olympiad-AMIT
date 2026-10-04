@@ -49,6 +49,33 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## Scheduling a Daily Quiz says a class "still has a daily challenge from before the Daily Quiz"
+
+**Symptom.** Admin → Daily Quiz → Schedule refuses a day with *"Class 9 still has a daily challenge
+from before the Daily Quiz on 2026-11-08. Remove it from the Daily Quiz console first."* The calendar
+shows that day's chip as **"Class 9 · old challenge"** in amber, and the warning above it says the
+class has no quiz.
+
+**Cause.** Before Milestone 30 the daily challenge pinned a question for a class the first time a
+student opened it that day. That document still exists and still holds the `{day, classLevel}` slot
+(a unique index), but it has no quiz snapshot, so it is never served as a quiz. It only affects the
+day the new code was deployed (and any day before it), because nothing creates these any more.
+
+**Fix.** Click the amber chip, then **Remove quiz** on its page, then schedule as normal. If the page
+says students have started it, it cannot be removed — that class simply has no Daily Quiz that day.
+
+## A browser test cannot find the password field by its label
+
+**Symptom.** In the Playwright suite, `page.getByLabel('Password', { exact: true })` times out on the
+sign-in dialog although the field is plainly there.
+
+**Cause.** The label's text includes the required-field asterisk, so an exact match on "Password"
+never succeeds (the accessibility tree hides the asterisk; Playwright's label match does not).
+
+**Fix.** Scope to the dialog and target the input: `dialog.locator('input[type="password"]')`, as
+`frontend/e2e/fixtures.ts → signIn()` does. Also open the dialog with the visible **Sign in** button
+rather than `/#login`: on a fresh load the session check can close a dialog opened from the URL.
+
 ## Gating a route that used to hold its own sign-in form makes it redirect to itself forever
 
 **Symptom.** After putting a guard on `/admin`, a signed-out visitor who opens `/admin` gets a

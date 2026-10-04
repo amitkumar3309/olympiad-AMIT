@@ -25,3 +25,8 @@ dist-ssr
 
 .vercel
 .env*
+
+# Playwright (Milestone 30)
+test-results/
+playwright-report/
+blob-report/

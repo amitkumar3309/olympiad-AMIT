@@ -254,7 +254,7 @@ export default function Analytics() {
             <StatTile
               icon="ph-dice-five"
               value={assessment.dailyChallengeCorrect}
-              label="Daily challenges correct"
+              label="Daily Quiz answers correct"
               hint={`of ${assessment.dailyChallengeAttempts} answered`}
             />
           </div>
@@ -267,7 +267,7 @@ export default function Analytics() {
             while it does is the same class of defect as a figure nobody can query.
           */}
           <p className={styles.note}>
-            These four come from <strong>mock tests, practice sessions and daily challenges</strong>. The
+            These four come from <strong>mock tests, practice sessions and the Daily Quiz</strong>. The
             official Olympiad has its own results and certificates, reported on their own consoles rather than
             mixed in here — a rehearsal and a sitting are not comparable numbers.
           </p>

@@ -82,6 +82,18 @@ export function nextDayStartsAt(at: Date = new Date()): Date {
 }
 
 /**
+ * The bounds of one competition day as absolute instants (Milestone 30).
+ *
+ * `start` is that day's IST midnight; `end` is the **next** IST midnight and is
+ * **exclusive** — an instant belongs to the day while `start <= at < end`. So the last
+ * moment of 8 Nov is 23:59:59.999 IST and 00:00:00 IST is already 9 Nov. Expressed in
+ * UTC, a day runs from 18:30 the previous evening to 18:30 on the day itself.
+ */
+export function istDayBounds(key: DayKey): { start: Date; end: Date } {
+  return { start: dayStartsAt(key), end: dayStartsAt(shiftDay(key, -1)) };
+}
+
+/**
  * Whole seconds until the competition day rolls over.
  *
  * **The server owns this clock.** It exists so a countdown in a browser can be derived

@@ -6,47 +6,64 @@ _Last updated 2026-10-04._
 
 ## Current state
 
-**Phase 1 (design system) complete — waiting for the owner's "continue" before Phase 2.**
-Branch `feat/diwali-launch`. Phase 2 (the Daily Quiz core) is the first phase that changes the backend.
+**Phase 2 (the Daily Quiz core) complete and pushed as branch `feat/diwali-launch-phase-2` (PR #2,
+based on `main` after PR #1 was merged).** Phase 3 — the homepage, the floating button's wiring, the
+Login Gate, the Rewards section and the rules page — continues on top of it.
 
 ## Tasks
 
 | Phase | Task | Status |
 |---|---|---|
 | 0 | Discovery, baseline, route inventory, interaction audit, gap analysis, `PLAN.md` | ✅ done |
-| 1 | Re-point `tokens.css` onto the mockups (palette, semantic, dark counterparts) — every value contrast-solved | ✅ done |
-| 1 | Plus Jakarta Sans + Caveat; self-host all four families; preload; immutable cache | ✅ done |
-| 1 | Role type scale (`--type-*`), motion tokens, card shadow/radius tokens, series/podium/tint tokens | ✅ done |
-| 1 | Update primitives: Button (flat, `link`, element icons), Card, IconTile, Section, StatTile (`value-first`, delta), Badge (`live`), Avatar (`tint`) | ✅ done |
-| 1 | New primitives: CountUp, Reveal, OptionTile/OptionGroup, Countdown (+ clockOffset), Podium, LeaderboardTable, JourneyTrack, ActivityList, Confetti, motion hooks | ✅ done |
-| 1 | `lib/format.ts` — en-IN numbers, IST dates in the brief's format | ✅ done |
-| 1 | `components/Illustration` + registry + `ASSETS_NEEDED.md` | ✅ done |
-| 1 | `components/DailyQuizFab` — four states, float, ring, hover shine, reduced motion (data wiring: Phase 3) | ✅ done |
-| 1 | `/dev/ui` (alias of `/design-system`) with every primitive in every state | ✅ done |
-| 1 | Browser QA: both themes, 360–1920px, contrast sweep, keyboard on the option group | ✅ done — see CHANGELOG |
-| 1 | Docs: ADR, CLAUDE.md, PROJECT_STATE, FEATURE_STATUS, CHANGELOG, screenshots | ✅ done |
-| 2 | Daily Quiz core (backend + student UI + admin + tests + Playwright ADR) | ⬜ next |
-| 3 | Homepage, FAB wiring, Login Gate, Rewards, rules page, legal drafts | ⬜ |
+| 1 | Design system: tokens onto the mockups, fonts self-hosted, nine primitives, `DailyQuizFab`, `/dev/ui`, QA, docs | ✅ done |
+| 2 | Injectable clock (`lib/clock.ts`), IST window helpers, pure quiz rules (`lib/dailyQuiz.ts`) | ✅ done |
+| 2 | Model upgrade: `DailyChallenge` groups + snapshot, attempt fields, `DailyQuizStart`, `DailyQuizWinner`, `DailyQuizSettings`, `Student` prize fields | ✅ done |
+| 2 | Start / submit / today / history / public info / public winners; per-student rate limit; no-store | ✅ done |
+| 2 | One reveal gate; no automatic fill; publish and delete guards on quiz questions | ✅ done |
+| 2 | XP: 20 for correct only, settled after the reveal when instant results are off | ✅ done |
+| 2 | Admin: calendar + gap warnings, schedule, change/remove until started, stats, candidates, settings | ✅ done |
+| 2 | Bulk: CSV/JSON/Excel quiz import through the question importer (CSV + JSON are importer formats); bulk-from-bank | ✅ done |
+| 2 | Winners: compute / confirm / disqualify / publish / contacted / delivered, notification, prize desk, audit | ✅ done |
+| 2 | Analytics + Hall of Fame revealed-only; content reset keeps prize decisions; profile prize fields | ✅ done |
+| 2 | Student UI: `DailyQuizPanel` (page + dashboard card), profile history + prize details, routes and nav | ✅ done |
+| 2 | Admin UI: `/admin/daily-quiz` (calendar, import, bank, prize desk, settings) + quiz page with winners | ✅ done |
+| 2 | Tests: rules (unit), API incl. the answer-key leak test across midnight, import — backend 1324 / 38 files | ✅ done |
+| 2 | Playwright ADR, `e2e-server.ts` (in-memory DB) + `/__e2e` hooks, E2E at desktop and 390px — 4/4 | ✅ done |
+| 2 | `seed-dev-quizzes.ts` (local only, answers checked in code); `seed-demo.ts` no longer schedules | ✅ done |
+| 2 | Browser check of the student flow and the admin console on the local dev servers | ✅ done |
+| 2 | Docs: ADRs, CLAUDE.md, API, schema, security, env, testing, feature status, state, changelog, troubleshooting | ✅ done |
+| 3 | Homepage, FAB wiring, Login Gate, Rewards, rules page, legal drafts | ⬜ next |
 | 4 | Student dashboard | ⬜ |
 | 5 | Every button and link (D1–D9), crawler | ⬜ |
 | 6 | Launch readiness + `LAUNCH_REPORT.md` | ⬜ |
 
 ## Open questions for the owner
 
-PLAN.md §5 decision log: Q3 (prize budget — operational, not code), Q7 (journey content), Q8 (Logic /
-Reasoning / Brainstorming sample questions), Q9 (which phone and email are correct). And one
-Phase 1 change to note: **the font differs from the Phase 0 recommendation** (Plus Jakarta Sans, not
-Bricolage) — the reason is in PLAN.md Q1 and the ADR; it is two lines to revert.
+All four answered on 2026-10-04 (PLAN.md §5 decision log): **Q3** three class groups a day; **Q7** map the
+nine existing milestones in the mockup's style; **Q8** Claude drafts Logic / Reasoning / Brainstorming,
+the owner reviews before any goes live; **Q9** `+91-97828-70716` (exactly that format) and
+`support@amitolympiad.me` — applied on the Phase 2 branch. **Owner actions:** load at least the first two
+weeks of quiz questions before launch (Admin → Daily Quiz → Import a file — the CSV template is there),
+and if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel project, update them
+(a set variable beats the new default).
 
 ## Notes for the next session
 
 - **Local run:** `.claude/launch.json` has `launch-backend-local-db` (port 8091, `dev:local`, local
-  MongoDB `amit-olympiad-local`) and `launch-frontend` (port 5180, proxying to 8091). The main
-  checkout may be running its own backend on 8081 against the same local database — leave it alone.
+  MongoDB `amit-olympiad-local`) and `launch-frontend` (port 5180, proxying to 8091). The backend is
+  not a watcher — **restart it after a backend change**. The main checkout may be running its own
+  backend on 8081 against the same local database — leave it alone.
+- `npx tsx scripts/seed-dev-quizzes.ts --local --write` (from `backend/`) seeds three days of verified
+  quizzes locally. The local demo student was switched to Class 7 during the Phase 2 browser check
+  (Class 9 had a pre-quiz challenge holding today's slot).
 - Seeded local accounts come from the project's own scripts (`scripts/seed-demo.ts`,
-  `scripts/dev-local.ts`); do not paste their credentials into chat.
-- The existing daily challenge **is** the Daily Quiz — upgrade it, don't build a second one.
-- Option tiles render maths through `MathText`; quiz options should be written with `\dfrac` (or
-  displayed larger) — an inline `\frac` is small next to the letter.
+  `scripts/dev-local.ts`, `frontend/e2e/fixtures.ts`); do not paste their credentials into chat.
+- **E2E:** `npm run e2e` in `frontend/` starts its own backend (in-memory DB, port 8092) and Vite
+  (5181) and drives the installed Edge. Phase 3 should add the homepage → FAB → login gate flow there.
+- Commit `943a336` (the calendar fix) accidentally carries the deletion of the old Daily Challenge
+  frontend files — they were staged by `git rm` — and `4fd2b34` is their replacement; its message
+  calls the first one `856fede`, its hash before the branch was replayed onto `main` for PR #2.
+  History was not rewritten (CLAUDE.md: new commits, not amends). The old local branch
+  `feat/diwali-launch` holds the same tree and is no longer used.
 - Measuring a computed colour: inject `* { transition: none !important; animation: none !important }`
-  first, or you read a value mid-transition (it happened in Phase 1 on the option tiles).
+  first, or you read a value mid-transition.

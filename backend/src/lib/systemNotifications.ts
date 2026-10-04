@@ -24,6 +24,7 @@ export const SYSTEM_EVENTS = [
   'account.status_changed',
   'account.role_changed',
   'account.password_changed',
+  'dailyquiz.winner_published',
 ] as const;
 
 export type SystemEvent = (typeof SYSTEM_EVENTS)[number];
@@ -86,6 +87,18 @@ export const SYSTEM_EVENT_DEFINITIONS: Record<SystemEvent, SystemEventDefinition
     kind: 'alert',
     emailCategory: 'security',
     link: '/profile',
+  },
+  /**
+   * A Daily Quiz winner, once an administrator has published them (Milestone 30). The
+   * `results` stream: news a student and their parent would genuinely regret missing,
+   * and switchable like the exam result it resembles.
+   */
+  'dailyquiz.winner_published': {
+    event: 'dailyquiz.winner_published',
+    kind: 'alert',
+    emailCategory: 'results',
+    link: '/daily-quiz',
+    actionLabel: 'See the Daily Quiz',
   },
 };
 
@@ -197,6 +210,24 @@ export function roleChangedCopy(input: { role: string }): NotificationCopy {
       `An administrator has changed your role on AMIT Olympiad to "${input.role}".\n\n` +
       `For your security every existing sign-in was ended, so you will need to sign in again.\n\n` +
       `If you were not expecting this, contact the organisers straight away.`,
+  };
+}
+
+/**
+ * The Daily Quiz winner's message. The prize is named as the settings named it when the
+ * winner was confirmed — "Surprise gift + cash prize", or with a figure only if the owner
+ * set one — and delivery is promised through a parent or guardian, which is how it works.
+ */
+export function dailyQuizWinnerCopy(input: { day: string; prizeText: string | null; cashAmount: number | null }): NotificationCopy {
+  const prize = input.prizeText ?? 'a surprise gift and a cash prize';
+  const cash = input.cashAmount !== null && input.cashAmount > 0 ? ` (₹${input.cashAmount.toLocaleString('en-IN')} cash)` : '';
+  return {
+    title: `You won the Daily Quiz for ${input.day}!`,
+    body:
+      `Congratulations — yours was the winning answer in the Daily Quiz on ${input.day}.\n\n` +
+      `Your prize: ${prize}${cash}.\n\n` +
+      `The AMIT Olympiad organisers will contact your parent or guardian on the number in your profile to arrange delivery. ` +
+      `If that number is missing or out of date, update it in My Profile.`,
   };
 }
 

@@ -1,6 +1,6 @@
 # DATABASE_SCHEMA.md
 
-MongoDB via Mongoose. **Twenty-seven models** — Milestone 21 (Phase B) added **`ImportBatch`**, the record of one bulk question import, and extended `Question.provenance.source` with three import values. Before that, **twenty-six models** — Milestone 20 added no collection: it extended `Question` with an embedded **`provenance`** subdocument and `GenerationLog` with `rejectedByReviewer`. Twenty-six as of Milestone 19, which added **`Payment`** and **`PaymentSettings`** — the transaction record and the administrator-editable entry fee. Twenty-four as of Milestone 18, which added `GenerationLog`. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
+MongoDB via Mongoose. **Thirty-two models** — Milestone 30 (Phase 2) added **`DailyQuizStart`**, **`DailyQuizWinner`** and **`DailyQuizSettings`** and extended `DailyChallenge`, `DailyChallengeAttempt` and `Student` (see "The Daily Quiz" at the end of this file); Milestone 22 had added `Referral` and `ReferralSettings`. **Twenty-seven models** — Milestone 21 (Phase B) added **`ImportBatch`**, the record of one bulk question import, and extended `Question.provenance.source` with three import values. Before that, **twenty-six models** — Milestone 20 added no collection: it extended `Question` with an embedded **`provenance`** subdocument and `GenerationLog` with `rejectedByReviewer`. Twenty-six as of Milestone 19, which added **`Payment`** and **`PaymentSettings`** — the transaction record and the administrator-editable entry fee. Twenty-four as of Milestone 18, which added `GenerationLog`. **Twenty-three models** as of Milestone 15, which **removed `StudentAnalytics`** and added three indexes but no collection — see "Analytics aggregations" at the end of this file for the queries that replaced it. Twenty-four as of Milestone 14, which added **`EmailOutbox`** (the email queue) and extended two existing collections: `Notification` gained `student` / `source` / `event` / `link` / `dedupeKey`, and `Student` gained an embedded `notificationPrefs`. Twenty-three as of Milestone 13, which added `Exam` and `Certificate` and **rewrote** `ExamAttempt` and `Result`. Twenty-one as of Milestone 12, which added `GalleryItem`, `Notification` and `NotificationRead`. **Eighteen models** as of Milestone 9, which added `RewardSettings` — a single-document collection holding the administrator's XP overrides, pinned by a unique index on a constant `key`. Seventeen as of Milestone 8, which added `DailyChallenge` and `DailyChallengeAttempt`. Fifteen as of Milestone 7, which added `MockTest` and `MockTestAttempt` (plus `attemptAnswer.ts`, a shared subdocument rather than a model of its own). Thirteen as of Milestone 6 (Milestone 5 added `StudentActivity`; Milestone 6 added `PracticeSession`). Previously eleven as of Milestone 4 (Milestone 2 added `RefreshToken` and `VerificationToken`; Milestone 3 added `AuditLog` and gave `Student` a `role`; Milestone 4 added `StudentPhoto` plus nine registration fields on `Student`, then `Subject` and `Topic` and a rewritten `Question` for the question bank). Each model lives in its own file under [backend/src/models/](backend/src/models/) (`Student.ts`, `StudentPhoto.ts`, `Subject.ts`, `Topic.ts`, `Question.ts`, `ExamAttempt.ts`, `Result.ts`, `StudentAnalytics.ts`, `RefreshToken.ts`, `VerificationToken.ts`, `AuditLog.ts`), re-exported from `models/index.ts`. They were originally moved out of the old single-file `server.ts` without any schema change; `Student` has since been extended by Milestones 2, 3 and 4. Each model now also has an exported TypeScript document interface (e.g. `StudentDocument`) so handlers are typed instead of using `any`. Connection string: `MONGO_URI` env var (default `mongodb://localhost:27017/amit-olympiad` if unset — see [`ENVIRONMENT_VARIABLES.md`](ENVIRONMENT_VARIABLES.md)).
 
 **That default is a trap worth knowing about.** Because it exists, a script or process with no `.env` loaded connects to a *local* database and works perfectly, writing to somewhere nobody is looking. This happened: a seed run from the wrong directory published 208 questions to localhost while production stayed empty. `config/env.ts` now anchors the `.env` lookup to the package root, and every write script calls `assertConfiguredForWrites()`. Use `npx tsx scripts/where-is-data.ts` to see which database is actually connected and what every collection really holds.
 
@@ -934,3 +934,102 @@ for a cosmetic gain.
 read the photograph. An Excel import is `source: excel_import` with `generatorKind: deterministic` and a
 null model. Collapsing the two into one field would lose either "a model produced this text" or "this
 came from a spreadsheet", and both are things somebody will need to ask.
+
+---
+
+## The Daily Quiz (Milestone 30, Phase 2)
+
+The daily challenge of Milestone 8, upgraded into a prize quiz. Three collections were **added**
+(`DailyQuizStart`, `DailyQuizWinner`, `DailyQuizSettings`) and three **extended**
+(`DailyChallenge`, `DailyChallengeAttempt`, `Student`). Every change is additive: no field was
+removed or renamed, nothing was back-filled, and a pre-Milestone-30 document still reads. The
+model files are `backend/src/models/DailyChallenge.ts`, `DailyChallengeAttempt.ts`,
+`DailyQuizStart.ts`, `DailyQuizWinner.ts` and `DailyQuizSettings.ts`.
+
+### `DailyChallenge` — ACTIVE (Milestone 8; extended in Milestone 30)
+
+One document **per class per day** — the same shape as Milestone 8, so the unique
+**`{ day, classLevel }`** index is still what refuses two quizzes for one class on one day. A
+quiz for a class *range* is one document per class in the range, sharing a `groupId` and an
+identical `content` snapshot.
+
+| Field | Type | Notes |
+|---|---|---|
+| `day` | String `YYYY-MM-DD` | The IST competition day. Required. |
+| `classLevel` | String enum | Required. |
+| `question` | ObjectId → `Question` | The bank question the quiz was set from. Required. |
+| `source` | `scheduled` \| `automatic` | Every Daily Quiz is `scheduled`; `automatic` is a Milestone 8 day the old fill pinned. |
+| `marks` | Number | Copied from the question. |
+| `groupId` | ObjectId \| null | **M30.** Shared by every class document of one quiz. `null` on a pre-quiz document, whose own `_id` is its group. Indexed. |
+| `classMin`, `classMax` | Number 3–12 \| null | **M30.** The quiz's class range. |
+| `content` | Object \| null | **M30.** The quiz's own snapshot: `questionText`, `options[{ key, id, text }]` (`id` is opaque — `o` + 10 hex — minted at scheduling), `correctOptionKey`, `solution`, `difficulty`, `topicName`, `revision`. **Null on a pre-quiz document, which is never served as a quiz** — it still holds its slot, and the console's calendar shows it as an "old challenge". |
+| `createdBy`, `createdByLabel` | | Who scheduled it. |
+
+Indexes: unique `{ day, classLevel }`; `{ groupId }`; `{ question, day }` (a question is a quiz on one day only).
+
+### `DailyChallengeAttempt` — ACTIVE (Milestone 8; extended in Milestone 30)
+
+One **submitted** answer: a row exists only once a student submits (starts are `DailyQuizStart`).
+Unique `{ student, day }` — one answer per student per day, whatever is retried.
+
+| Field | Type | Notes |
+|---|---|---|
+| `challenge`, `student`, `day` | | Required. `challenge` is the class document the student was shown. |
+| `answer` | `attemptAnswer` subdocument | Marked by `services/grading.ts` against the snapshot; `negativeMarks` forced to 0. |
+| `xpAwarded` | Number | What the reward engine actually paid: 20 for a correct answer, 0 otherwise. |
+| `submittedAt` | Date | The server's clock. |
+| `startedAt` | Date \| null | **M30.** Copied from the start. |
+| `solveTimeMs` | Number \| null | **M30.** `submittedAt − startedAt`, server-measured. Null on a pre-quiz attempt. |
+| `selectedOptionId` | String \| null | **M30.** The opaque id the student chose. |
+| `optionOrder` | [String] | **M30.** The order this student saw the options in. |
+| `ipHash` | String \| null | **M30.** HMAC-SHA256 of the client address keyed with the server secret, truncated to 32 hex — **never the address**. Only compared for equality, for the winner review's shared-connection flag. |
+| `userAgent` | String \| null | **M30.** Truncated to 300 characters. |
+| `xpSettled` | Boolean | **M30, no default.** `false` while the XP waits for the reveal (instant results off); absent means settled. Partial index `{ student, xpSettled }` where `xpSettled: false`. |
+
+### `DailyQuizStart` — ACTIVE (Milestone 30)
+
+The moment a student pressed **Start** — the clock their solve time is measured from, and the
+proof they saw the question. Unique **`{ student, day }`**, so Start is idempotent and the clock
+can never be restarted for a better time. Fields: `challenge`, `groupId` (indexed), `student`,
+`day`, `startedAt`, `optionOrder` (the per-student shuffle, fixed here), `ipHash`, `userAgent`.
+A start with no attempt after its day closed is "Not submitted" in the student's history. Kept
+indefinitely, like every attempt record.
+
+### `DailyQuizWinner` — ACTIVE (Milestone 30)
+
+A candidate or a winner for one quiz. Unique **`{ groupId, student }`**; indexes `{ status, publishedAt: -1 }` and `{ student, status }`.
+
+| Field | Notes |
+|---|---|
+| `groupId`, `day`, `classMin`, `classMax` | Which quiz — copied onto the row so it stands alone if the quiz is later removed or reset. |
+| `student`, `attempt` | |
+| `rank`, `ruleUsed` | Position and rule at computation. |
+| `status` | `provisional` → `confirmed` → `published`, or `disqualified`. Each transition is a conditional write on the current status. |
+| `reason` | Required to disqualify (≥ 5 characters). |
+| `solveTimeMs`, `submittedAt`, `sharedIpCount` | The evidence the review is shown. |
+| `prizeText`, `cashAmount` | **Snapshotted at confirmation**, so a later change to the settings never alters a prize already promised. |
+| `decidedBy`, `decidedByLabel`, `confirmedAt`, `publishedAt`, `contactedAt`, `deliveredAt` | The trail, alongside the `dailyquiz.winner.*` audit entries. |
+
+Provisional rows are recomputable and may be deleted (by a recompute, or by a Daily Quiz content
+reset); **a decided row is never deleted by anything in the product**.
+
+### `DailyQuizSettings` — ACTIVE (Milestone 30)
+
+A single document pinned by a unique `key: 'default'`, like `RewardSettings`. A missing document
+is the defaults. Fields: `prizeHeadline` ("Solve daily. Win daily."), `prizeText` ("Surprise
+gift + cash prize"), `cashAmount` (whole rupees or **null — the default; no figure is shown until
+the owner sets one**), `winnerRule` (`FASTEST_CORRECT` default, `FIRST_CORRECT`, `MANUAL`),
+`winnersPerQuiz` (1–5, default 1), `instantResult` (default true), `updatedBy`, `updatedByLabel`.
+
+### `Student` — four optional prize fields (Milestone 30)
+
+`city`, `guardianPhone`, `guardianEmail` (lowercased) — all `null` by default — and
+`hideFromPublicLists` (Boolean, default `false`). Nothing back-filled: an existing student is
+simply not yet prize-eligible, and the quiz card says what to add. Eligibility (verified email,
+active account, name, class, school, city, guardian phone) is computed by `prizeEligibility()` in
+`lib/dailyQuiz.ts`, never stored.
+
+### `Question.provenance.source` and `ImportBatch.kind` gained `csv` / `json` (Milestone 30)
+
+`csv_import` and `json_import` join the source enum, and `ImportBatch.kind` accepts `csv` and
+`json` — the two tabular formats the Daily Quiz import (and the Question Bank's import) read.

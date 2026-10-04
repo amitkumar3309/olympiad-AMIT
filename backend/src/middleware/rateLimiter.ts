@@ -1,12 +1,18 @@
-import rateLimit, { type Options } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
 import { config } from '../config';
 
 /**
  * Rate limiting is disabled under test: the suite deliberately hammers the same
  * endpoints from one IP, and throttling would make results order-dependent.
  * Limits are exercised in production code paths, not asserted in tests.
+ *
+ * `keyGenerator` is optional: by default a limit is per client address, and a limiter
+ * mounted **after** the auth gate may instead key on the account (see
+ * `dailyQuizLimiter`), which is what a school's shared address needs.
  */
-function limiter(options: Pick<Options, 'windowMs' | 'limit'> & { message: string }) {
+function limiter(
+  options: Pick<Options, 'windowMs' | 'limit'> & { message: string; keyGenerator?: Options['keyGenerator'] },
+) {
   return rateLimit({
     windowMs: options.windowMs,
     limit: config.isTest ? 0 : options.limit,
@@ -14,6 +20,7 @@ function limiter(options: Pick<Options, 'windowMs' | 'limit'> & { message: strin
     legacyHeaders: false,
     skip: () => config.isTest,
     message: { success: false, error: options.message },
+    ...(options.keyGenerator ? { keyGenerator: options.keyGenerator } : {}),
   });
 }
 
@@ -155,17 +162,22 @@ export const mockTestLimiter = limiter({
 });
 
 /**
- * Answering the daily challenge.
+ * Starting and submitting the Daily Quiz (Milestone 30; it replaced the daily challenge's
+ * per-address `challengeLimiter`).
  *
- * One submission per student per day is all that can *succeed*, so this is not really
- * abuse protection for the reward — the unique index is that. It bounds how fast a
- * client can hammer the grading path, which reads a question and writes an attempt.
- * Generous enough that a student retrying after a dropped connection never notices.
+ * One start and one submission per student per day are all that can *succeed* — the
+ * unique indexes are the real guard — so this bounds how fast one client can hammer the
+ * two write paths. **Keyed on the account, not the address**, because it is mounted after
+ * the auth gate: forty children in one school computer room share a public address, and a
+ * per-address limit of thirty would refuse the last ten on the very morning a prize is
+ * on offer. Thirty requests per student per ten minutes is far beyond a real student's
+ * start, submit and a few retries after a dropped connection.
  */
-export const challengeLimiter = limiter({
-  windowMs: HOUR,
+export const dailyQuizLimiter = limiter({
+  windowMs: 10 * MINUTE,
   limit: 30,
-  message: 'Too many attempts at today’s challenge. Please wait a little before trying again.',
+  message: 'Too many attempts at today’s quiz. Please wait a few minutes before trying again.',
+  keyGenerator: (req) => (req.user?.sub ? `student:${req.user.sub}` : ipKeyGenerator(req.ip ?? '')),
 });
 
 /**

@@ -133,7 +133,7 @@ export default function Rewards() {
         </div>
         <div className="card">
           <div className={styles.statValue}>{totals.dailyChallenges}</div>
-          <div className={styles.statLabel}>Daily challenges</div>
+          <div className={styles.statLabel}>Daily quizzes</div>
         </div>
       </section>
 
@@ -212,8 +212,8 @@ export default function Rewards() {
         <Link to="/practice">
           <Button>Earn some XP</Button>
         </Link>
-        <Link to="/daily-challenge">
-          <Button variant="outline">Today’s challenge</Button>
+        <Link to="/daily-quiz">
+          <Button variant="outline">Today’s quiz</Button>
         </Link>
       </div>
     </StudentShell>

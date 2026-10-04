@@ -250,6 +250,14 @@ export const config = {
     email: env.INVOICE_ORG_EMAIL,
     phone: env.INVOICE_ORG_PHONE,
   },
+  /**
+   * The end-to-end suite's hooks (`routes/e2e.routes.ts`). Never on in production — the
+   * check is here as well as at the mount, so no caller can read `true` off a production
+   * process however the variable is set.
+   */
+  e2e: {
+    hooksEnabled: env.E2E_TEST_HOOKS && !isProd,
+  },
   payments: {
     /** True only when an order can actually be created AND verified. */
     configured: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),

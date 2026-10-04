@@ -291,8 +291,8 @@ its own footer.
 |---|---|---|---|
 | `INVOICE_ORG_NAME` | optional | The organisation name on the invoice. | `A.M.I.T Maths Olympiad` (the default) |
 | `INVOICE_ORG_ADDRESS` | optional | Registered address. **Lines separated by `\|`.** Omitted from the document entirely when unset — an invoice with a blank address line looks like one that failed to render. | `2nd Floor, 14 Example Road\|Jaipur, Rajasthan 302001` |
-| `INVOICE_ORG_EMAIL` | optional | Contact address printed on the invoice and quoted in its footer. | `support@amitolympiad.com` (the default) |
-| `INVOICE_ORG_PHONE` | optional | Contact number. | `+91 9782870716` (the default) |
+| `INVOICE_ORG_EMAIL` | optional | Contact address printed on the invoice and quoted in its footer. | `support@amitolympiad.me` (the default) |
+| `INVOICE_ORG_PHONE` | optional | Contact number, printed exactly as given — the owner's format is `+91-97828-70716`. | `+91-97828-70716` (the default) |
 | `INVOICE_GSTIN` | optional | GST registration number. **Never defaulted.** With it set the document is titled `TAX INVOICE` and the number is printed; with it unset the document is titled `INVOICE` and says nothing about tax at all. | `29ABCDE1234F1Z5` |
 | `INVOICE_TAX_NOTE` | optional | One line of tax or legal wording, printed verbatim under the total. Free text, because only your accountant knows what is correct. | `Not registered for GST.` |
 
@@ -326,3 +326,14 @@ is the knob that bounds an afternoon of importing.
 Neither needs to be set for the feature to work. Add them to Vercel only if you want to change a
 default, and — as with every backend variable — **never to the frontend project**, which reads no
 environment variables at all.
+
+## End-to-end test hooks (Milestone 30, Phase 2)
+
+| Variable | Required? | What it does | Where to get it | Example |
+| --- | --- | --- | --- | --- |
+| `E2E_TEST_HOOKS` | **never set it** (default `false`) | Mounts the browser test suite's hooks — `/__e2e/clock` (move the Daily Quiz's clock), `/__e2e/reset` (empty the database) and `/__e2e/seed` (create a test student and today's quiz). Set **only** by `backend/scripts/e2e-server.ts`, which runs the backend on a throwaway in-memory database for `npm run e2e`. | — | `false` |
+
+Three locks keep these hooks out of every real deployment, and none of them is this variable alone:
+`config` forces it off whenever `NODE_ENV=production`; the hooks are only mounted when it is on; and
+each hook refuses unless the **connected** database's name ends in `-e2e`. **Do not add it to Vercel,
+to `backend/.env`, or anywhere else** — there is no situation outside the test suite that needs it.

@@ -5,13 +5,13 @@ import { imageDataUrl } from './imageSchemas';
 import { referralCode } from './referralSchemas';
 
 /** Indian-style 10-digit mobile, tolerant of spaces/dashes which we strip. */
-const mobile = z
+export const mobile = z
   .string()
   .trim()
   .transform((v) => v.replace(/[\s-]/g, ''))
   .pipe(z.string().regex(/^\d{10,15}$/, 'Mobile number must be 10–15 digits'));
 
-const email = z.string().trim().toLowerCase().pipe(z.string().email('Enter a valid email address'));
+export const email = z.string().trim().toLowerCase().pipe(z.string().email('Enter a valid email address'));
 
 /**
  * The password policy, and the **one** definition of it on the server: registration,

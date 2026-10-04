@@ -11,6 +11,7 @@ import {
   type QuestionType,
 } from '../models';
 import { dayKeyOf, type DayKey } from '../lib/competitionDay';
+import { now } from '../lib/clock';
 
 /**
  * THE student performance analytics. Every figure here is derived from a real stored
@@ -416,6 +417,13 @@ export interface StudentAnalytics {
  * rows already in memory rather than another query.
  */
 export async function getStudentAnalytics(student: Types.ObjectId): Promise<StudentAnalytics> {
+  /**
+   * Daily Quiz answers count once their day has been **revealed** (Milestone 30): today's
+   * quiz is still open, and an accuracy figure that moved when it was answered would tell
+   * a student — or anybody looking over their shoulder — whether it was right before the
+   * answer is unlocked. Yesterday's and older count as they always did.
+   */
+  const revealedChallenges = { student, day: { $lt: dayKeyOf(now()) } };
   const [
     practiceFacets,
     mockFacets,
@@ -429,7 +437,7 @@ export async function getStudentAnalytics(student: Types.ObjectId): Promise<Stud
     PracticeSession.aggregate<FacetRow>(facetPipeline({ student, status: 'submitted' }, 'questions')),
     MockTestAttempt.aggregate<FacetRow>(facetPipeline({ student, status: 'submitted' }, 'questions')),
     // Single answer rather than an array — see `facetPipeline`.
-    DailyChallengeAttempt.aggregate<FacetRow>(facetPipeline({ student }, '$answer')),
+    DailyChallengeAttempt.aggregate<FacetRow>(facetPipeline(revealedChallenges, '$answer')),
     ExamAttempt.aggregate<FacetRow>(facetPipeline({ student, status: 'submitted' }, 'questions')),
 
     PracticeSession.find({ student, status: 'submitted' })
@@ -440,7 +448,7 @@ export async function getStudentAnalytics(student: Types.ObjectId): Promise<Stud
       .select('submittedAt startedAt score maxMarks correctCount totalQuestions unansweredCount timeTakenSeconds test')
       .sort({ submittedAt: 1 })
       .lean(),
-    DailyChallengeAttempt.find({ student })
+    DailyChallengeAttempt.find(revealedChallenges)
       .select('submittedAt day answer.isCorrect answer.marks answer.awardedMarks answer.answeredAt')
       .sort({ submittedAt: 1 })
       .lean(),

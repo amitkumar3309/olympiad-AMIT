@@ -139,7 +139,7 @@ export default function QuestionPerformance() {
     <AdminShell title="Performance analytics">
       <div className={styles.wrap}>
         <p className={styles.intro}>
-          Counted from every <strong>submitted</strong> attempt across practice, mock tests, the daily challenge and
+          Counted from every <strong>submitted</strong> attempt across practice, mock tests, the Daily Quiz and
           the official exam. An unfinished attempt contributes nothing — its blanks are not wrong answers.
         </p>
 

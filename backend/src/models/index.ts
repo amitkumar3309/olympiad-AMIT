@@ -10,6 +10,10 @@ export * from './MockTest';
 export * from './MockTestAttempt';
 export * from './DailyChallenge';
 export * from './DailyChallengeAttempt';
+// The Daily Quiz (Milestone 30): the Start step, the prize winners and the settings.
+export * from './DailyQuizStart';
+export * from './DailyQuizWinner';
+export * from './DailyQuizSettings';
 export * from './RewardSettings';
 export * from './Result';
 // `StudentAnalytics` was removed in Milestone 15. It predated Milestone 4 (a string

@@ -1,3 +1,4 @@
+import { isUtf8 } from 'node:buffer';
 import { z } from 'zod';
 import { IMPORT_FILE_KINDS, type ImportFileKind } from '../lib/importTypes';
 
@@ -66,6 +67,10 @@ export const MAX_IMPORT_FILE_BYTES: Record<ImportFileKind, number> = {
   excel: 5 * 1024 * 1024,
   docx: 5 * 1024 * 1024,
   image: 6 * 1024 * 1024,
+  // Plain text, uncompressed: two hundred quiz questions with worked solutions is well under
+  // half a megabyte, so 2 MB is generous and cannot inflate into anything larger.
+  csv: 2 * 1024 * 1024,
+  json: 2 * 1024 * 1024,
 };
 
 /**
@@ -95,6 +100,8 @@ const EXTENSIONS: Record<ImportFileKind, readonly string[]> = {
   excel: ['xlsx'],
   docx: ['docx'],
   image: ['jpg', 'jpeg', 'png', 'webp'],
+  csv: ['csv'],
+  json: ['json'],
 };
 
 /** MIME types accepted per kind. Trusted least of the three signals — see the note above. */
@@ -110,6 +117,10 @@ const CONTENT_TYPES: Record<ImportFileKind, readonly string[]> = {
     'application/octet-stream',
   ],
   image: ['image/jpeg', 'image/png', 'image/webp'],
+  // Windows reports a .csv as `application/vnd.ms-excel` when Excel is installed, which is
+  // the commonest case on this owner's machines — refusing it would refuse real files.
+  csv: ['text/csv', 'application/csv', 'text/plain', 'application/vnd.ms-excel', 'application/octet-stream'],
+  json: ['application/json', 'text/json', 'text/plain', 'application/octet-stream'],
 };
 
 /**
@@ -122,6 +133,20 @@ const CONTENT_TYPES: Record<ImportFileKind, readonly string[]> = {
  */
 const ZIP_LOCAL_HEADER = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
 
+/**
+ * A text format has no magic number, so its "signature" is that it **is** text: valid
+ * UTF-8 with no NUL byte. That refuses a renamed workbook or image (neither survives the
+ * check) without refusing any file a spreadsheet program or an editor really writes.
+ */
+function isPlainText(b: Buffer): boolean {
+  return b.length > 0 && !b.includes(0) && isUtf8(b);
+}
+
+/** The first character that is not whitespace or a byte-order mark. */
+function firstSignificant(b: Buffer): string {
+  return b.toString('utf8', 0, Math.min(b.length, 64)).replace(/^[\s\uFEFF]+/u, '').charAt(0);
+}
+
 const SIGNATURES: Record<ImportFileKind, (buf: Buffer) => boolean> = {
   excel: (b) => b.length > 4 && b.subarray(0, 4).equals(ZIP_LOCAL_HEADER),
   docx: (b) => b.length > 4 && b.subarray(0, 4).equals(ZIP_LOCAL_HEADER),
@@ -132,6 +157,8 @@ const SIGNATURES: Record<ImportFileKind, (buf: Buffer) => boolean> = {
     (b.length > 12 &&
       b.subarray(0, 4).toString('ascii') === 'RIFF' &&
       b.subarray(8, 12).toString('ascii') === 'WEBP'),
+  csv: isPlainText,
+  json: (b) => isPlainText(b) && ['[', '{'].includes(firstSignificant(b)),
 };
 
 /**
@@ -145,6 +172,8 @@ const LABELS: Record<ImportFileKind, { bare: string; withArticle: string }> = {
   excel: { bare: 'Excel workbook (.xlsx)', withArticle: 'an Excel workbook (.xlsx)' },
   docx: { bare: 'Word document (.docx)', withArticle: 'a Word document (.docx)' },
   image: { bare: 'image (.jpg, .png or .webp)', withArticle: 'an image (.jpg, .png or .webp)' },
+  csv: { bare: 'CSV file (.csv)', withArticle: 'a CSV file (.csv)' },
+  json: { bare: 'JSON file (.json)', withArticle: 'a JSON file (.json)' },
 };
 
 // ---------------------------------------------------------------------------
@@ -260,7 +289,11 @@ export function importFileSchema(kind: ImportFileKind) {
         at(
           kind === 'image'
             ? `"${value.name}" is not a valid JPEG, PNG or WebP image.`
-            : `"${value.name}" is not a valid ${label}. If you renamed another file, save it from Office instead.`,
+            : kind === 'csv'
+              ? `"${value.name}" is not a readable text file. Save it from your spreadsheet as "CSV UTF-8".`
+              : kind === 'json'
+                ? `"${value.name}" is not a JSON array or object. Save it as UTF-8 text starting with [ or {.`
+                : `"${value.name}" is not a valid ${label}. If you renamed another file, save it from Office instead.`,
           // NB: "a valid Excel workbook" is correct here — the article attaches to "valid".
         );
       }

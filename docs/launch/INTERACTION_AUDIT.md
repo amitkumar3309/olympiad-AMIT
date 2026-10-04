@@ -21,7 +21,7 @@ Paths are relative to `frontend/src/`. Routes are declared only in `App.tsx`; gu
 
 | # | Where | Problem | Severity | Fix in phase |
 |---|---|---|---|---|
-| D1 | `pages/DailyChallenge/DailyChallenge.tsx:91-117,301` + `backend/src/routes/v1/dailyChallenge.routes.ts:246-250` | A `fill_blank` daily challenge can never be answered: the page has no text input, and the route drops `textResponse` even though the schema accepts it. The automatic picker does not exclude the type. | **High** — a whole day's quiz can be unanswerable | 2 |
+| D1 | `pages/DailyChallenge/DailyChallenge.tsx:91-117,301` + `backend/src/routes/v1/dailyChallenge.routes.ts:246-250` | A `fill_blank` daily challenge can never be answered: the page has no text input, and the route drops `textResponse` even though the schema accepts it. The automatic picker does not exclude the type. | **High** — a whole day's quiz can be unanswerable | ✅ **Resolved in Phase 2** — the page and the automatic picker are gone; a Daily Quiz is single choice by construction (`quizQuestionProblem()`) |
 | D2 | `pages/Leaderboard/Leaderboard.tsx:303`, `pages/NotFound/NotFound.tsx:37` | "Sign in" / "My dashboard" link to `/dashboard`; a guest is bounced by `ProtectedRoute` to `/` **without** the sign-in dialog opening | Medium | 5 (and `ProtectedRoute` should send guests to `/#login?next=` — Phase 3 Login Gate work) |
 | D3 | `pages/Profile/Profile.tsx:575` | Password hint says "8 characters, a letter and a number"; the real policy also needs upper, lower and a special character, and the form does not check before sending | Medium | 5 |
 | D4 | `pages/Landing/Landing.tsx:418` | Four feature cards are `interactive` (hover lift) but do nothing — `Card` documents `interactive` as "only for a card that is genuinely a link" | Low | 3 (landing rebuild) |
@@ -57,7 +57,8 @@ Everything is `lazy()` except `Landing`. "Works" = calls real endpoints, no hard
 | `/mock-tests`, `/mock-tests/attempts/:attemptId` | MockTests, MockTestAttempt | ProtectedRoute | ✅ | — |
 | `/rewards` | Rewards (XP, badges, achievements, journey) | ProtectedRoute | ⚠️ D5 | — |
 | `/referrals` | Referrals | ProtectedRoute | ✅ | — |
-| `/daily-challenge` | DailyChallenge | ProtectedRoute | ❌ D1 (fill_blank only) | — |
+| `/daily-quiz` | DailyQuiz | ProtectedRoute | ✅ (Phase 2; E2E at desktop + 390px) | — |
+| `/daily-challenge` | redirect → `/daily-quiz` | — | ✅ | — |
 | `/notifications` | Notifications | ProtectedRoute | ✅ | — |
 | `/my-certificates` | Certificates/Certificates | ProtectedRoute | ⚠️ D6 | — |
 | `/exam`, `/exam/:attemptId` | Exam/Exams, ExamAttempt | RequirePaidEntry | ✅ | — |
@@ -78,15 +79,16 @@ Everything is `lazy()` except `Landing`. "Works" = calls real endpoints, no hard
 | `/admin/questions` (+ `/new`, `/import`, `/:id/edit`) | Admin/Questions, QuestionForm, QuestionImport | `questions:write` | ✅ | — |
 | `/admin/taxonomy` | Admin/Taxonomy | `taxonomy:write` | ✅ | — |
 | `/admin/mock-tests` (+ `/new`, `/:id/edit`, `/:id/results`) | Admin/MockTests, MockTestForm, MockTestResults | `mocktests:write` | ✅ | — |
-| `/admin/daily-challenges` | Admin/DailyChallenges | `challenges:write` | ✅ | — |
+| `/admin/daily-quiz` | Admin/DailyQuiz | `challenges:write` | ✅ (Phase 2) | — |
+| `/admin/daily-quiz/:groupId` | Admin/DailyQuizDetail | `challenges:write` | ✅ (Phase 2) | — |
+| `/admin/daily-challenges` | redirect → `/admin/daily-quiz` | — | ✅ | — |
 | `/admin/reward-settings` | Admin/RewardSettings | `rewards:write` | ✅ | — |
 | `/ai-generator` | AiGenerator | `questions:write` | ✅ | — |
 | `/design-system` | DesignSystem | DEV only | ✅ (absent from prod build) | — |
 | `*` | NotFound | public | ⚠️ D2 | — |
 
-**Missing routes the spec needs:** `/daily-quiz` (rename of `/daily-challenge`, old path redirects), `/rewards/rules`,
-`/privacy`, `/terms`, `/refund-policy`, `/contact`, the 6-month journey page (if approved), a profile
-"Daily Quiz history" section. Dashboard sidebar items in the mockup with no route today: **Previous Papers**,
+**Missing routes the spec needs:** ~~`/daily-quiz`~~ and ~~the profile "Daily Quiz history"~~ (both done in
+Phase 2), `/rewards/rules`, `/privacy`, `/terms`, `/refund-policy`, `/contact`, the 6-month journey page (if approved). Dashboard sidebar items in the mockup with no route today: **Previous Papers**,
 **Concepts**, **Help & Support** → "Soon" pill per §3 unless built.
 
 ## Interaction inventory — public surfaces
@@ -105,8 +107,8 @@ Everything is `lazy()` except `Landing`. "Works" = calls real endpoints, no hard
 | Footer.tsx:45-47 | Leaderboard · Hall of Fame · Event gallery | Link | routes | ✅ | — |
 | Footer.tsx:52-54 | Check a result · Certificate · Verify a certificate | Link | `/result` `/certificate` `/verify` | ⚠️ D6 | — |
 | Footer.tsx:59-60 | Sign in · Register | Link | `/#login`, `/register` | ✅ | — |
-| Footer.tsx:80 | +91 9782870716 | `tel:` | `tel:+919782870716` | ✅ (differs from mockup — see PLAN §owner questions) | — |
-| Footer.tsx:84 | support@amitolympiad.com | `mailto:` | same | ✅ (differs from mockup) | — |
+| Footer.tsx:80 | +91-97828-70716 | `tel:` | `tel:+919782870716` | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
+| Footer.tsx:84 | support@amitolympiad.me | `mailto:` | same | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
 | DeveloperCredit.tsx:38 | Sachin Kukkar | a, new tab, `noopener noreferrer` | sachinkukkar.tech | ✅ | — |
 | Landing.tsx:363 / 582 | Register | ButtonLink | `/register` (`?ref=` carried) | ✅ | — |
 | Landing.tsx:366 / 585 | Sign in · I already have an account | Button | opens LoginDialog | ✅ | — |
@@ -138,13 +140,14 @@ Everything is `lazy()` except `Landing`. "Works" = calls real endpoints, no hard
 | AppShell.tsx:393 | bottom bar: Home · Practice · Tests · Challenge | Link | routes | ✅ | — |
 | Dashboard.tsx:169-534 | Try again · 3 action cards · Start · Update my profile · See mock tests · Show earlier activity · All rewards · Full board | Link / Button | real | ✅ | — |
 | EntryFeeBanner.tsx:65 | Pay ₹… | Link | `/payment` | ✅ | — |
-| DailyChallengeCard.tsx:135 | Answer today's challenge / See your answer | ButtonLink | `/daily-challenge` | ✅ | — |
-| DailyChallenge.tsx:151-301 | retry · Go to my profile · Practise · options · True/False · Submit answer | | | ❌ D1 | — |
+| DailyQuizPanel.tsx (page + dashboard card) | Start the quiz · option tiles (radio group) · Submit answer → confirm dialog (Go back / Submit option X) · Try again · Complete my profile · Practise now · Go to my profile · My quiz history · Open the Daily Quiz · See every quiz you have played | Button / ButtonLink / Modal / radio | `/me/daily-quiz/*`, `/profile#prize-details`, `/profile#daily-quiz-history`, `/practice`, `/daily-quiz` | ✅ (Phase 2, E2E) | — |
+| DailyQuizHistory.tsx | The question / View solution (`<details>`) · pagination | details / Pagination | — | ✅ | — |
+| PrizeDetails.tsx | City · guardian phone · guardian email · opt-out checkbox · Save prize details | form | `PATCH /me/profile` | ✅ | — |
 | Profile.tsx:305-665 | photo, edit, save, cancel, change password, sign out everywhere, prefs, admin link | | | ⚠️ D3 | — |
 | Rewards.tsx:69 | Try again | Button | | ✅ | — |
-| Rewards.tsx:212-216 | Earn some XP · Today's challenge | `<Link><Button>` | `/practice`, `/daily-challenge` | ⚠️ D5 | — |
+| Rewards.tsx:212-216 | Earn some XP · Today's quiz | `<Link><Button>` | `/practice`, `/daily-quiz` | ⚠️ D5 | — |
 
-Student navigation (`navigation.ts:70-130`): Dashboard · Practice Zone · Mock Tests · Daily Challenge ·
+Student navigation (`navigation.ts:70-130`): Dashboard · Practice Zone · Mock Tests · Daily Quiz ·
 Performance · Printable report · XP & badges · Leaderboard · Hall of Fame · Official Olympiad (padlock if unpaid) ·
 Entry fee & receipts · Result · Certificates · Refer & Earn · Notifications · My Profile. All resolve.
 
@@ -153,4 +156,14 @@ Entry fee & receipts · Result · Certificates · Refer & Earn · Notifications 
 Admin navigation (`navigation.ts:141-227`): 25 items across Students / Question bank / Assessments / Insights /
 Communication / Settings / System, each filtered by its permission; all resolve to declared routes (D7 aside).
 Admin page internals were not itemised in Phase 0 — the admin area is not being redesigned, and Phase 5's crawler
-covers its links. Rows will be added for the new Daily Quiz admin screens in Phase 2.
+covers its links. The Daily Quiz admin screens (Phase 2):
+
+| Where | Controls | Kind | Target | Works | Phase |
+|---|---|---|---|---|---|
+| Admin/DailyQuiz.tsx | Schedule a quiz · tabs (Calendar / Import a file / From the bank / Prize desk / Settings, kept in `?tab=`) · gap-warning "Schedule it" · calendar day "Add" · quiz chips → quiz page · quiz-list day links · "Choose a winner" · pagination | Button / Tabs / Link | `/admin/daily-quiz*` | ✅ | — |
+| Admin/DailyQuizSchedule.tsx | Day · class presets + from/to · question search · candidate radio list · pagination · Write a new question · Schedule / Cancel | Modal form | `POST /admin/daily-quiz`, `/admin/questions/new` | ✅ | — |
+| Admin/DailyQuizBulk.tsx | CSV / JSON template downloads · file · fallback chapter · difficulty · Check the file · per-row checkboxes · Save and schedule · Import another file · bank: range, start day, ids, Plan it, Schedule N | Button / form | `/admin/daily-quiz/import/*`, `/admin/daily-quiz/bulk` | ✅ (API tested; template download not clicked in the browser check) | — |
+| Admin/DailyQuizDetail.tsx | Breadcrumb · Change question (picker modal) · Remove quiz (confirm) · Compute / Recompute winners · The question in the bank | Button / Modal / Link | `/admin/daily-quiz/:groupId*`, `/admin/questions/:id/edit` | ✅ | — |
+| Admin/DailyQuizWinners.tsx (quiz page + prize desk) | Confirm · Announce (confirm dialog) · Contacted · Delivered · Disqualify (reason dialog) · guardian `tel:` link · quiz-day links | Button / Modal / Link | `/admin/daily-quiz/winners/:id/:action` | ✅ (API tested end to end) | — |
+| Admin/DailyQuiz.tsx → Settings | headline · prize wording · cash amount · winner rule · winners per quiz · instant results · Save settings | form | `PUT /admin/daily-quiz/settings` | ✅ | — |
+| Admin/Questions.tsx | Schedule as Daily Quiz (hand-off; reason shown in the page when unavailable) | Button | `/admin/daily-quiz?questions=…` | ✅ | — |

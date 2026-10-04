@@ -187,7 +187,7 @@ Returns `{ analytics, xpByDay }`. **The shape changed in Milestone 15** — the 
 | `strongAreas` / `weakAreas` | Up to five each, across topics, subjects and difficulties. Requires `minimumAreaSample` (5) answers. |
 | `accuracyByDay` | Bucketed by **IST** competition day. |
 | `progressTrend` | One point per submitted sitting, chronological by submission. |
-| `paceTrend` | Seconds per question **per attempt**. Excludes the daily challenge, which has no clock. |
+| `paceTrend` | Seconds per question **per attempt**. Excludes the Daily Quiz. |
 | `notes` | Machine-readable reasons a section is empty, e.g. `nothing-submitted-yet`, `pace-unavailable-daily-challenge-has-no-clock`. |
 
 Three contracts a client must respect:
@@ -762,6 +762,8 @@ Edits the caller's own details. Body: `firstName`, `middleName` (nullable), `las
 
 **`email` and `mobile` cannot be changed here**, and are absent from the schema rather than filtered in the handler — see the ADR in [`DECISIONS.md`](DECISIONS.md). Nor can `studentId`, `role`, `status`, `isEmailVerified` or `tokenVersion`; sending them changes nothing (asserted by test).
 
+**Prize fields (Milestone 30)** — `city`, `guardianPhone` (the mobile rule), `guardianEmail`, `hideFromPublicLists` — are **optional keys**: absent leaves the stored value, `null` or `""` clears it. They are the exception to the full-replacement rule so that a page loaded before they existed can still save. `GET /me/profile` returns them, plus `prizeEligibility: { eligible, missing[] }` from the same check the winner computation uses.
+
 Returns `{ changed, profile }`. Records a `profile_updated` activity (0 XP) and a `student.profile.updated` audit entry naming the changed **field names, never their values**. Rate limited 20/hour.
 
 ### `PUT /api/v1/me/photo`
@@ -790,16 +792,9 @@ Everything the student dashboard shows, in one request. **Every figure is a real
 ### `GET /api/v1/me/activity`
 The full activity feed, paginated (`page`, `limit` ≤ 100). The dashboard carries only the newest few.
 
-### `GET /api/v1/me/daily-challenge` — **superseded by Milestone 8**
+### `GET /api/v1/me/daily-challenge` — **removed in Milestone 30**
 
-See "Daily challenge (Milestone 8)" at the end of this file: the endpoint now also reports the caller's own attempt, the streak and the reward, and the challenge is a pinned document rather than a value recomputed per request. The description below is kept for the shape it had in Milestone 5.
-
-#### Milestone 5 behaviour
-Today's challenge question for the caller's class, as a full **answer-stripped** question via the shared `studentQuestionView` — so it cannot expose an answer key even by accident. Deterministic: the same day and class always resolve to the same question, so a reload cannot be used to shop for an easier one.
-
-Answers `{ challenge: null, reason: 'none-published' | 'no-class' }` — a 200, not a 404, because "there is no challenge today" is a normal answer while the bank has nothing published for that class.
-
-**This replaced a static mock and is now authenticated where the mock was open**, because it returns question content. Both paths are served: the `/me/` form because the resource depends on who is asking, and the bare path because that is what was already published here.
+Replaced by `GET /api/v1/me/daily-quiz`; see "Daily Quiz (Milestone 30, Phase 2)" further down.
 
 ---
 
@@ -1036,69 +1031,96 @@ The student's own attempts across every test, newest first, paginated. Honours e
 
 ---
 
-## Daily challenge (Milestone 8)
+## Daily Quiz (Milestone 30, Phase 2 — the daily challenge of Milestone 8, upgraded)
 
-One question a day per class. Student routes gate on `requireAuth()` (identity, like the rest of `/me`); scheduling gates on the new `challenges:write` permission.
+One question a day per **class range**, with a prize. Student routes gate on `requireAuth()` (identity, like the rest of `/me`) and are **free** (no entry fee). Staff routes gate on `challenges:write`; the bulk import also needs `questions:write`. The Milestone 8 routes (`/me/daily-challenge`, `/me/daily-challenge/answer`, `/me/daily-challenge/history`, `/daily-challenge`, `/admin/daily-challenges`) are **gone**: their answer view revealed the correct answer and the solution on submission, which a prize quiz cannot do.
 
-**No student route accepts a day.** Which day it is comes from `lib/competitionDay.ts` — an IST calendar day — so a student cannot claim yesterday's reward by naming yesterday, and a browser in another timezone cannot disagree about which challenge is today's. No student route accepts anything about the outcome either: grading is server-side, and the reward is awarded by `recordActivity()`.
+**The server decides every instant.** Quiz logic reads `lib/clock.ts → now()`; a quiz opens at IST midnight, closes at the next one, and its answer and worked solution are revealed at that close. No request carries a day, a time, a solve time or anything about the outcome. Every personal response is `Cache-Control: private, no-store`.
 
-**A day's challenge is a stored document.** The first request for a `{day, classLevel}` with nothing scheduled pins the deterministic pick and writes it; everything after that reads the same row. Publishing more questions therefore cannot change what today's challenge is — which the previous, recompute-on-read implementation could not promise.
+**The answer key is in no student response before the reveal.** `revealOf()` is the only reader of the key for a student; `tests/dailyQuiz.test.ts` stringifies every student response on both sides of midnight.
 
-### Sitting today's challenge
+### Playing
 
-#### `GET /api/v1/me/daily-challenge` (also `GET /api/v1/daily-challenge`)
-Today's challenge for the caller's class, and their own attempt at it.
-
-- **Not answered yet** → `challenge` (answer-stripped) and `attempt: null`. Nothing in the payload can reveal the answer; a test stringifies the whole body and forbids the field names and the literal correct values.
-- **Answered** → the same question plus `attempt`: what they chose, whether it was right, the correct answer and the author's explanation.
-
-Also carries `streak` (current and longest), `completedCount`, `reward: { xp, claimed }`, the server's `today`, and `rollover` (Milestone 24). Answers `challenge: null` with `reason: 'none-published'` (nothing published for that class) or `reason: 'no-class'` (an account predating the class field) — both **200**, because neither is an error.
-
-`challenge.source` is `scheduled` or `automatic` — whether a member of staff chose today's question or the bank filled the day itself. It reveals nothing, since which question was served is already on screen. **No student surface displays it** (owner's decision, 2026-08-31: the challenge page shows the timer alone); it is on the payload because the fact is cheap to serve and a client may need it, and the admin console reads the equivalent field on its own listing.
-
-**`rollover` is the countdown, and the clock is the server's.** It is sent in **every** state, including the two empty ones — "nothing is published for your class yet" is a state a reader wants a horizon on too.
+#### `GET /api/v1/me/daily-quiz`
+Today's quiz for the caller's class and their state in it. Settles any XP that was waiting for a reveal (instant results off) before answering.
 
 | Field | Meaning |
 | --- | --- |
-| `nextChangeAt` | ISO 8601, absolute: the instant the next day's challenge takes over (IST midnight). |
-| `secondsRemaining` | Whole seconds from now until then, rounded **up** and floored at zero. |
-| `timezone` | `IST (UTC+05:30)`, so a page can name which midnight it means rather than implying the reader's. |
+| `serverNow` | The server's clock. Every countdown on the page is offset from it. |
+| `today` | The IST day key. |
+| `prize` | `prizeHeadline`, `prizeText`, `cashAmount` (null unless set), `winnerRule`, `winnersPerQuiz`, `howWinnersAreChosen` (generated from the settings), `instantResult`, `xpForCorrect`. |
+| `eligibility` | `{ eligible, missing[] }` — what a prize winner must have on their profile. |
+| `streak` | `{ current, longest }` — days with a submitted answer. |
+| `previous` | The most recent earlier quiz, once unlocked: `{ day, topic, isCorrect, revealed }`, or null. |
+| `quiz` | Null when there is none (`reason: 'none-scheduled'` or `'no-class'`, both 200). Otherwise `{ id, groupId, day, classRange, topic, difficulty, opensAt, closesAt, revealAt, phase }` — **no question and no options**. |
+| `state` | `not-started` / `in-progress` / `submitted`. |
+| `startedAt` | When the caller pressed Start, or null. |
+| `question` | Only after Start: `{ text, options: [{ id, text, letter }] }` in **this student's** order. Ids are opaque (`o` + 10 hex). |
+| `result` | Only after submitting: `{ submittedAt, solveTimeMs, selectedOptionId, isCorrect, xpAwarded, xpPending, revealAt, revealed, reveal }`. `isCorrect` is null while results are held until the reveal; `reveal` (`correctOptionId`, `correctOptionText`, `solution`) is null until the reveal. |
+| `nextQuizAt` | When nothing is scheduled today: when the next quiz for the class opens, or null. |
 
-Both figures are sent because they fail differently: a duration is immune to a device clock that is hours out, and an absolute instant is immune to a timer throttled in a background tab. `secondsRemaining` never reports `0` before the boundary — a `floor` would report zero for the whole final second, and a client that refetches at zero would then spin against a day that has not turned. A client may only *display* these; it must not conclude that the day has changed and swap in a question of its own choosing — it re-requests this endpoint.
+#### `POST /api/v1/me/daily-quiz/start`
+Shows the question and starts the server's clock (a `DailyQuizStart` row). **201** when started, **200** with `alreadyStarted: true` on a repeat — the clock never restarts, and the option order never changes. **409** with no class, no quiz today, or outside the quiz's window. Rate limited per student (30 / 10 min). Returns the whole of today's state.
 
-The reveal is safe here in a way it would not be for a mock test: an attempt document only exists once the student has answered, so there is no path that discloses anything to someone who has not. A daily challenge has **no disclosure policy** on purpose — its point is to teach one question a day, and withholding the explanation would defeat that.
+#### `POST /api/v1/me/daily-quiz/submit`
+Body: `{ selectedOptionId }` — the opaque id the student was shown. Marked server-side by the shared grader against the quiz's own snapshot; solve time is the server's `submittedAt − startedAt`.
 
-#### `POST /api/v1/me/daily-challenge/answer`
-Body: whichever of `selectedOptionKeys` / `numericResponse` / `booleanResponse` fits the question's type. Grades server-side against a snapshot taken at submission, using the shared grader.
+Refusals: no Start today is **409** ("Press Start…"); a start from a day that has closed is **409** ("closed at midnight") and **nothing is stored**; an id not in this quiz is **400**. A repeat is **200** with `alreadySubmitted: true` and the **first** result — never re-marked, never re-paid. `xpAwarded` is what this request earned: **20 for a correct answer, 0 for a wrong one** (and 0 for now when results are held). Rate limited per student.
 
-Refusals: an option key never offered is **400**; a second key on a `single_choice` question is **400**; a **blank** submission is **400** (a challenge is one question — a blank is either a mis-click or an attempt to claim the day for nothing); no class on the account is **409**; no challenge for the class today is **409**.
+#### `GET /api/v1/me/daily-quiz/history`
+The caller's quiz days, newest first, paginated (`page`, `limit` ≤ 50) — submissions **and** starts never submitted (`status: 'not-submitted'`). Each row: `day`, `status`, `topic`, `questionText`, `options` (as the student saw them), `selectedOptionId`/`Text`, `isCorrect`, `solveTimeMs`, `xpAwarded`, `xpPending`, `revealAt`, `revealed`, `reveal` (null until unlocked), `won`. Plus `summary`: `attempted`, `correct`, `accuracy` (null with none counted), `currentStreak`, `longestStreak`, `wins`.
 
-**A repeat submission is 200, not 409.** The student really has answered today, and an error would invite them to press again. It returns the stored attempt with `alreadyAnswered: true` and **`xpAwarded: 0`** — the top-level figure is what *this* request awarded, not the attempt's stored total, so a client cannot show "+15 XP" twice. Nothing is re-graded: the first answer is the one that stands.
+### Public
 
-Earns `daily_challenge_completed` (15 XP) once per competition day, for **answering rather than for being right**. Negative marking is forced to 0, so a wrong answer scores 0 and is never a penalty. Rate limited (30/hour).
+#### `GET /api/v1/daily-quiz/info`
+The prize and the rule in words, as on the Rewards section and the rules page. `Cache-Control: public, max-age=60`.
 
-#### `GET /api/v1/me/daily-challenge/history`
-The caller's own past challenges, newest day first, paginated, with `streak` and `completedCount`. Each row names the question the **attempt** snapshotted, not whatever its challenge points at now — a future day can be re-pointed, and a history row must describe what the student actually answered.
+#### `GET /api/v1/daily-quiz/winners`
+The most recent **published** winners (`limit` ≤ 20, default 7): `{ day, displayName, classLevel, place, prizeText }`. Names are masked by `displayNameFor()` (first name, last initial); a student with `hideFromPublicLists` appears as "A Class 9 student" with no place; only active accounts. Never a contact detail. `Cache-Control: public, max-age=60`.
 
-### Scheduling
+### Running the quiz (staff — `challenges:write`)
 
-#### `GET /api/v1/admin/daily-challenges`
-Scheduled and already-served days, newest first. Filters: `classLevel`, `from`, `to` (day keys — `YYYY-MM-DD` sorts chronologically, so the range is a plain string range). Each row carries `source` (`scheduled` / `automatic`), how many students answered, how many were right, and `correctPercent` — of those who *answered*, and `null` when nobody did.
+Literal paths are declared before `/:groupId`.
 
-Also returns `today` and `upcoming` (14 days). Both come from the server because a competition day is an IST day: a browser computing it locally could schedule against the wrong one.
+#### `GET /api/v1/admin/daily-quiz`
+Quizzes newest first (`page`, `limit` ≤ 100, `from`, `to`), each `{ groupId, day, phase, classRange, classLevels, source, playable, question (with the key — staff wrote it), stats: { started, submitted, correct, correctPercent, medianSolveMs }, winner, createdByLabel, createdAt }`, plus `calendar`: the next 14 days from the server's today (`days[].quizzes[]` with `legacy: true` for a pre-quiz daily challenge holding the slot) and `warnings` — one per class group with a class uncovered in the next three days.
 
-#### `POST /api/v1/admin/daily-challenges`
-Body: `day`, `classLevel`, `questionId`.
+#### `GET /api/v1/admin/daily-quiz/candidates`
+`classMin`, `classMax`, optional `search`, `page`, `limit` ≤ 50. Bank questions that can be a quiz for the range: single choice, **unpublished** (draft or in review), a worked solution, a class inside the range, the implicit subject, never used by another quiz. `ready` is false when the options are not 2–6 with exactly one correct.
 
-Refusals: a day in the past is **400** (a past day is the record of what a class was set, not a plan); a malformed or impossible date such as `2026-02-30` is **400**; a question for another class is **400**; an unpublished question is **409** (it would show unreviewed content to a whole class); a day that class already has is **409**, enforced by the unique index rather than by looking first.
+#### `GET` / `PUT /api/v1/admin/daily-quiz/settings`
+`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), winnerRule (FASTEST_CORRECT | FIRST_CORRECT | MANUAL), winnersPerQuiz (1–5), instantResult }`. Audited with before and after.
 
-#### `PUT /api/v1/admin/daily-challenges/:id`
-Body: `questionId` — only the question may change. Moving a challenge to another day or class is deliberately not expressible: it is indistinguishable from deleting one and adding another, and the two-step version is safe because of the unique index.
+#### `POST /api/v1/admin/daily-quiz`
+Body: `{ day, classMin, classMax, questionId }`. Writes one document per class in the range, sharing a `groupId` and one snapshot. Refusals: a past day **400**; a question that is published **409**, archived **409**, not single choice / not 2–6 options / not exactly one correct / no solution / class outside the range **400**, already a quiz on another day **409**; a class that already has a quiz that day **409** (or a pre-quiz challenge holding it — the message says so). **201** `{ groupId, day, classes }`. Audited.
 
-Refused with **409** once anybody has answered it, and for a past day. A future day can be re-pointed freely, which is the point of scheduling ahead. Re-pointing an automatically-filled day marks it `scheduled`, because it has become a staff decision.
+#### `POST /api/v1/admin/daily-quiz/bulk`
+Body: `{ classMin, classMax, startDay, questionIds[] (≤ 60), dryRun (default true) }`. Each question takes the next day from `startDay` on which no class in the range has a quiz. The dry run writes nothing; the confirming call re-checks everything and reports per row `{ questionId, questionText, day, error }`.
 
-#### `DELETE /api/v1/admin/daily-challenges/:id`
-Clears a scheduled day. **409** once anybody has answered it — their attempt refers to it, and it is part of their record.
+#### `GET /api/v1/admin/daily-quiz/import/template?format=csv|json`
+The import template — a file, not the JSON envelope — dated from tomorrow so it imports as it stands. Gated on `challenges:write` **and** `questions:write`.
+
+#### `POST /api/v1/admin/daily-quiz/import/excel` · `/csv` · `/json`
+Body: `{ file: { name, content (base64 data URL) }, topic (fallback chapter, optional), difficulty }`. **Writes no question and no quiz** — only the importer's `ImportBatch` row. Reads the file with the question importer and checks each row's `Day` and `Classes`: `{ batchId, rows[{ clientId, sourceRef, plan, question, problems[], warnings[] }], refused, duplicates, failures, unknownChapters, batchWarnings, files, summary }`. At most 200 rows. Rate limited (`importLimiter`, ahead of the permission check).
+
+#### `POST /api/v1/admin/daily-quiz/import/approve`
+Body: `{ batchId, rows[{ clientId, sourceRef, day, classMin, classMax, question }] }`. Re-checks every day and class, saves the questions as **drafts** through `approveImport()` (provenance from the batch), and schedules each. Per row: `scheduled`, `saved-not-scheduled` (with the reason; the draft is in the bank), or `refused`. Audited as `questions.imported` and `dailyquiz.scheduled`.
+
+#### `GET /api/v1/admin/daily-quiz/winners`
+The prize desk: `view` = `outstanding` (default — confirmed but not announced, or announced and not delivered; oldest first) / `published` / `disqualified` / `all`, paginated. Each row is the staff winner view (below) plus `quizExists`. Also `outstanding` — the programme-wide count.
+
+#### `POST /api/v1/admin/daily-quiz/winners/:winnerId/:action`
+`action` = `confirm` (provisional → confirmed; snapshots the prize; refused past `winnersPerQuiz`), `disqualify` (body `{ reason }`, at least 5 characters), `publish` (confirmed → published; notifies the winner), `contacted`, `delivered` (published only). Each is a conditional write on the current status — **409** names the status it needs. Returns `{ winner, winners }`. Audited (`dailyquiz.winner.*`). Rate limited.
+
+#### `GET` / `PUT` / `DELETE /api/v1/admin/daily-quiz/:groupId`
+`GET` → `{ quiz, winners }`. `PUT { questionId }` re-points the quiz; `DELETE` removes it — both **409** once anybody has **started** it, and a past quiz is never changed. Audited.
+
+#### `POST /api/v1/admin/daily-quiz/:groupId/winners/compute`
+Only after the quiz has closed (**409** before). Ranks the correct answers by the configured rule and writes up to five **provisional** candidates; decided rows are never touched and a disqualified student is never offered again. Returns `{ correctCount, ineligible[{ studentId, name, solveTimeMs, missing[] }], winners }`. The staff winner view carries the student's name, class, school, city, email and whether it is verified, the guardian's phone and email, eligibility, solve time, submitted at, and `sharedIpCount` — how many *other* correct answers came from the same connection (a prompt for review, never a disqualification).
+
+### Test-only hooks — never in a real deployment
+
+`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset`, `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
 
 ---
 
@@ -1106,7 +1128,7 @@ Clears a scheduled day. **409** once anybody has answered it — their attempt r
 
 Two surfaces: a student's whole standing, and the administrator's award table.
 
-**Every XP grant in this backend goes through one function** (`services/rewardService.ts` → `grantReward()`), so there is no endpoint here that "awards" anything — rewards are a side effect of the action that earned them, on the practice, mock-test, daily-challenge and auth routes. What these endpoints do is *report* and *configure*.
+**Every XP grant in this backend goes through one function** (`services/rewardService.ts` → `grantReward()`), so there is no endpoint here that "awards" anything — rewards are a side effect of the action that earned them, on the practice, mock-test, Daily Quiz and auth routes. What these endpoints do is *report* and *configure*.
 
 ### `GET /api/v1/me/rewards`
 
@@ -1448,7 +1470,9 @@ rate limited.
 `available` is per format because they fail independently: Excel and DOCX are deterministic and always
 work, while the image path needs a model credential and reports itself unconfigured without one.
 
-### `POST /admin/questions/import/excel` · `/docx` · `/image`
+### `POST /admin/questions/import/excel` · `/docx` · `/image` · `/csv` · `/json`
+
+> **Milestone 30:** `/csv` and `/json` are tabular formats read by the Excel parser's own row reader (`services/tabularImportParsers.ts`): the same columns as the Excel template, in any order; a JSON file is an array of objects keyed by those columns (an `options` array is accepted, and an option's `isCorrect: true` supplies the answer when no `answer` field does). Questions they save carry `source: csv_import` / `json_import`. A row's `Day` and `Classes` columns are read into `schedule` on the previewed question and ignored here — they are for the Daily Quiz import. Screener refusals now name their row (`file — Row 9: …`).
 
 Rate limited by **`importLimiter`** (`IMPORT_RATE_LIMIT_PER_HOUR`, default 20/hour/IP), mounted **ahead
 of the permission check** — these are the two most expensive routes in the product alongside generation:

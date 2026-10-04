@@ -4,6 +4,33 @@ _Last updated: 2026-08-15 (Milestone 16 — the recommendation engine seam). The
 
 Documents what **actually exists** in the repository today. Anything not literally in the code is marked `PLANNED`.
 
+## The Daily Quiz — CURRENT (Milestone 30, Phase 2)
+
+```
+Staff                                         Students (requireAuth, free)
+  /admin/daily-quiz                             /daily-quiz  ·  dashboard card   (components/DailyQuizPanel)
+    schedule / import a file / from the bank      GET  /me/daily-quiz        today + state; settles held XP
+        |                                          POST /me/daily-quiz/start  DailyQuizStart: the server's clock,
+        v                                                                     the per-student option order
+  dailyQuizImportService --> previewImport()/approveImport()   (the ONE path from a file to the bank)
+        |                                          POST /me/daily-quiz/submit gradeEntry() vs the snapshot;
+        v                                                                     DailyChallengeAttempt (one per day)
+  scheduleQuiz(): one DailyChallenge per class,        |
+  shared groupId + content snapshot                    +--> dailyQuizRewards: 20 XP if correct
+  (unique {day, classLevel} refuses overlaps)          |    (now, or after the reveal)
+        |                                              v
+        |                             revealOf(challenge, now())  <-- THE reveal gate (next IST midnight)
+        v                                              |
+  after the close: computeWinners() -> provisional --> confirmed --> published  (or disqualified)
+        |                                                             |
+        +--> prize desk (GET /admin/daily-quiz/winners)               +--> notifyDailyQuizWinner()
+                                                                       +--> GET /daily-quiz/winners (public, masked)
+```
+
+Time is `lib/clock.ts → now()` everywhere in quiz logic (frozen by tests, offset by the `/__e2e/clock`
+hook, immovable in production). Phases are derived from the day (`quizWindow()`), so nothing runs at
+midnight. Analytics and the Hall of Fame read revealed days only.
+
 ## Refer & Earn — CURRENT (Milestone 22, Phase E; backend only)
 
 ```
@@ -574,8 +601,8 @@ Question Bank  (/admin/questions)
     +-- Create mock test ------> /admin/mock-tests/new?classLevel=…&questions=id,id
     |     requires: one shared class, <=100                       (Phase H)
     |
-    +-- Schedule daily --------> /admin/daily-challenges?classLevel=…&questionId=id
-          requires: exactly one, published                        (Phase I)
+    +-- Schedule as Daily Quiz -> /admin/daily-quiz?questions=id,id
+          requires: unpublished, single choice, with a solution   (Milestone 30)
 ```
 
 **`pages/Admin/questionHandoff.ts` owns both rules and both URLs.** Each function returns either

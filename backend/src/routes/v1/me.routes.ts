@@ -18,6 +18,7 @@ import { notifyPasswordChanged } from '../../services/systemNotifier';
 import { getRecentActivity, listActivity, getRecentExamPerformance } from '../../services/progressService';
 import { getStanding, getTopLeaderboard } from '../../services/leaderboardService';
 import { getAvailableChallenges } from '../../services/challengeService';
+import { eligibilityOf } from '../../services/dailyChallengeService';
 import {
   updateProfileSchema,
   updatePhotoSchema,
@@ -94,6 +95,12 @@ function profileView(student: StudentDocument, hasPhoto: boolean) {
     classLevel: student.classLevel ?? null,
     schoolName: student.schoolName ?? null,
     address: student.address ?? null,
+    // What a Daily Quiz prize needs (Milestone 30), and what is still missing for one.
+    city: student.city ?? null,
+    guardianPhone: student.guardianPhone ?? null,
+    guardianEmail: student.guardianEmail ?? null,
+    hideFromPublicLists: student.hideFromPublicLists === true,
+    prizeEligibility: eligibilityOf(student),
     // Identity fields: shown so the student can read them, but not editable here —
     // see the note in validation/profileSchemas.ts.
     mobile: student.mobile,
@@ -107,12 +114,16 @@ function profileView(student: StudentDocument, hasPhoto: boolean) {
   };
 }
 
-/** Describes what changed, for the activity feed and the audit trail. */
+/**
+ * Describes what changed, for the activity feed and the audit trail. A key the request left
+ * out (`undefined` — the optional prize fields) is not a change.
+ */
 function changedFields(before: UpdateProfileInput, after: UpdateProfileInput): string[] {
   const keys = Object.keys(after) as Array<keyof UpdateProfileInput>;
   return keys.filter((key) => {
     const a = before[key];
     const b = after[key];
+    if (b === undefined) return false;
     if (a instanceof Date && b instanceof Date) return a.getTime() !== b.getTime();
     return (a ?? null) !== (b ?? null);
   });
@@ -168,6 +179,10 @@ router.patch(
         classLevel: student.classLevel,
         schoolName: student.schoolName,
         address: student.address,
+        city: student.city ?? null,
+        guardianPhone: student.guardianPhone ?? null,
+        guardianEmail: student.guardianEmail ?? null,
+        hideFromPublicLists: student.hideFromPublicLists === true,
       };
 
       const changed = changedFields(before, update);
@@ -186,6 +201,11 @@ router.patch(
       student.classLevel = update.classLevel;
       student.schoolName = update.schoolName;
       student.address = update.address;
+      // The optional prize fields: absent leaves the stored value, null clears it.
+      if (update.city !== undefined) student.city = update.city;
+      if (update.guardianPhone !== undefined) student.guardianPhone = update.guardianPhone;
+      if (update.guardianEmail !== undefined) student.guardianEmail = update.guardianEmail;
+      if (update.hideFromPublicLists !== undefined) student.hideFromPublicLists = update.hideFromPublicLists;
       // `fullName` is derived by the schema's pre-validate hook, never assigned here.
       await student.save();
 

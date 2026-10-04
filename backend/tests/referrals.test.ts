@@ -154,7 +154,7 @@ describe('referral codes', () => {
     const summary = await summaryFor(student.cookies);
 
     expect(summary.link).toContain(`/register?ref=${student.code}`);
-    expect(summary.link).not.toContain('amitolympiad.com');
+    expect(summary.link).not.toMatch(/amitolympiad\./);
   });
 });
 

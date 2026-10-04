@@ -56,7 +56,7 @@ export default function EntryFeeBanner() {
           <h2 className={styles.title}>Book your seat in the national Olympiad</h2>
           <p className={styles.body}>
             One payment of <strong>{status.amountDisplay}</strong> enters you into the official competition. Practice,
-            mock tests and the daily challenge stay free — pay whenever you are ready.
+            mock tests and the Daily Quiz stay free — pay whenever you are ready.
           </p>
         </div>
       </div>
