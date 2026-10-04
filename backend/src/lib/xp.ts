@@ -49,19 +49,18 @@ export const XP_AWARDS: Record<ActivityType, number> = {
    */
   mock_test_completed: 50,
   /**
-   * A single question, so worth less than a practice session (25) and much less than
-   * a timed mock test (50) — but more than merely showing up (10), because it takes
-   * actually answering something.
+   * The Daily Quiz (Milestone 30): **20 XP for a correct answer**, once per competition
+   * day, and nothing for a wrong one — the launch brief's figure (§3, PLAN.md Q2).
    *
-   * Paid for **answering, not for being right**, and once per competition day. That
-   * choice is deliberate and matches `practice_completed`: paying for correctness on
-   * a one-question challenge would reward looking the answer up rather than thinking
-   * about it, and measuring ability is the official exam's job (see DECISIONS.md).
-   * Whether the answer was right is recorded on the attempt, shown to the student
-   * immediately, and counts toward the challenge achievements — it just is not what
-   * the XP is for.
+   * This reverses the daily challenge's rule, which paid 15 for answering at all on the
+   * grounds that paying for correctness rewards looking the answer up. The brief's R7
+   * accepts that a student may do so ("that's their choice"), and the quiz now carries a
+   * prize for the fastest correct answer, so correctness is what it measures. "Correct
+   * only" is an eligibility **rule** in `rewardService` (`REQUIRES_CORRECT`); this figure
+   * is only the default **price**, which administrators may still override. A wrong
+   * answer still keeps the daily streak — that is counted from submissions, not from XP.
    */
-  daily_challenge_completed: 15,
+  daily_challenge_completed: 20,
 };
 
 export function xpFor(type: ActivityType): number {

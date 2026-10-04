@@ -9,6 +9,7 @@ import { verifyRequestOrigin } from './middleware/csrf';
 import { outboxSweep } from './middleware/outboxSweep';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import healthRoutes from './routes/health.routes';
+import e2eRoutes, { e2eHooksEnabled } from './routes/e2e.routes';
 import v1Routes from './routes/v1';
 import { MAX_PHOTO_BYTES } from './models/StudentPhoto';
 import { MAX_IMPORT_REQUEST_BYTES } from './validation/uploadSchemas';
@@ -51,9 +52,18 @@ const PHOTO_UPLOAD_PATHS = [
  *
  * `MAX_IMPORT_REQUEST_BYTES` is the decoded ceiling; base64 inflates it by about a third, and
  * the schema re-checks the decoded total so the two cannot drift.
+ *
+ * The Daily Quiz import (Milestone 30) is the same importer with a calendar on top, so its
+ * prefix gets the same allowance — one file per request, but its approval carries up to two
+ * hundred questions, which is well past 100 KB.
  */
 const MAX_IMPORT_BODY_BYTES = Math.ceil(MAX_IMPORT_REQUEST_BYTES * 1.4);
-const IMPORT_UPLOAD_PATHS = ['/api/v1/admin/questions/import', '/api/admin/questions/import'];
+const IMPORT_UPLOAD_PATHS = [
+  '/api/v1/admin/questions/import',
+  '/api/admin/questions/import',
+  '/api/v1/admin/daily-quiz/import',
+  '/api/admin/daily-quiz/import',
+];
 
 export function createApp() {
   const app = express();
@@ -125,6 +135,13 @@ export function createApp() {
 
   // Mounted before the rate limiter so uptime/monitoring probes are never throttled.
   app.use(healthRoutes);
+
+  /**
+   * The browser end-to-end suite's hooks (Milestone 30) — mounted only when
+   * `E2E_TEST_HOOKS=true` outside production, and refusing any database not named
+   * `*-e2e` even then. See `routes/e2e.routes.ts`. Absent from every real deployment.
+   */
+  if (e2eHooksEnabled()) app.use(e2eRoutes);
 
   app.use(generalLimiter);
 

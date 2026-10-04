@@ -19,6 +19,7 @@ import {
   readQuestionType,
 } from '../lib/importAnswerText';
 import { looksLikeWordDocument, looksLikeWorkbook } from '../lib/ooxml';
+import { parseClassRange } from '../lib/dailyQuiz';
 
 /**
  * Reading questions out of an Excel workbook (Milestone 21, Phase C).
@@ -106,6 +107,12 @@ const COLUMN_ALIASES: Record<string, readonly string[]> = {
   subtopic: ['subtopic', 'subtopicname', 'subchapter', 'concept'],
   tags: ['tags', 'tag', 'keywords'],
   tolerance: ['tolerance', 'tol', 'margin'],
+  /**
+   * The Daily Quiz's two columns (Milestone 30). Read into `ImportedCandidate.schedule` as
+   * written; an ordinary question import carries them through and ignores them.
+   */
+  day: ['day', 'date', 'quizday', 'quizdate', 'scheduledfor'],
+  classes: ['classes', 'classrange', 'classgroup', 'forclasses'],
 };
 
 /** `Option A`, `OptionA`, `A`, `Option 1`, `Choice A` — all the first option column. */
@@ -273,8 +280,13 @@ type RowOutcome =
  * `createQuestionSchema` can say better is left to it, so an examiner reads one dialect of error
  * message rather than two.
  */
-export function readRow(row: Row, columns: ColumnMap, defaults: ImportDefaults): RowOutcome {
-  const sourceRef = `Row ${row.number}`;
+export function readRow(
+  row: Row,
+  columns: ColumnMap,
+  defaults: ImportDefaults,
+  refFor: (rowNumber: number) => string = (rowNumber) => `Row ${rowNumber}`,
+): RowOutcome {
+  const sourceRef = refFor(row.number);
   const at = (key: string): Cell | undefined => {
     const column = columns.fields.get(key);
     return column === undefined ? undefined : row.getCell(column);
@@ -359,6 +371,23 @@ export function readRow(row: Row, columns: ColumnMap, defaults: ImportDefaults):
     .filter((tag) => tag.length > 0)
     .slice(0, 20);
 
+  // ---- The Daily Quiz's columns, when the file has them --------------------
+  const hasSchedule = columns.fields.has('day') || columns.fields.has('classes');
+  const classesText = cellText(at('classes'));
+  let classHint = emptyToNull(cellText(at('class')));
+  if (classHint === null && classesText.length > 0) {
+    // A quiz row names a *range*; the bank question it becomes needs one class. The first
+    // class of the range is the honest choice — it is inside the range, which is what the
+    // quiz requires — and saying so is the parser's job, so the reviewer is never surprised.
+    const range = parseClassRange(classesText);
+    if (range) {
+      classHint = `Class ${range.min}`;
+      if (range.max !== range.min) {
+        notes.push(`Saved in the bank under Class ${range.min}, the first class of ${classesText}.`);
+      }
+    }
+  }
+
   return {
     kind: 'candidate',
     candidate: {
@@ -384,11 +413,14 @@ export function readRow(row: Row, columns: ColumnMap, defaults: ImportDefaults):
        * did not say", which takes the examiner's default.
        */
       taxonomy: {
-        classLevel: emptyToNull(cellText(at('class'))),
+        classLevel: classHint,
         topicName: emptyToNull(cellText(at('topic'))),
         subtopicName: emptyToNull(cellText(at('subtopic'))),
         difficulty: emptyToNull(cellText(at('difficulty'))),
       },
+      ...(hasSchedule
+        ? { schedule: { day: emptyToNull(cellText(at('day'))), classes: emptyToNull(classesText) } }
+        : {}),
       sourceRef,
       notes,
     },
@@ -550,55 +582,70 @@ export const excelImportParser: ImportParser = {
       if (candidates.length >= input.maxCandidates) break;
       if (sheet.state === 'veryHidden' || sheet.state === 'hidden') continue;
 
-      const header = findHeaderRow(sheet);
-      if (!header) {
-        // Named per sheet rather than thrown, so one stray sheet ("Notes", "Instructions") does
-        // not lose the workbook.
-        failures.push({
-          sourceRef: workbook.worksheets.length > 1 ? `Sheet "${sheet.name}"` : 'This sheet',
-          reason:
-            'No question table was found in the first 20 rows, so this sheet was skipped. A sheet of ' +
-            'questions needs a "Question" column and somewhere for the answer — option columns, or a ' +
-            '"Correct Answer" column.',
-        });
-        continue;
-      }
-
-      const lastRow = Math.min(sheet.rowCount, header.rowNumber + MAX_ROWS_SCANNED);
-
-      for (let rowNumber = header.rowNumber + 1; rowNumber <= lastRow; rowNumber += 1) {
-        if (candidates.length >= input.maxCandidates) break;
-
-        const outcome = readRow(sheet.getRow(rowNumber), header.columns, input.defaults);
-        if (outcome.kind === 'blank') continue;
-
-        // Counted only for a row that had something in it, so `examined` means "rows that looked
-        // like questions" and the totals on the review screen add up for a human.
-        examined += 1;
-
-        if (outcome.kind === 'failure') {
-          failures.push(prefixSheet(outcome.failure, sheet, workbook.worksheets.length));
-        } else {
-          candidates.push(prefixSheetRef(outcome.candidate, sheet, workbook.worksheets.length));
-        }
-      }
+      // `Row 14` becomes `Sheet "Class 8" row 14` only when there is more than one sheet.
+      const several = workbook.worksheets.length > 1;
+      const read = readSheet(sheet, input.defaults, input.maxCandidates - candidates.length, {
+        tableRef: several ? `Sheet "${sheet.name}"` : 'This sheet',
+        refFor: (rowNumber) => (several ? `Sheet "${sheet.name}" row ${rowNumber}` : `Row ${rowNumber}`),
+      });
+      examined += read.examined;
+      failures.push(...read.failures);
+      candidates.push(...read.candidates);
     }
 
     return { candidates, failures, examined };
   },
 };
 
-/** `Row 14` becomes `Sheet "Class 8" row 14` only when there is more than one sheet. */
-function sheetRef(sourceRef: string, sheet: Worksheet, sheetCount: number): string {
-  return sheetCount > 1 ? `Sheet "${sheet.name}" ${sourceRef.toLowerCase()}` : sourceRef;
-}
+/**
+ * Reads one table of questions — a worksheet, or the in-memory sheet a CSV or JSON file
+ * becomes (`services/tabularImportParsers.ts`).
+ *
+ * The loop every tabular format shares, so a CSV and a spreadsheet cannot disagree about
+ * which row is the header, which rows are blank, or how far down to look. `tableRef` names
+ * the table in the one failure that is about the whole of it; `refFor` names a row.
+ */
+export function readSheet(
+  sheet: Worksheet,
+  defaults: ImportDefaults,
+  maxCandidates: number,
+  options: { tableRef: string; refFor?: (rowNumber: number) => string },
+): ParseOutcome {
+  const candidates: ImportedCandidate[] = [];
+  const failures: ParseFailure[] = [];
+  let examined = 0;
 
-function prefixSheet(failure: ParseFailure, sheet: Worksheet, sheetCount: number): ParseFailure {
-  return { ...failure, sourceRef: sheetRef(failure.sourceRef, sheet, sheetCount) };
-}
+  const header = findHeaderRow(sheet);
+  if (!header) {
+    // Named per table rather than thrown, so one stray sheet ("Notes", "Instructions") does
+    // not lose the workbook.
+    failures.push({
+      sourceRef: options.tableRef,
+      reason:
+        'No question table was found in the first 20 rows, so this was skipped. A table of ' +
+        'questions needs a "Question" column and somewhere for the answer — option columns, or a ' +
+        '"Correct Answer" column.',
+    });
+    return { candidates, failures, examined };
+  }
 
-function prefixSheetRef(candidate: ImportedCandidate, sheet: Worksheet, sheetCount: number): ImportedCandidate {
-  return { ...candidate, sourceRef: sheetRef(candidate.sourceRef, sheet, sheetCount) };
+  const lastRow = Math.min(sheet.rowCount, header.rowNumber + MAX_ROWS_SCANNED);
+
+  for (let rowNumber = header.rowNumber + 1; rowNumber <= lastRow; rowNumber += 1) {
+    if (candidates.length >= maxCandidates) break;
+
+    const outcome = readRow(sheet.getRow(rowNumber), header.columns, defaults, options.refFor);
+    if (outcome.kind === 'blank') continue;
+
+    // Counted only for a row that had something in it, so `examined` means "rows that looked
+    // like questions" and the totals on the review screen add up for a human.
+    examined += 1;
+
+    if (outcome.kind === 'failure') failures.push(outcome.failure);
+    else candidates.push(outcome.candidate);
+  }
+
+  return { candidates, failures, examined };
 }
 
 // ---------------------------------------------------------------------------

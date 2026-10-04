@@ -68,6 +68,9 @@ export const QUESTION_SOURCES = [
   'excel_import',
   'docx_import',
   'image_import',
+  // Milestone 30: the Daily Quiz's bulk import added two tabular formats.
+  'csv_import',
+  'json_import',
 ] as const;
 export type QuestionSource = (typeof QUESTION_SOURCES)[number];
 

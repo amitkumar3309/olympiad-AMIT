@@ -613,66 +613,9 @@ describe('available challenges', () => {
   });
 });
 
-describe('GET /me/daily-challenge', () => {
-  async function publishOneFor(classLevel: string) {
-    const { cookies: adminCookies } = await createAdminSession(app, {
-      firstName: 'Staff',
-      lastName: 'Member',
-      mobile: '9000000001',
-      email: 'staff@example.com',
-    });
-    const taxonomy = await createTaxonomy(app, adminCookies);
-    await createPublishedQuestion(app, adminCookies, taxonomy, { classLevel });
-  }
-
-  it('never includes the answer key', async () => {
-    await publishOneFor('Class 9');
-    const { cookies } = await registerVerifyLogin(app, { ...otherStudent, classLevel: 'Class 9' });
-
-    const res = await request(app).get(`${API}/me/daily-challenge`).set('Cookie', cookieHeader(cookies)).expect(200);
-
-    expect(res.body.challenge).not.toBeNull();
-    const serialised = JSON.stringify(res.body);
-    for (const forbidden of ['isCorrect', 'solution', 'booleanAnswer', 'numericAnswer', 'tolerance']) {
-      expect(serialised, `daily challenge leaked ${forbidden}`).not.toContain(forbidden);
-    }
-  });
-
-  it('is the same question all day, so it cannot be rerolled by reloading', async () => {
-    await publishOneFor('Class 9');
-    const { cookies } = await registerVerifyLogin(app, { ...otherStudent, classLevel: 'Class 9' });
-    const cookie = cookieHeader(cookies);
-
-    const first = await request(app).get(`${API}/me/daily-challenge`).set('Cookie', cookie).expect(200);
-    const second = await request(app).get(`${API}/me/daily-challenge`).set('Cookie', cookie).expect(200);
-
-    expect(second.body.challenge.question.id).toBe(first.body.challenge.question.id);
-    expect(second.body.challenge.day).toBe(first.body.challenge.day);
-  });
-
-  it('says there is no challenge rather than inventing one when nothing is published', async () => {
-    const { cookies } = await registerVerifyLogin(app);
-    const res = await request(app).get(`${API}/me/daily-challenge`).set('Cookie', cookieHeader(cookies)).expect(200);
-
-    expect(res.body.challenge).toBeNull();
-    expect(res.body.reason).toBe('none-published');
-  });
-
-  it('still serves the legacy /daily-challenge path, but now requires a session', async () => {
-    const anonymous = await request(app).get(`${API}/daily-challenge`);
-    expect(anonymous.status).toBe(401);
-
-    const { cookies } = await registerVerifyLogin(app);
-    const signedIn = await request(app).get(`${API}/daily-challenge`).set('Cookie', cookieHeader(cookies)).expect(200);
-    expect(signedIn.body.success).toBe(true);
-    // The mock it replaced is gone.
-    expect(JSON.stringify(signedIn.body)).not.toContain('Rapid Calculus Sprint');
-  });
-});
-
-// ===========================================================================
-// Analytics — the endpoint that used to fabricate a student's performance
-// ===========================================================================
+// `GET /me/daily-challenge` was replaced by the Daily Quiz in Milestone 30. Its
+// properties — the answer key withheld, the day pinned, no quiz invented, a session
+// required — are asserted against the new routes in `tests/dailyQuiz.test.ts`.
 
 describe('GET /analytics/:studentId', () => {
   /**

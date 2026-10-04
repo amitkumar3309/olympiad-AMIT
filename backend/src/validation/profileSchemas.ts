@@ -1,6 +1,24 @@
 import { z } from 'zod';
 import { CLASS_LEVELS } from '../lib/classLevels';
-import { dateOfBirth, optionalName, password, photo, requiredName } from './authSchemas';
+import { dateOfBirth, email, mobile, optionalName, password, photo, requiredName } from './authSchemas';
+
+/** `''` → `null`, so clearing a field stores nothing rather than an empty string. Absent stays absent. */
+function emptyToNull<T>(value: T | '' | null | undefined): T | null | undefined {
+  if (value === undefined) return undefined;
+  return value === '' || value === null ? null : value;
+}
+
+/** Optional free text: absent leaves it, empty clears it, otherwise trimmed and bounded. */
+function optionalText(label: string, min: number, max: number) {
+  return z
+    .union([
+      z.literal(''),
+      z.null(),
+      z.string().trim().min(min, `${label} must be at least ${min} characters`).max(max, `${label} must be at most ${max} characters`),
+    ])
+    .optional()
+    .transform(emptyToNull);
+}
 
 /**
  * Self-service profile editing.
@@ -37,6 +55,21 @@ export const updateProfileSchema = z.object({
     .min(2, 'Current school name is required')
     .max(150),
   address: z.string({ error: 'Full address is required' }).trim().min(10, 'Enter the full address').max(500),
+
+  /**
+   * What a Daily Quiz winner needs on file (Milestone 30, brief §6.6): the city a prize is
+   * delivered to and a parent or guardian to arrange it with — the winner is a child.
+   *
+   * **Optional keys**, unlike everything above: absent means "leave as it is", and an empty
+   * string or `null` clears it. That is a deliberate exception to the full-replacement rule
+   * for one reason — a page loaded before these fields existed submits without them, and a
+   * required key would turn every such save into a validation error.
+   */
+  city: optionalText('City', 2, 80),
+  guardianPhone: z.union([z.literal(''), z.null(), mobile]).optional().transform(emptyToNull),
+  guardianEmail: z.union([z.literal(''), z.null(), email]).optional().transform(emptyToNull),
+  /** Shown on public boards as "A Class 9 student" instead of a name and place. */
+  hideFromPublicLists: z.boolean().optional(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

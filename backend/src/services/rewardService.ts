@@ -70,6 +70,8 @@ import { challengeStreakOf } from './dailyChallengeService';
 export interface RewardContext {
   /** How many questions the student actually answered. Used by the "real work" rule. */
   answeredCount?: number;
+  /** Whether the answer was right. Used by the "correct only" rule (the Daily Quiz). */
+  isCorrect?: boolean;
 }
 
 /**
@@ -77,10 +79,21 @@ export interface RewardContext {
  *
  * Without this, an empty practice session or a mock test submitted untouched would pay
  * the same as one that was worked through — which is the cheapest possible way to farm
- * a daily reward. The daily challenge needs no entry here: it refuses a blank
- * submission before an attempt exists at all.
+ * a daily reward. The Daily Quiz needs no entry here: it refuses a blank submission
+ * before an attempt exists at all.
  */
 const REQUIRES_REAL_WORK: readonly ActivityType[] = ['practice_completed', 'mock_test_completed'];
+
+/**
+ * Events that pay only for a **correct** answer (Milestone 30, PLAN.md Q2).
+ *
+ * The daily challenge paid for answering, on the reasoning that paying for correctness
+ * rewards looking the answer up (the 2026-08-12 ADR). The launch brief reverses that: the
+ * Daily Quiz pays 20 XP for a correct answer, and the owner's R7 accepts that a student
+ * may look things up — "that's their choice". A wrong answer still counts towards the
+ * daily streak, which is derived from submissions rather than from XP.
+ */
+const REQUIRES_CORRECT: readonly ActivityType[] = ['daily_challenge_completed'];
 
 export type RewardReason = 'granted' | 'already-claimed' | 'not-eligible' | 'failed';
 
@@ -103,6 +116,7 @@ export interface GrantRewardInput {
 
 /** Whether an event, in this context, is worth paying for at all. */
 function isEligible(event: ActivityType, context: RewardContext | undefined): boolean {
+  if (REQUIRES_CORRECT.includes(event)) return context?.isCorrect === true;
   if (!REQUIRES_REAL_WORK.includes(event)) return true;
   return (context?.answeredCount ?? 0) > 0;
 }

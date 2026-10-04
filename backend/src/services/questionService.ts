@@ -1,4 +1,5 @@
-import mongoose from 'mongoose';
+import mongoose, { type Types } from 'mongoose';
+import { isUsedByAnyQuiz, quizReservationFor } from './dailyChallengeService';
 import {
   Question,
   Subject,
@@ -402,6 +403,19 @@ export async function changeQuestionStatus(id: string, next: QuestionStatus, act
 
   if (next === 'published') {
     assertPublishable(question);
+    /**
+     * A Daily Quiz question stays out of practice until its answer is revealed
+     * (Milestone 30, PLAN.md Q4). Practice shows a solution after every session, so
+     * publishing a quiz question early would put a prize answer one click away. Checked
+     * here, in the one function every publish path goes through — the bulk "assign to
+     * practice" loops over it too, and reports this per question.
+     */
+    const reservation = await quizReservationFor(question._id as Types.ObjectId);
+    if (reservation) {
+      throw ApiError.conflict(
+        `This question is the Daily Quiz on ${reservation.day}. It can be published for practice once that quiz’s answer is revealed, at midnight after it.`,
+      );
+    }
     question.publishedAt = new Date();
   }
   if (next === 'archived') {
@@ -655,6 +669,11 @@ export async function deleteQuestion(id: string): Promise<{ deleted: true }> {
     throw ApiError.conflict(
       'This question has been published before, so it may have been answered. Archive it instead of deleting it.',
     );
+  }
+  // A Daily Quiz question is referenced by the quiz and by every answer to it — the same
+  // reason a published one is kept (Milestone 30).
+  if (await isUsedByAnyQuiz(question._id as Types.ObjectId)) {
+    throw ApiError.conflict('This question is set as a Daily Quiz, so it is part of that record. Archive it instead of deleting it.');
   }
 
   await Question.deleteOne({ _id: question._id });

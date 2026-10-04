@@ -32,10 +32,12 @@ import type {
   ImportFileKind,
   ImportParser,
   ImportedCandidate,
+  ImportedScheduleHint,
   ParseFailure,
 } from '../lib/importTypes';
 import type { GeneratedCandidate, RejectedCandidate } from '../lib/questionGeneratorTypes';
 import { excelImportParser } from './excelImportParser';
+import { csvImportParser, jsonImportParser } from './tabularImportParsers';
 import { docxImportParser } from './docxImportParser';
 import { imageImportParser } from './imageImportParser';
 
@@ -89,9 +91,16 @@ import { imageImportParser } from './imageImportParser';
  *
  * Excel arrived in Phase C. DOCX and image follow, and each is one line here — which is the
  * point of the seam: nothing about the routes, the validation, the duplicate detection or the
- * approval path changes when a format is added.
+ * approval path changes when a format is added. CSV and JSON (Milestone 30) proved it: two
+ * lines here, and both read through the Excel parser's own row reader.
  */
-const BUILT_IN: readonly ImportParser[] = [excelImportParser, docxImportParser, imageImportParser];
+const BUILT_IN: readonly ImportParser[] = [
+  excelImportParser,
+  docxImportParser,
+  imageImportParser,
+  csvImportParser,
+  jsonImportParser,
+];
 
 const parsers = new Map<ImportFileKind, ImportParser>(
   BUILT_IN.map((parser) => [parser.descriptor.kind, parser]),
@@ -412,6 +421,12 @@ export interface PreviewedQuestion extends GeneratedCandidate {
   classLevel: ClassLevel;
   difficulty: Difficulty;
   /**
+   * The Daily Quiz's `Day` and `Classes` columns as the file wrote them, or `null` when the
+   * file has neither. Carried through untouched for the quiz import to interpret
+   * (`services/dailyQuizImportService.ts`); the question bank's own review ignores it.
+   */
+  schedule: ImportedScheduleHint | null;
+  /**
    * Advisory findings — the parser's own uncertainty plus `lib/questionQuality.ts`.
    *
    * Never a reason it was refused. A candidate carrying warnings is still a candidate: these
@@ -625,6 +640,7 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
       subtopic: source.placement.subtopic ? String(source.placement.subtopic) : null,
       classLevel: source.placement.classLevel,
       difficulty: source.placement.difficulty,
+      schedule: source.candidate.schedule ?? null,
       // The parser's own uncertainty first: it is about *this* extraction rather than about
       // the question's shape, and it is what tells a reviewer to compare against the original.
       warnings: [
@@ -634,9 +650,21 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
     };
   });
 
+  /**
+   * The screener numbers what it was given, which is the placeable candidates rather than the
+   * file — so its reasons are prefixed with the row they came from, exactly as a placement
+   * refusal already is. "Needs exactly one correct option" is only actionable with a row number
+   * beside it (Milestone 30: the Daily Quiz import is two hundred rows read by one person).
+   */
+  const withRef = (entry: RejectedCandidate): RejectedCandidate => {
+    const source = placeable[entry.index - 1];
+    return source ? { index: entry.index, reason: `${source.candidate.sourceRef}: ${entry.reason}` } : entry;
+  };
+
   // Reasons from placement and from the schema are reported together: an examiner fixing a
   // spreadsheet does not care which of our two gates refused a row.
-  const allRejected = [...rejected, ...screened.rejected];
+  const allRejected = [...rejected, ...screened.rejected.map(withRef)];
+  const duplicates = screened.duplicates.map(withRef);
 
   const batchId = await writeBatch(input, actor, parser, {
     status: 'succeeded',
@@ -645,7 +673,7 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
     examined,
     accepted: questions.length,
     rejected: allRejected.length,
-    duplicates: screened.duplicates.length,
+    duplicates: duplicates.length,
     rejectionReasons: allRejected.map((entry) => entry.reason).slice(0, 10),
     topic,
     subject,
@@ -657,7 +685,7 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
     parser: parser.descriptor,
     questions,
     rejected: allRejected,
-    duplicates: screened.duplicates,
+    duplicates,
     failures,
     batchWarnings,
     files: fileOutcomes,
@@ -976,6 +1004,8 @@ const SOURCE_FOR_KIND: Record<ImportFileKind, QuestionSource> = {
   excel: 'excel_import',
   docx: 'docx_import',
   image: 'image_import',
+  csv: 'csv_import',
+  json: 'json_import',
 };
 
 /**

@@ -51,11 +51,16 @@ import type { GeneratedCandidate } from './questionGeneratorTypes';
 /**
  * The upload formats the product accepts.
  *
- * Deliberately a *kind* rather than a MIME type or an extension: three extensions and five
- * MIME types map onto these three parsing strategies, and the rest of the pipeline only
- * ever needs to know which strategy applies.
+ * Deliberately a *kind* rather than a MIME type or an extension: several extensions and MIME
+ * types map onto each parsing strategy, and the rest of the pipeline only ever needs to know
+ * which strategy applies.
+ *
+ * `csv` and `json` arrived in Milestone 30 for the Daily Quiz's bulk import (brief §6.5). They
+ * are **tables**, read by the Excel parser's own row reader — a CSV is a one-sheet workbook and
+ * a JSON array is a list of rows — so the three tabular formats cannot disagree about what a
+ * row means. See `services/tabularImportParsers.ts`.
  */
-export const IMPORT_FILE_KINDS = ['excel', 'docx', 'image'] as const;
+export const IMPORT_FILE_KINDS = ['excel', 'docx', 'image', 'csv', 'json'] as const;
 export type ImportFileKind = (typeof IMPORT_FILE_KINDS)[number];
 
 /**
@@ -143,6 +148,20 @@ export interface ImportedTaxonomyHint {
 }
 
 /**
+ * When and for whom a row asks to be the Daily Quiz (Milestone 30), **as the file said it** —
+ * the `Day` and `Classes` columns of a quiz import, unparsed.
+ *
+ * The same discipline as `ImportedTaxonomyHint`: a parser reports what was written, and
+ * deciding whether it means anything is somebody else's job — here the Daily Quiz import's
+ * (`services/dailyQuizImportService.ts`), which refuses a day it cannot read rather than
+ * picking one. An ordinary question import carries the hint through and ignores it.
+ */
+export interface ImportedScheduleHint {
+  day: string | null;
+  classes: string | null;
+}
+
+/**
  * One question an importer extracted.
  *
  * `content` is `GeneratedCandidate` unchanged — see the note at the top of this file for
@@ -151,6 +170,8 @@ export interface ImportedTaxonomyHint {
 export interface ImportedCandidate {
   content: GeneratedCandidate;
   taxonomy: ImportedTaxonomyHint;
+  /** Present only when the file has a `Day` or `Classes` column — a Daily Quiz import. */
+  schedule?: ImportedScheduleHint;
   /**
    * Where inside the upload this came from, phrased for a human: `Row 14`, `Question 3`,
    * `paper-page-2.jpg`. Every message about this candidate names it this way, because

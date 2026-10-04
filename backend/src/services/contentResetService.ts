@@ -3,6 +3,8 @@ import { logger } from '../lib/logger';
 import {
   DailyChallenge,
   DailyChallengeAttempt,
+  DailyQuizStart,
+  DailyQuizWinner,
   Exam,
   MockTest,
   MockTestAttempt,
@@ -15,9 +17,10 @@ import {
  * THE content reset (Milestone 22, owner request 2026-08-28).
  *
  * One button per administrative area that empties it: the question bank, mock tests, the
- * daily challenge, and chapters. It exists because a platform that has been loaded with
- * trial data before launch has no other way back — deleting three thousand questions one
- * at a time is not a path anybody takes, so in practice the trial data ships.
+ * Daily Quiz (the daily challenge before Milestone 30), and chapters. It exists because a
+ * platform that has been loaded with trial data before launch has no other way back —
+ * deleting three thousand questions one at a time is not a path anybody takes, so in
+ * practice the trial data ships.
  *
  * ## This is the most destructive thing in the product, and it is shaped accordingly
  *
@@ -61,14 +64,14 @@ export type ResetScope = (typeof RESET_SCOPES)[number];
 export const CONFIRM_PHRASES: Record<ResetScope, string> = {
   questions: 'RESET QUESTIONS',
   'mock-tests': 'RESET MOCK TESTS',
-  'daily-challenges': 'RESET DAILY CHALLENGES',
+  'daily-challenges': 'RESET DAILY QUIZ',
   chapters: 'RESET CHAPTERS',
 };
 
 const SCOPE_LABELS: Record<ResetScope, string> = {
   questions: 'Question Bank',
   'mock-tests': 'Mock Tests',
-  'daily-challenges': 'Daily Challenges',
+  'daily-challenges': 'Daily Quiz',
   chapters: 'Chapters',
 };
 
@@ -162,7 +165,7 @@ async function previewQuestions(): Promise<ResetPreview> {
   }
   if (challenges > 0) {
     blockers.push({
-      label: `${countOf(challenges, 'daily challenge')} set from these questions`,
+      label: `${countOf(challenges, 'Daily Quiz day', 'Daily Quiz days')} set from these questions`,
       count: challenges,
       resolveWith: 'daily-challenges',
     });
@@ -231,7 +234,7 @@ async function previewMockTests(): Promise<ResetPreview> {
     preserves: [
       'The questions themselves, in the Question Bank',
       'XP already earned from these attempts — it is a record of something that really happened',
-      'Practice sessions, the daily challenge, the official exam and every certificate',
+      'Practice sessions, the Daily Quiz, the official exam and every certificate',
     ],
     blockers: [],
     canReset: tests > 0 || attempts > 0,
@@ -239,12 +242,39 @@ async function previewMockTests(): Promise<ResetPreview> {
   };
 }
 
+/**
+ * The Daily Quiz (Milestone 30 — the daily challenge, upgraded). A scheduled day is stored
+ * once per class it covers, so the count is of **quiz days per class**, which is what the
+ * calendar shows.
+ *
+ * **Every prize decision survives.** A winner an administrator confirmed, published or
+ * disqualified is a record of who was promised a prize — money, and a promise to a child —
+ * so it is never deleted here, and its row carries the day, class range and prize itself,
+ * so the prize desk keeps working with the quiz gone. Only *provisional* candidates go:
+ * they are a computation nobody has reviewed, and the quiz they were computed from is
+ * leaving.
+ */
 async function previewDailyChallenges(): Promise<ResetPreview> {
-  const [challenges, attempts, students] = await Promise.all([
+  const [challenges, attempts, students, starts, provisional, decided] = await Promise.all([
     DailyChallenge.countDocuments({}),
     DailyChallengeAttempt.countDocuments({}),
     DailyChallengeAttempt.distinct('student').then((ids) => ids.length),
+    DailyQuizStart.countDocuments({}),
+    DailyQuizWinner.countDocuments({ status: 'provisional' }),
+    DailyQuizWinner.countDocuments({ status: { $ne: 'provisional' } }),
   ]);
+
+  const preserves = [
+    'The questions themselves, in the Question Bank',
+    'XP and streaks already earned — a streak is a record of days a student turned up',
+    'The Daily Quiz settings: the prize, the winner rule and the result timing',
+    'Practice sessions, mock tests, the official exam and every certificate',
+  ];
+  if (decided > 0) {
+    preserves.unshift(
+      `${phrase(decided, 'prize decision')} (confirmed, published or disqualified winners) — a record of who was promised a prize, kept on the prize desk`,
+    );
+  }
 
   return {
     scope: 'daily-challenges',
@@ -252,26 +282,34 @@ async function previewDailyChallenges(): Promise<ResetPreview> {
     confirmPhrase: CONFIRM_PHRASES['daily-challenges'],
     deletes: [
       {
-        label: 'Scheduled daily challenges',
+        label: 'Scheduled Daily Quiz days',
         count: challenges,
-        text: phrase(challenges, 'scheduled daily challenge'),
-        note: 'including the days that were filled automatically',
+        text: phrase(challenges, 'scheduled quiz day', 'scheduled quiz days'),
+        note: 'counted once per class each day covers, past and future',
       },
       {
-        label: 'Daily-challenge attempts',
+        label: 'Daily Quiz answers',
         count: attempts,
-        text: phrase(attempts, 'daily-challenge attempt'),
-        note: attempts > 0 ? `answered by ${students} student${students === 1 ? '' : 's'}` : 'none have been answered',
+        text: phrase(attempts, 'Daily Quiz answer'),
+        note: attempts > 0 ? `submitted by ${students} student${students === 1 ? '' : 's'}` : 'none have been submitted',
+      },
+      {
+        label: 'Daily Quiz starts',
+        count: starts,
+        text: phrase(starts, 'Daily Quiz start'),
+        note: 'the record of when each student pressed Start — the clock their solve time was measured from',
+      },
+      {
+        label: 'Unreviewed winner candidates',
+        count: provisional,
+        text: phrase(provisional, 'unreviewed winner candidate'),
+        note: 'computed but never confirmed by anybody',
       },
     ],
-    preserves: [
-      'The questions themselves, in the Question Bank',
-      'XP and streaks already earned — a streak is a record of days a student turned up',
-      'Practice sessions, mock tests, the official exam and every certificate',
-    ],
+    preserves,
     blockers: [],
-    canReset: challenges > 0 || attempts > 0,
-    totalToDelete: challenges + attempts,
+    canReset: challenges + attempts + starts + provisional > 0,
+    totalToDelete: challenges + attempts + starts + provisional,
   };
 }
 
@@ -381,13 +419,25 @@ export async function performReset(scope: ResetScope, actorLabel: string): Promi
     }
 
     case 'daily-challenges': {
+      // Dependents first, as everywhere here: answers, then starts, then the candidates
+      // computed from them, then the days themselves. A failure part-way leaves days with
+      // fewer answers, never answers pointing at a day that is gone. Decided winners are
+      // not touched — see `previewDailyChallenges()`.
       const attempts = (await DailyChallengeAttempt.deleteMany({})).deletedCount ?? 0;
+      const starts = (await DailyQuizStart.deleteMany({})).deletedCount ?? 0;
+      const provisional = (await DailyQuizWinner.deleteMany({ status: 'provisional' })).deletedCount ?? 0;
       const challenges = (await DailyChallenge.deleteMany({})).deletedCount ?? 0;
-      deleted.push({ label: 'Daily-challenge attempts', count: attempts, text: phrase(attempts, 'daily-challenge attempt') });
+      deleted.push({ label: 'Daily Quiz answers', count: attempts, text: phrase(attempts, 'Daily Quiz answer') });
+      deleted.push({ label: 'Daily Quiz starts', count: starts, text: phrase(starts, 'Daily Quiz start') });
       deleted.push({
-        label: 'Scheduled daily challenges',
+        label: 'Unreviewed winner candidates',
+        count: provisional,
+        text: phrase(provisional, 'unreviewed winner candidate'),
+      });
+      deleted.push({
+        label: 'Scheduled Daily Quiz days',
         count: challenges,
-        text: phrase(challenges, 'scheduled daily challenge'),
+        text: phrase(challenges, 'scheduled quiz day', 'scheduled quiz days'),
       });
       break;
     }

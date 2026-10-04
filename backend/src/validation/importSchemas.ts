@@ -105,7 +105,7 @@ export type PreviewImportBody = z.infer<ReturnType<typeof previewImportSchema>>;
  * subject, a subtopic outside the topic and an archived either. A client can choose an existing
  * placement; it cannot invent one.
  */
-const reviewedImportQuestion = z.object({
+export const reviewedImportQuestion = z.object({
   questionText: mathText('Question text'),
   type: z.enum(QUESTION_TYPES),
   options: z

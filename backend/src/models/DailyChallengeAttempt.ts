@@ -33,6 +33,16 @@ import { attemptAnswerSchema, type AttemptAnswerEntry } from './attemptAnswer';
  * being answered. Two submissions two minutes apart across IST midnight are two
  * different days and both count — which is correct, and is what the boundary tests
  * pin down.
+ *
+ * ## The Start step lives elsewhere, on purpose (Milestone 30)
+ *
+ * The Daily Quiz added a **Start** step — the question is only shown once the student
+ * presses Start, and the server's solve time is submit minus start. The start is a
+ * separate `DailyQuizStart` document rather than a `started` state on this one, so the
+ * invariant above survives: **a row here still means "submitted"**. Six other readers
+ * count these rows — analytics, the Hall of Fame, achievements, platform figures,
+ * question analytics, the content reset — and none of them had to learn about an
+ * in-progress state, because there is none here.
  */
 export interface DailyChallengeAttemptDocument extends Document {
   challenge: Types.ObjectId;
@@ -44,6 +54,24 @@ export interface DailyChallengeAttemptDocument extends Document {
    * mock-test attempts embed, so the same one grader marks all three.
    */
   answer: AttemptAnswerEntry;
+  /** Copied from the student's `DailyQuizStart`. Null on a pre-Milestone-30 attempt. */
+  startedAt?: Date | null;
+  /** Server-measured: `submittedAt − startedAt`. What `FASTEST_CORRECT` ranks on. */
+  solveTimeMs?: number | null;
+  /** The opaque id the student chose, exactly as sent. */
+  selectedOptionId?: string | null;
+  /** The option order this student was shown, as opaque ids. */
+  optionOrder?: string[];
+  /** Keyed hash of the client address (`lib/dailyQuiz.ts → hashIp`) — a review flag. */
+  ipHash?: string | null;
+  userAgent?: string | null;
+  /**
+   * Whether the XP for this attempt has been decided. `false` only while the result is
+   * being withheld until the reveal (`DailyQuizSettings.instantResult` off) — paying the
+   * moment a correct answer lands would tell the student it was correct. Absent on
+   * older attempts, which were always paid at once, so absent means settled.
+   */
+  xpSettled?: boolean;
   /**
    * What the submission earned, copied from the activity award at the time.
    *
@@ -66,6 +94,15 @@ const dailyChallengeAttemptSchema = new Schema<DailyChallengeAttemptDocument>(
     answer: { type: attemptAnswerSchema, required: true },
     xpAwarded: { type: Number, required: true, min: 0, default: 0 },
     submittedAt: { type: Date, required: true, default: Date.now },
+    // Milestone 30 — optional, so a pre-quiz attempt still loads.
+    startedAt: { type: Date, default: null },
+    solveTimeMs: { type: Number, default: null, min: 0 },
+    selectedOptionId: { type: String, default: null },
+    optionOrder: { type: [String], default: undefined },
+    ipHash: { type: String, default: null },
+    userAgent: { type: String, default: null },
+    // No default: absent means "an older attempt, settled when it was made".
+    xpSettled: { type: Boolean },
   },
   { timestamps: true },
 );
@@ -76,6 +113,12 @@ dailyChallengeAttemptSchema.index({ student: 1, day: 1 }, { unique: true });
 // The student's own history, newest first, and the per-challenge admin figures.
 dailyChallengeAttemptSchema.index({ student: 1, day: -1 });
 dailyChallengeAttemptSchema.index({ challenge: 1 });
+
+// The deferred-XP sweep: a student's attempts whose reward is still undecided.
+dailyChallengeAttemptSchema.index(
+  { student: 1, xpSettled: 1 },
+  { partialFilterExpression: { xpSettled: false } },
+);
 
 /**
  * No TTL, like every other record of work a student really did. Expiring these would

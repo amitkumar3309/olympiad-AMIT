@@ -370,7 +370,7 @@ describe('resetting mock tests', () => {
   });
 });
 
-describe('resetting daily challenges', () => {
+describe('resetting the Daily Quiz', () => {
   it('deletes the schedule and the attempts, and leaves the questions alone', async () => {
     const { root, taxonomy } = await rootWithTaxonomy();
     const questionId = await publishedQuestion(root, taxonomy);
@@ -383,7 +383,9 @@ describe('resetting daily challenges', () => {
       marks: 4,
     });
 
-    await reset('daily-challenges', root, 'RESET DAILY CHALLENGES').expect(200);
+    // The phrase names what the screens call it now; the scope id is unchanged.
+    expect((await reset('daily-challenges', root, 'RESET DAILY CHALLENGES')).status).toBe(400);
+    await reset('daily-challenges', root, 'RESET DAILY QUIZ').expect(200);
 
     expect(await DailyChallenge.countDocuments({})).toBe(0);
     expect(await DailyChallengeAttempt.countDocuments({})).toBe(0);

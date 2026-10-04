@@ -247,6 +247,14 @@ const envSchema = z.object({
    * because only the owner's accountant knows what is correct here.
    */
   INVOICE_TAX_NOTE: z.string().min(1).optional(),
+  /**
+   * Mounts `/__e2e/*`, the browser test suite's hooks: move the server clock, reset and
+   * seed the database (Milestone 30, Phase 2). **Off by default**, refused outright when
+   * `NODE_ENV=production`, and the hooks additionally refuse any database whose name does
+   * not end in `-e2e` — three locks, because a route that resets a database must never be
+   * reachable on the real one. Set only by `scripts/e2e-server.ts`.
+   */
+  E2E_TEST_HOOKS: booleanish(false),
 });
 
 export type Env = z.infer<typeof envSchema>;
