@@ -1,5 +1,38 @@
 # TESTING.md
 
+> **Re-measured 2026-09-27 (Milestone 29): `npm test --prefix backend` reports 1289 passed /
+> 1289 across 36 files in 235 s.** Read the number from the command, never from a document.
+>
+> ### What the automated suite does NOT cover, measured the same day
+>
+> The suite is strong on business rules and weak on everything that only shows up against a real
+> deployment. Milestone 29 closed part of that gap by hand; the gap itself is still open, because
+> none of this is automated.
+>
+> - **There is still no frontend test suite.** Adding one needs a `DECISIONS.md` entry first.
+>   Until then a **browser pass is not optional for a new page** — the rule already in
+>   `CLAUDE.md`, restated here because Milestone 29's browser pass is what confirmed the
+>   signed-in routes render against a real database.
+> - **Rate limiting, CORS and security headers are implemented but not asserted.** This is not a
+>   theoretical gap: Milestone 29 found that `app.set('trust proxy')` is never called, so behind
+>   Vercel's proxy **every visitor shares one rate-limit bucket** — ten distinct client IPs
+>   signing in produced `200` then twelve consecutive `429`s. 1289 passing tests did not catch
+>   it, because the suite disables the limiters (`config.isTest`) and because the defect only
+>   exists behind a proxy. See [`SCALE_READINESS.md`](SCALE_READINESS.md) and `SECURITY.md`.
+> - **Nothing measures cost or concurrency.** The same pass measured `/me/dashboard` and
+>   `/leaderboard` at **~30 req/s** against 1,205 for `/auth/me`, from a COLLSCAN run 3–5× per
+>   request. A test suite that asserts correctness will never report that.
+>
+> ### The Milestone 29 harnesses
+>
+> Two throwaway harnesses were written for that pass and are **not committed**: an 87-assertion
+> end-to-end HTTP script (real registration → sign-in → practice → grading → review → paywall →
+> admin → token rotation, all against a live backend and a real MongoDB, **87/87 passing**) and a
+> load harness that seeds 1,000 students / 20,012 activity rows and drives 1–250 concurrent
+> clients. Committing cleaned-up versions to `backend/scripts/` — with
+> `assertConfiguredForWrites()` and report-only-by-default, like every other writing script — is
+> an open follow-up. Re-run them against the **deployed** backend before a real sitting.
+
 _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State

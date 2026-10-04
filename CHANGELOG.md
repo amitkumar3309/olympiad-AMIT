@@ -2,6 +2,85 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-27 — Milestone 29: a full test pass and a scale audit for 1,000 concurrent students
+
+**Nothing under `backend/src` or `frontend/src` changed.** This milestone is a *measurement*,
+recorded in the new [`SCALE_READINESS.md`](SCALE_READINESS.md). The owner asked for the whole
+application to be tested — frontend, backend and database — and for a plan to carry **1,000
+concurrent students** at launch without crashing or becoming vulnerable.
+
+### What was run, against a real stack
+
+Not mocks: a real MongoDB, a real backend process and the real Vite frontend.
+
+| Check | Result |
+|---|---|
+| `npm test --prefix backend` | **1289 passed / 1289**, 36 files, 235 s |
+| `npm run typecheck --prefix backend` | pass |
+| `npm run compile --prefix backend` | pass |
+| `npm run lint --prefix backend` | pass, 0 problems |
+| `npm run lint --prefix frontend` | pass, 3 pre-existing fast-refresh warnings |
+| `npm run build --prefix frontend` | pass — 236 kB main bundle / **73.5 kB gzipped** |
+| End-to-end HTTP harness, 87 assertions | **87 passed / 87** |
+| Browser pass over 7 routes | all render, no product errors |
+
+The end-to-end harness confirmed the properties this codebase is most careful about, by
+exercising them rather than by reading the code: **the answer key is absent from a served
+paper** (scanned for `isCorrect`, `solution`, `booleanAnswer`, `numericAnswer`, `tolerance` —
+none present) and present after submission; grading is real; the paywall answers **402** on the
+official exam while practice and the daily challenge stay free; an unknown email and a wrong
+password return byte-identical messages; a refresh token rotates and **the old one is dead on
+replay**; an anonymous leaderboard caller is capped at 100 masked rows; a signed-in student and
+an anonymous caller are both refused every admin route on **both** URL prefixes; and no route
+tested returns a 500, including on malformed ObjectIds.
+
+**No functional defect was found.** Every finding below is about scale.
+
+### The load test
+
+A cohort-sized dataset was seeded locally — **1,000 students, 20,012 `StudentActivity` rows** —
+and driven at 1 / 25 / 100 / 250 concurrent clients. Rate limiting had to be disabled to take the
+measurement, which is itself finding #1.
+
+Read ceilings, single process: `/health` 8,715 req/s, `/auth/me` 1,205, `/practice/options` 916,
+`/me/rewards` 497, `/public/stats` 228 — and then **`/me/dashboard` 33 and `/leaderboard` 30**.
+
+The write path is healthy: **148 answer-saves/second** at 100 concurrent students, and **100
+simultaneous submissions completed in 0.7 s with zero errors**. The conditional-write design
+behind `finalizeAttempt()` does what it was built to do.
+
+### Three findings
+
+1. **`app.set('trust proxy')` is never called** (P0). Behind Vercel's proxy `req.ip` is the same
+   internal address for every visitor on earth, and `express-rate-limit` keys on it. Reproduced:
+   three requests with three different `X-Forwarded-For` values decremented **one** counter
+   (146 → 145 → 144), and ten distinct client IPs attempting to sign in produced `200` then
+   **twelve consecutive 429s**. In production that is *10 sign-ins per 15 minutes for the entire
+   platform*, 10 registrations per hour, and a general budget exhausted by **sixty** students
+   loading a dashboard once. It also writes a useless IP into every audit row. Two-line fix.
+2. **No `maxPoolSize`** (P0). Mongoose defaults to 100 connections *per process*, and every
+   concurrent Vercel instance is its own process — **five instances exhaust an Atlas shared
+   tier's 500-connection cap** and it starts refusing outright. Measured: 121 connections open
+   from three local processes. One-line fix.
+3. **The leaderboard and dashboard are full collection scans run 3–5× per request** (P1).
+   `explain` reports a **COLLSCAN of 20,012 docs plus 1,004 `$lookup` fetches, ~100 ms**, and
+   `getLeaderboardPage()` runs that pipeline three times (rows, total, first rank) while
+   `getStudentRank()` runs it twice more. Derived-on-read remains the right decision — a stored
+   rank can drift from the XP it ranks — but the result has to be cached. This is the case for
+   Redis, and it is scoped in `SCALE_READINESS.md` as **optional-by-default**, the same rule the
+   codebase already applies to `GEMINI_API_KEY`.
+
+Two smaller ones: `/public/stats` runs **two unindexed collection scans** of `students` on the
+public landing page (there is no index on `Student.status`), and **Vercel's free tier forbids
+commercial use** while this product charges ₹199 — a licence problem, not a technical one.
+
+### What was deliberately not done
+
+No fix was applied. The four-line changes (trust proxy, pool cap, status index) are ready but
+unapplied; Redis is a new dependency and a cost against the project's ₹0 target, which
+`CLAUDE.md` says needs an ADR and the owner's decision. `DECISIONS.md` therefore carries no
+Milestone 29 ADR — there is no decision to record yet.
+
 ## 2026-09-21 — Milestone 28 follow-up: the navbar mark is a circular badge
 
 The owner reported the logo looking small in the public header, and asked whether the

@@ -1,5 +1,44 @@
 # SECURITY.md
 
+> ### Open issue added 2026-09-27 (Milestone 29): `trust proxy` is never set, so every per-IP control is platform-wide
+>
+> **`app.set('trust proxy', …)` does not appear anywhere in `backend/src`.** Express therefore
+> reports `req.ip` as the *socket* address. Behind Vercel's proxy that is an internal address
+> **identical for every visitor**, and `express-rate-limit` keys on `req.ip`.
+>
+> Reproduced against the running server — three requests, three different `X-Forwarded-For`
+> values, one counter: `RateLimit-Remaining: 146 → 145 → 144`. Then ten distinct client IPs
+> attempting to sign in: `200`, followed by **twelve consecutive 429s**.
+>
+> This has two security consequences, not just an availability one:
+>
+> - **Every brute-force control is mis-scoped.** `loginLimiter` is written as 10 attempts per 15
+>   minutes *per IP* and is really 10 for the whole platform — which sounds stricter but is not,
+>   because the store is `MemoryStore`: it is per serverless instance and **resets on every cold
+>   start** (reproduced — a 429'd client became `200` immediately after a restart). An attacker
+>   who spreads requests rides the cold starts; a legitimate cohort is locked out. Per-account
+>   lockout (`MAX_FAILED_LOGINS`) is doing the real work here, and it is the only thing that is.
+> - **The audit trail records a useless IP.** `recordAudit()`, `lib/session.ts` and
+>   `auth.routes.ts` all store `req.ip`. Every administrative action, session and sign-in is
+>   attributed to Vercel's proxy, so in an incident there is nothing to correlate on.
+>
+> **Fix:** `app.set('trust proxy', 1)` in `src/app.ts` — `1`, not `true`, because `true` trusts a
+> client-supplied `X-Forwarded-For` and lets anyone forge their address. Then re-tune the limits,
+> which were written for a world where they were platform-wide: `loginLimiter`'s 10 per 15
+> minutes is right for one person and **wrong for a school computer lab behind one NAT address**,
+> where 40 children legitimately share an IP. And move the store to Redis, or the limits still
+> mean nothing across instances. Full detail and the step-by-step plan are in
+> [`SCALE_READINESS.md`](SCALE_READINESS.md). **Not yet applied.**
+>
+> **Re-verified the same day and still holding:** the CSRF origin check in `middleware/csrf.ts`
+> refuses a cross-origin `POST` with **403** while leaving reads alone; an unknown email and a
+> wrong password return byte-identical messages; refresh tokens rotate and a replayed one is
+> dead; the public leaderboard caps an anonymous caller at 100 masked rows with no email or
+> mobile; a signed-in student and an anonymous caller are refused every admin route on **both**
+> the `/api/v1` and `/api` prefixes; the bootstrap superadmin is refused at the public sign-in
+> form; and a served question paper contains none of `isCorrect`, `solution`, `booleanAnswer`,
+> `numericAnswer` or `tolerance`. The **CSRF token** gap recorded below is unchanged.
+
 _Last updated: 2026-08-17 (complete security audit)._
 
 Reflects the actual state of the code. Fix items here before building new features on top of them.

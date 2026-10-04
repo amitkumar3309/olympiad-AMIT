@@ -1,6 +1,46 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-09-21 (Milestone 28 — royal blue restored as the primary, registration moved to its own route, "Ten classes, ten papers" removed, and one sign-in door with a role-based redirect: **complete**). Milestone 27 (the Brightpath visual language, phases 1–8) closed immediately before it._
+_Last updated: 2026-09-27 (**Milestone 29 — a full test pass and a scale audit**: complete, and
+**no file under `backend/src` or `frontend/src` was changed by it**). Milestone 28 (royal blue
+restored as the primary, registration on its own route, one sign-in door with a role-based
+redirect) closed immediately before it._
+
+## Milestone 29 at a glance — measurement, not change
+
+The owner asked for the whole application to be tested and for a plan to carry **1,000
+concurrent students**. The full report is [`SCALE_READINESS.md`](SCALE_READINESS.md); the
+numbers below are the summary, and they were produced by running things, not by reading code.
+
+**Everything functional passed.** `npm test --prefix backend` → **1289 passed / 1289 across 36
+files**; backend typecheck, compile and lint clean; frontend lint clean and the production build
+at **236 kB / 73.5 kB gzipped**; an 87-assertion end-to-end HTTP harness against a real MongoDB,
+a real backend and the real frontend → **87/87**; and a browser pass over landing, register,
+sign-in, dashboard, practice, leaderboard and the `/admin` gate. **No functional defect was
+found.** In particular the answer-key properties hold under test: a served paper contains none of
+`isCorrect`, `solution`, `booleanAnswer`, `numericAnswer` or `tolerance`, and the review view
+after submission does contain them.
+
+**Three scale findings, none of them a product bug, all of them unfixed as of this writing:**
+
+1. **`app.set('trust proxy')` is never called.** Behind Vercel's proxy every visitor shares one
+   `req.ip`, so every per-IP rate limit is a single platform-wide bucket. Reproduced live: ten
+   distinct client IPs signing in gave `200` then twelve consecutive `429`s. That is **10
+   sign-ins per 15 minutes for the whole platform**. It is a guaranteed outage on the first busy
+   morning, and a two-line fix.
+2. **No `maxPoolSize`.** Mongoose defaults to 100 connections per process; five concurrent Vercel
+   instances exhaust an Atlas shared tier's 500-connection cap and it refuses new connections.
+   One-line fix.
+3. **`/leaderboard` and `/me/dashboard` ceiling at ~30 req/s**, against 1,205 for `/auth/me`.
+   `explain`: a COLLSCAN of 20,012 activity rows plus 1,004 `$lookup` fetches, ~100 ms, run
+   **three times** per leaderboard request and **five** per dashboard. Derived-on-read stays —
+   the result needs caching, not storing.
+
+The write path measured healthy: **148 answer-saves/second** at 100 concurrent students and
+**100 simultaneous submissions in 0.7 s, zero errors**.
+
+**Nothing was fixed.** The four-line changes are specified in `SCALE_READINESS.md` and not
+applied; Redis is a dependency and a cost decision the owner has not taken, so `DECISIONS.md`
+carries no Milestone 29 ADR.
 
 **Milestone 28 at a glance — frontend only.** No file under `backend/` was modified; the suite
 was run anyway. Four changes, all at the owner's request:

@@ -1,5 +1,40 @@
 # TROUBLESHOOTING.md
 
+> ## "Too many login attempts" for students who have not tried before (2026-09-27)
+>
+> **Symptom.** Shortly after a busy period starts, students who have never signed in that day get
+> `429 Too many login attempts. Please try again in a few minutes.` Registration starts returning
+> 429 too. Nothing is wrong with their accounts, and waiting does not reliably help. A redeploy
+> appears to fix it for a few minutes.
+>
+> **Cause.** `app.set('trust proxy', …)` is never called, so `req.ip` is the proxy's address and
+> is **the same for every visitor**. `express-rate-limit` keys on `req.ip`, so every per-IP limit
+> in `middleware/rateLimiter.ts` is one bucket shared by the whole platform: 10 sign-ins per 15
+> minutes, 10 registrations per hour, 300 API calls per 15 minutes — **in total, not each**. A
+> student dashboard makes 5 API calls, so sixty students exhaust the general budget.
+>
+> The "a redeploy fixes it" part is the second half: the limiter uses the default `MemoryStore`,
+> which lives in one serverless instance and resets on every cold start.
+>
+> **How to confirm it in one command.** Run this twice with two *different* addresses:
+>
+> ```bash
+> curl -s -D - -o /dev/null -H "X-Forwarded-For: 203.0.113.10" https://<your-backend>/api/v1/public/stats | grep -i ratelimit-remaining
+> ```
+>
+> If the number keeps falling across different addresses, they share a bucket. After the fix each
+> address gets its own fresh count.
+>
+> **Fix.** `app.set('trust proxy', 1)` in `src/app.ts`, then re-tune the limits for a *real* per-IP
+> world (a school lab shares one NAT address, so `loginLimiter`'s 10 is too low), then move the
+> store to Redis so the limits survive a cold start. See
+> [`SCALE_READINESS.md`](SCALE_READINESS.md). **Not yet applied as of 2026-09-27.**
+>
+> **Related symptom, same root cause family.** Requests failing with MongoDB connection errors
+> under load: `maxPoolSize` is not set, so Mongoose opens up to **100 connections per serverless
+> instance**, and five concurrent instances exhaust an Atlas shared tier's 500-connection cap.
+> Fix is `maxPoolSize: 5` in `db/connection.ts`.
+
 ## Gating a route that used to hold its own sign-in form makes it redirect to itself forever
 
 **Symptom.** After putting a guard on `/admin`, a signed-out visitor who opens `/admin` gets a
