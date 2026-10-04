@@ -59,10 +59,28 @@ export const loginLimiter = limiter({
   message: 'Too many login attempts. Please try again in a few minutes.',
 });
 
-/** Registration: limits automated account creation from one address. */
+/**
+ * Registration: limits automated account creation from one address.
+ *
+ * **Fifty, not ten, for the same reason as `loginLimiter`** — a school registering a class
+ * of forty from one computer room shares one public NAT address, and at ten per hour thirty
+ * of those children were turned away. Ten was a reasonable number for one household and was
+ * never reached by a school while `trust proxy` was unset, because the limit was then one
+ * bucket for the whole platform rather than one per address.
+ *
+ * **What actually bounds registration abuse is not this number, and it is worth being
+ * honest about that.** Every registration sends a verification email, and a transactional
+ * mail tier is measured in hundreds *per day* — so the mail provider's quota is the binding
+ * constraint long before this limiter is, at any value either side of fifty. An account that
+ * is never verified also cannot sign in, so a flood of them costs mail allowance and rows,
+ * not access. Size the mail plan for the cohort; see the standing note in SCALE_READINESS.md.
+ *
+ * The matching resend path is `emailActionLimiter`, which is deliberately much tighter
+ * because a resend is a *repeat* send to an address that already has one in flight.
+ */
 export const registerLimiter = limiter({
   windowMs: HOUR,
-  limit: 10,
+  limit: 50,
   message: 'Too many registration attempts. Please try again later.',
 });
 

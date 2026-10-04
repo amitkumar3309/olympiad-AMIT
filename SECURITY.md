@@ -47,9 +47,17 @@
 >   address. If that ever looks too loose, key this limiter on the submitted identifier rather
 >   than the address.
 >
-> - **`registerLimiter` has the same shape and has not been re-tuned.** 10 per hour per IP means a
->   school registering a class of forty in one sitting stops at ten. Worth deciding before any
->   school-led registration drive.
+> - ~~**`registerLimiter` has the same shape.**~~ **Also re-tuned: 50 per hour** (verified 40/40
+>   for a class of forty, ceiling at 50). Note that the **mail quota**, not this number, is what
+>   really bounds registration abuse — every registration sends a verification email and a
+>   transactional tier is measured in hundreds per day.
+>
+> - **Seven more limiters were chosen for one household and are now applied to a whole school**,
+>   and none has been re-tuned. By students supported on one NAT address: `paymentLimiter` 30,
+>   `challengeLimiter` 30, `mockTestLimiter` 30, `tokenSubmitLimiter` 20, `emailActionLimiter` 5,
+>   with `practiceLimiter`, `generalLimiter` and `refreshLimiter` borderline at ~60.
+>   **`paymentLimiter` is the one to fix next** — it is the only one whose refusal costs revenue.
+>   The full table is in `CHANGELOG.md` under Milestone 29 Phase D.
 >
 > **Re-verified the same day and still holding:** the CSRF origin check in `middleware/csrf.ts`
 > refuses a cross-origin `POST` with **403** while leaving reads alone; an unknown email and a

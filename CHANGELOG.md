@@ -2,6 +2,49 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-27 — Milestone 29 Phase D: `registerLimiter` is 50 per hour, and the other limiters are now audited
+
+Same correction as Phase C, applied to registration: **10 per hour per IP meant a school
+registering a class of forty stopped at ten.** Measured before: 10 registered, 30 refused. After:
+**40 registered, 0 refused**, with the ceiling still landing at exactly 50 from one address.
+
+**What actually bounds registration abuse is the mail quota, not this number.** Every
+registration sends a verification email and a transactional mail tier is measured in hundreds
+*per day*, so the provider's cap binds long before this limiter does at any value either side of
+fifty. An unverified account also cannot sign in, so a flood costs mail allowance and rows rather
+than access. Size the mail plan for the cohort.
+
+### The audit this exposed
+
+Phase B gave every limiter a real client address for the first time, which means **every number
+in `middleware/rateLimiter.ts` was chosen for one household and is now being applied to a whole
+school**. Dividing each budget by the per-student cost gives how many children on one NAT address
+it supports:
+
+| limiter | budget | students on one address | state |
+|---|---|---:|---|
+| `loginLimiter` | 50 / 15 min | 50 | ✅ Phase C |
+| `registerLimiter` | 50 / hour | 50 | ✅ this phase |
+| `paymentLimiter` | 30 / hour | **30** | ⚠️ blocks 10 of a class of 40 **from paying** |
+| `challengeLimiter` | 30 / hour | **30** | ⚠️ blocks 10 of 40 |
+| `mockTestLimiter` | 60 / hour | **30** (start + submit) | ⚠️ blocks 10 of 40 |
+| `emailActionLimiter` | 5 / hour | **5** | ⚠️ 5 resends per school per hour |
+| `tokenSubmitLimiter` | 20 / 15 min | **20** | ⚠️ 20 verification clicks per school |
+| `practiceLimiter` | 120 / hour | 60 (start + submit) | borderline |
+| `generalLimiter` | 300 / 15 min | 60 (5 calls per page) | borderline |
+| `refreshLimiter` | 60 / 15 min | 60 | borderline |
+
+`paymentLimiter` is the one to fix next: it is the only row where the refusal costs revenue, and
+a student who is told "too many payment attempts" at the moment they try to pay does not try
+twice. The admin-facing limiters (`generationLimiter`, `importLimiter`, `adminActionLimiter`,
+`exportLimiter`) are fine — staff are few and not behind a shared school address.
+
+**None of these were changed here.** They are a product decision about how much abuse to permit,
+and the durable answer to all of them is the shared store, not larger numbers: with `MemoryStore`
+every figure above is *per serverless instance* and resets on a cold start.
+
+Gates: typecheck and lint clean, suite **1289/1289**.
+
 ## 2026-09-27 — Milestone 29 Phase C: `loginLimiter` is 50 per 15 minutes, not 10
 
 One number, and the reason it had to move. Phase B gave the rate limiters a **real** client

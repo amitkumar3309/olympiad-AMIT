@@ -55,8 +55,13 @@ first gave that number a real client address to apply to. A school computer lab 
 address — this product's normal case — now signs in completely: **40 of 40**, against 10 of 40
 before. It does not weaken password-guessing protection, which was never this limiter's job:
 `MAX_FAILED_LOGINS` (5) locks an account for 15 minutes **per account**, verified unchanged. One
-address still stops at exactly 50. **`registerLimiter` has the same NAT problem at 10 per hour and
-was deliberately left alone** — decide it before any school-led registration drive.
+address still stops at exactly 50. **Phase D raised `registerLimiter` to 50 per hour** as well (40 of 40
+register, ceiling at 50) and **audited the rest**: seven more limiters were sized for one
+household and are now applied to a whole school. By students supported on one NAT address —
+`paymentLimiter` 30, `challengeLimiter` 30, `mockTestLimiter` 30, `tokenSubmitLimiter` 20,
+`emailActionLimiter` 5. **`paymentLimiter` is the one to fix next**, being the only one whose
+refusal costs revenue. None was changed; the durable answer to all of them is the shared store,
+since with `MemoryStore` every figure is per instance and resets on a cold start.
 
 **Milestone 28 at a glance — frontend only.** No file under `backend/` was modified; the suite
 was run anyway. Four changes, all at the owner's request:

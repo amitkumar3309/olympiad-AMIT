@@ -367,9 +367,16 @@ falling. After the fix each address gets its own fresh count.
 > against one account still lock it after **5**, because `MAX_FAILED_LOGINS` — not this limiter —
 > is what stops password guessing.
 >
-> **`registerLimiter` has the same shape and was left alone**: 10 per hour per IP, so a school
-> registering a class of forty in one sitting stops at ten. Decide it before a registration
-> drive.
+> ✅ **`registerLimiter` was raised to 50 per hour too (Phase D)**: 40 of 40 now register, ceiling
+> at 50. But note the real constraint is the **mail quota** — every registration sends a
+> verification email and a transactional tier is measured in hundreds per day.
+>
+> ⚠️ **Seven more limiters have the same shape and were NOT changed.** Students supported on one
+> shared school address: `paymentLimiter` **30**, `challengeLimiter` **30**, `mockTestLimiter`
+> **30**, `tokenSubmitLimiter` **20**, `emailActionLimiter` **5**; `practiceLimiter`,
+> `generalLimiter` and `refreshLimiter` are borderline at ~60. **`paymentLimiter` is the one to
+> fix next** — it is the only row whose refusal costs revenue. Full table in `CHANGELOG.md`,
+> Milestone 29 Phase D.
 
 ### ✅ Step 2 — Cap the connection pool (APPLIED 2026-09-27)
 
