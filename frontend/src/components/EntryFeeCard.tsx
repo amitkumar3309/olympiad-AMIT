@@ -53,7 +53,7 @@ export default function EntryFeeCard() {
         buys your seat in the official exam and the certificate that follows it.
       </p>
       <p className={styles.free}>
-        Everything you use to prepare — practice, mock tests, the daily challenge and your analytics — is free and stays
+        Everything you use to prepare — practice, mock tests, the Daily Quiz and your analytics — is free and stays
         free whether or not you enter.
       </p>
 

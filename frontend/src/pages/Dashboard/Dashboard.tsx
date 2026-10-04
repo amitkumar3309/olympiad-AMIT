@@ -280,7 +280,7 @@ export default function Dashboard() {
           </section>
 
           {/* -----------------------------------------------------------
-              Today's challenge, then the record.
+              Today's Daily Quiz, then the record.
           ----------------------------------------------------------- */}
           <div className={styles.grid}>
             <Suspense

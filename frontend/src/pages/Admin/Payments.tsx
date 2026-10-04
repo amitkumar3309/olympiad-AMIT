@@ -162,7 +162,7 @@ export default function AdminPayments() {
                   <strong>Charge the entry fee</strong>
                   <em>
                     {enabled
-                      ? 'On — practice, mock tests, the daily challenge and the exam need a paid entry.'
+                      ? 'On — the official Olympiad needs a paid entry. Practice, mock tests and the Daily Quiz stay free.'
                       : 'Off — every student has full access without paying.'}
                   </em>
                 </span>

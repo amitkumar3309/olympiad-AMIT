@@ -250,8 +250,14 @@ export default function AdminDailyQuiz() {
                               {quiz.question.text ? <MathText>{quiz.question.text}</MathText> : <span className={styles.muted}>A daily challenge from before the quiz</span>}
                             </td>
                             <td className={styles.figure}>
-                              {quiz.stats.submitted}
-                              <div className={styles.muted}>of {quiz.stats.started} started</div>
+                              {quiz.stats.started === 0 ? (
+                                <span className={styles.muted}>Nobody yet</span>
+                              ) : (
+                                <>
+                                  {quiz.stats.submitted} submitted
+                                  <div className={styles.muted}>{quiz.stats.started} started</div>
+                                </>
+                              )}
                             </td>
                             <td className={styles.figure}>{quiz.stats.correctPercent === null ? '—' : `${quiz.stats.correctPercent}%`}</td>
                             <td className={styles.figure}>{quiz.stats.medianSolveMs === null ? '—' : formatSolveTime(quiz.stats.medianSolveMs)}</td>

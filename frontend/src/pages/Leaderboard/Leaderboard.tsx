@@ -259,7 +259,7 @@ export default function Leaderboard() {
                 : `No XP has been earned here ${LEADERBOARD_PERIOD_LABELS[period].toLowerCase()}.`}
             </p>
             <p className={styles.emptyNote}>
-              XP comes from real activity — practice sessions, mock tests and the daily challenge.
+              XP comes from real activity — practice sessions, mock tests and the Daily Quiz.
             </p>
           </div>
         ) : (

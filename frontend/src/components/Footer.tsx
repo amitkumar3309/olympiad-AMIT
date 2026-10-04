@@ -36,7 +36,7 @@ export default function Footer() {
           <p className={styles.brand}>{AMIT_SHORT} Olympiad</p>
           <p className={styles.tagline}>
             A national mathematics olympiad for Class 3 to Class 12, open to every school board.
-            Practice, mock tests and the daily challenge are free.
+            Practice, mock tests and the Daily Quiz are free.
           </p>
         </div>
 

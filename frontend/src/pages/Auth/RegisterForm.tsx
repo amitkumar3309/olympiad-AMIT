@@ -615,7 +615,7 @@ export default function RegisterForm({ referral, onRequestLogin }: RegisterFormP
 
           <Alert tone="info" title="Creating your account is free">
             <p>
-              Practice, mock tests, the daily challenge and your performance analytics are all included at no
+              Practice, mock tests, the Daily Quiz and your performance analytics are all included at no
               cost.
             </p>
             <p>

@@ -395,7 +395,7 @@ export default function Payment() {
               </li>
             </ul>
             <p className={styles.freeNote}>
-              Everything you need to prepare is <strong>free</strong> — practice, mock tests, the daily challenge and
+              Everything you need to prepare is <strong>free</strong> — practice, mock tests, the Daily Quiz and
               your analytics. You only pay to compete, and you can do it whenever you are ready.
             </p>
 
@@ -412,7 +412,7 @@ export default function Payment() {
                 <p className="error-text">Online payment is not set up yet, so nobody can pay right now.</p>
                 <p className={styles.unavailableNote}>
                   Nothing is wrong with your account, and you have not been charged. Everything you need to prepare —
-                  practice, mock tests and the daily challenge — is free and works as normal. Please check back, or
+                  practice, mock tests and the Daily Quiz — is free and works as normal. Please check back, or
                   contact us if the Olympiad is close.
                 </p>
                 {isStaff && (

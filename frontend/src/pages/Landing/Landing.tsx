@@ -113,8 +113,8 @@ const FEATURES = [
   {
     tone: 'magenta' as const,
     icon: <CalendarCheck />,
-    title: 'Daily challenge',
-    body: 'One question a day, the same for everyone in your class.',
+    title: 'Daily Quiz',
+    body: 'One question a day for your class group. Each day’s winner gets a surprise gift and a cash prize.',
   },
   {
     tone: 'green' as const,
@@ -139,7 +139,7 @@ const STEPS = [
   },
   {
     title: 'Prepare, free',
-    body: 'Practice, mock tests and the daily challenge cost nothing. No card.',
+    body: 'Practice, mock tests and the Daily Quiz cost nothing. No card.',
   },
   {
     title: 'Enter the Olympiad',
@@ -506,7 +506,7 @@ export default function Landing() {
                 // "Register below" until Milestone 28, which was a direction to a form
                 // that is no longer on this page — the kind of copy that survives a
                 // layout change by describing one.
-                description="XP is earned by practising, sitting mock tests and answering the daily challenge. Register and you could be the first name here."
+                description="XP is earned by practising, sitting mock tests and answering the Daily Quiz. Register and you could be the first name here."
               />
             ) : (
               <ol className={styles.championGrid}>

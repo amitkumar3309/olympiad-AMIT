@@ -52,7 +52,7 @@ export default function Certificates() {
           <h2>No certificates yet</h2>
           <p>
             Certificates are awarded for the <strong>official Olympiad</strong> only — not for mock tests, the practice
-            zone or the daily challenge. Once you have sat the official exam and the organisers release the results,
+            zone or the Daily Quiz. Once you have sat the official exam and the organisers release the results,
             your certificate will appear here.
           </p>
         </div>
