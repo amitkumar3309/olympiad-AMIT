@@ -537,6 +537,32 @@ describe('scheduling', () => {
     expect(reused.body.error).toMatch(/one day only/);
   });
 
+  it('offers only questions that can be a quiz for the range, and none already used', async () => {
+    const { adminCookies, taxonomy } = await seedAdmin();
+    const usable = await draftQuestion(adminCookies, taxonomy);
+    const wrongClass = await draftQuestion(adminCookies, taxonomy, { questionText: 'What is $4 + 4$?', classLevel: 'Class 4' });
+    const published = await draftQuestion(adminCookies, taxonomy, { questionText: 'What is $5 + 5$?' });
+    await request(app)
+      .patch(`${API}/admin/questions/${published}/status`)
+      .set('Cookie', cookieHeader(adminCookies))
+      .send({ status: 'published' })
+      .expect(200);
+
+    const candidates = async () =>
+      (
+        await request(app)
+          .get(`${API}/admin/daily-quiz/candidates?classMin=9&classMax=12`)
+          .set('Cookie', cookieHeader(adminCookies))
+          .expect(200)
+      ).body.candidates.map((candidate: { id: string }) => candidate.id)
+
+    expect(await candidates()).toEqual([usable]);
+    expect(await candidates()).not.toContain(wrongClass);
+
+    await schedule(adminCookies, { day: today(), classMin: 9, classMax: 12, questionId: usable }).expect(201);
+    expect(await candidates()).toEqual([]);
+  });
+
   it('can change or remove a quiz until somebody starts it, and not after', async () => {
     const { adminCookies, taxonomy, groupId } = await seedTodaysQuiz();
     const replacement = await draftQuestion(adminCookies, taxonomy, { questionText: 'What is $3^3$?', options: [

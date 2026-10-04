@@ -48,7 +48,7 @@ import {
   type StudentDocument,
   type WinnerStatus,
 } from '../models';
-import type { Actor } from './taxonomyService';
+import { findImplicitSubject, type Actor } from './taxonomyService';
 import { gradeEntry } from './grading';
 import { displayNameFor } from './leaderboardService';
 
@@ -1334,7 +1334,12 @@ function escapeRegex(value: string): string {
  */
 export async function listQuizCandidates(options: CandidateOptions) {
   const classes = classesInRange(options.classMin, options.classMax);
-  const used = (await DailyChallenge.distinct('question')) as Types.ObjectId[];
+  const [used, subject] = await Promise.all([
+    DailyChallenge.distinct('question') as Promise<Types.ObjectId[]>,
+    // Scoped to the implicit subject, like every picker that chooses what a child is served
+    // (CLAUDE.md); `null` (ambiguous) leaves it unscoped, as `suggestPaper()` does.
+    findImplicitSubject(),
+  ]);
 
   const filter: Record<string, unknown> = {
     type: 'single_choice',
@@ -1342,6 +1347,7 @@ export async function listQuizCandidates(options: CandidateOptions) {
     classLevel: { $in: classes },
     solution: { $nin: [null, ''] },
     _id: { $nin: used },
+    ...(subject ? { subject } : {}),
   };
   if (options.search && options.search.trim()) {
     filter.questionText = { $regex: escapeRegex(options.search.trim()), $options: 'i' };
