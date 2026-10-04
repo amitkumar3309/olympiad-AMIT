@@ -1743,6 +1743,17 @@ export interface DailyQuizHistoryResponse {
   pagination: Pagination
 }
 
+/** `GET /me/daily-quiz/status` — the floating button's state (Milestone 30, Phase 3). */
+export interface DailyQuizStatus {
+  serverNow: string
+  state: 'live' | 'in-progress' | 'done' | 'none' | 'no-class'
+  /** Set when there is a quiz today. */
+  closesAt: string | null
+  revealAt: string | null
+  /** With `none`: when the next quiz for the student's class opens, or null. */
+  nextQuizAt: string | null
+}
+
 export interface PublicQuizWinner {
   day: string
   displayName: string

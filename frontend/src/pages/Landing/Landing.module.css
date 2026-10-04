@@ -1,235 +1,50 @@
 /**
- * The public landing page (Milestone 23, Phase F).
+ * The homepage's shared styles (rebuilt for the launch mockup in Milestone 30, Phase 3).
+ * The hero, "Can you crack this?", the Rewards band and "How it works" have their own
+ * modules beside their components in `sections/`.
  *
  * Mobile first throughout: every layout here is the phone layout, and the `min-width`
- * queries only widen it. Nothing animates on load — the brief asked for a page that is
- * fast rather than one that performs, and an entrance animation on a marketing page is
- * the first thing to fail on a slow device.
- */
-
-/* ---------------------------------------------------------------- hero ---- */
-
-/**
- * The hero is **white**, and the only decoration is a whisper of a wash.
+ * queries only widen it. Tokens only.
  *
- * No bottom border: a hard rule under the hero cuts the wash off mid-fade, and the
- * sections below already separate themselves with their own tinted slabs. The
- * generous top padding is clearing the floating navigation, which sits *over* the page
- * rather than being a bar the page starts below.
- */
-/**
- * The hero sits **on the page**, not on a white slab (Milestone 27).
+ * ## Lucide sizing
  *
- * It painted `--surface` before, which was correct when the page was near-white and a
- * card was white — the difference was invisible and the radial tint did the work. Now
- * `--bg` is warm cream and `--surface` is white, so painting `--surface` here made the
- * hero a white rectangle sitting on a cream page: the exact inverse of the reference,
- * where the hero *is* the cream and white is reserved for cards.
+ * The homepage's content icons are Lucide (PLAN.md Q11). Lucide renders an `<svg>` with
+ * `width`/`height` **attributes** of 24, which CSS beats — so every size is stated here,
+ * or the glyph is the right shape in the wrong box. Colour needs nothing: Lucide strokes
+ * with `currentColor`.
  *
- * No background of its own, then — it inherits the page. The radial tint is gone with
- * it: on cream it read as a smudge rather than as light.
- */
-.hero {
-  position: relative;
-  padding: var(--space-16) 0 var(--space-20);
-  text-align: center;
-}
-
-.heroInner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-5);
-}
-
-/* The eyebrow pill. Matches `ui/Section`'s, because the hero is not a different kind
-   of page — it is the first section of one. */
-.kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-pill);
-  background: var(--fill-subtle);
-  color: var(--text-muted);
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-}
-
-/**
- * The wordmark. A gradient over text is invisible to a `forced-colors` user and to
- * anything that fails to paint it, so the colour underneath it is a real one — the
- * fallback is the brand navy, not transparent.
- */
-.wordmark {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--text-5xl);
-  font-weight: var(--weight-bold);
-  line-height: var(--leading-tight);
-  letter-spacing: -0.02em;
-  color: var(--text);
-}
-
-/**
- * The gradient runs **ink → gold**, which is the one place the two brand facts meet:
- * the product's voice is near-black, and gold is what a student earns from it.
+ * ## Motion on this page
  *
- * A `background-clip: text` gradient reads as `color: transparent` to an automated
- * contrast check, so the endpoints are measured against the surface instead. The
- * colour *underneath* is a real one, so a `forced-colors` reader or a failed paint
- * still sees the wordmark.
+ * The Daily Quiz button is the most animated thing here (brief §5.7). The rest is small
+ * and purposeful: the hero settles once, figures count up once, the journey and the
+ * flight path draw once, the podium rises once, and the feature tiles breathe. Anything
+ * that loops **scales and rotates in place — it never translates** (CLAUDE.md: a
+ * translated tile drifts out of the grid it is aligned to).
  */
-@supports (background-clip: text) or (-webkit-background-clip: text) {
-  .wordmark {
-    background: linear-gradient(100deg, var(--text), var(--accent-text));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
+
+.page {
+  /* Every in-page anchor clears the sticky header when the page scrolls to it. */
+  --anchor-offset: 96px;
 }
 
-@media (forced-colors: active) {
-  .wordmark {
-    background: none;
-    color: CanvasText;
-  }
+.page :is(section, div)[id] {
+  scroll-margin-top: var(--anchor-offset);
 }
 
-/** The expansion, set as part of the logotype. The one on-screen copy — see brand.ts. */
-.fullForm {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.tagline {
-  max-width: 46ch;
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
-}
-
-.heroActions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-3);
-  width: 100%;
-}
-
-.heroActions > * {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.heroFacts {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2) var(--space-5);
-  margin: var(--space-2) 0 0;
-  padding: 0;
-  list-style: none;
-  color: var(--text-muted);
-  /* `--text-base` rather than `--text-sm`: the icons beside these are 24px now, and a
-     13px label under a 24px icon reads as a caption rather than a fact. */
-  font-size: var(--text-base);
-  font-weight: var(--weight-medium);
-}
-
-.heroFacts li {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* `--text-4xl` is already a clamp, so the wordmark scales with the viewport on its own
-   and needs no size override here. */
-@media (min-width: 768px) {
-  .hero {
-    padding: var(--space-20) 0 var(--space-24);
-  }
-
-  .tagline {
-    font-size: var(--text-xl);
-    line-height: var(--leading-snug);
-  }
-
-  /* Full-width stacked buttons are right on a phone and absurd on a desktop. */
-  .heroActions > * {
-    flex: 0 0 auto;
-  }
-}
-
-/* --------------------------------------------------------------- layout ---- */
-
-/**
- * `--section-gap` rather than a hand-picked step, so this page's rhythm is the same
- * fluid measurement `ui/Section` uses everywhere else — 64px on a phone, 128px on a
- * desktop. Whitespace at that scale is the difference between spacious and padded,
- * and it is the one measurement a page cannot fake with borders.
- */
 .section {
-  padding-block: var(--section-gap);
+  padding-block: var(--space-12);
 }
 
-/**
- * A tinted slab, so the page reads as sections rather than one long scroll.
- *
- * The rules above and below it are gone: a five-point shift in surface lightness
- * already draws the edge, and a hairline on top of it states the boundary twice — the
- * thing that makes a page look ruled rather than composed.
- */
-/**
- * The alternating section band — and it had silently stopped existing.
- *
- * It painted `--bg`, which in Milestone 26 was `--ink-25` against a white `--surface`:
- * a faint off-white tint. Milestone 27 makes `--bg` the page itself, so this rule
- * became `background: <the page>` and the band vanished without anything erroring.
- * That is the characteristic failure of a token re-point — nothing breaks, a
- * distinction just quietly disappears.
- *
- * It is `--bg-subtle` now: the band the reference alternates with its page colour, which
- * is how it marks a section without drawing a line. `.stripeBlue` is the second tint
- * the reference uses, for the one band that should feel different rather than merely
- * next — it puts its people section on pale blue.
- *
- * **Both resolve to white in the light theme as of Milestone 28** (owner: white
- * everywhere), so neither paints a visible band there at present; sections are
- * separated by their own spacing and headings instead. The classes stay, and stay
- * pointed at the *tokens*, for two reasons: the dark theme still tints both, and if a
- * band is ever wanted back in light it is a one-line change in `tokens.css` rather
- * than a hunt through this file. Do not hardcode a tint here.
- */
-.stripe {
-  background: var(--bg-subtle);
-}
-
-.stripeBlue {
-  background: var(--band-accent);
-}
-
-/* `.sectionHead`, `.sectionHead h2` and `.sectionLead` were deleted here — `ui/Section`
-   owns all three now, along with the `aria-labelledby` wiring they never had. */
-
-.muted {
-  margin: var(--space-4) 0 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
+@media (min-width: 1024px) {
+  .section {
+    padding-block: var(--space-16);
+  }
 }
 
 /* ---------------------------------------------------------------- stats ---- */
 
-.statsSection {
-  padding-top: var(--space-8);
+.stats {
+  padding-block: 0 var(--space-6);
 }
 
 .statGrid {
@@ -238,35 +53,36 @@
   gap: var(--space-3);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1024px) {
   .statGrid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--space-4);
   }
 }
 
-/* ------------------------------------------------------------- features ---- */
+.statTile {
+  min-width: 0;
+}
+
+.statIcon {
+  width: 22px;
+  height: 22px;
+}
+
+/* The space "Can you crack this?" will take, so nothing below jumps when it arrives. */
+.crackPlaceholder {
+  min-height: 420px;
+}
+
+/* ---------------------------------------------------------------- about ---- */
 
 .featureGrid {
   display: grid;
-  grid-template-columns: 1fr;
   gap: var(--space-4);
-}
-
-.feature h3 {
-  margin: var(--space-5) 0 var(--space-2);
-  font-size: var(--text-lg);
-}
-
-.feature p {
   margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
+  padding: 0;
+  list-style: none;
 }
-
-/* `.featureIcon` was deleted — `ui/IconTile` carries the glyph now, with a per-feature
-   tone. See the note on `FEATURES` in Landing.tsx for why those colours are labels. */
 
 @media (min-width: 640px) {
   .featureGrid {
@@ -280,193 +96,182 @@
   }
 }
 
-/* ---------------------------------------------------------------- steps ---- */
-
-.steps {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-5);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
+.featureGrid > li {
+  display: flex;
+  min-width: 0;
 }
 
-.steps li {
+/* A card that is genuinely a link (or the quiz button) — the only kind that lifts. */
+.feature {
   display: flex;
-  gap: var(--space-4);
+  flex-direction: column;
   align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
 }
 
-.steps h3 {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-base);
+.feature:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
 }
 
-.steps p {
-  margin: 0;
-  color: var(--text-body);
-  font-size: var(--text-sm);
+.feature:active {
+  transform: scale(var(--press-scale));
 }
 
-/**
- * The step marker is the reference almost verbatim: a **pastel square with a hard
- * diagonal edge**, numbered 01, 02, 03.
- *
- * It was a green circle before. The square-with-an-offset is the same object as
- * `ui/IconTile` and is built the same way — `3px 3px 0` in the fill’s own companion —
- * but it is not that component, because it holds a *number* rather than an icon and
- * the numeral wants the mono face and tabular alignment.
- *
- * Each step takes a different pastel, by position. That is the one place a
- * categorical colour is doing its actual job on this page: telling three things apart
- * that are otherwise identical. Every pastel carries ink at 9:1 or better, so the
- * numeral is legible on all of them without a per-tone rule.
- */
-.stepNumber {
-  --step-edge: var(--cat-blue-edge);
+/* The tile breathes around its own centre; the glyph inside stays put. */
+.featureTile {
+  animation: tile-breathe var(--dur-idle) var(--ease-sine) infinite;
+}
+
+.featureGrid > li:nth-child(2) .featureTile {
+  animation-delay: -0.65s;
+}
+
+.featureGrid > li:nth-child(3) .featureTile {
+  animation-delay: -1.3s;
+}
+
+.featureGrid > li:nth-child(4) .featureTile {
+  animation-delay: -1.95s;
+}
+
+@keyframes tile-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.featureTile svg {
+  width: 26px;
+  height: 26px;
+}
+
+.featureTitle {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-sm);
-  background: var(--cat-blue);
-  color: var(--ink-900);
-  box-shadow: var(--tile-offset, 3px) var(--tile-offset, 3px) 0 0 var(--step-edge);
-  font-family: var(--font-mono);
-  font-size: var(--text-md);
+  gap: var(--space-2);
+  font-size: var(--type-card-title);
   font-weight: var(--weight-bold);
-  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
-.steps li:nth-child(2) .stepNumber {
-  --step-edge: var(--cat-green-edge);
-  background: var(--cat-green);
+.featureArrow {
+  width: 16px;
+  height: 16px;
+  color: var(--primary-text);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 
-.steps li:nth-child(3) .stepNumber {
-  --step-edge: var(--cat-magenta-edge);
-  background: var(--cat-magenta);
+.feature:hover .featureArrow {
+  transform: translateX(3px);
 }
 
-.steps li:nth-child(4) .stepNumber {
-  --step-edge: var(--cat-orange-edge);
-  background: var(--cat-orange);
-}
-
-@media (min-width: 768px) {
-  .steps {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--space-6) var(--space-8);
-  }
-}
-
-@media (min-width: 1024px) {
-  .steps {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .steps li {
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-}
-
-/* ----------------------------------------------------------- outcomes ---- */
-
-.outcomeGrid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-6);
-}
-
-.outcome h3 {
-  margin: var(--space-4) 0 var(--space-2);
-  font-size: var(--text-lg);
-}
-
-.outcome p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-md);
+.featureBody {
+  color: var(--text-body);
+  font-size: var(--type-small);
   line-height: var(--leading-normal);
 }
 
+/* -------------------------------------------------------------- journey ---- */
+
+.journeyCard {
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  min-width: 0;
+}
+
 @media (min-width: 768px) {
-  .outcomeGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--space-6);
+  .journeyCard {
+    padding: var(--space-6);
   }
 }
 
-/* ------------------------------------------------------------ champions ---- */
-
-.championGrid {
+.journeyList {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.champion h3 {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-lg);
+.journeyList li {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--fill-subtle);
 }
 
-.championRank {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+.journeyStep {
+  color: var(--primary-text);
+  font-size: var(--type-micro);
   font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
-/**
- * The podium marker. Colour comes from the per-rank class below, not from here — see
- * `PodiumMedal` in `Landing.tsx`. `--accent-text` (one gold for all three) was what
- * this carried before the ranks were told apart.
- */
-.championMedal {
-  font-size: var(--text-lg);
+.journeyTitle {
+  font-weight: var(--weight-bold);
+  color: var(--text);
 }
 
-.medalGold {
-  color: var(--medal-gold);
-}
-
-.medalSilver {
-  color: var(--medal-silver);
-}
-
-.medalBronze {
-  color: var(--medal-bronze);
-}
-
-.championSchool {
-  margin: var(--space-1) 0 0;
+.journeyText {
   color: var(--text-body);
-  font-size: var(--text-sm);
+  font-size: var(--type-small);
+  line-height: var(--leading-normal);
 }
 
-@media (min-width: 640px) {
-  .championGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+/* -------------------------------------------------------- top scholars ---- */
+
+.scholars,
+.scholarsTableOnly {
+  display: grid;
+  gap: var(--space-6);
+  align-items: end;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .scholars {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   }
+}
+
+.scholarTable {
+  padding: var(--space-2) var(--space-4);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  min-width: 0;
+  overflow-x: auto;
 }
 
 /* ------------------------------------------------------------------ FAQ ---- */
 
 .faqSection {
-  max-width: 48rem;
+  max-width: 52rem;
 }
 
 .faqList {
@@ -476,9 +281,9 @@
 }
 
 .faqItem {
+  border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  box-shadow: none;
 }
 
 .faqItem summary {
@@ -486,11 +291,11 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  /* A comfortable target: the whole row opens the answer, not just the words. */
+  /* The whole row opens the answer, not just the words. */
   min-height: var(--tap-target);
   padding: var(--space-4) var(--space-5);
   cursor: pointer;
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   list-style: none;
 }
 
@@ -512,360 +317,70 @@
   margin: 0;
   padding: 0 var(--space-5) var(--space-5);
   max-width: 72ch;
-  color: var(--text-muted);
-  font-size: var(--text-md);
+  color: var(--text-body);
   line-height: var(--leading-normal);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .faqCaret {
-    transition: none;
-  }
 }
 
 /* ------------------------------------------------------------------ CTA ---- */
 
+/* The closing banner: art, words and buttons on the pale brand tint. */
 .cta {
+  position: relative;
+  display: grid;
+  gap: var(--space-6);
+  align-items: center;
+  padding: var(--space-8) var(--space-5);
+  border-radius: var(--radius-2xl);
+  background: var(--band-accent);
+  border: var(--border-width) solid var(--card-border);
+  overflow: hidden;
   text-align: center;
 }
 
-.cta h2 {
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-3xl);
+@media (min-width: 900px) {
+  .cta {
+    grid-template-columns: 280px minmax(0, 1fr) 200px;
+    padding: var(--space-8) var(--space-10);
+    text-align: start;
+  }
+}
+
+.ctaArt {
+  justify-self: center;
+  width: min(100%, 260px);
+}
+
+.ctaCopy h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-section-title);
+  font-weight: var(--weight-black);
   letter-spacing: var(--tracking-display);
 }
 
-.cta p {
-  max-width: 52ch;
-  margin: 0 auto var(--space-8);
-  color: var(--text-muted);
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
+.ctaCopy p {
+  margin: 0 0 var(--space-5);
+  color: var(--text-body);
+  font-size: var(--type-body);
 }
 
-/* -------------------------------------------------- lucide icon sizing ---- */
-
-/**
- * The landing page's content icons are **Lucide** as of Milestone 28 (see the ADR —
- * the owner asked for it twice, and it overrides the standing "no second icon
- * library" rule for this one page). Everything else in the product, including this
- * page's navbar, footer and FAQ caret, is still Phosphor.
- *
- * Lucide renders an `<svg>` with `width`/`height` **attributes** of 24. A CSS
- * `width`/`height` beats an attribute, so the sizes below are what actually apply —
- * and they have to be stated, because the tiles were built around `ui/Icon`, which
- * takes its size from a prop rather than from the tile. Get these wrong and the glyph
- * is the right shape in the wrong box.
- *
- * `flex-shrink: 0` because most of these sit in a flex row beside a label, where an
- * `<svg>` is happy to be squashed out of square.
- *
- * Colour needs nothing: Lucide strokes with `currentColor`, so each tile's `-on`
- * colour reaches it the same way it reached the Phosphor glyph.
- */
-.feature > span svg,
-.outcome > span svg,
-.heroFacts li svg,
-.kicker svg,
-.steps h3 svg,
-.statGrid svg,
-svg.championMedal {
-  flex-shrink: 0;
+.ctaActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
 }
 
-/* `IconTile size="lg"` — matches `ui/Icon`'s `lg`, 24px. */
-.feature > span svg {
-  width: 24px;
-  height: 24px;
-}
-
-/* `IconTile size="md"` and `StatTile`'s own 20px. */
-.outcome > span svg,
-.statGrid svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* Beside a 15px label in the hero — see the note at the call site. */
-.heroFacts li svg {
-  width: 24px;
-  height: 24px;
-}
-
-/* The eyebrow is `--text-2xs`; a 24px icon in it would be taller than the pill. */
-.kicker svg {
-  width: 14px;
-  height: 14px;
-}
-
-.steps h3 svg {
-  width: 20px;
-  height: 20px;
-}
-
-/* 22px, up from 16 — the owner asked for these to be bigger, and they are the one
-   decorative glyph on the page that is meant to be noticed. */
-svg.championMedal {
-  width: 22px;
-  height: 22px;
-}
-
-/* ------------------------------------------------------- icon motion ---- */
-
-/**
- * Icon animation on the landing page (Milestone 28).
- *
- * ## Why CSS rather than an animated-icon library
- *
- * The owner asked for animated icons and named a React icon library. This product's
- * icons are **Phosphor as a webfont**, reached only through `ui/Icon`, and CLAUDE.md
- * forbids a second icon library — installing one would also have left this page's
- * glyphs looking unlike the ~50 other pages still on Phosphor. The owner chose this
- * route once that was pointed out. No dependency, no bundle cost.
- *
- * ## Three attempts, and the rule that came out of them
- *
- * **Hover only.** Invisible: nobody hovers a marketing page deliberately, and a phone
- * has *no hover at all*.
- *
- * **A 3–4px loop on the glyph.** Also invisible — too little travel to register, and
- * it moved a ~20px mark inside a large coloured tile while the tile, the thing that
- * catches the eye, stayed still.
- *
- * **A 16px bob on the tile.** Visible, and wrong in a new way: the owner's words were
- * that it took the icons *out of the box*. It did. Translating a tile 16px and tipping
- * it 10 degrees breaks the grid the cards are aligned on, so four tiles at four points
- * in the cycle read as four misaligned boxes rather than as one animated row.
- *
- * **So: SCALE AND ROTATE, NEVER TRANSLATE.** Every keyframe below leaves the element's
- * centre exactly where layout put it. A scale is anchored — it grows and shrinks around
- * that centre — and a rotation on the *glyph inside* a tile is contained by definition.
- * Nothing drifts out of alignment, and the motion is still large enough to see
- * (1.12–1.2 scale, ±10 degrees). If you add another icon here, keep it to those two
- * functions; `translate` is what broke it.
- *
- * ## The hover is on a different property, and that is not optional
- *
- * An `animation` beats a `transition` on the same property. The tile loops on
- * `transform`, so a hover `transform` on it silently never applies. Hover is
- * `filter: brightness()` — deliberately not `box-shadow`, which carries `--edge-tile`,
- * the keycap edge, and overriding it would delete the edge on hover.
- *
- * ## Still transform-only, still additive
- *
- * Nothing animates `opacity`; there are no entrance animations. A CSS animation may
- * never run in a tab that is not compositing, so a loop that does not fire leaves the
- * icon exactly where it was, whereas a fade-in that does not fire leaves content
- * *invisible*. Transform is also the cheap property — composited, no layout, no paint.
- * `prefers-reduced-motion` needs nothing: `base.css` flattens every animation with
- * `!important`.
- *
- * Stagger delays are literal negative offsets — a per-element detail that stops a dozen
- * icons pulsing in lockstep, not a design duration.
- */
-
-/* The tile breathes around its own centre. No translation: see the note above. */
-@keyframes tileBreathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.12);
+@media (min-width: 900px) {
+  .ctaActions {
+    justify-content: flex-start;
   }
 }
 
-/* The glyph swings inside the tile, which is contained by definition. */
-@keyframes glyphSwing {
-  0%,
-  100% {
-    transform: rotate(-10deg);
-  }
-  50% {
-    transform: rotate(10deg);
-  }
-}
-
-/* For a standalone icon with no tile around it. */
-@keyframes iconPulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-}
-
-/* A glyph anchored in place that tips further than `glyphSwing` — for the two medals,
-   which read as objects rather than as symbols. */
-@keyframes iconSway {
-  0%,
-  100% {
-    transform: rotate(-14deg);
-  }
-  50% {
-    transform: rotate(14deg);
-  }
-}
-
-/**
- * **Do not set `display` here.** An earlier version of this block declared
- * `display: inline-block` on these, believing an inline `<i>` could not be
- * transformed. That was wrong twice over: `ui/Icon` is already `inline-flex` (which
- * *is* transformable — only plain `display: inline` is not), and overriding it threw
- * away the `inline-flex` + `line-height: 1` that centres the glyph, so every glyph
- * dropped onto the text baseline and sat **visibly off-centre inside its tile**. The
- * tile is `inline-grid; place-items: center`, so its child is a grid item and is
- * blockified automatically — nothing needed the override in the first place.
- */
-.feature > span,
-.outcome > span,
-.feature > span :is(i, svg),
-.outcome > span :is(i, svg),
-.kicker :is(i, svg),
-.heroFacts li :is(i, svg),
-.steps h3 :is(i, svg),
-.statGrid :is(i, svg),
-.championMedal {
-  animation-iteration-count: infinite;
-  animation-timing-function: var(--ease-sine);
-}
-
-/* ---- the four feature tiles: breathe, with the glyph swinging inside ---- */
-
-.feature > span {
-  animation-name: tileBreathe;
-  animation-duration: var(--dur-idle);
-}
-
-.feature > span :is(i, svg) {
-  animation-name: glyphSwing;
-  animation-duration: var(--dur-idle);
-}
-
-.featureGrid > *:nth-child(2) > span,
-.featureGrid > *:nth-child(2) > span :is(i, svg) {
-  animation-delay: -0.65s;
-}
-
-.featureGrid > *:nth-child(3) > span,
-.featureGrid > *:nth-child(3) > span :is(i, svg) {
-  animation-delay: -1.3s;
-}
-
-.featureGrid > *:nth-child(4) > span,
-.featureGrid > *:nth-child(4) > span :is(i, svg) {
-  animation-delay: -1.95s;
-}
-
-/* ---- the three outcome tiles ---- */
-
-.outcome > span {
-  animation-name: tileBreathe;
-  animation-duration: var(--dur-idle-slow);
-}
-
-.outcome > span :is(i, svg) {
-  animation-name: glyphSwing;
-  animation-duration: var(--dur-idle-slow);
-}
-
-.outcomeGrid > *:nth-child(2) > span,
-.outcomeGrid > *:nth-child(2) > span :is(i, svg) {
-  animation-delay: -1.1s;
-}
-
-.outcomeGrid > *:nth-child(3) > span,
-.outcomeGrid > *:nth-child(3) > span :is(i, svg) {
-  animation-delay: -2.2s;
-}
-
-/* ---- the step markers and their heading glyphs ---- */
-
-/* `.stepNumber` is declared once, above — it is already `inline-flex`. Only the
-   animation is added here. */
-.stepNumber {
-  animation: tileBreathe var(--dur-idle) var(--ease-sine) infinite;
-}
-
-.steps h3 :is(i, svg) {
-  animation-name: glyphSwing;
-  animation-duration: var(--dur-idle);
-}
-
-.steps li:nth-child(2) .stepNumber,
-.steps li:nth-child(2) h3 i {
-  animation-delay: -0.65s;
-}
-
-.steps li:nth-child(3) .stepNumber,
-.steps li:nth-child(3) h3 i {
-  animation-delay: -1.3s;
-}
-
-.steps li:nth-child(4) .stepNumber,
-.steps li:nth-child(4) h3 i {
-  animation-delay: -1.95s;
-}
-
-/* ---- the hero ---- */
-
-.kicker :is(i, svg) {
-  animation-name: iconSway;
-  animation-duration: var(--dur-idle);
-}
-
-/* The three facts are 24px icons now, so a pulse on them is plainly visible without
-   any of them leaving the row they are aligned on. */
-.heroFacts li :is(i, svg) {
-  animation-name: iconPulse;
-  animation-duration: var(--dur-idle);
-}
-
-.heroFacts li:nth-child(2) i {
-  animation-delay: -0.85s;
-}
-
-.heroFacts li:nth-child(3) i {
-  animation-delay: -1.7s;
-}
-
-/* ---- participation figures and the podium medal ---- */
-
-.statGrid :is(i, svg) {
-  animation-name: iconPulse;
-  animation-duration: var(--dur-idle);
-}
-
-.statGrid > *:nth-child(2) i {
-  animation-delay: -0.65s;
-}
-
-.statGrid > *:nth-child(3) i {
-  animation-delay: -1.3s;
-}
-
-.statGrid > *:nth-child(4) i {
-  animation-delay: -1.95s;
-}
-
-.championMedal {
-  animation-name: iconSway;
-  animation-duration: var(--dur-idle-slow);
-}
-
-/**
- * The pointer response. `filter`, **not** `transform` — the tile is looping on
- * transform and an animation beats a transition on the same property.
- */
-.feature > span,
-.outcome > span {
-  transition: filter var(--dur) var(--ease-out);
-}
-
-.feature:hover > span,
-.feature:focus-within > span,
-.outcome:hover > span {
-  filter: brightness(1.09) saturate(1.12);
+.ctaHand {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: var(--text-2xl);
+  line-height: 1.1;
+  color: var(--primary-text);
+  transform: rotate(-4deg);
 }

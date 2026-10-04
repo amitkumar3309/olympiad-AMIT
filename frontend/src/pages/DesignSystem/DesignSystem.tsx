@@ -74,20 +74,20 @@ const SAMPLE_OPTIONS = [
 const LETTERS = ['A', 'B', 'C', 'D']
 
 const SAMPLE_JOURNEY = [
-  { key: 'm1', caption: 'Month 1', title: 'Number Forest', state: 'done' as const },
-  { key: 'm2', caption: 'Month 2', title: 'Logic Valley', state: 'done' as const },
-  { key: 'm3', caption: 'Month 3', title: 'Algebra Castle', state: 'current' as const },
-  { key: 'm4', caption: 'Month 4', title: 'Geometry Temple', state: 'locked' as const },
-  { key: 'm5', caption: 'Month 5', title: 'Speed Arena', state: 'locked' as const },
-  { key: 'm6', caption: 'Month 6', title: 'Olympiad Kingdom', state: 'locked' as const },
+  { key: 's1', caption: 'Step 1', title: 'Enrolled', state: 'done' as const },
+  { key: 's2', caption: 'Step 2', title: 'Email verified', state: 'done' as const },
+  { key: 's3', caption: 'Step 3', title: 'First practice', state: 'current' as const },
+  { key: 's4', caption: 'Step 4', title: 'First Daily Quiz', state: 'locked' as const },
+  { key: 's5', caption: 'Step 5', title: 'Three days running', state: 'upcoming' as const },
+  { key: 's6', caption: 'Step 6', title: 'First mock test', state: 'upcoming' as const },
 ]
 const JOURNEY_ART = [
-  'journey-number-forest',
-  'journey-logic-valley',
-  'journey-algebra-castle',
-  'journey-geometry-temple',
-  'journey-speed-arena',
-  'journey-olympiad-kingdom',
+  'journey-enrolled',
+  'journey-verified',
+  'journey-first-practice',
+  'journey-first-quiz',
+  'journey-habit',
+  'journey-first-mock',
 ] as const
 
 /**
@@ -1110,7 +1110,7 @@ export default function DesignSystem() {
           </p>
           <Card>
             <JourneyTrack
-              label="Sample: six-month journey"
+              label="Sample: the journey (done, current, locked, upcoming)"
               stages={SAMPLE_JOURNEY.map((stage, i) => ({ ...stage, art: <Illustration name={JOURNEY_ART[i]!} /> }))}
             />
           </Card>

@@ -71,8 +71,8 @@ export const JOURNEY_STAGES: readonly JourneyStageDefinition[] = [
   },
   {
     id: 'first_challenge',
-    title: 'First daily challenge',
-    description: 'Answer the question of the day. One a day is the habit that builds a streak.',
+    title: 'First Daily Quiz',
+    description: 'Answer a Daily Quiz. One question a day is the habit that builds a streak.',
     icon: 'ph-dice-five',
     measure: (f) => reach(f.challengesCompleted, 1),
   },
