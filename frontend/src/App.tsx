@@ -31,6 +31,13 @@ const AdminQuestionImport = lazy(() => import('./pages/Admin/QuestionImport'))
 const AdminTaxonomy = lazy(() => import('./pages/Admin/Taxonomy'))
 const AiGenerator = lazy(() => import('./pages/AiGenerator/AiGenerator'))
 const NotFound = lazy(() => import('./pages/NotFound/NotFound'))
+// The legal pages and the Daily Quiz rules (Milestone 30, Phase 3) — public, and drafts
+// marked TODO(legal-review) until the owner has reviewed them.
+const RewardsRules = lazy(() => import('./pages/Legal/RewardsRules'))
+const Privacy = lazy(() => import('./pages/Legal/Privacy'))
+const Terms = lazy(() => import('./pages/Legal/Terms'))
+const Refunds = lazy(() => import('./pages/Legal/Refunds'))
+const Contact = lazy(() => import('./pages/Legal/Contact'))
 /** Same reasoning: the session runner renders question content through KaTeX. */
 const PracticeSessionPage = lazy(() => import('./pages/Practice/PracticeSession'))
 /**
@@ -563,6 +570,13 @@ export default function App() {
               check a document without an account. Both forms so a pasted code works. */}
           <Route path="/verify" element={<VerifyCertificate />} />
           <Route path="/verify/:code" element={<VerifyCertificate />} />
+          {/* Public: the footer's Legal column. `/rewards/rules` is a page of its own,
+              not a child of the student's `/rewards` (XP and badges), which is guarded. */}
+          <Route path="/rewards/rules" element={<RewardsRules />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/refunds" element={<Refunds />} />
+          <Route path="/contact" element={<Contact />} />
           <Route
             path="/notifications"
             element={

@@ -1,42 +1,42 @@
 import { Link } from 'react-router-dom'
 import DeveloperCredit from './DeveloperCredit'
 import { Icon } from './ui'
-import { AMIT_SHORT, SUPPORT, SUPPORT_TEL_HREF } from '../lib/brand'
+import logoMark from '../assets/logo-mark.png'
+import { AMIT_OLYMPIAD, AMIT_TAGLINE, SUPPORT, SUPPORT_TEL_HREF } from '../lib/brand'
 import styles from './Footer.module.css'
 
 /**
- * The footer, on every public page.
+ * The footer, on every public page (Legal column added in Milestone 30, Phase 3 — brief
+ * §7.1 #12).
  *
- * It carries the four-letter name and nothing more. The **full form appears once, in
+ * It carries the name and the tagline and nothing more. The **full form appears once, in
  * the landing page hero, and nowhere else on screen** — the owner's instruction on
- * 2026-08-28, after a revision that also put it here and in an About section was
- * rejected as repetitive. It remains in the page metadata, where it is read by search
- * engines rather than by people.
+ * 2026-08-28, after a revision that also put it here was rejected as repetitive.
  *
- * Milestone 23 Phase B gave it the job of holding what the header stopped holding: the
- * result and certificate lookups, and the administrator's door. They are utilities —
- * things a visitor comes looking for, rather than places to browse — and a footer is
- * where a utility is conventionally found. Nothing became unreachable; the header
- * simply stopped giving eight destinations equal weight.
+ * It holds what the header does not: the result and certificate lookups, Hall of Fame,
+ * the help line and — new — the Legal column. Every link goes to a page that exists; the
+ * brief's rule is that a footer link to a page not yet built is hidden, not dead.
  *
- * The helpline and support address are real and are now actual `tel:` and `mailto:`
- * links, which on a phone is the difference between a number and a phone call.
+ * The helpline and support address are real `tel:` and `mailto:` links, owner-confirmed
+ * on 2026-10-04 (`lib/brand.ts`); on a phone that is the difference between a number and
+ * a phone call.
  */
-
-// Moved to `lib/brand.ts` in Milestone 25 Phase C: the verification screens need the
-// same address, and a second copy of "how to reach us" is a second thing to keep right.
-const HELPLINE = SUPPORT.phone
-const SUPPORT_EMAIL = SUPPORT.email
 
 export default function Footer() {
   return (
     <footer className={styles.footer}>
       <div className={`container ${styles.inner}`}>
         <div className={styles.brandCol}>
-          <p className={styles.brand}>{AMIT_SHORT} Olympiad</p>
+          <Link to="/" className={styles.brandLink}>
+            <img src={logoMark} alt="" aria-hidden="true" className={styles.mark} />
+            <span className={styles.brandText}>
+              <span className={styles.brand}>{AMIT_OLYMPIAD}</span>
+              <span className={styles.brandTagline}>{AMIT_TAGLINE}</span>
+            </span>
+          </Link>
           <p className={styles.tagline}>
-            A national mathematics olympiad for Class 3 to Class 12, open to every school board.
-            Practice, mock tests and the Daily Quiz are free.
+            A national mathematics olympiad for Class 3 to Class 12, open to every school board. Practice, mock tests
+            and the Daily Quiz are free.
           </p>
         </div>
 
@@ -50,7 +50,7 @@ export default function Footer() {
         <nav className={styles.col} aria-label="Results and certificates">
           <h2 className={styles.colTitle}>Results</h2>
           <Link to="/result">Check a result</Link>
-          <Link to="/certificate">Certificate</Link>
+          <Link to="/certificate">Certificates</Link>
           <Link to="/verify">Verify a certificate</Link>
         </nav>
 
@@ -59,38 +59,38 @@ export default function Footer() {
           <Link to="/#login">Sign in</Link>
           <Link to="/register">Register</Link>
           {/*
-            **There is no Administrator link here, and there must not be one.**
-
-            Phase B moved it out of the public *header* into this footer, reasoning that
-            it was then one click from every page without the header advertising it. The
-            footer is still the public UI on every page, so that only made it quieter,
-            not absent — and Milestone 28's rule is that there is exactly **one** sign-in
-            entry point for everybody. Staff use the same "Sign in" above; the server
-            returns their role and `roleHome()` sends them to `/admin`.
-
-            Two reasons it stays gone. It advertises where the admin door is on the most
-            public surface in the product; and it tells a *promoted* admin — an ordinary
-            student account carrying a role — that there is a separate door they should
-            be using, when there is not.
+            **There is no Administrator link here, and there must not be one** (Milestone
+            28): exactly one sign-in entry point for everybody; staff use "Sign in" and the
+            server's role sends them to `/admin`. A footer is on every public page, so an
+            admin link here would advertise the door on the most public surface there is.
           */}
+        </nav>
+
+        <nav className={styles.col} aria-label="Legal">
+          <h2 className={styles.colTitle}>Legal</h2>
+          <Link to="/privacy">Privacy Policy</Link>
+          <Link to="/terms">Terms of Use</Link>
+          <Link to="/rewards/rules">Daily Quiz &amp; Rewards Rules</Link>
+          <Link to="/refunds">Refund &amp; Cancellation</Link>
+          <Link to="/contact">Contact us</Link>
         </nav>
 
         <div className={styles.col}>
           <h2 className={styles.colTitle}>Help</h2>
           <a href={SUPPORT_TEL_HREF} className={styles.contact}>
             <Icon name="ph-phone" size="sm" />
-            <span>{HELPLINE}</span>
+            <span>{SUPPORT.phone}</span>
           </a>
-          <a href={`mailto:${SUPPORT_EMAIL}`} className={styles.contact}>
+          <a href={`mailto:${SUPPORT.email}`} className={styles.contact}>
             <Icon name="ph-envelope-simple" size="sm" />
-            <span>{SUPPORT_EMAIL}</span>
+            <span>{SUPPORT.email}</span>
           </a>
         </div>
       </div>
 
       <div className={`container ${styles.legal}`}>
         <p>
-          © {new Date().getFullYear()} {AMIT_SHORT}. Olympiad. All Rights Reserved.
+          © {new Date().getFullYear()} {AMIT_OLYMPIAD}. All rights reserved.
         </p>
         <DeveloperCredit />
       </div>

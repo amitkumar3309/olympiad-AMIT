@@ -27,8 +27,21 @@
  * title behind a script would cost every visitor a render for a string that never changes.
  */
 
-/** The four letters, punctuated the way the rest of the product punctuates them. */
-export const AMIT_SHORT = 'A.M.I.T'
+/**
+ * The four letters, punctuated the way the launch mockups punctuate them — **with** the
+ * trailing stop (PLAN.md Q10, Milestone 30). It was `A.M.I.T` until then, while the hero
+ * and the navbar already wrote `A.M.I.T.`; one constant is what stops that drifting again.
+ *
+ * The printed certificate's `A.M.I.T MATHS OLYMPIAD` does not use this and is deliberately
+ * left alone: it is a record of what was handed to somebody.
+ */
+export const AMIT_SHORT = 'A.M.I.T.'
+
+/** The name in running text and on the homepage: "A.M.I.T. Olympiad". */
+export const AMIT_OLYMPIAD = `${AMIT_SHORT} Olympiad`
+
+/** The line under the wordmark in the header and footer (the mockups' "THINK • SOLVE • GROW"). */
+export const AMIT_TAGLINE = 'Think • Solve • Grow'
 
 /**
  * The official expansion, owner-supplied on 2026-08-28.
