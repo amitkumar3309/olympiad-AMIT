@@ -87,6 +87,7 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 - **Response 201**: `{ success, message, requiresEmailVerification, student }` — and **no session cookies**. The student must verify first. `student` now includes the registration details (`dateOfBirth` as `YYYY-MM-DD`), but never the photo bytes.
 - **Errors**: `400` validation, `409` duplicate email *or* duplicate mobile (distinct messages), `413` body too large, `429`, `503`, `500`.
 - **Side effects**: writes a `StudentPhoto` document, and emails a single-use verification link valid for 24 hours. `fullName` is **derived** from the three name parts by the schema — do not send it. If the photo write fails, the just-created account is deleted again, so an account never exists without its mandatory photo.
+- **`next`** (optional, Milestone 30 Phase 3): where the student was going — the Login Gate sends `/daily-quiz`. One of the **exact** paths in `lib/nextPaths.ts` (mirrored by `frontend/src/lib/nextPath.ts`); it is appended to the verification link as `&next=…` so the destination survives the email. Anything else — a URL, `//host`, a query string, a path not on the list — is **dropped, not refused**: it only steers navigation, and an open redirect in an email sent from our address to any typed address is the risk the exact list exists to remove. Never stored on the account.
 
 ### `POST /api/v1/auth/verify-email`
 
@@ -101,7 +102,7 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 
 **Rate limited to one link every five minutes per account** (2026-09-02), measured from the age of the live link rather than from a counter. The response carries `nextResendAt`, an absolute instant the client counts down to; `POST /auth/register` carries it too, so the success screen can start the wait immediately. **`nextResendAt` is always "five minutes from now" and is not the true remaining window**: this endpoint answers identically for an address that is not registered, and a truthful figure would leak which addresses exist. The real window is enforced server-side, so a client timer can never expire before the server would allow the next send. An early request answers 200 and sends nothing.
 - **Auth**: none. **Rate limit**: 5/hour.
-- **Request**: `{ email }`
+- **Request**: `{ email, next? }` — `next` as on `/auth/register`: an exact in-app path carried into the new link, or dropped.
 - **Response 200**: always the same generic message, whether or not the address exists or is already verified — this endpoint must not reveal which addresses are registered.
 
 ### `POST /api/v1/auth/login`

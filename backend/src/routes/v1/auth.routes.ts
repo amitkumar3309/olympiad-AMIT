@@ -22,6 +22,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
 } from '../../validation/authSchemas';
+import type { NextPath } from '../../lib/nextPaths';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { hashPassword, verifyPassword } from '../../lib/password';
 import { permissionsFor, isPrivilegedRole } from '../../lib/permissions';
@@ -214,14 +215,14 @@ interface VerificationTiming {
   queued: boolean;
 }
 
-async function sendVerificationLink(student: StudentDocument): Promise<VerificationTiming> {
+async function sendVerificationLink(student: StudentDocument, next?: NextPath): Promise<VerificationTiming> {
   const tokenStartedAt = Date.now();
   const { token } = await issueVerificationToken(studentObjectId(student), 'email_verify');
   const tokenMs = Date.now() - tokenStartedAt;
 
   const enqueueStartedAt = Date.now();
   const result = await enqueueEmail({
-    ...buildVerificationEmail(student.email, token),
+    ...buildVerificationEmail(student.email, token, next),
     category: 'transactional',
     student: studentObjectId(student),
   });
@@ -240,7 +241,8 @@ async function sendVerificationLink(student: StudentDocument): Promise<Verificat
  * account.
  */
 router.post('/auth/register', registerLimiter, validate({ body: registerSchema }), ensureDb, async (req, res) => {
-  const { photo, password, referralCode, ...details } = req.body as RegisterInput;
+  // `next` is taken out here so it can never reach `Student.create()` with the details.
+  const { photo, password, referralCode, next, ...details } = req.body as RegisterInput;
 
   /** Checkpoint 1 of the email timing trail. See `VerificationTiming`. */
   const requestStartedAt = Date.now();
@@ -355,7 +357,7 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
     // must not undo a completed registration.
     await grantReward({ student: studentObjectId(student), event: 'account_created' });
 
-    const timing = await sendVerificationLink(student);
+    const timing = await sendVerificationLink(student, next);
 
     /**
      * The application-side half of the email timing trail, in one line.
@@ -582,7 +584,7 @@ router.post(
   async (req, res) => {
     const genericMessage = 'If that address needs verification, a new link is on its way.';
     try {
-      const { email } = req.body as { email: string };
+      const { email, next } = req.body as { email: string; next?: NextPath };
       const student = await Student.findOne({ email });
       if (student && !student.isEmailVerified && student.status === 'active') {
         /**
@@ -604,7 +606,7 @@ router.post(
             'Verification resend refused: a link sent within the cooldown is still live',
           );
         } else {
-          await sendVerificationLink(student);
+          await sendVerificationLink(student, next);
         }
       }
       sendSuccess(res, 200, { message: genericMessage, nextResendAt: nextResendAt() });
