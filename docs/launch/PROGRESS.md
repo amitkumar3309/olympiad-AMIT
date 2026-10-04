@@ -7,8 +7,8 @@ _Last updated 2026-10-04._
 ## Current state
 
 **Phase 3 (the homepage and the way into the Daily Quiz) complete on branch
-`feat/diwali-launch-phase-3`**, which is based on `feat/diwali-launch-phase-2` (PR #2, not yet merged
-when Phase 3 began). **Waiting for the owner's "continue" before Phase 4 (the student dashboard).**
+`feat/diwali-launch-phase-3`** (PR #3), replayed onto `main` after PR #2 was squash-merged
+(`964260c`). **Waiting for the owner's "continue" before Phase 4 (the student dashboard).**
 
 ## Tasks
 
@@ -66,6 +66,23 @@ owner reviews; **Q9** `+91-97828-70716` and `support@amitolympiad.me`. New, from
   Quiz → Import a file); if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel
   project, update them (a set variable beats the new default); supply the illustrations
   (`ASSETS_NEEDED.md` — placeholders until then).
+
+## Phase 3 — deviations from the landing mockup, and why
+
+Compared side by side with `docs/design/mockup-landing.jpeg` (screenshots in
+`docs/launch/screenshots/phase-3/`):
+
+| Mockup | Built | Why |
+|---|---|---|
+| Sunday Math Boss Battle and Month-End Booster cards | Absent | The events do not exist (PLAN.md Q6); a reward card is a promise. |
+| "Your 6-Month Mathematical Journey" (Number Forest → Olympiad Kingdom) | "Your journey to the Olympiad" — the nine real milestones | Owner's choice (Q7): no programme calendar sits behind the themed months. |
+| Four question tabs | Mathematics only, no tab row | The other three are drafts awaiting the owner (Q8); a tab row of one is a control with nothing to choose. |
+| Options always four in a row | Four in a row for short answers, one per row for wordy ones | Sentences in quarter-width tiles broke mid-word on a phone. |
+| Stat sub-lines "across India", "solving now…" | Labels only | Schools are free text (not countable as "across India"); "active today" is since IST midnight, not now. |
+| A podium of three | A podium only when ranks 1-2-3 are distinct, else the table | Equal XP shares a rank; level students on steps 1-2-3 would be a false ranking. |
+| Illustrations (student, trophy, gift, journey scenes, climber) | Placeholders | Art not supplied yet — `ASSETS_NEEDED.md`; dropping files in needs no code. |
+| The mockup's sample question | Corrected (123/7 is an option) | The mockup's version had no correct option (brief Appendix B). |
+| — | "About the Olympiad" and FAQ sections | Targets of the navbar's About and FAQ links (not visible in the mockup's crop). |
 
 ## Notes for the next session
 
