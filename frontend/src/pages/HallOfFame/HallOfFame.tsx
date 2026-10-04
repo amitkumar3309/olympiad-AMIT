@@ -177,8 +177,8 @@ export default function HallOfFame() {
       </div>
 
       <p className={styles.footNote}>
-        Names are shown as a first name and a last initial, because the entrants are children and this page is public.
-        Equal achievements share a rank. Accounts that are suspended or deactivated do not appear.{' '}
+        Names are shown as a first name and a last initial, because the entrants are children and this page is public —
+        and a student can hide even that from My Profile. Equal achievements share a rank. Accounts that are suspended or deactivated do not appear.{' '}
         <Link to="/leaderboard" className="link">
           See the full leaderboard
         </Link>

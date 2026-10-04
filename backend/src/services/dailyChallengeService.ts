@@ -50,7 +50,7 @@ import {
 } from '../models';
 import { findImplicitSubject, type Actor } from './taxonomyService';
 import { gradeEntry } from './grading';
-import { displayNameFor } from './leaderboardService';
+import { publicListingFor } from './leaderboardService';
 
 /**
  * The Daily Quiz — scheduling one, serving today's, the Start/submit pair, the reveal,
@@ -1734,12 +1734,13 @@ export async function publicRecentWinners(limit: number) {
     .map((row) => {
       const student = row.student as unknown as StudentDocument | null;
       if (!student || student.status !== 'active') return null;
-      const hidden = student.hideFromPublicLists === true;
+      // The same opt-out every public list applies — decided in one place.
+      const listing = publicListingFor(student);
       return {
         day: row.day,
-        displayName: hidden ? `A ${student.classLevel ?? ''} student`.replace(/\s+/g, ' ').trim() : displayNameFor(student),
+        displayName: listing.displayName,
         classLevel: student.classLevel ?? null,
-        place: hidden ? null : (student.city?.trim() || student.schoolName?.trim() || null),
+        place: listing.city ?? listing.schoolName,
         prizeText: row.prizeText ?? null,
       };
     })

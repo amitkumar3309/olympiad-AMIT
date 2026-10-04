@@ -67,6 +67,8 @@ interface SeedOptions {
   lastName?: string;
   classLevel?: ClassLevel;
   schoolName?: string;
+  city?: string;
+  hideFromPublicLists?: boolean;
   status?: 'active' | 'suspended' | 'deactivated';
 }
 
@@ -89,6 +91,8 @@ async function seedStudent(options: SeedOptions = {}): Promise<StudentDocument> 
     studentId: `AMIT_${n}`,
     isEmailVerified: true,
     status: options.status ?? 'active',
+    ...(options.city !== undefined ? { city: options.city } : {}),
+    ...(options.hideFromPublicLists !== undefined ? { hideFromPublicLists: options.hideFromPublicLists } : {}),
   });
 }
 
@@ -564,6 +568,58 @@ describe('GET /leaderboard', () => {
     const versioned = await request(app).get(`${API}/leaderboard`).expect(200);
     const alias = await request(app).get('/api/leaderboard').expect(200);
     expect(alias.body.leaderboard).toEqual(versioned.body.leaderboard);
+  });
+});
+
+// ===========================================================================
+// The public-list opt-out (Milestone 30 — brief §3)
+// ===========================================================================
+
+describe('a student who opted out of public lists', () => {
+  it('keeps their rank but is named only by class, with no school and no city', async () => {
+    await studentWith(500, { firstName: 'Visible', lastName: 'Pupil', city: 'Jaipur', schoolName: 'Shown School' });
+    await studentWith(400, {
+      firstName: 'Hidden',
+      lastName: 'Pupil',
+      classLevel: 'Class 7',
+      city: 'Kota',
+      schoolName: 'Secret School',
+      hideFromPublicLists: true,
+    });
+    await studentWith(300, { firstName: 'Third', lastName: 'Pupil' });
+
+    const res = await request(app).get(`${API}/leaderboard`).expect(200);
+    const rows = res.body.leaderboard as Array<Record<string, unknown>>;
+
+    // Their place is still theirs — nobody below moves up.
+    expect(rows.map((row) => row.rank)).toEqual([1, 2, 3]);
+    expect(rows[0]).toMatchObject({ displayName: 'Visible P.', schoolName: 'Shown School', city: 'Jaipur' });
+    expect(rows[1]).toMatchObject({ displayName: 'A Class 7 student', classLevel: 'Class 7', schoolName: null, city: null });
+
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain('Hidden');
+    expect(body).not.toContain('Kota');
+    expect(body).not.toContain('Secret School');
+  });
+
+  it('is anonymous on every Hall of Fame board as well', async () => {
+    const hidden = await studentWith(900, {
+      firstName: 'Hidden',
+      lastName: 'Pupil',
+      classLevel: 'Class 7',
+      schoolName: 'Secret School',
+      hideFromPublicLists: true,
+    });
+    // A two-day streak, so the streak board honours them too.
+    await award(hidden, 10, shiftDay(TODAY, 1));
+
+    const view = await getHallOfFame(5, TODAY);
+    for (const code of ['xp_champions', 'streak_legends'] as const) {
+      const entry = boardOf(view, code).entries[0];
+      expect(entry).toMatchObject({ displayName: 'A Class 7 student', schoolName: null });
+    }
+    expect(JSON.stringify(view)).not.toContain('Secret School');
+    expect(JSON.stringify(view)).not.toContain('Hidden');
   });
 });
 

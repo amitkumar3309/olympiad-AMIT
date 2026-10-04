@@ -1179,10 +1179,14 @@ export interface AchievementSummary {
 export interface LeaderboardRow {
   rank: number
   studentId: string
-  /** First name plus last initial — the backend never publishes a child's full name. */
+  /**
+   * First name plus last initial — the backend never publishes a child's full name. For a
+   * student who opted out of public lists it is "A Class 7 student", and both places are null.
+   */
   displayName: string
   classLevel: string | null
   schoolName: string | null
+  city: string | null
   xp: number
 }
 
