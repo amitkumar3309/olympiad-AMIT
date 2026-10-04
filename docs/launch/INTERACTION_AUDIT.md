@@ -107,8 +107,8 @@ Phase 2), `/rewards/rules`, `/privacy`, `/terms`, `/refund-policy`, `/contact`, 
 | Footer.tsx:45-47 | Leaderboard · Hall of Fame · Event gallery | Link | routes | ✅ | — |
 | Footer.tsx:52-54 | Check a result · Certificate · Verify a certificate | Link | `/result` `/certificate` `/verify` | ⚠️ D6 | — |
 | Footer.tsx:59-60 | Sign in · Register | Link | `/#login`, `/register` | ✅ | — |
-| Footer.tsx:80 | +91 9782870716 | `tel:` | `tel:+919782870716` | ✅ (differs from mockup — see PLAN §owner questions) | — |
-| Footer.tsx:84 | support@amitolympiad.com | `mailto:` | same | ✅ (differs from mockup) | — |
+| Footer.tsx:80 | +91-97828-70716 | `tel:` | `tel:+919782870716` | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
+| Footer.tsx:84 | support@amitolympiad.me | `mailto:` | same | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
 | DeveloperCredit.tsx:38 | Sachin Kukkar | a, new tab, `noopener noreferrer` | sachinkukkar.tech | ✅ | — |
 | Landing.tsx:363 / 582 | Register | ButtonLink | `/register` (`?ref=` carried) | ✅ | — |
 | Landing.tsx:366 / 585 | Sign in · I already have an account | Button | opens LoginDialog | ✅ | — |

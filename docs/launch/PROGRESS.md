@@ -39,11 +39,13 @@ Login Gate, the Rewards section and the rules page — continues on top of it.
 
 ## Open questions for the owner
 
-PLAN.md §5 decision log: Q3 (prize budget — three class groups a day with one winner each is about 90
-prizes a month; the model supports any range per day), Q7 (journey content), Q8 (Logic / Reasoning /
-Brainstorming sample questions), Q9 (which phone and email are correct). **New owner action:** load at
-least the first two weeks of quiz questions before launch (Admin → Daily Quiz → Import a file — the
-CSV template is there).
+All four answered on 2026-10-04 (PLAN.md §5 decision log): **Q3** three class groups a day; **Q7** map the
+nine existing milestones in the mockup's style; **Q8** Claude drafts Logic / Reasoning / Brainstorming,
+the owner reviews before any goes live; **Q9** `+91-97828-70716` (exactly that format) and
+`support@amitolympiad.me` — applied on the Phase 2 branch. **Owner actions:** load at least the first two
+weeks of quiz questions before launch (Admin → Daily Quiz → Import a file — the CSV template is there),
+and if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel project, update them
+(a set variable beats the new default).
 
 ## Notes for the next session
 

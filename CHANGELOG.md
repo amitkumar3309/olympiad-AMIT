@@ -49,6 +49,9 @@ The daily challenge became the **Daily Quiz** — one question a day per class r
   question is refused until its reveal; deleting a used one is refused. A Daily Quiz content reset
   keeps every prize decision.
 - `seed-demo.ts` no longer schedules anything; `seed-dev-quizzes.ts` seeds verified quizzes locally.
+- **Contact details, owner-confirmed:** the helpline is printed as `+91-97828-70716` and the support
+  address is `support@amitolympiad.me` — footer, the verification screens, every email's help line
+  and the invoice defaults (`INVOICE_ORG_*`). The `tel:` link dials the digits only.
 - **Tests**: backend 1324 / 38 files (three new quiz suites replacing the challenge suite, including
   the answer-key leak test across midnight); a new **Playwright** end-to-end suite (`npm run e2e`)
   with its own in-memory backend and test-only hooks that cannot exist in production.

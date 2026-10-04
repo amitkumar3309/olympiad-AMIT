@@ -291,8 +291,8 @@ its own footer.
 |---|---|---|---|
 | `INVOICE_ORG_NAME` | optional | The organisation name on the invoice. | `A.M.I.T Maths Olympiad` (the default) |
 | `INVOICE_ORG_ADDRESS` | optional | Registered address. **Lines separated by `\|`.** Omitted from the document entirely when unset — an invoice with a blank address line looks like one that failed to render. | `2nd Floor, 14 Example Road\|Jaipur, Rajasthan 302001` |
-| `INVOICE_ORG_EMAIL` | optional | Contact address printed on the invoice and quoted in its footer. | `support@amitolympiad.com` (the default) |
-| `INVOICE_ORG_PHONE` | optional | Contact number. | `+91 9782870716` (the default) |
+| `INVOICE_ORG_EMAIL` | optional | Contact address printed on the invoice and quoted in its footer. | `support@amitolympiad.me` (the default) |
+| `INVOICE_ORG_PHONE` | optional | Contact number, printed exactly as given — the owner's format is `+91-97828-70716`. | `+91-97828-70716` (the default) |
 | `INVOICE_GSTIN` | optional | GST registration number. **Never defaulted.** With it set the document is titled `TAX INVOICE` and the number is printed; with it unset the document is titled `INVOICE` and says nothing about tax at all. | `29ABCDE1234F1Z5` |
 | `INVOICE_TAX_NOTE` | optional | One line of tax or legal wording, printed verbatim under the total. Free text, because only your accountant knows what is correct. | `Not registered for GST.` |
 

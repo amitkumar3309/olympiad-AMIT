@@ -230,8 +230,9 @@ const envSchema = z.object({
   INVOICE_ORG_NAME: z.string().min(1).default('A.M.I.T Maths Olympiad'),
   /** Address lines separated by `|`. Omitted from the document entirely when unset. */
   INVOICE_ORG_ADDRESS: z.string().min(1).optional(),
-  INVOICE_ORG_EMAIL: z.string().min(1).default('support@amitolympiad.com'),
-  INVOICE_ORG_PHONE: z.string().min(1).default('+91 9782870716'),
+  INVOICE_ORG_EMAIL: z.string().min(1).default('support@amitolympiad.me'),
+  /** Printed exactly as given; the owner's format (2026-10-04) is `+91-97828-70716`. */
+  INVOICE_ORG_PHONE: z.string().min(1).default('+91-97828-70716'),
   /**
    * GST registration number. **Optional, and never defaulted to anything.**
    *

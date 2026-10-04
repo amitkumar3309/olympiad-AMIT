@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import DeveloperCredit from './DeveloperCredit'
 import { Icon } from './ui'
-import { AMIT_SHORT, SUPPORT } from '../lib/brand'
+import { AMIT_SHORT, SUPPORT, SUPPORT_TEL_HREF } from '../lib/brand'
 import styles from './Footer.module.css'
 
 /**
@@ -77,7 +77,7 @@ export default function Footer() {
 
         <div className={styles.col}>
           <h2 className={styles.colTitle}>Help</h2>
-          <a href={`tel:${HELPLINE.replace(/\s/g, '')}`} className={styles.contact}>
+          <a href={SUPPORT_TEL_HREF} className={styles.contact}>
             <Icon name="ph-phone" size="sm" />
             <span>{HELPLINE}</span>
           </a>
