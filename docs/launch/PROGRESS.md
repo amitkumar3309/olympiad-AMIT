@@ -6,9 +6,9 @@ _Last updated 2026-10-04._
 
 ## Current state
 
-**Phase 2 (the Daily Quiz core) complete — waiting for the owner's "continue" before Phase 3.**
-Branch `feat/diwali-launch` (not pushed since PR #1, which carried Phase 1). Phase 3 is the homepage,
-the floating button's wiring, the Login Gate, the Rewards section and the rules page.
+**Phase 2 (the Daily Quiz core) complete and pushed as branch `feat/diwali-launch-phase-2` (PR #2,
+based on `main` after PR #1 was merged).** Phase 3 — the homepage, the floating button's wiring, the
+Login Gate, the Rewards section and the rules page — continues on top of it.
 
 ## Tasks
 
@@ -58,8 +58,10 @@ CSV template is there).
   `scripts/dev-local.ts`, `frontend/e2e/fixtures.ts`); do not paste their credentials into chat.
 - **E2E:** `npm run e2e` in `frontend/` starts its own backend (in-memory DB, port 8092) and Vite
   (5181) and drives the installed Edge. Phase 3 should add the homepage → FAB → login gate flow there.
-- Commit `856fede` accidentally carries the deletion of the old Daily Challenge frontend files (they
-  were staged by `git rm`); `d53e367` is the replacement. History was not rewritten (CLAUDE.md:
-  new commits, not amends).
+- Commit `943a336` (the calendar fix) accidentally carries the deletion of the old Daily Challenge
+  frontend files — they were staged by `git rm` — and `4fd2b34` is their replacement; its message
+  calls the first one `856fede`, its hash before the branch was replayed onto `main` for PR #2.
+  History was not rewritten (CLAUDE.md: new commits, not amends). The old local branch
+  `feat/diwali-launch` holds the same tree and is no longer used.
 - Measuring a computed colour: inject `* { transition: none !important; animation: none !important }`
   first, or you read a value mid-transition.

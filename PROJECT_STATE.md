@@ -1,7 +1,7 @@
 # PROJECT_STATE.md
 
 _Last updated: 2026-10-04 (**Milestone 30 — the Diwali launch: Phase 2, the Daily Quiz core, complete
-on branch `feat/diwali-launch`; waiting for the owner's "continue" before Phase 3**). Milestone 29
+on branch `feat/diwali-launch-phase-2` (PR #2); waiting for the owner's "continue" before Phase 3**). Milestone 29
 (a full test pass, a scale audit, and the five infrastructure fixes it found) closed immediately
 before it._
 
