@@ -41,13 +41,35 @@ export async function advanceDays(request: APIRequestContext, days: number): Pro
   if (!res.ok()) throw new Error(`E2E clock failed: ${res.status()} ${await res.text()}`)
 }
 
-/** Signs the seeded student in through the one sign-in dialog, opened as a visitor opens it. */
+/**
+ * Signs the seeded student in through the one sign-in dialog, opened as a visitor opens it —
+ * the homepage's "I already have an account", which is a button at every width (the header's
+ * Sign in is inside the menu on a phone).
+ */
 export async function signIn(page: Page): Promise<void> {
   await page.goto('/')
-  await page.getByRole('button', { name: 'Sign in' }).first().click()
-  const dialog = page.getByRole('dialog')
-  await dialog.getByLabel('Mobile number or email').fill(E2E_STUDENT.email)
-  await dialog.locator('input[type="password"]').fill(E2E_STUDENT.password)
-  await dialog.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'I already have an account' }).click()
+  await fillSignIn(page, E2E_STUDENT.email, E2E_STUDENT.password)
   await page.waitForURL('**/dashboard')
 }
+
+/** Fills and submits the open sign-in dialog. */
+export async function fillSignIn(page: Page, identifier: string, password: string): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: 'Sign in' })
+  await dialog.getByLabel('Mobile number or email').fill(identifier)
+  await dialog.locator('input[type="password"]').fill(password)
+  await dialog.getByRole('button', { name: 'Sign in' }).click()
+}
+
+/** The link in the newest verification email to `to` — what a real inbox would receive. */
+export async function lastVerificationLink(request: APIRequestContext, to: string): Promise<string> {
+  const res = await request.get(`${BACKEND}/__e2e/last-link?to=${encodeURIComponent(to)}`)
+  if (!res.ok()) throw new Error(`E2E last-link failed: ${res.status()} ${await res.text()}`)
+  return ((await res.json()) as { link: string }).link
+}
+
+/** A 1×1 JPEG, for the registration photograph — the server checks the bytes, not the name. */
+export const TINY_JPEG = Buffer.from(
+  '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==',
+  'base64',
+)

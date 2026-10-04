@@ -121,6 +121,7 @@ describe('authentication', () => {
     expect((await request(app).post('/__e2e/reset')).status).toBe(404);
     expect((await request(app).post('/__e2e/clock').send({ advanceDays: 1 })).status).toBe(404);
     expect((await request(app).post('/__e2e/seed').send({})).status).toBe(404);
+    expect((await request(app).get('/__e2e/last-link?to=someone@example.com')).status).toBe(404);
   });
 
   it('serves the public prize information without one, generated from the settings', async () => {

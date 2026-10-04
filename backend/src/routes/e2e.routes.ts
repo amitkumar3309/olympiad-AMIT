@@ -9,7 +9,7 @@ import { dayKeyOf } from '../lib/competitionDay';
 import { logger } from '../lib/logger';
 import { hashPassword } from '../lib/password';
 import { slugify } from '../lib/slug';
-import { Student, Subject, Topic } from '../models';
+import { EmailOutbox, Student, Subject, Topic } from '../models';
 import { groupIdOf, scheduleQuiz } from '../services/dailyChallengeService';
 import { createQuestion, toQuestionContent } from '../services/questionService';
 import { createQuestionSchema } from '../validation/questionSchemas';
@@ -168,6 +168,31 @@ router.post('/__e2e/seed', validate({ body: seedSchema }), ensureDb, async (req:
   } catch (err) {
     logger.error({ err }, 'E2E seed failed');
     sendError(res, 500, `E2E seed failed: ${err instanceof Error ? err.message : 'unknown error'}`);
+  }
+});
+
+const lastLinkQuerySchema = z.object({ to: z.string().trim().toLowerCase().email() });
+
+/**
+ * The link in the newest verification email to an address (Milestone 30, Phase 3) — so
+ * the suite can walk "register → verify → quiz" the way a student does, reading the link
+ * a real inbox would receive. The e2e server's SMTP is a dead port, so the email exists
+ * only as its outbox row; nothing is sent anywhere.
+ */
+router.get('/__e2e/last-link', validate({ query: lastLinkQuerySchema }), ensureDb, async (req: Request, res: Response) => {
+  try {
+    if (!onE2eDatabase(res)) return;
+    const { to } = req.query as unknown as z.infer<typeof lastLinkQuerySchema>;
+    const mail = await EmailOutbox.findOne({ to, subject: /verify/i }).sort({ _id: -1 });
+    const link = mail?.text.match(/https?:\/\/\S+\/verify-email\?\S+/)?.[0] ?? null;
+    if (!link) {
+      sendError(res, 404, `No verification link has been queued for ${to}.`);
+      return;
+    }
+    sendSuccess(res, 200, { link });
+  } catch (err) {
+    logger.error({ err }, 'E2E last-link failed');
+    sendError(res, 500, 'E2E last-link failed.');
   }
 });
 

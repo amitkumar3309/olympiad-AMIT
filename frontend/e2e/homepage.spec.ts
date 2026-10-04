@@ -1,0 +1,102 @@
+/// <reference lib="dom" />
+import { expect, test, type Page } from '@playwright/test'
+import { E2E_STUDENT, TINY_JPEG, fillSignIn, lastVerificationLink, resetBackend, seedQuiz } from './fixtures.ts'
+
+/**
+ * The homepage's way into the Daily Quiz (Milestone 30, Phase 3 — brief §7.3), end to end, at
+ * desktop width and at 390px:
+ *
+ *  - a guest presses the floating button, meets the Login Gate, signs in, and lands on the quiz;
+ *  - a new student goes gate → "Create free account" → registers → opens the link in their
+ *    verification email → signs in → lands on the quiz, the destination kept the whole way;
+ *  - a guest who opens a signed-in page is asked to sign in and taken back to it (D2).
+ *
+ * Reduced motion is on so the floating button holds still — its idle float would otherwise keep
+ * it from ever being "stable" enough to click — which also exercises the reduced-motion styles.
+ */
+
+test.use({ reducedMotion: 'reduce' })
+
+test.beforeEach(async ({ request }) => {
+  await resetBackend(request)
+})
+
+async function openGateFromFab(page: Page) {
+  await page.goto('/')
+  await page.getByRole('button', { name: /winners get a surprise gift and cash/ }).click()
+  const gate = page.getByRole('dialog', { name: 'Log in to play today’s Daily Quiz' })
+  await expect(gate).toBeVisible()
+  return gate
+}
+
+test('a guest goes from the floating button through the Login Gate to today’s quiz', async ({ page, request }) => {
+  await seedQuiz(request)
+  const gate = await openGateFromFab(page)
+
+  // The prize line is the owner's setting, not text typed into the page.
+  await expect(gate).toContainText('Each day’s winner gets:')
+  await expect(gate.getByRole('link', { name: 'How rewards work' })).toHaveAttribute('href', '/rewards/rules')
+
+  await gate.getByRole('button', { name: 'Sign in' }).click()
+  await fillSignIn(page, E2E_STUDENT.email, E2E_STUDENT.password)
+
+  await page.waitForURL('**/daily-quiz')
+  await expect(page.getByRole('heading', { name: 'Today’s question is ready' })).toBeVisible()
+})
+
+test('a new student registers from the gate, verifies, and lands on the quiz', async ({ page, request }) => {
+  await seedQuiz(request)
+  const gate = await openGateFromFab(page)
+  await gate.getByRole('link', { name: 'Create free account' }).click()
+  await page.waitForURL('**/register?next=%2Fdaily-quiz')
+
+  const email = 'new.student@amit.test'
+  const password = 'New-Student-Pass-9'
+  await page.getByLabel('First name').fill('Nisha')
+  await page.getByLabel('Last name').fill('Verma')
+  await page.getByLabel("Father's name").fill('Rakesh Verma')
+  await page.getByLabel("Mother's name").fill('Sunita Verma')
+  await page.getByLabel('Date of birth').fill('2011-06-15')
+  await page.getByLabel('Class', { exact: false }).first().selectOption('Class 9')
+  await page.getByLabel('Current school').fill('Springfield Public School')
+  await page.getByLabel('Full address').fill('12 Example Road, Jaipur, Rajasthan 302001')
+  await page.getByLabel('Mobile number').fill('9000000456')
+  await page.getByLabel('Email address').fill(email)
+  await page.getByLabel(/^Password/).fill(password)
+  await page.getByLabel(/^Confirm password/).fill(password)
+  await page.locator('input[type="file"]').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: TINY_JPEG })
+
+  await page.getByRole('button', { name: 'Review and continue' }).click()
+  await page.getByRole('button', { name: 'Create my account' }).click()
+  await expect(page.getByRole('heading', { name: /Check your email/ })).toBeVisible()
+
+  // The link in the email carries the destination.
+  const link = await lastVerificationLink(request, email)
+  expect(link).toContain('next=%2Fdaily-quiz')
+
+  await page.goto(link)
+  await page.getByRole('button', { name: 'Sign in to play today’s Daily Quiz' }).click()
+  await fillSignIn(page, email, password)
+
+  await page.waitForURL('**/daily-quiz')
+  await expect(page.getByRole('heading', { name: 'Today’s question is ready' })).toBeVisible()
+})
+
+test('a guest opening a signed-in page is asked to sign in, then taken back to it', async ({ page, request }) => {
+  await seedQuiz(request)
+  await page.goto('/practice')
+
+  // Not a bare homepage: the sign-in dialog, with the page kept as ?next=.
+  await expect(page).toHaveURL(/\/\?next=%2Fpractice#login$/)
+  await fillSignIn(page, E2E_STUDENT.email, E2E_STUDENT.password)
+  await page.waitForURL('**/practice')
+})
+
+test('the homepage renders every section without scrolling sideways', async ({ page }) => {
+  await page.goto('/')
+  for (const heading of ['Can you crack this?', 'Four ways to prepare, all of them free', 'From registering to being ranked', 'Top Scholars', 'Before you register', 'Ready to sit the paper?']) {
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible()
+  }
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
+})
