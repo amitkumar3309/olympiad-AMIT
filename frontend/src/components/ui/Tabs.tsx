@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, type KeyboardEvent, type ReactElement, type ReactNode } from 'react'
 import Icon from './Icon'
 import styles from './Tabs.module.css'
 
@@ -50,8 +50,11 @@ import styles from './Tabs.module.css'
 export interface TabItem {
   id: string
   label: ReactNode
-  /** Phosphor glyph, drawn before the label. */
-  icon?: string
+  /**
+   * Phosphor glyph, drawn before the label — or a rendered icon (Lucide on the two launch
+   * surfaces, Milestone 30) whose size the caller owns, as `IconTile` and `Button` allow.
+   */
+  icon?: string | ReactElement
   /** A count beside the label — pending imports, unread notices. */
   count?: number
   disabled?: boolean
@@ -177,7 +180,7 @@ export default function Tabs({
             className={selected ? styles.tabActive : styles.tab}
             onClick={() => onChange(item.id)}
           >
-            {item.icon && <Icon name={item.icon} weight="bold" size="sm" />}
+            {typeof item.icon === 'string' ? <Icon name={item.icon} weight="bold" size="sm" /> : item.icon}
             <span className={styles.tabLabel}>{item.label}</span>
             {item.count !== undefined && <span className={styles.count}>{item.count}</span>}
           </button>

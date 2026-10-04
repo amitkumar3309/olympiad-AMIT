@@ -32,7 +32,12 @@ export interface JourneyStage {
   title: string
   /** "Month 1". */
   caption?: string
-  state: 'done' | 'current' | 'locked'
+  /**
+   * `upcoming` is neutral — full colour, no marker — for an overview that belongs to
+   * nobody in particular (the homepage's programme, Milestone 30 Phase 3), where a
+   * padlock on every stage would read as "you cannot do this".
+   */
+  state: 'done' | 'current' | 'locked' | 'upcoming'
   /** An `Illustration`, or any decorative art. Optional. */
   art?: ReactNode
 }
@@ -44,7 +49,7 @@ export interface JourneyTrackProps {
   className?: string
 }
 
-const STATE_TEXT = { done: 'completed', current: 'current stage', locked: 'locked' } as const
+const STATE_TEXT = { done: 'completed', current: 'current stage', locked: 'locked', upcoming: '' } as const
 
 export default function JourneyTrack({ stages, label, className }: JourneyTrackProps) {
   const ref = useRef<HTMLDivElement>(null)
@@ -81,7 +86,7 @@ export default function JourneyTrack({ stages, label, className }: JourneyTrackP
               <span className={styles.title}>
                 {stage.state === 'current' && stage.caption && <span className="sr-only">{stage.caption}: </span>}
                 {stage.title}
-                <span className="sr-only">, {STATE_TEXT[stage.state]}</span>
+                {STATE_TEXT[stage.state] && <span className="sr-only">, {STATE_TEXT[stage.state]}</span>}
               </span>
               {next && (
                 <span

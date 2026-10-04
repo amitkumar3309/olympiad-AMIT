@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { CalendarClock, CircleCheck, Gift, Zap } from 'lucide-react'
 import styles from './DailyQuizFab.module.css'
@@ -50,6 +51,8 @@ export interface DailyQuizFabProps {
   /** `inline` renders it in the flow (the design-system page), without the float. */
   placement?: 'fixed' | 'inline'
   className?: string
+  /** For the caller's own positioning — the homepage lifts it clear of the footer. */
+  style?: CSSProperties
 }
 
 const COPY: Record<DailyQuizFabState, { title: string; line: string; name: string }> = {
@@ -83,6 +86,7 @@ export default function DailyQuizFab({
   collapsed,
   placement = 'fixed',
   className,
+  style,
 }: DailyQuizFabProps) {
   const copy = COPY[state]
   const line = copy.line || detail || ''
@@ -110,7 +114,7 @@ export default function DailyQuizFab({
   const pillClasses = [styles.pill, collapsed ? styles.collapsed : ''].filter(Boolean).join(' ')
 
   return (
-    <div className={[styles.fab, placement === 'inline' ? styles.inline : '', className].filter(Boolean).join(' ')}>
+    <div className={[styles.fab, placement === 'inline' ? styles.inline : '', className].filter(Boolean).join(' ')} style={style}>
       {to ? (
         <Link to={to} className={pillClasses} aria-label={name}>
           {inner}
