@@ -23,7 +23,14 @@ This file is a **report and a plan**. It was written before any fix was applied.
 > Gates after the change: typecheck, lint and compile clean, the 87-assertion end-to-end harness
 > still **87/87**, and the suite still **1289/1289**.
 >
-> **Step 3 (the `Student.status` index) and step 4 (Redis) are still outstanding.**
+> **Phase C then raised `loginLimiter` from 10 to 50 per 15 minutes**, because Phase B is what
+> first gave that number a real client address to apply to. A 40-student school lab behind one NAT
+> address now signs in completely (40/40, against 10/40 before), one address still stops at
+> exactly 50, and per-account lockout still fires at 5 — it is `MAX_FAILED_LOGINS`, not this
+> limiter, that stops password guessing.
+>
+> **Step 3 (the `Student.status` index) and step 4 (Redis) are still outstanding**, as is
+> `registerLimiter`, which has the same NAT problem at 10 per hour.
 
 
 ---
@@ -353,19 +360,16 @@ curl -s -D - -o /dev/null -H "X-Forwarded-For: 203.0.113.10" http://localhost:80
 Run it twice with two *different* `X-Forwarded-For` values. Before the fix the number keeps
 falling. After the fix each address gets its own fresh count.
 
-> ⚠️ **Now that this is applied, `loginLimiter` needs re-tuning and has not been.** Its 10 per
-> 15 minutes is right for one person and wrong for **a school computer lab behind one NAT
-> address**, where 40 children legitimately share a public IP: ten of them sign in and thirty get
-> a 429. Measured after the fix — twelve attempts from one address gave exactly 10 through and 2
-> blocked, which is the limiter working correctly and the *number* being wrong for a shared
-> address.
+> ✅ **`loginLimiter` was re-tuned to 50 per 15 minutes on the same day (Phase C).** Its old 10
+> was right for one person and wrong for **a school computer lab behind one NAT address**, where
+> 40 children legitimately share a public IP. Measured: **40 of 40 now sign in**, against 10 of 40
+> before; 55 attempts from one address still stop at exactly **50**; and twelve wrong passwords
+> against one account still lock it after **5**, because `MAX_FAILED_LOGINS` — not this limiter —
+> is what stops password guessing.
 >
-> To be precise about what changed: that lab was **equally stuck before** the fix (the budget was
-> 10 for the whole platform), so this is not a regression — it is a pre-existing limit that is now
-> **bounded to one lab instead of taking the whole country down with it**. The fix is a strict
-> improvement everywhere. But a cohort sitting in a school computer room is this product's normal
-> case, so raise it to ~40 per 15 minutes, or key the login limiter on the submitted identifier
-> rather than the IP, which targets the account actually being guessed at.
+> **`registerLimiter` has the same shape and was left alone**: 10 per hour per IP, so a school
+> registering a class of forty in one sitting stops at ten. Decide it before a registration
+> drive.
 
 ### ✅ Step 2 — Cap the connection pool (APPLIED 2026-09-27)
 

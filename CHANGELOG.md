@@ -2,6 +2,43 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-27 — Milestone 29 Phase C: `loginLimiter` is 50 per 15 minutes, not 10
+
+One number, and the reason it had to move. Phase B gave the rate limiters a **real** client
+address for the first time; this re-chooses a limit that had only ever been evaluated against a
+fake one.
+
+**An IP is not a person in this product.** The normal case is a cohort sitting in a school
+computer room, where forty children share one public NAT address. At ten per fifteen minutes, ten
+of them signed in and the other thirty were told to try again later — on exam morning. Measured
+before this change: **10 in, 30 refused**. After: **40 in, 0 refused.**
+
+Ten was not wrong when it was written. Until Phase B, `trust proxy` was unset, so this limit was
+one bucket for the whole platform and no single school ever reached the number on its own. Once
+the key became a genuine client address, the number had to be re-chosen for one.
+
+**This does not weaken brute-force protection, because this limiter was never what provided it.**
+`MAX_FAILED_LOGINS` (5) locks an account for `ACCOUNT_LOCK_MINUTES` (15), **per account**, so an
+attacker gets five guesses at a given child's password however many addresses they spread across.
+Verified: twelve wrong passwords against one account gave five `Invalid credentials` and then
+seven `Account temporarily locked`, exactly as before.
+
+What this limiter bounds is **credential stuffing** — one password tried against many accounts
+from one address, which no per-account counter can see. Fifty per fifteen minutes caps that at
+200 accounts an hour from a single address. Verified: 55 attempts from one address gave exactly
+**50 through and 5 blocked**. If that trade ever looks wrong, the better fix is to key this
+limiter on the submitted identifier rather than the address, so it follows the account being
+guessed at instead of punishing everyone sharing a school's internet connection.
+
+Gates: typecheck and lint clean, suite **1289/1289** (the suite disables limiters under
+`config.isTest`, so it cannot assert this change — the verification above was done by hand
+against a running server, and that gap is recorded in `TESTING.md`).
+
+**`registerLimiter` has the same shape and was deliberately left alone**: 10 per hour per IP
+means a school registering a class of forty in one sitting would stop at ten. It is not raised
+here because nobody asked and because registration abuse has a different cost profile from
+sign-in — but it is the next number to look at before a school-led registration drive.
+
 ## 2026-09-27 — Milestone 29 Phase B: the two P0 scale fixes, applied and verified
 
 Phase A measured; this applies the two fixes it found. **Three files, four effective lines of

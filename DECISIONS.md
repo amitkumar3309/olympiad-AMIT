@@ -53,10 +53,13 @@ needs a different number.
 - **`loginLimiter`'s number is now load-bearing in a way it was not.** At 10 per 15 minutes per
   IP, a school computer lab behind one NAT address gets ten sign-ins and thirty refusals. That lab
   was equally stuck before (the budget was 10 platform-wide), so this is not a regression — but
-  this product's normal case *is* a cohort in a school computer room. Raise it, or key the login
-  limiter on the submitted identifier, which targets the account being guessed at rather than
-  everyone sharing an address. Not done here; it is a product decision about how much guessing to
-  permit.
+  this product's normal case *is* a cohort in a school computer room. **Decided the same day
+  (Phase C): 50 per 15 minutes.** Verified at 40/40 sign-ins for a 40-student lab, 50 through and
+  5 blocked from one address, and per-account lockout still firing at 5 — `MAX_FAILED_LOGINS`,
+  not this limiter, is what stops password guessing, so the IP number only bounds credential
+  stuffing (now ~200 accounts an hour per address). `registerLimiter` has the same shape at 10 per
+  hour and was **left alone**, since nobody asked and registration abuse has a different cost
+  profile; it is the next number to look at before a school-led registration drive.
 - **This does not make the limits durable.** The store is still `MemoryStore`: per instance, reset
   on every cold start. Per-account lockout (`MAX_FAILED_LOGINS`) remains the real brute-force
   control until a shared store exists. That is the Redis decision, still untaken.

@@ -50,11 +50,13 @@ correctly now but still reset on a cold start — that is the Redis case), the ~
 the missing `Student.status` index, and Vercel's commercial-use licence. Redis remains a
 dependency and a cost decision the owner has not taken.
 
-**One number now wants attention that did not before.** `loginLimiter` is 10 per 15 minutes per
-IP, and a school computer lab behind one NAT address gets ten sign-ins and thirty 429s. That lab
-was equally stuck beforehand (the budget was 10 platform-wide), so this is **not a regression** —
-but a cohort in a school computer room is this product's normal case, so raise it to ~40 or key
-the limiter on the submitted identifier.
+**Phase C then raised `loginLimiter` from 10 to 50 per 15 minutes**, because Phase B is what
+first gave that number a real client address to apply to. A school computer lab behind one NAT
+address — this product's normal case — now signs in completely: **40 of 40**, against 10 of 40
+before. It does not weaken password-guessing protection, which was never this limiter's job:
+`MAX_FAILED_LOGINS` (5) locks an account for 15 minutes **per account**, verified unchanged. One
+address still stops at exactly 50. **`registerLimiter` has the same NAT problem at 10 per hour and
+was deliberately left alone** — decide it before any school-led registration drive.
 
 **Milestone 28 at a glance — frontend only.** No file under `backend/` was modified; the suite
 was run anyway. Four changes, all at the owner's request:

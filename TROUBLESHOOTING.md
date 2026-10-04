@@ -31,10 +31,14 @@
 >
 > **If you still see 429s after this, it is one of two different problems, not this one:**
 >
-> - **A whole school getting 429s on sign-in.** That is `loginLimiter` at 10 per 15 minutes
->   meeting a computer lab behind one NAT address, where 40 children really do share a public IP.
->   It is working as written; the number is wrong for this product. Raise it, or key the login
->   limiter on the submitted identifier.
+> - **A whole school getting 429s on sign-in.** `loginLimiter` was raised from 10 to **50 per 15
+>   minutes** on 2026-09-27 for exactly this (a lab of 40 behind one NAT address now signs in
+>   completely). If a school is *still* hitting it, it is bigger than fifty machines on one
+>   address: raise the number again, or key the limiter on the submitted identifier so it follows
+>   the account being guessed at instead of everyone sharing a connection.
+> - **A school getting 429s on *registration*.** Different limiter, same shape, **not** re-tuned:
+>   `registerLimiter` is 10 per hour per IP, so a class of forty registering together stops at
+>   ten.
 > - **429s that come and go for no reason.** The store is still `MemoryStore`, so the counter
 >   lives in one serverless instance and resets on a cold start. Redis is the fix — step 4 of
 >   [`SCALE_READINESS.md`](SCALE_READINESS.md).

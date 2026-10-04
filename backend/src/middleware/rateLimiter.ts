@@ -27,10 +27,35 @@ export const generalLimiter = limiter({
   message: 'Too many requests. Please try again later.',
 });
 
-/** Login + admin login: the brute-force surface. Pairs with per-account lockout. */
+/**
+ * Login + admin login. Pairs with per-account lockout, which is the control that
+ * actually stops somebody guessing a password.
+ *
+ * **Fifty, not ten, because an IP is not a person here.** This product's normal case is a
+ * cohort sitting in a school computer room, where forty children share one public NAT
+ * address. At ten per fifteen minutes, ten of them sign in and the other thirty are told
+ * to try again later — on exam morning. (Ten was not wrong when it was written: until
+ * Milestone 29 `trust proxy` was unset, so this limit was one bucket for the entire
+ * platform and the number was never reached by a single school in the first place. Once
+ * the key became a real client address, the number had to be re-chosen for one.)
+ *
+ * **This does not weaken brute-force protection, because this limiter was never what
+ * provided it.** `MAX_FAILED_LOGINS` (5) locks an account for `ACCOUNT_LOCK_MINUTES` (15),
+ * per *account*, so an attacker gets five guesses at a given child's password however many
+ * addresses they spread across — this limit is irrelevant to that attack either way.
+ *
+ * What it does bound is **credential stuffing**: one password tried against many accounts
+ * from one address, which no per-account counter can see. Fifty per fifteen minutes caps
+ * that at 200 accounts an hour from a single address, which is slow enough to be worth
+ * more to an attacker to distribute than to continue — and distributing it is what the
+ * shared store (see the `MemoryStore` note in SECURITY.md) is for. If that trade ever
+ * looks wrong, the better fix is to key this limiter on the submitted identifier rather
+ * than the address, so it follows the account being guessed at instead of punishing
+ * everyone who shares a school's internet connection.
+ */
 export const loginLimiter = limiter({
   windowMs: 15 * MINUTE,
-  limit: 10,
+  limit: 50,
   message: 'Too many login attempts. Please try again in a few minutes.',
 });
 

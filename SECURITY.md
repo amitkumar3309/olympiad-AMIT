@@ -36,12 +36,20 @@
 >   rather than the platform. Per-account lockout (`MAX_FAILED_LOGINS`) remains the durable
 >   brute-force control. Moving the store to Redis is step 4 of
 >   [`SCALE_READINESS.md`](SCALE_READINESS.md).
-> - **`loginLimiter`'s number was written for a platform-wide bucket and has not been re-tuned.**
->   At 10 per 15 minutes per IP, a school computer lab behind one NAT address gets ten sign-ins
->   and thirty 429s. That lab was equally stuck before the fix, so it is not a regression — but a
->   cohort sitting in a school computer room is this product's normal case. Raise it, or key the
->   login limiter on the submitted identifier, which targets the account actually being guessed
->   at rather than everyone sharing an address.
+> - ~~**`loginLimiter`'s number was written for a platform-wide bucket.**~~ **Re-tuned the same
+>   day: 50 per 15 minutes.** A school computer lab behind one NAT address now signs in
+>   completely (verified: 40 of 40, where 10 of 40 got through before), while 55 attempts from one
+>   address still stop at exactly 50. This does **not** weaken password guessing protection,
+>   because this limiter was never what provided it: `MAX_FAILED_LOGINS` (5) locks an account for
+>   `ACCOUNT_LOCK_MINUTES` (15) **per account**, regardless of how many addresses an attacker
+>   spreads across — verified unchanged. What the IP limit bounds is **credential stuffing**, one
+>   password against many accounts from one address, now capped at 200 accounts an hour per
+>   address. If that ever looks too loose, key this limiter on the submitted identifier rather
+>   than the address.
+>
+> - **`registerLimiter` has the same shape and has not been re-tuned.** 10 per hour per IP means a
+>   school registering a class of forty in one sitting stops at ten. Worth deciding before any
+>   school-led registration drive.
 >
 > **Re-verified the same day and still holding:** the CSRF origin check in `middleware/csrf.ts`
 > refuses a cross-origin `POST` with **403** while leaving reads alone; an unknown email and a
