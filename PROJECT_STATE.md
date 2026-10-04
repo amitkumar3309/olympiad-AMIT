@@ -57,11 +57,14 @@ before. It does not weaken password-guessing protection, which was never this li
 `MAX_FAILED_LOGINS` (5) locks an account for 15 minutes **per account**, verified unchanged. One
 address still stops at exactly 50. **Phase D raised `registerLimiter` to 50 per hour** as well (40 of 40
 register, ceiling at 50) and **audited the rest**: seven more limiters were sized for one
-household and are now applied to a whole school. By students supported on one NAT address —
-`paymentLimiter` 30, `challengeLimiter` 30, `mockTestLimiter` 30, `tokenSubmitLimiter` 20,
-`emailActionLimiter` 5. **`paymentLimiter` is the one to fix next**, being the only one whose
-refusal costs revenue. None was changed; the durable answer to all of them is the shared store,
-since with `MemoryStore` every figure is per instance and resets on a cold start.
+household and are now applied to a whole school. **Phase E then raised `paymentLimiter` to 300 per hour**, and
+corrected Phase D in the process: a checkout is about **six** limiter-counted calls, not one, so
+30/hour was never 30 students but **five**. Measured: **5 of a class of 40** completed checkout
+before, **40 of 40** after. Four limiters remain sized for one household — `challengeLimiter`
+30/hour, `mockTestLimiter` 60/hour, `tokenSubmitLimiter` 20/15 min, `emailActionLimiter` 5/hour —
+and the Phase D capacity table should be read as an **upper bound**, since every row divides by
+one where the real cost is two or more. None was changed; the durable answer to all of them is the
+shared store, since with `MemoryStore` every figure is per instance and resets on a cold start.
 
 **Milestone 28 at a glance — frontend only.** No file under `backend/` was modified; the suite
 was run anyway. Four changes, all at the owner's request:

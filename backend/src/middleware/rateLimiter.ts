@@ -174,12 +174,28 @@ export const challengeLimiter = limiter({
  * Neither route takes money, but each one spends a **Razorpay API call** and the first
  * writes a row, so an authenticated student could otherwise loop either of them for
  * free at the platform's expense — the one place in this product where a request has a
- * direct third-party cost. Generous enough that a student retrying a failed checkout,
- * or a payment page reconciling on every load, never notices.
+ * direct third-party cost.
+ *
+ * **Three hundred, not thirty, and the arithmetic matters because this one is about
+ * revenue.** A single checkout is not a single request: `/payments/reconcile` fires on
+ * every load of `/payment`, again when the Razorpay modal is dismissed, and again after a
+ * successful payment, while `/payments/orders` fires per attempt. A student who looks at
+ * the page, closes the dialog once and then pays spends about **six** of this budget. So
+ * thirty per hour per address was not "thirty students" — it was roughly **five**, and the
+ * sixth child in a school computer room reaching for their parent's card was told "too
+ * many payment attempts". Nobody tries that twice, which makes this the only limiter in
+ * the file whose refusal costs money rather than patience. Three hundred covers a class of
+ * forty at six calls each with headroom.
+ *
+ * Raising it is safe in the way that matters: `/payments/orders` takes **no body at all**
+ * (the amount comes from `PaymentSettings` and the student from the token), capture is
+ * idempotent by conditional write, and Razorpay bills per *transaction*, not per API call
+ * — so the cost of a loop here is request volume, not money, and 300 an hour from one
+ * address is well inside any provider ceiling.
  */
 export const paymentLimiter = limiter({
   windowMs: HOUR,
-  limit: 30,
+  limit: 300,
   message: 'Too many payment attempts. Please wait a little before trying again.',
 });
 

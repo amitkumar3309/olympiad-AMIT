@@ -371,12 +371,16 @@ falling. After the fix each address gets its own fresh count.
 > at 50. But note the real constraint is the **mail quota** — every registration sends a
 > verification email and a transactional tier is measured in hundreds per day.
 >
-> ⚠️ **Seven more limiters have the same shape and were NOT changed.** Students supported on one
-> shared school address: `paymentLimiter` **30**, `challengeLimiter` **30**, `mockTestLimiter`
-> **30**, `tokenSubmitLimiter` **20**, `emailActionLimiter` **5**; `practiceLimiter`,
-> `generalLimiter` and `refreshLimiter` are borderline at ~60. **`paymentLimiter` is the one to
-> fix next** — it is the only row whose refusal costs revenue. Full table in `CHANGELOG.md`,
-> Milestone 29 Phase D.
+> ✅ **`paymentLimiter` was raised to 300 per hour (Phase E)** — and the Phase D figure for it was
+> wrong. A checkout is about **six** limiter-counted calls (`/payments/reconcile` fires on page
+> load, on modal dismiss and after payment), so 30/hour was never 30 students but **five**.
+> Measured: **5 of a class of 40** completed checkout before, **40 of 40** after.
+>
+> ⚠️ **Four more limiters are unchanged and all have the same flaw in their stated capacity**:
+> `challengeLimiter` 30/hour, `mockTestLimiter` 60/hour, `tokenSubmitLimiter` 20/15 min,
+> `emailActionLimiter` 5/hour. Treat the Phase D table in `CHANGELOG.md` as an **upper bound** —
+> every row divides the budget by one where the real per-student cost is two or more. None of the
+> four costs revenue when it refuses, which is why payment went first.
 
 ### ✅ Step 2 — Cap the connection pool (APPLIED 2026-09-27)
 

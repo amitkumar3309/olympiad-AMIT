@@ -52,12 +52,19 @@
 >   really bounds registration abuse — every registration sends a verification email and a
 >   transactional tier is measured in hundreds per day.
 >
-> - **Seven more limiters were chosen for one household and are now applied to a whole school**,
->   and none has been re-tuned. By students supported on one NAT address: `paymentLimiter` 30,
->   `challengeLimiter` 30, `mockTestLimiter` 30, `tokenSubmitLimiter` 20, `emailActionLimiter` 5,
->   with `practiceLimiter`, `generalLimiter` and `refreshLimiter` borderline at ~60.
->   **`paymentLimiter` is the one to fix next** — it is the only one whose refusal costs revenue.
->   The full table is in `CHANGELOG.md` under Milestone 29 Phase D.
+> - **`paymentLimiter` was raised to 300 per hour (Phase E)**, after the Phase D table turned out
+>   to under-report it: a checkout is about **six** limiter-counted calls, not one, so 30/hour was
+>   never 30 students but **five**. Verified: 5 of 40 completed checkout before, **40 of 40**
+>   after. Safe to raise because `/payments/orders` takes no body (amount from `PaymentSettings`,
+>   student from the token), capture is idempotent by conditional write, and Razorpay bills per
+>   transaction rather than per API call.
+>
+> - **Four more limiters are still sized for one household**, and by the corrected arithmetic each
+>   supports fewer students than the Phase D table claims: `challengeLimiter` 30/hour,
+>   `mockTestLimiter` 60/hour, `tokenSubmitLimiter` 20/15 min, `emailActionLimiter` 5/hour. None
+>   costs revenue when it refuses, which is why payment went first. Read the Phase D table in
+>   `CHANGELOG.md` as an **upper bound** — every row divides by one where the real per-student cost
+>   is two or more.
 >
 > **Re-verified the same day and still holding:** the CSRF origin check in `middleware/csrf.ts`
 > refuses a cross-origin `POST` with **403** while leaving reads alone; an unknown email and a

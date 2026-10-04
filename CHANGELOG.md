@@ -2,6 +2,47 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-09-27 — Milestone 29 Phase E: `paymentLimiter` is 300 per hour, and Phase D under-reported it
+
+The one limiter whose refusal costs revenue rather than patience. **Measured before: 5 of a class
+of 40 completed checkout, 35 were told "too many payment attempts". After: 40 of 40, zero
+refusals.**
+
+### Phase D's table was wrong about this row, and the correction is the point
+
+Phase D listed `paymentLimiter` as supporting "30 students", by dividing the budget by one. **A
+checkout is not one request.** `/payments/reconcile` fires on every load of `/payment`, again when
+the Razorpay modal is dismissed, and again after a successful payment; `/payments/orders` fires
+per attempt. A student who looks at the page, closes the dialog once and then pays spends about
+**six** of this budget.
+
+So thirty per hour per address was never thirty students — it was **five**. Verified against the
+pre-change server with a six-call journey: 5 students clean, 35 blocked, 210 of 240 calls
+refused. The same script against the raised limit: 40 clean, 0 blocked, 0 of 240 refused.
+
+Three hundred covers a class of forty at six calls each with headroom. **Every other row in the
+Phase D table has the same flaw** — each divides by one where the real per-student cost is two or
+more — so read it as an upper bound, not an estimate.
+
+### Why raising this one is safe
+
+`/payments/orders` takes **no body at all**: the amount comes from `PaymentSettings` and the
+student from the token, so there is no value to manipulate by repetition. Capture is idempotent by
+conditional write. And Razorpay bills per **transaction**, not per API call — so the cost of a
+loop here is request volume, not money, and 300 an hour from a single address is well inside any
+provider ceiling.
+
+Gates: typecheck and lint clean, suite **1289/1289**.
+
+### Still not changed
+
+`challengeLimiter` (30/hour), `mockTestLimiter` (60/hour), `tokenSubmitLimiter` (20/15 min) and
+`emailActionLimiter` (5/hour) all have the same shape, and by the corrected arithmetic all support
+fewer students than Phase D claimed. None costs revenue when it refuses, which is why
+`paymentLimiter` went first. The durable answer to all of them remains the shared store rather
+than larger numbers: with `MemoryStore` every figure is per serverless instance and resets on a
+cold start.
+
 ## 2026-09-27 — Milestone 29 Phase D: `registerLimiter` is 50 per hour, and the other limiters are now audited
 
 Same correction as Phase C, applied to registration: **10 per hour per IP meant a school
