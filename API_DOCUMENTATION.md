@@ -1135,7 +1135,7 @@ Only after the quiz has closed (**409** before). Ranks the correct answers by th
 
 ### Test-only hooks — never in a real deployment
 
-`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset`, `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
+`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset` (empties every collection, puts the clock back and, since 2026-10-05, empties the rate limiters' counters), `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
 
 ---
 

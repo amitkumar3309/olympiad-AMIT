@@ -15,6 +15,7 @@ import { createQuestion, toQuestionContent } from '../services/questionService';
 import { createQuestionSchema } from '../validation/questionSchemas';
 import { validate } from '../middleware/validate';
 import { ensureDb } from '../middleware/ensureDb';
+import { resetRateLimits } from '../middleware/rateLimiter';
 
 /**
  * Hooks for the browser end-to-end suite (Milestone 30, Phase 2) — never part of the
@@ -71,11 +72,12 @@ router.post('/__e2e/clock', validate({ body: clockSchema }), ensureDb, (req: Req
   sendSuccess(res, 200, { offsetMs: clockOffset(), now: now().toISOString(), today: dayKeyOf(now()) });
 });
 
-/** Empties every collection (keeping the indexes) and puts the clock back. */
+/** Empties every collection (keeping the indexes), puts the clock back and empties the rate limiters. */
 router.post('/__e2e/reset', ensureDb, async (_req: Request, res: Response) => {
   try {
     if (!onE2eDatabase(res)) return;
     resetClock();
+    await resetRateLimits();
     const collections = await mongoose.connection.db!.collections();
     await Promise.all(collections.map((collection) => collection.deleteMany({})));
     sendSuccess(res, 200, { reset: true, collections: collections.length });

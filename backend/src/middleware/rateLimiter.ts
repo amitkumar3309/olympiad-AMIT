@@ -1,4 +1,4 @@
-import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
+import rateLimit, { MemoryStore, ipKeyGenerator, type Options } from 'express-rate-limit';
 import { config } from '../config';
 
 /**
@@ -10,10 +10,18 @@ import { config } from '../config';
  * mounted **after** the auth gate may instead key on the account (see
  * `dailyQuizLimiter`), which is what a school's shared address needs.
  */
+/** Every limiter's store, so the end-to-end hooks can empty them — see `resetRateLimits()`. */
+const stores: MemoryStore[] = [];
+
 function limiter(
   options: Pick<Options, 'windowMs' | 'limit'> & { message: string; keyGenerator?: Options['keyGenerator'] },
 ) {
+  // The default store, made explicitly so it can be reached. One per limiter, as the
+  // library requires.
+  const store = new MemoryStore();
+  stores.push(store);
   return rateLimit({
+    store,
     windowMs: options.windowMs,
     limit: config.isTest ? 0 : options.limit,
     standardHeaders: true,
@@ -26,6 +34,18 @@ function limiter(
 
 const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
+
+/**
+ * Empties every limiter's counters. **Only the browser end-to-end suite calls this**, from
+ * `POST /__e2e/reset` (which exists only behind that router's three locks): its backend
+ * runs with the limiters live, as production does, and a growing suite that loads the
+ * homepage from one address for a minute and a half ran through the general limiter's
+ * 300 requests in the last tests — which then failed on a 429 rather than on anything they
+ * were testing. Each test now starts with a fresh budget and the limits stay real inside it.
+ */
+export async function resetRateLimits(): Promise<void> {
+  await Promise.all(stores.map((store) => store.resetAll()));
+}
 
 /** Applied to every /api route. /health and /ready are mounted before it. */
 export const generalLimiter = limiter({
