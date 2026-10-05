@@ -1093,6 +1093,11 @@ The prize and the rule in words, as on the Rewards section and the rules page. `
 #### `GET /api/v1/daily-quiz/winners`
 The most recent **published** winners (`limit` ≤ 20, default 7): `{ day, displayName, classLevel, place, prizeText }`. Names are masked by `displayNameFor()` (first name, last initial); a student with `hideFromPublicLists` appears as "A Class 9 student" with no place; only active accounts. Never a contact detail. `Cache-Control: public, max-age=60`.
 
+#### `GET /api/v1/daily-quiz/past`
+Recent Daily Quiz problems **whose answers are already public** — the homepage's "Can you crack this?" (added 2026-10-05). **Never today's and never a future day**: only days before the server's today, each through `revealOf()`, because today's quiz is a prize question timed from Start. `limit` (1–14, default 7) is per class group.
+
+`{ groups: [{ id: '3-5' | '6-8' | '9-12', label, min, max, problems: [{ day, classRange: { min, max, label }, topic, difficulty, questionText, options: [{ letter, text }], answer: { letter, text }, solution }] }] }` — all three groups always, `problems` newest first and empty until one has been revealed; **one entry per quiz** (a quiz for Classes 6–8 is one problem, not three); a quiz for a custom range under every group it overlaps. Display letters only — no opaque option id, no bank key — in an order seeded by the quiz, the same on every request. A pre-quiz daily challenge (no snapshot) is never included. `Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=60`, set only on success. **400** for a `limit` outside 1–14.
+
 ### Running the quiz (staff — `challenges:write`)
 
 Literal paths are declared before `/:groupId`.

@@ -15,6 +15,7 @@ import { resolveXpFor } from '../../services/rewardService';
 import {
   getQuizSettings,
   listQuizHistory,
+  pastQuizProblems,
   publicQuizInfo,
   publicRecentWinners,
   quizStatusFor,
@@ -26,9 +27,11 @@ import {
 } from '../../services/dailyChallengeService';
 import { rewardSubmission, settlePendingQuizRewards } from '../../services/dailyQuizRewards';
 import {
+  pastProblemsQuerySchema,
   publicWinnersQuerySchema,
   quizHistoryQuerySchema,
   submitQuizSchema,
+  type PastProblemsQuery,
   type PublicWinnersQuery,
   type QuizHistoryQuery,
   type SubmitQuizBody,
@@ -45,6 +48,7 @@ import {
  *  - `GET  /me/daily-quiz/history` every quiz day, with solutions once unlocked
  *  - `GET  /daily-quiz/info`       public: the prize and how winners are chosen
  *  - `GET  /daily-quiz/winners`    public: recent published winners
+ *  - `GET  /daily-quiz/past`       public: recent problems whose answers are unlocked
  *
  * ## What is not negotiable from the client
  *
@@ -286,6 +290,31 @@ router.get(
     } catch (err) {
       logger.error({ err }, 'Failed to load the Daily Quiz winners');
       sendError(res, 500, 'Could not load the winners. Please try again.');
+    }
+  },
+);
+
+/**
+ * Recent Daily Quiz problems whose answers are already public, per class group — the
+ * homepage's "Can you crack this?". **Never today's**: see `pastQuizProblems()`.
+ *
+ * Cached publicly, and safely so: the response holds only days revealed when it was
+ * built, and a reveal never un-happens — a stale copy can only be missing the newest day.
+ * The header is set after the work succeeds, so a failure is never cached.
+ */
+router.get(
+  '/daily-quiz/past',
+  validate({ query: pastProblemsQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const { limit } = req.query as unknown as PastProblemsQuery;
+      const groups = await pastQuizProblems(limit, now());
+      res.set('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=60');
+      sendSuccess(res, 200, { groups });
+    } catch (err) {
+      logger.error({ err }, 'Failed to load the past Daily Quiz problems');
+      sendError(res, 500, 'Could not load the problems. Please try again.');
     }
   },
 );
