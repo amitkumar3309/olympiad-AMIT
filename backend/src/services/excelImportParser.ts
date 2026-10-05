@@ -686,7 +686,7 @@ const TEMPLATE_HEADINGS = [
  */
 export async function buildExcelTemplate(): Promise<Buffer> {
   const workbook = new exceljs.Workbook();
-  workbook.creator = 'AMIT Maths Olympiad';
+  workbook.creator = 'A.M.I.T. Olympiad';
   workbook.created = new Date();
 
   const sheet = workbook.addWorksheet('Questions', {

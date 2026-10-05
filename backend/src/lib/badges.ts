@@ -109,7 +109,7 @@ export const BADGES: readonly BadgeDefinition[] = [
   {
     code: 'daily_solver',
     name: 'Daily Solver',
-    description: 'Daily challenges answered.',
+    description: 'Daily Quizzes answered.',
     icon: 'ph-dice-five',
     unit: 'challenges',
     thresholds: [1, 10, 50],

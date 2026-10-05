@@ -1,4 +1,5 @@
 import { reach, type RewardFacts } from './rewardFacts';
+import { PRODUCT_NAME } from './brand';
 
 /**
  * The achievement catalogue.
@@ -61,7 +62,7 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   {
     code: 'enrolled',
     name: 'Enrolled',
-    description: 'Created your AMIT Olympiad account.',
+    description: `Created your ${PRODUCT_NAME} account.`,
     icon: 'ph-user-plus',
     // Earned by everyone who has an account, because that is exactly what it
     // claims. Kept in the catalogue rather than dropped as trivial: it is the one
@@ -128,14 +129,14 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   {
     code: 'challenge_first',
     name: 'Challenger',
-    description: 'Answered your first daily challenge.',
+    description: 'Answered your first Daily Quiz.',
     icon: 'ph-dice-five',
     measure: (f) => reach(f.challengesCompleted, 1),
   },
   {
     code: 'challenge_streak_5',
     name: 'Five days sharp',
-    description: 'Answered the daily challenge on 5 consecutive days.',
+    description: 'Answered the Daily Quiz on 5 consecutive days.',
     icon: 'ph-lightning',
     measure: (f) => reach(f.longestChallengeStreak, 5),
   },

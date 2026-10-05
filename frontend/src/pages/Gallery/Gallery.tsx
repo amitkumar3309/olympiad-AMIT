@@ -7,6 +7,7 @@ import Spinner from '../../components/Spinner'
 import { Modal } from '../../components/ui'
 import styles from './Gallery.module.css'
 import { humanizeError } from '../../lib/errors'
+import { AMIT_OLYMPIAD } from '../../lib/brand'
 
 interface GalleryResponse {
   gallery: GalleryItem[]
@@ -58,7 +59,7 @@ export default function Gallery() {
       <main className={styles.wrap}>
         <header className={styles.header}>
           <h1>Event Gallery</h1>
-          <p>Moments from A.M.I.T Maths Olympiad events around the country.</p>
+          <p>Moments from {AMIT_OLYMPIAD} events around the country.</p>
         </header>
 
         {error && <p className="error-text">{error}</p>}

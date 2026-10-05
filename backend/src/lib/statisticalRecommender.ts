@@ -573,7 +573,7 @@ function insights(analytics: StudentAnalytics): Recommendation[] {
 const SURFACE_WORDS = {
   practice: 'practice sessions',
   mock_test: 'mock tests',
-  daily_challenge: 'daily challenges',
+  daily_challenge: 'Daily Quizzes',
   official_exam: 'official exam sittings',
 } as const;
 

@@ -165,7 +165,7 @@ export default function Report() {
                 <h2>Accuracy and topic breakdown</h2>
                 <p>
                   These are worked out from questions you have actually answered, and you have not submitted anything
-                  yet. Sit a practice session, a mock test or the daily challenge and this section fills in by itself —
+                  yet. Sit a practice session, a mock test or the Daily Quiz and this section fills in by itself —
                   it deliberately stays blank rather than estimating.
                 </p>
               </div>

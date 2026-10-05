@@ -6,6 +6,7 @@ import type { StudentInvoice } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import styles from './Payment.module.css'
 import { humanizeError } from '../../lib/errors'
+import { AMIT_OLYMPIAD } from '../../lib/brand'
 
 /**
  * The Olympiad entry fee — Razorpay Standard Checkout (Milestone 19).
@@ -288,7 +289,7 @@ export default function Payment() {
         amount: order.amount,
         currency: order.currency,
         order_id: order.orderId,
-        name: 'AMIT Maths Olympiad',
+        name: AMIT_OLYMPIAD,
         description: 'Olympiad entry fee',
         prefill: order.prefill,
         theme: { color: '#0052ff' },

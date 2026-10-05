@@ -605,7 +605,7 @@ export async function getStudentAnalytics(student: Types.ObjectId): Promise<Stud
       return {
         surface: 'daily_challenge',
         at: doc.submittedAt,
-        label: 'Daily challenge',
+        label: 'Daily Quiz',
         score: answer?.awardedMarks ?? 0,
         maxMarks: answer?.marks ?? 0,
         scorePercent: percent(answer?.awardedMarks ?? 0, answer?.marks ?? 0),

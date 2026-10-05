@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import { config } from '../config';
 import { logger } from './logger';
 import type { NextPath } from './nextPaths';
+import { PRODUCT_NAME, PRODUCT_SHORT } from './brand';
 
 export interface OutboundEmail {
   to: string;
@@ -320,7 +321,7 @@ function layout(input: EmailLayout): string {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
           <tr>
             <td style="padding:0 4px 16px">
-              <span style="font-size:20px;font-weight:700;letter-spacing:0.12em;color:${BRAND.ink}">A.M.I.T</span>
+              <span style="font-size:20px;font-weight:700;letter-spacing:0.12em;color:${BRAND.ink}">${PRODUCT_SHORT}</span>
               <span style="font-size:13px;letter-spacing:0.08em;color:${BRAND.muted}">&nbsp;MATHS OLYMPIAD</span>
             </td>
           </tr>
@@ -370,9 +371,9 @@ export function buildVerificationEmail(to: string, token: string, next?: NextPat
 
   return {
     to,
-    subject: 'Verify your email to activate your AMIT Olympiad account',
+    subject: `Verify your email to activate your ${PRODUCT_NAME} account`,
     text:
-      `Welcome to A.M.I.T Maths Olympiad.\n\n` +
+      `Welcome to the ${PRODUCT_NAME}.\n\n` +
       `Verify your email address to activate your account:\n${url}\n\n` +
       `This link works for ${hours} hours and can be used once. You will not be able to sign in until it is used.\n\n` +
       `If you didn't create this account, ignore this email — nothing further will happen.` +
@@ -381,7 +382,7 @@ export function buildVerificationEmail(to: string, token: string, next?: NextPat
       preheader: `Confirm your email address to activate your account. The link works for ${hours} hours.`,
       heading: 'Verify your email address',
       body:
-        `Welcome to A.M.I.T Maths Olympiad. Confirm this address to activate your account — you will not be able to sign in until you do.\n\n` +
+        `Welcome to the ${PRODUCT_NAME}. Confirm this address to activate your account — you will not be able to sign in until you do.\n\n` +
         `This link works for ${hours} hours and can be used once.`,
       actionUrl: url,
       actionLabel: 'Verify my email',
@@ -396,9 +397,9 @@ export function buildPasswordResetEmail(to: string, token: string): OutboundEmai
 
   return {
     to,
-    subject: 'Reset your AMIT Olympiad password',
+    subject: `Reset your ${PRODUCT_NAME} password`,
     text:
-      `We received a request to reset your A.M.I.T Maths Olympiad password.\n\n` +
+      `We received a request to reset your ${PRODUCT_NAME} password.\n\n` +
       `Choose a new password here:\n${url}\n\n` +
       `This link works for ${minutes} minutes and can be used once.\n\n` +
       `If you didn't request this, ignore this email — your password will not change.` +
@@ -439,7 +440,7 @@ export function buildNotificationEmail(input: {
   manageable: boolean;
 }): OutboundEmail {
   const url = input.link ? `${config.publicAppUrl}${input.link}` : undefined;
-  const label = url ? (input.actionLabel ?? 'Open AMIT Olympiad') : undefined;
+  const label = url ? (input.actionLabel ?? `Open ${PRODUCT_NAME}`) : undefined;
 
   const footer = input.manageable
     ? `You are receiving this because email updates are on for your account. You can turn them off under Profile → Notification preferences.`

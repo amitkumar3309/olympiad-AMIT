@@ -89,7 +89,7 @@ const envSchema = z.object({
   SMTP_USER: z.string().min(1).optional(),
   SMTP_PASS: z.string().min(1).optional(),
   SMTP_SECURE: booleanish(false),
-  EMAIL_FROM: z.string().min(1).default('AMIT Olympiad <no-reply@amitolympiad.local>'),
+  EMAIL_FROM: z.string().min(1).default('A.M.I.T. Olympiad <no-reply@amitolympiad.local>'),
 
   // --- Performance recommendations (Milestone 16) ---
   /**
