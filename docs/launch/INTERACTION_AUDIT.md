@@ -1,7 +1,8 @@
 # Interaction audit (R1)
 
 _Phase 0 baseline, 2026-10-04, read from the code at `a8bfad0`. **Re-verified in Phase 5 (2026-10-05)** — the
-**Final** column; how, in the next section._
+**Final** column; how, in the next section. **Phase 6 (2026-10-05)** added axe on every crawled page and a
+keyboard suite: D17 is resolved, and D18–D21 were found and fixed._
 
 Status key: ✅ works · ⚠️ works but wrong/misleading · ❌ broken · — not yet re-verified.
 
@@ -65,7 +66,11 @@ Paths are relative to `frontend/src/`. Routes are declared only in `App.tsx`; gu
 | D14 | `components/ui/Input.tsx` (seen in a Phase 5 screenshot) | Microsoft Edge drew its own reveal eye beside `PasswordInput`'s — two eyes in every password field | Low | ✅ **Resolved in Phase 5** — `::-ms-reveal` hidden for `PasswordInput` only |
 | D15 | `pages/Profile/Profile.tsx` | The password change used three plain password inputs (no show/hide), against CLAUDE.md's rule | Low | ✅ **Resolved in Phase 5** — `ui/Field` + `ui/PasswordInput` |
 | D16 | `pages/Admin/{DailyQuiz,Payments,Referrals,RewardSettings}.tsx`, `MockTestForm.tsx` | Four settings screens saved on a click only (Enter did nothing), and several saves had no spinner | Low | ✅ **Resolved in Phase 5** — real forms (`type="submit"`), `loading` on every save. The mock-test editor stays click-to-save on purpose: an editor full of search fields, where Enter-to-save would surprise |
-| D17 | `context/AuthContext.tsx` (pre-existing) | A failed session check at page load — offline, a 5xx, a 429 — is treated as signed out, so a signed-in student on a guarded page is sent to the sign-in dialog. `/auth/me` behaved the same before Phase 5 | Low | ⬜ **Phase 6** — "graceful behaviour when the API is slow" (brief §10) |
+| D17 | `context/AuthContext.tsx` (pre-existing) | A failed session check at page load — offline, a 5xx, a 429 — is treated as signed out, so a signed-in student on a guarded page is sent to the sign-in dialog. `/auth/me` behaved the same before Phase 5 | Low | ✅ **Resolved in Phase 6** — a failure that may pass (no answer, a timeout, a 5xx, a 429) is retried twice, after 1 s and 3 s, before the visitor is read as signed out; a 4xx is an answer and is not retried. `e2e/resilience.spec.ts` fails the first check and expects the student to stay on their page |
+| D18 | `components/Navbar.tsx`; `pages/Gallery`, `pages/Certificates/Verify`, `pages/NotFound` (Phase 6 crawler check) | The public pages had no "Skip to content" link — only the app shell had one — and three public pages had no `#main-content` for one to land on | Low | ✅ **Resolved in Phase 6** — `ui/SkipLink` (a primitive now, shared with the shell) in the public header; `id="main-content"` on every page's main region. The crawler fails on a page without either, and `keyboard.spec.ts` checks the first Tab reaches it |
+| D19 | `components/ChartCard.tsx` (axe, `role-img-alt`) | `react-chartjs-2` gives its canvas a `role="img"` of its own, so inside the card's labelled image a reader met a second, nameless one | Low | ✅ **Resolved in Phase 6** — the canvas is `aria-hidden`; the wrapper carries the summary and the numbers are in the table beside it |
+| D20 | `pages/Rewards/Rewards.tsx` + `.module.css` (axe, `color-contrast`) | Unearned badges and locked achievements faded the **whole** card, which took their descriptions — how to earn them — below 4.5:1; "earned" was said by a tick alone | Low | ✅ **Resolved in Phase 6** — only the icon fades; "Earned" and "Progress:" are in the text for a screen reader |
+| D21 | `pages/Admin/QuestionImport.tsx` (Phase 6 review of `role="tab"`) | The file-format choice was marked up as tabs (`role="tab"`, `aria-selected`) with no panels, `aria-controls` or arrow keys — the defect CLAUDE.md's `Tabs` rule names | Low | ✅ **Resolved in Phase 6** — a labelled group of pressed buttons ("File format", `aria-pressed`), the filter pattern |
 
 ## Route inventory (52 declared)
 

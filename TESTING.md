@@ -37,6 +37,35 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Milestone 30 Phase 6 (2026-10-06): 1360 passing backend tests across 38 files; 44 browser tests
+> (35 run, 9 one-width-only), about seven minutes, under the production Content Security Policy.**
+> Eight new backend tests for parental consent: in `tests/registration.details.test.ts`, a registration
+> without the box ticked is refused and stores nothing; one with no guardian phone or email is refused;
+> a guardian phone or email that is not one is refused; the consent is stored at the **server's** time
+> with the guardian's contact; and a `guardianConsentAt` in the body is ignored. In
+> `tests/profile.test.ts`, an older account gives consent once, at the server's time, and then counts
+> for prizes; it cannot be withdrawn (`false` is refused) or back-dated. In
+> `tests/dailyQuizRules.test.ts`, eligibility lists `guardian-consent` for an account without it.
+> `validStudent` in `tests/helpers/auth.ts` carries the consent, as every real registration now must.
+> **In the browser**: `@axe-core/playwright` runs on **every page the crawler reaches** (WCAG 2.1 A and
+> AA, failing on a serious or critical violation; `expectAccessible()` in `fixtures.ts`) and at every
+> overlay the specs open — the sign-in dialog, the Login Gate, the registration form and its errors,
+> the bell and account menus, the drawer, the quiz's confirm dialog and its result. The crawler also
+> fails on a page with no "Skip to content" or no `#main-content`, a title, `robots` or canonical that
+> disagrees with `lib/pageMeta.ts`, or more or fewer than one `h1`; and a new crawl runs the student in
+> the **dark** theme. **`e2e/keyboard.spec.ts`** (desktop): the first Tab reaches the skip link and it
+> moves focus past the header; every stop on the homepage and the dashboard shows a focus ring (an
+> outline or a box-shadow of real width); the sign-in dialog traps focus and closes on Escape,
+> returning focus to its trigger; the Daily Quiz played with the keyboard alone (Enter starts it, Space
+> and the arrows choose, the confirm dialog takes focus, Escape backs out keeping the choice, Enter
+> submits); the account menu by arrows and Escape; the tabs by arrows.
+> **`e2e/resilience.spec.ts`** (both widths): a page file that fails to download shows "A new version
+> of the site is ready", going back clears it (mutation-checked) and reloading recovers; a session
+> check that fails once is retried rather than read as signed out. The suite now serves the production
+> build **with `vercel.json`'s headers**, so a CSP refusal anywhere is a console error that fails it —
+> mutation-checked by removing one allowance.
+> Registration in `homepage.spec.ts` ticks the consent box and gives a guardian email.
+>
 > **Milestone 30 Phase 5 (2026-10-05): 1352 passing backend tests across 38 files; 26 browser tests
 > (24 run, 2 skipped by design), 4.2 minutes — against a production build now.** Six new backend tests: four for `GET /auth/session` in
 > `tests/auth.security.test.ts` (a guest is 200 and no cookie is set; a session answers what `/auth/me`
@@ -121,9 +150,10 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > while the seeded quiz is live, `GET /daily-quiz/past` does not carry it; the clock moves a day, and
 > it is the problem on the homepage — chosen, submitted, marked "Correct" with its solution; on an
 > empty database the section says the first problem is on its way. **Phase 4 added
-> `dashboard.spec.ts`** and **Phase 5 the link crawler** (above). **Twenty-six tests** — 24 run, the
-> admin crawl and one phone-only dashboard test skipped at the other width — about four minutes,
-> about two of them the five crawls. Each crawl also writes `timings.txt`: how long every page took
+> `dashboard.spec.ts`**, **Phase 5 the link crawler** and **Phase 6 axe, `keyboard.spec.ts` and
+> `resilience.spec.ts`** (above). **Forty-four tests** — 35 run; the admin and dark crawls and the six
+> keyboard tests run at desktop only, one dashboard test at the phone width only — about seven minutes,
+> most of it the six crawls. Each crawl also writes `timings.txt`: how long every page took
 > and how many requests it made. (The Phase 3 `npm run verify:samples` script went with the demo questions it checked.)
 >
 > It needs nothing installed beyond `npm ci` and Edge; on a machine without Edge, run

@@ -1,0 +1,4 @@
+﻿Day,Classes,Question,Option A,Option B,Option C,Option D,Correct Answer,Solution,Topic,Difficulty
+2026-11-08,3-5,Riya has 3 boxes with 8 pencils in each box. She gives away 5 pencils. How many pencils does she have left?,16,19,21,29,B,"3 boxes of 8 pencils make $3 \times 8 = 24$ pencils. After giving away 5, she has $24 - 5 = 19$ pencils.",,Easy
+2026-11-08,6-8,What is 15% of 240?,32,36,38,40,B,15% of 240 is $\frac{15}{100} \times 240 = 36$.,,Easy
+2026-11-08,9-12,"If $x + \frac{1}{x} = 3$, what is the value of $x^2 + \frac{1}{x^2}$?",7,9,11,5,A,"Square both sides: $\left(x + \frac{1}{x}\right)^2 = x^2 + 2 + \frac{1}{x^2} = 9$, so $x^2 + \frac{1}{x^2} = 9 - 2 = 7$.",,Medium

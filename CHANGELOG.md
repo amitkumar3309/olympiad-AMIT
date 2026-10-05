@@ -2,6 +2,58 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-06 — Milestone 30 Phase 6: launch readiness
+
+Everything a launch needs beyond features (brief §10–11): search and sharing, safety, parental consent,
+accessibility measured in the browser, speed, one name, and the owner's launch report. Branch
+`feat/diwali-launch-phase-6`.
+
+### Students, parents and visitors
+
+- **Parental consent at registration.** A "Parent or guardian" section — a phone and an email, one of
+  them required — and the brief's box: "I am the parent/guardian, or I have my parent/guardian's
+  permission, and I agree to the Terms and Privacy Policy". Never pre-ticked; the server records when.
+  An account made earlier gives it once under My Profile → Prize details, and a prize needs it.
+- **A crash is a page, not a white screen**: "Something went wrong on this page", with Reload, Home and
+  the support line. After a new release, an open tab says "A new version of the site is ready".
+- **A slow connection is a message**: a request that has not answered in 90 seconds says the server is
+  taking too long, with a retry; a flaky session check no longer signs a student out.
+- **"Skip to content"** on every public page, and the keyboard reaches everything with a visible focus
+  ring — checked page by page.
+- **Faster on a phone**: the homepage's mobile Lighthouse score went from 69 to 81–88 over four runs
+  (median 84; the icon font no longer holds up the first paint; "Can you crack this?" loads as you reach
+  it; a 6 KB logo). The 85 target and the 2.5 s LCP target are not reliably met — see the report.
+- **Shared links look right**: a title and description for every page, and a share card with the
+  A.M.I.T. Olympiad emblem for WhatsApp and social media; new favicons and home-screen icons.
+- **One name**: emails, notifications and achievements say "A.M.I.T. Olympiad", and "Daily Quiz"
+  everywhere the old "daily challenge" still showed.
+
+### Staff
+
+- A winner now needs a parent or guardian's consent as well; the winner table says when it is missing.
+- The audit log names Daily Quiz scheduling as the Daily Quiz.
+- The question importer's file-format picker is announced correctly to a screen reader.
+
+### Under the hood
+
+- `lib/pageMeta.ts` + `components/PageMeta` + the `vite.seo.ts` plugin: titles, descriptions, `noindex`
+  on private pages, canonical links, `robots.txt`, `sitemap.xml` (12 public pages), `manifest.json`,
+  Open Graph and Twitter tags and the organisation's structured data, all from one table and
+  `lib/brand.ts`. `index.html` no longer holds a copy of the name.
+- A full **Content Security Policy** and **HSTS** in `frontend/vercel.json`, served by `vite preview`
+  as well, so the browser suite runs under them.
+- `npm audit fix` in both apps; nodemailer 9 → 10; `@vercel/node` moved to dev dependencies — **no high
+  or critical finding in what ships**.
+- `@axe-core/playwright` (dev): axe on every crawled page and overlay; `e2e/keyboard.spec.ts`,
+  `e2e/resilience.spec.ts`; a dark-theme crawl. New primitive `ui/SkipLink` (35 now).
+- `Student.guardianConsentAt` (additive); `'guardian-consent'` joins the prize requirements.
+- `backend/src/lib/brand.ts` (`PRODUCT_NAME`); `frontend/scripts/make-brand-images.ts`.
+- `npm run preview:prod` in `frontend/` and a `launch-frontend-prod` server, for measuring what ships.
+- `docs/launch/LAUNCH_REPORT.md` — the owner's launch report; `docs/launch/daily-quiz-example.csv`.
+
+Backend **1360 tests / 38 files** (eight new, all consent); E2E **44** (35 run, 9 one-width-only, all
+passing). Audit rows D17–D21 resolved.
+
 ## 2026-10-05 — Milestone 30 Phase 5: every button and link
 
 Every clickable element re-verified after the redesign, and two machines that keep it that way: a lint

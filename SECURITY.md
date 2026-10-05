@@ -166,7 +166,7 @@ The whole application — backend and frontend — was reviewed against authenti
 
 **What was checked and found genuinely sound**, so a future reader does not re-derive it: the answer-key rules; grading and the timing model; the reward and ranking engines; the permission table and its fresh database re-check; `refuseIfProtected()`; the root-superadmin bootstrap and the escalation it refuses; refresh-token rotation and family revocation; password storage and the single `authenticateAccount()`; every Mongo filter built from zod-parsed values with escaped regexes; every upload validated by magic bytes; the payment signature, ownership and idempotency rules; and the KaTeX text/math split. No IDOR was found — every owner-scoped route puts the account in the **query** rather than checking it afterwards, and every route in `routes/v1/` carries a gate.
 
-**Not verified in this pass, and honestly outstanding**: `npm audit` (see "Remaining Gaps"), and nothing was driven through a real browser.
+**Not verified in this pass, and honestly outstanding**: `npm audit` (see "Remaining Gaps"), and nothing was driven through a real browser. *(Both done since: the audit was run on 2026-10-05 — see "Remaining Gaps" item 1 — and the browser suite has driven every page since Milestone 30.)*
 
 ## Authentication Security
 
@@ -374,7 +374,8 @@ Fixed at the same time (finding 4). `frontend/vercel.json` previously set **no**
 | Header | Value | Why |
 |---|---|---|
 | `X-Frame-Options` | `DENY` | Clickjacking. Nothing in this product is meant to be framed. |
-| `Content-Security-Policy` | `frame-ancestors 'none'` | The modern form of the same control, which `X-Frame-Options` no longer covers everywhere. Deliberately **only** `frame-ancestors`: a `default-src` policy would have to enumerate Google Fonts, unpkg and Razorpay's checkout, and a CSP written blind is a broken page rather than a safer one. |
+| `Content-Security-Policy` | a full policy since Milestone 30 Phase 6 — see below | Was only `frame-ancestors 'none'` until then, because a policy written blind is a broken page rather than a safer one. Phase 6 wrote it against the real page, under test. |
+| `Strict-Transport-Security` | `max-age=63072000` (Milestone 30 Phase 6) | Two years. No `includeSubDomains` or `preload`: both reach beyond this one site and are the owner's call. |
 | `X-Content-Type-Options` | `nosniff` | Matches what `helmet` already sends from the API. |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | A URL in this app can name a student's own resources; it should not travel to third-party sites in full. |
 | `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Nothing here uses them. `payment=()` is deliberately **absent** — Razorpay's checkout can use the Payment Request API, and disabling it would break paying. |
@@ -417,6 +418,26 @@ All request bodies and query params are validated by zod schemas via `middleware
 - Query filters are never built from raw user input. The login lookup uses `$or` over two explicitly-normalised strings (`identifier.toLowerCase()` and a digits-only mobile), and `GET /questions` validates every filter through a zod schema that rejects anything that isn't a plain string.
 - The Milestone 3 admin listing follows the same rule: `GET /admin/students` builds its filter field by field from zod-parsed values and never spreads `req.query`. Its free-text `search` is **regex-escaped** before becoming a `RegExp`, so a term like `.*` matches literally rather than matching every account (asserted by a test), and `:studentId` path params are constrained to `AMIT_` plus four digits so a path segment cannot become a filter.
 - **Correction retained from Milestone 1**: the classic `?field[$ne]=x` operator-injection shape was never exploitable here, because Express 5 defaults to the `'simple'` query parser, which does not do bracket-notation nesting. Verified empirically against Express 5.2.1. The real risk — a repeated key arriving as an array — is closed by the validation layer, which also keeps holding if the parser is ever switched to `'extended'`.
+
+### The Content Security Policy (Milestone 30, Phase 6)
+
+One value, in `frontend/vercel.json` and nowhere else:
+
+| Directive | Allows | Why |
+|---|---|---|
+| `default-src` | `'self'` | Everything not listed below. |
+| `script-src` | `'self'`, `https://*.razorpay.com`, `https://browser.sentry-cdn.com`, `https://vercel.live` | The app's own bundles; Razorpay's checkout (its documented guidance is the wildcard — it loads from several subdomains); the error reporter Razorpay's checkout loads; Vercel's preview toolbar (preview deployments only). **No `'unsafe-inline'`, no `'unsafe-eval'`** — nothing needs either, and that is what makes the policy a defence against injected script. |
+| `style-src` | `'self' 'unsafe-inline'`, unpkg, Razorpay, Vercel | Inline styles are needed by React's `style` attributes and Razorpay's checkout; a style cannot run code. unpkg is the icon font's stylesheet. |
+| `font-src` / `img-src` | `'self'`, `data:` (and `blob:` for images), unpkg, Razorpay, Vercel | The icon font, the checkout's assets, a photo preview. |
+| `connect-src` | `'self'`, Razorpay, `*.sentry.io`, Vercel's toolbar | The API is same-origin (`/api` is rewritten), so only third parties are listed. |
+| `frame-src` / `form-action` | Razorpay (and Vercel's toolbar frame) | The checkout is a frame and may post a form back. |
+| `object-src 'none'`, `base-uri 'self'`, `manifest-src 'self'`, `frame-ancestors 'none'` | — | No plugins; no `<base>` hijack; nobody may frame the site. |
+
+**`vite preview` serves the same headers** (`vite.config.ts` reads them from `vercel.json`), and the
+browser suite runs against that preview — so every page the crawler reaches, and the checkout's
+script load, run under the real policy, and a refusal is a console error that fails the suite. This
+was mutation-checked: removing one allowance made the crawler fail on the page that needed it.
+**When the site starts loading anything from a new origin, add it here; the suite will say so.**
 
 ## Security Headers
 
@@ -664,6 +685,16 @@ Real prizes, including cash, raise the value of every shortcut. What the quiz de
 7. **Rate limits.** Start and submit share a per-*student* limiter (`dailyQuizLimiter`, 30 per 10
    minutes), keyed on the account so a school on one Wi-Fi is not throttled as one person.
 
+### Parental consent (Milestone 30, Phase 6)
+
+The players are children, so registration requires a parent or guardian's consent (the brief's own
+words, a box that is never pre-ticked) and a way to reach that parent or guardian — a phone **or** an
+email. The server records the time (`Student.guardianConsentAt`); a request can say only "yes", never
+when. Prize eligibility requires it, so no child can be named a winner — whose name, class and city
+the public list then shows — without it. This is a record that consent was *given*, not a
+verification that the person who ticked was the parent; whether the DPDP Act's "verifiable consent"
+needs more is in `docs/launch/LEGAL_REVIEW.md`.
+
 ### The end-to-end test hooks
 
 `/__e2e/clock`, `/__e2e/reset` and `/__e2e/seed` can move the quiz clock, empty a database and create a
@@ -678,7 +709,10 @@ they answer 404 in a normal app.
 
 Items 1 and 5 of the previous list — CSRF and administrative rate limiting — were closed by the 2026-08-17 audit and now have sections of their own above.
 
-1. **Dependency vulnerabilities are unverified as of 2026-08-17.** `npm audit` could not be run in the session that performed the audit, so the standing entry below is carried forward on trust rather than re-checked, which is exactly the state this document is supposed to make impossible. **Run `npm audit` in both `backend/` and `frontend/` and record the result here.** The previously-known finding is in `@vercel/node`'s *build-time* dependency tree, where fixing needs a breaking major upgrade; that is a different risk from a runtime dependency and should be recorded as such.
+1. **Dependency audit — run 2026-10-05 (Milestone 30 Phase 6).** After `npm audit fix` in both apps, nodemailer 9 → 10, and moving `@vercel/node` to `devDependencies` (nothing imports it; Vercel installs its own builder):
+   - **Frontend: 0** findings, production or development.
+   - **Backend, what ships (`npm audit --omit=dev`): 2 moderate, 0 high or critical** — `exceljs` → `uuid` < 11.1.1, whose flaw is in `v3`/`v5`/`v6` with a caller-supplied buffer. `exceljs` calls only `v4()` with no arguments, so it is unreachable; the only fix is a breaking `exceljs` downgrade. Re-check when `exceljs` releases.
+   - **Backend, development tree: 10 high, 1 more moderate** — every one reached through `@vercel/node`'s build tooling (`path-to-regexp`, `undici`, `ts-morph` → `micromatch` → `braces`, `ajv`), which runs on a developer's machine or Vercel's builder and never in the deployed function. The fix is a breaking `@vercel/node` major; not taken during launch week.
 2. **`trust proxy` and `req.ip`** — every per-IP rate limit is effectively one shared bucket on serverless, and the `ip` on audit entries is not the caller's. Deliberately not changed, because the naive fix makes the limits spoofable. See the caveat under "Rate Limiting" for what a correct fix has to prove first.
 3. **Shared-store rate limiting** — limits are per-instance and weak on serverless. Compounds item 2.
 4. **Two-factor authentication** — not started, and now more valuable: an admin account is worth more than it was.

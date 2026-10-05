@@ -102,7 +102,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 | `SMTP_USER` | required to send real email | SMTP login. | Same. | `you@smtp-brevo.com` |
 | `SMTP_PASS` | required to send real email | SMTP key/password. **A secret.** | Same. | `xsmtpsib-…` |
 | `SMTP_SECURE` | optional (default `false`) | Implicit TLS. | — | `false` for port 587 (STARTTLS), `true` for 465. |
-| `EMAIL_FROM` | optional (has a placeholder default) | The From address recipients see. | You choose, but your provider must authorise the domain. | `AMIT Olympiad <no-reply@yourdomain.com>` |
+| `EMAIL_FROM` | optional (has a placeholder default) | The From address recipients see. The name before the address is what an inbox shows — since Milestone 30 Phase 6 the product writes its name as **A.M.I.T. Olympiad** everywhere else, so use that. | You choose, but your provider must authorise the domain. | `A.M.I.T. Olympiad <no-reply@yourdomain.com>` |
 
 **If SMTP is unset, the app still works**: verification and reset emails are written to the backend log (including the real, working link) instead of being sent. That keeps local development fully testable before you sign up for anything. It is **not** acceptable in production — real students cannot read your server log.
 
@@ -211,7 +211,7 @@ Brevo's free tier allows 300 emails/day, needs no credit card, and works over pl
 4. Click **Generate a new SMTP key** (sometimes "Create a new SMTP key"). Copy the key **immediately** — it is shown only once. That value is your `SMTP_PASS`.
 5. Authorise a sender address: go to **Senders, Domains & Dedicated IPs** → **Senders** → **Add a sender**, and add the address you want mail to come from. Brevo emails you a confirmation link; click it.
    - If you do not own a domain, use a personal address here for now. Mail sent from an unauthorised address is rejected or lands in spam.
-   - Whatever you authorise becomes your `EMAIL_FROM`, in the form `AMIT Olympiad <that-address>`.
+   - Whatever you authorise becomes your `EMAIL_FROM`, in the form `A.M.I.T. Olympiad <that-address>`.
 6. Open `backend/.env` (create it by copying `backend/.env.example` if it does not exist) and fill in:
    ```
    SMTP_HOST=smtp-relay.brevo.com
@@ -219,7 +219,7 @@ Brevo's free tier allows 300 emails/day, needs no credit card, and works over pl
    SMTP_USER=<the login from step 3>
    SMTP_PASS=<the key from step 4>
    SMTP_SECURE=false
-   EMAIL_FROM=AMIT Olympiad <the address you authorised in step 5>
+   EMAIL_FROM=A.M.I.T. Olympiad <the address you authorised in step 5>
    ```
 7. Restart the backend (`npm run dev --prefix backend`). The startup warning about SMTP being unconfigured should disappear.
 8. Test it: register a student through the site with an address you can actually read, and confirm the verification email arrives. If nothing arrives, check the backend log — a delivery failure is logged there with the provider's reason.
