@@ -439,6 +439,14 @@ script load, run under the real policy, and a refusal is a console error that fa
 was mutation-checked: removing one allowance made the crawler fail on the page that needed it.
 **When the site starts loading anything from a new origin, add it here; the suite will say so.**
 
+Two scripts are worth knowing about under this policy (Milestone 30 Phase 6 follow-up).
+`public/boot.js` runs first on every page — it sets the theme before the first paint and, on the
+drawn homepage, starts the app — and it is a same-origin **file**, so the policy still needs no
+inline-script allowance and no hash. The organisation's structured data is a
+`<script type="application/ld+json">` **data block**: the browser never executes it, so the policy
+does not apply to it. The drawn homepage itself (`vite.prerender.ts`) is built once from the code
+and contains nothing about any visitor.
+
 ## Security Headers
 
 `helmet` with defaults, and `x-powered-by` disabled.

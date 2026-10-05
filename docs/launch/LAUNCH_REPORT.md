@@ -28,12 +28,13 @@ The launch brief (`docs/launch/LAUNCH_SPEC.md`) in seven phases — merged as pu
 
 - **Backend: 1,360 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
   student response carries the answer before midnight).
-- **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 44 tests, about seven minutes) —
+- **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 54 tests, about eight minutes) —
   the quiz from start to the next day's reveal, registration → email → quiz, the dashboard,
-  keyboard-only use, a crash and a weak connection, and a **crawler over every page** (guest and
-  student on desktop and phone, the student also in the dark theme, the administrator on desktop) that
-  fails on any console error, failed request, broken link, page without one heading, or **any serious
-  accessibility violation (axe)**.
+  keyboard-only use, a crash and a weak connection, the homepage readable before its script has run,
+  **every tap answering within 200 ms on a slowed phone**, and a **crawler over every page** (guest
+  and student on desktop and phone, the student also in the dark theme, the administrator on
+  desktop) that fails on any console error, failed request, broken link, page without one heading, or
+  **any serious accessibility violation (axe)**.
 - **Lint** (`npm run lint` in both apps) — fails on a dead link or a button that does nothing.
 
 ## 2. Running it on your computer
@@ -142,7 +143,7 @@ The **Prize desk** tab lists every confirmed winner across days, with what is st
 
 | Limitation | What it means | What would fix it |
 |---|---|---|
-| **Mobile homepage load** | Lighthouse, simulated slow 4G phone, four runs of the final build: **Performance 81–88, median 84** — the 85 target is met in two runs of four, so **not reliably** — and the main heading paints at **3.3–3.4 s** against a 2.5 s target. The runs differ in how long the page's main script holds the phone's processor. Desktop: **99**, 0.8 s ✅. Accessibility, best practices and SEO: **100** on every run | The page is drawn by the browser; pre-rendering the homepage's HTML is the next step — it moves both figures |
+| **The homepage's first second on a slow phone** | The homepage arrives already drawn, so it can be read before its script has loaded; for that second or two its buttons (Sign in, the menu, the theme switch) do nothing, while its links work | Expected for a page drawn ahead of its script — the price of the fast first paint (§11). Nothing to fix unless readers report it |
 | **D10** — the root administrator on a brand-new database | The sign-in box cannot create the administrator account the first time; your live site is unaffected (it exists) | Your decision — see PROGRESS.md "Open questions" |
 | **Session cookies are `SameSite=None`** | The brief asks for `Lax`; the site may already be same-site through the `/api` rewrite, but a wrong change logs everybody out | Test on a staging copy with its own backend first (PLAN.md R5) |
 | **The icon font comes from unpkg.com** | If that service is down, icons disappear (never words — no icon carries meaning alone) | Self-host the two icon fonts |
@@ -213,6 +214,8 @@ both deploy when a pull request is merged into `main`.
 3. Sign in as the administrator → Admin → Daily Quiz: today and the next days have quizzes, no warnings.
 4. Admin → Email delivery: the newest emails are **SENT**, not waiting.
 5. `https://<your-site>/robots.txt` and `/sitemap.xml` show your domain.
+6. Paste `https://<your-site>/leaderboard` straight into the address bar: the leaderboard opens, not the
+   homepage. (The homepage is a page of its own now; every other address is served the app's shell.)
 
 **Roll back** if something is badly wrong:
 
@@ -234,4 +237,4 @@ both deploy when a pull request is merged into `main`.
 | The answer-key leak test passes | ✅ |
 | The Rewards section, rules page and legal pages exist and are linked | ✅ (legal pages are drafts for review) |
 | Every row of `INTERACTION_AUDIT.md` passes and the link crawler is green | ✅ (D10 open for your decision) |
-| Lighthouse, axe and security-header targets; no high/critical dependency vulnerabilities | Lighthouse mobile **not met**: score 81–88 (median 84) against 85, LCP 3.3–3.4 s against 2.5 s (§7); desktop 99; axe **0 serious/critical** on every page; CSP, HSTS, `frame-ancestors 'none'` and the rest set; **0 high/critical** in what ships (two moderate, unreachable — `SECURITY.md`) |
+| Lighthouse, axe and security-header targets; no high/critical dependency vulnerabilities | ✅ Lighthouse, homepage, four runs: mobile **98** each (≥ 85), LCP **1.8–2.0 s** (≤ 2.5 s), CLS **0**, desktop **100**; INP — every tap within **200 ms** on a phone slowed 4× (slowest: opening Sign in, 168–184 ms); axe **0 serious/critical** on every page; CSP, HSTS, `frame-ancestors 'none'` and the rest set; **0 high/critical** in what ships (two moderate, unreachable — `SECURITY.md`) |

@@ -4,6 +4,74 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-06 — Milestone 30 Phase 6 follow-up: the homepage is drawn at build time; interactions answer within 200 ms
+
+**Context.** Phase 6 left two of the brief's §10 targets unmet. On four Lighthouse runs of the final
+build the mobile homepage scored 81–88 (median 84) against ≥ 85, and its largest paint — the hero `h1`
+— came at 3.3–3.4 s against ≤ 2.5 s. 86% of that was render delay: the HTML arrived with an empty
+`#root`, so nothing could paint until ~120 KB (gzipped) of script had downloaded and run. The entry
+chunk is 611 KiB before minification and 443 KiB of it is React DOM; the homepage's own code is 41 KiB,
+so lazy-loading its sections could not move the first paint. INP (≤ 200 ms) had never been measured;
+measured on the phone layout with the CPU slowed 4×, switching the theme took ~390 ms and opening the
+sign-in dialog ~220 ms.
+
+**Decision.**
+
+1. **`vite build` draws `/` into `index.html`.** `src/prerender.tsx` renders the same tree as the
+   browser — `AppProviders` and `AppRoutes`, split out of `App.tsx` — under a `StaticRouter` at `/`,
+   in the state every visit starts in (session loading, nothing fetched). The `vite.prerender.ts`
+   plugin builds it for Node inside the client build and writes the HTML into `dist/index.html`;
+   `dist/app.html` is the empty shell. `vercel.json` serves `index.html` for `/` and `app.html` for
+   everything else, and `vite preview` mirrors that, so the browser suite tests what Vercel serves.
+   The build fails if the drawn page has no hero heading, more or fewer than one `h1`, or a CSS-module
+   class no stylesheet defines.
+2. **React renders over the drawn page; it does not hydrate it.** Hydration demands that the HTML
+   match the first client render exactly, and a mismatched attribute is left as it is in a
+   production build — the homepage's Register link carries an incoming `?ref=` the build cannot know,
+   so hydrating would silently drop referral codes. Rendering over it has no such case: the first
+   client render produces the same markup, so nothing visibly changes. It runs as a transition, so
+   the work yields to the browser instead of blocking it.
+3. **On the drawn page the app starts after the first paint.** `public/boot.js`, the first script on
+   every page, sets the theme before paint (the drawn page would otherwise show light to a dark
+   reader, then flash) and — on the drawn page only — adds the app's module script and its preloads
+   once a frame has been drawn, with a 1.5 s timer for a tab that is never drawn. The plugin moves
+   them from the HTML onto boot.js's tag. A file, not an inline script, so the CSP keeps allowing
+   scripts from this site only.
+4. **A keyboard reader keeps their place.** A control focused in the drawn page is focused again in
+   the live page when React replaces it (`src/main.tsx`).
+5. **Feedback first.** A theme change is applied to the document after the next paint (the switch
+   flips at once; the page recolours a moment later — restyling every element is the slow part).
+   The homepage memoises its sections, so opening or closing a dialog no longer re-renders the page.
+6. **INP is measured, not assumed.** `e2e/responsiveness.spec.ts` taps what a student taps on the
+   phone layout with the CPU slowed 4× and fails if any interaction exceeds 200 ms (Event Timing API).
+
+**Results** — four Lighthouse mobile runs of the homepage: **98, 98, 98, 98** (was 81–88); LCP
+**1.8–2.0 s** (was 3.3–3.4 s); TBT 36–68 ms; CLS 0; desktop **100**. Interactions on the slowed phone:
+the theme switch **24 ms** (was ~390), the sign-in dialog **168–184 ms** (was ~220), everything else
+≤ 64 ms.
+
+**Consequences.**
+- The homepage must render without a browser: nothing on `/` may read `window`, `document` or storage
+  during render (effects and handlers are fine), and its first render must not depend on the visitor.
+  A render that throws fails the build, loudly.
+- The drawn page's buttons do nothing until the app has loaded; links work. On a slow phone that is a
+  second or two after the page appears. A test that acts on `/` waits for the app (`waitForApp()`).
+- A signed-in student sees the guest hero until the session check returns — as before, for longer.
+- `boot.js` repeats ThemeContext's precedence and storage key; change both together.
+- `index.html` is 9.5 KB gzipped (was 2.5 KB).
+
+**Alternatives considered.** Hydration (`hydrateRoot`) — rejected above. A framework with
+server rendering (Next.js, React Router's framework mode) — a framework switch, which the brief
+forbids. Lazy-loading the homepage sections — measured: its own code is 41 KiB of a 611 KiB entry.
+Inlining the critical CSS — the stylesheets are 26 KB gzipped and cacheable, and Vite's preload helper
+would link them again later. An inline theme script allowed by a CSP hash — a file keeps the policy
+free of hashes to keep in step. `content-visibility: auto` on the off-screen sections — measured it
+roughly halved the theme switch's restyle, but sections skipped with estimated heights move the
+navbar's anchor jumps (About, How it works, FAQ); applying the theme after the next paint did more,
+with no such risk.
+
+---
+
 ## 2026-10-05 — Milestone 30 Phase 6: launch readiness — search, safety, consent, speed, and the report
 
 **Context.** The brief's Phase 6 (§10) lists what a launch needs beyond features: search and sharing,

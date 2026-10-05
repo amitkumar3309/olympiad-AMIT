@@ -37,6 +37,23 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Milestone 30 Phase 6 follow-up (2026-10-06): 54 browser tests (40 run, 14 one-width-only); the
+> backend is unchanged (1360 / 38).** **`e2e/prerender.spec.ts`** (desktop): the homepage can be read
+> with the app's script blocked, already in the dark theme the device asks for (boot.js, not React —
+> the root carries no React node); a stored choice beats the device before the app runs, both ways;
+> the app's script is held back while the test tabs to "Skip to content" in the drawn page, then let
+> in — the focus is still there after the takeover, and the sign-in button answers; only `/` is drawn
+> (its HTML has the hero and no module script; `/leaderboard`, `/dashboard`, `/register?ref=…` and an
+> unknown path get the empty shell), and `vercel.json` says the same. **`e2e/responsiveness.spec.ts`**
+> (390px, CPU 4× slower via the DevTools protocol): taps the sign-in dialog open and shut, the menu,
+> a FAQ answer, the theme switch, then Start, an option and Submit on the Daily Quiz, reading each
+> interaction's time from the Event Timing API (wait · handlers · next frame), and fails beyond
+> 200 ms. Taps go through `page.mouse` after the control is found, because `locator.click()` runs its
+> own checks in the page just before the input and the browser counts them as input delay. It found
+> the theme switch at ~390 ms and the dialog at ~220 ms; both fixed (24 ms; 168–184 ms). Because the
+> homepage is now drawn before the app owns it, a test that acts on `/` at once calls
+> **`waitForApp()`** (fixtures) — five tests raced the takeover on the first run.
+>
 > **Milestone 30 Phase 6 (2026-10-06): 1360 passing backend tests across 38 files; 44 browser tests
 > (35 run, 9 one-width-only), about seven minutes, under the production Content Security Policy.**
 > Eight new backend tests for parental consent: in `tests/registration.details.test.ts`, a registration

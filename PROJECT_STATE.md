@@ -1,8 +1,8 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-06 (**Milestone 30 — the Diwali launch: Phase 6, launch readiness, complete on
-branch `feat/diwali-launch-phase-6`; every phase of the brief is now built**). Phases 0–5 are merged
-(Phase 5: PR #5); Phase 6 awaits the owner's review. Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+_Last updated: 2026-10-06 (**Milestone 30 — the Diwali launch: Phase 6, launch readiness, complete and
+in review as PR #6; its follow-up, closing the last two §10 targets, complete on
+`feat/diwali-launch-phase-6-perf`**). Phases 0–5 are merged (Phase 5: PR #5). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -112,14 +112,24 @@ The work happens in phases, and each one stops for the owner's approval.
   (light and dark) and on every overlay, **0 serious or critical**; `e2e/keyboard.spec.ts`; "Skip to
   content" on public pages (`ui/SkipLink`); D18–D21 fixed. **Speed**: the icon stylesheets after
   `load`, "Can you crack this?" deferred, a 6 KB WebP mark — Lighthouse mobile **69 → 81–88** over four
-  runs (median 84, so the 85 target is not reliably met), desktop **99**, accessibility, best practices
-  and SEO **100**; mobile LCP **3.3–3.4 s** misses 2.5 s. Pre-rendering the homepage is the recorded
-  next step.
+  runs (median 84, so the 85 target was not reliably met), desktop **99**, accessibility, best practices
+  and SEO **100**; mobile LCP **3.3–3.4 s** missed 2.5 s — closed by the follow-up below.
   **Names**: `PRODUCT_NAME` (`backend/src/lib/brand.ts`) in everything the backend writes; "Daily
   Quiz" wherever "daily challenge" still showed. **[`docs/launch/LAUNCH_REPORT.md`](docs/launch/LAUNCH_REPORT.md)
   is the owner's one page for launch.** Tests: backend **1360 / 38 files**; E2E **44** (35 run, all
   passing, about seven minutes). **Open for the owner:** D10, R5, the site's address (`SITE_URL` —
   inferred as `https://amitolympiad.me`), and the consent questions in `LEGAL_REVIEW.md`.
+- **Phase 6 follow-up — the two targets Phase 6 missed — done, on `feat/diwali-launch-phase-6-perf`**
+  (branched from the Phase 6 branch; not pushed). **The homepage is drawn at build time**:
+  `src/prerender.tsx` + the `vite.prerender.ts` plugin write `/` into `dist/index.html`, every other
+  route gets `dist/app.html` (`vercel.json`, mirrored by `vite preview`), and React renders over the
+  drawn page rather than hydrating it (a hydration mismatch would drop the Register link's `?ref=`).
+  `public/boot.js` sets the theme before the first paint and, on the drawn page, starts the app after
+  it; `main.tsx` keeps a keyboard reader's focus through the takeover. Lighthouse, four mobile runs:
+  **98, 98, 98, 98** (was 81–88), LCP **1.8–2.0 s** (was 3.3–3.4 s), CLS 0, desktop **100**. **INP is
+  measured** (`e2e/responsiveness.spec.ts`, 390px, CPU 4×): a theme change is applied after the next
+  paint (~390 → 24 ms) and the homepage no longer re-renders for a dialog (sign-in 168–184 ms); every
+  tap is within 200 ms. E2E **54** tests. The ADR is the newest entry in `DECISIONS.md`.
 
 ## Milestone 29 at a glance
 

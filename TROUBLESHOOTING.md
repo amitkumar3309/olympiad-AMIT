@@ -49,6 +49,37 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## The frontend build fails with `prerender: …`
+
+**Symptom.** `npm run build` (or the E2E suite's build) stops with `prerender: the drawn homepage is not fit
+to ship`, or with an error thrown while rendering.
+
+**Cause.** `vite.prerender.ts` renders `/` in Node at build time (Milestone 30 Phase 6 follow-up) and
+checks the result. In Node there is no `window`, `document` or `localStorage`, so a homepage component
+that reads one **during render** throws; and the build refuses a draw with no hero heading, more or
+fewer than one `h1`, or a CSS-module class no stylesheet defines.
+
+**Fix.** Move the browser read into an effect or an event handler (where it belongs anyway — the first
+render must be the same for every visitor). If a heading was added or removed on the homepage, keep
+exactly one `h1`. The message lists what it found.
+
+## A deep link shows the homepage for a moment, or every address shows the homepage
+
+**Cause.** Since Milestone 30 Phase 6's follow-up `index.html` is the drawn homepage, and every other
+route must be served `app.html`, the empty shell. `vercel.json`'s last rewrite has to send `/(.*)` to
+`/app.html` — the old SPA fallback to `/index.html` would serve the homepage's HTML everywhere.
+
+**Fix.** Check `frontend/vercel.json`'s `rewrites`: `/` → `/index.html`, then `/(.*)` → `/app.html`.
+`e2e/prerender.spec.ts` asserts both.
+
+## A test clicks a homepage button and nothing happens
+
+**Cause.** The homepage arrives drawn, and the app replaces it a moment later; until then its buttons
+look right and do nothing, and an element found in it is detached when the app arrives ("not attached
+to the DOM").
+
+**Fix.** Call `waitForApp(page)` (e2e fixtures) after `page.goto('/')` before acting on the page.
+
 ## A page shows "A new version of the site is ready"
 
 **Symptom.** Moving to another page shows that message and a "Reload the page" button instead of the
