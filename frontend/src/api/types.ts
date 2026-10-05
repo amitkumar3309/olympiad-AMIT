@@ -109,6 +109,11 @@ export interface Student {
   isEmailVerified: boolean
   status: AccountStatus
   role: Role
+  /**
+   * Whether the account has a photo on file (Milestone 30, Phase 4). On session responses
+   * only, so the chrome never asks for a photograph that is not there.
+   */
+  hasPhoto?: boolean
 }
 
 export interface Admin {

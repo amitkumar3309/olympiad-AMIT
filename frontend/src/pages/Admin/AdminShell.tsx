@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import AppShell from '../../components/layout/AppShell'
 import { ADMIN_NAV, visibleGroups } from '../../components/layout/navigation'
+import { AMIT_SHORT } from '../../lib/brand'
 import styles from './AdminShell.module.css'
 
 /**
@@ -40,7 +41,7 @@ export default function AdminShell({ title, subtitle, actions, children }: Admin
     <AppShell
       variant="admin"
       groups={visibleGroups(ADMIN_NAV, can)}
-      brand={{ label: 'A.M.I.T Admin', to: '/admin' }}
+      brand={{ label: `${AMIT_SHORT} Admin`, to: '/admin' }}
       title={title}
       subtitle={subtitle}
       actions={actions}

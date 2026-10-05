@@ -1,0 +1,45 @@
+/* The student shell's own pieces (Milestone 30, Phase 4). Tokens only. */
+
+/* The theme switch sits in the drawer on a phone, where the top bar has no room. */
+.theme {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .theme {
+    display: inline-flex;
+  }
+}
+
+/* The motivational card at the foot of the full sidebar — the mockup's climber and line.
+   A brand tint, themed, so it holds its text in both themes. */
+.motto {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-5) 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--primary-soft);
+}
+
+.mottoText {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-snug);
+  color: var(--text);
+}
+
+.mottoSign {
+  margin: 0;
+  justify-self: end;
+  font-family: var(--font-hand);
+  font-size: var(--text-lg);
+  color: var(--primary-text);
+}
+
+.mottoArt {
+  margin: var(--space-2) calc(var(--space-5) * -1) 0;
+}
