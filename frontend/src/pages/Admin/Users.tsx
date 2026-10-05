@@ -212,13 +212,17 @@ function filenameFrom(header: string | null, fallback: string): string {
  * through `api.get` — it is raw image bytes, not a JSON envelope. The request is
  * same-origin in both environments (`frontend/vercel.json` rewrites `/api/*` to
  * the backend), so the session cookie rides along and the endpoint's own
- * authorization check applies. Accounts registered before Milestone 4 have no
- * photo, so a 404 is expected and falls back to initials.
+ * authorization check applies.
+ *
+ * Asked for only when the directory says one is on file (`hasPhoto`, Milestone 30 Phase 5):
+ * the root administrator never has one and an account from before Milestone 4 may not, and
+ * each of those used to be a 404 in the console on every visit. `onError` stays for a photo
+ * removed between the list loading and the image arriving.
  */
-function StudentPhoto({ studentId, name }: { studentId: string; name: string | null }) {
+function StudentPhoto({ studentId, name, hasPhoto }: { studentId: string; name: string | null; hasPhoto: boolean }) {
   const [failed, setFailed] = useState(false)
 
-  if (failed) {
+  if (!hasPhoto || failed) {
     return (
       <span className={styles.photoFallback} aria-label="No photo on file">
         {(name ?? '?').trim().charAt(0).toUpperCase() || '?'}
@@ -989,7 +993,7 @@ export default function Users() {
                 {accounts.map((account) => (
                   <tr key={account.id} className={busyId === account.studentId ? styles.busy : ''}>
                     <td>
-                      <StudentPhoto studentId={account.studentId} name={account.fullName} />
+                      <StudentPhoto studentId={account.studentId} name={account.fullName} hasPhoto={account.hasPhoto} />
                     </td>
                     <td className={styles.mono}>{account.studentId}</td>
                     <td>

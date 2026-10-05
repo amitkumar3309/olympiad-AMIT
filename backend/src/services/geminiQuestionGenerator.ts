@@ -1,5 +1,6 @@
 import type { GenerateContentParameters, Model, Schema } from '@google/genai' with { 'resolution-mode': 'import' };
 import { config } from '../config';
+import { ApiError } from '../lib/ApiError';
 import { logger } from '../lib/logger';
 import type { GeneratedCandidate, GenerationRequest, QuestionGenerator } from '../lib/questionGeneratorTypes';
 
@@ -567,7 +568,13 @@ export interface AvailableModel {
  */
 export async function listAvailableModels(): Promise<AvailableModel[]> {
   const apiKey = config.ai.geminiApiKey;
-  if (!apiKey) throw new Error('GEMINI_API_KEY is not configured.');
+  // A 503 naming the variable, as generation answers (Milestone 30, Phase 5): a plain
+  // `Error` here reached the route's catch-all and came back as a 500.
+  if (!apiKey) {
+    throw ApiError.serviceUnavailable(
+      'AI question generation is not configured. Set GEMINI_API_KEY in the backend environment and redeploy — see ENVIRONMENT_VARIABLES.md.',
+    );
+  }
 
   let models: Model[];
   try {

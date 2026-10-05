@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import app from '../src/app';
-import { Payment, Student, DEFAULT_ENTRY_FEE_PAISE, type PaymentStatus } from '../src/models';
+import { Payment, Student, StudentPhoto, DEFAULT_ENTRY_FEE_PAISE, type PaymentStatus } from '../src/models';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import {
   API,
@@ -92,6 +92,7 @@ interface DirectoryEntry {
   paymentState: string
   hasPaid: boolean
   paymentAttempts: number
+  hasPhoto: boolean
   payment: null | {
     amount: number
     amountDisplay: string
@@ -270,6 +271,25 @@ describe('GET /admin/students — every registered student, whatever their payme
     expect(entry.paymentState).toBe('paid');
     expect(entry.paymentAttempts).toBe(2);
     expect(entry.payment?.status).toBe('captured');
+  });
+});
+
+describe('GET /admin/students — the registration photo', () => {
+  it('says whether a photo is on file, so the console asks only for photos that exist', async () => {
+    const admin = await createAdminSession(app, { email: 'a@example.com', mobile: '9000000010' });
+    const withPhoto = await makeStudent({ email: 'with@example.com', mobile: '9000000011' });
+    const without = await makeStudent({ email: 'without@example.com', mobile: '9000000012' });
+    // Registration always takes a photo today; an account from before Milestone 4 has none.
+    const account = await Student.findOne({ studentId: without }).select('_id');
+    await StudentPhoto.deleteOne({ student: account!._id });
+
+    const body = (await directory(admin.cookies, '?limit=100').expect(200)).body as DirectoryResponse;
+
+    expect(entryFor(body, withPhoto).hasPhoto).toBe(true);
+    expect(entryFor(body, without).hasPhoto).toBe(false);
+    // The flag, never the image: a photo row carries the picture itself.
+    expect(JSON.stringify(body)).not.toContain('photoRows');
+    expect(JSON.stringify(body)).not.toContain('base64');
   });
 });
 

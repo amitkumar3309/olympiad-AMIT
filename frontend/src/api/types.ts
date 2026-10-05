@@ -314,6 +314,8 @@ export interface StudentDirectoryEntry extends ManagedAccount {
   hasPaid: boolean
   /** The captured payment if there is one, otherwise the latest attempt. */
   payment: PaymentRecord | null
+  /** Whether a registration photo is on file — the photo is asked for only then. */
+  hasPhoto: boolean
 }
 
 /**

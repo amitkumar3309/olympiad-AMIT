@@ -221,6 +221,18 @@ describe('generating', () => {
     expect(await Question.countDocuments()).toBe(0);
   });
 
+  it('answers the model list with a 503 naming the variable when no key is configured', async () => {
+    const { cookies } = await staffAndTaxonomy();
+    config.ai.geminiApiKey = undefined;
+
+    const res = await request(app).get(`${API}/admin/question-generator/models`).set('Cookie', cookieHeader(cookies));
+
+    // Not a 500: nothing is broken, a key is simply not set, and the examiner can fix that.
+    expect(res.status).not.toBe(500);
+    expect(res.status).toBe(503);
+    expect(res.body.error).toContain('GEMINI_API_KEY');
+  });
+
   it('refuses clearly when no API key is configured, and saves nothing', async () => {
     const { cookies, taxonomy } = await staffAndTaxonomy();
     config.ai.geminiApiKey = undefined;

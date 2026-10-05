@@ -7,6 +7,14 @@ button.trigger {
   border-radius: var(--radius-pill);
 }
 
+/* The avatar alone is 40px wide; a touch screen gets the whole 44px target (Phase 5). */
+@media (pointer: coarse) {
+  button.trigger {
+    min-width: var(--tap-target);
+    justify-content: center;
+  }
+}
+
 /* The avatar alone on a phone — the name and ID come back from 1024px. */
 .text,
 .caret {
