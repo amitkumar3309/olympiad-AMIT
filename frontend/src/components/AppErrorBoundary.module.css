@@ -1,0 +1,31 @@
+/* The crash page (Milestone 30, Phase 6). Laid out like the 404 page. */
+.wrap {
+  display: flex;
+  align-items: center;
+  min-height: 70vh;
+  padding: var(--space-10) 0;
+}
+
+/* `flex` rather than `inline-flex`, so on a phone, where the actions stack, it centres
+   under the full-width button instead of sitting at the left edge. */
+.home {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-4);
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+}
+
+.support {
+  margin-top: var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.support a {
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+}

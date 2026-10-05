@@ -134,9 +134,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false
 
+    /**
+     * The probe, retried when the failure may pass (Milestone 30, Phase 6 — audit D17).
+     *
+     * Every failure used to read as "signed out", so a student on a weak connection whose
+     * first request at page load failed was sent to the sign-in dialog from the middle of
+     * their own dashboard. A failure that says nothing about the session — no answer, a
+     * timeout, a 5xx, a 429 — is tried twice more, a second and then three seconds later,
+     * while the page shows its loading state. A 4xx is an answer and is not retried.
+     */
+    async function fetchProbe(): Promise<SessionProbe> {
+      const waits = [1000, 3000]
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          return await api.get<SessionProbe>('/auth/session')
+        } catch (err) {
+          const transient = !(err instanceof ApiError) || err.status >= 500 || err.status === 429
+          const wait = waits[attempt]
+          if (!transient || wait === undefined || cancelled) throw err
+          await new Promise((resolve) => setTimeout(resolve, wait))
+        }
+      }
+    }
+
     async function restore() {
       try {
-        const probe = await api.get<SessionProbe>('/auth/session')
+        const probe = await fetchProbe()
         if (cancelled) return
         if (probe.authenticated) {
           setState(toAuthState(probe))
