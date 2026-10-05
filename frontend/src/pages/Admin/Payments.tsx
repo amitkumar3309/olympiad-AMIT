@@ -137,53 +137,61 @@ export default function AdminPayments() {
               </div>
             )}
 
-            <div className={styles.feeRow}>
-              <label className={styles.field}>
-                <span>Fee (₹)</span>
-                <input
-                  className="form-control"
-                  type="number"
-                  min={1}
-                  step="0.01"
-                  value={feeRupees}
-                  disabled={!mayEdit}
-                  onChange={(e) => setFeeRupees(e.target.value)}
-                />
-              </label>
+            {/* A form, so Enter in the fee saves it (Milestone 30, Phase 5). */}
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                void saveSettings()
+              }}
+            >
+              <div className={styles.feeRow}>
+                <label className={styles.field}>
+                  <span>Fee (₹)</span>
+                  <input
+                    className="form-control"
+                    type="number"
+                    min={1}
+                    step="0.01"
+                    value={feeRupees}
+                    disabled={!mayEdit}
+                    onChange={(e) => setFeeRupees(e.target.value)}
+                  />
+                </label>
 
-              <label className={styles.toggle}>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  disabled={!mayEdit}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                />
-                <span>
-                  <strong>Charge the entry fee</strong>
-                  <em>
-                    {enabled
-                      ? 'On — the official Olympiad needs a paid entry. Practice, mock tests and the Daily Quiz stay free.'
-                      : 'Off — every student has full access without paying.'}
-                  </em>
-                </span>
-              </label>
-            </div>
-
-            <div className={styles.warn}>
-              <Icon name="ph-info" weight="bold" />
-              <div>
-                <strong>Changing the price never re-prices a payment already taken.</strong> Each row below stores what
-                was actually charged, so a change here applies to the next student and to nobody who has already paid.
+                <label className={styles.toggle}>
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    disabled={!mayEdit}
+                    onChange={(e) => setEnabled(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Charge the entry fee</strong>
+                    <em>
+                      {enabled
+                        ? 'On — the official Olympiad needs a paid entry. Practice, mock tests and the Daily Quiz stay free.'
+                        : 'Off — every student has full access without paying.'}
+                    </em>
+                  </span>
+                </label>
               </div>
-            </div>
 
-            {mayEdit ? (
-              <Button onClick={() => void saveSettings()} disabled={saving}>
-                {saving ? 'Saving…' : 'Save fee settings'}
-              </Button>
-            ) : (
-              <p className={styles.readonly}>You can see the fee but not change it.</p>
-            )}
+              <div className={styles.warn}>
+                <Icon name="ph-info" weight="bold" />
+                <div>
+                  <strong>Changing the price never re-prices a payment already taken.</strong> Each row below stores what
+                  was actually charged, so a change here applies to the next student and to nobody who has already paid.
+                </div>
+              </div>
+
+              {mayEdit ? (
+                <Button type="submit" loading={saving}>
+                  {saving ? 'Saving…' : 'Save fee settings'}
+                </Button>
+              ) : (
+                <p className={styles.readonly}>You can see the fee but not change it.</p>
+              )}
+            </form>
           </section>
 
           {/* ---------------------------------------------------------------

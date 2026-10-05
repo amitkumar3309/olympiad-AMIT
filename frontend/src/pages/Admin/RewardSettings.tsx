@@ -115,7 +115,14 @@ export default function RewardSettings() {
           <Spinner />
         </div>
       ) : (
-        <div className="card">
+        // A form, so Enter in an override saves the table (Milestone 30, Phase 5).
+        <form
+          className="card"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void save()
+          }}
+        >
           <TableScroll label="XP awards">
             <Table density="compact">
               <thead>
@@ -163,7 +170,7 @@ export default function RewardSettings() {
           </TableScroll>
 
           <div className={styles.actions}>
-            <Button onClick={() => void save()} disabled={saving || !changed}>
+            <Button type="submit" loading={saving} disabled={!changed}>
               {saving ? 'Saving…' : 'Save award table'}
             </Button>
             <Button variant="outline" onClick={() => void load()} disabled={saving || !changed}>
@@ -182,7 +189,7 @@ export default function RewardSettings() {
             it simply earns nothing. That is how profile edits work by default, because they are repeatable at will and
             paying for them would make XP a measure of how often somebody pressed Save.
           </p>
-        </div>
+        </form>
       )}
     </AdminShell>
   )

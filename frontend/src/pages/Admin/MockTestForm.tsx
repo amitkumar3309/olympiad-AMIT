@@ -635,7 +635,7 @@ export default function MockTestForm() {
           )}
 
           <div className={styles.formActions}>
-            <Button onClick={() => void save()} disabled={saving || title.trim().length < 4 || selected.length === 0}>
+            <Button onClick={() => void save()} disabled={title.trim().length < 4 || selected.length === 0} loading={saving}>
               {saving ? 'Saving…' : editing ? 'Save changes' : 'Create test'}
             </Button>
             <Button variant="outline" onClick={() => navigate('/admin/mock-tests')} disabled={saving}>

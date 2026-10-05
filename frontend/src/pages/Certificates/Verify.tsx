@@ -81,7 +81,7 @@ export default function Verify() {
               placeholder="XXXX-XXXX-XXXX-XXXX"
               autoComplete="off"
             />
-            <Button type="submit" disabled={loading || !code.trim()}>
+            <Button type="submit" disabled={!code.trim()} loading={loading}>
               {loading ? 'Checking...' : 'Verify'}
             </Button>
           </div>

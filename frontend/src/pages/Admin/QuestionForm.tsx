@@ -422,10 +422,12 @@ export default function QuestionForm() {
           </div>
 
           {usesOptions(form.type) && (
-            <div className="form-group">
-              <label>
+            // A fieldset, not a <label> tied to nothing: "Options" names a group of
+            // controls, each of which has its own name (Milestone 30, Phase 5).
+            <fieldset className="form-group">
+              <legend className={styles.legend}>
                 Options <Required />
-              </label>
+              </legend>
               <p className={styles.hint}>
                 {form.type === 'single_choice'
                   ? 'Mark exactly one option correct.'
@@ -464,7 +466,7 @@ export default function QuestionForm() {
                   + Add option
                 </Button>
               )}
-            </div>
+            </fieldset>
           )}
 
           {form.type === 'true_false' && (
@@ -518,7 +520,7 @@ export default function QuestionForm() {
           </div>
 
           <div className={styles.formActions}>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" loading={saving}>
               {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create draft'}
             </Button>
             <Link to="/admin/questions">

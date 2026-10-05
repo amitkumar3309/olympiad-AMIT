@@ -80,6 +80,11 @@
   margin-top: 14px;
 }
 
+/* The save button keeps its own width in the grid. */
+.submit {
+  justify-self: start;
+}
+
 .switch {
   display: flex;
   align-items: center;

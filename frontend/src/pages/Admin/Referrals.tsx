@@ -9,7 +9,7 @@ import type {
 } from '../../api/types'
 import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
-import { Alert, Icon, Table, TableScroll } from '../../components/ui'
+import { Alert, Button, Icon, Table, TableScroll } from '../../components/ui'
 import styles from './Referrals.module.css'
 import { humanizeError } from '../../lib/errors'
 
@@ -318,7 +318,14 @@ export default function AdminReferrals() {
             )}
 
             {mayPay ? (
-              <div className={styles.settingsForm}>
+              // A form, so Enter in the amount or the wording saves (Milestone 30, Phase 5).
+              <form
+                className={styles.settingsForm}
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void saveSettings()
+                }}
+              >
                 <label className={styles.switch}>
                   <input
                     type="checkbox"
@@ -359,10 +366,10 @@ export default function AdminReferrals() {
                   rewards already earned keep the amount they were earned at.
                 </p>
 
-                <button type="button" className={styles.primary} disabled={saving} onClick={() => void saveSettings()}>
+                <Button type="submit" loading={saving} className={styles.submit}>
                   {saving ? 'Saving…' : 'Save reward settings'}
-                </button>
-              </div>
+                </Button>
+              </form>
             ) : (
               <p className={styles.readOnly}>
                 {rewardConfigured

@@ -260,7 +260,7 @@ export default function Notifications() {
           </label>
 
           <div className={styles.actions}>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" loading={submitting}>
               {submitting ? 'Saving...' : 'Publish now'}
             </Button>
             {/* `ui/Button` (Milestone 26) — `.secondaryBtn`, `.searchBtn`, `.actionBtn`

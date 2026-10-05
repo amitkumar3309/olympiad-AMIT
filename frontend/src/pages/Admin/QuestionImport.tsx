@@ -838,7 +838,7 @@ export default function QuestionImport() {
             )}
           </div>
 
-          <Button type="submit" disabled={!ready || busy !== null}>
+          <Button type="submit" disabled={!ready || busy !== null} loading={busy === 'upload'}>
             {busy === 'upload' ? 'Reading…' : 'Read the questions'}
           </Button>
           <p className={styles.hint}>

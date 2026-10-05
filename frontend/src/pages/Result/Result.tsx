@@ -72,7 +72,7 @@ export default function Result() {
             onChange={(e) => setStudentId(e.target.value)}
             aria-label="Student ID"
           />
-          <Button type="submit" disabled={searching}>
+          <Button type="submit" loading={searching}>
             {searching ? 'Searching…' : 'Search'} <Icon name="ph-magnifying-glass" />
           </Button>
         </form>

@@ -498,7 +498,14 @@ function SettingsForm() {
             : 'Using the launch defaults.'
         }
       />
-      <div className={styles.stack}>
+      {/* A form, so Enter in any field saves (Milestone 30, Phase 5). */}
+      <form
+        className={styles.stack}
+        onSubmit={(event) => {
+          event.preventDefault()
+          void save()
+        }}
+      >
         <div className={styles.formGrid}>
           <Field label="Prize headline" hint="Shown in the Rewards section and on the sign-in prompt.">
             <Input value={settings.prizeHeadline} maxLength={80} onChange={(event) => setSettings({ ...settings, prizeHeadline: event.target.value })} />
@@ -544,11 +551,11 @@ function SettingsForm() {
         </Alert>
         {saveError && <Alert tone="danger">{saveError}</Alert>}
         <div className={styles.inlineActions}>
-          <Button icon="ph-floppy-disk" loading={busy} disabled={cashInvalid} onClick={() => void save()}>
+          <Button type="submit" icon="ph-floppy-disk" loading={busy} disabled={cashInvalid}>
             Save settings
           </Button>
         </div>
-      </div>
+      </form>
     </Card>
   )
 }
