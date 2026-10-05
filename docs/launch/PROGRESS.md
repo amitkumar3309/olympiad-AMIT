@@ -6,12 +6,11 @@ _Last updated 2026-10-05._
 
 ## Current state
 
-**Phase 5 (every button and link) complete on branch `feat/diwali-launch-phase-5`**, cut from the
-Phase 4 branch. **PR #4 has since been squash-merged**, so before its own PR this branch's eight
-Phase 5 commits move onto the new `main` (`git rebase --onto origin/main 46320c2`, or the app's
-sync). Every row of `INTERACTION_AUDIT.md` has its final status;
-D3 and D5–D9 are resolved, D11–D16 were found and fixed on the way, and **D10 needs the owner** (below).
-**Waiting for the owner's "continue" before Phase 6 (launch readiness).**
+**Phase 5 (every button and link) complete** on branch `feat/diwali-launch-phase-5` — moved onto
+`main` after PR #4 (Phase 4) was squash-merged, and in review as its own pull request. Every row of
+`INTERACTION_AUDIT.md` has its final status; D3 and D5–D9 are resolved, D11–D16 were found and fixed on
+the way, and **D10 needs the owner** (below). The owner said "continue" on 2026-10-05: **Phase 6 (launch
+readiness) is next.**
 
 ## Tasks
 

@@ -1,8 +1,8 @@
 # PROJECT_STATE.md
 
 _Last updated: 2026-10-05 (**Milestone 30 — the Diwali launch: Phase 5, every button and link, complete
-on branch `feat/diwali-launch-phase-5`; waiting for the owner's "continue" before Phase 6**). Phases
-0–4 are merged (Phase 4: PR #4); Phase 5 is not pushed yet. Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+and in review on branch `feat/diwali-launch-phase-5`; Phase 6 is next**). Phases 0–4 are merged
+(Phase 4: PR #4). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
