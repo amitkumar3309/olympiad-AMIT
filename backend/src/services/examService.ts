@@ -4,6 +4,7 @@ import { hasEntryEntitlement } from './paymentService';
 import { logger } from '../lib/logger';
 import type { ClassLevel } from '../lib/classLevels';
 import {
+  Exam,
   ExamAttempt,
   Question,
   Result,
@@ -473,6 +474,35 @@ export function studentExamSummary(
         }
       : null,
   };
+}
+
+/** One published exam window still to come or open now, as the dashboard lists it. */
+export interface UpcomingExamView {
+  id: string;
+  title: string;
+  opensAt: string;
+  closesAt: string;
+  isOpen: boolean;
+}
+
+/**
+ * The next official exam windows for a class — the dashboard's "Upcoming events"
+ * (Milestone 30, Phase 4). **Only real windows**: the Boss Battle and the Month-End
+ * Booster do not exist (PLAN.md Q6), so nothing else is listed. Published exams whose
+ * window has not closed, soonest first. Never the questions, never a score.
+ */
+export async function upcomingExamsFor(classLevel: ClassLevel, at = new Date(), limit = 3): Promise<UpcomingExamView[]> {
+  const exams = await Exam.find({ status: 'published', classLevel, closesAt: { $gt: at } })
+    .sort({ opensAt: 1 })
+    .limit(limit)
+    .select('title opensAt closesAt');
+  return exams.map((exam) => ({
+    id: String(exam._id),
+    title: exam.title,
+    opensAt: exam.opensAt.toISOString(),
+    closesAt: exam.closesAt.toISOString(),
+    isOpen: exam.opensAt.getTime() <= at.getTime(),
+  }));
 }
 
 /** Seconds left on the server's clock. The browser's countdown is a display of this. */

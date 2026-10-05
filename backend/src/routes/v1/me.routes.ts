@@ -11,12 +11,21 @@ import { hashPassword, verifyPassword } from '../../lib/password';
 import { revokeAllRefreshTokens } from '../../lib/tokens';
 import { establishSession, studentObjectId } from '../../lib/session';
 import { summariseAchievements } from '../../lib/achievements';
+import { summariseJourney } from '../../lib/journey';
 import { todayKey } from '../../lib/competitionDay';
 import { isClassLevel } from '../../lib/classLevels';
 import { buildRewardFacts, grantDailyVisit, grantReward } from '../../services/rewardService';
 import { notifyPasswordChanged } from '../../services/systemNotifier';
-import { getRecentActivity, listActivity, getRecentExamPerformance } from '../../services/progressService';
-import { getStanding, getTopLeaderboard } from '../../services/leaderboardService';
+import { getRecentActivity, listActivity, questionsSolvedBy } from '../../services/progressService';
+import {
+  getLeaderboardPage,
+  getStanding,
+  getStandingFor,
+  periodWindow,
+  xpInWindow,
+} from '../../services/leaderboardService';
+import { getRecentAccuracy } from '../../services/analyticsService';
+import { upcomingExamsFor } from '../../services/examService';
 import { getAvailableChallenges } from '../../services/challengeService';
 import { eligibilityOf } from '../../services/dailyChallengeService';
 import {
@@ -378,19 +387,24 @@ router.post(
 // ---------------------------------------------------------------------------
 
 /** How much of each list the dashboard carries. Full lists have their own endpoints. */
-const DASHBOARD_ACTIVITY_LIMIT = 8;
-const DASHBOARD_EXAM_LIMIT = 5;
-const DASHBOARD_LEADERBOARD_LIMIT = 5;
+const DASHBOARD_ACTIVITY_LIMIT = 3;
+const DASHBOARD_CLASS_BOARD_LIMIT = 5;
+const DASHBOARD_UPCOMING_LIMIT = 3;
 
 /**
  * Everything the student dashboard shows, in one request.
  *
  * **Every figure in this response is derived from a real database read.** There is no
  * sample data and no fallback: where a student has nothing yet, the corresponding
- * array comes back empty and the frontend renders an empty state. In particular
- * `recentTests` is a live query against `ExamAttempt`, which nothing writes to yet —
- * so it is honestly empty today and starts working the moment exam submission
- * exists, rather than being a hardcoded `[]` that someone must remember to replace.
+ * array comes back empty — or the figure `null` — and the frontend renders an empty
+ * state that says why.
+ *
+ * Milestone 30 Phase 4 reshaped it for the launch mockup (brief §8): the five stat
+ * cards (`progress` and `leaderboard.me` as before, plus `stats` — XP and questions
+ * solved this week, accuracy over the last 30 attempts), the journey, today's top five
+ * in the student's own class, and the real exam windows coming up. The overall top
+ * five and the official-exam panel went, because the mockup has neither — the
+ * leaderboard page and `/exam` carry both.
  *
  * The one deliberate side effect: opening the dashboard records the day's visit,
  * which is what a streak is made of. It is idempotent per competition day (enforced
@@ -415,18 +429,28 @@ router.get('/me/dashboard', requireAuth(), ensureDb, async (req: Request, res: R
     const { facts, level, streak } = await buildRewardFacts(student, today);
     const progress = { level, streak };
 
-    const [activity, exams, leaderboard, standing, challenges] = await Promise.all([
-      getRecentActivity(id, DASHBOARD_ACTIVITY_LIMIT),
-      // Milestone 13: the rewritten `ExamAttempt` keys on the account's ObjectId,
-      // not the human-facing `AMIT_xxxx` string the old shape used.
-      getRecentExamPerformance(id, DASHBOARD_EXAM_LIMIT),
-      getTopLeaderboard(DASHBOARD_LEADERBOARD_LIMIT),
-      getStanding(id, level.xp),
-      // A class is needed to know what is on offer. Legacy accounts predate the
-      // field, so they get an empty list and an explanatory empty state rather than
-      // questions for a class they are not in.
-      isClassLevel(student.classLevel) ? getAvailableChallenges(student.classLevel) : Promise.resolve([]),
-    ]);
+    // A class is needed for three panels — what is on offer, the class board and the
+    // exam windows. Legacy accounts predate the field, so they get empty panels with an
+    // explanatory empty state rather than another class's data.
+    const classLevel = isClassLevel(student.classLevel) ? student.classLevel : null;
+    const classBoard = classLevel ? ({ scope: 'class', classLevel, period: 'daily', today } as const) : null;
+
+    const [activity, standing, challenges, xpThisWeek, questionsSolved, accuracy, classRows, classMe, upcoming, photo] =
+      await Promise.all([
+        getRecentActivity(id, DASHBOARD_ACTIVITY_LIMIT),
+        getStanding(id, level.xp),
+        classLevel ? getAvailableChallenges(classLevel) : Promise.resolve([]),
+        // The weekly board's window, so "+120 this week" and that board agree.
+        xpInWindow(id, periodWindow('weekly', today).from),
+        questionsSolvedBy(id, today),
+        getRecentAccuracy(id, today),
+        // Today's board for the student's own class — the brief's "Today's top 5".
+        classBoard ? getLeaderboardPage(classBoard, { page: 1, limit: DASHBOARD_CLASS_BOARD_LIMIT }) : Promise.resolve(null),
+        classBoard ? getStandingFor(id, classBoard) : Promise.resolve(null),
+        // Exams run on the real clock (examService), not the quiz clock.
+        classLevel ? upcomingExamsFor(classLevel, new Date(), DASHBOARD_UPCOMING_LIMIT) : Promise.resolve([]),
+        StudentPhoto.exists({ student: id }),
+      ]);
 
     const achievements = summariseAchievements(facts);
 
@@ -438,14 +462,20 @@ router.get('/me/dashboard', requireAuth(), ensureDb, async (req: Request, res: R
           firstName: student.firstName ?? null,
           classLevel: student.classLevel ?? null,
           schoolName: student.schoolName ?? null,
+          hasPhoto: photo !== null,
         },
         progress: { ...progress.level, streak: progress.streak },
+        stats: { xpThisWeek, questionsSolved, accuracy },
         activity,
-        recentTests: exams,
         achievements,
-        leaderboard: { top: leaderboard, me: standing },
+        journey: summariseJourney(facts),
+        leaderboard: { me: standing },
+        classToday: classLevel && classRows && classMe ? { classLevel, rows: classRows.rows, me: classMe } : null,
+        upcoming,
         challenges,
         today,
+        // The exam windows' countdown chips are offsets from this, never the device clock.
+        serverNow: new Date().toISOString(),
       },
     });
   } catch (err) {

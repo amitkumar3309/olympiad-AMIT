@@ -780,13 +780,20 @@ On success **every** session is revoked (refresh tokens deleted, `tokenVersion` 
 ### `GET /api/v1/me/dashboard`
 Everything the student dashboard shows, in one request. **Every figure is a real database read**; there is no sample data and no fallback.
 
-`{ dashboard: { student, progress, activity, recentTests, achievements, leaderboard: { top, me }, challenges, today } }` where:
+`{ dashboard: { student, progress, stats, activity, achievements, journey, leaderboard: { me }, classToday, upcoming, challenges, today, serverNow } }` — reshaped for the launch dashboard in Milestone 30 Phase 4 — where:
+- `student` — `studentId`, `fullName`, `firstName`, `classLevel`, `schoolName`, and `hasPhoto` (whether a photograph is on file).
 - `progress` — `xp`, `level`, `levelStartsAt`, `nextLevelAt`, `xpIntoLevel`, `xpForNextLevel`, `percentToNextLevel`, and `streak` (`current`, `longest`, `activeDays`, `lastActiveOn`, `countedToday`). All derived from `StudentActivity`; nothing is stored.
-- `activity` — the 8 newest real events.
-- `recentTests` — up to 5 submitted `ExamAttempt` records. **A live query against a collection nothing writes to yet**, so it is honestly `[]` today and the UI shows its empty state. Written as a query rather than a hardcoded `[]` so the panel starts working the moment exam submission exists.
-- `achievements` — `{ earnedCount, total, earned, next }`, each evaluated from real facts with real progress toward the locked ones. No exam or accuracy achievement is listed, because none could be satisfied yet.
-- `leaderboard.me` — `{ rank, xp, totalRanked }`; `rank` is `null` when the student has no XP, i.e. genuinely unranked rather than last.
+- `stats` *(Phase 4)* — `xpThisWeek` (XP in the weekly leaderboard's window: the last seven IST days, today included); `questionsSolved: { total, thisWeek }` (questions answered **correctly** — submitted practice, mock tests and the official Olympiad by `correctCount`, plus correct Daily Quiz answers **once their day is revealed**; a paper counts in the week it was submitted); `accuracy: { percent, correct, answered, attempts, window }` over the newest `window` (30) attempts across the four surfaces — raw counts summed, the percentage derived last, `percent: null` with nothing answered, and a Daily Quiz answer only once revealed.
+- `activity` — the 3 newest real events (`GET /me/activity` pages the rest).
+- `achievements` — `{ earnedCount, total, earned, next }`, each evaluated from real facts with real progress toward the locked ones.
+- `journey` *(Phase 4)* — the nine milestones as the rewards page has them (`summariseJourney()`): `{ stages: [{ id, title, description, icon, complete, current, progress, target }], completedCount, total, percent, currentStageId }`.
+- `leaderboard.me` — `{ rank, xp, totalRanked }` on the overall, all-time board; `rank` is `null` when the student has no XP, i.e. genuinely unranked rather than last. *(The overall `top` five left the payload in Phase 4: the dashboard shows the class board instead.)*
+- `classToday` *(Phase 4)* — `{ classLevel, rows, me }`: today's top five for the student's own class from the one ranking service (rows as the public boards name children), and their own `{ rank, xp, totalRanked }` on that board; `null` without a class.
+- `upcoming` *(Phase 4)* — up to three published Olympiad windows for the student's class that have not closed, soonest first: `{ id, title, opensAt, closesAt, isOpen }`. Real exam windows only — never a question, never a score.
 - `challenges` — published-question availability for the caller's own class, grouped by subject.
+- `serverNow` *(Phase 4)* — the server's clock; the exam countdown chips are offsets from it.
+
+*`recentTests` was removed in Phase 4 — the official attempt is listed on `/exam` and its result on `/result`, and the launch mockup has no such panel.*
 
 **One deliberate side effect**: opening the dashboard records the day's `daily_visit`, which is what a streak is made of. Idempotent per competition day, enforced by a unique index rather than by a check, so a page refresh cannot inflate it.
 
@@ -1274,6 +1281,8 @@ Every auth response (`/auth/login`, `/auth/admin/login`, `/auth/refresh`, `/auth
 ```
 
 It rides there for the same reason `permissions` does — so the frontend reads the answer rather than deriving it. It is **presentation only**; `requireEntry` re-derives it from the payment record on every gated request, so a tampered client gets a nicer-looking 402 and nothing more.
+
+Since Milestone 30 Phase 4 the same responses' `student` also carries **`hasPhoto`** — whether a photograph is on file — so the app's chrome asks `/students/:studentId/photo` only for one that exists rather than producing a 404 on every page. The registration and verification responses do not carry it.
 
 ---
 
