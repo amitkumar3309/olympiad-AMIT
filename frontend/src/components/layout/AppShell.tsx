@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { Badge, Icon } from '../ui'
+import { Badge, Icon, SkipLink } from '../ui'
 import { lockScroll, unlockScroll } from '../ui/scrollLock'
 import DeveloperCredit from '../DeveloperCredit'
 import ThemeToggle from '../ThemeToggle'
@@ -399,9 +399,7 @@ export default function AppShell({
     <div className={shellClasses}>
       {/* First focusable thing on the page: 30-odd navigation links otherwise stand
           between a keyboard user and the content, on every page. */}
-      <a href="#main-content" className={styles.skipLink}>
-        Skip to content
-      </a>
+      <SkipLink />
 
       {/* Permanent from 1024px (a rail until 1280px for the student), `display: none` below it. */}
       <aside className={styles.sidebar} aria-label="Main navigation">

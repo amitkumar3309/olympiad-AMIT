@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test } from '@playwright/test'
-import { resetBackend, seedQuiz, signIn } from './fixtures.ts'
+import { expectAccessible, resetBackend, seedQuiz, signIn } from './fixtures.ts'
 
 /**
  * The student dashboard and its chrome (Milestone 30, Phase 4 — brief §8), at desktop width and
@@ -65,6 +65,7 @@ test('the bell says today’s quiz is live and leads to it; the account menu sig
   const live = bell.getByRole('menuitem', { name: /Today’s Daily Quiz is live/ })
   await expect(live).toBeVisible()
   await expect(bell.getByRole('menuitem', { name: /View all notifications/ })).toBeVisible()
+  await expectAccessible(page, 'the bell menu')
   await live.click()
   await page.waitForURL('**/daily-quiz')
 
@@ -72,6 +73,7 @@ test('the bell says today’s quiz is live and leads to it; the account menu sig
   const account = page.getByRole('menu', { name: /^Account menu for Esha/ })
   await expect(account.getByRole('menuitem', { name: 'My Profile' })).toBeVisible()
   await expect(account.getByRole('menuitem', { name: 'Help & Support' })).toBeVisible()
+  await expectAccessible(page, 'the account menu')
   await account.getByRole('menuitem', { name: 'Log out' }).click()
   await page.waitForURL((url) => url.pathname === '/')
   await expect(page.getByRole('button', { name: 'I already have an account' })).toBeVisible()
@@ -91,6 +93,7 @@ test('below 1024px the bottom bar and the drawer reach everything — a Soon ite
   const drawer = page.getByRole('dialog', { name: 'Menu' })
   await expect(drawer.getByText('Previous Papers')).toBeVisible()
   await expect(drawer.getByRole('link', { name: /Previous Papers/ })).toHaveCount(0)
+  await expectAccessible(page, 'the phone drawer')
   await drawer.getByRole('link', { name: 'Activity' }).click()
   await page.waitForURL('**/activity')
   await expect(page.getByRole('heading', { level: 1, name: 'Your activity' })).toBeVisible()

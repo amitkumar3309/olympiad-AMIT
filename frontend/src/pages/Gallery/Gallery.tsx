@@ -56,7 +56,7 @@ export default function Gallery() {
   return (
     <>
       <Navbar />
-      <main className={styles.wrap}>
+      <main id="main-content" className={styles.wrap}>
         <header className={styles.header}>
           <h1>Event Gallery</h1>
           <p>Moments from {AMIT_OLYMPIAD} events around the country.</p>

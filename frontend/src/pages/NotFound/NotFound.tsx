@@ -19,7 +19,7 @@ export default function NotFound() {
   const { pathname } = useLocation()
 
   return (
-    <main className={styles.wrap}>
+    <main id="main-content" className={styles.wrap}>
       <div className="container">
         {/* `titleAs="h1"`: this title is the page's only heading. A document with no
             h1 has no top level, which is what the Phase G audit found here. */}

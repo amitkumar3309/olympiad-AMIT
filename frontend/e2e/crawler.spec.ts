@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs'
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from '@playwright/test'
 import { SUPPORT, SUPPORT_TEL_HREF } from '../src/lib/brand.ts'
 import { pageMetaFor } from '../src/lib/pageMeta.ts'
-import { BACKEND, E2E_ADMIN, FRONTEND_PORT, fillSignIn, resetBackend, resetRateLimits, seedQuiz, signIn } from './fixtures.ts'
+import { BACKEND, E2E_ADMIN, FRONTEND_PORT, fillSignIn, resetBackend, resetRateLimits, seedQuiz, seriousViolations, signIn } from './fixtures.ts'
 
 /**
  * The link crawler (Milestone 30, Phase 5 — brief §9): every internal link, followed as a guest
@@ -17,8 +17,11 @@ import { BACKEND, E2E_ADMIN, FRONTEND_PORT, fillSignIn, resetBackend, resetRateL
  *    and make **no failed or 4xx/5xx request** to this app;
  *  - carry no dead link (`href="#"`, `javascript:`) and no new-tab link without
  *    `rel="noopener noreferrer"`;
+ *  - have a "Skip to content" link and the one `#main-content` it points at;
  *  - have exactly one `h1`, and the title, `robots` and canonical link `lib/pageMeta.ts`
  *    gives its path (Phase 6 — a private page is `noindex` and has no canonical);
+ *  - pass axe's WCAG 2.1 A and AA rules with **no serious or critical violation** (Phase 6 —
+ *    brief §10) — in the light theme, and for the student once more in the dark one;
  *  - and, on the phone layout, give every button at least a 44×44px target.
  *
  * Every rendered link and button must have an accessible name, and every `tel:` and `mailto:`
@@ -117,6 +120,13 @@ async function crawl(page: Page, request: APIRequestContext, starts: string[], o
     if ((await page.getByRole('heading', { level: 1, name: 'This page does not exist' }).count()) > 0) {
       found.push('rendered the 404 page — a link to a route that does not exist')
     }
+    const landmarks = await page.evaluate(() => ({
+      skip: document.querySelectorAll('a[href="#main-content"]').length,
+      main: document.querySelectorAll('#main-content').length,
+    }))
+    if (landmarks.skip === 0 || landmarks.main !== 1) {
+      found.push(`${landmarks.skip} skip link(s) and ${landmarks.main} #main-content — a page needs "Skip to content" and the one landmark it points at`)
+    }
     const headings = await page.$$eval('h1', (elements) => elements.filter((el) => el.getClientRects().length > 0).length)
     if (headings !== 1) found.push(`${headings} h1 headings — a page has exactly one`)
     const expected = pageMetaFor(new URL(page.url()).pathname)
@@ -139,6 +149,7 @@ async function crawl(page: Page, request: APIRequestContext, starts: string[], o
         .map((a) => a.getAttribute('href') ?? ''),
     )
     if (unsafe.length > 0) found.push(`new-tab link(s) without noopener noreferrer: ${unsafe.join(', ')}`)
+    found.push(...(await seriousViolations(page)))
     // An accessible name on every rendered control: aria-label, aria-labelledby, its text, an
     // image's alt or a title — an approximation of the browser's own computation that can miss
     // a nameless control (text inside aria-hidden still counts here) but never invents one.
@@ -227,6 +238,18 @@ test('a student can follow every link from the homepage and the dashboard', asyn
   expect(problems, `\n${problems.join('\n')}\n`).toEqual([])
   expect(visited.length).toBeGreaterThan(25)
   expectContactsAreTheOwners(contacts)
+})
+
+test('a student in the dark theme can follow every link, and every page passes axe', async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'The dark crawl runs once, at desktop width.')
+  // The theme follows the device on a first visit (ThemeContext), so this is a reader whose
+  // phone or computer is set to dark — the contrast of every page is measured again there.
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await signIn(page)
+  const { problems, visited, timings } = await crawl(page, request, ['/dashboard', '/'], { touchTargets: false })
+  recordVisited(testInfo, { visited, timings })
+  expect(problems, `\n${problems.join('\n')}\n`).toEqual([])
+  expect(visited.length).toBeGreaterThan(25)
 })
 
 test('an administrator can follow every link from the admin dashboard', async ({ page, request }, testInfo) => {

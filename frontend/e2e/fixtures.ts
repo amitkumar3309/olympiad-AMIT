@@ -1,4 +1,5 @@
-import type { APIRequestContext, Page } from '@playwright/test'
+import { AxeBuilder } from '@axe-core/playwright'
+import { expect, type APIRequestContext, type Page } from '@playwright/test'
 
 /**
  * Shared facts for the end-to-end suite. The student below is a **test account on a throwaway
@@ -52,6 +53,25 @@ export async function seedQuiz(request: APIRequestContext): Promise<{ correctOpt
   if (!res.ok()) throw new Error(`E2E seed failed: ${res.status()} ${await res.text()}`)
   const body = (await res.json()) as { quiz: { correctOptionText: string } }
   return { correctOptionText: body.quiz.correctOptionText }
+}
+
+/**
+ * Every serious or critical WCAG 2.1 A/AA violation axe finds in what is on screen now
+ * (Milestone 30, Phase 6 — brief §10: "zero serious or critical violations"), one line each.
+ */
+export async function seriousViolations(page: Page): Promise<string[]> {
+  const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+  return result.violations
+    .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
+    .map((violation) => {
+      const where = violation.nodes.slice(0, 3).map((node) => node.target.join(' ')).join(', ')
+      return `axe ${violation.impact}: ${violation.id} — ${violation.help} (${violation.nodes.length}× e.g. ${where})`
+    })
+}
+
+/** Fails the test on any serious or critical violation in the state the page is in. */
+export async function expectAccessible(page: Page, state: string): Promise<void> {
+  expect(await seriousViolations(page), `accessibility of ${state}`).toEqual([])
 }
 
 /** Moves the server's quiz clock forward by whole days. Sessions are unaffected. */

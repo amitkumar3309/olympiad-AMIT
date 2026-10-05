@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test'
-import { BACKEND, E2E_STUDENT, TINY_JPEG, advanceDays, fillSignIn, lastVerificationLink, resetBackend, seedQuiz } from './fixtures.ts'
+import { BACKEND, E2E_STUDENT, TINY_JPEG, advanceDays, expectAccessible, fillSignIn, lastVerificationLink, resetBackend, seedQuiz } from './fixtures.ts'
 
 /**
  * The homepage's way into the Daily Quiz (Milestone 30, Phase 3 — brief §7.3), end to end, at
@@ -37,6 +37,7 @@ test('a guest goes from the floating button through the Login Gate to today’s 
   // The prize line is the owner's setting, not text typed into the page.
   await expect(gate).toContainText('Each day’s winner gets:')
   await expect(gate.getByRole('link', { name: 'How rewards work' })).toHaveAttribute('href', '/rewards/rules')
+  await expectAccessible(page, 'the Login Gate')
 
   await gate.getByRole('button', { name: 'Sign in' }).click()
   await fillSignIn(page, E2E_STUDENT.email, E2E_STUDENT.password)
@@ -67,15 +68,18 @@ test('a new student registers from the gate, verifies, and lands on the quiz', a
   await page.getByLabel(/^Confirm password/).fill(password)
   await page.locator('input[type="file"]').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: TINY_JPEG })
   await page.getByLabel("Parent or guardian's phone").fill('9000000999')
+  await expectAccessible(page, 'the registration form')
 
   // A parent or guardian's agreement is required (Phase 6), and the form says so on the box.
   await page.getByRole('button', { name: 'Review and continue' }).click()
   const consent = page.getByRole('checkbox', { name: /I am the parent\/guardian, or I have my parent\/guardian’s permission/ })
   await expect(consent).toHaveAttribute('aria-invalid', 'true')
   await expect(page.locator('#reg-guardianConsent-error')).toContainText('A parent or guardian has to agree')
+  await expectAccessible(page, 'the registration form with a missing agreement')
   await consent.check()
 
   await page.getByRole('button', { name: 'Review and continue' }).click()
+  await expectAccessible(page, 'the registration review')
   await page.getByRole('button', { name: 'Create my account' }).click()
   await expect(page.getByRole('heading', { name: /Check your email/ })).toBeVisible()
 
@@ -97,6 +101,8 @@ test('a guest opening a signed-in page is asked to sign in, then taken back to i
 
   // Not a bare homepage: the sign-in dialog, with the page kept as ?next=.
   await expect(page).toHaveURL(/\/\?next=%2Fpractice#login$/)
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expectAccessible(page, 'the sign-in dialog')
   await fillSignIn(page, E2E_STUDENT.email, E2E_STUDENT.password)
   await page.waitForURL('**/practice')
 })

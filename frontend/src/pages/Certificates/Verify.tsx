@@ -62,7 +62,7 @@ export default function Verify() {
   return (
     <>
       <Navbar />
-      <main className={styles.wrap}>
+      <main id="main-content" className={styles.wrap}>
         <header className={styles.header}>
           <h1>Verify a certificate</h1>
           <p>

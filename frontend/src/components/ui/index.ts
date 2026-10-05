@@ -171,3 +171,5 @@ export type { ActivityListProps, ActivityItem } from './ActivityList'
 
 export { default as Confetti } from './Confetti'
 export type { ConfettiProps } from './Confetti'
+
+export { default as SkipLink } from './SkipLink'

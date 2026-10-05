@@ -122,8 +122,15 @@ export default function ChartCard({ title, type, labels, data, label, tone = 'pr
   return (
     <div className="card">
       <h3 className={styles.title}>{title}</h3>
+      {/* The wrapper is the image and carries the summary. react-chartjs-2 gives the canvas a
+          `role="img"` of its own, which a reader met as a second, nameless image (axe's
+          role-img-alt, Milestone 30 Phase 6), so the canvas itself is hidden from them. */}
       <div className={styles.canvas} role="img" aria-label={summary}>
-        {type === 'line' ? <Line data={chartData} options={options} /> : <Bar data={chartData} options={options} />}
+        {type === 'line' ? (
+          <Line data={chartData} options={options} aria-hidden="true" />
+        ) : (
+          <Bar data={chartData} options={options} aria-hidden="true" />
+        )}
       </div>
     </div>
   )

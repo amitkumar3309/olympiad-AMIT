@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Button, ButtonLink, Icon, Menu, usePrefersReducedMotion } from './ui'
+import { Avatar, Button, ButtonLink, Icon, Menu, SkipLink, usePrefersReducedMotion } from './ui'
 import { lockScroll, unlockScroll } from './ui/scrollLock'
 import ThemeToggle from './ThemeToggle'
 import logoMark from '../assets/logo-mark.png'
@@ -259,6 +259,9 @@ export default function Navbar() {
     )
 
   return (
+    <>
+    {/* The first stop for a keyboard on every public page (Milestone 30, Phase 6). */}
+    <SkipLink />
     <header className={styles.nav} data-scrolled={scrolled ? 'true' : 'false'}>
       <div className={`container ${styles.inner}`}>
         {/*
@@ -322,5 +325,6 @@ export default function Navbar() {
         </>
       )}
     </header>
+    </>
   )
 }
