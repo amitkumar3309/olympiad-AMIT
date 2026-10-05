@@ -1,432 +1,431 @@
 /**
- * The student dashboard (Milestone 23, Phase D). Today's Daily Quiz card is
- * `components/DailyQuizPanel`, which brings its own stylesheet.
+ * The student dashboard (Milestone 30, Phase 4 — the launch mockup). Mobile first: what
+ * is written here with no media query is the phone, and the `min-width` queries widen it.
+ *
+ *   base       one column
+ *   ≥ 768px    the stat cards three across, activity and chapters side by side, the rail's
+ *              cards two across under the main column
+ *   ≥ 1024px   the five stat cards in one row
+ *   ≥ 1280px   the mockup's two columns: the main column and a 340px rail
+ *
+ * Tokens only.
  */
 
 .page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
 }
 
-.sectionTitle {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-2xs);
-  font-family: var(--font-body);
-  font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
+.layout,
+.main,
+.rail,
+.pair {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+  align-content: start;
+}
+
+.card {
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .pair,
+  .rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+@media (min-width: 1280px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+    align-items: start;
+  }
+
+  .rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- a card header's "View all →" --------------------------------- */
+
+.more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--tap-target);
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  color: var(--primary-text);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.more:hover {
+  text-decoration: underline;
+}
+
+.more svg {
+  width: 16px;
+  height: 16px;
+}
+
+.note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--type-small);
   color: var(--text-muted);
 }
 
-/* ==========================================================================
-   Jump back in — the three things a student came here to do
-   ========================================================================== */
+/* ---------- welcome banner ----------------------------------------------- */
 
-.actionGrid {
+.banner {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
-  gap: var(--space-3);
-}
-
-/**
- * The "what to do next" tiles at the top of the dashboard, on the new surface
- * treatment (Milestone 26): no visible border, a lifting shadow, and a smaller radius
- * than a full card because these sit in a row above several.
- */
-.actionCard {
-  display: flex;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: var(--space-4);
-  min-height: 84px;
   padding: var(--space-5);
-  background: var(--surface);
+  overflow: hidden;
   border: var(--border-width) solid var(--card-border);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  text-decoration: none;
-  transition:
-    box-shadow var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
+  border-radius: var(--card-radius);
+  /* White into the brand's faintest tint, as the mockup's banner fades to its books. */
+  background: linear-gradient(100deg, var(--surface) 40%, var(--band-accent));
+  box-shadow: var(--card-shadow);
 }
 
-/* 1px, not 4–6px: a grid of cards that jumps under a moving pointer is decoration. */
-.actionCard:hover {
-  background: var(--surface-hover);
-  transform: translateY(-1px);
+/* The student's own photo, larger than any list's avatar — the banner is about them. */
+.banner .bannerAvatar {
+  width: 64px;
+  height: 64px;
+  font-size: var(--text-lg);
+  box-shadow: 0 0 0 4px var(--surface);
 }
 
-/* `.actionIcon` was a hand-rolled 42px tinted square. It is `ui/IconTile` now
-   (Milestone 27): a pastel fill with the hard diagonal edge, which is exactly what
-   the reference puts beside a row like this. Three different tones, because these
-   are three things a reader has to tell apart — the one job a categorical colour
-   actually has. Deleting the class rather than restyling it is the point: a
-   primitive that already exists should not have a second implementation. */
-
-.actionText {
-  flex: 1;
+.bannerText {
+  display: grid;
+  gap: var(--space-2);
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
-.actionTitle {
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
-  color: var(--text);
+.bannerTitle {
+  margin: 0;
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
 }
 
-.actionMeta {
-  font-size: var(--text-xs);
-  line-height: var(--leading-snug);
+.bannerEyebrow {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--type-small);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.actionChevron {
-  flex-shrink: 0;
-  color: var(--text-subtle);
-}
-
-/* ==========================================================================
-   Progress
-   ========================================================================== */
-
-.progressGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
-  gap: var(--space-3);
-}
-
-/* The level card spans two columns once there are at least two, so the XP figure and
-   its bar are not squeezed into a quarter of the row. */
-@media (min-width: 700px) {
-  .levelCard {
-    grid-column: span 2;
-  }
-}
-
-.levelHead {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-
-/* The page’s headline figure, in the display face like every other figure — see
-   the note on `ui/StatTile`’s `.value`. Weight 700 rather than 600 because this one
-   is the largest number on the screen and the reference sets its hero at 700. */
-.xpValue {
-  margin: var(--space-2) 0 0;
-  font-family: var(--font-heading);
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-bold);
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-display);
+.bannerName {
+  font-size: var(--type-page-title);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
   color: var(--text);
-  font-variant-numeric: tabular-nums;
 }
 
-/* `.levelIcon` was a second hand-rolled tinted square. It is `ui/IconTile` with
-   `tone="gold"` now: a level is a distinction tier, and gold is the one colour in
-   this product reserved for something earned rather than for a category. */
-
-/* ==========================================================================
-   The card grid
-   ========================================================================== */
-
-.grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-4);
+.bannerQuote {
+  margin: 0;
+  max-width: 52ch;
+  font-size: var(--type-body);
+  line-height: var(--leading-normal);
+  color: var(--text-body);
 }
 
-@media (min-width: 900px) {
-  .grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  /* The results table earns the full width; everything else pairs up. */
-  .wide {
-    grid-column: 1 / -1;
-  }
-}
-
-/* One table, two presentations. Below 768px the rows are cards, because five numeric
-   columns on a phone is five illegible columns — and dropping columns to fit would
-   mean the information only exists on a desktop. */
-.mobileOnly {
-  display: flex;
-}
-
-.desktopOnly {
+.bannerArt {
   display: none;
 }
 
 @media (min-width: 768px) {
-  .mobileOnly {
-    display: none;
+  .banner {
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 200px);
+    gap: var(--space-6);
+    padding: var(--space-6) var(--space-8);
   }
 
-  .desktopOnly {
+  .banner .bannerAvatar {
+    width: 112px;
+    height: 112px;
+    font-size: var(--text-3xl);
+  }
+
+  .bannerArt {
     display: block;
   }
 }
 
-/* ==========================================================================
-   Practice availability
-   ========================================================================== */
+/* ---------- the five figures --------------------------------------------- */
 
-.availability {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+/* Every figure on the same line, whichever label wraps (the tile centres by default). */
+.stat {
+  align-items: flex-start;
+  align-content: flex-start;
+}
+
+/* Two across on a phone leaves the fifth alone: it takes the whole row. */
+.statGrid > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 768px) {
+  .statGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .statGrid > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .statGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+/* ---------- chapter progress --------------------------------------------- */
+
+.chapters {
+  display: grid;
+  gap: var(--space-3);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.availability li {
-  display: flex;
+.chapter {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1.6fr) minmax(0, 1fr) 4ch;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
+  font-size: var(--type-small);
 }
 
-.availabilityText {
+.chapterDot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+}
+
+/* Wraps rather than truncating: a chapter's name is the information, not decoration. */
+.chapterName {
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-snug);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.chapterBar {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--fill-muted);
+}
+
+.chapterFill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+}
+
+.chapterValue {
+  justify-self: end;
+  font-weight: var(--weight-semibold);
+  color: var(--text-body);
+}
+
+/* ---------- today's maths thought ---------------------------------------- */
+
+/* The mockup's mint card. `--surface-mint` is themed: it becomes a raised surface in the
+   dark theme, so the text on it stays legible in both. */
+.thought {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: end;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--card-radius);
+  background: var(--surface-mint);
+  box-shadow: var(--card-shadow);
+}
+
+.thoughtText {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.thoughtTitle {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.thoughtTitle svg {
+  width: 20px;
+  height: 20px;
+  color: var(--success-text);
+}
+
+.thoughtQuote {
+  margin: 0;
+  font-size: var(--type-body);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-normal);
+  color: var(--text);
+}
+
+.thoughtSign {
+  margin: 0;
+  justify-self: end;
+  font-family: var(--font-hand);
+  font-size: var(--text-lg);
+  color: var(--text-body);
+}
+
+/* ---------- upcoming events ---------------------------------------------- */
+
+.events {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.eventText {
+  display: grid;
   gap: 2px;
   min-width: 0;
 }
 
-.availabilityName {
-  font-size: var(--text-sm);
+.eventTitle {
   font-weight: var(--weight-semibold);
   color: var(--text);
-}
-
-.availabilityMeta {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  text-transform: capitalize;
-}
-
-/* ==========================================================================
-   Activity feed
-   ========================================================================== */
-
-.feed {
-  display: flex;
-  flex-direction: column;
-  margin: 0 0 var(--space-3);
-  padding: 0;
-  list-style: none;
-}
-
-.feed li {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-.feed li:last-child {
-  border-bottom: none;
-}
-
-.feedIcon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--surface-sunken);
-  color: var(--text-muted);
-}
-
-.feedBody {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.feedLabel {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-  color: var(--text);
-}
-
-.feedDetail {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
   overflow-wrap: anywhere;
 }
 
-.feedDay {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-/* The XP badge wraps under the row on a narrow screen rather than squeezing the label
-   into two characters. */
-.feed li > *:last-child {
-  grid-column: 3;
-}
-
-@media (max-width: 420px) {
-  .feed li {
-    grid-template-columns: auto 1fr;
-  }
-
-  .feedDay {
-    grid-column: 2;
-  }
-
-  .feed li > *:last-child {
-    grid-column: 2;
-    justify-self: start;
-  }
-}
-
-.feedEnd {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-xs);
-  text-align: center;
+.eventWhen {
+  font-size: var(--type-micro);
   color: var(--text-muted);
 }
 
-/* ==========================================================================
-   Achievements
-   ========================================================================== */
-
-.badgeList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.subhead {
-  margin: var(--space-4) 0 var(--space-2);
-  font-size: var(--text-2xs);
+.chip,
+.chipOpen {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-small);
   font-weight: var(--weight-bold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-caps);
-  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.nextList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.nextDesc {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-  color: var(--text-muted);
-}
-
-/* ==========================================================================
-   Leaderboard
-   ========================================================================== */
-
-.leaderboard {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.leaderboard li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-2);
-  border-bottom: var(--border-width) solid var(--border-subtle);
-}
-
-.leaderboard li:last-child {
-  border-bottom: none;
-}
-
-/* The reader's own row, marked by a tint *and* the word "You" — never by colour
-   alone. */
-.meRow {
+.chip {
   background: var(--primary-soft);
-  border-radius: var(--radius-sm);
+  color: var(--primary-text);
 }
 
-/**
- * `--text-muted` is 4.76:1 on `--surface` — AA with almost no headroom, which is what
- * `tokens.css` calls "the floor". On a *tinted* row it drops to 4.28:1 and fails, which
- * is what the Phase G audit measured here. Muted text does not go on a tint: this row is
- * the reader's own and should read stronger anyway.
- */
-.meRow .rank,
-.meRow .lbSchool,
-.meRow .lbXp {
+.chipOpen {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+/* ---------- today's top 5 ------------------------------------------------ */
+
+/* `flex-shrink: 0`: beside the rank in a flex row, an svg with no flex basis of its own
+   shrinks to nothing — the crown measured 0px wide before this. */
+.crown1,
+.crown2,
+.crown3 {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.crown1 {
+  color: var(--medal-gold);
+}
+
+.crown2 {
+  color: var(--medal-silver);
+}
+
+.crown3 {
+  color: var(--medal-bronze);
+}
+
+/* ---------- achievements ------------------------------------------------- */
+
+.achievements {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 480px) {
+  .achievements {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* In the rail's 340px, four across is too narrow for the names. */
+@media (min-width: 1280px) {
+  .achievements {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.achievement,
+.achievementLocked {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+.achievementName {
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-snug);
+  color: var(--text);
+}
+
+.achievementLocked .achievementName {
   color: var(--text-body);
 }
 
-.rank {
-  flex-shrink: 0;
-  min-width: 2.5ch;
-  font-size: var(--text-sm);
-  font-weight: var(--weight-bold);
+.achievementState {
+  font-size: var(--type-micro);
   color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
 }
-
-.lbText {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.lbName {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  color: var(--text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lbSchool {
-  font-size: var(--text-xs);
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lbXp {
-  flex-shrink: 0;
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-

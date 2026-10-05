@@ -108,6 +108,7 @@ const HallOfFame = lazy(() => import('./pages/HallOfFame/HallOfFame'))
 const DesignSystem = import.meta.env.DEV ? lazy(() => import('./pages/DesignSystem/DesignSystem')) : null
 const Analytics = lazy(() => import('./pages/Analytics/Analytics'))
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'))
+const Activity = lazy(() => import('./pages/Activity/Activity'))
 const Profile = lazy(() => import('./pages/Profile/Profile'))
 const Practice = lazy(() => import('./pages/Practice/Practice'))
 const MockTests = lazy(() => import('./pages/MockTests/MockTests'))
@@ -468,6 +469,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          {/* The dashboard's "Recent activity → View all" (Milestone 30, Phase 4). */}
+          <Route
+            path="/activity"
+            element={
+              <ProtectedRoute>
+                <Activity />
               </ProtectedRoute>
             }
           />

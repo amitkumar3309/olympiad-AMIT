@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
@@ -31,6 +31,17 @@ export default function Rewards() {
   const [data, setData] = useState<RewardsResponse['rewards'] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const { hash } = useLocation()
+
+  /*
+    `#journey` and `#achievements` — the dashboard's "View full journey" and "View all"
+    (Milestone 30, Phase 4). The sections exist only once the data has arrived, which is
+    after the browser's own jump to the fragment, so the scroll happens here.
+  */
+  useEffect(() => {
+    if (!data || !hash) return
+    document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
+  }, [data, hash])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -138,7 +149,7 @@ export default function Rewards() {
       </section>
 
       {/* --- Journey map -------------------------------------------------- */}
-      <section className="card">
+      <section className={`card ${styles.anchored}`} id="journey">
         <div className={styles.sectionHead}>
           <h2>Your journey</h2>
           <span className={styles.sectionMeta}>
@@ -178,7 +189,7 @@ export default function Rewards() {
       </section>
 
       {/* --- Achievements -------------------------------------------------- */}
-      <section className="card">
+      <section className={`card ${styles.anchored}`} id="achievements">
         <div className={styles.sectionHead}>
           <h2>Achievements</h2>
           <span className={styles.sectionMeta}>

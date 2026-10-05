@@ -1,0 +1,19 @@
+/* /activity (Milestone 30, Phase 4). Tokens only. */
+
+.more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+
+.end,
+.error {
+  margin: var(--space-4) 0 0;
+  font-size: var(--type-small);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--danger-text);
+}

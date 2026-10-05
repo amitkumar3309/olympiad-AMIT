@@ -1309,15 +1309,6 @@ export interface HallOfFameResponse {
  * rather than sample scores. The shape is here so the panel starts working when
  * exam submission lands.
  */
-export interface ExamPerformance {
-  id: string
-  submittedAt: string | null
-  totalScore: number
-  accuracy: number
-  timeTakenSeconds: number
-  questionCount: number
-}
-
 /** Real published-question availability for the student's class, per subject. */
 export interface SubjectChallenge {
   subjectId: string
@@ -1327,6 +1318,27 @@ export interface SubjectChallenge {
   totalMarks: number
 }
 
+/** Accuracy over the student's most recent attempts — the dashboard's fifth figure. */
+export interface RecentAccuracy {
+  /** One decimal place; null when nothing was answered — never a zero. */
+  percent: number | null
+  correct: number
+  answered: number
+  /** How many attempts the window really holds. */
+  attempts: number
+  /** The window asked for — 30. */
+  window: number
+}
+
+/** A published exam window still to come or open now (`dashboard.upcoming`). */
+export interface UpcomingExam {
+  id: string
+  title: string
+  opensAt: string
+  closesAt: string
+  isOpen: boolean
+}
+
 export interface DashboardData {
   student: {
     studentId: string
@@ -1334,15 +1346,29 @@ export interface DashboardData {
     firstName: string | null
     classLevel: ClassLevel | null
     schoolName: string | null
+    hasPhoto: boolean
   }
   progress: ProgressSummary
+  /** Milestone 30 Phase 4: the stat cards' weekly figures and the recent accuracy. */
+  stats: {
+    xpThisWeek: number
+    questionsSolved: { total: number; thisWeek: number }
+    accuracy: RecentAccuracy
+  }
+  /** The newest three events; `/activity` pages the rest. */
   activity: ActivityEntry[]
-  recentTests: ExamPerformance[]
   achievements: AchievementSummary
-  leaderboard: { top: LeaderboardRow[]; me: LeaderboardStanding }
+  journey: JourneySummary
+  /** The overall, all-time standing — the rank card. */
+  leaderboard: { me: LeaderboardStanding }
+  /** Today's board for the student's own class, or null without a class. */
+  classToday: { classLevel: ClassLevel; rows: LeaderboardRow[]; me: LeaderboardStanding } | null
+  upcoming: UpcomingExam[]
   challenges: SubjectChallenge[]
   /** The competition day the figures were computed for. */
   today: string
+  /** The server's clock when this was built — what the exam countdown chips offset from. */
+  serverNow: string
 }
 
 /**
