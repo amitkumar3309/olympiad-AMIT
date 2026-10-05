@@ -6,9 +6,10 @@ _Last updated 2026-10-05._
 
 ## Current state
 
-**Phase 3 is merged (PR #3, `91efc72`). Phase 4 (the student dashboard) is in progress on branch
-`feat/diwali-launch-phase-4`.** First on that branch, at the owner's request (2026-10-05): the
-homepage's "Can you crack this?" now shows **real past Daily Quiz problems** instead of the demo set.
+**Phase 4 (the student dashboard) complete on branch `feat/diwali-launch-phase-4`** (Phase 3 is
+merged: PR #3, `91efc72`). First on the branch, at the owner's request (2026-10-05), the homepage's
+"Can you crack this?" switched to **real past Daily Quiz problems**. **Waiting for the owner's
+"continue" before Phase 5 (every button and link).**
 
 ## Tasks
 
@@ -48,7 +49,14 @@ homepage's "Can you crack this?" now shows **real past Daily Quiz problems** ins
 | 3 | Browser check at 1280 and 390 (light), screenshots in `docs/launch/screenshots/phase-3/` | ✅ done |
 | 3 | Docs: ADR, CLAUDE.md, API, security, testing, feature status, state, changelog, audit | ✅ done |
 | 4 | Owner, 2026-10-05: "Can you crack this?" is a real daily problem — `GET /daily-quiz/past` (revealed days only, through `revealOf()`), class-group tabs, honest empty state; demo set, `verify:samples` and `SAMPLE_QUESTIONS.md` deleted; leak test extended; E2E 14/14 | ✅ done |
-| 4 | Student dashboard | 🟡 in progress |
+| 4 | `GET /me/dashboard`: `stats` (XP + questions solved this week, accuracy over 30 attempts), `journey`, `classToday`, `upcoming`, `hasPhoto`, `serverNow`; `recentTests` and the overall top five removed; `hasPhoto` on every auth response | ✅ done |
+| 4 | Student shell: top bar of links, bell menu (+ "today's quiz is live"), profile chip, page `h1` in the content, the mockup's sidebar with two "Soon" labels, motivational card, icon rail 1024–1279px, five-item bottom bar + burger below 1024px; admin unchanged | ✅ done |
+| 4 | Dashboard: banner, five figures (count-up), Daily Quiz card, journey, activity, chapter progress, maths thought, upcoming events, today's class top 5, achievements — each with loading, empty and error states | ✅ done |
+| 4 | `/activity`; the leaderboard opens on `?scope=class&period=daily`; the rewards page scrolls to `#journey` / `#achievements`; "A.M.I.T. Admin" (Q10) | ✅ done |
+| 4 | Shared fixes: `ui/Menu` closes only on a scroll that moves its trigger; `ScrollToTop`; `/__e2e/reset` empties the rate limiters; `ProtectedRoute` loads the student shell lazily (main bundle 261 kB / 82 kB gzipped) | ✅ done |
+| 4 | Tests: backend 1346 / 38 (seven new); E2E 20 (`dashboard.spec.ts`) | ✅ done |
+| 4 | Browser check at 1440, 1280, 1024 and 390 in both themes; contrast sweep 0 failures (~125 text nodes); screenshots in `docs/launch/screenshots/phase-4/` | ✅ done |
+| 4 | Docs: ADR, CLAUDE.md, API, testing, feature status, state, changelog, audit, troubleshooting | ✅ done |
 | 5 | Every button and link (D1–D9), crawler | ⬜ |
 | 6 | Launch readiness + `LAUNCH_REPORT.md` | ⬜ |
 
@@ -68,6 +76,28 @@ owner reviews; **Q9** `+91-97828-70716` and `support@amitolympiad.me`. New, from
   project, update them (a set variable beats the new default); supply the illustrations
   (`ASSETS_NEEDED.md` — placeholders until then).
 
+## Phase 4 — deviations from the dashboard mockup, and why
+
+Compared side by side with `docs/design/mockup-dashboard.jpeg` (screenshots in
+`docs/launch/screenshots/phase-4/`: the dashboard at 1440, 1280, 1024 and 390 in light, 1440 and 390
+in dark, the bell and account menus, the phone drawer, Practice and `/activity` in the new shell, and
+the admin dashboard to show it unchanged):
+
+| Mockup | Built | Why |
+|---|---|---|
+| "Today's Challenge" with the question and a running timer on the dashboard | The Daily Quiz card: the facts, the prize and **Start**; the question appears only after Start | The solve time is measured from Start (§6), so the question cannot be on screen before it — and the card is the `/daily-quiz` component, so the two cannot disagree. |
+| "Your 6-Month Journey" (Number Forest → Olympiad Kingdom) | "Your journey" — the nine real milestones, done / current / locked | Q7. |
+| "Subject Progress" (Algebra, Geometry, Trigonometry…) | "Chapter progress" — accuracy per chapter, with the counts | A one-subject olympiad: nothing may print a subject name (CLAUDE.md). |
+| Upcoming: Sunday Math Boss Battle, Month-End Booster | Real Olympiad windows only, with countdown chips; an honest empty state until one is scheduled | Q6 — neither event exists. |
+| Sidebar of 11 ("Today's Challenge", "Practice Tests"…) | The mockup's order, Previous Papers and Concepts as **"Soon" labels**, then "The Olympiad" and "More" | Nothing built may become unreachable; a "Soon" item is never a link (plan §4). |
+| The current sidebar item filled solid blue | A tint and a heavier weight | A position is not an action (CLAUDE.md design system). |
+| The motivational card always in view | At the foot of the sidebar's own scroll — in view on a screen about 1,100px tall | The sidebar holds every built destination (20), not the mockup's 11. |
+| Stat cards with the icon beside the figure | Beside it from ~170px of card; above it when narrower (five across beside the rail at 1440) | The figures keep their size and line up. |
+| Green and red deltas | Green for a gain this week, otherwise a neutral line | None of these figures can fall — there is nothing red to say. |
+| Achievements four across | Two by two in the 340px rail, four across below 1280px | The names fit. |
+| "WELCOME BACK, Aarav Sharma!" | "Welcome back, {first name}!" | Brief §8 #1. |
+| Photo, books, plant, climber and castle art | Placeholders | `ASSETS_NEEDED.md`; a file dropped in needs no code. |
+
 ## Phase 3 — deviations from the landing mockup, and why
 
 Compared side by side with `docs/design/mockup-landing.jpeg` (screenshots in
@@ -86,6 +116,15 @@ Compared side by side with `docs/design/mockup-landing.jpeg` (screenshots in
 | — | "About the Olympiad" and FAQ sections | Targets of the navbar's About and FAQ links (not visible in the mockup's crop). |
 
 ## Notes for the next session
+
+- **Phase 4 history note:** commit `84076ca` ("keep the How it works paper plane inside its
+  section") also carries the deletion of the demo sample-question files — they had been staged with
+  `git rm` before it — and `df6cc0d` is the commit whose message describes them. The tree at the tip is
+  right; the PR is squash-merged. History was not rewritten (CLAUDE.md: new commits, not amends).
+- **Screenshots** for a signed-in page: a Playwright script (installed Edge) against the local
+  servers (5180 → 8091) that signs in with the `seed-demo.ts` account through `POST /auth/login` and
+  shoots full pages. The local backend's general rate limiter (300 requests / 15 min) runs out after
+  a few dozen captures — restart `launch-backend-local-db` to empty it.
 
 - **Local run:** `.claude/launch.json` has `launch-backend-local-db` (port 8091, `dev:local`, local
   MongoDB `amit-olympiad-local`) and `launch-frontend` (port 5180, proxying to 8091). The backend is

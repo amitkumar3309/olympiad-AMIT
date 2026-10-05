@@ -89,7 +89,8 @@ Everything is `lazy()` except `Landing`. "Works" = calls real endpoints, no hard
 
 **Missing routes the spec needs:** ~~`/daily-quiz`~~ and ~~the profile "Daily Quiz history"~~ (both done in
 Phase 2), `/rewards/rules`, `/privacy`, `/terms`, `/refund-policy`, `/contact`, the 6-month journey page (if approved). Dashboard sidebar items in the mockup with no route today: **Previous Papers**,
-**Concepts**, **Help & Support** → "Soon" pill per §3 unless built.
+**Concepts**, **Help & Support** → "Soon" pill per §3 unless built. *Phase 4: Help & Support is `/contact`;
+Previous Papers and Concepts are `soon` items — labels with a "Soon" pill, never links.*
 
 ## Interaction inventory — public surfaces
 
@@ -137,14 +138,16 @@ Phase 2), `/rewards/rules`, `/privacy`, `/terms`, `/refund-policy`, `/contact`, 
 
 | Component | Label | Element | Destination / action | Status | Final |
 |---|---|---|---|---|---|
-| AppShell.tsx:224 | every nav item (16, see below) | Link | declared routes | ✅ | — |
-| AppShell.tsx:259 | brand | Link | `/dashboard` | ✅ | — |
-| AppShell.tsx:274/332/375/404 | Close menu · Open menu · backdrop · More | button / div | drawer | ✅ | — |
-| AppShell.tsx:306/307 | Theme toggle · Sign out | button | | ✅ | — |
-| AppShell.tsx:321 | Skip to content | a | `#main-content` | ✅ | — |
-| AppShell.tsx:352 | Notifications (N unread) | Link | `/notifications` | ✅ | — |
-| AppShell.tsx:393 | bottom bar: Home · Practice · Tests · Challenge | Link | routes | ✅ | — |
-| Dashboard.tsx:169-534 | Try again · 3 action cards · Start · Update my profile · See mock tests · Show earlier activity · All rewards · Full board | Link / Button | real | ✅ | — |
+| AppShell.tsx (student, Phase 4) | every sidebar item (18 links + 2 `soon` labels, see below) · brand lockup | Link / label | declared routes; `/dashboard` | ✅ Phase 4 | — |
+| AppShell.tsx (student, Phase 4) | top bar: Home · Dashboard · Practice · Leaderboards · Gallery · Certificates (from 1024px) | Link | `/`, `/dashboard`, `/practice`, `/leaderboard`, `/gallery`, `/my-certificates` | ✅ Phase 4 | — |
+| AppShell.tsx | Close menu · Open menu (below 1024px) · backdrop | button / div | drawer | ✅ (E2E `dashboard.spec.ts`) | — |
+| AppShell.tsx | Theme toggle · Sign out (drawer foot; admin sidebar foot) | button | | ✅ | — |
+| AppShell.tsx | Skip to content | a | `#main-content` | ✅ | — |
+| layout/NotificationBell.tsx (Phase 4) | Notifications (N unread) → menu: "Today’s Daily Quiz is live" · the newest five notices · View all notifications | Menu | `/daily-quiz`; marks a notice read, then its `link` or `/notifications`; `/notifications` | ✅ (E2E) | — |
+| layout/AccountMenu.tsx (Phase 4) | Account menu for {name} → My Profile · Help & Support · Log out | Menu | `/profile`, `/contact`, `logout()` → `/` | ✅ (E2E) | — |
+| AppShell.tsx (Phase 4) | bottom bar below 1024px: Home · Quiz · Practice · Leaderboard · Profile | Link | `/dashboard`, `/daily-quiz`, `/practice`, `/leaderboard`, `/profile` | ✅ (E2E) | — |
+| Dashboard.tsx (Phase 4) | Try again (figures, chapters) · View full journey · View all (activity) · View details · View all (events) · View leaderboard · View all (achievements) · the Daily Quiz card | Link / Button | `/rewards#journey`, `/activity`, `/analytics`, `/exam`, `/leaderboard?scope=class&period=daily`, `/rewards#achievements` | ✅ (E2E) | — |
+| Activity.tsx (Phase 4) | Show earlier activity · Try again | Button | `GET /me/activity` pages | ✅ (E2E) | — |
 | EntryFeeBanner.tsx:65 | Pay ₹… | Link | `/payment` | ✅ | — |
 | DailyQuizPanel.tsx (page + dashboard card) | Start the quiz · option tiles (radio group) · Submit answer → confirm dialog (Go back / Submit option X) · Try again · Complete my profile · Practise now · Go to my profile · My quiz history · Open the Daily Quiz · See every quiz you have played | Button / ButtonLink / Modal / radio | `/me/daily-quiz/*`, `/profile#prize-details`, `/profile#daily-quiz-history`, `/practice`, `/daily-quiz` | ✅ (Phase 2, E2E) | — |
 | DailyQuizHistory.tsx | The question / View solution (`<details>`) · pagination | details / Pagination | — | ✅ | — |
@@ -153,9 +156,11 @@ Phase 2), `/rewards/rules`, `/privacy`, `/terms`, `/refund-policy`, `/contact`, 
 | Rewards.tsx:69 | Try again | Button | | ✅ | — |
 | Rewards.tsx:212-216 | Earn some XP · Today's quiz | `<Link><Button>` | `/practice`, `/daily-quiz` | ⚠️ D5 | — |
 
-Student navigation (`navigation.ts:70-130`): Dashboard · Practice Zone · Mock Tests · Daily Quiz ·
-Performance · Printable report · XP & badges · Leaderboard · Hall of Fame · Official Olympiad (padlock if unpaid) ·
-Entry fee & receipts · Result · Certificates · Refer & Earn · Notifications · My Profile. All resolve.
+Student navigation (`navigation.ts`, Phase 4 — the mockup's order first): Dashboard · Daily Quiz · Practice ·
+Mock Tests · Previous Papers (*Soon*, a label) · Concepts (*Soon*, a label) · My Progress · Leaderboards ·
+Achievements · Certificates · My Profile · Help & Support; **The Olympiad**: Official Olympiad (padlock if unpaid) ·
+Entry fee & receipts · Result; **More**: Notifications · Activity · Hall of Fame · Printable report · Refer & Earn.
+Every link resolves; nothing built became unreachable.
 
 ## Interaction inventory — admin surfaces
 

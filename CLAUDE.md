@@ -95,7 +95,12 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             and the four pages reached from an email (M23 C)
   src/components/layout/    THE app shell + THE navigation model (M23 B):
                             AppShell.tsx renders the chrome for BOTH signed-in
-                            areas; navigation.ts is the menus as data
+                            areas; navigation.ts is the menus as data; since M30
+                            Phase 4 the student variant's NotificationBell.tsx (a
+                            menu of the newest notices) and AccountMenu.tsx (the
+                            profile chip)
+  src/components/ScrollToTop.tsx  a new page starts at the top (M30 Phase 4)
+  src/lib/activity.ts       how one recorded event reads in a feed (M30 Phase 4)
   src/components/           shared components that DO know the domain
                             (EntryFeeBanner, MathText, Navbar, Footer, ...)
   src/context/AuthContext.tsx   session state (loading/guest/student/admin)
@@ -530,7 +535,20 @@ look wrong however carefully it is tokenised — read them before touching a sur
   had already drifted. Add a destination by adding it to the model, not to a page: the desktop
   sidebar, the drawer, the mobile bottom bar and the admin permission filter all read from it.
   **Every entry must point at a route that exists and a feature that is built** — there is
-  deliberately no admin *Practice* item and no general *Settings* page.
+  deliberately no admin *Practice* item and no general *Settings* page. The one exception is a
+  **`soon` item** (Milestone 30 Phase 4: Previous Papers and Concepts, from the approved launch
+  plan), which `AppShell` renders as a label with a "Soon" pill — never a link, never the current
+  page. Do not give one a route without building the feature; do not add a third without the owner.
+- **The student shell is the launch mockup's (Milestone 30 Phase 4); the admin shell is not.** The
+  student variant has a top bar of links, the bell's menu, the profile chip and the page's `h1` in
+  the content (`headless` when the page draws its own); from 1024px a sidebar that is an icon-only
+  rail until 1280px; below 1024px the five-item bottom bar and a burger. Everything is scoped to
+  `.student` in `AppShell.module.css` — check the admin area whenever you touch it.
+- **A new page starts at the top, and a menu stays open unless its trigger moves.**
+  `components/ScrollToTop` resets the window on a new navigation (not on back/forward, not for a
+  `#fragment`) — without it, signing in from the foot of the homepage opened the dashboard 2,400px
+  down. `ui/Menu` closes on a scroll only when the page or a container holding its trigger scrolled;
+  closing on any scroll let the journey track's scroll-snap shut the notification menu as it opened.
 - **Anything delivered with the browser's rendering steps may never arrive.** `requestAnimationFrame`,
   `ResizeObserver`, a `MediaQueryList` change event and a CSS transition's completion all stop in a
   tab that is not compositing — a background tab, a hidden preview, a headless run. Fine as an
@@ -541,7 +559,9 @@ look wrong however carefully it is tokenised — read them before touching a sur
   the sidebar is `display: none` below 1024px.
 - **The mobile bottom bar is student-only, and the burger is what the admin area has instead.** If
   you change one, check the other: hiding the burger below 768px (where the bottom bar replaces it)
-  left an administrator on a phone with no way to open the menu at all.
+  left an administrator on a phone with no way to open the menu at all. Since Milestone 30 Phase 4
+  the student has both below 1024px — the bar holds the brief's five (Home, Quiz, Practice,
+  Leaderboard, Profile) and no "More", so the burger is the only way into the drawer.
 - **A form reports every problem, on the field it belongs to.** One validation pass, a message
   under each field (`Field`'s `error`, which also sets `aria-invalid` and the described-by
   wiring), and — on a long form — a summary at the top whose entries **move focus** to the field
@@ -939,7 +959,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
 
 ## Testing Requirements
 
-- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1340 tests across 38 files** (measured 2026-10-05, after the homepage's past-problems endpoint; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 14 tests), which starts its own backend on an in-memory MongoDB and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
+- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1346 tests across 38 files** (measured 2026-10-05 after Milestone 30 Phase 4; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 20 tests), which starts its own backend on an in-memory MongoDB and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
 - `NODE_ENV=test` skips `.env` loading, so tests can never pick up real secrets, and also lowers bcrypt cost and disables rate limiters for speed/determinism. Don't "fix" any of that.
 - **The Gemini tests must never touch the network.** `setGeminiClientFactory()` in `services/geminiQuestionGenerator.ts` swaps the whole SDK client and throws outside the test environment; use it rather than a real key, and note that `enableGemini()` only needs an obviously-fake string because `isAvailable()` merely asks whether a key is present. The failing paths are the ones worth testing — a spent quota, a truncated reply, prose where JSON was asked for — and none of them can be produced on demand against a real provider.
 - Use `tests/helpers/db.ts` (real in-memory MongoDB) and `tests/helpers/auth.ts` (`registerVerifyLogin`, cookie parsing, real token extraction from the captured email) rather than writing new harnesses. **`registerVerifyLogin()` grants the entry fee by default** — a student exercising practice in production has paid, and a test student who cannot practise asserts behaviour no real student reaches. Pass `{ paid: false }` where *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants, and an admin with an entry-fee payment would appear in the payments console's collected total.

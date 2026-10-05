@@ -1,10 +1,9 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-04 (**Milestone 30 — the Diwali launch: Phase 3, the homepage, the floating Daily
-Quiz button, the Login Gate, the Rewards section and the rules and legal pages, complete on branch
-`feat/diwali-launch-phase-3`; waiting for the owner's "continue" before Phase 4**). Milestone 29
-(a full test pass, a scale audit, and the five infrastructure fixes it found) closed immediately
-before it._
+_Last updated: 2026-10-05 (**Milestone 30 — the Diwali launch: Phase 4, the student dashboard, complete
+on branch `feat/diwali-launch-phase-4`; waiting for the owner's "continue" before Phase 5**). Phases
+0–3 are merged. Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
 
@@ -68,7 +67,20 @@ The work happens in phases, and each one stops for the owner's approval.
   first two weeks of quiz questions before launch** — they are also what the homepage's "Can you crack
   this?" shows, one day after each runs (Admin → Daily Quiz → Import a file); update
   `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` in Vercel if they are set there.
-- **Phase 4 (the student dashboard) is next.**
+- **Phase 4 (the student dashboard) — done.** The student shell follows the dashboard mockup — a top
+  bar of links, the bell (a menu of the newest notices, plus "today's quiz is live"), the profile chip
+  (My Profile, Help & Support, Log out), the page `h1` in the content, the mockup's sidebar with
+  **Previous Papers and Concepts as "Soon" labels**, an icon-only rail at 1024–1279px, and below
+  1024px a burger and a bottom bar of Home, Quiz, Practice, Leaderboard, Profile; the admin shell is
+  unchanged. The dashboard has the eleven widgets of brief §8 from real data: `GET /me/dashboard`
+  gained `stats` (XP and questions solved this week, accuracy over the last 30 attempts), `journey`,
+  `classToday`, `upcoming` (real exam windows only), `hasPhoto` and `serverNow`, and lost
+  `recentTests` and the overall top five. New `/activity`. Shared fixes: `ui/Menu` no longer closes
+  when an unrelated container scrolls, and `ScrollToTop` opens a new page at its top. Before Phase 4,
+  at the owner's request, "Can you crack this?" switched to **real past Daily Quiz problems** (never
+  today's — `GET /daily-quiz/past`). Tests: backend **1346 / 38 files**; E2E **20**. Screenshots and
+  the mockup deviations: `docs/launch/PROGRESS.md`, `docs/launch/screenshots/phase-4/`.
+- **Phase 5 (every button and link, the crawler) is next.**
 
 ## Milestone 29 at a glance
 

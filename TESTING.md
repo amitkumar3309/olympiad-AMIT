@@ -37,6 +37,21 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Milestone 30 Phase 4 (2026-10-05): 1346 passing backend tests across 38 files; 20 browser tests.**
+> Seven new in `tests/dashboard.test.ts` for the launch dashboard: a new student's honest figures
+> (this week's XP, nothing solved, accuracy `null` — not 0 — the journey started, a photo on file);
+> questions solved counted for one student, this week by submission, a Daily Quiz answer only once
+> revealed; accuracy summing raw counts (1/1 and 1/9 is 20%) and keeping only the newest 30
+> attempts; today's class board with the student's own standing; only real, open-or-coming exam
+> windows for the student's class; and `hasPhoto` on the session and the dashboard. The one test
+> about the removed `recentTests` went with it. **`frontend/e2e/dashboard.spec.ts`** (Playwright, both
+> widths): the five figures, today's quiz, the journey, the class board's "(You)" row and the
+> achievements render; no photo is requested for an account without one; the page opens at its top
+> after signing in from the foot of the homepage; the bell lists "Today's Daily Quiz is live" and
+> leads to it; the account menu signs out; on a phone the bottom bar holds the five and the drawer's
+> "Soon" items are labels, not links. `POST /__e2e/reset` now also empties the rate limiters, so a
+> suite this size no longer runs out of the general limiter's budget (see TROUBLESHOOTING.md).
+>
 > **2026-10-05: 1340 passing backend tests across 38 files.** Four new in `tests/dailyQuiz.test.ts`
 > for `GET /daily-quiz/past` (the homepage's "Can you crack this?"): today's quiz absent at noon and
 > at 23:59:59 and present with its answer at midnight; public, cacheable and one stable option order;
@@ -83,8 +98,8 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > that file so the floating button holds still enough to click. **"Can you crack this?"** (2026-10-05):
 > while the seeded quiz is live, `GET /daily-quiz/past` does not carry it; the clock moves a day, and
 > it is the problem on the homepage — chosen, submitted, marked "Correct" with its solution; on an
-> empty database the section says the first problem is on its way. **Fourteen tests**, about a
-> minute. (The Phase 3 `npm run verify:samples` script went with the demo questions it checked.)
+> empty database the section says the first problem is on its way. **Phase 4 added
+> `dashboard.spec.ts`** (above). **Twenty tests**, about a minute and a half. (The Phase 3 `npm run verify:samples` script went with the demo questions it checked.)
 >
 > It needs nothing installed beyond `npm ci` and Edge; on a machine without Edge, run
 > `npx playwright install chromium` and remove `channel: 'msedge'` from `playwright.config.ts`.
