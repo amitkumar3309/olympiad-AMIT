@@ -53,6 +53,25 @@
  * rather than a media query, so a field is never narrower than about 15 characters
  * — which is what turns a date input into an ellipsis.
  */
+/* The parent or guardian's agreement, under the two contact fields (Milestone 30, Phase 6). */
+.consent {
+  margin-top: var(--space-4);
+}
+
+.consent a {
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+}
+
+.consentError {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));

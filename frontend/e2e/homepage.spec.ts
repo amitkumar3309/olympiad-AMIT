@@ -66,6 +66,14 @@ test('a new student registers from the gate, verifies, and lands on the quiz', a
   await page.getByLabel(/^Password/).fill(password)
   await page.getByLabel(/^Confirm password/).fill(password)
   await page.locator('input[type="file"]').setInputFiles({ name: 'photo.jpg', mimeType: 'image/jpeg', buffer: TINY_JPEG })
+  await page.getByLabel("Parent or guardian's phone").fill('9000000999')
+
+  // A parent or guardian's agreement is required (Phase 6), and the form says so on the box.
+  await page.getByRole('button', { name: 'Review and continue' }).click()
+  const consent = page.getByRole('checkbox', { name: /I am the parent\/guardian, or I have my parent\/guardian’s permission/ })
+  await expect(consent).toHaveAttribute('aria-invalid', 'true')
+  await expect(page.locator('#reg-guardianConsent-error')).toContainText('A parent or guardian has to agree')
+  await consent.check()
 
   await page.getByRole('button', { name: 'Review and continue' }).click()
   await page.getByRole('button', { name: 'Create my account' }).click()

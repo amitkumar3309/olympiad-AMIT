@@ -11,13 +11,17 @@ import LegalLayout from './LegalLayout'
  * verifiable parental consent for under-18s; this page is a minimum, not a legal
  * guarantee. Open questions (the organiser's legal name and address, how long data is
  * kept, a grievance officer) are listed in `docs/launch/LEGAL_REVIEW.md`.
+ *
+ * Phase 6 changed §2 only to keep it true: registration now asks for a parent or guardian's
+ * phone or email and records when they agreed (`guardianConsentAt`). The wording of that
+ * addition is part of the review (LEGAL_REVIEW.md, question 8).
  */
 export default function Privacy() {
   return (
     <LegalLayout
       title="Privacy Policy"
       lead={`What ${AMIT_OLYMPIAD} collects about students, why, and the choices you have.`}
-      updated="4 October 2026"
+      updated="6 October 2026"
     >
       <h2>1. Who this is for</h2>
       <p>
@@ -31,11 +35,13 @@ export default function Privacy() {
         <li>
           <strong>When you register:</strong> the student’s name, father’s and mother’s names, date of birth, class,
           school, address, mobile number, email address and a photograph, and a password (stored only in a scrambled,
-          one-way form we cannot read).
+          one-way form we cannot read). Also a parent or guardian’s phone number or email address, and the date and time
+          they agreed to the registration, kept as the record of their consent.
         </li>
         <li>
           <strong>If you add them in My Profile:</strong> your city, and a parent or guardian’s phone number and email
-          address — used only to verify and deliver a Daily Quiz prize.
+          address if you did not give both when you registered. A parent or guardian’s contact details are used only to
+          verify and deliver a Daily Quiz prize.
         </li>
         <li>
           <strong>When you use the site:</strong> your answers in practice, mock tests, the Daily Quiz and the Olympiad;

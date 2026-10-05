@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { Alert, Button, Field, Icon, Input, PasswordInput, Select, Steps, Textarea } from '../../components/ui'
+import { Alert, Button, Checkbox, Field, Icon, Input, PasswordInput, Select, Steps, Textarea } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
 import { passwordProblem } from '../../lib/passwordPolicy'
 import PasswordRules from '../../components/PasswordRules'
@@ -61,10 +61,12 @@ const EMPTY_FORM = {
   email: '',
   password: '',
   confirmPassword: '',
+  guardianPhone: '',
+  guardianEmail: '',
 }
 
 type FormField = keyof typeof EMPTY_FORM
-type ErrorKey = FormField | 'photo'
+type ErrorKey = FormField | 'photo' | 'guardianConsent'
 type Errors = Partial<Record<ErrorKey, string>>
 
 interface SelectedPhoto {
@@ -96,6 +98,9 @@ const LABELS: Record<ErrorKey, string> = {
   password: 'Password',
   confirmPassword: 'Confirm password',
   photo: 'Photograph',
+  guardianPhone: "Parent or guardian's phone",
+  guardianEmail: "Parent or guardian's email",
+  guardianConsent: "Parent or guardian's agreement",
 }
 
 /** Order matters: the summary lists problems in the order they appear on screen. */
@@ -114,6 +119,9 @@ const FIELD_ORDER: ErrorKey[] = [
   'email',
   'password',
   'confirmPassword',
+  'guardianPhone',
+  'guardianEmail',
+  'guardianConsent',
 ]
 
 const REQUIRED: FormField[] = [
@@ -154,6 +162,8 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
   const [step, setStep] = useState<WizardStep>('details')
   const [form, setForm] = useState(EMPTY_FORM)
   const [photo, setPhoto] = useState<SelectedPhoto | null>(null)
+  /** The parent or guardian's agreement (Milestone 30, Phase 6) — never ticked for them. */
+  const [consent, setConsent] = useState(false)
   const [errors, setErrors] = useState<Errors>({})
   const [failure, setFailure] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -210,6 +220,20 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
     }
     if (form.confirmPassword !== form.password) {
       next.confirmPassword = 'The two passwords do not match.'
+    }
+    // A parent or guardian: one way to reach them, and their agreement (Milestone 30, Phase 6).
+    // The same rules the server applies (`registerSchema`), so a form that passes here passes there.
+    const guardianPhone = form.guardianPhone.replace(/[\s-]/g, '')
+    if (!guardianPhone && !form.guardianEmail.trim()) {
+      next.guardianPhone = "Give a parent or guardian's phone number or email address."
+    } else if (guardianPhone && !/^\d{10}$/.test(guardianPhone)) {
+      next.guardianPhone = 'Enter the 10-digit phone number, without the country code.'
+    }
+    if (form.guardianEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.guardianEmail.trim())) {
+      next.guardianEmail = 'Enter an email address we can reach, like parent@example.com.'
+    }
+    if (!consent) {
+      next.guardianConsent = 'A parent or guardian has to agree before you can register. Tick the box to confirm they do.'
     }
 
     return next
@@ -291,6 +315,9 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
         email: form.email.trim(),
         password: form.password,
         photo: photo.dataUrl,
+        guardianConsent: true,
+        ...(form.guardianPhone.trim() ? { guardianPhone: form.guardianPhone.replace(/[\s-]/g, '') } : {}),
+        ...(form.guardianEmail.trim() ? { guardianEmail: form.guardianEmail.trim() } : {}),
         /**
          * Only a code the server has confirmed. An unchecked one would risk the whole
          * registration — the backend refuses on a code that does not resolve — and the
@@ -571,6 +598,76 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
             </div>
           </Section>
 
+          {/*
+            A parent or guardian (Milestone 30, Phase 6 — brief §10). The students are children;
+            the agreement is the brief's own words, and Terms and Privacy open in a new tab so a
+            half-filled form is not lost. One way to reach the parent is enough — a phone number
+            or an email — and a winner's prize is arranged through them.
+          */}
+          <Section title="Parent or guardian">
+            <div className={styles.grid}>
+              <Field
+                id={fieldId('guardianPhone')}
+                label="Parent or guardian's phone"
+                hint="10 digits, no country code. Give this or an email."
+                error={errors.guardianPhone}
+              >
+                <Input
+                  type="tel"
+                  inputMode="numeric"
+                  // Not the student's own number, so the browser is not invited to fill it in.
+                  autoComplete="off"
+                  maxLength={10}
+                  value={form.guardianPhone}
+                  onChange={setField('guardianPhone')}
+                />
+              </Field>
+              <Field
+                id={fieldId('guardianEmail')}
+                label="Parent or guardian's email"
+                hint="Give this or a phone number."
+                error={errors.guardianEmail}
+              >
+                <Input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="off"
+                  value={form.guardianEmail}
+                  onChange={setField('guardianEmail')}
+                />
+              </Field>
+            </div>
+            <div className={styles.consent}>
+              <Checkbox
+                id={fieldId('guardianConsent')}
+                checked={consent}
+                onChange={(event) => {
+                  setConsent(event.target.checked)
+                  if (errors.guardianConsent) setErrors((current) => ({ ...current, guardianConsent: undefined }))
+                }}
+                aria-invalid={errors.guardianConsent ? true : undefined}
+                aria-describedby={errors.guardianConsent ? `${fieldId('guardianConsent')}-error` : undefined}
+                label={
+                  <>
+                    I am the parent/guardian, or I have my parent/guardian&rsquo;s permission, and I agree to the{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer">
+                      Terms
+                    </a>{' '}
+                    and{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer">
+                      Privacy Policy
+                    </a>
+                  </>
+                }
+              />
+              {errors.guardianConsent && (
+                <p id={`${fieldId('guardianConsent')}-error`} className={styles.consentError}>
+                  <Icon name="ph-warning-circle" weight="bold" /> {errors.guardianConsent}
+                </p>
+              )}
+            </div>
+          </Section>
+
           <Button type="submit" size="lg" fullWidth iconAfter="ph-arrow-right">
             Review and continue
           </Button>
@@ -602,6 +699,10 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
             <Summary label="School">{form.schoolName}</Summary>
             <Summary label="Email">{form.email}</Summary>
             <Summary label="Mobile">{form.mobile}</Summary>
+            <Summary label="Parent or guardian">
+              {[form.guardianPhone.trim(), form.guardianEmail.trim()].filter(Boolean).join(' · ')}
+            </Summary>
+            <Summary label="Their agreement">Given</Summary>
           </dl>
 
           <Alert tone="info" title="Creating your account is free">

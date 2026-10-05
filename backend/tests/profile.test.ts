@@ -252,6 +252,48 @@ describe('PATCH /me/profile', () => {
 // Replacing your photo
 // ===========================================================================
 
+describe('a parent or guardian’s consent on My Profile (Milestone 30, Phase 6)', () => {
+  it('lets an account made before the box gave it, once, at the server’s time — and then counts it for prizes', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    // An account from before registration asked for consent.
+    await Student.updateOne({ studentId }, { $set: { guardianConsentAt: null } });
+
+    const missing = await request(app).get(`${API}/me/profile`).set('Cookie', cookieHeader(cookies)).expect(200);
+    expect(missing.body.profile.guardianConsentAt).toBeNull();
+    expect(missing.body.profile.prizeEligibility.missing).toContain('guardian-consent');
+
+    const given = await request(app)
+      .patch(`${API}/me/profile`)
+      .set('Cookie', cookieHeader(cookies))
+      .send(profilePayload({ guardianConsent: true }))
+      .expect(200);
+    expect(given.body.changed).toBe(true);
+    expect(given.body.profile.prizeEligibility.missing).not.toContain('guardian-consent');
+    const first = (await Student.findOne({ studentId }))!.guardianConsentAt!.getTime();
+
+    // A second tick changes nothing — the first time stands.
+    const again = await request(app)
+      .patch(`${API}/me/profile`)
+      .set('Cookie', cookieHeader(cookies))
+      .send(profilePayload({ guardianConsent: true }))
+      .expect(200);
+    expect(again.body.changed).toBe(false);
+    expect((await Student.findOne({ studentId }))!.guardianConsentAt!.getTime()).toBe(first);
+  });
+
+  it('cannot be withdrawn or back-dated through the profile', async () => {
+    const { cookies } = await registerVerifyLogin(app);
+    for (const value of [false, '2000-01-01']) {
+      const res = await request(app)
+        .patch(`${API}/me/profile`)
+        .set('Cookie', cookieHeader(cookies))
+        .send(profilePayload({ guardianConsent: value }));
+      expect(res.status).toBe(400);
+      expect(res.status).not.toBe(500);
+    }
+  });
+});
+
 describe('PUT /me/photo', () => {
   it('replaces the stored image rather than adding a second one', async () => {
     const { cookies, studentId } = await registerVerifyLogin(app);

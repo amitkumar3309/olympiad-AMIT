@@ -108,6 +108,7 @@ function profileView(student: StudentDocument, hasPhoto: boolean) {
     city: student.city ?? null,
     guardianPhone: student.guardianPhone ?? null,
     guardianEmail: student.guardianEmail ?? null,
+    guardianConsentAt: student.guardianConsentAt ?? null,
     hideFromPublicLists: student.hideFromPublicLists === true,
     prizeEligibility: eligibilityOf(student),
     // Identity fields: shown so the student can read them, but not editable here —
@@ -192,6 +193,7 @@ router.patch(
         guardianPhone: student.guardianPhone ?? null,
         guardianEmail: student.guardianEmail ?? null,
         hideFromPublicLists: student.hideFromPublicLists === true,
+        guardianConsent: student.guardianConsentAt ? true : undefined,
       };
 
       const changed = changedFields(before, update);
@@ -215,6 +217,8 @@ router.patch(
       if (update.guardianPhone !== undefined) student.guardianPhone = update.guardianPhone;
       if (update.guardianEmail !== undefined) student.guardianEmail = update.guardianEmail;
       if (update.hideFromPublicLists !== undefined) student.hideFromPublicLists = update.hideFromPublicLists;
+      // Consent is recorded once, at the server's time; a second tick changes nothing.
+      if (update.guardianConsent === true && !student.guardianConsentAt) student.guardianConsentAt = new Date();
       // `fullName` is derived by the schema's pre-validate hook, never assigned here.
       await student.save();
 

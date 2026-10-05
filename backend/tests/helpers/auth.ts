@@ -46,6 +46,10 @@ export const validStudent = {
   email: 'student@example.com',
   password: 'CorrectHorse9!',
   photo: validPhoto,
+  // A parent or guardian's consent and contact (Milestone 30, Phase 6). An email rather than a
+  // phone, so tests about a winner who still lacks a guardian's phone keep meaning that.
+  guardianConsent: true,
+  guardianEmail: 'parent@example.com',
 };
 
 /** A second, distinct account — for tests that need two students. */

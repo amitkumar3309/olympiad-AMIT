@@ -70,6 +70,13 @@ export const updateProfileSchema = z.object({
   guardianEmail: z.union([z.literal(''), z.null(), email]).optional().transform(emptyToNull),
   /** Shown on public boards as "A Class 9 student" instead of a name and place. */
   hideFromPublicLists: z.boolean().optional(),
+  /**
+   * A parent or guardian's consent, for an account made before registration asked for it
+   * (Milestone 30, Phase 6). Only `true` is accepted and only the first time counts — the
+   * server records when. Withdrawing consent is a question for the legal review
+   * (docs/launch/LEGAL_REVIEW.md), so there is no way to send `false`.
+   */
+  guardianConsent: z.literal(true).optional(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

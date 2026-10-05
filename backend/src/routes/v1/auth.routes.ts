@@ -252,8 +252,10 @@ async function sendVerificationLink(student: StudentDocument, next?: NextPath): 
  * account.
  */
 router.post('/auth/register', registerLimiter, validate({ body: registerSchema }), ensureDb, async (req, res) => {
-  // `next` is taken out here so it can never reach `Student.create()` with the details.
-  const { photo, password, referralCode, next, ...details } = req.body as RegisterInput;
+  // `next` is taken out here so it can never reach `Student.create()` with the details, and
+  // the consent box with the guardian's contact, which are stored as facts below.
+  const { photo, password, referralCode, next, guardianConsent, guardianPhone, guardianEmail, ...details } =
+    req.body as RegisterInput;
 
   /** Checkpoint 1 of the email timing trail. See `VerificationTiming`. */
   const requestStartedAt = Date.now();
@@ -283,6 +285,11 @@ router.post('/auth/register', registerLimiter, validate({ body: registerSchema }
         student = await Student.create({
           // `fullName` is not passed: the schema derives it from the name parts.
           ...details,
+          guardianPhone: guardianPhone || null,
+          guardianEmail: guardianEmail || null,
+          // The schema refuses a registration without the box ticked (`z.literal(true)`), so
+          // this is always the moment it was given — and the server's clock, not the browser's.
+          guardianConsentAt: guardianConsent ? new Date() : null,
           passwordHash,
           studentId: generateStudentId(),
         });

@@ -45,6 +45,13 @@ export interface StudentDocument extends Document {
   guardianPhone?: string | null;
   guardianEmail?: string | null;
   /**
+   * When a parent or guardian's consent was given (Milestone 30, Phase 6 — brief §10, PLAN.md
+   * Q13): ticked at registration, or later on My Profile by an account made before the box
+   * existed. The server's time, never the browser's. `null` until then — and without it a
+   * student can still play, but cannot be named a winner (`prizeEligibility`).
+   */
+  guardianConsentAt?: Date | null;
+  /**
    * Keeps the student's name off public lists — a winner who opted out is announced as
    * "A Class 9 student" rather than by first name and initial (brief §3: they are minors).
    */
@@ -163,6 +170,7 @@ const studentSchema = new Schema<StudentDocument>({
   city: { type: String, default: null, trim: true },
   guardianPhone: { type: String, default: null, trim: true },
   guardianEmail: { type: String, default: null, lowercase: true, trim: true },
+  guardianConsentAt: { type: Date, default: null },
   hideFromPublicLists: { type: Boolean, default: false },
   // `required` is scoped like the registration details above, so the bootstrap
   // super admin (which has no mobile number) can be created. The index options are
