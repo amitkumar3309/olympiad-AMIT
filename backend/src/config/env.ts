@@ -37,7 +37,14 @@ export let envFileLoaded = false;
 // stays hermetic: tests must not silently pick up a developer's real Atlas URI or
 // JWT secret. In production, Vercel injects env vars directly and there is no .env
 // file to read — dotenv simply reports none found, which is correct there.
-if (process.env.NODE_ENV !== 'test') {
+//
+// Skipped for the browser end-to-end backend too (`E2E_TEST_HOOKS=true`, which only
+// `scripts/e2e-server.ts` sets, and which `config` refuses in production) — Milestone 30,
+// Phase 5. It runs as `development` so the rate limiters stay live, which used to mean it
+// read `backend/.env`: the database, SMTP host and administrator it pins were safe, but a
+// real `GEMINI_API_KEY` or Razorpay key would have reached a test server whose link crawler
+// opens the AI generator page — a call to Google with a production credential.
+if (process.env.NODE_ENV !== 'test' && process.env.E2E_TEST_HOOKS !== 'true') {
   const result = dotenv.config({ path: backendEnvPath() });
   envFileLoaded = !result.error && Object.keys(result.parsed ?? {}).length > 0;
 }

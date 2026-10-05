@@ -19,10 +19,29 @@ export const E2E_STUDENT = {
   classLevel: 'Class 9',
 } as const
 
+/**
+ * The suite's root administrator — test values for the throwaway database, handed to the
+ * e2e backend by `playwright.config.ts` (it hashes the password at start-up).
+ */
+export const E2E_ADMIN = {
+  email: 'e2e-admin@amit.test',
+  password: 'E2e-Admin-Pass-9',
+} as const
+
 /** Empties the database and puts the server clock back. */
 export async function resetBackend(request: APIRequestContext): Promise<void> {
   const res = await request.post(`${BACKEND}/__e2e/reset`)
   if (!res.ok()) throw new Error(`E2E reset failed: ${res.status()} ${await res.text()}`)
+}
+
+/**
+ * Empties the server's rate limiters and nothing else. The link crawler calls it before each
+ * page — one browser following every link makes far more requests than a person, and the
+ * general limiter would otherwise refuse the second half of the crawl.
+ */
+export async function resetRateLimits(request: APIRequestContext): Promise<void> {
+  const res = await request.post(`${BACKEND}/__e2e/rate-limits/reset`)
+  if (!res.ok()) throw new Error(`E2E rate-limit reset failed: ${res.status()} ${await res.text()}`)
 }
 
 /** One verified Class 9 student and today's quiz for Classes 9–12 (2⁵ = 32). */
