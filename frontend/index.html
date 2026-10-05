@@ -64,8 +64,13 @@
       to open the connection is time the icons are missing.
     -->
     <link rel="preconnect" href="https://unpkg.com" crossorigin />
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css" />
+    <!--
+      The two stylesheets themselves are added by `src/main.tsx` once the page has loaded
+      (Milestone 30, Phase 6): linked here they blocked the first paint of every page, and on
+      a slow phone connection that cost the homepage about 2.3 seconds (Lighthouse) for a
+      file 99% of which the homepage does not use. An icon is never the only carrier of
+      meaning, so a glyph arriving a moment after its words is fine.
+    -->
   </head>
   <body>
     <div id="root"></div>

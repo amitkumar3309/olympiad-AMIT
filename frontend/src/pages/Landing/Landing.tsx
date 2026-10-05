@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
@@ -7,7 +7,7 @@ import LoginGate from '../../components/LoginGate'
 import { api } from '../../api/client'
 import type { QuizPrizeInfo } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
-import { usePrefersReducedMotion } from '../../components/ui'
+import { useInView, usePrefersReducedMotion } from '../../components/ui'
 import { roleHome } from '../../lib/roleHome'
 import { registerHref, safeNext, type NextPath } from '../../lib/nextPath'
 import { HOME_SECTIONS, type HomeSectionId } from '../../lib/siteConfig'
@@ -56,6 +56,29 @@ import styles from './Landing.module.css'
 
 /** Loaded on demand: the only section that needs the maths renderer (KaTeX). */
 const CrackThis = lazy(() => import('./sections/CrackThis'))
+
+/**
+ * "Can you crack this?" — and the maths renderer it needs (KaTeX, 77 KB) — loaded as the
+ * reader nears it rather than with the page (Milestone 30, Phase 6). On a phone it is below
+ * the first screen, and loading it at once put its download and its evaluation ahead of the
+ * page's first paint. `useInView`'s timer fallback still loads it if the observer never
+ * reports, so it can never stay missing; the placeholder holds its height meanwhile.
+ */
+function DeferredCrackThis(props: ComponentProps<typeof CrackThis>) {
+  const ref = useRef<HTMLDivElement>(null)
+  const near = useInView(ref, { threshold: 0, rootMargin: '200px 0px' })
+  return (
+    <div ref={ref} id="crack">
+      {near ? (
+        <Suspense fallback={<div className={styles.crackPlaceholder} aria-hidden="true" />}>
+          <CrackThis {...props} />
+        </Suspense>
+      ) : (
+        <div className={styles.crackPlaceholder} aria-hidden="true" />
+      )}
+    </div>
+  )
+}
 
 /** In-page anchors the navbar and the hero link to. */
 const SECTION_ANCHORS = new Set(['about', 'how-it-works', 'faq', 'rewards'])
@@ -133,11 +156,7 @@ export default function Landing() {
   const sections: Record<HomeSectionId, ReactNode> = {
     hero: <Hero signedIn={isStudent} registerTo={registerTo} />,
     stats: <Stats />,
-    crack: (
-      <Suspense fallback={<div className={styles.crackPlaceholder} aria-hidden="true" />}>
-        <CrackThis onPlay={play} classLevel={state.status === 'student' ? state.student.classLevel : null} />
-      </Suspense>
-    ),
+    crack: <DeferredCrackThis onPlay={play} classLevel={state.status === 'student' ? state.student.classLevel : null} />,
     rewards: <Rewards prize={prize} onPlay={play} />,
     about: <About onPlay={play} />,
     how: <HowItWorks registerTo={registerTo} />,

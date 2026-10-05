@@ -119,6 +119,8 @@ test('“Can you crack this?” is a real Daily Quiz problem once its answer is 
   // The next day its answer is public, and it is the problem on the homepage — marked at once.
   await advanceDays(request, 1)
   await page.goto('/')
+  // The section loads as the reader nears it (Phase 6), so scroll to where it sits.
+  await page.locator('#crack').scrollIntoViewIfNeeded()
   const card = page.getByRole('region', { name: 'Can you crack this?' })
   await expect(card).toContainText('What is the value of')
   await expect(card).toContainText('Classes 9–12')

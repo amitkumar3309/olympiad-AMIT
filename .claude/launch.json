@@ -84,6 +84,25 @@
       "env": {
         "API_PROXY_TARGET": "http://localhost:8091"
       }
+    },
+    {
+      "name": "launch-frontend-prod",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "run",
+        "preview:prod",
+        "--",
+        "--port",
+        "5190",
+        "--strictPort"
+      ],
+      "port": 5190,
+      "autoPort": false,
+      "env": {
+        "API_PROXY_TARGET": "http://localhost:8091"
+      }
     }
   ]
 }

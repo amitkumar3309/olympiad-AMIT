@@ -300,7 +300,7 @@ export default function AppShell({
         {brand.logo ? (
           <>
             {/* Decoration beside the wordmark — the link's own text is its name. */}
-            <img src={brand.logo} alt="" aria-hidden="true" className={styles.brandLogo} />
+            <img src={brand.logo} alt="" aria-hidden="true" className={styles.brandLogo} width={48} height={48} />
             {!compact && (
               <span className={styles.brandText}>
                 <span className={styles.brandName}>{brand.label}</span>
