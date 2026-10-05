@@ -1,29 +1,34 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowRight, BarChart3, CalendarClock, Crown, Flame, Lightbulb, Star, Target, Trophy } from 'lucide-react'
 import StudentShell from '../../components/StudentShell'
 import EntryFeeBanner from '../../components/EntryFeeBanner'
+import Illustration from '../../components/Illustration'
+import type { IllustrationName } from '../../components/illustrations'
 import {
-  Badge,
-  Button,
-  ButtonLink,
+  ActivityList,
+  Avatar,
   Card,
   CardHeader,
-  DataCard,
-  DataCardList,
-  DataRow,
+  CountUp,
   EmptyState,
   ErrorState,
-  Icon,
   IconTile,
-  Progress,
+  JourneyTrack,
+  LeaderboardTable,
   SkeletonCards,
   SkeletonText,
   StatTile,
-  Table,
-  TableScroll,
+  clockOffset,
+  type LeaderboardRow as BoardRow,
 } from '../../components/ui'
 import { api } from '../../api/client'
-import { ACTIVITY_LABELS, type ActivityEntry, type DashboardData, type Pagination } from '../../api/types'
+import type { AnalyticsResponse, DashboardData, NamedPerformanceRow } from '../../api/types'
+import { activityIcon, activityTitle } from '../../lib/activity'
+import { useAuth } from '../../context/AuthContext'
+import { AMIT_SHORT } from '../../lib/brand'
+import { formatCompactDuration, formatDateTime, formatDayLabel, formatNumber, formatTime, rotateDaily } from '../../lib/format'
+import { DAILY_QUOTES, DASHBOARD_CHAPTERS, MATHS_THOUGHTS } from '../../lib/siteConfig'
 import styles from './Dashboard.module.css'
 
 /**
@@ -34,76 +39,66 @@ import styles from './Dashboard.module.css'
 const DailyQuizPanel = lazy(() => import('../../components/DailyQuizPanel'))
 
 /**
- * The student dashboard.
+ * The student dashboard (Milestone 30, Phase 4 — the launch mockup, brief §8).
  *
- * **Every figure on this page comes from `GET /me/dashboard`.** The version this
- * replaced showed three hardcoded stat tiles ("1,280 challenges solved today",
- * "8.91s fastest solve", "450+ participating schools") and a three-name leaderboard
- * of invented students — none of it connected to anything. There is now no constant
- * on this page that a student could mistake for data.
+ * **Every figure on this page comes from the server.** `GET /me/dashboard` carries the
+ * stat cards, the journey, the activity, today's class board, the exam windows and the
+ * achievements; the Daily Quiz card and the chapter progress fetch their own. Where a
+ * panel has nothing to show it says *why* — "nobody in Class 9 has earned XP today"
+ * and "no Olympiad window is scheduled" are different facts, and a zero would imply the
+ * wrong one. A figure that is unknown is an em dash (`StatTile`), never a 0.
  *
- * Where a panel has nothing to show, it renders an explicit empty state that says
- * *why* it is empty. That distinction matters: "you have not taken a test yet" and
- * "exams are not running yet" are different messages, and showing a zero would imply
- * the wrong one.
+ * ## Layout
  *
- * ## What Milestone 23 Phase D changed
+ * From 1280px the mockup's two columns inside the shell: the main column (welcome, the
+ * five figures, today's quiz, the journey, activity and chapters) and a rail (the maths
+ * thought, upcoming events, today's top five, achievements). Below 1280px the rail moves
+ * under the main column, as a grid of its cards; below 768px everything is one column.
  *
- * The order. It opened with four figures and ended, seven cards later, with the
- * actions — so the thing a student came to do was the last thing on the page, below
- * the fold on every phone. It now opens with **what to do next** (practice, mock
- * tests, today's challenge), then how it is going, then the record. Nothing was
- * removed and no new request was added.
+ * ## The welcome banner does not wait
+ *
+ * It is drawn from the session (the name, the photo flag) and the date, so the page has
+ * its `h1` and its greeting the moment it opens — and still has them if the dashboard
+ * request fails. The quote of the day turns over at IST midnight.
  */
 
 interface DashboardResponse {
   dashboard: DashboardData
 }
 
-/** "today", "yesterday", or a short date — for the activity feed. */
-function relativeDay(occurredOn: string, today: string): string {
-  if (occurredOn === today) return 'Today'
-  const day = Date.parse(`${occurredOn}T00:00:00Z`)
-  const now = Date.parse(`${today}T00:00:00Z`)
-  const daysAgo = Math.round((now - day) / 86_400_000)
-  if (daysAgo === 1) return 'Yesterday'
-  if (daysAgo < 7) return `${daysAgo} days ago`
-  return new Date(day).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+/** Art for each journey stage id — the homepage's table, so the two tracks match. */
+const JOURNEY_ART: Record<string, IllustrationName> = {
+  enrolled: 'journey-enrolled',
+  verified: 'journey-verified',
+  first_practice: 'journey-first-practice',
+  first_challenge: 'journey-first-quiz',
+  habit: 'journey-habit',
+  first_mock: 'journey-first-mock',
+  level_3: 'journey-level-3',
+  seasoned: 'journey-seasoned',
+  olympiad_ready: 'journey-olympiad-ready',
 }
 
-function formatDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+/** Today's IST date as a day key, for the banner's quote before the server has answered. */
+function istToday(): string {
+  return new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10)
 }
 
 export default function Dashboard() {
+  const { state } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<unknown>(null)
-
-  /**
-   * Activity beyond the newest few the dashboard payload carries. Held separately so
-   * a reload of the dashboard does not silently discard what the student has paged
-   * through, and so the feed has one source of truth: `extraActivity` is appended to
-   * `data.activity`, never merged into it.
-   */
-  const [extraActivity, setExtraActivity] = useState<ActivityEntry[]>([])
-  const [activityPage, setActivityPage] = useState(1)
-  const [activityTotal, setActivityTotal] = useState<number | null>(null)
-  const [loadingMore, setLoadingMore] = useState(false)
+  /** Server time minus device time, from the response — what the countdown chips use. */
+  const [offsetMs, setOffsetMs] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const res = await api.get<DashboardResponse>('/me/dashboard')
+      setOffsetMs(clockOffset(res.dashboard.serverNow))
       setData(res.dashboard)
-      // A fresh dashboard resets the feed, otherwise a newly recorded event would
-      // appear above rows the student had already paged past and read as a duplicate.
-      setExtraActivity([])
-      setActivityPage(1)
-      setActivityTotal(null)
     } catch (err) {
       setError(err)
     } finally {
@@ -111,182 +106,36 @@ export default function Dashboard() {
     }
   }, [])
 
-  /**
-   * Pages the full feed from `GET /me/activity`. Asks for the page *after* what is
-   * already on screen, using the dashboard's own page size so the offsets line up.
-   */
-  const loadMoreActivity = useCallback(async () => {
-    if (!data) return
-    setLoadingMore(true)
-    try {
-      const limit = data.activity.length || 8
-      const next = activityPage + 1
-      const res = await api.get<{ entries: ActivityEntry[]; pagination: Pagination }>(
-        `/me/activity?page=${next}&limit=${limit}`,
-      )
-      setExtraActivity((current) => [...current, ...res.entries])
-      setActivityPage(next)
-      setActivityTotal(res.pagination.total)
-    } catch {
-      // A failed "load more" must not blank the feed already on screen, so the
-      // error is swallowed and the button simply stays available to retry.
-      setActivityTotal(null)
-    } finally {
-      setLoadingMore(false)
-    }
-  }, [data, activityPage])
-
   useEffect(() => {
     void load()
   }, [load])
 
-  const activity = data ? [...data.activity, ...extraActivity] : []
-  const hasMoreActivity =
-    data !== null &&
-    (activityTotal === null ? data.activity.length >= 8 : activity.length < activityTotal)
+  const student = state.status === 'student' ? state.student : null
+  const today = data?.today ?? istToday()
 
   return (
-    <StudentShell
-      title={data ? `Welcome back, ${data.student.firstName ?? data.student.fullName}` : 'Dashboard'}
-      subtitle={
-        data
-          ? `${data.student.studentId}${data.student.classLevel ? ` · ${data.student.classLevel}` : ''}`
-          : undefined
-      }
-    >
-      {/* Sits above everything and renders nothing once the fee is paid or switched
-          off. Outside the `data` guard on purpose: whether the student has entered
-          does not depend on their dashboard figures loading. */}
-      <EntryFeeBanner />
+    <StudentShell title="Dashboard" headless>
+      <div className={styles.page}>
+        {/* Renders nothing once the fee is paid or switched off. */}
+        <EntryFeeBanner />
 
-      {loading && (
-        <div className={styles.page}>
-          <SkeletonCards count={3} label="Loading your dashboard" />
-          <SkeletonCards count={4} label="Loading your progress" />
-        </div>
-      )}
+        <div className={styles.layout}>
+          <div className={styles.main}>
+            <WelcomeBanner
+              firstName={student?.firstName || student?.fullName || 'there'}
+              fullName={student?.fullName ?? ''}
+              photo={student?.hasPhoto ? `/api/v1/students/${student.studentId}/photo` : null}
+              today={today}
+            />
 
-      {!loading && error !== null && <ErrorState error={error} titleAs="h2" onRetry={() => void load()} />}
+            {loading && <SkeletonCards count={5} label="Loading your figures" className={styles.statGrid} />}
+            {!loading && error !== null && <ErrorState error={error} onRetry={() => void load()} />}
+            {!loading && error === null && data && <StatCards data={data} />}
 
-      {!loading && error === null && data && (
-        <div className={styles.page}>
-          {/* -----------------------------------------------------------
-              What to do next. First, because it is what a student opened
-              the page for — this used to be the last card on it.
-          ----------------------------------------------------------- */}
-          <section aria-labelledby="next-heading">
-            <h2 id="next-heading" className={styles.sectionTitle}>
-              Jump back in
-            </h2>
-            <div className={styles.actionGrid}>
-              <Link to="/practice" className={styles.actionCard}>
-                <IconTile icon="ph-target" tone="blue" size="lg" />
-                <span className={styles.actionText}>
-                  <span className={styles.actionTitle}>Practice</span>
-                  <span className={styles.actionMeta}>
-                    {data.challenges.length > 0
-                      ? `${data.challenges.reduce((total, row) => total + row.questionCount, 0)} questions ready for ${data.student.classLevel ?? 'your class'}`
-                      : 'Choose a chapter and difficulty'}
-                  </span>
-                </span>
-                <Icon name="ph-caret-right" size="sm" className={styles.actionChevron} />
-              </Link>
-
-              <Link to="/mock-tests" className={styles.actionCard}>
-                <IconTile icon="ph-exam" tone="green" size="lg" />
-                <span className={styles.actionText}>
-                  <span className={styles.actionTitle}>Mock tests</span>
-                  <span className={styles.actionMeta}>Sit a full paper against the clock</span>
-                </span>
-                <Icon name="ph-caret-right" size="sm" className={styles.actionChevron} />
-              </Link>
-
-              <Link to="/daily-quiz" className={styles.actionCard}>
-                <IconTile icon="ph-lightning" tone="magenta" size="lg" />
-                <span className={styles.actionText}>
-                  <span className={styles.actionTitle}>Daily Quiz</span>
-                  <span className={styles.actionMeta}>One question a day — win a prize</span>
-                </span>
-                <Icon name="ph-caret-right" size="sm" className={styles.actionChevron} />
-              </Link>
-            </div>
-          </section>
-
-          {/* -----------------------------------------------------------
-              Progress — XP, level, streak, rank, achievements
-          ----------------------------------------------------------- */}
-          <section aria-labelledby="progress-heading">
-            <h2 id="progress-heading" className={styles.sectionTitle}>
-              Your progress
-            </h2>
-            <div className={styles.progressGrid}>
-              <Card className={styles.levelCard}>
-                <div className={styles.levelHead}>
-                  <div>
-                    <Badge tone="primary" uppercase>
-                      Level {data.progress.level}
-                    </Badge>
-                    <p className={styles.xpValue}>{data.progress.xp.toLocaleString('en-IN')} XP</p>
-                  </div>
-                  <IconTile icon="ph-trend-up" tone="gold" />
-                </div>
-                {/*
-                  A real value out of a real maximum — XP into this level, out of what
-                  the level costs. Nothing here eases towards a number nobody computed.
-                */}
-                <Progress
-                  value={data.progress.xpIntoLevel}
-                  max={data.progress.xpForNextLevel}
-                  aria-label={`Progress to level ${data.progress.level + 1}`}
-                  valueText={`${data.progress.xpForNextLevel - data.progress.xpIntoLevel} XP to level ${data.progress.level + 1}`}
-                />
-              </Card>
-
-              <StatTile
-                icon="ph-flame"
-                tone="warning"
-                label="Current streak"
-                value={`${data.progress.streak.current} ${data.progress.streak.current === 1 ? 'day' : 'days'}`}
-                hint={
-                  !data.progress.streak.countedToday && data.progress.streak.current > 0
-                    ? 'Visit today to keep it going.'
-                    : data.progress.streak.longest > data.progress.streak.current
-                      ? `Best: ${data.progress.streak.longest} days`
-                      : undefined
-                }
-              />
-
-              <StatTile
-                icon="ph-ranking"
-                label="Leaderboard rank"
-                // `null`, not zero: "not ranked yet" and "ranked last" are different
-                // facts, and the tile renders an em dash for the first.
-                value={data.leaderboard.me.rank !== null ? `#${data.leaderboard.me.rank}` : null}
-                hint={
-                  data.leaderboard.me.rank !== null
-                    ? `of ${data.leaderboard.me.totalRanked} ranked`
-                    : 'Earn XP to join the leaderboard.'
-                }
-              />
-
-              <StatTile
-                icon="ph-medal"
-                tone="success"
-                label="Achievements"
-                value={`${data.achievements.earnedCount}/${data.achievements.total}`}
-                hint="Earned so far"
-              />
-            </div>
-          </section>
-
-          {/* -----------------------------------------------------------
-              Today's Daily Quiz, then the record.
-          ----------------------------------------------------------- */}
-          <div className={styles.grid}>
             <Suspense
               fallback={
                 <Card>
-                  <CardHeader title="Today’s Daily Quiz" size="sm" as="h3" />
+                  <CardHeader title="Today’s Daily Quiz" size="sm" as="h2" />
                   <SkeletonText lines={3} label="Loading today’s quiz" />
                 </Card>
               }
@@ -294,282 +143,471 @@ export default function Dashboard() {
               <DailyQuizPanel variant="card" />
             </Suspense>
 
-            {/* --------- Practice available for this class --------- */}
-            <Card>
-              <CardHeader
-                title="Practice available to you"
-                size="sm"
-                as="h3"
-                actions={
-                  data.challenges.length > 0 ? (
-                    <ButtonLink to="/practice" size="sm" variant="secondary" icon="ph-target">
-                      Start
-                    </ButtonLink>
-                  ) : undefined
-                }
-              />
-              {data.challenges.length === 0 ? (
-                <EmptyState
-                  size="sm"
-                  icon="ph-books"
-                  title="Nothing published yet"
-                  description={
-                    data.student.classLevel
-                      ? `No questions have been published for ${data.student.classLevel} yet. This fills up as chapters are released.`
-                      : 'Add your class to your profile and we can show you what is available.'
-                  }
-                  action={
-                    !data.student.classLevel ? (
-                      <ButtonLink to="/profile" size="sm" variant="secondary">
-                        Update my profile
-                      </ButtonLink>
-                    ) : undefined
-                  }
-                />
-              ) : (
-                <ul className={styles.availability}>
-                  {data.challenges.map((challenge) => (
-                    <li key={challenge.subjectId}>
-                      <div className={styles.availabilityText}>
-                        {/*
-                          The class, not the subject. This row is per-subject in the API and there
-                          is exactly one, so printing its name told a student "Mathematics" on a
-                          mathematics olympiad's dashboard. The class is the fact that actually
-                          varies between two students looking at this tile.
-                        */}
-                        <span className={styles.availabilityName}>{data.student.classLevel}</span>
-                        <span className={styles.availabilityMeta}>{challenge.difficulties.join(' · ')}</span>
-                      </div>
-                      <Badge tone="neutral">
-                        {challenge.questionCount} {challenge.questionCount === 1 ? 'question' : 'questions'}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
+            {data && <JourneyCard data={data} />}
 
-            {/* --------- Recent test performance --------- */}
-            <Card className={styles.wide}>
-              <CardHeader title="Recent test performance" size="sm" as="h3" />
-              {data.recentTests.length === 0 ? (
-                <EmptyState
-                  size="sm"
-                  icon="ph-hourglass"
-                  title="No results yet"
-                  description="Your marks and accuracy from the official Olympiad appear here once you have sat it. Mock test results live on the Mock Tests page."
-                  action={
-                    <ButtonLink to="/mock-tests" size="sm" variant="secondary" icon="ph-exam">
-                      See mock tests
-                    </ButtonLink>
-                  }
-                />
-              ) : (
-                <>
-                  {/* One card per paper on a phone; the table returns from 768px. Not a
-                      squeezed table: five numeric columns on a 375px screen is five
-                      illegible columns. */}
-                  <DataCardList className={styles.mobileOnly}>
-                    {data.recentTests.map((test) => (
-                      <DataCard
-                        key={test.id}
-                        title={test.submittedAt ? new Date(test.submittedAt).toLocaleDateString('en-IN') : 'Submitted'}
-                        status={<Badge tone="primary">{test.accuracy}%</Badge>}
-                      >
-                        <DataRow label="Score">{test.totalScore}</DataRow>
-                        <DataRow label="Questions">{test.questionCount}</DataRow>
-                        <DataRow label="Time">{formatDuration(test.timeTakenSeconds)}</DataRow>
-                      </DataCard>
-                    ))}
-                  </DataCardList>
-
-                  <div className={styles.desktopOnly}>
-                    <TableScroll label="Recent test performance">
-                      <Table density="compact">
-                        <thead>
-                          <tr>
-                            <th>Submitted</th>
-                            <th>Score</th>
-                            <th>Accuracy</th>
-                            <th>Questions</th>
-                            <th>Time</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.recentTests.map((test) => (
-                            <tr key={test.id}>
-                              <td>
-                                {test.submittedAt ? new Date(test.submittedAt).toLocaleDateString('en-IN') : '—'}
-                              </td>
-                              <td>{test.totalScore}</td>
-                              <td>{test.accuracy}%</td>
-                              <td>{test.questionCount}</td>
-                              <td>{formatDuration(test.timeTakenSeconds)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </TableScroll>
-                  </div>
-                </>
-              )}
-            </Card>
-
-            {/* --------- Recent activity --------- */}
-            <Card>
-              <CardHeader title="Recent activity" size="sm" as="h3" />
-              {activity.length === 0 ? (
-                <EmptyState
-                  size="sm"
-                  icon="ph-list-dashes"
-                  title="Nothing recorded yet"
-                  description="Practice, mock tests and the Daily Quiz all appear here as you go, with the XP each one earned."
-                />
-              ) : (
-                <>
-                  <ul className={styles.feed}>
-                    {activity.map((entry) => {
-                      const meta = ACTIVITY_LABELS[entry.type]
-                      return (
-                        <li key={entry.id}>
-                          <span className={styles.feedIcon}>
-                            <Icon name={meta?.icon ?? 'ph-dot'} weight="bold" size="sm" />
-                          </span>
-                          <div className={styles.feedBody}>
-                            <span className={styles.feedLabel}>{meta?.label ?? entry.type}</span>
-                            {entry.detail && <span className={styles.feedDetail}>{entry.detail}</span>}
-                          </div>
-                          <span className={styles.feedDay}>{relativeDay(entry.occurredOn, data.today)}</span>
-                          {entry.xpAwarded > 0 && (
-                            <Badge tone="success" size="sm">
-                              +{entry.xpAwarded} XP
-                            </Badge>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-
-                  {/* Offered whenever a full first page came back, since that is the
-                      only signal that more may exist before we have asked. Once the
-                      server has told us the total, that decides it. */}
-                  {hasMoreActivity && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      fullWidth
-                      icon="ph-caret-down"
-                      loading={loadingMore}
-                      onClick={() => void loadMoreActivity()}
-                    >
-                      {loadingMore ? 'Loading' : 'Show earlier activity'}
-                    </Button>
-                  )}
-                  {activityTotal !== null && activity.length >= activityTotal && (
-                    <p className={styles.feedEnd}>That is your whole history — {activityTotal} events.</p>
-                  )}
-                </>
-              )}
-            </Card>
-
-            {/* --------- Achievements --------- */}
-            <Card>
-              <CardHeader
-                title="Achievements"
-                size="sm"
-                as="h3"
-                actions={
-                  <ButtonLink to="/rewards" size="sm" variant="ghost">
-                    All rewards
-                  </ButtonLink>
-                }
-              />
-              {data.achievements.earned.length > 0 && (
-                <ul className={styles.badgeList}>
-                  {data.achievements.earned.map((achievement) => (
-                    <li key={achievement.code}>
-                      <Badge tone="accent" icon={achievement.icon} title={achievement.description}>
-                        {achievement.name}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {data.achievements.next.length > 0 && (
-                <>
-                  <p className={styles.subhead}>Closest to earning</p>
-                  <ul className={styles.nextList}>
-                    {data.achievements.next.map((achievement) => (
-                      <li key={achievement.code}>
-                        <Progress
-                          label={achievement.name}
-                          value={achievement.progress}
-                          max={achievement.target}
-                          size="sm"
-                          valueText={`${achievement.progress}/${achievement.target}`}
-                        />
-                        <p className={styles.nextDesc}>{achievement.description}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-              {data.achievements.earned.length === 0 && data.achievements.next.length === 0 && (
-                <EmptyState
-                  size="sm"
-                  icon="ph-medal"
-                  title="No achievements yet"
-                  description="Badges appear here as you practise, keep a streak going and sit papers."
-                />
-              )}
-            </Card>
-
-            {/* --------- Leaderboard --------- */}
-            <Card>
-              <CardHeader
-                title="Leaderboard"
-                size="sm"
-                as="h3"
-                actions={
-                  <ButtonLink to="/leaderboard" size="sm" variant="ghost">
-                    Full board
-                  </ButtonLink>
-                }
-              />
-              {data.leaderboard.top.length === 0 ? (
-                <EmptyState
-                  size="sm"
-                  icon="ph-trophy"
-                  title="Nobody has earned XP yet"
-                  description="The board fills as students practise. Be the first name on it."
-                />
-              ) : (
-                <ol className={styles.leaderboard}>
-                  {data.leaderboard.top.map((row) => {
-                    const isMe = row.studentId === data.student.studentId
-                    return (
-                      <li key={row.studentId} className={isMe ? styles.meRow : undefined}>
-                        <span className={styles.rank}>#{row.rank}</span>
-                        <span className={styles.lbText}>
-                          <span className={styles.lbName}>{isMe ? 'You' : row.displayName}</span>
-                          {row.schoolName && <span className={styles.lbSchool}>{row.schoolName}</span>}
-                        </span>
-                        <span className={styles.lbXp}>{row.xp.toLocaleString('en-IN')} XP</span>
-                      </li>
-                    )
-                  })}
-                </ol>
-              )}
-              {data.leaderboard.me.rank !== null && data.leaderboard.me.rank > data.leaderboard.top.length && (
-                <p className={styles.subhead}>
-                  You are #{data.leaderboard.me.rank} of {data.leaderboard.me.totalRanked}, with{' '}
-                  {data.leaderboard.me.xp.toLocaleString('en-IN')} XP.
-                </p>
-              )}
-            </Card>
+            <div className={styles.pair}>
+              {data && <ActivityCard data={data} />}
+              {student && <ChaptersCard studentId={student.studentId} data={data} />}
+            </div>
           </div>
+
+          <aside className={styles.rail} aria-label="More for today">
+            <ThoughtCard today={today} />
+            {data && <UpcomingCard data={data} offsetMs={offsetMs} />}
+            {data && <ClassTopCard data={data} />}
+            {data && <AchievementsCard data={data} />}
+          </aside>
         </div>
-      )}
+      </div>
     </StudentShell>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// The welcome banner
+// ---------------------------------------------------------------------------
+
+function WelcomeBanner({ firstName, fullName, photo, today }: { firstName: string; fullName: string; photo: string | null; today: string }) {
+  const quote = rotateDaily(DAILY_QUOTES, today)
+
+  return (
+    <section className={styles.banner} aria-labelledby="welcome-title">
+      <Avatar name={fullName || firstName} src={photo} size="lg" decorative className={styles.bannerAvatar} />
+      <div className={styles.bannerText}>
+        {/* One heading, read as one sentence: "Welcome back, Asha!" */}
+        <h1 id="welcome-title" className={styles.bannerTitle}>
+          <span className={styles.bannerEyebrow}>Welcome back,</span>{' '}
+          <span className={styles.bannerName}>{firstName}!</span>{' '}
+          <span aria-hidden="true">👋</span>
+        </h1>
+        {quote && <p className={styles.bannerQuote}>“{quote}”</p>}
+      </div>
+      <div className={styles.bannerArt} aria-hidden="true">
+        <Illustration name="book-stack" />
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// The five figures
+// ---------------------------------------------------------------------------
+
+function StatCards({ data }: { data: DashboardData }) {
+  const { progress, stats, leaderboard } = data
+  const rank = leaderboard.me.rank
+  const accuracy = stats.accuracy
+
+  return (
+    <section aria-label="Your figures" className={styles.statGrid}>
+      <StatTile
+        className={styles.stat}
+        layout="value-first"
+        icon={<Star aria-hidden="true" />}
+        iconTone="gold"
+        value={<CountUp value={progress.xp} />}
+        label="Total XP"
+        delta={
+          stats.xpThisWeek > 0
+            ? { text: `+${formatNumber(stats.xpThisWeek)} this week`, direction: 'up' }
+            : { text: 'None yet this week', direction: 'neutral' }
+        }
+      />
+      <StatTile
+        className={styles.stat}
+        layout="value-first"
+        icon={<Trophy aria-hidden="true" />}
+        iconTone="orange"
+        // `null`, not zero: "not ranked yet" and "ranked last" are different facts.
+        value={rank !== null ? <CountUp value={rank} format={(n) => `#${formatNumber(n)}`} /> : null}
+        label="Global rank"
+        delta={{
+          text: rank !== null ? `out of ${formatNumber(leaderboard.me.totalRanked)}` : 'Earn XP to be ranked',
+          direction: 'neutral',
+        }}
+      />
+      <StatTile
+        className={styles.stat}
+        layout="value-first"
+        icon={<Flame aria-hidden="true" />}
+        iconTone="magenta"
+        value={<CountUp value={progress.streak.current} />}
+        label="Day streak"
+        delta={
+          progress.streak.countedToday && progress.streak.current > 0
+            ? { text: 'Keep it going!', direction: 'up' }
+            : { text: 'Visit today to keep it', direction: 'neutral' }
+        }
+      />
+      <StatTile
+        className={styles.stat}
+        layout="value-first"
+        icon={<Target aria-hidden="true" />}
+        iconTone="blue"
+        value={<CountUp value={stats.questionsSolved.total} />}
+        label="Questions solved"
+        delta={
+          stats.questionsSolved.thisWeek > 0
+            ? { text: `+${formatNumber(stats.questionsSolved.thisWeek)} this week`, direction: 'up' }
+            : { text: 'None yet this week', direction: 'neutral' }
+        }
+      />
+      <StatTile
+        className={styles.stat}
+        layout="value-first"
+        icon={<BarChart3 aria-hidden="true" />}
+        iconTone="purple"
+        // Rounded down, so the card never claims 100% for 99.6%.
+        value={accuracy.percent !== null ? <CountUp value={Math.floor(accuracy.percent)} format={(n) => `${n}%`} /> : null}
+        label="Accuracy"
+        delta={{
+          text:
+            accuracy.attempts > 0
+              ? `Last ${accuracy.attempts} ${accuracy.attempts === 1 ? 'attempt' : 'attempts'}`
+              : 'Answer a question to see it',
+          direction: 'neutral',
+        }}
+      />
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// The journey
+// ---------------------------------------------------------------------------
+
+function JourneyCard({ data }: { data: DashboardData }) {
+  const { journey } = data
+  return (
+    <Card className={styles.card}>
+      <CardHeader
+        title="Your journey"
+        size="sm"
+        as="h2"
+        description={`${journey.completedCount} of ${journey.total} milestones reached`}
+        actions={<MoreLink to="/rewards#journey">View full journey</MoreLink>}
+      />
+      <JourneyTrack
+        label="Your journey's milestones"
+        stages={journey.stages.map((stage, i) => {
+          const art = JOURNEY_ART[stage.id]
+          return {
+            key: stage.id,
+            caption: `Step ${i + 1}`,
+            title: stage.title,
+            state: stage.complete ? 'done' : stage.current ? 'current' : 'locked',
+            art: art ? <Illustration name={art} /> : undefined,
+          }
+        })}
+      />
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Recent activity
+// ---------------------------------------------------------------------------
+
+function ActivityCard({ data }: { data: DashboardData }) {
+  return (
+    <Card className={styles.card}>
+      <CardHeader title="Recent activity" size="sm" as="h2" actions={<MoreLink to="/activity">View all</MoreLink>} />
+      {data.activity.length === 0 ? (
+        <EmptyState
+          size="sm"
+          icon="ph-list-dashes"
+          title="Nothing recorded yet"
+          description="Practice, mock tests and the Daily Quiz all appear here as you go, with the XP each one earned."
+        />
+      ) : (
+        <ActivityList
+          items={data.activity.map((entry) => {
+            return {
+              key: entry.id,
+              icon: activityIcon(entry),
+              tone: entry.xpAwarded > 0 ? 'green' : 'blue',
+              title: activityTitle(entry),
+              time: `${formatDayLabel(entry.occurredOn, data.today)}, ${formatTime(entry.createdAt)}`,
+              value: entry.xpAwarded > 0 ? `+${formatNumber(entry.xpAwarded)} XP` : undefined,
+            }
+          })}
+        />
+      )}
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Chapter progress — "Subject progress" in the mockup
+// ---------------------------------------------------------------------------
+
+/**
+ * Accuracy per chapter, from the analytics derivation (`GET /analytics/:studentId`), for
+ * the chapters with the most answers. Titled "Chapter progress", not "Subject": this is a
+ * mathematics olympiad with one subject, and nothing may print a subject name (CLAUDE.md).
+ * Each bar is correct out of answered, with the counts beside it — a real value out of a
+ * real maximum.
+ */
+function ChaptersCard({ studentId, data }: { studentId: string; data: DashboardData | null }) {
+  const [rows, setRows] = useState<NamedPerformanceRow[] | null>(null)
+  const [failure, setFailure] = useState<unknown>(null)
+
+  const load = useCallback(() => {
+    setFailure(null)
+    setRows(null)
+    api
+      .get<AnalyticsResponse>(`/analytics/${studentId}`)
+      .then((res) => setRows(res.analytics.byTopic))
+      .catch((err: unknown) => setFailure(err))
+  }, [studentId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const top = useMemo(
+    () =>
+      (rows ?? [])
+        .filter((row) => row.answered > 0)
+        .sort((a, b) => b.answered - a.answered)
+        .slice(0, DASHBOARD_CHAPTERS),
+    [rows],
+  )
+
+  const ready = data?.challenges.reduce((total, row) => total + row.questionCount, 0) ?? 0
+
+  return (
+    <Card className={styles.card}>
+      <CardHeader title="Chapter progress" size="sm" as="h2" actions={<MoreLink to="/analytics">View details</MoreLink>} />
+      {failure !== null ? (
+        <ErrorState error={failure} titleAs="h3" onRetry={load} />
+      ) : rows === null ? (
+        <SkeletonText lines={5} label="Loading your chapters" />
+      ) : top.length === 0 ? (
+        <EmptyState
+          size="sm"
+          icon="ph-chart-bar"
+          title="No chapters answered yet"
+          description={
+            ready > 0
+              ? `${formatNumber(ready)} questions are ready for you in Practice. Your accuracy in each chapter appears here as you answer.`
+              : 'Your accuracy in each chapter appears here once you have answered some questions.'
+          }
+        />
+      ) : (
+        <ul className={styles.chapters}>
+          {top.map((row, i) => {
+            const percent = row.accuracyPercent ?? 0
+            return (
+              <li key={row.id} className={styles.chapter}>
+                <span className={styles.chapterDot} style={{ background: `var(--series-${(i % 5) + 1})` }} aria-hidden="true" />
+                <span className={styles.chapterName}>{row.name}</span>
+                <span
+                  className={styles.chapterBar}
+                  role="img"
+                  aria-label={`${row.correct} of ${row.answered} correct`}
+                >
+                  <span
+                    className={styles.chapterFill}
+                    style={{ width: `${Math.min(100, percent)}%`, background: `var(--series-${(i % 5) + 1})` }}
+                  />
+                </span>
+                <span className={`${styles.chapterValue} tnum`}>{row.accuracyPercent !== null ? `${Math.floor(row.accuracyPercent)}%` : '—'}</span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// The rail
+// ---------------------------------------------------------------------------
+
+function ThoughtCard({ today }: { today: string }) {
+  const thought = rotateDaily(MATHS_THOUGHTS, today, 3)
+  if (!thought) return null
+  return (
+    <section className={styles.thought} aria-labelledby="thought-title">
+      <div className={styles.thoughtText}>
+        <h2 id="thought-title" className={styles.thoughtTitle}>
+          <Lightbulb aria-hidden="true" /> Today’s Maths Thought
+        </h2>
+        <p className={styles.thoughtQuote}>“{thought}”</p>
+        <p className={styles.thoughtSign}>— {AMIT_SHORT}</p>
+      </div>
+      <div className={styles.thoughtArt} aria-hidden="true">
+        <Illustration name="plant" />
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Upcoming events: the real Olympiad windows for the student's class, soonest first,
+ * each with a countdown chip offset from the server's clock. The Boss Battle and the
+ * Month-End Booster in the mockup do not exist (PLAN.md Q6), so they are not here.
+ */
+function UpcomingCard({ data, offsetMs }: { data: DashboardData; offsetMs: number }) {
+  const now = Date.now() + offsetMs
+  return (
+    <Card className={styles.card}>
+      <CardHeader title="Upcoming events" size="sm" as="h2" actions={<MoreLink to="/exam">View all</MoreLink>} />
+      {data.upcoming.length === 0 ? (
+        <EmptyState
+          size="sm"
+          icon="ph-calendar-blank"
+          title="Nothing scheduled yet"
+          description={
+            data.student.classLevel
+              ? `No Olympiad window is scheduled for ${data.student.classLevel} yet. It appears here, with a countdown, as soon as it is.`
+              : 'Add your class to your profile to see your Olympiad dates here.'
+          }
+        />
+      ) : (
+        <ul className={styles.events}>
+          {data.upcoming.map((exam) => {
+            const opensIn = Math.max(0, (Date.parse(exam.opensAt) - now) / 1000)
+            return (
+              <li key={exam.id} className={styles.event}>
+                <IconTile icon={<CalendarClock aria-hidden="true" />} tone="magenta" size="sm" />
+                <span className={styles.eventText}>
+                  <span className={styles.eventTitle}>{exam.title}</span>
+                  <span className={styles.eventWhen}>{formatDateTime(exam.isOpen ? exam.closesAt : exam.opensAt)}</span>
+                </span>
+                <span className={exam.isOpen ? styles.chipOpen : styles.chip}>
+                  {exam.isOpen ? (
+                    <>
+                      Open now<span className="sr-only">, closes {formatDateTime(exam.closesAt)}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="sr-only">Opens in </span>
+                      {formatCompactDuration(opensIn)}
+                    </>
+                  )}
+                </span>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * Today's top five in the student's own class, from the one ranking service. The reader's
+ * row is highlighted, and when they are outside the five it follows a "…" row. Names are
+ * as every board shows them — masked, or "A Class 9 student" for an opted-out child.
+ */
+function ClassTopCard({ data }: { data: DashboardData }) {
+  const board = data.classToday
+  if (!board) {
+    return (
+      <Card className={styles.card}>
+        <CardHeader title="Today’s top 5" size="sm" as="h2" />
+        <EmptyState
+          size="sm"
+          icon="ph-ranking"
+          title="Add your class to see your board"
+          description="Today’s top five is drawn from your own class. Set it on your profile."
+        />
+      </Card>
+    )
+  }
+
+  const own = data.student.studentId
+  const rows: BoardRow[] = board.rows.map((row) => ({
+    key: row.studentId,
+    rank: row.rank,
+    name: row.displayName,
+    avatar: <Avatar name={row.displayName} size="xs" tint decorative />,
+    cells: [formatNumber(row.xp)],
+    highlight: row.studentId === own,
+    rankMarker: row.rank <= 3 ? <Crown aria-hidden="true" className={styles[`crown${row.rank}`]} /> : undefined,
+  }))
+  // Outside the five: their own row after a "…", with their real rank.
+  if (!board.rows.some((row) => row.studentId === own) && board.me.rank !== null) {
+    rows.push({
+      key: own,
+      rank: board.me.rank,
+      name: data.student.firstName ?? 'You',
+      avatar: <Avatar name={data.student.fullName ?? 'You'} size="xs" tint decorative />,
+      cells: [formatNumber(board.me.xp)],
+      highlight: true,
+      gapBefore: true,
+    })
+  }
+
+  return (
+    <Card className={styles.card}>
+      <CardHeader
+        title={`Today’s top 5 (${board.classLevel})`}
+        size="sm"
+        as="h2"
+        actions={<MoreLink to="/leaderboard?scope=class&period=daily">View leaderboard</MoreLink>}
+      />
+      {board.rows.length === 0 ? (
+        <EmptyState
+          size="sm"
+          icon="ph-ranking"
+          title="Nobody on today’s board yet"
+          description={`Nobody in ${board.classLevel} has earned XP today. Answer today’s Daily Quiz or practise to be first.`}
+        />
+      ) : (
+        <>
+          <LeaderboardTable caption={`Today’s top five in ${board.classLevel}`} columns={['XP']} align={['end']} rows={rows} />
+          {board.me.rank === null && <p className={styles.note}>Earn XP today to join this board.</p>}
+        </>
+      )}
+    </Card>
+  )
+}
+
+/** Earned achievements in colour, the nearest locked ones greyed, four in all. */
+function AchievementsCard({ data }: { data: DashboardData }) {
+  const shown = [
+    ...data.achievements.earned.map((a) => ({ ...a, locked: false })),
+    ...data.achievements.next.map((a) => ({ ...a, locked: true })),
+  ].slice(0, 4)
+
+  return (
+    <Card className={styles.card}>
+      <CardHeader
+        title="Achievements"
+        size="sm"
+        as="h2"
+        description={`${data.achievements.earnedCount} of ${data.achievements.total} earned`}
+        actions={<MoreLink to="/rewards#achievements">View all</MoreLink>}
+      />
+      {shown.length === 0 ? (
+        <EmptyState size="sm" icon="ph-medal" title="No achievements yet" description="Badges appear here as you practise, keep a streak going and sit papers." />
+      ) : (
+        <ul className={styles.achievements}>
+          {shown.map((a) => (
+            <li key={a.code} className={a.locked ? styles.achievementLocked : styles.achievement} title={a.description}>
+              <IconTile icon={a.icon} tone={a.locked ? 'neutral' : 'gold'} size="lg" />
+              <span className={styles.achievementName}>{a.name}</span>
+              <span className={styles.achievementState}>
+                {a.locked ? `Locked · ${formatNumber(a.progress)}/${formatNumber(a.target)}` : 'Earned'}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  )
+}
+
+/** "View all →" — a card header's link to the page that has the rest. */
+function MoreLink({ to, children }: { to: string; children: string }) {
+  return (
+    <Link to={to} className={styles.more}>
+      {children}
+      <ArrowRight aria-hidden="true" />
+    </Link>
   )
 }

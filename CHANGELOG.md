@@ -2,6 +2,67 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-05 — Milestone 30 Phase 4: the student dashboard
+
+The student area now looks like the launch dashboard mockup, with every figure from real data.
+Branch `feat/diwali-launch-phase-4`.
+
+### Students
+
+- **A new dashboard**: a welcome banner with your photo and a line of the day; five figures — Total
+  XP (with this week's), your global rank, your day streak, questions solved (with this week's) and
+  your accuracy over your last 30 attempts; today's Daily Quiz; your journey through the nine
+  milestones; your recent activity; your accuracy chapter by chapter; and, beside them, today's
+  maths thought, your upcoming Olympiad dates with a countdown, today's top five in your class (your
+  own row too, even outside the five) and your achievements.
+- **A new top bar on every student page**: Home, Dashboard, Practice, Leaderboards, Gallery and
+  Certificates; a bell that opens your newest notifications (and says when today's quiz is live);
+  and your profile chip with My Profile, Help & Support and Log out.
+- **A new sidebar** in the mockup's order, with Previous Papers and Concepts marked "Soon", and the
+  Olympiad, your notifications, activity, Hall of Fame, report and referrals underneath. On a laptop
+  between 1024 and 1279px it folds to icons; on a phone it is a drawer, and the bottom bar holds Home,
+  Quiz, Practice, Leaderboard and Profile.
+- **`/activity`** — everything you have done, with the XP each event earned.
+- A page now opens at its top: signing in from the bottom of the homepage used to land you halfway
+  down the dashboard.
+
+### Under the hood
+
+- `GET /me/dashboard` gains `stats`, `journey`, `classToday`, `upcoming`, `student.hasPhoto` and
+  `serverNow`, and loses `recentTests` and the overall `leaderboard.top` (not in the mockup).
+- Every auth response's `student` carries `hasPhoto`, so no page asks for a photo that is not there.
+- `ui/Menu` closes on a scroll only when its trigger could have moved (an unrelated scroller used to
+  shut it); `components/ScrollToTop` resets the page on a new navigation.
+- The leaderboard opens on the board a link names (`?scope=class&period=daily`); the rewards page
+  scrolls to `#journey` and `#achievements`.
+- The admin brand reads "A.M.I.T. Admin" (Q10), and the certificate's logo text uses the brand constant.
+- `ProtectedRoute` loads the student shell lazily: imported eagerly it carried the whole shell —
+  now with the bell and the account menu — into the bundle every visitor downloads before the
+  homepage paints. The main bundle is 261 kB (82 kB gzipped), about where Phase 3 left it.
+- Tests: backend **1346 / 38 files** (seven new dashboard tests); E2E **20** (a new
+  `dashboard.spec.ts`: the figures, the class board, the bell → today's quiz, the account menu → log
+  out, the phone's bottom bar and drawer, the page opening at its top).
+
+## 2026-10-05 — "Can you crack this?" shows real Daily Quiz problems
+
+The owner did not want a demo question on the landing page — "it should be a real daily problem".
+Branch `feat/diwali-launch-phase-4`.
+
+- **The homepage's "Can you crack this?" is now a real Daily Quiz problem** whose answer is already
+  public — yesterday's, and "Try another" steps back through the week before. Tabs are the class
+  groups (Classes 3–5 / 6–8 / 9–12); a signed-in student opens on their own. Choose, submit, and it
+  says right or wrong at once with the answer and the worked solution, then points at today's quiz.
+- **Never today's.** Today's quiz is the prize question, timed from Start; showing it publicly would
+  let anybody work it out first and then answer in a second. The new public
+  `GET /daily-quiz/past` serves only earlier days, each through `revealOf()`, and the answer-key leak
+  test now covers it (including at 23:59:59).
+- Until the first quiz is revealed — launch day itself — the section says the first problem is on its
+  way and points at today's quiz.
+- The 25 hand-written sample questions, `npm run verify:samples` and `docs/launch/SAMPLE_QUESTIONS.md`
+  are deleted; the owner no longer has a sample set to review.
+- Fixed in passing: the homepage scrolled 12px sideways between about 900 and 1100px wide (the "How it
+  works" paper plane sat past the section's edge).
+
 ## 2026-10-04 — Milestone 30 Phase 3: the homepage, the floating Daily Quiz button and the Login Gate
 
 The public homepage was rebuilt to the landing mockup, with the owner's R2–R5 at its centre: a

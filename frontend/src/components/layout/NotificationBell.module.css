@@ -1,0 +1,33 @@
+/* The student top bar's bell (Milestone 30, Phase 4). Tokens only. */
+
+/* A 44px round control rather than the menu's avatar pill. `button.` so it outranks the
+   menu's own trigger class whichever stylesheet the bundle happens to load first. */
+button.trigger {
+  width: var(--tap-target);
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.bell {
+  position: relative;
+  display: inline-flex;
+}
+
+/* The count, as the mockup draws it: a small red badge on the bell's shoulder. The
+   number is also in the button's name; this is its picture. */
+.count {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-pill);
+  background: var(--danger-solid);
+  color: var(--danger-on);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  line-height: 16px;
+  text-align: center;
+}

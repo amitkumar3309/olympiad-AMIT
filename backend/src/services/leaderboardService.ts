@@ -375,8 +375,12 @@ export interface LeaderboardStanding {
   totalRanked: number;
 }
 
-/** This student's XP inside a window. Indexed by `{student, occurredOn}`. */
-async function xpInWindow(student: Types.ObjectId, from: DayKey | null): Promise<number> {
+/**
+ * This student's XP inside a window. Indexed by `{student, occurredOn}`. Exported for the
+ * dashboard's "+N this week" (Milestone 30, Phase 4), which is the weekly board's window —
+ * one definition of "this week" for both.
+ */
+export async function xpInWindow(student: Types.ObjectId, from: DayKey | null): Promise<number> {
   const match: Record<string, unknown> = { student };
   if (from !== null) match.occurredOn = { $gte: from };
 

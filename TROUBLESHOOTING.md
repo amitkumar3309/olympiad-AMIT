@@ -49,6 +49,23 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## The last browser tests fail only when the whole suite runs
+
+**Symptom.** `npm run e2e` in `frontend/` fails the last test or two (on 2026-10-05, the two
+mobile homepage tests), while the same tests pass when run alone
+(`npx playwright test --project=mobile-390`). The page in the failure shows a section's own
+"could not be loaded" state rather than anything the test was checking.
+
+**Cause.** The suite's backend (`backend/scripts/e2e-server.ts`) runs with the rate limiters
+**live**, as production does, and every test comes from one address. The general limiter allows
+300 API requests per 15 minutes; a homepage load makes about ten, and once the suite grew to
+fourteen tests the last ones ran out of budget and got `429`s.
+
+**Fix.** `POST /__e2e/reset` — which every test calls first — now also empties every limiter's
+counters (`resetRateLimits()` in `middleware/rateLimiter.ts`), so each test starts with a fresh
+budget and the limits are still real inside it. Do not "fix" this by switching the limiters off for
+the suite: a test that cannot trip a limiter cannot notice one being mounted in the wrong place.
+
 ## Scheduling a Daily Quiz says a class "still has a daily challenge from before the Daily Quiz"
 
 **Symptom.** Admin → Daily Quiz → Schedule refuses a day with *"Class 9 still has a daily challenge

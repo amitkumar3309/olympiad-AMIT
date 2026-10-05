@@ -66,6 +66,12 @@ export const publicWinnersQuerySchema = z.object({
 });
 export type PublicWinnersQuery = z.infer<typeof publicWinnersQuerySchema>;
 
+/** How many past problems per class group — a week by default, a fortnight at most. */
+export const pastProblemsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(14).default(7),
+});
+export type PastProblemsQuery = z.infer<typeof pastProblemsQuerySchema>;
+
 // ---------------------------------------------------------------------------
 // Staff
 // ---------------------------------------------------------------------------

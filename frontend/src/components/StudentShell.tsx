@@ -1,12 +1,20 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import logoMark from '../assets/logo-mark.png'
+import { AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, AMIT_TAGLINE } from '../lib/brand'
+import { SIDEBAR_MOTTO } from '../lib/siteConfig'
 import AppShell from './layout/AppShell'
-import { STUDENT_BOTTOM_NAV, STUDENT_NAV } from './layout/navigation'
+import AccountMenu from './layout/AccountMenu'
+import NotificationBell from './layout/NotificationBell'
+import { STUDENT_BOTTOM_NAV, STUDENT_NAV, STUDENT_TOP_NAV } from './layout/navigation'
 import { Section } from './ui'
+import Illustration from './Illustration'
 import Navbar from './Navbar'
 import Footer from './Footer'
+import ThemeToggle from './ThemeToggle'
+import styles from './StudentShell.module.css'
 
 /**
  * Chrome for every page in the signed-in student area.
@@ -14,7 +22,10 @@ import Footer from './Footer'
  * Since Milestone 23 Phase B this is a thin wrapper: the layout lives in
  * `layout/AppShell` (shared with the admin area) and the navigation in
  * `layout/navigation.ts`. What stays here is what only the student area knows — the
- * unread-notification count, whether the entry fee is paid, and the guest fallback.
+ * unread-notification count, whether the entry fee is paid, and the guest fallback —
+ * and, since Milestone 30 Phase 4, what the launch mockup puts in the student chrome: the
+ * lockup, the top bar's links, the bell with its menu, the profile chip and the
+ * motivational card at the foot of the sidebar.
  *
  * ## Guests
  *
@@ -25,12 +36,17 @@ import Footer from './Footer'
  */
 
 interface StudentShellProps {
-  /** Heading for the page, shown in the shell's topbar. */
+  /** Heading for the page — the `h1`, above the page's content. */
   title: ReactNode
   /** Optional line under the heading — student ID, class, a short summary. */
   subtitle?: ReactNode
   /** Page-level actions, beside the title. */
   actions?: ReactNode
+  /**
+   * The page draws its own `h1` (the dashboard's welcome banner). `title` is then only
+   * the guest fallback's heading.
+   */
+  headless?: boolean
   /**
    * A timed paper. Drops the mobile bottom bar, which otherwise sits exactly where
    * the answer buttons are; the menu stays reachable from the burger at every width.
@@ -39,7 +55,7 @@ interface StudentShellProps {
   children: ReactNode
 }
 
-export default function StudentShell({ title, subtitle, actions, focus, children }: StudentShellProps) {
+export default function StudentShell({ title, subtitle, actions, headless, focus, children }: StudentShellProps) {
   const { state, hasPaid } = useAuth()
   const { pathname } = useLocation()
   const [unread, setUnread] = useState(0)
@@ -58,23 +74,25 @@ export default function StudentShell({ title, subtitle, actions, focus, children
    * poll interval, and a timer would keep firing on an idle open tab for no benefit.
    * A failure is swallowed — a missing badge must never break the page around it.
    */
-  useEffect(() => {
-    if (state.status !== 'student') return
-    let cancelled = false
-
+  const refreshUnread = useCallback((isCancelled: () => boolean = () => false) => {
     void api
       .get<{ unread: number }>('/me/notifications/unread-count')
       .then((res) => {
-        if (!cancelled) setUnread(res.unread)
+        if (!isCancelled()) setUnread(res.unread)
       })
       .catch(() => {
         /* A badge is not worth an error state. */
       })
+  }, [])
 
+  useEffect(() => {
+    if (state.status !== 'student') return
+    let cancelled = false
+    refreshUnread(() => cancelled)
     return () => {
       cancelled = true
     }
-  }, [state.status, pathname])
+  }, [state.status, pathname, refreshUnread])
 
   // Only an actual student account gets the shell. A promoted admin is still a
   // student and keeps it (they have a student record and their own progress); the
@@ -94,7 +112,7 @@ export default function StudentShell({ title, subtitle, actions, focus, children
             reader user landing on the public leaderboard had nothing naming the page.
 
             The signed-in branch never had the problem because `AppShell` puts the
-            `h1` in its topbar; this branch simply dropped `title` and `subtitle` on
+            `h1` above the page; this branch simply dropped `title` and `subtitle` on
             the floor. `size="page"` matches the shell's own heading treatment, so a
             page looks the same either side of signing in.
 
@@ -115,10 +133,36 @@ export default function StudentShell({ title, subtitle, actions, focus, children
       variant="student"
       groups={STUDENT_NAV}
       bottomNav={STUDENT_BOTTOM_NAV}
-      brand={{ label: 'A.M.I.T Hub', to: '/dashboard' }}
+      topNav={STUDENT_TOP_NAV}
+      brand={{
+        label: AMIT_OLYMPIAD,
+        to: '/dashboard',
+        logo: logoMark,
+        tagline: AMIT_TAGLINE,
+        // The expansion on the link's title, as the public navbar carries it (CLAUDE.md).
+        title: `${AMIT_OLYMPIAD} — ${AMIT_FULL_FORM}`,
+      }}
+      headerEnd={
+        <>
+          {/* In the drawer below 768px, where the top bar has no room for it. */}
+          <span className={styles.theme}>
+            <ThemeToggle compact />
+          </span>
+          <NotificationBell unread={unread} onChange={() => refreshUnread()} />
+          <AccountMenu student={state.student} />
+        </>
+      }
+      sidebarFooter={
+        <aside className={styles.motto} aria-label="Motto">
+          <p className={styles.mottoText}>{SIDEBAR_MOTTO}</p>
+          <p className={styles.mottoSign}>— {AMIT_SHORT}</p>
+          <Illustration name="mountain-climber" className={styles.mottoArt} />
+        </aside>
+      }
       title={title}
       subtitle={subtitle}
       actions={actions}
+      headless={headless}
       unread={unread}
       hasPaid={hasPaid}
       focus={focus}

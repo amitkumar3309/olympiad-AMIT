@@ -361,6 +361,7 @@ describe('the answer key', () => {
     expectNoKey('history', (await history(cookies)).body);
     expectNoKey('public info', (await request(app).get(`${API}/daily-quiz/info`)).body);
     expectNoKey('public winners', (await request(app).get(`${API}/daily-quiz/winners`)).body);
+    expectNoKey('public past problems', (await request(app).get(`${API}/daily-quiz/past`)).body);
 
     // One second before midnight it is still locked; at midnight it opens.
     clockTo(day, 24, -1000);
@@ -397,6 +398,121 @@ describe('the answer key', () => {
     const res = await request(app).delete(`${API}/admin/questions/${questionId}`).set('Cookie', cookieHeader(adminCookies));
     expect(res.status).toBe(409);
     expect(res.body.error).toMatch(/Daily Quiz/);
+  });
+});
+
+// ===========================================================================
+// The homepage's past problems (public)
+// ===========================================================================
+
+describe('GET /daily-quiz/past', () => {
+  interface PastProblem {
+    day: string;
+    classRange: { min: number; max: number; label: string };
+    questionText: string;
+    options: Array<{ letter: string; text: string }>;
+    answer: { letter: string; text: string };
+    solution: string;
+  }
+  interface PastGroup {
+    id: string;
+    label: string;
+    problems: PastProblem[];
+  }
+
+  const past = (query = '') => request(app).get(`${API}/daily-quiz/past${query}`);
+  const group = (body: { groups: PastGroup[] }, id: string): PastGroup => body.groups.find((g) => g.id === id)!;
+  const days = (body: { groups: PastGroup[] }, id: string): string[] => group(body, id).problems.map((p) => p.day);
+
+  it('never serves today’s quiz — not one second before midnight — and serves it with its answer after', async () => {
+    await seedTodaysQuiz();
+    const day = today();
+
+    const before = await past().expect(200);
+    expect(before.body.groups.map((g: PastGroup) => [g.id, g.label])).toEqual([
+      ['3-5', 'Classes 3–5'],
+      ['6-8', 'Classes 6–8'],
+      ['9-12', 'Classes 9–12'],
+    ]);
+    expect(before.body.groups.every((g: PastGroup) => g.problems.length === 0)).toBe(true);
+    const text = JSON.stringify(before.body);
+    expect(text).not.toContain('x^2 - 5x + 6');
+    expect(text).not.toContain('Factorise as');
+
+    clockTo(day, 24, -1000);
+    expect(JSON.stringify((await past().expect(200)).body)).not.toContain('x^2 - 5x + 6');
+
+    clockTo(day, 24);
+    const after = await past().expect(200);
+    const [problem] = group(after.body, '9-12').problems;
+    expect(problem).toMatchObject({
+      day,
+      classRange: { min: 9, max: 12, label: 'Classes 9–12' },
+      topic: 'Algebra',
+      difficulty: 'Medium',
+      solution: SOLUTION,
+      answer: { text: '$x = 3$' },
+    });
+    // The letter names the right option in the order the page will draw them.
+    expect(problem!.options.find((option) => option.letter === problem!.answer.letter)?.text).toBe('$x = 3$');
+    expect(problem!.options.map((option) => option.letter)).toEqual(['A', 'B', 'C', 'D']);
+    // Display letters only: no opaque id, no bank key, no per-option correctness.
+    expect(JSON.stringify(problem)).not.toMatch(/"id"|"key"|"isCorrect"|"correctOption/);
+    // A quiz for Classes 9–12 is nobody else's problem.
+    expect(group(after.body, '3-5').problems).toEqual([]);
+    expect(group(after.body, '6-8').problems).toEqual([]);
+  });
+
+  it('is public and cacheable, and keeps the same option order on every request', async () => {
+    await seedTodaysQuiz();
+    clockTo(today(), 24);
+
+    const first = await past().expect(200);
+    expect(first.headers['cache-control']).toContain('public');
+    expect(first.headers['set-cookie']).toBeUndefined();
+    const second = await past().expect(200);
+    expect(group(second.body, '9-12').problems).toEqual(group(first.body, '9-12').problems);
+  });
+
+  it('lists one entry per quiz, newest first, under every class group it covers — never a future day', async () => {
+    const { adminCookies, taxonomy } = await seedAdmin();
+    const d0 = today();
+    const d1 = shiftDay(d0, -1);
+    const d2 = shiftDay(d0, -2);
+    const d3 = shiftDay(d0, -3);
+    const d4 = shiftDay(d0, -4);
+    const set = async (day: string, classMin: number, classMax: number, classLevel: string) => {
+      const questionId = await draftQuestion(adminCookies, taxonomy, { classLevel });
+      await schedule(adminCookies, { day, classMin, classMax, questionId }).expect(201);
+    };
+    await set(d0, 6, 8, 'Class 7');
+    await set(d1, 3, 12, 'Class 9'); // all classes: one quiz, ten documents
+    await set(d2, 7, 7, 'Class 7');
+    await set(d3, 6, 8, 'Class 6'); // today, once the clock moves
+    await set(d4, 6, 8, 'Class 8'); // tomorrow
+
+    clockTo(d3, 12);
+    const res = await past().expect(200);
+    expect(days(res.body, '6-8')).toEqual([d2, d1, d0]);
+    expect(days(res.body, '3-5')).toEqual([d1]);
+    expect(days(res.body, '9-12')).toEqual([d1]);
+    expect(group(res.body, '6-8').problems.map((p) => p.classRange.label)).toEqual(['Class 7', 'All classes', 'Classes 6–8']);
+
+    const limited = await past('?limit=2').expect(200);
+    expect(days(limited.body, '6-8')).toEqual([d2, d1]);
+
+    expect((await past('?limit=0')).status).toBe(400);
+    expect((await past('?limit=15')).status).toBe(400);
+  });
+
+  it('skips a daily challenge from before the quiz, which has no question of its own to show', async () => {
+    const { adminCookies, taxonomy } = await seedAdmin();
+    const questionId = await draftQuestion(adminCookies, taxonomy);
+    await DailyChallenge.create({ day: today(), classLevel: 'Class 9', question: questionId, source: 'automatic', marks: 4 });
+    clockTo(today(), 24);
+
+    const res = await past().expect(200);
+    expect(group(res.body, '9-12').problems).toEqual([]);
   });
 });
 

@@ -12,8 +12,12 @@ import type { Permission } from '../../api/types'
  * ## Two rules about what may appear here
  *
  * **Every entry points at a route that exists and a feature that is built.** There are
- * no placeholders and no "coming soon" items. Two consequences worth writing down,
- * because both look like omissions:
+ * no placeholder links. The one exception is the `soon` flag (Milestone 30, Phase 4): the
+ * owner-approved launch plan (PLAN.md, dashboard table) puts **Previous Papers** and
+ * **Concepts** in the student sidebar with a "Soon" pill, and a `soon` item is rendered
+ * as a plain label — never a link, so it cannot lead to a page that does not exist; its
+ * `to` is only a key. Two consequences of the rule worth writing down, because both look
+ * like omissions:
  *
  *  - There is **no admin "Practice"** item. Practice is student-initiated — a question
  *    becomes practice content by being *published*, and there is deliberately no
@@ -51,6 +55,11 @@ export interface NavItem {
    * wins, so `/admin/questions/import` selects Bulk Import rather than Question Bank.
    */
   match?: string[]
+  /**
+   * Not built yet: shown as a label with a "Soon" pill, **never as a link**, and never the
+   * current page. Student sidebar only (Previous Papers, Concepts — PLAN.md).
+   */
+  soon?: boolean
 }
 
 export interface NavGroup {
@@ -60,33 +69,32 @@ export interface NavGroup {
 }
 
 /**
- * The student area.
+ * The student area (Milestone 30, Phase 4 — the launch dashboard mockup).
  *
- * Ordered to the brief's priorities: Dashboard, then preparation, then how it is
- * going, then the competition itself, then the account.
+ * The first group is the mockup's sidebar, in its order: Dashboard, Daily Quiz, the two
+ * ways to prepare, Previous Papers and Concepts (`soon`), My Progress, Leaderboards,
+ * Achievements, Certificates, My Profile, Help & Support. Everything the mockup does not
+ * name is still one tap away below it — the Olympiad itself, the entry fee and the
+ * result, and the pages a student opens less often — because a redesign must not make a
+ * built feature unreachable.
  */
 export const STUDENT_NAV: NavGroup[] = [
   {
-    items: [{ to: '/dashboard', label: 'Dashboard', icon: 'ph-squares-four' }],
-  },
-  {
-    label: 'Prepare',
     items: [
+      { to: '/dashboard', label: 'Dashboard', icon: 'ph-squares-four' },
+      { to: '/daily-quiz', label: 'Daily Quiz', icon: 'ph-lightning' },
       // The session runner lives under this path, so it keeps the item selected while
       // a paper is open.
-      { to: '/practice', label: 'Practice Zone', icon: 'ph-target', match: ['/practice'] },
+      { to: '/practice', label: 'Practice', icon: 'ph-target', match: ['/practice'] },
       { to: '/mock-tests', label: 'Mock Tests', icon: 'ph-exam', match: ['/mock-tests'] },
-      { to: '/daily-quiz', label: 'Daily Quiz', icon: 'ph-lightning' },
-    ],
-  },
-  {
-    label: 'My progress',
-    items: [
-      { to: '/analytics', label: 'Performance', icon: 'ph-chart-line-up' },
-      { to: '/report', label: 'Printable report', icon: 'ph-file-text' },
-      { to: '/rewards', label: 'XP & badges', icon: 'ph-trophy' },
-      { to: '/leaderboard', label: 'Leaderboard', icon: 'ph-ranking' },
-      { to: '/hall-of-fame', label: 'Hall of Fame', icon: 'ph-crown' },
+      { to: '/previous-papers', label: 'Previous Papers', icon: 'ph-files', soon: true },
+      { to: '/concepts', label: 'Concepts', icon: 'ph-lightbulb', soon: true },
+      { to: '/analytics', label: 'My Progress', icon: 'ph-chart-line-up' },
+      { to: '/leaderboard', label: 'Leaderboards', icon: 'ph-ranking' },
+      { to: '/rewards', label: 'Achievements', icon: 'ph-trophy' },
+      { to: '/my-certificates', label: 'Certificates', icon: 'ph-medal' },
+      { to: '/profile', label: 'My Profile', icon: 'ph-user-circle' },
+      { to: '/contact', label: 'Help & Support', icon: 'ph-question' },
     ],
   },
   {
@@ -101,33 +109,49 @@ export const STUDENT_NAV: NavGroup[] = [
       { to: '/exam', label: 'Official Olympiad', icon: 'ph-graduation-cap', paid: true, match: ['/exam'] },
       { to: '/payment', label: 'Entry fee & receipts', icon: 'ph-currency-inr' },
       { to: '/result', label: 'Result', icon: 'ph-seal-check' },
-      { to: '/my-certificates', label: 'Certificates', icon: 'ph-medal' },
     ],
   },
   {
-    label: 'Account',
+    label: 'More',
     items: [
-      { to: '/referrals', label: 'Refer & Earn', icon: 'ph-share-network' },
       { to: '/notifications', label: 'Notifications', icon: 'ph-bell', badge: 'unread' },
-      { to: '/profile', label: 'My Profile', icon: 'ph-user-circle' },
+      { to: '/activity', label: 'Activity', icon: 'ph-list-dashes' },
+      { to: '/hall-of-fame', label: 'Hall of Fame', icon: 'ph-crown' },
+      { to: '/report', label: 'Printable report', icon: 'ph-file-text' },
+      { to: '/referrals', label: 'Refer & Earn', icon: 'ph-share-network' },
     ],
   },
 ]
 
 /**
- * The four destinations in the student bottom bar, plus a fifth slot the shell fills
- * with "More".
+ * The student top bar's links, from a laptop up (the mockup's header): Home is the
+ * public homepage, the rest are the student area's most used destinations.
+ */
+export const STUDENT_TOP_NAV: NavItem[] = [
+  { to: '/', label: 'Home', icon: 'ph-house' },
+  { to: '/dashboard', label: 'Dashboard', icon: 'ph-squares-four' },
+  { to: '/practice', label: 'Practice', icon: 'ph-target', match: ['/practice'] },
+  { to: '/leaderboard', label: 'Leaderboards', icon: 'ph-ranking' },
+  { to: '/gallery', label: 'Gallery', icon: 'ph-images' },
+  { to: '/my-certificates', label: 'Certificates', icon: 'ph-medal' },
+]
+
+/**
+ * The five destinations in the student bottom bar, below 1024px (brief §8: Home, Quiz,
+ * Practice, Leaderboard, Profile).
  *
- * Four, not six: a 320px screen divided six ways gives 53px per target, and the
- * whole point of a bottom bar is that it is comfortable for a thumb. Everything else
- * is one tap away behind More, which sits in the bottom bar rather than as a burger in
- * the top-left corner — the least reachable part of a phone held one-handed.
+ * Five, not six: a 320px screen divided six ways gives 53px per target, and the point of
+ * a bottom bar is that it is comfortable for a thumb. Everything else is in the drawer,
+ * opened by the burger in the top bar — which, since Phase 4, is present at every width
+ * below 1024px for the student too (the bottom bar's "More" slot gave its place to
+ * Profile).
  */
 export const STUDENT_BOTTOM_NAV: NavItem[] = [
-  { to: '/dashboard', label: 'Home', icon: 'ph-squares-four' },
+  { to: '/dashboard', label: 'Home', icon: 'ph-house' },
+  { to: '/daily-quiz', label: 'Quiz', icon: 'ph-lightning' },
   { to: '/practice', label: 'Practice', icon: 'ph-target', match: ['/practice'] },
-  { to: '/mock-tests', label: 'Tests', icon: 'ph-exam', match: ['/mock-tests'] },
-  { to: '/daily-quiz', label: 'Daily Quiz', icon: 'ph-lightning' },
+  { to: '/leaderboard', label: 'Leaderboard', icon: 'ph-ranking' },
+  { to: '/profile', label: 'Profile', icon: 'ph-user-circle' },
 ]
 
 /**
@@ -244,6 +268,10 @@ export function findActiveItem(pathname: string, groups: NavGroup[]): NavItem | 
 
   for (const group of groups) {
     for (const item of group.items) {
+      // A `soon` item is not a page, so it is never the current one.
+      if (item.soon) continue
+      // `/` is a prefix of everything; it is the current page only on itself.
+      if (item.to === '/' && pathname !== '/') continue
       for (const prefix of [item.to, ...(item.match ?? [])]) {
         const matches = pathname === prefix || pathname.startsWith(`${prefix.replace(/\/$/, '')}/`)
         if (matches && prefix.length > bestLength) {

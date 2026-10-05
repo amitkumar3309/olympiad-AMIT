@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
@@ -9,6 +9,7 @@ import { humanizeError } from '../../lib/errors'
 import {
   CLASS_LEVELS,
   LEADERBOARD_PERIODS,
+  LEADERBOARD_SCOPES,
   LEADERBOARD_PERIOD_LABELS,
   type ClassLevel,
   type LeaderboardPeriod,
@@ -59,8 +60,20 @@ export default function Leaderboard() {
   const ownClass = state.status === 'student' ? state.student.classLevel : null
   const ownStudentId = state.status === 'student' ? state.student.studentId : null
 
-  const [scope, setScope] = useState<LeaderboardScope>('overall')
-  const [period, setPeriod] = useState<LeaderboardPeriod>('all_time')
+  /*
+    A link may name the board to open on — the dashboard's "Today's top 5 → View
+    leaderboard" sends `?scope=class&period=daily` (Milestone 30, Phase 4). Read once, as
+    the starting state; an unknown value is ignored rather than refused.
+  */
+  const [searchParams] = useSearchParams()
+  const [scope, setScope] = useState<LeaderboardScope>(() => {
+    const asked = searchParams.get('scope')
+    return (LEADERBOARD_SCOPES as readonly string[]).includes(asked ?? '') ? (asked as LeaderboardScope) : 'overall'
+  })
+  const [period, setPeriod] = useState<LeaderboardPeriod>(() => {
+    const asked = searchParams.get('period')
+    return (LEADERBOARD_PERIODS as readonly string[]).includes(asked ?? '') ? (asked as LeaderboardPeriod) : 'all_time'
+  })
   const [classLevel, setClassLevel] = useState<ClassLevel>(ownClass ?? 'Class 9')
   const [page, setPage] = useState(1)
 

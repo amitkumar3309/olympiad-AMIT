@@ -5,7 +5,10 @@
   padding-block: var(--space-12);
 }
 
-/* The dashed flight path and its plane, top right of the section on a laptop. */
+/* The dashed flight path and its plane, top right of the section on a laptop. Inset from
+   the section's edge, and the plane kept inside the box: where the section is the full
+   width of the window (900–1100px or so) anything past its edge scrolls the page sideways —
+   the plane did, by 12px at 1024. */
 .flight {
   display: none;
 }
@@ -14,7 +17,7 @@
   .flight {
     position: absolute;
     top: var(--space-8);
-    right: 0;
+    right: var(--space-6);
     display: block;
     width: 380px;
     height: 80px;
@@ -47,7 +50,7 @@
 .plane {
   position: absolute;
   top: -6px;
-  right: -10px;
+  right: 0;
   width: 34px;
   height: 34px;
   color: var(--primary-text);

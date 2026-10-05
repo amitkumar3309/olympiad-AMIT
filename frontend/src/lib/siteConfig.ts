@@ -1,6 +1,7 @@
 /**
  * The homepage's switches, in one typed place (Milestone 30, Phase 3 — brief §3: "keep
- * every tunable in one typed config module — no magic numbers in components").
+ * every tunable in one typed config module — no magic numbers in components"), and since
+ * Phase 4 the student dashboard's too (the daily lines, the motto, how much each card lists).
  *
  * Brand facts (the name, the year, the contact details) live in `lib/brand.ts`; the prize
  * wording and amount are owner-editable in Admin → Daily Quiz → Settings and come from
@@ -41,7 +42,14 @@ export const HOME_STATS = {
 } as const
 
 /** "Can you crack this?" — seconds on the clock once the card is half in view. */
-export const SAMPLE_QUESTION_SECONDS = 30
+export const CRACK_THIS_SECONDS = 30
+
+/**
+ * "Can you crack this?" — how many past Daily Quiz problems per class group "Try another"
+ * steps back through (the server allows 1–14). Only problems whose answers are already
+ * public are ever sent: never today's.
+ */
+export const PAST_PROBLEMS_PER_GROUP = 7
 
 /** How many published Daily Quiz winners the Rewards section shows. */
 export const RECENT_WINNERS = 7
@@ -61,3 +69,47 @@ export const DAILY_QUIZ_FAB = {
 
 /** The hero's quote card. A line of the brand's own, not attributed to a person. */
 export const HERO_QUOTE = 'Small steps in the right direction give big results.'
+
+// ---------------------------------------------------------------------------
+// The student dashboard (Milestone 30, Phase 4 — brief §8)
+// ---------------------------------------------------------------------------
+
+/**
+ * The welcome banner's line of the day — chosen by the server's IST date, so every student
+ * sees the same one all day and a new one at midnight. The brand's own words, attributed
+ * to nobody, like `HERO_QUOTE`.
+ */
+export const DAILY_QUOTES = [
+  'Small steps in the right direction give big results in mathematics.',
+  'Every problem you finish makes the next one a little easier.',
+  'A mistake you understand is worth more than an answer you guessed.',
+  'Ten focused minutes beat an hour of distraction.',
+  'Read the question twice — most answers hide in its words.',
+  'Practice does not make perfect. It makes progress.',
+  'A hard question is a few easy steps you have not found yet.',
+  'Show up today. Tomorrow’s rank is built now.',
+] as const
+
+/**
+ * "Today’s Maths Thought", rotating daily out of step with the quote. Every statement here
+ * is true as written — check a new one before adding it.
+ */
+export const MATHS_THOUGHTS = [
+  'Every difficult problem is simply a collection of smaller problems waiting to be understood.',
+  'There is no largest prime number: however big the one you know, a bigger one exists.',
+  '1 + 2 + 3 + … + 100 = 5050. Pair the first number with the last, and the sum appears.',
+  'A pattern spotted is half a problem solved.',
+  'The angles of a triangle drawn on a flat page always add up to 180°.',
+  'Estimating first tells you when an exact answer has gone wrong.',
+  'If you can explain a solution in plain words, you have understood it.',
+  'A quick diagram is often the fastest way into a geometry problem.',
+] as const
+
+/** The motivational card at the foot of the student sidebar, from 1280px (the mockup's line). */
+export const SIDEBAR_MOTTO = 'Discipline today, a top rank tomorrow.'
+
+/** How many recent events the dashboard's activity card lists ("View all" opens the rest). */
+export const DASHBOARD_ACTIVITY = 3
+
+/** How many chapters "Subject progress" shows — the ones with the most answers. */
+export const DASHBOARD_CHAPTERS = 5

@@ -4,6 +4,103 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-05 — Milestone 30 Phase 4: the student area follows the dashboard mockup
+
+**Context.** The brief's Phase 4 (§8) asks for the student dashboard of the launch mockup: a top bar
+of links with a notification bell and a profile chip, the mockup's sidebar with a motivational card,
+three layouts (from 1280px three columns; 1024–1279px an icon-only sidebar with the right column
+below; under 1024px a drawer and a five-item bottom bar), and eleven widgets, each with a real data
+source and its own loading, empty and error states. The approved plan (PLAN.md §4) said: restyle the
+shell for the student only, "Soon" pills for Previous Papers and Concepts, real exam windows only for
+events (Q6), the nine milestones for the journey (Q7), Lucide on the dashboard (Q11).
+
+**Decision.**
+
+1. **One shell, two variants.** `AppShell` gains a student variant — `topNav`, `headerEnd` (the bell,
+   the theme switch, the account chip), `sidebarFooter`, `headless`, and a lockup brand — and the
+   admin variant is untouched. The student's page `h1` moves from the top bar into the content, above
+   the page; a page that draws its own (the dashboard's welcome banner) passes `headless`.
+2. **The bottom bar reaches 1023px and holds the brief's five**: Home, Quiz, Practice, Leaderboard,
+   Profile. "More" left the bar, and the drawer opens from a burger in the top bar at every width
+   below 1024px.
+3. **A `soon` navigation item is a label, never a link.** CLAUDE.md's rule that every entry points
+   at a built route stands; the approved plan's two "Soon" items are its one exception, and the flag
+   makes them unclickable and never the current page.
+4. **Nothing built becomes unreachable.** The sidebar leads with the mockup's eleven, in its order;
+   the Olympiad itself (exam, fee, result) and the rest (notifications, activity, Hall of Fame, the
+   printable report, referrals) follow in two groups.
+5. **The dashboard payload is reshaped, not merely extended.** `GET /me/dashboard` adds `stats` — XP
+   this week (the weekly board's window), questions solved in total and this week (the homepage
+   figure's definition, for one student), accuracy over the last 30 attempts (raw counts summed;
+   a Daily Quiz answer only once revealed) — and `journey`, `classToday` (today's board for the
+   student's own class and their standing, through the one ranking service), `upcoming` (published
+   exam windows not yet closed), `student.hasPhoto` and `serverNow`. It drops `recentTests` and the
+   overall `leaderboard.top`, which the mockup does not have (the attempt is on `/exam`, the result on
+   `/result`, the board on `/leaderboard`); `getRecentExamPerformance()` went with them.
+6. **The session says whether there is a photo** (`student.hasPhoto` on every auth response), so the
+   chrome never asks for a photograph that does not exist — which was a 404 on every page.
+7. **The bell is a menu of real notices, fetched when opened**, with one derived row the inbox does
+   not hold — "Today's Daily Quiz is live", from the quiz status — which the badge does not count.
+   Choosing a notice marks it read.
+8. **"Chapter progress", not "Subject progress".** The mockup's card is per-chapter accuracy from the
+   analytics derivation (`GET /analytics/:studentId`), named for what it is: nothing may print a
+   subject name in a one-subject olympiad.
+9. **Two shared defects the dashboard exposed, fixed where they live.** `ui/Menu` closed on *any*
+   scroll, so the journey track settling its scroll-snap shut the notification menu a second after it
+   opened; it now closes only for a scroll that can move its trigger. And the router kept the
+   window's scroll depth across a navigation, so signing in from the foot of the homepage opened the
+   dashboard 2,400px down; `components/ScrollToTop` resets it on a new navigation — not on back or
+   forward, and not for a `#fragment`, which the page scrolls to itself.
+
+**Consequences.** Every student page's heading moved from the chrome into the page through one
+change in `AppShell`; no page was edited for it. The mockup's solid blue current item is a tint here
+(a position is not an action — CLAUDE.md). The motivational card sits at the foot of the sidebar's
+own scroll, visible without scrolling on a screen about 1,100px tall, because the sidebar holds
+every built destination rather than the mockup's eleven. The other deviations are in PROGRESS.md.
+
+## 2026-10-05 — "Can you crack this?" is a past Daily Quiz problem: never a demo set, and never today's
+
+**Context.** Phase 3 built the homepage's "Can you crack this?" over 25 hand-written sample questions
+in the frontend (`sampleQuestions.ts`), each answer recomputed by `npm run verify:samples`, with only
+the owner-reviewed Mathematics tab live. On 2026-10-05 the owner reversed that: no demo question on
+the landing page — "it should be a real daily problem".
+
+**Decision.**
+
+1. **The problem is a real Daily Quiz, from a day whose answer is already public.**
+   `GET /daily-quiz/past` returns the most recent revealed quizzes per class group (Classes 3–5 / 6–8 /
+   9–12), newest first, one entry per quiz, a week by default and a fortnight at most. The homepage's
+   tabs are those groups; a signed-in student opens on their own. A quiz set for a custom range
+   appears under every group it overlaps, labelled with its own range.
+2. **Never today's.** Today's quiz is the prize question. Its solve time starts at Start, so a public
+   copy would let anybody read it, work it out, then start and answer in a second — the
+   fastest-correct rule would reward whoever read the homepage first — and its answer is not public
+   until midnight. Every problem passes through `revealOf()`: the query asks only for earlier days,
+   and the gate makes that a guarantee rather than an assumption. The answer-key leak test now
+   stringifies this endpoint too, and a test stands at 23:59:59.
+3. **It answers at once, because the answer is public.** The response carries the answer and the
+   worked solution, and the page marks the reader's choice itself. Nothing is submitted and nothing is
+   stored: a visitor's guess at a revealed problem is not an attempt, earns nothing and counts nowhere.
+4. **Display letters, in a fixed public order.** No opaque option id and no bank key leave the server
+   — a reader has no use for either. The order is a shuffle seeded by the quiz (`seededOrder()`), not
+   the author's original order, in which many authors put the right answer in the same place; and it
+   is the same on every request, so a cached copy and a fresh one agree.
+5. **An honest empty state.** Until the first quiz is revealed — which on launch day itself it will
+   not be — the section says each problem appears once its answer unlocks at midnight, and points at
+   today's quiz. Nothing fills the gap.
+6. **The demo set is deleted**: `sampleQuestions.ts`, `scripts/verify-sample-questions.ts`,
+   `npm run verify:samples` and `docs/launch/SAMPLE_QUESTIONS.md`. What stands behind a homepage
+   problem now is what stands behind the quiz: `quizQuestionProblem()` (single choice, exactly one
+   correct option, a worked solution) and the person who scheduled it. This supersedes point 7 of the
+   Phase 3 ADR below, and PLAN.md Q8.
+
+**Consequences.** The endpoint is cached publicly (`max-age=300, s-maxage=600`), which is safe
+because a response holds only days revealed when it was built and a reveal never un-happens — a stale
+copy can only be missing the newest day; the header is set only after the work succeeds, so a failure
+is never cached. The class-group tabs are a row above the problem at every width: the mockup's left
+column of tabs took 200px from the question at 1024px, and four answer tiles in what was left broke
+"48" one digit per line. The 30-second clock stays (`CRACK_THIS_SECONDS`), now over real problems.
+
 ## 2026-10-04 — Milestone 30 Phase 3: the homepage is composed from configuration, and the way into the quiz keeps its destination
 
 **Context.** The brief's Phase 3 (§7) rebuilds the homepage to the landing mockup, adds a floating
@@ -39,7 +136,8 @@ and the contact details (Q9).
    no school or city. The profile switch from Phase 2 had been honoured by the winners list only.
 7. **Sample questions are verified by a script, and published by a person.** Every answer is
    recomputed independently (`npm run verify:samples`, Node's own TypeScript support — no dependency);
-   a tab appears only with five owner-reviewed questions.
+   a tab appears only with five owner-reviewed questions. *Superseded 2026-10-05: the homepage shows
+   past Daily Quiz problems instead, and the sample set is deleted — see the ADR above.*
 8. **Legal pages are drafts that invent nothing.** Written from what the code collects and does; no
    refund window, organiser address or jurisdiction. Each is `TODO(legal-review)`, with the open
    questions in `docs/launch/LEGAL_REVIEW.md`. The rules page fetches the winner rule and the prize

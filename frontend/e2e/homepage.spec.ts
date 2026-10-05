@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test'
-import { E2E_STUDENT, TINY_JPEG, fillSignIn, lastVerificationLink, resetBackend, seedQuiz } from './fixtures.ts'
+import { BACKEND, E2E_STUDENT, TINY_JPEG, advanceDays, fillSignIn, lastVerificationLink, resetBackend, seedQuiz } from './fixtures.ts'
 
 /**
  * The homepage's way into the Daily Quiz (Milestone 30, Phase 3 — brief §7.3), end to end, at
@@ -9,7 +9,8 @@ import { E2E_STUDENT, TINY_JPEG, fillSignIn, lastVerificationLink, resetBackend,
  *  - a guest presses the floating button, meets the Login Gate, signs in, and lands on the quiz;
  *  - a new student goes gate → "Create free account" → registers → opens the link in their
  *    verification email → signs in → lands on the quiz, the destination kept the whole way;
- *  - a guest who opens a signed-in page is asked to sign in and taken back to it (D2).
+ *  - a guest who opens a signed-in page is asked to sign in and taken back to it (D2);
+ *  - "Can you crack this?" is a real Daily Quiz problem once its answer is public, never today's.
  *
  * Reduced motion is on so the floating button holds still — its idle float would otherwise keep
  * it from ever being "stable" enough to click — which also exercises the reduced-motion styles.
@@ -92,11 +93,35 @@ test('a guest opening a signed-in page is asked to sign in, then taken back to i
   await page.waitForURL('**/practice')
 })
 
+test('“Can you crack this?” is a real Daily Quiz problem once its answer is public — never today’s', async ({ page, request }) => {
+  await seedQuiz(request)
+
+  // While the quiz is live it is a prize question, and the homepage's source does not have it.
+  // Asked of the API rather than the page, so the browser never caches the empty answer.
+  const live = await request.get(`${BACKEND}/api/v1/daily-quiz/past`)
+  expect(live.ok()).toBe(true)
+  expect(JSON.stringify(await live.json())).not.toContain('What is the value of')
+
+  // The next day its answer is public, and it is the problem on the homepage — marked at once.
+  await advanceDays(request, 1)
+  await page.goto('/')
+  const card = page.getByRole('region', { name: 'Can you crack this?' })
+  await expect(card).toContainText('What is the value of')
+  await expect(card).toContainText('Classes 9–12')
+  await card.locator('label').filter({ has: page.getByRole('radio', { name: '32', exact: true }) }).click()
+  await card.getByRole('button', { name: 'Submit answer' }).click()
+  await expect(card).toContainText('Correct — well cracked!')
+  await expect(card).toContainText('Solution')
+  await expect(card.getByRole('button', { name: 'Play today’s Daily Quiz and win prizes' })).toBeVisible()
+})
+
 test('the homepage renders every section without scrolling sideways', async ({ page }) => {
   await page.goto('/')
   for (const heading of ['Can you crack this?', 'Four ways to prepare, all of them free', 'From registering to being ranked', 'Top Scholars', 'Before you register', 'Ready to sit the paper?']) {
     await expect(page.getByRole('heading', { name: heading })).toBeVisible()
   }
+  // Nothing has been revealed on an empty database: the section says so instead of inventing a question.
+  await expect(page.getByText('the first is on its way')).toBeVisible()
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
 })

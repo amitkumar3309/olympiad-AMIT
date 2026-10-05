@@ -8,8 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "e2e": "playwright test",
-    "verify:samples": "node scripts/verify-sample-questions.ts"
+    "e2e": "playwright test"
   },
   "dependencies": {
     "chart.js": "^4.5.1",

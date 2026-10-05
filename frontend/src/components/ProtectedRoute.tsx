@@ -1,9 +1,16 @@
+import { lazy } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import type { Permission } from '../api/types'
 import Spinner from './Spinner'
 import Unauthorized from './Unauthorized'
-import StudentShell from './StudentShell'
+/**
+ * Lazily, like every page that uses it (Milestone 30, Phase 4): imported eagerly here it put
+ * the whole student shell — the bell, the account menu, the navigation — into the main
+ * bundle every visitor downloads before the homepage paints. Only an unpaid student opening
+ * a paid page reaches it, and the route-level `Suspense` covers the moment it loads.
+ */
+const StudentShell = lazy(() => import('./StudentShell'))
 import EntryFeeRequired from './EntryFeeRequired'
 import { safeNext, signInHref } from '../lib/nextPath'
 

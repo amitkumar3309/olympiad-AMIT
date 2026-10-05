@@ -17,17 +17,23 @@ import styles from './AppShell.module.css'
  * removed from the tab order while off-screen. There is now one implementation and two
  * navigation models (`navigation.ts`).
  *
- * ## Three layouts, not one that shrinks
+ * ## The two variants (Milestone 30, Phase 4)
+ *
+ * The **admin** variant is unchanged since Phase B: a permanent sidebar from 1024px, a
+ * burger below it, and the page's `h1` in the top bar.
+ *
+ * The **student** variant follows the launch dashboard mockup (brief §8):
  *
  * | Width | Navigation |
  * |---|---|
- * | `< 768px` | Student: a **bottom bar** of four destinations plus More. Admin: a burger. Either way the drawer holds everything. |
- * | `768–1023px` | A burger in the topbar opening the same drawer. No bottom bar — a tablet is not held one-handed. |
- * | `≥ 1024px` | A permanent sidebar. No burger, no bottom bar. |
+ * | `< 1024px` | A **bottom bar** of five destinations, and a burger in the top bar for the drawer, which holds everything. |
+ * | `1024–1279px` | The sidebar as an **icon-only rail**, and the top bar's links. |
+ * | `≥ 1280px` | The full sidebar, with its motivational card, and the top bar's links. |
  *
- * The permanent sidebar starts at 1024px rather than 768px (where it used to) because
- * the admin area is full of wide tables and a 264px sidebar on a 768px screen leaves
- * 500px for them.
+ * Its top bar is chrome — the brand (below 1024px), the links, then `headerEnd` (the
+ * notification bell, the theme switch and the account chip, which `StudentShell`
+ * supplies) — and the page's `h1` moves into the content, above the page. A page that
+ * draws its own `h1` (the dashboard's welcome banner) passes `headless`.
  *
  * ## Why the sidebar and the drawer are two elements
  *
@@ -53,7 +59,8 @@ import styles from './AppShell.module.css'
  * **mounted only while it is open**, like a modal. Nothing about correctness now
  * depends on an event arriving. The one thing that still uses a media query is closing
  * an open drawer when the window is widened past the breakpoint, and if that fails the
- * CSS has already hidden it.
+ * CSS has already hidden it. The rail is the same sidebar with its words visually
+ * hidden — still in the accessibility tree, so each link keeps its name.
  *
  * ## `focus`
  *
@@ -64,17 +71,28 @@ import styles from './AppShell.module.css'
  */
 
 export interface AppShellProps {
-  /** Which navigation model this is. Only `student` gets a bottom bar. */
+  /** Which navigation model this is. Only `student` gets a bottom bar and a top bar of links. */
   variant: 'student' | 'admin'
   groups: NavGroup[]
-  brand: { label: string; to: string }
-  /** Destinations for the mobile bottom bar. Student only; a fifth "More" slot is
-   *  appended by the shell. */
+  /**
+   * `logo` and `tagline` draw the student variant's lockup (the emblem, the name, "Think •
+   * Solve • Grow"); without them the brand is a glyph in a tile, as the admin area has it.
+   */
+  brand: { label: string; to: string; logo?: string; tagline?: string; title?: string }
+  /** Destinations for the mobile bottom bar. Student only. */
   bottomNav?: NavItem[]
+  /** Student: the top bar's links, from 1024px. */
+  topNav?: NavItem[]
+  /** Student: the end of the top bar — the bell, the theme switch, the account chip. */
+  headerEnd?: ReactNode
+  /** Student: the foot of the full sidebar (from 1280px) — the motivational card. */
+  sidebarFooter?: ReactNode
   title: ReactNode
   subtitle?: ReactNode
   /** Page-level actions, beside the title on desktop and under it on a phone. */
   actions?: ReactNode
+  /** Student: the page draws its own `h1`, so the shell draws none. */
+  headless?: boolean
   /** The signed-in identity block, shown at the foot of the navigation. */
   identity?: ReactNode
   /** Unread notifications, for the badge on the item that declares `badge: 'unread'`. */
@@ -91,9 +109,13 @@ export default function AppShell({
   groups,
   brand,
   bottomNav,
+  topNav,
+  headerEnd,
+  sidebarFooter,
   title,
   subtitle,
   actions,
+  headless,
   identity,
   unread = 0,
   hasPaid = true,
@@ -109,8 +131,9 @@ export default function AppShell({
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   const openerRef = useRef<HTMLElement | null>(null)
 
+  const isStudent = variant === 'student'
   const activeItem = findActiveItem(pathname, groups)
-  const showBottomNav = variant === 'student' && bottomNav && bottomNav.length > 0 && !focus
+  const showBottomNav = isStudent && bottomNav && bottomNav.length > 0 && !focus
 
   const openDrawer = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     openerRef.current = event.currentTarget
@@ -215,6 +238,22 @@ export default function AppShell({
   }
 
   function renderItem(item: NavItem, onNavigate?: () => void) {
+    /*
+      A `soon` item is a label, never a link (Milestone 30, Phase 4): it names something
+      the launch plan promises without leading anywhere that does not exist.
+    */
+    if (item.soon) {
+      return (
+        <li key={item.to}>
+          <span className={styles.itemSoon} title={isStudent ? `${item.label} — coming soon` : undefined}>
+            <Icon name={item.icon} weight="bold" size="sm" />
+            <span className={styles.itemLabel}>{item.label}</span>
+            <span className={styles.soonPill}>Soon</span>
+          </span>
+        </li>
+      )
+    }
+
     const current = item === activeItem
     const locked = Boolean(item.paid) && !hasPaid
     const showUnread = item.badge === 'unread' && unread > 0
@@ -226,6 +265,9 @@ export default function AppShell({
           className={current ? styles.itemActive : styles.item}
           aria-current={current ? 'page' : undefined}
           onClick={onNavigate}
+          // For the icon-only rail (1024–1279px), where the words are visually hidden.
+          // A bonus for a mouse only: the link's name is its text, which is still there.
+          title={isStudent ? item.label : undefined}
         >
           <Icon name={item.icon} weight="bold" size="sm" />
           <span className={styles.itemLabel}>{item.label}</span>
@@ -245,6 +287,47 @@ export default function AppShell({
     )
   }
 
+  /** The brand: the student lockup (emblem, name, tagline) or the admin's glyph tile. */
+  function brandMark(onClick?: () => void, compact = false) {
+    return (
+      <Link
+        to={brand.to}
+        className={brand.logo ? styles.brandLockup : styles.brand}
+        onClick={onClick}
+        title={brand.title}
+        aria-label={compact ? brand.label : undefined}
+      >
+        {brand.logo ? (
+          <>
+            {/* Decoration beside the wordmark — the link's own text is its name. */}
+            <img src={brand.logo} alt="" aria-hidden="true" className={styles.brandLogo} />
+            {!compact && (
+              <span className={styles.brandText}>
+                <span className={styles.brandName}>{brand.label}</span>
+                {brand.tagline && (
+                  <span className={styles.brandTagline} aria-hidden="true">
+                    {brand.tagline}
+                  </span>
+                )}
+              </span>
+            )}
+          </>
+        ) : (
+          <>
+            {/* The glyph sits in a near-black tile — ink rather than a colour, because
+                the accent hues mark categories and never the product itself. Decoration
+                beside the wordmark, so it is hidden from assistive technology; the
+                link's own text is its name. */}
+            <span className={styles.brandMark} aria-hidden="true">
+              <Icon name={variant === 'admin' ? 'ph-shield-check' : 'ph-graduation-cap'} weight="bold" size="sm" />
+            </span>
+            <span>{brand.label}</span>
+          </>
+        )}
+      </Link>
+    )
+  }
+
   /**
    * The navigation, rendered into either the permanent sidebar or the drawer.
    *
@@ -256,20 +339,7 @@ export default function AppShell({
     return (
       <>
         <div className={styles.panelHead}>
-          <Link to={brand.to} className={styles.brand} onClick={inDrawer ? closeDrawer : undefined}>
-            {/* The glyph sits in a near-black tile — ink rather than a colour, because
-                the accent hues mark categories and never the product itself. Decoration
-                beside the wordmark, so it is hidden from assistive technology; the
-                link's own text is its name. */}
-            <span className={styles.brandMark} aria-hidden="true">
-              <Icon
-                name={variant === 'admin' ? 'ph-shield-check' : 'ph-graduation-cap'}
-                weight="bold"
-                size="sm"
-              />
-            </span>
-            <span>{brand.label}</span>
-          </Link>
+          {brandMark(inDrawer ? closeDrawer : undefined)}
           {inDrawer && (
             <button
               ref={closeButtonRef}
@@ -297,32 +367,43 @@ export default function AppShell({
               </div>
             ))}
           </nav>
+          {/* The student's motivational card, in the full sidebar only — not the rail
+              and not the drawer, where it would push the links off a phone's screen. */}
+          {!inDrawer && sidebarFooter && <div className={styles.sidebarFooter}>{sidebarFooter}</div>}
         </div>
 
         <div className={styles.panelFoot}>
           {identity}
           <DeveloperCredit variant="compact" className={styles.credit} />
-          <div className={styles.panelActions}>
-            <ThemeToggle />
-            <button type="button" className={styles.logout} onClick={() => void handleLogout()}>
-              <Icon name="ph-sign-out" weight="bold" size="sm" />
-              <span>Sign out</span>
-            </button>
-          </div>
+          {/* The student's sign-out and theme switch live in the top bar's account menu
+              from 1024px; the drawer keeps them, because on a phone it is "everything". */}
+          {(!isStudent || inDrawer) && (
+            <div className={styles.panelActions}>
+              <ThemeToggle />
+              <button type="button" className={styles.logout} onClick={() => void handleLogout()}>
+                <Icon name="ph-sign-out" weight="bold" size="sm" />
+                <span>Sign out</span>
+              </button>
+            </div>
+          )}
         </div>
       </>
     )
   }
 
+  const shellClasses = [styles.shell, isStudent ? styles.student : '', showBottomNav ? styles.withBottomNav : '']
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className={`${styles.shell} ${showBottomNav ? styles.withBottomNav : ''}`}>
+    <div className={shellClasses}>
       {/* First focusable thing on the page: 30-odd navigation links otherwise stand
           between a keyboard user and the content, on every page. */}
       <a href="#main-content" className={styles.skipLink}>
         Skip to content
       </a>
 
-      {/* Permanent from 1024px, `display: none` below it. */}
+      {/* Permanent from 1024px (a rail until 1280px for the student), `display: none` below it. */}
       <aside className={styles.sidebar} aria-label="Main navigation">
         {navPanel(false)}
       </aside>
@@ -339,28 +420,57 @@ export default function AppShell({
             <Icon name="ph-list" weight="bold" size="md" />
           </button>
 
-          <div className={styles.titles}>
-            <h1 className={styles.title}>{title}</h1>
-            {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
-          </div>
+          {isStudent ? (
+            <>
+              {/* The emblem alone, below 1024px — the sidebar carries the lockup above it. */}
+              <span className={styles.topBrand}>{brandMark(undefined, true)}</span>
 
-          {actions && <div className={styles.actions}>{actions}</div>}
+              {topNav && topNav.length > 0 && (
+                <nav className={styles.topNav} aria-label="Quick links">
+                  <ul>
+                    {topNav.map((item) => {
+                      const current = findActiveItem(pathname, [{ items: topNav }]) === item
+                      return (
+                        <li key={item.to}>
+                          <Link
+                            to={item.to}
+                            className={current ? styles.topLinkActive : styles.topLink}
+                            aria-current={current ? 'page' : undefined}
+                          >
+                            {item.label}
+                          </Link>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </nav>
+              )}
 
-          {/* Notifications are in the drawer on a phone, so the bell is the one thing
-              lifted out of it — an unread count nobody can see is not a count. */}
-          {variant === 'student' && (
-            <Link
-              to="/notifications"
-              className={styles.bell}
-              aria-label={`Notifications${unread > 0 ? `, ${unread} unread` : ''}`}
-            >
-              <Icon name={unread > 0 ? 'ph-bell-ringing' : 'ph-bell'} weight="bold" size="md" />
-              {unread > 0 && <span className={styles.bellDot} aria-hidden="true" />}
-            </Link>
+              <div className={styles.headerEnd}>{headerEnd}</div>
+            </>
+          ) : (
+            <>
+              <div className={styles.titles}>
+                <h1 className={styles.title}>{title}</h1>
+                {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+              </div>
+
+              {actions && <div className={styles.actions}>{actions}</div>}
+            </>
           )}
         </header>
 
         <main id="main-content" className={styles.content}>
+          {/* The student's page heading lives with the page, not in the chrome. */}
+          {isStudent && !headless && (
+            <div className={styles.pageHead}>
+              <div className={styles.titles}>
+                <h1 className={styles.pageTitle}>{title}</h1>
+                {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+              </div>
+              {actions && <div className={styles.actions}>{actions}</div>}
+            </div>
+          )}
           {children}
         </main>
       </div>
@@ -373,13 +483,7 @@ export default function AppShell({
       {drawerOpen && (
         <>
           <div className={styles.backdrop} onClick={closeDrawer} aria-hidden="true" />
-          <div
-            ref={drawerRef}
-            className={styles.drawer}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Menu"
-          >
+          <div ref={drawerRef} className={styles.drawer} role="dialog" aria-modal="true" aria-label="Menu">
             {navPanel(true)}
           </div>
         </>
@@ -401,13 +505,6 @@ export default function AppShell({
               </Link>
             )
           })}
-          <button type="button" className={styles.bottomItem} onClick={openDrawer} aria-expanded={drawerOpen}>
-            <span className={styles.bottomMore}>
-              <Icon name="ph-list" weight="bold" size="md" />
-              {unread > 0 && <span className={styles.bellDot} aria-hidden="true" />}
-            </span>
-            <span>More</span>
-          </button>
         </nav>
       )}
     </div>

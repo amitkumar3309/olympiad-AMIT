@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import app from '../src/app';
-import { DailyChallengeAttempt, MockTestAttempt, PracticeSession, Student, StudentActivity } from '../src/models';
+import { DailyChallengeAttempt, MockTestAttempt, PracticeSession, Student, StudentActivity, StudentPhoto } from '../src/models';
 import { dayKeyOf, daysBetween, isDayKey, shiftDay, todayKey } from '../src/lib/competitionDay';
 import { levelProgressFor, XP_AWARDS } from '../src/lib/xp';
 import { summariseAchievements } from '../src/lib/achievements';
@@ -357,19 +357,6 @@ describe('GET /me/dashboard', () => {
     );
   });
 
-  it('reports no test performance at all, rather than sample results', async () => {
-    const { cookies } = await registerVerifyLogin(app);
-    const dashboard = await loadDashboard(cookies);
-
-    // Nothing in the product writes an ExamAttempt yet, so the honest answer is an
-    // empty list and the UI shows its empty state. This asserts the panel is empty
-    // *and* that no placeholder score leaked in.
-    expect(dashboard.recentTests).toEqual([]);
-    const serialised = JSON.stringify(dashboard.recentTests);
-    expect(serialised).not.toContain('accuracy');
-    expect(serialised).not.toContain('score');
-  });
-
   it('does not contain any of the invented figures this milestone removed', async () => {
     const { cookies } = await registerVerifyLogin(app);
     const dashboard = await loadDashboard(cookies);
@@ -400,13 +387,162 @@ describe('GET /me/dashboard', () => {
     expect(dashboard.leaderboard.me.rank).toBe(1);
     expect(dashboard.leaderboard.me.xp).toBe(NEW_ACCOUNT_XP);
     expect(dashboard.leaderboard.me.totalRanked).toBe(1);
-    expect(dashboard.leaderboard.top).toHaveLength(1);
   });
 
   it('shows an empty challenge list when the question bank has nothing for the class', async () => {
     const { cookies } = await registerVerifyLogin(app);
     const dashboard = await loadDashboard(cookies);
     expect(dashboard.challenges).toEqual([]);
+  });
+});
+
+// ===========================================================================
+// The launch dashboard's figures (Milestone 30, Phase 4)
+// ===========================================================================
+
+describe('GET /me/dashboard — the launch figures', () => {
+  const quizAnswer = (student: mongoose.Types.ObjectId, day: string, isCorrect: boolean, submittedAt = new Date()) =>
+    DailyChallengeAttempt.create({
+      challenge: new mongoose.Types.ObjectId(),
+      student,
+      day,
+      answer: {
+        question: new mongoose.Types.ObjectId(),
+        revision: 1,
+        type: 'single_choice',
+        marks: 1,
+        negativeMarks: 0,
+        correctOptionKeys: ['a'],
+        selectedOptionKeys: [isCorrect ? 'a' : 'b'],
+        isCorrect,
+        awardedMarks: isCorrect ? 1 : 0,
+      },
+      xpAwarded: 0,
+      submittedAt,
+    });
+
+  /** A submitted practice session with `correct` of `answered` right, out of `served`. */
+  const practice = (student: mongoose.Types.ObjectId, correct: number, answered: number, submittedAt = new Date(), served = answered) =>
+    PracticeSession.create({
+      student,
+      filters: { classLevel: 'Class 9' },
+      totalQuestions: served,
+      unansweredCount: served - answered,
+      maxMarks: served * 4,
+      status: 'submitted',
+      submittedAt,
+      correctCount: correct,
+    });
+
+  it('tells a new student the truth: XP this week, nothing solved, no accuracy yet, the journey started', async () => {
+    const { cookies } = await registerVerifyLogin(app);
+    const dashboard = await loadDashboard(cookies);
+
+    // Every XP a new account has was earned today, so all of it is "this week".
+    expect(dashboard.stats.xpThisWeek).toBe(NEW_ACCOUNT_XP);
+    expect(dashboard.stats.questionsSolved).toEqual({ total: 0, thisWeek: 0 });
+    // Null, not zero: "answered nothing" is not "answered everything wrong".
+    expect(dashboard.stats.accuracy).toEqual({ percent: null, correct: 0, answered: 0, attempts: 0, window: 30 });
+    expect(dashboard.journey.stages).toHaveLength(JOURNEY_STAGES.length);
+    expect(dashboard.journey.stages[0].complete).toBe(true);
+    expect(dashboard.journey.currentStageId).not.toBeNull();
+    expect(dashboard.student.hasPhoto).toBe(true);
+    expect(dashboard.upcoming).toEqual([]);
+    // The panels the mockup does not have are gone from the payload too.
+    expect(dashboard.recentTests).toBeUndefined();
+    expect(dashboard.leaderboard.top).toBeUndefined();
+  });
+
+  it('counts the student’s own questions solved — this week by submission, and a Daily Quiz only once revealed', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const { studentId: otherId } = await registerVerifyLogin(app, otherStudent);
+    const me = await objectIdOf(studentId);
+    const today = todayKey();
+
+    await practice(me, 3, 5); // this week
+    await practice(me, 2, 4, new Date(Date.now() - 10 * 86_400_000)); // ten days ago: total only
+    await practice(await objectIdOf(otherId), 7, 7); // somebody else's
+    await quizAnswer(me, shiftDay(today, 1), true); // yesterday's, revealed: both
+    await quizAnswer(me, shiftDay(today, 2), false); // wrong: neither
+    await quizAnswer(me, today, true); // today's, not revealed yet: neither
+
+    const dashboard = await loadDashboard(cookies);
+    expect(dashboard.stats.questionsSolved).toEqual({ total: 3 + 2 + 1, thisWeek: 3 + 1 });
+  });
+
+  it('measures accuracy over the last 30 attempts by summing raw counts, never averaging percentages', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const me = await objectIdOf(studentId);
+
+    await practice(me, 1, 1, new Date(Date.now() - 2000));
+    await practice(me, 1, 9, new Date(Date.now() - 1000));
+    // In progress: nothing on it has been marked, so it is not an attempt yet.
+    await PracticeSession.create({ student: me, filters: { classLevel: 'Class 9' }, totalQuestions: 5, maxMarks: 20, status: 'in_progress', correctCount: 5 });
+
+    const dashboard = await loadDashboard(cookies);
+    // 2 of 10 is 20%. The average of 100% and 11.1% would be 55.6%.
+    expect(dashboard.stats.accuracy).toMatchObject({ percent: 20, correct: 2, answered: 10, attempts: 2 });
+  });
+
+  it('keeps only the most recent 30 attempts in the accuracy window', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const me = await objectIdOf(studentId);
+    const base = Date.now() - 60 * 60_000;
+
+    // The oldest attempt is all wrong; the thirty after it are all right.
+    await practice(me, 0, 10, new Date(base));
+    for (let i = 1; i <= 30; i += 1) await quizAnswer(me, shiftDay(todayKey(), 31 - i + 1), true, new Date(base + i * 1000));
+
+    const dashboard = await loadDashboard(cookies);
+    expect(dashboard.stats.accuracy).toMatchObject({ percent: 100, correct: 30, answered: 30, attempts: 30 });
+  });
+
+  it('shows today’s board for the student’s own class, with their own standing', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const { studentId: classmateId } = await registerVerifyLogin(app, otherStudent);
+    await registerVerifyLogin(app, { ...otherStudent, mobile: '9000000777', email: 'seventh@example.com', classLevel: 'Class 7' });
+
+    const dashboard = await loadDashboard(cookies);
+    expect(dashboard.classToday.classLevel).toBe('Class 9');
+    const ids = dashboard.classToday.rows.map((row: { studentId: string }) => row.studentId);
+    expect(ids.sort()).toEqual([classmateId, studentId].sort());
+    // Everybody's XP today is the same three events, so the two share first place.
+    expect(dashboard.classToday.rows.every((row: { rank: number }) => row.rank === 1)).toBe(true);
+    expect(dashboard.classToday.me).toMatchObject({ rank: 1, xp: NEW_ACCOUNT_XP, totalRanked: 2 });
+  });
+
+  it('lists only real exam windows still to come for the student’s class', async () => {
+    const { cookies: adminCookies } = await createAdminSession(app, {
+      firstName: 'Staff',
+      lastName: 'Member',
+      mobile: '9000000001',
+      email: 'staff@example.com',
+    });
+    const hour = 60 * 60 * 1000;
+    const soon = await seedExam(app, adminCookies, { opensAt: new Date(Date.now() + 2 * hour), closesAt: new Date(Date.now() + 5 * hour) });
+    const open = await seedExam(app, adminCookies, { opensAt: new Date(Date.now() - hour), closesAt: new Date(Date.now() + hour) });
+    await seedExam(app, adminCookies); // closed an hour ago
+    await seedExam(app, adminCookies, { classLevel: 'Class 7', opensAt: new Date(Date.now() + hour), closesAt: new Date(Date.now() + 2 * hour) });
+    await seedExam(app, adminCookies, { status: 'draft', opensAt: new Date(Date.now() + hour), closesAt: new Date(Date.now() + 2 * hour) });
+
+    const { cookies } = await registerVerifyLogin(app);
+    const dashboard = await loadDashboard(cookies);
+    expect(dashboard.upcoming.map((row: { id: string }) => row.id)).toEqual([String(open.exam._id), String(soon.exam._id)]);
+    expect(dashboard.upcoming[0]).toMatchObject({ isOpen: true, title: open.exam.title });
+    expect(dashboard.upcoming[1].isOpen).toBe(false);
+    // Never a question on it.
+    expect(JSON.stringify(dashboard.upcoming)).not.toContain('question');
+  });
+
+  it('says on the session whether the account has a photo, so the app never asks for one that is missing', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const me = await request(app).get(`${API}/auth/me`).set('Cookie', cookieHeader(cookies)).expect(200);
+    expect(me.body.student.hasPhoto).toBe(true);
+
+    await StudentPhoto.deleteMany({ student: await objectIdOf(studentId) });
+    const without = await request(app).get(`${API}/auth/me`).set('Cookie', cookieHeader(cookies)).expect(200);
+    expect(without.body.student.hasPhoto).toBe(false);
+    expect((await loadDashboard(cookies)).student.hasPhoto).toBe(false);
   });
 });
 

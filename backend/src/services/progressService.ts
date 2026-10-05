@@ -1,5 +1,5 @@
 import type { PipelineStage, Types } from 'mongoose';
-import { daysBetween, shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
+import { dayStartsAt, daysBetween, shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
 import { levelProgressFor, type LevelProgress } from '../lib/xp';
 import {
   DailyChallengeAttempt,
@@ -214,45 +214,64 @@ export async function getXpByDay(student: Types.ObjectId, days = 30, today: DayK
   return rows.map((row) => ({ day: row._id, xp: row.xp }));
 }
 
+// The dashboard's "Recent test performance" panel and its `getRecentExamPerformance()`
+// were removed in Milestone 30 Phase 4: the redesigned dashboard follows the launch
+// mockup, which has no such panel, and an official attempt is listed on `/exam` and its
+// result on `/result`. Its accuracy still counts in `getRecentAccuracy()`.
+
 // ---------------------------------------------------------------------------
-// Exam performance
+// One student's questions solved (Milestone 30, Phase 4)
 // ---------------------------------------------------------------------------
 
-export interface ExamPerformanceView {
-  id: string;
-  submittedAt: Date | null;
-  totalScore: number;
-  accuracy: number;
-  timeTakenSeconds: number;
-  questionCount: number;
+export interface SolvedCount {
+  total: number;
+  /** Solved in the last seven competition days, today included — the weekly board's window. */
+  thisWeek: number;
+}
+
+interface SolvedRow {
+  total: number;
+  thisWeek: number;
 }
 
 /**
- * Recent submitted official-exam attempts.
+ * "Questions solved" on a student's dashboard: the homepage figure's definition
+ * (`countQuestionsSolved()`), restricted to one student — every question answered
+ * **correctly** across practice, mock tests, the official Olympiad and the Daily Quiz,
+ * and a Daily Quiz answer only once its day is revealed, so the figure cannot move the
+ * moment today's answer lands.
  *
- * **This panel is real as of Milestone 13.** It used to be a live query against a
- * collection nothing wrote to, deliberately left un-faked so it would start working
- * the moment exam submission existed. That has now happened, and this was updated to
- * the rewritten `ExamAttempt` shape at the same time: an ObjectId `student` reference
- * instead of the old string `studentId`, and `submittedAt`/`score` instead of
- * `endTime`/`totalScore`.
- *
- * It shows the *attempt*, not the result — so a paper that has been sat but whose
- * results the organisers have not yet released still appears here to its own author,
- * which is correct: the student knows they sat it. Rank and percentile come from
- * `Result` and only after publication.
+ * "This week" is the weekly leaderboard's window — the last seven IST days, today
+ * included — so "+25 this week" and the weekly board describe the same days. A paper
+ * counts in the week it was **submitted**, which is when it was marked.
  */
-export async function getRecentExamPerformance(student: Types.ObjectId, limit: number): Promise<ExamPerformanceView[]> {
-  const attempts = await ExamAttempt.find({ student, status: 'submitted' }).sort({ submittedAt: -1 }).limit(limit);
+export async function questionsSolvedBy(student: Types.ObjectId, today: DayKey = todayKey()): Promise<SolvedCount> {
+  const weekFrom = shiftDay(today, 6);
+  const weekStart = dayStartsAt(weekFrom);
+  const papers: PipelineStage[] = [
+    { $match: { student, status: 'submitted' } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: '$correctCount' },
+        thisWeek: { $sum: { $cond: [{ $gte: ['$submittedAt', weekStart] }, '$correctCount', 0] } },
+      },
+    },
+  ];
 
-  return attempts.map((attempt) => ({
-    id: String(attempt._id),
-    submittedAt: attempt.submittedAt ?? null,
-    totalScore: attempt.score,
-    accuracy: attempt.accuracy,
-    timeTakenSeconds: attempt.timeTakenSeconds,
-    questionCount: attempt.totalQuestions,
-  }));
+  const [practice, mock, exam, quizTotal, quizThisWeek] = await Promise.all([
+    PracticeSession.aggregate<SolvedRow>(papers),
+    MockTestAttempt.aggregate<SolvedRow>(papers),
+    ExamAttempt.aggregate<SolvedRow>(papers),
+    DailyChallengeAttempt.countDocuments({ student, 'answer.isCorrect': true, day: { $lt: today } }),
+    DailyChallengeAttempt.countDocuments({ student, 'answer.isCorrect': true, day: { $gte: weekFrom, $lt: today } }),
+  ]);
+
+  const rows = [practice[0], mock[0], exam[0]];
+  return {
+    total: rows.reduce((n, row) => n + (row?.total ?? 0), 0) + quizTotal,
+    thisWeek: rows.reduce((n, row) => n + (row?.thisWeek ?? 0), 0) + quizThisWeek,
+  };
 }
 
 // ---------------------------------------------------------------------------

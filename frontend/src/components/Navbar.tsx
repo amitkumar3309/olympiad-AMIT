@@ -191,8 +191,9 @@ export default function Navbar() {
               <>
                 <Avatar
                   name={state.student.fullName || firstName || 'Student'}
-                  // Their own photo — other students only ever get initials.
-                  src={`/api/v1/students/${state.student.studentId}/photo`}
+                  // Their own photo — other students only ever get initials — and only
+                  // when the session says one exists, so a missing one is not a 404.
+                  src={state.student.hasPhoto ? `/api/v1/students/${state.student.studentId}/photo` : null}
                   size="sm"
                   decorative
                 />

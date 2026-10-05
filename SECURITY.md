@@ -630,9 +630,16 @@ Real prizes, including cash, raise the value of every shortcut. What the quiz de
    nothing before the quiz's `revealAt` (the next IST midnight). The question appears only after
    Start, options carry opaque random ids (`o` + 10 hex) in a per-student order, and the bank's
    `a/b/c/d` keys never leave the server. `tests/dailyQuiz.test.ts` stringifies every student
-   response — today's state, Start, submit, history and both public routes — at noon, at 23:59:59
-   and at midnight, and requires the key and the solution to be absent before and present after.
-   The client bundle contains field *names*, never data.
+   response — today's state, Start, submit, history and the three public routes — at noon, at
+   23:59:59 and at midnight, and requires the key and the solution to be absent before and present
+   after. The client bundle contains field *names*, never data.
+
+   **The one public view of a quiz's content is a past one** (`GET /daily-quiz/past`, the homepage's
+   "Can you crack this?", 2026-10-05). It serves only days before the server's today, each through
+   `revealOf()`, with display letters rather than option ids. Today's question is never public: its
+   solve time starts at Start, so a copy anybody could read before pressing Start would turn the
+   fastest-correct prize into a prize for reading the homepage first. Do not add a "today's
+   question" teaser to any page a student can see before Start.
 2. **One attempt, decided by the database.** `DailyChallengeAttempt` is unique per student per day;
    a repeat submission returns the first result and never re-marks or re-pays. Start is unique per
    student per day too, so the solve-time clock cannot be restarted.

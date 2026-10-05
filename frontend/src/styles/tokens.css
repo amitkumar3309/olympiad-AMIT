@@ -594,6 +594,7 @@
 
   --tap-target: 44px; /* not negotiable */
   --sidebar-width: 272px;
+  --sidebar-rail-width: 80px; /* the student sidebar as icons only, 1024–1279px (M30 Phase 4) */
   --header-height: 64px;
   --bottom-nav-height: 62px;
 

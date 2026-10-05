@@ -24,10 +24,11 @@ import styles from './Menu.module.css'
  * rectangle at open time. Absolute positioning inside the row would be clipped by
  * `TableScroll`'s `overflow`, which is the usual way this component is got wrong.
  *
- * A fixed panel goes stale the moment anything scrolls, so **scrolling closes it**
- * rather than leaving it floating beside nothing. That is what every native menu
- * does; the alternative is re-measuring on every scroll event, which is more code and
- * a worse answer.
+ * A fixed panel goes stale the moment its trigger moves, so **a scroll that moves the
+ * trigger closes it** rather than leaving it floating beside nothing. That is what every
+ * native menu does; the alternative is re-measuring on every scroll event, which is more
+ * code and a worse answer. A scroll in some other container does not move the trigger
+ * and leaves the menu open.
  *
  * Two measurements are easy to get wrong here and both were:
  *
@@ -62,6 +63,18 @@ export interface MenuAction {
    * explained that way is simply dead on a phone.
    */
   disabledReason?: string
+  /**
+   * A second, quieter line under the label — "2 hours ago", "Nothing new" (Milestone 30,
+   * for the notification list). Muted, but at the text floor: it is information.
+   */
+  meta?: string
+  /**
+   * Sets the label heavier — an unread notification. Never the only signal: say it in
+   * `meta` too ("Unread · 2 hours ago"), because weight alone is invisible to some readers.
+   */
+  emphasis?: boolean
+  /** A stable React key, for a list whose labels can repeat (two "Results released"). */
+  id?: string
 }
 
 export interface MenuSeparator {
@@ -93,6 +106,11 @@ export interface MenuProps {
   trigger?: ReactNode
   /** Which edge of the trigger the panel lines up with. */
   align?: 'start' | 'end'
+  /**
+   * Told when the panel opens and closes — so a caller can load what the menu lists only
+   * when somebody looks (the notification list), rather than on every page.
+   */
+  onOpenChange?: (open: boolean) => void
   className?: string
 }
 
@@ -121,6 +139,7 @@ export default function Menu({
   triggerIcon = 'ph-dots-three-vertical',
   trigger,
   align = 'end',
+  onOpenChange,
   className,
 }: MenuProps) {
   const [open, setOpen] = useState(false)
@@ -135,10 +154,14 @@ export default function Menu({
   const panelRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
 
-  const close = useCallback((returnFocus = true) => {
-    setOpen(false)
-    if (returnFocus) triggerRef.current?.focus()
-  }, [])
+  const close = useCallback(
+    (returnFocus = true) => {
+      setOpen(false)
+      onOpenChange?.(false)
+      if (returnFocus) triggerRef.current?.focus()
+    },
+    [onOpenChange],
+  )
 
   function toggle() {
     if (open) {
@@ -169,6 +192,7 @@ export default function Menu({
       ...horizontal,
     })
     setOpen(true)
+    onOpenChange?.(true)
   }
 
   /* Focus the first enabled item as soon as the panel exists. Synchronous: the panel
@@ -224,12 +248,18 @@ export default function Menu({
   }, [open, close])
 
   /**
-   * Outside press closes; so does any scroll or resize.
+   * Outside press closes; so does a scroll that moves the trigger, and a resize.
    *
    * `pointerdown` rather than `click`, so the menu is gone before whatever was under
    * the pointer reacts. Scroll is listened for in the **capture** phase, because the
    * scroll that matters is usually a container's, and a container scroll does not
    * bubble.
+   *
+   * **Only a scroll that can move the trigger** — the page's, or a container the trigger
+   * sits in (Milestone 30, Phase 4). Any scroll at all used to close it, and an
+   * unrelated scroller is not rare: the dashboard's journey track settles its scroll-snap
+   * when its stages arrive, which shut the notification menu a second after it opened.
+   * A scroll inside a sibling leaves the menu's anchor exactly where it was.
    */
   useEffect(() => {
     if (!open) return
@@ -240,14 +270,23 @@ export default function Menu({
       close(false)
     }
 
+    function onScroll(event: Event) {
+      const target = event.target
+      const movesTrigger =
+        target === document ||
+        target === document.documentElement ||
+        (target instanceof Node && triggerRef.current !== null && target.contains(triggerRef.current))
+      if (movesTrigger) close(false)
+    }
+
     const dismiss = () => close(false)
 
     document.addEventListener('pointerdown', onPointerDown, true)
-    window.addEventListener('scroll', dismiss, true)
+    window.addEventListener('scroll', onScroll, true)
     window.addEventListener('resize', dismiss)
     return () => {
       document.removeEventListener('pointerdown', onPointerDown, true)
-      window.removeEventListener('scroll', dismiss, true)
+      window.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', dismiss)
     }
   }, [open, close])
@@ -312,18 +351,20 @@ export default function Menu({
                 <>
                   {item.icon && <Icon name={item.icon} weight="bold" size="sm" />}
                   <span className={styles.itemText}>
-                    {item.label}
+                    <span className={item.emphasis ? styles.itemEmphasis : undefined}>{item.label}</span>
+                    {item.meta && <span className={styles.itemMeta}>{item.meta}</span>}
                     {item.disabled && item.disabledReason && (
                       <span className={styles.itemReason}>{item.disabledReason}</span>
                     )}
                   </span>
                 </>
               )
+              const key = item.id ?? item.label
 
               if (item.to && !item.disabled) {
                 return (
                   <Link
-                    key={item.label}
+                    key={key}
                     to={item.to}
                     role="menuitem"
                     data-menu-item=""
@@ -337,7 +378,7 @@ export default function Menu({
 
               return (
                 <button
-                  key={item.label}
+                  key={key}
                   type="button"
                   role="menuitem"
                   data-menu-item=""

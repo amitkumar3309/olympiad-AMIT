@@ -780,13 +780,20 @@ On success **every** session is revoked (refresh tokens deleted, `tokenVersion` 
 ### `GET /api/v1/me/dashboard`
 Everything the student dashboard shows, in one request. **Every figure is a real database read**; there is no sample data and no fallback.
 
-`{ dashboard: { student, progress, activity, recentTests, achievements, leaderboard: { top, me }, challenges, today } }` where:
+`{ dashboard: { student, progress, stats, activity, achievements, journey, leaderboard: { me }, classToday, upcoming, challenges, today, serverNow } }` — reshaped for the launch dashboard in Milestone 30 Phase 4 — where:
+- `student` — `studentId`, `fullName`, `firstName`, `classLevel`, `schoolName`, and `hasPhoto` (whether a photograph is on file).
 - `progress` — `xp`, `level`, `levelStartsAt`, `nextLevelAt`, `xpIntoLevel`, `xpForNextLevel`, `percentToNextLevel`, and `streak` (`current`, `longest`, `activeDays`, `lastActiveOn`, `countedToday`). All derived from `StudentActivity`; nothing is stored.
-- `activity` — the 8 newest real events.
-- `recentTests` — up to 5 submitted `ExamAttempt` records. **A live query against a collection nothing writes to yet**, so it is honestly `[]` today and the UI shows its empty state. Written as a query rather than a hardcoded `[]` so the panel starts working the moment exam submission exists.
-- `achievements` — `{ earnedCount, total, earned, next }`, each evaluated from real facts with real progress toward the locked ones. No exam or accuracy achievement is listed, because none could be satisfied yet.
-- `leaderboard.me` — `{ rank, xp, totalRanked }`; `rank` is `null` when the student has no XP, i.e. genuinely unranked rather than last.
+- `stats` *(Phase 4)* — `xpThisWeek` (XP in the weekly leaderboard's window: the last seven IST days, today included); `questionsSolved: { total, thisWeek }` (questions answered **correctly** — submitted practice, mock tests and the official Olympiad by `correctCount`, plus correct Daily Quiz answers **once their day is revealed**; a paper counts in the week it was submitted); `accuracy: { percent, correct, answered, attempts, window }` over the newest `window` (30) attempts across the four surfaces — raw counts summed, the percentage derived last, `percent: null` with nothing answered, and a Daily Quiz answer only once revealed.
+- `activity` — the 3 newest real events (`GET /me/activity` pages the rest).
+- `achievements` — `{ earnedCount, total, earned, next }`, each evaluated from real facts with real progress toward the locked ones.
+- `journey` *(Phase 4)* — the nine milestones as the rewards page has them (`summariseJourney()`): `{ stages: [{ id, title, description, icon, complete, current, progress, target }], completedCount, total, percent, currentStageId }`.
+- `leaderboard.me` — `{ rank, xp, totalRanked }` on the overall, all-time board; `rank` is `null` when the student has no XP, i.e. genuinely unranked rather than last. *(The overall `top` five left the payload in Phase 4: the dashboard shows the class board instead.)*
+- `classToday` *(Phase 4)* — `{ classLevel, rows, me }`: today's top five for the student's own class from the one ranking service (rows as the public boards name children), and their own `{ rank, xp, totalRanked }` on that board; `null` without a class.
+- `upcoming` *(Phase 4)* — up to three published Olympiad windows for the student's class that have not closed, soonest first: `{ id, title, opensAt, closesAt, isOpen }`. Real exam windows only — never a question, never a score.
 - `challenges` — published-question availability for the caller's own class, grouped by subject.
+- `serverNow` *(Phase 4)* — the server's clock; the exam countdown chips are offsets from it.
+
+*`recentTests` was removed in Phase 4 — the official attempt is listed on `/exam` and its result on `/result`, and the launch mockup has no such panel.*
 
 **One deliberate side effect**: opening the dashboard records the day's `daily_visit`, which is what a streak is made of. Idempotent per competition day, enforced by a unique index rather than by a check, so a page refresh cannot inflate it.
 
@@ -1093,6 +1100,11 @@ The prize and the rule in words, as on the Rewards section and the rules page. `
 #### `GET /api/v1/daily-quiz/winners`
 The most recent **published** winners (`limit` ≤ 20, default 7): `{ day, displayName, classLevel, place, prizeText }`. Names are masked by `displayNameFor()` (first name, last initial); a student with `hideFromPublicLists` appears as "A Class 9 student" with no place; only active accounts. Never a contact detail. `Cache-Control: public, max-age=60`.
 
+#### `GET /api/v1/daily-quiz/past`
+Recent Daily Quiz problems **whose answers are already public** — the homepage's "Can you crack this?" (added 2026-10-05). **Never today's and never a future day**: only days before the server's today, each through `revealOf()`, because today's quiz is a prize question timed from Start. `limit` (1–14, default 7) is per class group.
+
+`{ groups: [{ id: '3-5' | '6-8' | '9-12', label, min, max, problems: [{ day, classRange: { min, max, label }, topic, difficulty, questionText, options: [{ letter, text }], answer: { letter, text }, solution }] }] }` — all three groups always, `problems` newest first and empty until one has been revealed; **one entry per quiz** (a quiz for Classes 6–8 is one problem, not three); a quiz for a custom range under every group it overlaps. Display letters only — no opaque option id, no bank key — in an order seeded by the quiz, the same on every request. A pre-quiz daily challenge (no snapshot) is never included. `Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=60`, set only on success. **400** for a `limit` outside 1–14.
+
 ### Running the quiz (staff — `challenges:write`)
 
 Literal paths are declared before `/:groupId`.
@@ -1135,7 +1147,7 @@ Only after the quiz has closed (**409** before). Ranks the correct answers by th
 
 ### Test-only hooks — never in a real deployment
 
-`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset`, `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
+`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset` (empties every collection, puts the clock back and, since 2026-10-05, empties the rate limiters' counters), `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
 
 ---
 
@@ -1269,6 +1281,8 @@ Every auth response (`/auth/login`, `/auth/admin/login`, `/auth/refresh`, `/auth
 ```
 
 It rides there for the same reason `permissions` does — so the frontend reads the answer rather than deriving it. It is **presentation only**; `requireEntry` re-derives it from the payment record on every gated request, so a tampered client gets a nicer-looking 402 and nothing more.
+
+Since Milestone 30 Phase 4 the same responses' `student` also carries **`hasPhoto`** — whether a photograph is on file — so the app's chrome asks `/students/:studentId/photo` only for one that exists rather than producing a 404 on every page. The registration and verification responses do not carry it.
 
 ---
 

@@ -87,10 +87,20 @@ function publicStudent(student: StudentDocument) {
  * server's own authorization table instead of re-implementing it and drifting.
  */
 async function sessionEnvelope(student: StudentDocument) {
+  const [entitled, photo] = await Promise.all([
+    hasEntryEntitlement(studentObjectId(student)),
+    StudentPhoto.exists({ student: studentObjectId(student) }),
+  ]);
   return {
     role: student.role,
     permissions: permissionsFor(student.role),
-    student: publicStudent(student),
+    /**
+     * `hasPhoto` (Milestone 30, Phase 4) tells the app shell's profile chip whether to ask
+     * for the photograph at all — requesting one that does not exist is a 404 in the
+     * console on every page. Session responses only; the bytes are still served by
+     * `/students/:id/photo` to the account itself and to staff.
+     */
+    student: { ...publicStudent(student), hasPhoto: photo !== null },
     /**
      * Set when staff have issued a temporary password. The frontend holds the
      * session on a forced change screen until it clears; the flag travels on every
@@ -111,7 +121,7 @@ async function sessionEnvelope(student: StudentDocument) {
      * every gated request — so a tampered client gets a nicer-looking 402.
      */
     entitlements: {
-      olympiadEntry: await hasEntryEntitlement(studentObjectId(student)),
+      olympiadEntry: entitled,
     },
   };
 }

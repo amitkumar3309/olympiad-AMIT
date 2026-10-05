@@ -339,6 +339,79 @@ function attemptPoint(surface: AnalyticsSurface, label: string, doc: AttemptDocS
 }
 
 // ---------------------------------------------------------------------------
+// Accuracy over the most recent attempts (Milestone 30, Phase 4 — the dashboard)
+// ---------------------------------------------------------------------------
+
+/** How many attempts the dashboard's accuracy figure covers (brief §8: "last 30 attempts"). */
+export const RECENT_ATTEMPTS = 30;
+
+export interface RecentAccuracy {
+  /** `correct / answered` over the window, one decimal place; null when nothing was answered. */
+  percent: number | null;
+  correct: number;
+  answered: number;
+  /** How many attempts the window really holds — fewer than `RECENT_ATTEMPTS` for a new student. */
+  attempts: number;
+  /** The window asked for, so the page can say "last 30 attempts" from the server's own figure. */
+  window: number;
+}
+
+interface RecentPaperRow {
+  submittedAt?: Date | null;
+  correctCount: number;
+  totalQuestions: number;
+  unansweredCount: number;
+}
+
+/**
+ * Accuracy over the student's most recent attempts — practice sessions, mock tests, the
+ * official Olympiad and Daily Quiz answers, newest first by submission.
+ *
+ * The same rules as the analytics page, which this is a narrow window of: an attempt is
+ * what `progressTrend` calls one; **raw counts are summed and the percentage derived
+ * last** (1/1 and 1/9 is 20%, not the 55% an average of percentages gives); `null` is
+ * not zero; and a Daily Quiz answer counts only once its day is revealed. Reads at most
+ * `limit` documents per collection — each paper already stores its own totals.
+ */
+export async function getRecentAccuracy(
+  student: Types.ObjectId,
+  today: DayKey = dayKeyOf(now()),
+  limit = RECENT_ATTEMPTS,
+): Promise<RecentAccuracy> {
+  const paperFields = 'submittedAt correctCount totalQuestions unansweredCount';
+  const submitted = { student, status: 'submitted' as const };
+  const [practice, mock, exam, quiz] = await Promise.all([
+    PracticeSession.find(submitted).select(paperFields).sort({ submittedAt: -1 }).limit(limit).lean<RecentPaperRow[]>(),
+    MockTestAttempt.find(submitted).select(paperFields).sort({ submittedAt: -1 }).limit(limit).lean<RecentPaperRow[]>(),
+    ExamAttempt.find(submitted).select(paperFields).sort({ submittedAt: -1 }).limit(limit).lean<RecentPaperRow[]>(),
+    DailyChallengeAttempt.find({ student, day: { $lt: today } })
+      .select('submittedAt answer.isCorrect')
+      .sort({ submittedAt: -1 })
+      .limit(limit)
+      .lean<Array<{ submittedAt: Date; answer?: { isCorrect?: boolean | null } }>>(),
+  ]);
+
+  const paper = (doc: RecentPaperRow) => ({
+    at: doc.submittedAt?.getTime() ?? 0,
+    correct: doc.correctCount,
+    answered: doc.totalQuestions - doc.unansweredCount,
+  });
+  const rows = [
+    ...practice.map(paper),
+    ...mock.map(paper),
+    ...exam.map(paper),
+    // One question, always answered — as the analytics page counts it.
+    ...quiz.map((doc) => ({ at: doc.submittedAt.getTime(), correct: doc.answer?.isCorrect === true ? 1 : 0, answered: 1 })),
+  ]
+    .sort((a, b) => b.at - a.at)
+    .slice(0, limit);
+
+  const correct = rows.reduce((n, row) => n + row.correct, 0);
+  const answered = rows.reduce((n, row) => n + row.answered, 0);
+  return { percent: percent(correct, answered), correct, answered, attempts: rows.length, window: limit };
+}
+
+// ---------------------------------------------------------------------------
 // The public shape
 // ---------------------------------------------------------------------------
 

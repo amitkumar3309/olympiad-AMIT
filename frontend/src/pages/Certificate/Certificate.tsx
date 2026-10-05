@@ -7,6 +7,7 @@ import { api } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import type { Certificate as CertificateRecord } from '../../api/types'
 import logo from '../../assets/logo.png'
+import { AMIT_OLYMPIAD } from '../../lib/brand'
 import { Icon } from '../../components/ui'
 import styles from './Certificate.module.css'
 import { humanizeError } from '../../lib/errors'
@@ -94,7 +95,7 @@ export default function Certificate() {
         {certificates?.map((certificate) => (
           <div key={certificate.id}>
             <div className={styles.certificate}>
-              <img src={logo} alt="A.M.I.T Olympiad" className={styles.certLogo} />
+              <img src={logo} alt={AMIT_OLYMPIAD} className={styles.certLogo} />
               <p className={styles.presented}>This certificate is proudly presented to</p>
               <h2 className={styles.recipient}>{certificate.studentName || certificate.studentIdLabel}</h2>
               <p className={styles.desc}>{certificate.title}</p>

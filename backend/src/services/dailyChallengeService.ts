@@ -1781,6 +1781,109 @@ export async function publicRecentWinners(limit: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Past problems (public) — the homepage's "Can you crack this?"
+// ---------------------------------------------------------------------------
+
+/** One revealed quiz, as anybody may see it: the question, the options, the answer and the solution. */
+export interface PastQuizProblem {
+  day: DayKey;
+  classRange: { min: number; max: number; label: string };
+  topic: string | null;
+  difficulty: string | null;
+  questionText: string;
+  /** Display letters only — no option id and no bank key, which a reader has no use for. */
+  options: Array<{ letter: string; text: string }>;
+  answer: { letter: string; text: string };
+  solution: string;
+}
+
+export interface PastProblemGroup {
+  /**
+   * The `CLASS_GROUPS` key — `3-5`, `6-8`, `9-12`. Named `id` because the answer-key leak
+   * test refuses a `"key"` field anywhere in a public response (a bank option key is one).
+   */
+  id: string;
+  label: string;
+  min: number;
+  max: number;
+  /** Newest first. Empty until a quiz for the group has been revealed. */
+  problems: PastQuizProblem[];
+}
+
+/**
+ * One revealed quiz for the public, or null — through `revealOf()`, like every other view
+ * that carries an answer.
+ *
+ * The options are in a **fixed public order**, seeded by the quiz rather than by a
+ * student: not the author's original order, because many authors put the right answer in
+ * the same place, and the homepage shows a run of these one after another.
+ */
+function pastProblemView(challenge: DailyChallengeDocument, at: Date): PastQuizProblem | null {
+  const reveal = revealOf(challenge, at);
+  if (!reveal || !isPlayable(challenge)) return null;
+
+  const options = seededOrder(challenge.content.options, `public:${String(groupIdOf(challenge))}`);
+  const answerIndex = options.findIndex((option) => option.id === reveal.correctOptionId);
+  if (answerIndex < 0) return null;
+
+  const range = rangeOf(challenge);
+  return {
+    day: challenge.day,
+    classRange: { min: range.min, max: range.max, label: classRangeLabel(range.min, range.max) },
+    topic: challenge.content.topicName ?? null,
+    difficulty: challenge.content.difficulty ?? null,
+    questionText: challenge.content.questionText,
+    options: options.map((option, index) => ({ letter: optionLetter(index), text: option.text })),
+    answer: { letter: optionLetter(answerIndex), text: reveal.correctOptionText },
+    solution: reveal.solution,
+  };
+}
+
+/**
+ * The most recent Daily Quiz problems whose answers are already public, for the homepage's
+ * "Can you crack this?" (owner, 2026-10-05: a real daily problem, not a demo question).
+ *
+ * **Never today's, and never a future one.** Today's quiz is a prize question: its solve
+ * time starts when a student presses Start, so printing it on a public page would let
+ * anybody read it, work it out, and then start and answer in a second — the fastest-correct
+ * rule would reward whoever read the homepage first. Its answer is also not public until
+ * midnight. So the homepage gets the days before today, and every problem passes through
+ * `revealOf()`, the one reveal gate: the query asks only for earlier days, and the gate is
+ * what makes that a guarantee rather than an assumption.
+ *
+ * Grouped by the three class groups (`CLASS_GROUPS`), newest first, **one entry per quiz**
+ * (a quiz for Classes 6–8 is three class documents and one problem). A quiz set for a
+ * custom range appears under every group it overlaps, labelled with its own range.
+ */
+export async function pastQuizProblems(perGroup: number, at: Date): Promise<PastProblemGroup[]> {
+  const today = todayOf(at);
+
+  return Promise.all(
+    CLASS_GROUPS.map(async (group): Promise<PastProblemGroup> => {
+      const levels = classesInRange(group.min, group.max);
+      // One quiz covers at most every class in the group, so this many documents always
+      // holds `perGroup` distinct quizzes when that many exist.
+      const docs = await DailyChallenge.find({ classLevel: { $in: levels }, day: { $lt: today }, content: { $ne: null } })
+        .sort({ day: -1, classMin: 1, _id: 1 })
+        .limit(perGroup * levels.length);
+
+      const seen = new Set<string>();
+      const problems: PastQuizProblem[] = [];
+      for (const doc of docs) {
+        const quiz = String(groupIdOf(doc));
+        if (seen.has(quiz)) continue;
+        seen.add(quiz);
+        const problem = pastProblemView(doc, at);
+        if (problem) problems.push(problem);
+        if (problems.length === perGroup) break;
+      }
+
+      return { id: group.key, label: classRangeLabel(group.min, group.max), min: group.min, max: group.max, problems };
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Streak and the facts the achievement catalogue needs (unchanged since Milestone 8)
 // ---------------------------------------------------------------------------
 
