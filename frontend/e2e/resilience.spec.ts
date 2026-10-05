@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test } from '@playwright/test'
-import { resetBackend, seedQuiz, signIn } from './fixtures.ts'
+import { resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
 
 /**
  * What a reader meets when something fails (Milestone 30, Phase 6 — brief §10, "Reliability"),
@@ -21,6 +21,7 @@ test.beforeEach(async ({ request }) => {
 
 test('a page that cannot be downloaded shows the reload page, and reloading recovers', async ({ page }) => {
   await page.goto('/')
+  await waitForApp(page)
   // The leaderboard is a separate file (`lazy()`); refuse it, as a deploy that replaced it would.
   await page.route('**/assets/Leaderboard-*.js', (route) => route.abort())
   await page.evaluate(() => {

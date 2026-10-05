@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test'
-import { BACKEND, E2E_ADMIN, resetBackend, seedQuiz, signIn } from './fixtures.ts'
+import { BACKEND, E2E_ADMIN, resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
 
 /**
  * Everything works from the keyboard alone (Milestone 30, Phase 6 — brief §10, "Accessibility":
@@ -36,6 +36,7 @@ async function focused(page: Page) {
 
 test('the first Tab reaches "Skip to content", and it jumps past the header', async ({ page }) => {
   await page.goto('/')
+  await waitForApp(page)
   await page.keyboard.press('Tab')
   expect((await focused(page))?.name).toBe('Skip to content')
   await page.keyboard.press('Enter')
@@ -47,6 +48,7 @@ test('every keyboard stop shows a focus ring — on the homepage and on the dash
   for (const start of ['/', '/dashboard']) {
     if (start === '/dashboard') await signIn(page)
     await page.goto(start)
+    await waitForApp(page)
     for (let stop = 1; stop <= 30; stop += 1) {
       await page.keyboard.press('Tab')
       const now = await focused(page)
@@ -58,6 +60,7 @@ test('every keyboard stop shows a focus ring — on the homepage and on the dash
 
 test('the sign-in dialog opens, keeps focus inside and closes with the keyboard', async ({ page }) => {
   await page.goto('/')
+  await waitForApp(page)
   const trigger = page.getByRole('button', { name: 'I already have an account' })
   await trigger.focus()
   await page.keyboard.press('Enter')

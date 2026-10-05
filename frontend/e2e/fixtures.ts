@@ -85,8 +85,24 @@ export async function advanceDays(request: APIRequestContext, days: number): Pro
  * the homepage's "I already have an account", which is a button at every width (the header's
  * Sign in is inside the menu on a phone).
  */
+/**
+ * Waits for the app to own the page (Milestone 30, Phase 6). The homepage arrives drawn
+ * (vite.prerender.ts) and the app replaces it a moment later: until then a button in it looks
+ * right and does nothing, and an element found in it is detached when the app arrives. Every
+ * other route arrives empty, so there this returns as soon as the app has drawn anything.
+ *
+ * React marks every node it creates with a `__reactFiber…` key; the drawn page has none.
+ */
+export async function waitForApp(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const first = document.getElementById('root')?.firstElementChild
+    return first != null && Object.keys(first).some((key) => key.startsWith('__reactFiber'))
+  })
+}
+
 export async function signIn(page: Page): Promise<void> {
   await page.goto('/')
+  await waitForApp(page)
   await page.getByRole('button', { name: 'I already have an account' }).click()
   await fillSignIn(page, E2E_STUDENT.email, E2E_STUDENT.password)
   await page.waitForURL('**/dashboard')

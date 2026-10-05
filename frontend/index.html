@@ -3,6 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Sets `.theme-dark` before the first paint, so the drawn homepage (vite.prerender.ts) is
+      never shown light to a dark reader first — and, on that page only, starts the app once a
+      frame has been drawn. Blocking on purpose, and tiny; see the file.
+    -->
+    <script src="/boot.js"></script>
 
     <!--
       The title, the description, the share card's Open Graph and Twitter tags and the

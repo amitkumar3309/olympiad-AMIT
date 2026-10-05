@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs'
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from '@playwright/test'
 import { SUPPORT, SUPPORT_TEL_HREF } from '../src/lib/brand.ts'
 import { pageMetaFor } from '../src/lib/pageMeta.ts'
-import { BACKEND, E2E_ADMIN, FRONTEND_PORT, fillSignIn, resetBackend, resetRateLimits, seedQuiz, seriousViolations, signIn } from './fixtures.ts'
+import { BACKEND, E2E_ADMIN, FRONTEND_PORT, fillSignIn, resetBackend, resetRateLimits, seedQuiz, seriousViolations, signIn, waitForApp } from './fixtures.ts'
 
 /**
  * The link crawler (Milestone 30, Phase 5 — brief §9): every internal link, followed as a guest
@@ -261,6 +261,7 @@ test('an administrator can follow every link from the admin dashboard', async ({
   const provisioned = await request.post(`${BACKEND}/api/v1/auth/admin/login`, { data: { email: E2E_ADMIN.email, password: E2E_ADMIN.password } })
   expect(provisioned.ok()).toBe(true)
   await page.goto('/')
+  await waitForApp(page)
   await page.getByRole('button', { name: 'I already have an account' }).click()
   await fillSignIn(page, E2E_ADMIN.email, E2E_ADMIN.password)
   await page.waitForURL('**/admin', { timeout: 30_000 })

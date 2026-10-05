@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { seo } from './vite.seo.ts'
+import { prerender } from './vite.prerender.ts'
 
 /**
  * The development proxy for `/api` (production rewrites it in `vercel.json`).
@@ -36,7 +37,9 @@ function productionHeaders(): Record<string, string> {
 export default defineConfig({
   // `seo()`: the title, share tags and structured data in index.html, and the generated
   // robots.txt, sitemap.xml and manifest.json (Milestone 30, Phase 6 — see vite.seo.ts).
-  plugins: [react(), seo()],
+  // `prerender()`: the homepage drawn into index.html at build time, and app.html for
+  // every other route (see vite.prerender.ts).
+  plugins: [react(), seo(), prerender()],
   server: {
     proxy: {
       '/api': {

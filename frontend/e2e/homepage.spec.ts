@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test'
-import { BACKEND, E2E_STUDENT, TINY_JPEG, advanceDays, expectAccessible, fillSignIn, lastVerificationLink, resetBackend, seedQuiz } from './fixtures.ts'
+import { BACKEND, E2E_STUDENT, TINY_JPEG, advanceDays, expectAccessible, fillSignIn, lastVerificationLink, resetBackend, seedQuiz, waitForApp } from './fixtures.ts'
 
 /**
  * The homepage's way into the Daily Quiz (Milestone 30, Phase 3 — brief §7.3), end to end, at
@@ -119,6 +119,7 @@ test('“Can you crack this?” is a real Daily Quiz problem once its answer is 
   // The next day its answer is public, and it is the problem on the homepage — marked at once.
   await advanceDays(request, 1)
   await page.goto('/')
+  await waitForApp(page)
   // The section loads as the reader nears it (Phase 6), so scroll to where it sits.
   await page.locator('#crack').scrollIntoViewIfNeeded()
   const card = page.getByRole('region', { name: 'Can you crack this?' })
