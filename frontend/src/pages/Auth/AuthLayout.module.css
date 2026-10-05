@@ -185,26 +185,3 @@
  * not carry words. An unmet rule stays `--text-muted` rather than red: not having typed
  * something yet is not an error.
  */
-.passwordRules {
-  display: grid;
-  gap: var(--space-1);
-  margin: var(--space-2) 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.passwordRules li {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
-  font-size: var(--text-sm);
-  line-height: var(--leading-snug);
-}
-
-.ruleMet {
-  color: var(--success-text);
-}
-
-.ruleUnmet {
-  color: var(--text-muted);
-}

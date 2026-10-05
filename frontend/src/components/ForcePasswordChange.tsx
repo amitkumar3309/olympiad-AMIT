@@ -3,6 +3,8 @@ import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { Alert, Button, Field, PasswordInput } from './ui'
 import { humanizeError } from '../lib/errors'
+import { passwordProblem } from '../lib/passwordPolicy'
+import PasswordRules from './PasswordRules'
 import styles from './ForcePasswordChange.module.css'
 
 /**
@@ -40,10 +42,11 @@ export default function ForcePasswordChange() {
     /* Everything wrong at once, on the field it belongs to — this screen is the only
        way into the product, so sending somebody round the loop twice is expensive. */
     const next: { newPassword?: string; confirmPassword?: string } = {}
-    if (newPassword.length < 8) {
-      next.newPassword = 'Use at least 8 characters.'
-    } else if (!/[a-zA-Z]/.test(newPassword) || !/\d/.test(newPassword)) {
-      next.newPassword = 'Include at least one letter and one number.'
+    // The server's policy, from its one mirror — this checked "a letter and a number"
+    // long after the server stopped accepting that alone (audit D3).
+    const problem = passwordProblem(newPassword)
+    if (problem) {
+      next.newPassword = problem
     } else if (newPassword === currentPassword) {
       next.newPassword = 'Choose a password different from the temporary one.'
     }
@@ -92,12 +95,7 @@ export default function ForcePasswordChange() {
             />
           </Field>
 
-          <Field
-            label="New password"
-            required
-            hint="At least 8 characters, including a letter and a number."
-            error={errors.newPassword}
-          >
+          <Field label="New password" required error={errors.newPassword}>
             <PasswordInput
               autoComplete="new-password"
               describedAs="new password"
@@ -107,6 +105,7 @@ export default function ForcePasswordChange() {
                 if (errors.newPassword) setErrors((current) => ({ ...current, newPassword: undefined }))
               }}
             />
+            <PasswordRules value={newPassword} />
           </Field>
 
           <Field label="Confirm new password" required error={errors.confirmPassword}>

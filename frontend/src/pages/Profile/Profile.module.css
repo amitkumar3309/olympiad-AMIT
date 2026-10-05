@@ -244,6 +244,13 @@
   gap: 14px;
 }
 
+/* The password change: `ui/Field` + `ui/PasswordInput`, so none of `.form`'s element rules. */
+.passwordForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 /**
  * The label wraps its control here rather than pointing at it with `htmlFor` — which is
  * a valid association, so these fields were never unlabelled. What they were is

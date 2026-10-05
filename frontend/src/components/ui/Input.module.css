@@ -258,6 +258,16 @@
 
 /* ---------- password reveal -------------------------------------------- */
 
+/*
+ * Edge draws a reveal eye of its own inside a password field, so every field with this
+ * toggle showed two eyes there (found in Milestone 30, Phase 5). Ours is the one that works
+ * the same in every browser and is the one with an accessible name, so the native one goes —
+ * here only: a plain password field elsewhere keeps whatever the browser offers.
+ */
+.hasReveal::-ms-reveal {
+  display: none;
+}
+
 .reveal {
   position: absolute;
   right: 5px;
@@ -280,9 +290,20 @@
   color: var(--text);
 }
 
+/*
+ * The whole 44px touch target, in both directions (Milestone 30, Phase 5). It was 40px
+ * wide — the base rule's `min-height` already made it 44px tall, which is how the link
+ * crawler, measuring both sides, came to report it at 40×44. The field's right padding
+ * grows with it so typed text never runs under the eye.
+ */
 @media (pointer: coarse) {
   .reveal {
-    width: 40px;
-    height: 40px;
+    right: 1px;
+    width: var(--tap-target);
+    height: var(--tap-target);
+  }
+
+  .hasSuffix {
+    padding-right: calc(var(--tap-target) + 4px);
   }
 }

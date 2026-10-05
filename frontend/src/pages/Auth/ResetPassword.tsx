@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { Alert, Button, ButtonLink, Field, Icon, PasswordInput } from '../../components/ui'
+import { Alert, Button, ButtonLink, Field, PasswordInput } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
 // The one mirror of the server's policy. A second local copy of these rules drifted
 // from it the moment the rules changed, which is exactly what this import prevents.
-import { PASSWORD_RULES, passwordProblem } from '../../lib/passwordPolicy'
+import { passwordProblem } from '../../lib/passwordPolicy'
+import PasswordRules from '../../components/PasswordRules'
 import AuthLayout, { AuthStatus } from './AuthLayout'
 import styles from './AuthLayout.module.css'
 
@@ -116,22 +117,7 @@ export default function ResetPassword() {
           {/* The same ticked checklist the registration form shows, from the same
               definition: somebody choosing a replacement password is being asked for
               exactly what a new account is asked for, and should be told so up front. */}
-          <ul className={styles.passwordRules} aria-live="polite">
-            {PASSWORD_RULES.map((rule) => {
-              const met = rule.met(password)
-              return (
-                <li key={rule.id} className={met ? styles.ruleMet : styles.ruleUnmet}>
-                  <Icon
-                    name={met ? 'ph-check-circle' : 'ph-circle'}
-                    weight="bold"
-                    size="sm"
-                    label={met ? 'Met:' : 'Still needed:'}
-                  />
-                  <span>{rule.label}</span>
-                </li>
-              )
-            })}
-          </ul>
+          <PasswordRules value={password} />
         </Field>
 
         <Field label="Confirm new password" required error={errors.confirm}>
