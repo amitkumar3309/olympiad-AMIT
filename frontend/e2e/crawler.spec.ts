@@ -2,6 +2,7 @@
 import { writeFileSync } from 'node:fs'
 import { expect, test, type APIRequestContext, type Page, type TestInfo } from '@playwright/test'
 import { SUPPORT, SUPPORT_TEL_HREF } from '../src/lib/brand.ts'
+import { pageMetaFor } from '../src/lib/pageMeta.ts'
 import { BACKEND, E2E_ADMIN, FRONTEND_PORT, fillSignIn, resetBackend, resetRateLimits, seedQuiz, signIn } from './fixtures.ts'
 
 /**
@@ -16,6 +17,8 @@ import { BACKEND, E2E_ADMIN, FRONTEND_PORT, fillSignIn, resetBackend, resetRateL
  *    and make **no failed or 4xx/5xx request** to this app;
  *  - carry no dead link (`href="#"`, `javascript:`) and no new-tab link without
  *    `rel="noopener noreferrer"`;
+ *  - have exactly one `h1`, and the title, `robots` and canonical link `lib/pageMeta.ts`
+ *    gives its path (Phase 6 — a private page is `noindex` and has no canonical);
  *  - and, on the phone layout, give every button at least a 44×44px target.
  *
  * Every rendered link and button must have an accessible name, and every `tel:` and `mailto:`
@@ -110,6 +113,17 @@ async function crawl(page: Page, request: APIRequestContext, starts: string[], o
     if ((await page.getByRole('heading', { level: 1, name: 'This page does not exist' }).count()) > 0) {
       found.push('rendered the 404 page — a link to a route that does not exist')
     }
+    const headings = await page.$$eval('h1', (elements) => elements.filter((el) => el.getClientRects().length > 0).length)
+    if (headings !== 1) found.push(`${headings} h1 headings — a page has exactly one`)
+    const expected = pageMetaFor(new URL(page.url()).pathname)
+    const head = await page.evaluate(() => ({
+      title: document.title,
+      robots: document.querySelector('meta[name="robots"]')?.getAttribute('content') ?? null,
+      canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href') ?? null,
+    }))
+    if (head.title !== expected.title) found.push(`title "${head.title}", expected "${expected.title}"`)
+    if (head.robots !== (expected.index ? 'index, follow' : 'noindex, nofollow')) found.push(`robots "${head.robots}"`)
+    if (head.canonical !== expected.canonical) found.push(`canonical ${head.canonical ?? 'none'}, expected ${expected.canonical ?? 'none'}`)
     const dead = await page.locator('a[href="#"], a[href^="javascript:" i]').count()
     if (dead > 0) found.push(`${dead} dead link(s)`)
     const unsafe = await page.$$eval('a[target="_blank"]', (links) =>

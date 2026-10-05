@@ -7,6 +7,7 @@ import ForcePasswordChange from './components/ForcePasswordChange'
 import Unauthorized from './components/Unauthorized'
 import ToastProvider from './components/ui/ToastProvider'
 import ScrollToTop from './components/ScrollToTop'
+import PageMeta from './components/PageMeta'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import Spinner from './components/Spinner'
 /* Eager on purpose: it is the entry route, so deferring it would add a round trip
@@ -150,6 +151,8 @@ export default function App() {
       <BrowserRouter>
       {/* A new page starts at the top — the router keeps the old depth otherwise. */}
       <ScrollToTop />
+      {/* The tab title, description, robots and canonical link of the page in view. */}
+      <PageMeta />
       {/* The toast host, mounted once. Inside the router deliberately: a toast may
           carry a link, and a portal keeps React context from where it is declared
           rather than from where it lands in the DOM. */}
