@@ -162,7 +162,9 @@ export const STUDENT_BOTTOM_NAV: NavItem[] = [
  */
 export const ADMIN_NAV: NavGroup[] = [
   {
-    items: [{ to: '/admin', label: 'Dashboard', icon: 'ph-squares-four' }],
+    // `students:read`, as the route requires (audit D7) — an item without its permission
+    // is a link an account without it would follow into the refusal screen.
+    items: [{ to: '/admin', label: 'Dashboard', icon: 'ph-squares-four', permission: 'students:read' }],
   },
   {
     label: 'Students',
