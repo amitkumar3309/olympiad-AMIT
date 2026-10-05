@@ -149,6 +149,7 @@ export default function Rewards({ prize, onPlay }: RewardsProps) {
               The first winner will be announced the day after launch — will it be you?
             </p>
           ) : (
+            // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the handlers only pause the slow carousel while it is pointed at or focused; the list is a keyboard-scrollable region (tabIndex 0), as WCAG asks of one
             <ol
               ref={rowRef}
               className={styles.winnerRow}

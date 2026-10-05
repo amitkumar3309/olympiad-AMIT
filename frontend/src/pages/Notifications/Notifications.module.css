@@ -117,12 +117,34 @@
   background: var(--royal-blue);
 }
 
+/* The item's own actions: its deep link, and "Mark as read" while it is unread. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-2);
+}
+
+.markRead {
+  min-height: var(--tap-target);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* The deep link a system notification carries, e.g. straight to the result portal. */
 .action {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
+  min-height: var(--tap-target);
   color: var(--primary-text);
   font-size: var(--text-sm);
   font-weight: 600;

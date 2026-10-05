@@ -30,7 +30,7 @@ import styles from './OptionTile.module.css'
 interface GroupContextValue {
   name: string
   value: string | null
-  onChange: (value: string) => void
+  onChange?: (value: string) => void
   disabled: boolean
 }
 
@@ -42,7 +42,12 @@ export interface OptionGroupProps {
   legend: string
   showLegend?: boolean
   value: string | null
-  onChange: (value: string) => void
+  /**
+   * Omit for a read-only group — a marked answer shown back, which is also `disabled`.
+   * (Milestone 30, Phase 5: such groups used to pass `() => undefined`, the no-op handler
+   * the lint step now refuses.)
+   */
+  onChange?: (value: string) => void
   disabled?: boolean
   /** Two columns from a small phone up, four from a tablet — the mockups' row of four. */
   columns?: 1 | 2 | 4
@@ -104,7 +109,7 @@ export default function OptionTile({ value, letter, result, children }: OptionTi
         value={value}
         checked={selected}
         disabled={group.disabled}
-        onChange={() => group.onChange(value)}
+        onChange={() => group.onChange?.(value)}
       />
       <span className={styles.letter} aria-hidden="true">
         {letter}

@@ -281,7 +281,9 @@ export default function QuestionPerformance() {
                       <th>Answered</th>
                       <th>Accuracy</th>
                       <th>Skipped</th>
-                      <th />
+                      <th>
+                        <span className="sr-only">Review</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>

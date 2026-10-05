@@ -40,6 +40,7 @@ export default function Tooltip({ content, children, placement = 'top', classNam
   const [open, setOpen] = useState(false)
 
   return (
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- the wrapper only listens: focus and blur bubble from the focusable trigger inside, which is what makes the hint keyboard-reachable
     <span
       className={[styles.wrap, className].filter(Boolean).join(' ')}
       onMouseEnter={() => setOpen(true)}

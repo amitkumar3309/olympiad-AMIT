@@ -535,7 +535,7 @@ export function UnlockedAnswer({ row }: { row: QuizHistoryRow }) {
         </div>
       )}
       {row.options.length > 0 ? (
-        <OptionGroup legend="The options" value={row.selectedOptionId} onChange={() => undefined} disabled columns={2}>
+        <OptionGroup legend="The options" value={row.selectedOptionId} disabled columns={2}>
           {row.options.map((option) => (
             <OptionTile
               key={option.id}
