@@ -346,3 +346,56 @@ describe('registration validation and conflicts', () => {
     expect(wrongPassword.body.error).toBe(unknownAccount.body.error);
   });
 });
+
+// ===========================================================================
+// The session probe (Milestone 30, Phase 5 — audit D9)
+// ===========================================================================
+
+describe('GET /auth/session', () => {
+  const probe = (cookies?: Record<string, string>) => {
+    const req = request(app).get(`${API}/auth/session`);
+    return cookies ? req.set('Cookie', cookieHeader(cookies)) : req;
+  };
+
+  it('answers a guest 200, not 401 — so a public page logs no error — and sets no cookie', async () => {
+    const res = await probe().expect(200);
+    expect(res.body).toEqual({ success: true, authenticated: false, canRefresh: false });
+    expect(res.headers['set-cookie']).toBeUndefined();
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    // The unversioned alias answers the same.
+    expect((await request(app).get('/api/auth/session').expect(200)).body.authenticated).toBe(false);
+  });
+
+  it('returns the whole session for a signed-in account, as /auth/me does', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const res = await probe(cookies).expect(200);
+    const me = await request(app).get(`${API}/auth/me`).set('Cookie', cookieHeader(cookies)).expect(200);
+    expect(res.body.authenticated).toBe(true);
+    expect(res.body.student.studentId).toBe(studentId);
+    const { authenticated: _authenticated, ...envelope } = res.body;
+    expect(envelope).toEqual(me.body);
+  });
+
+  it('says a refresh is worth trying when only the refresh cookie survives — and never rotates it itself', async () => {
+    const { cookies } = await registerVerifyLogin(app);
+    const refreshOnly = { [config.auth.refreshCookieName]: cookies[config.auth.refreshCookieName]! };
+
+    const res = await probe(refreshOnly).expect(200);
+    expect(res.body).toEqual({ success: true, authenticated: false, canRefresh: true });
+    expect(res.headers['set-cookie']).toBeUndefined();
+
+    // The cookie it saw is still the live one: the refresh succeeds with it.
+    await request(app).post(`${API}/auth/refresh`).set('Cookie', cookieHeader(refreshOnly)).expect(200);
+  });
+
+  it('treats a revoked session as signed out, and a suspended account as not worth refreshing', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    await Student.updateOne({ studentId }, { $inc: { tokenVersion: 1 } });
+    expect((await probe(cookies).expect(200)).body).toMatchObject({ authenticated: false, canRefresh: true });
+
+    const second = await registerVerifyLogin(app, { mobile: '9000000555', email: 'second@example.com' });
+    await Student.updateOne({ studentId: second.studentId }, { status: 'suspended' });
+    expect((await probe(second.cookies).expect(200)).body).toMatchObject({ authenticated: false, canRefresh: false });
+  });
+});
+

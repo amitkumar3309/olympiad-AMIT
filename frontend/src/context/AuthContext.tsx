@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, ApiError } from '../api/client'
-import type { Admin, Entitlements, Permission, RegisterInput, Role, SessionResponse, Student } from '../api/types'
+import type { Admin, Entitlements, Permission, RegisterInput, Role, SessionProbe, SessionResponse, Student } from '../api/types'
 
 /**
  * `status` says which *kind of account* is signed in — one backed by a student
@@ -121,27 +121,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /**
    * Restores the session on every page load / refresh. The access token is a
    * session cookie and short-lived, so it is often already gone or expired even
-   * though the longer-lived refresh cookie is still valid. We therefore try
-   * /auth/me first and, if that fails, attempt one refresh before concluding the
-   * visitor is a guest — this is what keeps a signed-in user signed in across a
-   * browser reload.
+   * though the longer-lived refresh cookie is still valid. We therefore ask
+   * `/auth/session` first and, when it says a refresh cookie is there, attempt one
+   * refresh before concluding the visitor is a guest — this is what keeps a
+   * signed-in user signed in across a browser reload.
+   *
+   * `/auth/session` rather than `/auth/me` (Milestone 30, Phase 5 — audit D9): it
+   * answers a guest **200** instead of 401, and a refresh is attempted only when there
+   * is a refresh cookie to use. Before, every public page a guest opened logged two
+   * failed requests (`/auth/me` 401, `/auth/refresh` 401) as console errors.
    */
   useEffect(() => {
     let cancelled = false
 
     async function restore() {
       try {
-        const res = await api.get<SessionResponse>('/auth/me')
+        const probe = await api.get<SessionProbe>('/auth/session')
         if (cancelled) return
-        setState(toAuthState(res))
-      } catch {
-        const refreshed = await api.tryRefresh()
-        if (cancelled) return
-        if (refreshed) {
-          await loadSession()
-        } else {
-          setState({ status: 'guest' })
+        if (probe.authenticated) {
+          setState(toAuthState(probe))
+          return
         }
+        if (probe.canRefresh && (await api.tryRefresh())) {
+          if (!cancelled) await loadSession()
+          return
+        }
+        if (!cancelled) setState({ status: 'guest' })
+      } catch (err) {
+        // A backend that predates the probe answers 404. The two apps deploy separately,
+        // so for the minutes between the two deployments — or after a backend-only
+        // rollback — fall back to the old path rather than show every signed-in student
+        // as a guest and send them to the sign-in dialog.
+        if (err instanceof ApiError && err.status === 404) {
+          if (!cancelled) await loadSession()
+          return
+        }
+        if (!cancelled) setState({ status: 'guest' })
       }
     }
 

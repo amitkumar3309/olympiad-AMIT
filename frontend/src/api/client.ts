@@ -31,6 +31,7 @@ const NO_REFRESH_PATHS = [
   '/auth/refresh',
   '/auth/logout',
   '/auth/me',
+  '/auth/session',
 ]
 
 /**
