@@ -4,6 +4,88 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-05 — Milestone 30 Phase 5: every button and link, enforced by lint and a crawler
+
+**Context.** The brief's Phase 5 (§9) asks for every clickable element to be re-verified after the
+redesign — destination, states, semantics, an accessible name, a 44×44px target, `noopener
+noreferrer`, correct `tel:`/`mailto:` — for `href="#"`, `javascript:` and no-op handlers to be
+forbidden by a lint rule or a test, for every form to validate, show inline errors, spin and disable
+while it submits and submit on Enter, and for a Playwright crawler that follows every internal link as
+a guest and as a student and fails on a console error, a failed request or an unhandled rejection.
+The Phase 0 audit left D3–D9 for this phase.
+
+**Decision.**
+
+1. **Static enforcement is part of `npm run lint`.** oxlint's `jsx-a11y` plugin, with a curated set
+   as errors — `anchor-is-valid`, `anchor-has-content`, `no-script-url`,
+   `click-events-have-key-events`, `no-static-element-interactions`,
+   `no-noninteractive-element-interactions`, `label-has-associated-control`,
+   `control-has-associated-label`, `img-redundant-alt` — and three off, each because it fires on a
+   deliberate pattern: `prefer-tag-over-role` (the design system's ARIA widgets), `no-noninteractive-tabindex`
+   (scroll regions made keyboard-reachable on purpose) and `no-autofocus` (a dialog's first field).
+   Beside it, `scripts/check-handlers.mjs` fails on a handler that does nothing (`() => {}`,
+   `() => undefined`, `() => null`, `() => void 0`, `noop`) — no lint rule catches that — and repeats
+   the link checks. Three inline exceptions, each with its reason. No new dependency: oxlint ships
+   the plugin.
+2. **A crawler, `e2e/crawler.spec.ts`, inside the Playwright suite.** A guest from `/`, a student
+   from `/dashboard` and `/`, at desktop and at 390px, and the root administrator from `/admin` at
+   desktop. It follows every same-origin link it finds (to 150 pages) rather than a list, so a link
+   added tomorrow is crawled tomorrow, and on every page fails on: the 404 page; a console error; an
+   uncaught exception; a failed or ≥400 request to this app; `href="#"` or `javascript:`; a new-tab
+   link without `noopener noreferrer`; a rendered control with no accessible name; and, at 390px, a
+   button narrower or shorter than 44px. Every `tel:` and `mailto:` met must be the owner's.
+3. **`GET /auth/session`, a session probe that answers a guest `200`** (audit D9). Without it the
+   crawler could not pass anywhere: every public page logged two failed requests — `/auth/me` 401,
+   then `/auth/refresh` 401 — as console errors. It returns `{ authenticated: false, canRefresh }` for
+   a guest and the `/auth/me` envelope plus `authenticated: true` for a session; it never sets a
+   cookie, never refreshes, and is `no-store`. `AuthContext` asks it first and refreshes only when
+   `canRefresh` says there is a refresh cookie to use. `/auth/me` keeps its contract. **A `404` from
+   the probe falls back to `/auth/me`**, because the two apps deploy separately: a frontend that
+   arrives before its backend would otherwise show every signed-in student as a guest.
+4. **One password checklist, on every form that sets a password** (D3): `components/PasswordRules`
+   under registration, the reset link, the forced change and the profile, each of which also checks
+   with `passwordProblem()` before sending. The profile's three fields became `ui/PasswordInput` —
+   the last plain password inputs — and Edge's own reveal eye is hidden inside `PasswordInput` only,
+   because it drew a second eye beside ours.
+5. **One certificates page** (D6): `/certificate` redirects to `/my-certificates`, and its page is
+   deleted.
+6. **Forms.** Every asynchronous submit carries `loading` (a spinner, `aria-busy`, and disabled —
+   which is also what prevents a double submission). The four admin settings screens became real
+   forms so Enter saves; the mock-test editor stays click-to-save, being an editor full of search
+   fields where Enter-to-save would surprise.
+7. **The crawl empties the rate limiters before each page** (`POST /__e2e/rate-limits/reset`, behind
+   the hooks' three locks). One browser following every link from one address makes several hundred
+   requests in a few minutes, which no person does. Each page still meets the limiters live.
+8. **What the first admin crawl found is fixed at its source**: the student directory says
+   `hasPhoto` (joined after the page is cut), so the console asks only for photos that exist; and the
+   model list answers `503` naming `GEMINI_API_KEY` instead of `500`, and is asked for only when a key
+   is configured.
+9. **The browser suite runs against a production build** (`vite build` into
+   `node_modules/.e2e-dist`, served by `vite preview`, whose proxy is the dev server's) instead of the
+   Vite dev server (amends the Phase 2 Playwright ADR). The dev server serves every module on its
+   own — about 170 requests a page, 8,405 across the admin crawl — and under that load the crawl twice
+   met a browser out of request slots (`net::ERR_INSUFFICIENT_RESOURCES`) or a page whose `load`
+   never came, while no page showed a request loop. Against the bundle the same crawl makes 1,428
+   requests, the suite takes 4.2 minutes instead of 5.5, and what is tested is what ships — without
+   React's development-only double effects. The crawler's wait for a quiet network is bounded at 10
+   seconds, so one slow page can no longer spend the whole test's budget, and each crawl writes how
+   long every page took and how many requests it made (`timings.txt`).
+
+**Consequences.** `npm run lint` fails on a dead control. The five crawls are about two minutes of
+the suite (26 tests, 4.2 minutes). It does not click buttons — the flows are the other specs' job — and it crawls the
+admin area at desktop width only. **D10 stays open for the owner**: on a brand-new database the root
+administrator cannot be provisioned from the one sign-in dialog, because `/auth/login` hands over to
+`/auth/admin/login` only for a super-admin account that already exists. Production's does; a fresh
+environment's does not. It is an authentication change, so it is asked rather than made.
+
+**Alternatives considered.** `eslint-plugin-jsx-a11y` — a second linter for the frontend, when oxlint
+has the rules. Making `/auth/me` answer a guest 200 — its 401 is what the client's refresh logic
+listens for. Switching the limiters off for the crawl — a limiter mounted in the wrong place could
+then never be noticed (TROUBLESHOOTING.md). Allow-listing the photo 404s as noise — a crawler that
+ignores some errors is a crawler nobody believes.
+
+---
+
 ## 2026-10-05 — Milestone 30 Phase 4: the student area follows the dashboard mockup
 
 **Context.** The brief's Phase 4 (§8) asks for the student dashboard of the launch mockup: a top bar
@@ -236,6 +318,8 @@ CLAUDE.md requires an ADR before any frontend test framework is added. PLAN.md �
 3. **The backend runs on an in-memory MongoDB** (`backend/scripts/e2e-server.ts`, the same
    `mongodb-memory-server` the backend tests use), so the suite can never touch production *or* a
    developer's local data. Playwright's `webServer` starts it and a Vite server pointed at it.
+   *(Amended in Milestone 30 Phase 5: a production build served by `vite preview` replaced the dev
+   server — see that phase's ADR, item 9.)*
 4. **Test-only hooks behind three locks.** `/__e2e/clock`, `/__e2e/reset` and `/__e2e/seed` exist only
    when `E2E_TEST_HOOKS=true`, never when `NODE_ENV=production` (forced off in `config`), and each
    refuses unless the connected database's name ends in `-e2e`. Moving the clock moves only

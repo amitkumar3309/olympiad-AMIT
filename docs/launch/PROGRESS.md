@@ -6,10 +6,10 @@ _Last updated 2026-10-05._
 
 ## Current state
 
-**Phase 4 (the student dashboard) complete on branch `feat/diwali-launch-phase-4`** (Phase 3 is
-merged: PR #3, `91efc72`). First on the branch, at the owner's request (2026-10-05), the homepage's
-"Can you crack this?" switched to **real past Daily Quiz problems**. **Waiting for the owner's
-"continue" before Phase 5 (every button and link).**
+**Phase 5 (every button and link) complete on branch `feat/diwali-launch-phase-5`**, cut from the
+Phase 4 branch (PR #4, not yet merged). Every row of `INTERACTION_AUDIT.md` has its final status;
+D3 and D5–D9 are resolved, D11–D16 were found and fixed on the way, and **D10 needs the owner** (below).
+**Waiting for the owner's "continue" before Phase 6 (launch readiness).**
 
 ## Tasks
 
@@ -57,10 +57,29 @@ merged: PR #3, `91efc72`). First on the branch, at the owner's request (2026-10-
 | 4 | Tests: backend 1346 / 38 (seven new); E2E 20 (`dashboard.spec.ts`) | ✅ done |
 | 4 | Browser check at 1440, 1280, 1024 and 390 in both themes; contrast sweep 0 failures (~125 text nodes); screenshots in `docs/launch/screenshots/phase-4/` | ✅ done |
 | 4 | Docs: ADR, CLAUDE.md, API, testing, feature status, state, changelog, audit, troubleshooting | ✅ done |
-| 5 | Every button and link (D1–D9), crawler | ⬜ |
+| 5 | `GET /auth/session` — a guest's page load makes no failing request (D9); `AuthContext` probes it, refreshes only with a refresh cookie, falls back to `/auth/me` on 404 | ✅ done |
+| 5 | `components/PasswordRules` on all four password forms + `passwordProblem()` before sending (D3); the profile's fields `ui/PasswordInput`; Edge's second eye hidden | ✅ done |
+| 5 | D5 `ButtonLink`s; D6 `/certificate` → `/my-certificates`, page deleted; D7 admin Dashboard permission; D8 lightbox `ui/Modal`; notifications read on click, not hover | ✅ done |
+| 5 | Lint: oxlint `jsx-a11y` (curated) + `scripts/check-handlers.mjs` in `npm run lint`, mutation-checked; three justified inline exceptions | ✅ done |
+| 5 | Forms: `loading` on every asynchronous submit; the four admin settings screens are real forms (Enter saves) | ✅ done |
+| 5 | `e2e/crawler.spec.ts` — guest 19 pages, student 27 (1280 + 390), admin 51 (1280); `POST /__e2e/rate-limits/reset`; a throwaway e2e administrator | ✅ done |
+| 5 | Fixed what the crawls found: `hasPhoto` on the directory (D11), the model list 503 (D12), three controls under 44px wide (D13); and Edge's second eye (D14), the profile's plain password inputs (D15) | ✅ done |
+| 5 | The e2e backend no longer reads `backend/.env` | ✅ done |
+| 5 | Tests: backend 1352 / 38 (six new); E2E 26 — 24 passed, 2 skipped by design, 4.2 minutes, against a production build (`vite preview`) since the dev server's per-module requests starved the browser during the crawl | ✅ done |
+| 5 | Browser checks in Edge: unlinked routes, the reset form, the profile's password form (390 + 1280), Enter on the settings forms (writes intercepted); screenshots in `docs/launch/screenshots/phase-5/` | ✅ done |
+| 5 | Docs: ADR, CLAUDE.md, API, security, env, testing, troubleshooting, feature status, state, changelog, audit | ✅ done |
 | 6 | Launch readiness + `LAUNCH_REPORT.md` | ⬜ |
 
 ## Open questions for the owner
+
+- **D10 (Phase 5) — how should the root administrator be created on a brand-new database?** The one
+  sign-in dialog hands an administrator over to `/auth/admin/login` only once the account exists, and
+  the account is created by its first sign-in there — which has had no form since Milestone 28. Your
+  production administrator already exists, so nothing is broken today; a new environment (a staging
+  copy, a restored backup without it) could not create one from the website. Proposed: the sign-in
+  route also hands over when the address is the configured `ADMIN_EMAIL` and the password matches
+  `ADMIN_PASSWORD_HASH`, before the account exists. It is an authentication change, so it waits for
+  your yes.
 
 All four Phase 0 questions were answered on 2026-10-04 (PLAN.md §5): **Q3** three class groups a day;
 **Q7** map the nine existing milestones; **Q8** Claude drafts Logic / Reasoning / Brainstorming, the
@@ -136,7 +155,11 @@ Compared side by side with `docs/design/mockup-landing.jpeg` (screenshots in
 - Seeded local accounts come from the project's own scripts (`scripts/seed-demo.ts`,
   `scripts/dev-local.ts`, `frontend/e2e/fixtures.ts`); do not paste their credentials into chat.
 - **E2E:** `npm run e2e` in `frontend/` starts its own backend (in-memory DB, port 8092) and Vite
-  (5181) and drives the installed Edge — 12 tests. `homepage.spec.ts` turns reduced motion on so the
+  (5181) and drives the installed Edge — 26 tests (24 run), about 4 minutes. Since Phase 5 the
+  frontend it serves is a **production build** (`vite build` + `vite preview`), not the dev server.
+  `test-results/<test>/visited.txt` lists the pages each crawl reached, `timings.txt` how long each
+  took and how many requests it made. A crawl failure is
+  a page to fix, never an error to teach it to ignore. `homepage.spec.ts` turns reduced motion on so the
   floating button holds still enough to click.
 - **The local database** behind `launch-backend-local-db` carries Milestone 29's load-test accounts
   (~1,000 "Scale S." students at the same XP), so the homepage there shows real but odd figures and

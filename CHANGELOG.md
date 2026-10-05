@@ -2,6 +2,53 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-05 — Milestone 30 Phase 5: every button and link
+
+Every clickable element re-verified after the redesign, and two machines that keep it that way: a lint
+step and a link crawler. Branch `feat/diwali-launch-phase-5`.
+
+### Students and visitors
+
+- **No failing request on a public page.** The session is restored through the new
+  `GET /auth/session`, which answers a guest `200`; before, every page a guest opened asked
+  `/auth/me` and `/auth/refresh` and logged two 401s (D9).
+- **One password checklist** under every form that sets a password — registration, the reset link,
+  the forced change and the profile — each checking before it sends (D3). The profile's password
+  fields have the show/hide eye now, and Edge no longer draws a second one beside it.
+- **One certificates page**: `/certificate` redirects to `/my-certificates` (D6).
+- **The gallery lightbox** closes on Escape and keeps keyboard focus inside it (D8).
+- **Every button that sends something shows a spinner** and cannot be pressed twice.
+- **Touch targets**: the theme switch, the password eye and the account chip are 44×44px on a phone.
+- **Rewards**: the two links under the XP total are real links, not buttons inside links (D5).
+- The Notifications page: "Take me there" marks a notice read; reading no longer happens on hover.
+
+### Staff
+
+- **The four settings screens save on Enter** (Daily Quiz prize, entry fee, referral reward, XP
+  table), with a spinner.
+- The student directory no longer asks for photos that do not exist (`hasPhoto`), and the AI
+  generator page no longer asks Google for models when no key is set (the route answers 503 naming
+  `GEMINI_API_KEY` rather than 500).
+- The admin Dashboard item carries its permission (D7).
+
+### Under the hood
+
+- `npm run lint` (frontend) runs oxlint's `jsx-a11y` rules and `scripts/check-handlers.mjs`: a dead
+  link, a `javascript:` URL, a handler that does nothing or an unlabelled control fails it.
+- `e2e/crawler.spec.ts`: guest (19 pages), student (27) at 1280 and 390px, administrator (51) at 1280 —
+  no console error, failed request, 404 page, dead or unsafe link, nameless control, or button under
+  44×44px; every `tel:`/`mailto:` the owner's. `POST /__e2e/rate-limits/reset` gives each page a fresh
+  limiter budget; the e2e server provisions a throwaway administrator.
+- The e2e backend no longer reads `backend/.env`, so a developer's real credentials cannot reach it.
+- **The browser suite serves a production build** (`vite build` + `vite preview`) instead of the dev
+  server, whose ~170 module requests a page twice starved the browser late in the admin crawl. The
+  crawl's quiet-network wait is bounded at 10 seconds and it records each page's time and requests.
+- `AuthContext` falls back to `/auth/me` if the probe is missing (a frontend deployed before its
+  backend).
+- Tests: backend **1352 / 38 files** (six new); E2E **26** (24 run, 2 skipped by design).
+- **Open for the owner — D10**: on a brand-new database the root administrator cannot be provisioned
+  from the sign-in dialog. Production is unaffected.
+
 ## 2026-10-05 — Milestone 30 Phase 4: the student dashboard
 
 The student area now looks like the launch dashboard mockup, with every figure from real data.

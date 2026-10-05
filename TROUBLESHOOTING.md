@@ -49,6 +49,65 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## Two eye icons in a password field in Microsoft Edge
+
+**Symptom.** In Edge, typing into a password field shows two eye buttons side by side — ours at the
+field's edge and a second, darker one just inside it.
+
+**Cause.** Edge draws its own reveal control (`::-ms-reveal`) in every `<input type="password">` that
+has a value, and `ui/PasswordInput` has a reveal toggle of its own.
+
+**Fix (Milestone 30, Phase 5).** `.hasReveal::-ms-reveal { display: none }` in `ui/Input.module.css`,
+on `PasswordInput`'s input only — a plain password field anywhere else keeps what the browser offers.
+Every password field in the product is a `PasswordInput` since the same phase.
+
+## Signed-in students look signed out right after a deploy (prevented)
+
+**Symptom.** Just after a deployment, a signed-in student sees the guest header, and a guarded page
+sends them to the sign-in dialog; a minute or two later it is fine again, with nobody doing anything.
+
+**Cause.** The frontend and the backend are two Vercel projects that deploy independently. Since
+Milestone 30 Phase 5 the frontend restores a session through `GET /auth/session`; a frontend that goes
+live before the backend that serves the route gets a `404`, and every failed check reads as "guest".
+
+**Fix.** `AuthContext` falls back to `/auth/me` when the probe answers `404`, so the window between the
+two deployments is invisible — checked against a local backend that predated the route. If the
+fallback is ever removed, deploy the backend first.
+
+## The link crawler hangs, or fails with `net::ERR_INSUFFICIENT_RESOURCES`
+
+**Symptom.** Late in the administrator crawl one page never finishes loading and the test times out
+at eight minutes (`page.goto … waiting until "load"`), or one ordinary request fails with
+`net::ERR_INSUFFICIENT_RESOURCES`. The same test passes when re-run, and no page shows anything wrong
+by hand.
+
+**Cause.** The suite used to serve the frontend with the Vite **dev server**, which sends every source
+module as its own request — about 170 per page, 8,405 across the 51-page admin crawl. Under that load
+the browser can run out of request slots. The crawler's wait for a quiet network also had no limit,
+so one slow page could spend the whole test's budget. Per-page request counts ruled out a loop in the
+app: every page made 150–185.
+
+**Fix (Milestone 30, Phase 5).** The suite builds the frontend and serves the bundle with
+`vite preview` (`playwright.config.ts`; the build goes to `node_modules/.e2e-dist`, never `dist/`), so
+the same crawl makes 1,428 requests; the quiet-network wait is bounded at 10 seconds; and each crawl
+writes `timings.txt` (time and requests per page) beside its results. If a page there shows hundreds of
+requests, look for an effect that re-fetches in a loop.
+
+## The link crawler fails with 429s, or the admin crawl cannot sign in
+
+**Symptom.** `e2e/crawler.spec.ts` reports pages whose requests answered `429 Too Many Requests`, or a
+guarded page that sent a signed-in student to `/#login` (a 429 on `/auth/session` reads as signed out).
+Or the administrator crawl stops at sign-in with "Invalid credentials".
+
+**Cause.** One browser following every link from one address makes several hundred requests in a few
+minutes, and the general limiter allows 300 per 15 minutes per address. Separately, the root
+administrator only exists once it has signed in at `/auth/admin/login`, and the one sign-in dialog
+reaches that route only for an account that already exists (audit D10, open for the owner).
+
+**Fix.** The crawler empties the limiters before every page (`POST /__e2e/rate-limits/reset`, a
+test-only hook) and provisions the administrator through `/auth/admin/login` before signing in
+through the dialog. Do not switch the limiters off for the suite instead — see the next entry.
+
 ## The last browser tests fail only when the whole suite runs
 
 **Symptom.** `npm run e2e` in `frontend/` fails the last test or two (on 2026-10-05, the two
