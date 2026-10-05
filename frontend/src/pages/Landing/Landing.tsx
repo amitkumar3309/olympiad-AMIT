@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
@@ -153,32 +153,50 @@ export default function Landing() {
     setLoginOpen(true)
   }
 
-  const sections: Record<HomeSectionId, ReactNode> = {
-    hero: <Hero signedIn={isStudent} registerTo={registerTo} />,
-    stats: <Stats />,
-    crack: <DeferredCrackThis onPlay={play} classLevel={state.status === 'student' ? state.student.classLevel : null} />,
-    rewards: <Rewards prize={prize} onPlay={play} />,
-    about: <About onPlay={play} />,
-    how: <HowItWorks registerTo={registerTo} />,
-    journey: <Journey />,
-    scholars: <TopScholars />,
-    faq: <Faq prize={prize} />,
-    cta: <FinalCta signedIn={isStudent} registerTo={registerTo} onSignIn={() => setLoginOpen(true)} />,
-  }
+  const openGate = useCallback(() => setGateOpen(true), [])
+  const openSignIn = useCallback(() => setLoginOpen(true), [])
+  const classLevel = state.status === 'student' ? state.student.classLevel : null
+
+  /*
+   * The page itself, apart from the two dialogs (Milestone 30, Phase 6). Their open state lives
+   * here, so opening the sign-in dialog used to render every section of the homepage again —
+   * about 90 ms of a slow phone's time before the dialog could appear (Interaction to Next
+   * Paint, brief §10: ≤ 200 ms). Built from what the sections actually read, so opening or
+   * closing a dialog renders the dialog and nothing else.
+   */
+  const page = useMemo(() => {
+    const sections: Record<HomeSectionId, ReactNode> = {
+      hero: <Hero signedIn={isStudent} registerTo={registerTo} />,
+      stats: <Stats />,
+      crack: <DeferredCrackThis onPlay={play} classLevel={classLevel} />,
+      rewards: <Rewards prize={prize} onPlay={play} />,
+      about: <About onPlay={play} />,
+      how: <HowItWorks registerTo={registerTo} />,
+      journey: <Journey />,
+      scholars: <TopScholars />,
+      faq: <Faq prize={prize} />,
+      cta: <FinalCta signedIn={isStudent} registerTo={registerTo} onSignIn={openSignIn} />,
+    }
+    return (
+      <>
+        <Navbar />
+
+        <main id="main-content">
+          {HOME_SECTIONS.filter((section) => section.enabled).map((section) => (
+            <div key={section.id}>{sections[section.id]}</div>
+          ))}
+        </main>
+
+        <Footer />
+
+        <HomeQuizFab onGuestClick={openGate} />
+      </>
+    )
+  }, [isStudent, registerTo, play, classLevel, prize, openSignIn, openGate])
 
   return (
     <div className={styles.page}>
-      <Navbar />
-
-      <main id="main-content">
-        {HOME_SECTIONS.filter((section) => section.enabled).map((section) => (
-          <div key={section.id}>{sections[section.id]}</div>
-        ))}
-      </main>
-
-      <Footer />
-
-      <HomeQuizFab onGuestClick={() => setGateOpen(true)} />
+      {page}
 
       <LoginGate
         open={gateOpen}

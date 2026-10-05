@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 /**
  * Light/dark theming for the whole app.
@@ -121,12 +121,43 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Applied to the document element so it covers every page, portal and overlay —
   // including anything rendered outside the React root.
+  //
+  // A change after the first render is applied after the next paint (Milestone 30, Phase 6).
+  // Recolouring restyles every element on the page — 400 ms on a slow phone's homepage — and
+  // React runs this effect before a click's next frame, so the switch itself did not visibly
+  // move until all of that was done (Interaction to Next Paint, brief §10: ≤ 200 ms). Now the
+  // switch flips at once and the page follows a moment later. The timer is there because a
+  // tab that is not being drawn never runs a frame (CLAUDE.md), and the theme must arrive.
+  const appliedOnce = useRef(false)
   useEffect(() => {
-    const root = document.documentElement
-    root.classList.toggle('theme-dark', theme === 'dark')
-    // Tells the browser to match its own furniture (form controls, scrollbars) to the
-    // theme. Without it, a dark page gets light native scrollbars.
-    root.style.colorScheme = theme === 'dark' ? 'dark' : 'light'
+    const apply = () => {
+      const root = document.documentElement
+      root.classList.toggle('theme-dark', theme === 'dark')
+      // Tells the browser to match its own furniture (form controls, scrollbars) to the
+      // theme. Without it, a dark page gets light native scrollbars.
+      root.style.colorScheme = theme === 'dark' ? 'dark' : 'light'
+    }
+    if (!appliedOnce.current) {
+      appliedOnce.current = true
+      apply()
+      return
+    }
+    let done = false
+    const once = () => {
+      if (done) return
+      done = true
+      apply()
+    }
+    let afterPaint = 0
+    const frame = requestAnimationFrame(() => {
+      afterPaint = window.setTimeout(once, 0)
+    })
+    const fallback = window.setTimeout(once, 250)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(afterPaint)
+      window.clearTimeout(fallback)
+    }
   }, [theme])
 
   const setTheme = useCallback((next: Theme) => {
