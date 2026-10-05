@@ -110,6 +110,10 @@ async function crawl(page: Page, request: APIRequestContext, starts: string[], o
 
     const found = [...errors]
     if (!response || response.status() >= 400) found.push(`the page itself answered ${response?.status() ?? 'nothing'}`)
+    // The page runs under production's Content Security Policy (vite.config.ts serves
+    // vercel.json's headers), so a resource the policy refuses is a console error above.
+    // If the header ever goes missing, that check silently stops meaning anything.
+    if (response && !response.headers()['content-security-policy']) found.push('served without the Content-Security-Policy header')
     if ((await page.getByRole('heading', { level: 1, name: 'This page does not exist' }).count()) > 0) {
       found.push('rendered the 404 page — a link to a route that does not exist')
     }
