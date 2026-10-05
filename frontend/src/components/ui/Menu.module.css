@@ -159,6 +159,20 @@
   color: var(--text-subtle);
 }
 
+/* An unread notification. Never the only signal — `meta` says "Unread" in words. */
+.itemEmphasis {
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+/* The quiet second line — a time, "Nothing new". `--text-muted` is the text floor. */
+.itemMeta {
+  font-size: var(--type-micro);
+  font-weight: var(--weight-normal);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+}
+
 .separator {
   margin: var(--space-2) 0;
   border: 0;
