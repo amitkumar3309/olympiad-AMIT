@@ -46,8 +46,9 @@ The work happens in phases, and each one stops for the owner's approval.
 - **Phase 3 (the homepage and the way into the quiz) — done.** The homepage is rebuilt to the landing
   mockup, its sections listed in `lib/siteConfig.ts` (`HOME_SECTIONS`) and each showing only what it
   can back: the hero, real figures (`GET /public/stats`, now with **questions solved** and a 10-minute
-  cache), "Can you crack this?" (25 sample questions, every answer recomputed by
-  `npm run verify:samples`; only the owner-reviewed Mathematics tab is live), the **Rewards** section
+  cache), "Can you crack this?" (since 2026-10-05 **real Daily Quiz problems whose answers are
+  already public, never today's** — `GET /daily-quiz/past`, through `revealOf()`; the demo set is
+  gone), the **Rewards** section
   (the owner's prize wording, recent published winners, the server's own "how winners are chosen"),
   About, How it works, the journey (**the nine real milestones**, `GET /public/journey`), Top Scholars
   (a podium only when the top three ranks are really 1-2-3), FAQ, the closing call to action. The
@@ -63,9 +64,9 @@ The work happens in phases, and each one stops for the owner's approval.
   files**; E2E adds the homepage → button → gate → quiz, register → verify → quiz and the guarded-page
   redirect.
 - **Owner actions** (PLAN.md §5; all four Phase 0 questions answered 2026-10-04): review the legal
-  drafts (`LEGAL_REVIEW.md`, including the refund policy, which was not guessed); review the drafted
-  Logic/Reasoning/Brainstorming questions (`docs/launch/SAMPLE_QUESTIONS.md`); **load at least the
-  first two weeks of quiz questions before launch** (Admin → Daily Quiz → Import a file); update
+  drafts (`LEGAL_REVIEW.md`, including the refund policy, which was not guessed); **load at least the
+  first two weeks of quiz questions before launch** — they are also what the homepage's "Can you crack
+  this?" shows, one day after each runs (Admin → Daily Quiz → Import a file); update
   `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` in Vercel if they are set there.
 - **Phase 4 (the student dashboard) is next.**
 

@@ -110,7 +110,7 @@ Phase 2), `/rewards/rules`, `/privacy`, `/terms`, `/refund-policy`, `/contact`, 
 | Footer | support@amitolympiad.me | `mailto:` | same | ✅ owner-confirmed 2026-10-04 (PLAN Q9) | — |
 | DeveloperCredit.tsx:38 | Sachin Kukkar | a, new tab, `noopener noreferrer` | sachinkukkar.tech | ✅ | — |
 | Landing › Hero | Register for free (guest) / Go to dashboard (student) · Explore more | ButtonLink | `/register` (`?ref=` carried) / `/dashboard` · `/#how-it-works` | ✅ Phase 3 | — |
-| Landing › Can you crack this? | 4 options · Submit answer (disabled until chosen) · Try another · Play today's Daily Quiz and win prizes | radio group / Button | instant feedback · next question · the Daily Quiz flow | ✅ Phase 3 | — |
+| Landing › Can you crack this? | Class-group tabs · 2–6 options · Submit answer (disabled until chosen) · Try another (when the group has more than one) · Play today's Daily Quiz and win prizes · Try again (when the problems failed to load) | tabs / radio group / Button | switch group · instant feedback with the worked solution · the previous day's problem · the Daily Quiz flow · re-fetch | ✅ Phase 3; real past Daily Quiz problems since 2026-10-05 | — |
 | Landing › Rewards | Play today's quiz · verify · Read the Daily Quiz & Rewards Rules · winners row (scrollable) | Button / Link | the Daily Quiz flow · `/verify` · `/rewards/rules` | ✅ Phase 3 | — |
 | Landing › About | Practice · Mock tests · Daily Quiz · Performance insights | Link / Button | `/practice` `/mock-tests` the Daily Quiz flow `/analytics` (a guest signs in first, `?next=`) | ✅ Phase 3 (D4) | — |
 | Landing › How it works | 4 steps | Link | `/register` `/practice` `/payment` `/result` | ✅ Phase 3 | — |

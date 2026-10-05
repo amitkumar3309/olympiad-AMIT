@@ -4,6 +4,49 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-05 — "Can you crack this?" is a past Daily Quiz problem: never a demo set, and never today's
+
+**Context.** Phase 3 built the homepage's "Can you crack this?" over 25 hand-written sample questions
+in the frontend (`sampleQuestions.ts`), each answer recomputed by `npm run verify:samples`, with only
+the owner-reviewed Mathematics tab live. On 2026-10-05 the owner reversed that: no demo question on
+the landing page — "it should be a real daily problem".
+
+**Decision.**
+
+1. **The problem is a real Daily Quiz, from a day whose answer is already public.**
+   `GET /daily-quiz/past` returns the most recent revealed quizzes per class group (Classes 3–5 / 6–8 /
+   9–12), newest first, one entry per quiz, a week by default and a fortnight at most. The homepage's
+   tabs are those groups; a signed-in student opens on their own. A quiz set for a custom range
+   appears under every group it overlaps, labelled with its own range.
+2. **Never today's.** Today's quiz is the prize question. Its solve time starts at Start, so a public
+   copy would let anybody read it, work it out, then start and answer in a second — the
+   fastest-correct rule would reward whoever read the homepage first — and its answer is not public
+   until midnight. Every problem passes through `revealOf()`: the query asks only for earlier days,
+   and the gate makes that a guarantee rather than an assumption. The answer-key leak test now
+   stringifies this endpoint too, and a test stands at 23:59:59.
+3. **It answers at once, because the answer is public.** The response carries the answer and the
+   worked solution, and the page marks the reader's choice itself. Nothing is submitted and nothing is
+   stored: a visitor's guess at a revealed problem is not an attempt, earns nothing and counts nowhere.
+4. **Display letters, in a fixed public order.** No opaque option id and no bank key leave the server
+   — a reader has no use for either. The order is a shuffle seeded by the quiz (`seededOrder()`), not
+   the author's original order, in which many authors put the right answer in the same place; and it
+   is the same on every request, so a cached copy and a fresh one agree.
+5. **An honest empty state.** Until the first quiz is revealed — which on launch day itself it will
+   not be — the section says each problem appears once its answer unlocks at midnight, and points at
+   today's quiz. Nothing fills the gap.
+6. **The demo set is deleted**: `sampleQuestions.ts`, `scripts/verify-sample-questions.ts`,
+   `npm run verify:samples` and `docs/launch/SAMPLE_QUESTIONS.md`. What stands behind a homepage
+   problem now is what stands behind the quiz: `quizQuestionProblem()` (single choice, exactly one
+   correct option, a worked solution) and the person who scheduled it. This supersedes point 7 of the
+   Phase 3 ADR below, and PLAN.md Q8.
+
+**Consequences.** The endpoint is cached publicly (`max-age=300, s-maxage=600`), which is safe
+because a response holds only days revealed when it was built and a reveal never un-happens — a stale
+copy can only be missing the newest day; the header is set only after the work succeeds, so a failure
+is never cached. The class-group tabs are a row above the problem at every width: the mockup's left
+column of tabs took 200px from the question at 1024px, and four answer tiles in what was left broke
+"48" one digit per line. The 30-second clock stays (`CRACK_THIS_SECONDS`), now over real problems.
+
 ## 2026-10-04 — Milestone 30 Phase 3: the homepage is composed from configuration, and the way into the quiz keeps its destination
 
 **Context.** The brief's Phase 3 (§7) rebuilds the homepage to the landing mockup, adds a floating
@@ -39,7 +82,8 @@ and the contact details (Q9).
    no school or city. The profile switch from Phase 2 had been honoured by the winners list only.
 7. **Sample questions are verified by a script, and published by a person.** Every answer is
    recomputed independently (`npm run verify:samples`, Node's own TypeScript support — no dependency);
-   a tab appears only with five owner-reviewed questions.
+   a tab appears only with five owner-reviewed questions. *Superseded 2026-10-05: the homepage shows
+   past Daily Quiz problems instead, and the sample set is deleted — see the ADR above.*
 8. **Legal pages are drafts that invent nothing.** Written from what the code collects and does; no
    refund window, organiser address or jurisdiction. Each is `TODO(legal-review)`, with the open
    questions in `docs/launch/LEGAL_REVIEW.md`. The rules page fetches the winner rule and the prize

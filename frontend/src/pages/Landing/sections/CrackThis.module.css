@@ -1,4 +1,5 @@
-/* "Can you crack this?" (Milestone 30, Phase 3). Mobile first; tokens only. */
+/* "Can you crack this?" (Milestone 30, Phase 3; real Daily Quiz problems since Phase 4).
+   Mobile first; tokens only. */
 
 .section {
   padding-block: var(--space-6);
@@ -99,6 +100,9 @@
 
 /* ---------- tabs + body ------------------------------------------------- */
 
+/* The class-group tabs are a row above the problem at every width. The mockup's left
+   column of tabs took 200px from the question at a laptop width, and four answer tiles
+   in what was left broke "48" one digit per line. */
 .withTabs {
   display: grid;
   gap: var(--space-4);
@@ -111,23 +115,6 @@
 
 .panel {
   min-width: 0;
-}
-
-/* From a laptop the tabs stand in a column to the left, as in the mockup. */
-@media (min-width: 1024px) {
-  .withTabs {
-    grid-template-columns: 200px minmax(0, 1fr);
-    align-items: start;
-  }
-
-  .tabs {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .tabs > * {
-    justify-content: flex-start;
-  }
 }
 
 .play {
@@ -147,6 +134,24 @@
   display: grid;
   gap: var(--space-4);
   min-width: 0;
+}
+
+/* "Daily Quiz, Sun, 4 Oct 2026 · Classes 6–8 · Algebra" — where this problem came from. */
+.meta {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+}
+
+.meta svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
 }
 
 .question {
@@ -203,10 +208,48 @@
   color: var(--success-text);
 }
 
+.solution {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.solutionLabel {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
 .explanation {
   color: var(--text-body);
   font-size: var(--type-small);
   line-height: var(--leading-normal);
+}
+
+/* ---------- loading, nothing yet, failed --------------------------------- */
+
+.loading {
+  min-height: 220px;
+}
+
+.notice {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.noticeText {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--text-body);
+  line-height: var(--leading-normal);
+}
+
+.noticeActions {
+  display: grid;
+  gap: var(--space-3);
+  width: min(100%, 420px);
 }
 
 /* ---------- side -------------------------------------------------------- */

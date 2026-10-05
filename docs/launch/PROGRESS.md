@@ -2,13 +2,13 @@
 
 A fresh session should read `LAUNCH_SPEC.md`, then `PLAN.md`, then this file.
 
-_Last updated 2026-10-04._
+_Last updated 2026-10-05._
 
 ## Current state
 
-**Phase 3 (the homepage and the way into the Daily Quiz) complete on branch
-`feat/diwali-launch-phase-3`** (PR #3), replayed onto `main` after PR #2 was squash-merged
-(`964260c`). **Waiting for the owner's "continue" before Phase 4 (the student dashboard).**
+**Phase 3 is merged (PR #3, `91efc72`). Phase 4 (the student dashboard) is in progress on branch
+`feat/diwali-launch-phase-4`.** First on that branch, at the owner's request (2026-10-05): the
+homepage's "Can you crack this?" now shows **real past Daily Quiz problems** instead of the demo set.
 
 ## Tasks
 
@@ -37,7 +37,7 @@ _Last updated 2026-10-04._
 | 3 | `GET /public/stats` + `questionsSolved` + 10-minute cache; `GET /public/journey` | ✅ done |
 | 3 | `GET /me/daily-quiz/status` for the floating button | ✅ done |
 | 3 | `next` allow-list through registration, resend and the verification link (backend + frontend); guarded pages → sign-in with `?next=` (D2) | ✅ done |
-| 3 | 25 sample questions + `npm run verify:samples` (mutation-checked); `SAMPLE_QUESTIONS.md` review sheet | ✅ done |
+| 3 | 25 sample questions + `npm run verify:samples` (mutation-checked); `SAMPLE_QUESTIONS.md` review sheet | ✅ done — replaced 2026-10-05 (below) |
 | 3 | Primitive extensions (Menu trigger, Tabs element icons, JourneyTrack `upcoming`, FAB `style`) | ✅ done |
 | 3 | Header (section links + you-are-here, avatar menu, frosted on scroll) and footer (Legal column) | ✅ done |
 | 3 | Homepage rebuilt from `lib/siteConfig.ts`: hero, stats, crack-this, Rewards, About (D4), How it works, journey (9 milestones), Top Scholars, FAQ, CTA | ✅ done |
@@ -47,7 +47,8 @@ _Last updated 2026-10-04._
 | 3 | Tests: backend 1336 / 38; E2E 12/12 (adds button → gate → quiz, register → verify → quiz, guarded page, no sideways scroll) | ✅ done |
 | 3 | Browser check at 1280 and 390 (light), screenshots in `docs/launch/screenshots/phase-3/` | ✅ done |
 | 3 | Docs: ADR, CLAUDE.md, API, security, testing, feature status, state, changelog, audit | ✅ done |
-| 4 | Student dashboard | ⬜ next |
+| 4 | Owner, 2026-10-05: "Can you crack this?" is a real daily problem — `GET /daily-quiz/past` (revealed days only, through `revealOf()`), class-group tabs, honest empty state; demo set, `verify:samples` and `SAMPLE_QUESTIONS.md` deleted; leak test extended; E2E 14/14 | ✅ done |
+| 4 | Student dashboard | 🟡 in progress |
 | 5 | Every button and link (D1–D9), crawler | ⬜ |
 | 6 | Launch readiness + `LAUNCH_REPORT.md` | ⬜ |
 
@@ -60,10 +61,10 @@ owner reviews; **Q9** `+91-97828-70716` and `support@amitolympiad.me`. New, from
 - **Legal review** — `docs/launch/LEGAL_REVIEW.md`: the organiser's legal name and address, governing
   law, a grievance contact, **the refund policy** (not guessed — money), data retention, prize delivery
   and tax handling.
-- **Sample questions** — `docs/launch/SAMPLE_QUESTIONS.md`: approve or change the 18 drafted Logic,
-  Reasoning and Brainstorming questions; only Mathematics is on the homepage until then.
+- ~~Sample questions~~ — moot since 2026-10-05: the homepage shows real past Daily Quiz problems, and
+  the drafted set was deleted.
 - **Owner actions**: load at least the first two weeks of quiz questions before launch (Admin → Daily
-  Quiz → Import a file); if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel
+  Quiz → Import a file) — each also becomes the homepage's "Can you crack this?" the day after it runs; if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel
   project, update them (a set variable beats the new default); supply the illustrations
   (`ASSETS_NEEDED.md` — placeholders until then).
 
@@ -76,12 +77,12 @@ Compared side by side with `docs/design/mockup-landing.jpeg` (screenshots in
 |---|---|---|
 | Sunday Math Boss Battle and Month-End Booster cards | Absent | The events do not exist (PLAN.md Q6); a reward card is a promise. |
 | "Your 6-Month Mathematical Journey" (Number Forest → Olympiad Kingdom) | "Your journey to the Olympiad" — the nine real milestones | Owner's choice (Q7): no programme calendar sits behind the themed months. |
-| Four question tabs | Mathematics only, no tab row | The other three are drafts awaiting the owner (Q8); a tab row of one is a control with nothing to choose. |
+| Four question tabs (Mathematics / Logic / Reasoning / Brainstorming) | Class-group tabs (3–5 / 6–8 / 9–12) over real past Daily Quiz problems, in a row above the problem | Owner, 2026-10-05: a real daily problem, not a demo set. Never today's — it is the prize question, timed from Start. A tab row of one is not drawn. The mockup's left column of tabs squeezed four answer tiles at 1024px. |
 | Options always four in a row | Four in a row for short answers, one per row for wordy ones | Sentences in quarter-width tiles broke mid-word on a phone. |
 | Stat sub-lines "across India", "solving now…" | Labels only | Schools are free text (not countable as "across India"); "active today" is since IST midnight, not now. |
 | A podium of three | A podium only when ranks 1-2-3 are distinct, else the table | Equal XP shares a rank; level students on steps 1-2-3 would be a false ranking. |
 | Illustrations (student, trophy, gift, journey scenes, climber) | Placeholders | Art not supplied yet — `ASSETS_NEEDED.md`; dropping files in needs no code. |
-| The mockup's sample question | Corrected (123/7 is an option) | The mockup's version had no correct option (brief Appendix B). |
+| The mockup's sample question | A real past Daily Quiz problem | The mockup's version had no correct option (brief Appendix B); since 2026-10-05 the question comes from the quiz itself. |
 | — | "About the Olympiad" and FAQ sections | Targets of the navbar's About and FAQ links (not visible in the mockup's crop). |
 
 ## Notes for the next session

@@ -1762,6 +1762,31 @@ export interface PublicQuizWinner {
   prizeText: string | null
 }
 
+/**
+ * A past Daily Quiz problem whose answer is public (`GET /daily-quiz/past`) — never
+ * today's. Display letters only: no option id, no bank key.
+ */
+export interface PastQuizProblem {
+  day: string
+  classRange: { min: number; max: number; label: string }
+  topic: string | null
+  difficulty: string | null
+  questionText: string
+  options: Array<{ letter: string; text: string }>
+  answer: { letter: string; text: string }
+  solution: string
+}
+
+/** One class group's past problems, newest first — empty until one has been revealed. */
+export interface PastProblemGroup {
+  /** `3-5`, `6-8` or `9-12`. */
+  id: string
+  label: string
+  min: number
+  max: number
+  problems: PastQuizProblem[]
+}
+
 // --- Staff ---
 
 export interface QuizStats {

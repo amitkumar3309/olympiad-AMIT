@@ -41,7 +41,14 @@ export const HOME_STATS = {
 } as const
 
 /** "Can you crack this?" — seconds on the clock once the card is half in view. */
-export const SAMPLE_QUESTION_SECONDS = 30
+export const CRACK_THIS_SECONDS = 30
+
+/**
+ * "Can you crack this?" — how many past Daily Quiz problems per class group "Try another"
+ * steps back through (the server allows 1–14). Only problems whose answers are already
+ * public are ever sent: never today's.
+ */
+export const PAST_PROBLEMS_PER_GROUP = 7
 
 /** How many published Daily Quiz winners the Rewards section shows. */
 export const RECENT_WINNERS = 7

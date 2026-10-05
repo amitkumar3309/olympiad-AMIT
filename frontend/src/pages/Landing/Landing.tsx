@@ -135,7 +135,7 @@ export default function Landing() {
     stats: <Stats />,
     crack: (
       <Suspense fallback={<div className={styles.crackPlaceholder} aria-hidden="true" />}>
-        <CrackThis onPlay={play} />
+        <CrackThis onPlay={play} classLevel={state.status === 'student' ? state.student.classLevel : null} />
       </Suspense>
     ),
     rewards: <Rewards prize={prize} onPlay={play} />,

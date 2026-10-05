@@ -2,6 +2,26 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-05 — "Can you crack this?" shows real Daily Quiz problems
+
+The owner did not want a demo question on the landing page — "it should be a real daily problem".
+Branch `feat/diwali-launch-phase-4`.
+
+- **The homepage's "Can you crack this?" is now a real Daily Quiz problem** whose answer is already
+  public — yesterday's, and "Try another" steps back through the week before. Tabs are the class
+  groups (Classes 3–5 / 6–8 / 9–12); a signed-in student opens on their own. Choose, submit, and it
+  says right or wrong at once with the answer and the worked solution, then points at today's quiz.
+- **Never today's.** Today's quiz is the prize question, timed from Start; showing it publicly would
+  let anybody work it out first and then answer in a second. The new public
+  `GET /daily-quiz/past` serves only earlier days, each through `revealOf()`, and the answer-key leak
+  test now covers it (including at 23:59:59).
+- Until the first quiz is revealed — launch day itself — the section says the first problem is on its
+  way and points at today's quiz.
+- The 25 hand-written sample questions, `npm run verify:samples` and `docs/launch/SAMPLE_QUESTIONS.md`
+  are deleted; the owner no longer has a sample set to review.
+- Fixed in passing: the homepage scrolled 12px sideways between about 900 and 1100px wide (the "How it
+  works" paper plane sat past the section's edge).
+
 ## 2026-10-04 — Milestone 30 Phase 3: the homepage, the floating Daily Quiz button and the Login Gate
 
 The public homepage was rebuilt to the landing mockup, with the owner's R2–R5 at its centre: a
