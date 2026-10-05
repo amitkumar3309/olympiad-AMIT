@@ -4,6 +4,7 @@ import { api } from '../../api/client'
 import type { InboxNotification, Pagination } from '../../api/types'
 import StudentShell from '../../components/StudentShell'
 import Spinner from '../../components/Spinner'
+import { Icon } from '../../components/ui'
 import styles from './Notifications.module.css'
 import { humanizeError } from '../../lib/errors'
 
@@ -123,13 +124,19 @@ export default function Notifications() {
               <li
                 key={item.id}
                 className={`${styles.item} ${item.read ? '' : styles.unreadItem} ${busyId === item.id ? styles.busy : ''}`}
-                onMouseEnter={() => void markRead(item)}
               >
                 <div className={styles.itemHead}>
                   <strong>{item.title}</strong>
                   {item.kind === 'alert' && <span className={styles.alertTag}>Alert</span>}
                   {item.source === 'system' && <span className={styles.systemTag}>Automatic</span>}
-                  {!item.read && <span className={styles.dot} aria-label="Unread" />}
+                  {/* The dot is the picture; the words are for a screen reader — an
+                      `aria-label` on a plain span is not announced at all. */}
+                  {!item.read && (
+                    <>
+                      <span className={styles.dot} aria-hidden="true" />
+                      <span className="sr-only">Unread</span>
+                    </>
+                  )}
                 </div>
                 {/*
                   `white-space: pre-line` in the stylesheet, because the server writes
@@ -143,10 +150,30 @@ export default function Notifications() {
                   {item.audience === 'class' && item.classLevel ? ` · ${item.classLevel}` : ''}
                   {item.audience === 'student' ? ' · Just for you' : ''}
                 </span>
-                {item.link && (
-                  <Link className={styles.action} to={item.link}>
-                    Take me there <i className="ph ph-arrow-right" aria-hidden="true" />
-                  </Link>
+                {/*
+                  Marking read is an explicit act now (Milestone 30, Phase 5). It used to
+                  happen on mouse hover, which a phone and a keyboard can never do — so
+                  there an item stayed unread until "Mark all as read". Following the
+                  item's link marks it read too.
+                */}
+                {(item.link || !item.read) && (
+                  <div className={styles.actions}>
+                    {item.link && (
+                      <Link className={styles.action} to={item.link} onClick={() => void markRead(item)}>
+                        Take me there <Icon name="ph-arrow-right" size="xs" />
+                      </Link>
+                    )}
+                    {!item.read && (
+                      <button
+                        type="button"
+                        className={styles.markRead}
+                        onClick={() => void markRead(item)}
+                        disabled={busyId === item.id}
+                      >
+                        Mark as read
+                      </button>
+                    )}
+                  </div>
                 )}
               </li>
             ))}

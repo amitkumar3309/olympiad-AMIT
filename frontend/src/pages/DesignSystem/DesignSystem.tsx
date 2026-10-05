@@ -1024,7 +1024,7 @@ export default function DesignSystem() {
           </Row>
           <Row label="Marked — the reader chose B, which was wrong; C was right. Locked.">
             <div style={{ width: '100%' }}>
-              <OptionGroup legend="Sample: a marked answer" value="o-2c91" onChange={() => undefined} columns={4} disabled>
+              <OptionGroup legend="Sample: a marked answer" value="o-2c91" columns={4} disabled>
                 {SAMPLE_OPTIONS.map((option, i) => (
                   <OptionTile
                     key={option.id}

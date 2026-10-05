@@ -151,6 +151,15 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 - **Response 200 (root admin)**: `{ success, role: 'superadmin', permissions, admin: { email, role } }` — answered from the token alone, so it works even when MongoDB is down.
 - **Errors**: `401` no/invalid/expired token, unknown student, or a stale `tv` (revoked session); `403` account no longer active; `503` database unreachable.
 
+### `GET /api/v1/auth/session` (Milestone 30, Phase 5)
+- **Auth**: none — reads the cookies directly, like `/auth/me`, and answers everybody.
+- **Response 200 (a session)**: `{ success, authenticated: true, role, permissions, student | admin }` — the `/auth/me` envelope.
+- **Response 200 (no session)**: `{ success, authenticated: false, canRefresh }` — `canRefresh` is whether a refresh cookie came with the request, so the client knows whether one `POST /auth/refresh` is worth making. A missing, invalid or expired access token, a revoked one (stale `tv`) and an unknown account all answer this way; an account that is no longer `active` answers it with `canRefresh: false`.
+- **Never sets or rotates a cookie**, never refreshes, and is sent `Cache-Control: private, no-store`.
+- Exists so a **guest's page load makes no failing request**: `AuthContext` used to ask `/auth/me` (401) and then `/auth/refresh` (401) on every public page, and the browser logs each as a console error. `/auth/me` is unchanged; the client falls back to it if this route answers 404 (a backend older than the frontend).
+- **Errors**: `503` when the database cannot be reached for a signed-in check, `429`.
+- **Called by**: `AuthContext.tsx` on every page load.
+
 ### `POST /api/v1/auth/forgot-password`
 - **Auth**: none. **Rate limit**: 5/hour.
 - **Request**: `{ email }`
@@ -245,6 +254,7 @@ Two contracts a client must respect, both the same as the analytics endpoint: **
 - **Permission**: `questions:write`.
 - **Response 200**: `{ success, configured, models: [{ id, displayName, inUse }] }` — the models this API key can actually call, filtered to those supporting `generateContent`.
 - Exists because model names are retired on the provider's schedule (`gemini-2.0-flash` was this project's default until it stopped existing), and the only authoritative answer to "which name works?" is the key's own. Populates the model picker on the generator page; a failure there costs the picker, not generation.
+- **Errors**: `503` naming `GEMINI_API_KEY` when no key is configured — the same answer generation gives (a `500` until Milestone 30 Phase 5); `500` when Google refuses the list. The page asks for it only once `GET /admin/question-generator` reports a key.
 
 ### `GET /api/v1/admin/question-generator` (Milestone 17)
 - **Permission**: `questions:write`.
@@ -430,7 +440,7 @@ All in `backend/src/routes/v1/users.routes.ts`. Every route here is gated by `re
 - **Response 200**: `{ success, students: StudentDirectoryEntry[], pagination: { page, limit, total, totalPages } }`
 - **Every registered account is listed, whatever its payment state.** There is no default payment filter and there must never be one: `not_started` is a first-class value, and a directory that quietly showed only paying students would be indistinguishable from a working one until somebody asked how many people had registered.
 - `search` matches `fullName`, `email`, `mobile`, `studentId` **or `schoolName`** (the last added in Milestone 22), **case-insensitively and literally** — the term is regex-escaped, so `.*` matches nothing rather than everything (asserted by a test).
-- `StudentDirectoryEntry` is `ManagedAccount` plus `paymentState`, `paymentAttempts`, `hasPaid` and `payment` (the `PaymentRecord` view, or `null`). `ManagedAccount` is an explicit allow-list: `id`, `studentId`, `fullName`, `email`, `mobile`, `role`, `status`, `isEmailVerified`, `registeredAt`, `lastLoginAt`, `lockedUntil`, `roleUpdatedAt`, `roleUpdatedBy`, `mustChangePassword`, `passwordResetAt`, `passwordResetBy`, plus the Milestone 4 registration details (`firstName`, `middleName`, `lastName`, `fatherName`, `motherName`, `dateOfBirth`, `classLevel`, `schoolName`, `address`) — each `null` on an account created before Milestone 4. The photo is **not** included; fetch it from `GET /students/:studentId/photo`. A test asserts no password hash, token version or payment signature can appear in the response.
+- `StudentDirectoryEntry` is `ManagedAccount` plus `paymentState`, `paymentAttempts`, `hasPaid`, `payment` (the `PaymentRecord` view, or `null`) and `hasPhoto` (Milestone 30, Phase 5). `ManagedAccount` is an explicit allow-list: `id`, `studentId`, `fullName`, `email`, `mobile`, `role`, `status`, `isEmailVerified`, `registeredAt`, `lastLoginAt`, `lockedUntil`, `roleUpdatedAt`, `roleUpdatedBy`, `mustChangePassword`, `passwordResetAt`, `passwordResetBy`, plus the Milestone 4 registration details (`firstName`, `middleName`, `lastName`, `fatherName`, `motherName`, `dateOfBirth`, `classLevel`, `schoolName`, `address`) — each `null` on an account created before Milestone 4. The photo is **not** included: `hasPhoto` says whether one is on file — joined from `StudentPhoto` for the page's rows only — and the console fetches `GET /students/:studentId/photo` only then, which is what stopped a 404 per photo-less row (the root administrator's always). A test asserts no password hash, token version or payment signature can appear in the response.
 - **`paymentState` is derived on every read** from the student's `Payment` rows for `purpose: 'olympiad_entry'`, in the aggregation — never stored, for the reason there is no `hasPaid` flag on `Student`. `paid` (a captured payment exists) outranks everything else on the row, then `refunded`, then `not_started` (no rows at all), then `failed` (latest attempt failed), else `pending`. There is deliberately **no `cancelled`**: the platform has no such payment status.
 - `payment` is the **captured** payment where one exists, otherwise the most recent attempt — so a student who failed twice and then paid shows the payment that succeeded.
 - **Errors**: `400` bad query (including a malformed date or a sort key that is not on the allow-list), `401`, `403`, `429`, `503`, `500`.
@@ -1147,7 +1157,7 @@ Only after the quiz has closed (**409** before). Ranks the correct answers by th
 
 ### Test-only hooks — never in a real deployment
 
-`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset` (empties every collection, puts the clock back and, since 2026-10-05, empties the rate limiters' counters), `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
+`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset` (empties every collection, puts the clock back and, since 2026-10-05, empties the rate limiters' counters), `POST /__e2e/rate-limits/reset` (empties the limiters' counters and nothing else — the link crawler calls it before each page; Milestone 30 Phase 5), `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
 
 ---
 

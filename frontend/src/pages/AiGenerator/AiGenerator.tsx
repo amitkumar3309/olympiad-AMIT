@@ -138,14 +138,23 @@ export default function AiGenerator() {
       .get<QuestionGeneratorStatus>('/admin/question-generator')
       .then(setStatus)
       .catch(() => setStatus(null))
-    // Asked for up front so the picker is usable immediately. A failure here costs the
-    // picker, not the page: generation still runs on the configured default, which is
-    // why `models` being null is a supported state rather than an error.
+  }, [])
+
+  /**
+   * The model list, asked for as soon as the status says a key is configured, so the picker
+   * is usable immediately. With no key there is nothing to ask Google (Milestone 30, Phase 5:
+   * the request could only fail, and the link crawler caught it doing so on every visit). A
+   * failure costs the picker, not the page: generation still runs on the configured default,
+   * which is why `models` being null is a supported state rather than an error.
+   */
+  const keyConfigured = status?.available === true
+  useEffect(() => {
+    if (!keyConfigured) return
     api
       .get<AvailableModelsResponse>('/admin/question-generator/models')
       .then(setModels)
       .catch((err) => setModelsError(humanizeError(err, { fallback: 'Could not reach Google.' })))
-  }, [])
+  }, [keyConfigured])
 
   /**
    * The subtopic list follows the **first** ticked chapter, and resets when it changes.
@@ -535,7 +544,11 @@ export default function AiGenerator() {
                 </p>
               ) : (
                 <p className={styles.hint}>
-                  {models ? `${models.models.length} available to your key.` : 'Loading what your key can use…'}
+                  {models
+                    ? `${models.models.length} available to your key.`
+                    : status && !status.available
+                      ? 'Listed once an API key is configured.'
+                      : 'Loading what your key can use…'}
                 </p>
               )}
             </div>
@@ -577,7 +590,7 @@ export default function AiGenerator() {
             <p className={styles.hint}>{500 - instructions.length} characters left.</p>
           </div>
 
-          <Button type="submit" disabled={!ready || busy !== null || chapters.length === 0}>
+          <Button type="submit" disabled={!ready || busy !== null || chapters.length === 0} loading={busy === 'all'}>
             {busy === 'all' ? 'Writing questions…' : `Generate ${count} question${count === 1 ? '' : 's'}`}
           </Button>
         </form>

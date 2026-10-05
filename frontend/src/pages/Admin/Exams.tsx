@@ -216,7 +216,7 @@ export default function Exams() {
             <label htmlFor="e-dist">Distinction at (%)</label>
             <input id="e-dist" type="number" min="1" max="100" className="form-control" value={distinction} onChange={(e) => setDistinction(e.target.value)} />
           </div>
-          <Button type="submit" disabled={creating}>
+          <Button type="submit" loading={creating}>
             {creating ? 'Creating...' : 'Create draft'}
           </Button>
         </form>

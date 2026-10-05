@@ -311,6 +311,8 @@ Route guards, permission-aware navigation and the unauthorized state exist to ma
 
 **Revocation surfaces**: `logout` (this device only), `logout-all` (every device, bumps `tokenVersion`), and a password reset (revokes everything). No key rotation mechanism exists for `JWT_SECRET`.
 
+**The session probe** (`GET /auth/session`, Milestone 30 Phase 5) answers a guest `200 { authenticated: false, canRefresh }` so a page load makes no failing request. It discloses nothing the caller does not already hold: `canRefresh` only reports whether the caller *sent* a refresh cookie (its validity is not checked here), and the signed-in answer is `/auth/me`'s, applying the same `tv` and account-status checks. It never sets, rotates or refreshes a cookie, and is `no-store`, so a shared cache cannot hand one person's session description to another.
+
 ## Cookies
 
 - `httpOnly: true` always — unreadable by client JS, which mitigates token theft via XSS.
@@ -665,7 +667,8 @@ Real prizes, including cash, raise the value of every shortcut. What the quiz de
 ### The end-to-end test hooks
 
 `/__e2e/clock`, `/__e2e/reset` and `/__e2e/seed` can move the quiz clock, empty a database and create a
-verified account — exactly what must never exist in a real deployment. Three independent locks: they are
+verified account — exactly what must never exist in a real deployment (`/__e2e/rate-limits/reset`, which
+only empties the rate limiters' counters, sits behind the same locks). Three independent locks: they are
 mounted only when `E2E_TEST_HOOKS=true`; `config` forces that off when `NODE_ENV=production`; and each
 hook refuses unless the connected database's name ends in `-e2e`. They are mounted ahead of the rate
 limiter and the origin check, which is acceptable only because of those locks. A backend test asserts

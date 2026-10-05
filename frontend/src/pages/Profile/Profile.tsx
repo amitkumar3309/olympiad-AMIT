@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
-import { Alert, Button, ErrorState, Icon, SkeletonCards, Spinner } from '../../components/ui'
+import { Alert, Button, ErrorState, Field, Icon, PasswordInput, SkeletonCards, Spinner } from '../../components/ui'
 import { api } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -18,6 +18,8 @@ import DailyQuizHistory from '../../components/DailyQuizHistory'
 import PrizeDetails from './PrizeDetails'
 import styles from './Profile.module.css'
 import { humanizeError } from '../../lib/errors'
+import { passwordProblem } from '../../lib/passwordPolicy'
+import PasswordRules from '../../components/PasswordRules'
 
 /**
  * The student's own profile and account settings.
@@ -279,6 +281,13 @@ export default function Profile() {
     setPasswordError(null)
     setPasswordMessage(null)
 
+    // The server's policy, checked before sending — this form used to say "a letter and
+    // a number" and send anything (audit D3).
+    const problem = passwordProblem(passwords.newPassword)
+    if (problem) {
+      setPasswordError(problem)
+      return
+    }
     if (passwords.newPassword !== passwords.confirmPassword) {
       setPasswordError('The two new passwords do not match.')
       return
@@ -346,7 +355,7 @@ export default function Profile() {
               <img
                 key={photoVersion}
                 src={photoSrc}
-                alt={`${profile.fullName ?? 'Your'} profile photo`}
+                alt={profile.fullName ?? 'You'}
                 className={styles.photo}
               />
             ) : (
@@ -364,12 +373,12 @@ export default function Profile() {
 
             {selectedPhoto && (
               <div className={styles.pendingPhoto}>
-                <img src={selectedPhoto.dataUrl} alt="Selected photo preview" className={styles.preview} />
+                <img src={selectedPhoto.dataUrl} alt="As you chose it, not yet saved" className={styles.preview} />
                 <div>
                   <p className={styles.fileName}>{selectedPhoto.name}</p>
                   <p className={styles.hint}>{formatBytes(selectedPhoto.size)}</p>
                 </div>
-                <Button onClick={() => void handlePhotoUpload()} disabled={photoSaving}>
+                <Button onClick={() => void handlePhotoUpload()} loading={photoSaving}>
                   {photoSaving ? 'Saving…' : 'Use this photo'}
                 </Button>
               </div>
@@ -480,7 +489,7 @@ export default function Profile() {
                 </label>
 
                 <div className={styles.formActions}>
-                  <Button type="submit" disabled={saving}>
+                  <Button type="submit" loading={saving}>
                     {saving ? 'Saving…' : 'Save changes'}
                   </Button>
                   <button
@@ -566,46 +575,49 @@ export default function Profile() {
             <hr className={styles.divider} />
 
             <h3>Change password</h3>
-            <form onSubmit={handlePasswordChange} className={styles.form}>
+            {/*
+              `ui/PasswordInput`, as every other password in the product (Milestone 30, Phase 5):
+              these three were the last plain password inputs, with no way to see what had been
+              typed on a phone's keyboard. Their own form class, because the details form's
+              `.form input` rule would override the field's room for its eye.
+            */}
+            <form onSubmit={handlePasswordChange} className={styles.passwordForm}>
               {passwordError && <Alert tone="danger">{passwordError}</Alert>}
               {passwordMessage && <p className={styles.successText}>{passwordMessage}</p>}
 
-              <label>
-                Current password
-                <input
-                  type="password"
+              <Field label="Current password">
+                <PasswordInput
                   value={passwords.currentPassword}
                   onChange={(e) => setPasswords((p) => ({ ...p, currentPassword: e.target.value }))}
                   autoComplete="current-password"
+                  describedAs="current password"
                 />
-              </label>
+              </Field>
               <div className={styles.row}>
-                <label>
-                  New password
-                  <input
-                    type="password"
+                <Field label="New password">
+                  <PasswordInput
                     value={passwords.newPassword}
                     onChange={(e) => setPasswords((p) => ({ ...p, newPassword: e.target.value }))}
                     autoComplete="new-password"
+                    describedAs="new password"
                   />
-                </label>
-                <label>
-                  Confirm new password
-                  <input
-                    type="password"
+                </Field>
+                <Field label="Confirm new password">
+                  <PasswordInput
                     value={passwords.confirmPassword}
                     onChange={(e) => setPasswords((p) => ({ ...p, confirmPassword: e.target.value }))}
                     autoComplete="new-password"
+                    describedAs="confirmed password"
                   />
-                </label>
+                </Field>
               </div>
-              <p className={styles.hint}>
-                At least 8 characters, with a letter and a number. Changing it signs you out on every other device.
-              </p>
+              <PasswordRules value={passwords.newPassword} />
+              <p className={styles.hint}>Changing it signs you out on every other device.</p>
               <div className={styles.formActions}>
                 <Button
                   type="submit"
-                  disabled={passwordSaving || !passwords.currentPassword || !passwords.newPassword}
+                  disabled={!passwords.currentPassword || !passwords.newPassword}
+                  loading={passwordSaving}
                 >
                   {passwordSaving ? 'Changing…' : 'Change password'}
                 </Button>

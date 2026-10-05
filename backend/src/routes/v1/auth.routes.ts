@@ -4,6 +4,7 @@ import { Student, StudentPhoto, type AccountStatus, type StudentDocument } from 
 import { resolveRootSuperadmin, isRootAdminEmail } from '../../services/rootAdminService';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
+import { connectDB, isConnected } from '../../db/connection';
 import { requireAuth } from '../../middleware/auth';
 import {
   loginLimiter,
@@ -956,6 +957,57 @@ router.post('/auth/logout-all', requireAuth(), ensureDb, async (req, res) => {
 // ---------------------------------------------------------------------------
 // Current user
 // ---------------------------------------------------------------------------
+
+/**
+ * The session probe the app makes on every page load (Milestone 30, Phase 5 — audit D9).
+ *
+ * `GET /auth/me` answers a signed-out caller **401**, and a browser logs every failed
+ * request as a console error — so every public page a guest opened began with two red
+ * lines (`/auth/me` 401, then `POST /auth/refresh` 401), and a link crawler that rightly
+ * refuses console errors could not pass a single page. This answers the same question
+ * with a **200**, and says which case it is:
+ *
+ *  - a valid access token → `{ authenticated: true, ...the session envelope }`, exactly
+ *    what `/auth/me` returns;
+ *  - no valid access token, but a refresh cookie → `{ authenticated: false, canRefresh: true }`,
+ *    and the app then calls `POST /auth/refresh` as before — which may still 401 when the
+ *    refresh token has expired, a real failure worth seeing;
+ *  - neither, or an account that is revoked or no longer active →
+ *    `{ authenticated: false, canRefresh: <a refresh cookie is present> }` (`false` for an
+ *    inactive account, whose refresh would be refused).
+ *
+ * **Read-only.** It never rotates a token — that stays `POST /auth/refresh`, behind the
+ * origin check — and it tells a cookie's owner nothing they could not already learn.
+ * `/auth/me` is unchanged. The database is reached only when there is a token to check,
+ * so a guest's probe never waits on a connection.
+ */
+router.get('/auth/session', async (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  const canRefresh = Boolean(req.cookies?.[config.auth.refreshCookieName]);
+  const payload = verifyAccessToken(req.cookies?.[config.auth.accessCookieName]);
+  if (!payload) {
+    sendSuccess(res, 200, { authenticated: false, canRefresh });
+    return;
+  }
+
+  try {
+    if (!isConnected()) await connectDB();
+    const student = await Student.findById(payload.sub);
+    const revoked = !student || (typeof payload.tv === 'number' && payload.tv !== student.tokenVersion);
+    if (revoked) {
+      sendSuccess(res, 200, { authenticated: false, canRefresh });
+      return;
+    }
+    if (student.status !== 'active') {
+      sendSuccess(res, 200, { authenticated: false, canRefresh: false });
+      return;
+    }
+    sendSuccess(res, 200, { authenticated: true, ...(await sessionEnvelope(student)) });
+  } catch (err) {
+    logger.error({ err }, 'Failed to load the session');
+    sendError(res, 503, 'Could not load your session right now. Please try again.');
+  }
+});
 
 router.get('/auth/me', async (req, res) => {
   const payload = verifyAccessToken(req.cookies?.[config.auth.accessCookieName]);

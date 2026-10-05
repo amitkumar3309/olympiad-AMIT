@@ -1,5 +1,5 @@
 import type { PipelineStage, Types } from 'mongoose';
-import { Payment, Referral, Student, type AccountStatus, type PaymentPurpose } from '../models';
+import { Payment, Referral, Student, StudentPhoto, type AccountStatus, type PaymentPurpose } from '../models';
 import { paymentView, type PaymentViewFields } from './paymentService';
 import type { ClassLevel } from '../lib/classLevels';
 import type { Role } from '../lib/permissions';
@@ -207,6 +207,7 @@ const ACCOUNT_PROJECTION = {
   paymentAttempts: 1,
   payment: 1,
   referredBy: 1,
+  hasPhoto: 1,
 } as const;
 
 /** The payment fields `paymentView()` reads, and nothing more. */
@@ -345,6 +346,28 @@ function directoryPipeline(filters: StudentDirectoryFilters): PipelineStage[] {
   return stages;
 }
 
+/**
+ * Whether the account has a registration photo on file (Milestone 30, Phase 5), so the
+ * console asks for a photo only where one exists. Before this every row without one — the
+ * root administrator's always, an account from before Milestone 4 — was a 404 in the
+ * browser console on every visit to the directory, which the link crawler reported.
+ *
+ * Joined on `StudentPhoto`'s unique `student` index, projected down to the id (a photo row
+ * carries the image itself), and applied only to the rows being returned — after the page
+ * is cut, never across the whole matching set.
+ */
+const PHOTO_STAGES: [PipelineStage.Lookup, PipelineStage.AddFields] = [
+  {
+    $lookup: {
+      from: StudentPhoto.collection.name,
+      let: { studentId: '$_id' },
+      pipeline: [{ $match: { $expr: { $eq: ['$student', '$$studentId'] } } }, { $project: { _id: 1 } }, { $limit: 1 }],
+      as: 'photoRows',
+    },
+  },
+  { $addFields: { hasPhoto: { $gt: [{ $size: '$photoRows' }, 0] } } },
+];
+
 function sortStage(query: StudentDirectoryQuery): PipelineStage.Sort {
   const direction = query.order === 'asc' ? 1 : -1;
   return {
@@ -448,6 +471,7 @@ interface DirectoryRow extends AdminAccountFields {
   payment: PaymentViewFields | null;
   referralCode?: string | null;
   referredBy?: ReferredByView | null;
+  hasPhoto?: boolean;
 }
 
 export type StudentDirectoryEntry = ReturnType<typeof directoryEntryView>;
@@ -472,6 +496,8 @@ export function directoryEntryView(row: DirectoryRow) {
     referralCode: row.referralCode ?? null,
     /** Who introduced them, or `null`. */
     referredBy: row.referredBy ?? null,
+    /** Whether a registration photo is on file — the console asks for one only then. */
+    hasPhoto: row.hasPhoto === true,
   };
 }
 
@@ -502,7 +528,13 @@ export async function listStudentDirectory(
       // pipeline: a `countDocuments` beside a filtered aggregation is how a total of 40
       // ends up over a list of 12.
       $facet: {
-        rows: [sortStage(query), { $skip: (page - 1) * limit }, { $limit: limit }, { $project: ACCOUNT_PROJECTION }],
+        rows: [
+          sortStage(query),
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+          ...PHOTO_STAGES,
+          { $project: ACCOUNT_PROJECTION },
+        ],
         total: [{ $count: 'value' }],
       },
     },
@@ -533,6 +565,7 @@ export async function collectStudentDirectory(
     // One more than the cap, so "there are too many" is answered by the same read that
     // fetches them rather than by a second count.
     { $limit: cap + 1 },
+    ...PHOTO_STAGES,
     { $project: ACCOUNT_PROJECTION },
   ]);
 

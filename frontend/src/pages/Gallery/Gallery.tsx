@@ -4,6 +4,7 @@ import type { GalleryItem, Pagination } from '../../api/types'
 import Navbar from '../../components/Navbar'
 import Footer from '../../components/Footer'
 import Spinner from '../../components/Spinner'
+import { Modal } from '../../components/ui'
 import styles from './Gallery.module.css'
 import { humanizeError } from '../../lib/errors'
 
@@ -100,15 +101,17 @@ export default function Gallery() {
         )}
       </main>
 
-      {lightbox && (
-        <div className={styles.lightbox} role="dialog" aria-modal="true" onClick={() => setLightbox(null)}>
-          <img src={lightbox.imageUrl} alt={lightbox.caption ?? lightbox.title} />
-          <p>{lightbox.caption ?? lightbox.title}</p>
-          <button type="button" onClick={() => setLightbox(null)}>
-            Close
-          </button>
-        </div>
-      )}
+      {/* A `Modal` (audit D8): it was a clickable `div` with no Escape, no focus trap and
+          nothing to stop the page behind it scrolling. The dialog is named by the photo's
+          title; the caption, when there is one, is the alt text and the line beneath. */}
+      <Modal open={lightbox !== null} onClose={() => setLightbox(null)} title={lightbox?.title ?? ''} size="lg">
+        {lightbox && (
+          <figure className={styles.lightbox}>
+            <img src={lightbox.imageUrl} alt={lightbox.caption ?? lightbox.title} />
+            {lightbox.caption && <figcaption>{lightbox.caption}</figcaption>}
+          </figure>
+        )}
+      </Modal>
 
       <Footer />
     </>

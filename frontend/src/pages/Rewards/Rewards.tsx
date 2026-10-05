@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useLocation } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { api } from '../../api/client'
 import type { BadgeTier, EvaluatedBadge, JourneyStage, RewardsResponse } from '../../api/types'
-import { Icon } from '../../components/ui'
+import { ButtonLink, Icon } from '../../components/ui'
 import styles from './Rewards.module.css'
 import { humanizeError } from '../../lib/errors'
 
@@ -220,12 +220,12 @@ export default function Rewards() {
       </section>
 
       <div className={styles.actions}>
-        <Link to="/practice">
-          <Button>Earn some XP</Button>
-        </Link>
-        <Link to="/daily-quiz">
-          <Button variant="outline">Today’s quiz</Button>
-        </Link>
+        {/* Links styled as buttons, not buttons inside links — a control nested in a
+            control is invalid, and announced twice (audit D5). */}
+        <ButtonLink to="/practice">Earn some XP</ButtonLink>
+        <ButtonLink to="/daily-quiz" variant="secondary">
+          Today’s quiz
+        </ButtonLink>
       </div>
     </StudentShell>
   )

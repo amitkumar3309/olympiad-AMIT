@@ -29,7 +29,7 @@ import styles from './StudentShell.module.css'
  *
  * ## Guests
  *
- * Two of these routes (`/certificate`, and `/result` via the navbar) are public. A
+ * Some of these routes (`/result`, the public boards) are public. A
  * signed-out visitor has no student area to be inside, so for them this falls back to
  * the public `Navbar` + `Footer` layout rather than showing a menu full of links that
  * would bounce them to a sign-in screen.
@@ -106,8 +106,8 @@ export default function StudentShell({ title, subtitle, actions, headless, focus
             **The guest fallback renders the title too** (Milestone 26).
 
             It did not, and that was a real defect rather than a cosmetic one: four
-            public routes come through this branch — `/leaderboard`, `/hall-of-fame`,
-            `/result` and `/certificate` — and for a signed-out visitor every one of
+            public routes came through this branch — `/leaderboard`, `/hall-of-fame`,
+            `/result` and the old `/certificate` — and for a signed-out visitor every one of
             them opened at `h2` with **no `h1` anywhere in the document**. A screen
             reader user landing on the public leaderboard had nothing naming the page.
 

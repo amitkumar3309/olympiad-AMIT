@@ -1,8 +1,26 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
+  "plugins": ["react", "typescript", "oxc", "jsx-a11y"],
   "rules": {
     "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
+    "react/only-export-components": ["warn", { "allowConstantExport": true }],
+
+    "jsx-a11y/anchor-is-valid": "error",
+    "jsx-a11y/anchor-has-content": "error",
+    "no-script-url": "error",
+
+    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/no-static-element-interactions": "error",
+    "jsx-a11y/no-noninteractive-element-interactions": "error",
+    "jsx-a11y/label-has-associated-control": ["error", { "depth": 3 }],
+    "jsx-a11y/control-has-associated-label": [
+      "error",
+      { "ignoreElements": ["audio", "canvas", "embed", "input", "textarea", "tr", "video", "td"], "depth": 3 }
+    ],
+    "jsx-a11y/img-redundant-alt": "error",
+
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/no-noninteractive-tabindex": "off",
+    "jsx-a11y/no-autofocus": "off"
   }
 }

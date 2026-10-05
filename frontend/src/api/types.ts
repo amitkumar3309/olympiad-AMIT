@@ -147,6 +147,14 @@ export interface SessionResponse {
   entitlements?: Entitlements
 }
 
+/**
+ * `GET /auth/session` (Milestone 30, Phase 5): a guest is a 200 with `authenticated: false`,
+ * not a 401, and `canRefresh` says whether a refresh cookie is there to try.
+ */
+export type SessionProbe =
+  | ({ authenticated: true } & SessionResponse)
+  | { authenticated: false; canRefresh: boolean }
+
 /** The student's own payment position, from `GET /payments/status`. */
 export interface PaymentStatusResponse {
   available: boolean
@@ -306,6 +314,8 @@ export interface StudentDirectoryEntry extends ManagedAccount {
   hasPaid: boolean
   /** The captured payment if there is one, otherwise the latest attempt. */
   payment: PaymentRecord | null
+  /** Whether a registration photo is on file — the photo is asked for only then. */
+  hasPhoto: boolean
 }
 
 /**

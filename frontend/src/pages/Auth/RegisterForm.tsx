@@ -2,7 +2,8 @@ import { useState, type ChangeEvent, type FormEvent, type ReactNode } from 'reac
 import { useAuth } from '../../context/AuthContext'
 import { Alert, Button, Field, Icon, Input, PasswordInput, Select, Steps, Textarea } from '../../components/ui'
 import { humanizeError } from '../../lib/errors'
-import { PASSWORD_RULES, passwordProblem } from '../../lib/passwordPolicy'
+import { passwordProblem } from '../../lib/passwordPolicy'
+import PasswordRules from '../../components/PasswordRules'
 import { formatCooldown, useResendCooldown } from '../../lib/resendCooldown'
 import { SUPPORT } from '../../lib/brand'
 import type { NextPath } from '../../lib/nextPath'
@@ -552,22 +553,7 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
                   satisfied without having to re-read the list; the icon is never the only
                   carrier of meaning, since each rule keeps its words either way.
                 */}
-                <ul className={styles.passwordRules} aria-live="polite">
-                  {PASSWORD_RULES.map((rule) => {
-                    const met = rule.met(form.password)
-                    return (
-                      <li key={rule.id} className={met ? styles.ruleMet : styles.ruleUnmet}>
-                        <Icon
-                          name={met ? 'ph-check-circle' : 'ph-circle'}
-                          weight="bold"
-                          size="sm"
-                          label={met ? 'Met:' : 'Still needed:'}
-                        />
-                        <span>{rule.label}</span>
-                      </li>
-                    )
-                  })}
-                </ul>
+                <PasswordRules value={form.password} />
               </Field>
               <Field
                 id={fieldId('confirmPassword')}

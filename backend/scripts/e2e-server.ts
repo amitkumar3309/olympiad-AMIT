@@ -9,9 +9,11 @@
  * check before they will reset or seed anything (see `src/routes/e2e.routes.ts`).
  *
  * Everything below is set **before** the app is imported, because `config/env.ts` reads
- * `process.env` once at load and `dotenv` never overwrites a variable that is already
- * set — which is also why `backend/.env`'s production URI cannot leak in here.
+ * `process.env` once at load. And `backend/.env` is **not read at all**: `config/env.ts`
+ * skips it when `E2E_TEST_HOOKS=true` (Milestone 30, Phase 5), so none of a developer's
+ * real credentials — the production URI, a Gemini or Razorpay key — can reach this server.
  */
+import bcrypt from 'bcryptjs';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
 const DB_NAME = 'amit-olympiad-e2e';
@@ -29,6 +31,10 @@ async function main(): Promise<void> {
   process.env.SMTP_HOST = '127.0.0.1';
   process.env.SMTP_PORT = '1025';
   process.env.REQUIRE_EMAIL_VERIFICATION = 'true';
+  // A root administrator for the suite's admin crawl (Milestone 30, Phase 5) — test values
+  // from `frontend/e2e/fixtures.ts`, passed in by `playwright.config.ts`, on a throwaway database.
+  process.env.ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'e2e-admin@amit.test';
+  process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.E2E_ADMIN_PASSWORD ?? 'E2e-Admin-Pass-9', 10);
 
   console.log(`[e2e-server] in-memory MongoDB at ${process.env.MONGO_URI}`);
   console.log(`[e2e-server] API on :${process.env.PORT}, accepting ${process.env.FRONTEND_URL}`);

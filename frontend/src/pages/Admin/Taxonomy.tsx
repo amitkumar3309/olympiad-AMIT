@@ -174,7 +174,7 @@ export default function Taxonomy() {
               placeholder="e.g. Quadratic Equations"
               aria-label="Name of the new chapter"
             />
-            <Button type="submit" disabled={busy === 'topic' || !subject || !newTopic.name.trim()}>
+            <Button type="submit" disabled={!subject || !newTopic.name.trim()} loading={busy === 'topic'}>
               Add
             </Button>
           </div>

@@ -50,7 +50,7 @@ export default function Footer() {
         <nav className={styles.col} aria-label="Results and certificates">
           <h2 className={styles.colTitle}>Results</h2>
           <Link to="/result">Check a result</Link>
-          <Link to="/certificate">Certificates</Link>
+          <Link to="/my-certificates">Certificates</Link>
           <Link to="/verify">Verify a certificate</Link>
         </nav>
 

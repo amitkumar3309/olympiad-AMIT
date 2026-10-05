@@ -38,3 +38,12 @@
   height: 34px;
   justify-content: center;
 }
+
+/* A whole 44px target on a touch screen (Milestone 30, Phase 5): the base rule makes every
+   button 44px tall there, and this one stayed 34px wide. */
+@media (pointer: coarse) {
+  .compact {
+    width: var(--tap-target);
+    height: var(--tap-target);
+  }
+}

@@ -331,9 +331,19 @@ environment variables at all.
 
 | Variable | Required? | What it does | Where to get it | Example |
 | --- | --- | --- | --- | --- |
-| `E2E_TEST_HOOKS` | **never set it** (default `false`) | Mounts the browser test suite's hooks — `/__e2e/clock` (move the Daily Quiz's clock), `/__e2e/reset` (empty the database) and `/__e2e/seed` (create a test student and today's quiz). Set **only** by `backend/scripts/e2e-server.ts`, which runs the backend on a throwaway in-memory database for `npm run e2e`. | — | `false` |
+| `E2E_TEST_HOOKS` | **never set it** (default `false`) | Mounts the browser test suite's hooks — `/__e2e/clock` (move the Daily Quiz's clock), `/__e2e/reset` (empty the database), `/__e2e/rate-limits/reset` (empty the rate limiters) and `/__e2e/seed` (create a test student and today's quiz). Since Milestone 30 Phase 5 it also stops the backend reading `backend/.env`. Set **only** by `backend/scripts/e2e-server.ts`, which runs the backend on a throwaway in-memory database for `npm run e2e`. | — | `false` |
 
 Three locks keep these hooks out of every real deployment, and none of them is this variable alone:
 `config` forces it off whenever `NODE_ENV=production`; the hooks are only mounted when it is on; and
 each hook refuses unless the **connected** database's name ends in `-e2e`. **Do not add it to Vercel,
 to `backend/.env`, or anywhere else** — there is no situation outside the test suite that needs it.
+
+**The harness's own inputs** (read by `backend/scripts/e2e-server.ts`, passed by
+`frontend/playwright.config.ts` from `frontend/e2e/fixtures.ts`; the backend itself never reads them):
+`E2E_BACKEND_PORT` (`8092`), `E2E_FRONTEND_URL` (`http://localhost:5181`), and — since Milestone 30
+Phase 5 — `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD`, the throwaway root administrator the link crawler
+signs in as, on the in-memory database only. The script turns them into `PORT`, `FRONTEND_URL`,
+`ADMIN_EMAIL` and a bcrypt `ADMIN_PASSWORD_HASH` before the app loads. They are listed, commented out,
+at the end of `backend/.env.example`; **never set them yourself.** And with `E2E_TEST_HOOKS=true` the
+backend does **not read `backend/.env` at all** (Phase 5), so none of your real credentials — a Gemini
+or Razorpay key — can reach the test server.

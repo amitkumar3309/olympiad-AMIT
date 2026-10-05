@@ -211,7 +211,7 @@ export default function Gallery() {
               required
             />
           </div>
-          <Button type="submit" disabled={uploading}>
+          <Button type="submit" loading={uploading}>
             {uploading ? 'Uploading...' : 'Add photo'}
           </Button>
         </form>

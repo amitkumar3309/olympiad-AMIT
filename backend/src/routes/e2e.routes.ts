@@ -87,6 +87,24 @@ router.post('/__e2e/reset', ensureDb, async (_req: Request, res: Response) => {
   }
 });
 
+/**
+ * Empties the rate limiters and nothing else (Milestone 30, Phase 5). The link crawler calls
+ * it before each page: one browser following every link from one address makes several
+ * hundred API requests in a few minutes, which no person does, and a crawl that runs through
+ * the general limiter half-way reports 429s instead of what it is looking for. Each page still
+ * meets the limiters live, so a limiter mounted in the wrong place is still noticed.
+ */
+router.post('/__e2e/rate-limits/reset', ensureDb, async (_req: Request, res: Response) => {
+  try {
+    if (!onE2eDatabase(res)) return;
+    await resetRateLimits();
+    sendSuccess(res, 200, { reset: true });
+  } catch (err) {
+    logger.error({ err }, 'E2E rate-limit reset failed');
+    sendError(res, 500, 'E2E rate-limit reset failed.');
+  }
+});
+
 const seedSchema = z.object({
   student: z.object({
     email: z.string().trim().toLowerCase().email(),

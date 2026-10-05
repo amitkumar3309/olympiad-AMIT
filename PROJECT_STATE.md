@@ -1,8 +1,8 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-05 (**Milestone 30 — the Diwali launch: Phase 4, the student dashboard, complete
-on branch `feat/diwali-launch-phase-4`; waiting for the owner's "continue" before Phase 5**). Phases
-0–3 are merged. Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+_Last updated: 2026-10-05 (**Milestone 30 — the Diwali launch: Phase 5, every button and link, complete
+and in review on branch `feat/diwali-launch-phase-5`; Phase 6 is next**). Phases 0–4 are merged
+(Phase 4: PR #4). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -80,7 +80,22 @@ The work happens in phases, and each one stops for the owner's approval.
   at the owner's request, "Can you crack this?" switched to **real past Daily Quiz problems** (never
   today's — `GET /daily-quiz/past`). Tests: backend **1346 / 38 files**; E2E **20**. Screenshots and
   the mockup deviations: `docs/launch/PROGRESS.md`, `docs/launch/screenshots/phase-4/`.
-- **Phase 5 (every button and link, the crawler) is next.**
+- **Phase 5 (every button and link) — done.** Every row of
+  [`docs/launch/INTERACTION_AUDIT.md`](docs/launch/INTERACTION_AUDIT.md) has its final status, and D3
+  and D5–D9 are resolved. `npm run lint` now fails on a dead control (oxlint `jsx-a11y` rules plus
+  `scripts/check-handlers.mjs` for no-op handlers), and **`e2e/crawler.spec.ts`** follows every link as
+  a guest (19 pages), a student (27) — both at 1280 and 390px — and the administrator (51), failing on a
+  console error, a failed request, the 404 page, a dead or unsafe link, a nameless control or a button
+  under 44×44px. **`GET /auth/session`** answers a guest `200`, so a public page load makes no failing
+  request (D9); the password checklist is on all four forms that set one (D3); `/certificate`
+  redirects to `/my-certificates` (D6); the gallery lightbox is a `ui/Modal` (D8); every asynchronous
+  submit spins and the admin settings forms save on Enter. The first crawls also found and fixed:
+  photo 404s on `/admin/users` (`hasPhoto`), a 500 from the AI model list without a key (now 503),
+  three icon controls under 44px wide, and Edge's second password eye. The e2e backend no longer reads
+  `backend/.env`. **Open for the owner: D10** — on a brand-new database the root administrator cannot
+  be provisioned from the sign-in dialog (production is unaffected). Tests: backend **1352 / 38 files**;
+  E2E **26** (24 run). See `docs/launch/PROGRESS.md`.
+- **Phase 6 (launch readiness) is next.**
 
 ## Milestone 29 at a glance
 

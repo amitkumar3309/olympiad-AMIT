@@ -146,6 +146,7 @@ export default function Tabs({
   }
 
   return (
+    // oxlint-disable-next-line jsx-a11y/no-static-element-interactions -- it has a role (tablist or group); the rule cannot read one chosen at run time
     <div
       ref={listRef}
       role={mode === 'tabs' ? 'tablist' : 'group'}

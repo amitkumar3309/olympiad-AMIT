@@ -37,6 +37,25 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Milestone 30 Phase 5 (2026-10-05): 1352 passing backend tests across 38 files; 26 browser tests
+> (24 run, 2 skipped by design), 4.2 minutes — against a production build now.** Six new backend tests: four for `GET /auth/session` in
+> `tests/auth.security.test.ts` (a guest is 200 and no cookie is set; a session answers what `/auth/me`
+> answers; a refresh cookie alone reports `canRefresh` and is not rotated; a revoked and a suspended
+> account are told they are signed out); `hasPhoto` in the directory (`tests/studentDirectory.test.ts`);
+> and the model list's `503` naming `GEMINI_API_KEY` (`tests/questionGenerator.test.ts`). The
+> hooks-absent test now covers `POST /__e2e/rate-limits/reset`. **`frontend/e2e/crawler.spec.ts`** — the
+> link crawler: a guest from `/` (19 pages), a student from `/dashboard` and `/` (27), at 1280 and 390px,
+> and the root administrator from `/admin` (51) at 1280 — a throwaway administrator, `E2E_ADMIN` in
+> `fixtures.ts`, passed to the e2e server by `playwright.config.ts` and provisioned through
+> `/auth/admin/login` first (audit D10). It follows every same-origin link and fails on the 404 page, a
+> console error, an uncaught exception, a failed or ≥400 request, a dead link, a new-tab link without
+> `noopener noreferrer`, a control with no accessible name, a button under 44×44px at 390px, or a
+> `tel:`/`mailto:` that is not the owner's; each run writes the pages it reached to
+> `test-results/<test>/visited.txt`, and the rate limiters are emptied before every page. **The
+> frontend lint step** (`npm run lint` in `frontend/`) now runs oxlint's `jsx-a11y` rules and
+> `scripts/check-handlers.mjs`, which fails on a no-op handler, `href="#"` or `javascript:` — checked by
+> planting one of each. The e2e backend no longer reads `backend/.env` (`E2E_TEST_HOOKS=true` skips it).
+>
 > **Milestone 30 Phase 4 (2026-10-05): 1346 passing backend tests across 38 files; 20 browser tests.**
 > Seven new in `tests/dashboard.test.ts` for the launch dashboard: a new student's honest figures
 > (this week's XP, nothing solved, accuracy `null` — not 0 — the journey started, a photo on file);
@@ -85,7 +104,10 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 >
 > **The browser suite** — `npm run e2e` in `frontend/` (Playwright, see the ADR). It starts
 > `backend/scripts/e2e-server.ts` (the backend on an **in-memory** MongoDB named
-> `amit-olympiad-e2e`, with `E2E_TEST_HOOKS=true`) and a Vite server pointed at it, then drives the
+> `amit-olympiad-e2e`, with `E2E_TEST_HOOKS=true`) and — since Milestone 30 Phase 5 — a **production
+> build** of the frontend pointed at it (`vite build` into `node_modules/.e2e-dist`, served by
+> `vite preview`; the dev server's ~170 module requests a page starved the browser during the link
+> crawl), then drives the
 > **installed Microsoft Edge** at 1280px and at 390px: sign in → start today's quiz → submit through
 > the confirm dialog → "Correct!" → the profile history shows it with the answer locked → the
 > server clock moves a day (`POST /__e2e/clock`) → the worked solution is there. A second test
@@ -99,7 +121,10 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > while the seeded quiz is live, `GET /daily-quiz/past` does not carry it; the clock moves a day, and
 > it is the problem on the homepage — chosen, submitted, marked "Correct" with its solution; on an
 > empty database the section says the first problem is on its way. **Phase 4 added
-> `dashboard.spec.ts`** (above). **Twenty tests**, about a minute and a half. (The Phase 3 `npm run verify:samples` script went with the demo questions it checked.)
+> `dashboard.spec.ts`** and **Phase 5 the link crawler** (above). **Twenty-six tests** — 24 run, the
+> admin crawl and one phone-only dashboard test skipped at the other width — about four minutes,
+> about two of them the five crawls. Each crawl also writes `timings.txt`: how long every page took
+> and how many requests it made. (The Phase 3 `npm run verify:samples` script went with the demo questions it checked.)
 >
 > It needs nothing installed beyond `npm ci` and Edge; on a machine without Edge, run
 > `npx playwright install chromium` and remove `channel: 'msedge'` from `playwright.config.ts`.
@@ -244,6 +269,8 @@ npm run compile --prefix backend
 ```bash
 npm run lint --prefix frontend
 ```
+
+(oxlint with its `jsx-a11y` rules, then `scripts/check-handlers.mjs` — a dead link or a handler that does nothing fails it.)
 
 ```bash
 npm run build --prefix frontend

@@ -181,7 +181,7 @@ export function PasswordInput({ describedAs = 'password', className, ...rest }: 
         aria-describedby={rest['aria-describedby'] ?? field?.describedBy}
         aria-invalid={isInvalid || undefined}
         required={rest.required ?? field?.required}
-        className={[styles.control, styles.hasSuffix, isInvalid ? styles.invalid : ''].filter(Boolean).join(' ')}
+        className={[styles.control, styles.hasSuffix, styles.hasReveal, isInvalid ? styles.invalid : ''].filter(Boolean).join(' ')}
       />
       <button
         type="button"

@@ -112,7 +112,6 @@ const Activity = lazy(() => import('./pages/Activity/Activity'))
 const Profile = lazy(() => import('./pages/Profile/Profile'))
 const Practice = lazy(() => import('./pages/Practice/Practice'))
 const MockTests = lazy(() => import('./pages/MockTests/MockTests'))
-const Certificate = lazy(() => import('./pages/Certificate/Certificate'))
 const Report = lazy(() => import('./pages/Report/Report'))
 const Result = lazy(() => import('./pages/Result/Result'))
 const Register = lazy(() => import('./pages/Register/Register'))
@@ -175,7 +174,11 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/result" element={<Result />} />
-          <Route path="/certificate" element={<Certificate />} />
+          {/* One certificates page (audit D6): `/my-certificates`, the student's library
+              with the PDF and the verification code. `/certificate` — an older print-only
+              page with the same data — redirects there for any link still pointing at it;
+              a guest is asked to sign in and comes back. */}
+          <Route path="/certificate" element={<Navigate to="/my-certificates" replace />} />
           {/* Public standing. Deliberately not behind `ProtectedRoute`: the backend
               already decides what a signed-out visitor may see (masked names, and only
               the top of the board), and gating the page would hide the competition from
