@@ -1,5 +1,6 @@
 import type { EmailCategory } from '../models/EmailOutbox';
 import type { NotificationKind } from '../models/Notification';
+import { PRODUCT_NAME } from './brand';
 
 /**
  * THE catalogue of things the platform tells a student about on its own.
@@ -142,7 +143,7 @@ export function examPublishedCopy(input: {
   return {
     title: `Official exam announced: ${input.title}`,
     body:
-      `The official AMIT Olympiad paper "${input.title}" has been scheduled.\n\n` +
+      `The official ${PRODUCT_NAME} paper "${input.title}" has been scheduled.\n\n` +
       `Opens: ${formatIst(input.opensAt)}\n` +
       `Closes: ${formatIst(input.closesAt)}\n` +
       `Duration: ${input.durationMinutes} minutes\n\n` +
@@ -199,7 +200,7 @@ export function statusChangedCopy(input: { status: string; byLabel: string | nul
     title: `Your account status changed to ${input.status}`,
     body:
       `${explanation[input.status] ?? `Your account status is now "${input.status}".`}\n\n` +
-      `If you were not expecting this, reply to this message or contact the AMIT Olympiad organisers.`,
+      `If you were not expecting this, reply to this message or contact the ${PRODUCT_NAME} organisers.`,
   };
 }
 
@@ -207,7 +208,7 @@ export function roleChangedCopy(input: { role: string }): NotificationCopy {
   return {
     title: `Your account role changed to ${input.role}`,
     body:
-      `An administrator has changed your role on AMIT Olympiad to "${input.role}".\n\n` +
+      `An administrator has changed your role on ${PRODUCT_NAME} to "${input.role}".\n\n` +
       `For your security every existing sign-in was ended, so you will need to sign in again.\n\n` +
       `If you were not expecting this, contact the organisers straight away.`,
   };
@@ -226,14 +227,14 @@ export function dailyQuizWinnerCopy(input: { day: string; prizeText: string | nu
     body:
       `Congratulations — yours was the winning answer in the Daily Quiz on ${input.day}.\n\n` +
       `Your prize: ${prize}${cash}.\n\n` +
-      `The AMIT Olympiad organisers will contact your parent or guardian on the number in your profile to arrange delivery. ` +
+      `The ${PRODUCT_NAME} organisers will contact your parent or guardian on the number in your profile to arrange delivery. ` +
       `If that number is missing or out of date, update it in My Profile.`,
   };
 }
 
 export function passwordChangedCopy(): NotificationCopy {
   return {
-    title: 'Your AMIT Olympiad password was changed',
+    title: `Your ${PRODUCT_NAME} password was changed`,
     body:
       `The password on your account has just been changed, and every other signed-in device was signed out.\n\n` +
       `If that was you, there is nothing to do.\n\n` +

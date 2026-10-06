@@ -13,12 +13,16 @@
       "source": "/(.*)",
       "headers": [
         {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000"
+        },
+        {
           "key": "X-Frame-Options",
           "value": "DENY"
         },
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'none'"
+          "value": "default-src 'self'; script-src 'self' https://*.razorpay.com https://browser.sentry-cdn.com https://vercel.live; style-src 'self' 'unsafe-inline' https://unpkg.com https://*.razorpay.com https://vercel.live; font-src 'self' data: https://unpkg.com https://*.razorpay.com https://vercel.live https://assets.vercel.com; img-src 'self' data: blob: https://*.razorpay.com https://vercel.live https://vercel.com; connect-src 'self' https://*.razorpay.com https://*.sentry.io https://vercel.live wss://ws-us3.pusher.com; frame-src https://*.razorpay.com https://vercel.live; form-action 'self' https://*.razorpay.com; object-src 'none'; base-uri 'self'; manifest-src 'self'; frame-ancestors 'none'"
         },
         {
           "key": "X-Content-Type-Options",

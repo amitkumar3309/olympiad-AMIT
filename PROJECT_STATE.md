@@ -1,8 +1,8 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-05 (**Milestone 30 — the Diwali launch: Phase 5, every button and link, complete
-and in review on branch `feat/diwali-launch-phase-5`; Phase 6 is next**). Phases 0–4 are merged
-(Phase 4: PR #4). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+_Last updated: 2026-10-06 (**Milestone 30 — the Diwali launch: Phase 6, launch readiness, complete on
+branch `feat/diwali-launch-phase-6`; every phase of the brief is now built**). Phases 0–5 are merged
+(Phase 5: PR #5); Phase 6 awaits the owner's review. Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -95,7 +95,31 @@ The work happens in phases, and each one stops for the owner's approval.
   `backend/.env`. **Open for the owner: D10** — on a brand-new database the root administrator cannot
   be provisioned from the sign-in dialog (production is unaffected). Tests: backend **1352 / 38 files**;
   E2E **26** (24 run). See `docs/launch/PROGRESS.md`.
-- **Phase 6 (launch readiness) is next.**
+- **Phase 6 (launch readiness) — done, on branch `feat/diwali-launch-phase-6`** (from `main` after
+  PR #5 was squash-merged). **Search and sharing** from one route table, `frontend/src/lib/pageMeta.ts`:
+  every page's title and description, the 12 public pages indexed with a canonical link, everything
+  signed-in, staff or emailed `noindex`; `vite.seo.ts` builds `robots.txt`, `sitemap.xml` and
+  `manifest.json` from it and writes the share tags and organisation data into `index.html` from
+  `lib/brand.ts`. Generated favicons, app icons and a 1200×630 share card
+  (`scripts/make-brand-images.ts`). **Reliability**: a crash page and a "new version is ready" page
+  (`AppErrorBoundary`), a 90-second request timeout with its own message, and a session check that
+  retries a transient failure (D17). **Security**: a full Content Security Policy and HSTS in
+  `frontend/vercel.json`, served by `vite preview` so the whole browser suite runs under them;
+  `npm audit fix` in both apps, nodemailer 10, `@vercel/node` to dev dependencies — **0 high or
+  critical** findings in what ships. **Parental consent** at registration (the brief's box, a guardian
+  phone or email; `Student.guardianConsentAt` at the server's time) and in My Profile for older
+  accounts; prize eligibility requires it. **Accessibility**: axe on every page the crawler reaches
+  (light and dark) and on every overlay, **0 serious or critical**; `e2e/keyboard.spec.ts`; "Skip to
+  content" on public pages (`ui/SkipLink`); D18–D21 fixed. **Speed**: the icon stylesheets after
+  `load`, "Can you crack this?" deferred, a 6 KB WebP mark — Lighthouse mobile **69 → 81–88** over four
+  runs (median 84, so the 85 target is not reliably met), desktop **99**, accessibility, best practices
+  and SEO **100**; mobile LCP **3.3–3.4 s** misses 2.5 s. Pre-rendering the homepage is the recorded
+  next step.
+  **Names**: `PRODUCT_NAME` (`backend/src/lib/brand.ts`) in everything the backend writes; "Daily
+  Quiz" wherever "daily challenge" still showed. **[`docs/launch/LAUNCH_REPORT.md`](docs/launch/LAUNCH_REPORT.md)
+  is the owner's one page for launch.** Tests: backend **1360 / 38 files**; E2E **44** (35 run, all
+  passing, about seven minutes). **Open for the owner:** D10, R5, the site's address (`SITE_URL` —
+  inferred as `https://amitolympiad.me`), and the consent questions in `LEGAL_REVIEW.md`.
 
 ## Milestone 29 at a glance
 
@@ -1820,6 +1844,8 @@ Still missing: CSRF tokens (see [`SECURITY.md`](SECURITY.md)) — now with stude
 ## Current Deployment State
 
 Two independent Vercel projects, unchanged in structure. `backend/api/index.ts` imports the app from `src/app.ts`; the per-request `ensureDb` middleware is what makes the serverless path connect at all.
+
+**Milestone 30 Phase 6** adds no environment variable and no route. Its one ordering wrinkle is registration: the new backend requires the consent box, so in the minute between the two deployments a registration from the old form is refused (if the API is live first) or goes through without its consent recorded (if the site is live first — that student is asked on My Profile). The site's address is a frontend constant (`SITE_URL` in `frontend/src/lib/brand.ts`) and must match the backend's `FRONTEND_URL`. See `docs/launch/LAUNCH_REPORT.md` §10 for the runbook and rollback.
 
 **Deployment ordering matters**: deploy the backend before the frontend, since the frontend calls `/api/v1/*`. Milestone 2 adds a second requirement: **set the SMTP and `FRONTEND_URL` env vars before students register in production**, or verification emails will not be delivered (they will only be written to the server log) and their links will point at the wrong host.
 

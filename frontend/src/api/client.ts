@@ -62,12 +62,45 @@ async function refreshSession(): Promise<boolean> {
   return refreshInFlight
 }
 
+/**
+ * A request that got no answer in time (Milestone 30, Phase 6 — brief §10, "graceful
+ * behaviour when the API is slow"). Not an `ApiError`: the server never said anything.
+ */
+export class RequestTimeoutError extends Error {
+  constructor() {
+    super('The server took too long to answer.')
+    this.name = 'RequestTimeoutError'
+  }
+}
+
+/**
+ * How long any request may take before the page stops waiting and says so.
+ *
+ * Generous on purpose: the slowest real work behind this API — drafting questions with the
+ * model — has a 60-second budget of its own (`geminiQuestionGenerator.ts`), so nothing that
+ * can still succeed is cut off. What this ends is a connection that hung, which used to
+ * leave a spinner turning for ever; now the page shows its error state and a way to retry.
+ */
+export const REQUEST_TIMEOUT_MS = 90_000
+
 async function rawRequest(path: string, options: RequestInit): Promise<Response> {
-  return fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  })
+  // A controller and a timer rather than `AbortSignal.timeout()`, which Safari before 16
+  // lacks — and the browsers a school computer room runs are not always the newest.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    return await fetch(`${API_BASE}${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      ...options,
+      signal: controller.signal,
+    })
+  } catch (err) {
+    if (controller.signal.aborted) throw new RequestTimeoutError()
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {

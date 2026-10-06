@@ -49,6 +49,53 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## A page shows "A new version of the site is ready"
+
+**Symptom.** Moving to another page shows that message and a "Reload the page" button instead of the
+page.
+
+**Cause.** Expected after a deployment. Pages load their code on demand (`lazy()`), and every build
+names its files by their content; a tab opened before the deployment asks for a file the new build no
+longer has. `components/AppErrorBoundary` recognises that failure (the message a failed dynamic import
+gives) and says so rather than showing a crash.
+
+**Fix.** Reload — the page fetches the new build. Nothing is lost on the server. If it appears with no
+deployment, the files did not reach the CDN: check the frontend project's latest deployment on Vercel.
+The other message, **"Something went wrong on this page"**, is a real error in the page; the browser
+console names it.
+
+## A third-party script, frame or font is refused in production but worked locally
+
+**Symptom.** In production (or `npm run preview:prod`) something from another site does not load, and
+the browser console says it violates the Content Security Policy. `npm run dev` shows no problem.
+
+**Cause.** The policy lives in `frontend/vercel.json` (Milestone 30 Phase 6) and lists every origin the
+site may load from. The dev server does not send it; `vite preview` and Vercel do.
+
+**Fix.** Add the origin to the right directive in `vercel.json` — `script-src` for a script,
+`frame-src` for a frame, `connect-src` for a request, `font-src`/`img-src`/`style-src` for the rest —
+and record why in `SECURITY.md`'s CSP table. Never add `'unsafe-eval'` or `'unsafe-inline'` to
+`script-src`. The browser suite runs under the same headers, so `npm run e2e` reproduces the refusal.
+
+## Lighthouse cannot start the browser on Windows
+
+**Symptom.** `npx lighthouse <url>` stops with "waiting for dynamic debugging port" or "Target closed",
+whether it launches Chrome itself or goes through Playwright's Edge.
+
+**Fix.** Start Edge yourself on a fixed port and point Lighthouse at it:
+
+```bash
+"/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" --headless=new --remote-debugging-port=9334 --user-data-dir="$TEMP/lh-edge" --no-first-run about:blank &
+```
+
+```bash
+npx --yes lighthouse@12 http://localhost:5190/ --port=9334 --only-categories=performance,accessibility,best-practices,seo --output=json --output-path=./lh.json
+```
+
+Measure the **production build** (`npm run preview:prod -- --port 5190` in `frontend/`), never the dev
+server, whose unbundled modules make every figure meaningless. Run it three times; a single mobile run
+moves by several points.
+
 ## Two eye icons in a password field in Microsoft Edge
 
 **Symptom.** In Edge, typing into a password field shows two eye buttons side by side — ours at the

@@ -1,4 +1,4 @@
-import { ApiError } from '../api/client'
+import { ApiError, RequestTimeoutError } from '../api/client'
 
 /**
  * Turns anything thrown by the API client into one sentence a student or an
@@ -66,6 +66,9 @@ export function humanizeError(error: unknown, options: HumanizeOptions = {}): st
     }
   }
 
+  if (error instanceof RequestTimeoutError) {
+    return 'The server is taking too long to answer. Please try again in a moment.'
+  }
   if (error instanceof Error) {
     // A `fetch` rejection — offline, DNS, a blocked request. The browser's own
     // message ("Failed to fetch", "NetworkError when attempting to fetch resource")

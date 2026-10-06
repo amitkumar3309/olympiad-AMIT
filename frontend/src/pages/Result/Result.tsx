@@ -7,6 +7,7 @@ import type { PublishedResult, ResultResponse } from '../../api/types'
 import { Icon } from '../../components/ui'
 import styles from './Result.module.css'
 import { humanizeError } from '../../lib/errors'
+import { AMIT_OLYMPIAD } from '../../lib/brand'
 
 /**
  * The public result portal.
@@ -138,7 +139,7 @@ export default function Result() {
                 variant="outline"
                 onClick={() =>
                   navigator.share?.({
-                    title: 'My AMIT Olympiad Result',
+                    title: `My ${AMIT_OLYMPIAD} result`,
                     text: `I scored ${result.score}/${result.totalMarks}!`,
                   })
                 }

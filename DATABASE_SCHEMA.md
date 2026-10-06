@@ -1026,8 +1026,18 @@ the owner sets one**), `winnerRule` (`FASTEST_CORRECT` default, `FIRST_CORRECT`,
 `city`, `guardianPhone`, `guardianEmail` (lowercased) — all `null` by default — and
 `hideFromPublicLists` (Boolean, default `false`). Nothing back-filled: an existing student is
 simply not yet prize-eligible, and the quiz card says what to add. Eligibility (verified email,
-active account, name, class, school, city, guardian phone) is computed by `prizeEligibility()` in
-`lib/dailyQuiz.ts`, never stored.
+active account, name, class, school, city, guardian phone, guardian consent) is computed by
+`prizeEligibility()` in `lib/dailyQuiz.ts`, never stored.
+
+### `Student.guardianConsentAt` (Milestone 30, Phase 6)
+
+`Date`, default `null` — when a parent or guardian agreed (brief §10, PLAN.md Q13). Written by the
+**server's** clock in exactly two places: registration, which now refuses an account without the box
+ticked and a guardian phone **or** email, and `PATCH /me/profile` with `guardianConsent: true`, which
+sets it only while it is still `null` (so the first time stands). No request carries a time. Not
+back-filled — an account made before the box shows `guardian-consent` among its missing prize
+requirements and is asked on My Profile. Additive; no index; nothing clears it (withdrawal is a
+legal-review question, `docs/launch/LEGAL_REVIEW.md`).
 
 ### `Question.provenance.source` and `ImportBatch.kind` gained `csv` / `json` (Milestone 30)
 

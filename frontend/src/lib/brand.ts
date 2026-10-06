@@ -19,12 +19,13 @@
  * the visible name and the page metadata from drifting apart, and it is the one place to
  * change if the wording is ever corrected.
  *
- * ## The one copy that cannot import this
+ * ## The page's title is written from here at build time
  *
- * `frontend/index.html` is a static file served before any JavaScript runs, so the title
- * and meta description spell the name out literally. **If you change it here, change it
- * there too** — that is the single duplication, and it is deliberate: putting the page
- * title behind a script would cost every visitor a render for a string that never changes.
+ * `frontend/index.html` is served before any JavaScript runs, so its title, description,
+ * share tags and structured data must be in the file itself. Until Milestone 30 Phase 6 it
+ * spelled the name out literally, as a second copy to keep in step; since then the Vite
+ * plugin `vite.seo.ts` writes them in from these constants when the site is built, so this
+ * file is the only frontend copy. (The backend's is `backend/src/lib/brand.ts`.)
  */
 
 /**
@@ -81,8 +82,8 @@ export const AMIT_COMPETITION_YEAR = '2027'
  *
  * The backend publishes the same two facts from `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE`
  * (see `config.support`). That is a genuine duplication across the frontend/backend split,
- * like the product name in `index.html`, and it is the reason these are constants rather
- * than literals: one place per app to change.
+ * like the product name (`backend/src/lib/brand.ts`), and it is the reason these are
+ * constants rather than literals: one place per app to change.
  */
 export const SUPPORT = {
   email: 'support@amitolympiad.me',
@@ -95,6 +96,21 @@ export const SUPPORT = {
  * dashes, but not every dialer does, and the displayed format is the owner's, not a dialer's.
  */
 export const SUPPORT_TEL_HREF = `tel:${SUPPORT.phone.replace(/[^\d+]/g, '')}`
+
+/**
+ * The site's public address — no trailing slash (Milestone 30, Phase 6).
+ *
+ * The one place the domain lives in the frontend. It is the base of every canonical link,
+ * the share card's `og:image`, the organisation's structured data, and the URLs in the
+ * generated `sitemap.xml` and `robots.txt` (`vite.seo.ts`).
+ *
+ * **To be confirmed by the owner.** It is inferred, not supplied: the support address is
+ * `@amitolympiad.me` (owner, 2026-10-04) and both `amitolympiad.me` and
+ * `www.amitolympiad.me` resolve to Vercel. If the live site is `www.` (or another domain),
+ * this line is the whole change. It must also match the backend's `FRONTEND_URL`, which
+ * builds the links in every email.
+ */
+export const SITE_URL = 'https://amitolympiad.me'
 
 /**
  * Who built the site, and where to find them.

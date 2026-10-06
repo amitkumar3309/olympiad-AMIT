@@ -156,6 +156,27 @@ export const registerSchema = z.object({
   referralCode: referralCode.optional(),
   /** The Login Gate's destination, carried into the verification link. */
   next: nextPath,
+  /**
+   * A parent or guardian's consent, and how to reach them (Milestone 30, Phase 6 — brief §10,
+   * PLAN.md Q13). The students are children, and India's DPDP Act 2023 asks for verifiable
+   * parental consent below 18: this box is the minimum the brief specifies, in the brief's own
+   * words on the form, not a legal guarantee — see docs/launch/LEGAL_REVIEW.md. It must be
+   * `true`; the time it was given is the server's (`Student.guardianConsentAt`).
+   */
+  guardianConsent: z.literal(true, {
+    error: 'A parent or guardian has to agree before you can register. Tick the box to confirm they do.',
+  }),
+  /** At least one of these two — a phone number or an email address for that parent or guardian. */
+  guardianPhone: z.union([z.literal(''), mobile]).optional(),
+  guardianEmail: z.union([z.literal(''), email]).optional(),
+}).superRefine((value, context) => {
+  if (!value.guardianPhone && !value.guardianEmail) {
+    context.addIssue({
+      code: 'custom',
+      path: ['guardianPhone'],
+      message: "Give a parent or guardian's phone number or email address",
+    });
+  }
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 

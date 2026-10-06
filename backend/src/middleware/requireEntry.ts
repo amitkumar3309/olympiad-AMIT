@@ -74,7 +74,7 @@ export async function requireEntry(req: Request, res: Response, next: NextFuncti
   next(
     ApiError.paymentRequired(
       'The Olympiad entry fee has not been paid for this account. Pay it to sit the official exam — practice, mock ' +
-        'tests and the daily challenge stay free.',
+        'tests and the Daily Quiz stay free.',
     ),
   );
 }

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import DeveloperCredit from './DeveloperCredit'
 import { Icon } from './ui'
-import logoMark from '../assets/logo-mark.png'
+import logoMark from '../assets/logo-mark.webp'
 import { AMIT_OLYMPIAD, AMIT_TAGLINE, SUPPORT, SUPPORT_TEL_HREF } from '../lib/brand'
 import styles from './Footer.module.css'
 
@@ -28,7 +28,7 @@ export default function Footer() {
       <div className={`container ${styles.inner}`}>
         <div className={styles.brandCol}>
           <Link to="/" className={styles.brandLink}>
-            <img src={logoMark} alt="" aria-hidden="true" className={styles.mark} />
+            <img src={logoMark} alt="" aria-hidden="true" className={styles.mark} width={44} height={44} />
             <span className={styles.brandText}>
               <span className={styles.brand}>{AMIT_OLYMPIAD}</span>
               <span className={styles.brandTagline}>{AMIT_TAGLINE}</span>

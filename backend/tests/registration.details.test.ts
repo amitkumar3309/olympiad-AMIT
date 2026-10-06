@@ -128,6 +128,50 @@ describe('the mandatory fields are actually mandatory', () => {
 // Field-level rules
 // ---------------------------------------------------------------------------
 
+describe('a parent or guardian’s consent (Milestone 30, Phase 6)', () => {
+  it('refuses a registration without the consent box ticked, and stores nothing', async () => {
+    for (const value of [undefined, false, 'yes']) {
+      const res = await request(app).post(`${API}/auth/register`).send(withField('guardianConsent', value));
+      expect(res.status).toBe(400);
+      expect(res.status).not.toBe(500);
+      expect(JSON.stringify(res.body)).toContain('A parent or guardian has to agree');
+    }
+    expect(await Student.countDocuments({})).toBe(0);
+  });
+
+  it('refuses a registration with no way to reach a parent or guardian', async () => {
+    const body: Record<string, unknown> = { ...validStudent, guardianEmail: '', guardianPhone: '' };
+    const res = await request(app).post(`${API}/auth/register`).send(body);
+    expect(res.status).toBe(400);
+    expect(JSON.stringify(res.body)).toContain("Give a parent or guardian's phone number or email address");
+    expect(await Student.countDocuments({})).toBe(0);
+  });
+
+  it('refuses a guardian phone or email that is not one', async () => {
+    expect((await request(app).post(`${API}/auth/register`).send(withField('guardianPhone', '12ab'))).status).toBe(400);
+    expect((await request(app).post(`${API}/auth/register`).send(withField('guardianEmail', 'not-an-email'))).status).toBe(400);
+  });
+
+  it('stores the consent at the server’s time, and the guardian’s contact', async () => {
+    const before = Date.now();
+    const body = { ...validStudent, guardianEmail: '', guardianPhone: '98765 43210' };
+    await request(app).post(`${API}/auth/register`).send(body).expect(201);
+    const saved = await Student.findOne({ email: validStudent.email });
+    expect(saved!.guardianConsentAt).toBeInstanceOf(Date);
+    expect(saved!.guardianConsentAt!.getTime()).toBeGreaterThanOrEqual(before);
+    expect(saved!.guardianConsentAt!.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(saved!.guardianPhone).toBe('9876543210');
+    expect(saved!.guardianEmail).toBeNull();
+  });
+
+  it('cannot be given a consent time by the browser', async () => {
+    const body = { ...validStudent, guardianConsentAt: '2000-01-01T00:00:00.000Z' };
+    await request(app).post(`${API}/auth/register`).send(body).expect(201);
+    const saved = await Student.findOne({ email: validStudent.email });
+    expect(saved!.guardianConsentAt!.getUTCFullYear()).toBeGreaterThan(2000);
+  });
+});
+
 describe('class level', () => {
   /**
    * Driven from `CLASS_LEVELS` rather than a hand-copied list.

@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint && node scripts/check-handlers.mjs",
     "preview": "vite preview",
+    "preview:prod": "vite build --outDir node_modules/.prod-preview --emptyOutDir && vite preview --outDir node_modules/.prod-preview",
     "e2e": "playwright test"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "react-router-dom": "^7.18.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.17",

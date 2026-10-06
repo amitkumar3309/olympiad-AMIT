@@ -281,6 +281,7 @@ describe('prize eligibility', () => {
     schoolName: 'Sunrise School',
     city: 'Jaipur',
     guardianPhone: '9876543210',
+    guardianConsentAt: new Date('2026-10-01T10:00:00Z'),
   };
 
   it('is eligible with everything the organisers need to reach and verify a winner', () => {
@@ -295,6 +296,11 @@ describe('prize eligibility', () => {
 
   it('refuses a suspended account', () => {
     expect(prizeEligibility({ ...complete, status: 'suspended' }).missing).toEqual(['active-account']);
+  });
+
+  it('needs a parent or guardian’s consent — an account made before the box was asked for lacks it', () => {
+    expect(prizeEligibility({ ...complete, guardianConsentAt: null }).missing).toEqual(['guardian-consent']);
+    expect(prizeEligibility({ ...complete, guardianConsentAt: undefined }).missing).toEqual(['guardian-consent']);
   });
 });
 

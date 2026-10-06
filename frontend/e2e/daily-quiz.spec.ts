@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { advanceDays, resetBackend, seedQuiz, signIn } from './fixtures.ts'
+import { advanceDays, expectAccessible, resetBackend, seedQuiz, signIn } from './fixtures.ts'
 
 /**
  * The Daily Quiz, end to end (brief §6.8): start → submit → result → profile history shows the
@@ -25,6 +25,7 @@ test('a student plays today’s quiz, and its solution unlocks the next day', as
   await page.getByRole('button', { name: 'Start the quiz' }).click()
   await expect(page.getByRole('radio')).toHaveCount(4)
   await expect(page.getByRole('timer', { name: 'Time since you pressed Start' })).toBeVisible()
+  await expectAccessible(page, 'the quiz in progress')
   const submit = page.getByRole('button', { name: 'Submit answer' })
   await expect(submit).toBeDisabled()
 
@@ -34,8 +35,10 @@ test('a student plays today’s quiz, and its solution unlocks the next day', as
   await submit.click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toContainText('You get one attempt.')
+  await expectAccessible(page, 'the confirm dialog')
   await dialog.getByRole('button', { name: /^Submit option/ }).click()
   await expect(page.getByRole('heading', { name: 'Correct!' })).toBeVisible()
+  await expectAccessible(page, 'the result')
   await expect(page.getByText('+20 XP', { exact: false })).toBeVisible()
   await expect(page.getByRole('timer', { name: 'Time until the answer unlocks' })).toBeVisible()
 

@@ -4,6 +4,81 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-05 — Milestone 30 Phase 6: launch readiness — search, safety, consent, speed, and the report
+
+**Context.** The brief's Phase 6 (§10) lists what a launch needs beyond features: search and sharing,
+performance targets, WCAG 2.1 AA checked by axe in the browser suite, security headers and a clean
+dependency audit, a parental-consent checkbox at registration, a crash page and graceful behaviour
+when the API is slow, consistent names, and a launch report. The approved plan's Phase 6 row named the
+same, and PLAN.md Q13 already decided the consent data (`guardianConsentAt`).
+
+**Decision.**
+
+1. **One page table, read by the browser and by the build.** `src/lib/pageMeta.ts` holds every route's
+   title, description and whether it is indexed. `components/PageMeta` sets the title, description,
+   `robots` and canonical link on every navigation; the Vite plugin `vite.seo.ts` writes `robots.txt`,
+   `sitemap.xml` and `manifest.json` from the same table and injects the title, share tags (Open Graph,
+   Twitter) and the organisation's structured data into `index.html` from `lib/brand.ts`. `index.html`
+   therefore holds **no copy** of the name any more. A private page is `noindex` with no canonical; the
+   canonical is never in the HTML itself, which is served for every route. **The site's address is an
+   inference** (`SITE_URL = https://amitolympiad.me` — the support domain, which resolves to Vercel),
+   recorded as such and in the owner's list to confirm.
+2. **Brand images are generated, not drawn by hand**: `scripts/make-brand-images.ts` renders the
+   favicons, the touch and manifest icons, the 1200×630 share card (in the self-hosted brand font) and
+   a 6 KB WebP of the header mark, with the installed Edge. They replaced a 1 MB PNG favicon.
+3. **A crash lands on a page, not a white screen** (`components/AppErrorBoundary`, reset by moving to
+   another page); a page file a deploy replaced says "a new version is ready — reload". **Every request
+   has a 90-second ceiling** (`REQUEST_TIMEOUT_MS`, above the model's own 60-second budget) and a timeout
+   is a message with a retry. **The session check retries a failure that may pass** — no answer, a
+   timeout, 5xx, 429 — twice before deciding a reader is signed out (audit D17).
+4. **A real Content Security Policy and HSTS**, in `frontend/vercel.json`: scripts only from the site,
+   `*.razorpay.com` (Razorpay's documented guidance; its `checkout.js` uses no `eval`), Razorpay's Sentry
+   CDN and the Vercel preview toolbar; styles and fonts also from unpkg (the icon font); frames and form
+   posts to Razorpay only; `object-src 'none'`, `base-uri 'self'`, `frame-ancestors 'none'`. **`vite
+   preview` serves the same headers** (read from `vercel.json`), so the whole browser suite runs under
+   the real policy and any refusal is a console error the crawler fails on — mutation-checked by removing
+   one allowance.
+5. **Dependencies**: `npm audit fix` in both apps, **nodemailer 9 → 10** (its only breaking change is
+   Node 20, which Mongoose 9 already requires in production), and `@vercel/node` moved to
+   devDependencies — nothing imports it (it would only supply types), and Vercel builds the function
+   with its own runtime. What ships has **no high or critical** finding; two moderate ones (`exceljs` →
+   `uuid`) are unreachable (Milestone 21 ADR).
+6. **Parental consent** (brief §10, PLAN.md Q13): registration requires the box, in the brief's own
+   words, and a parent or guardian's phone **or** email; the server stores `guardianConsentAt` at its own
+   time. Prize eligibility requires it, so an older account is asked on My Profile → Prize details. It
+   can be given once and not withdrawn on the site — withdrawal is a legal-review question.
+7. **Accessibility is measured, not asserted**: `@axe-core/playwright` (the plan's named dependency) runs
+   on every page the crawler reaches — light and, for the student, dark — and at every overlay the specs
+   open (the sign-in dialog, the Login Gate, menus, the drawer, the quiz's confirm dialog and result, the
+   registration form and its errors), failing on any serious or critical violation. `e2e/keyboard.spec.ts`
+   checks what axe cannot: the skip link, a visible focus ring at every stop, the dialog's focus trap,
+   the quiz by keyboard alone, the menu and the tabs. Public pages gained "Skip to content"
+   (`ui/SkipLink`, the 35th primitive, shared with the shell).
+8. **Speed**: the icon stylesheets are added after `load` (they blocked the first paint, and their 300 KB
+   of fonts then competed with it), "Can you crack this?" and its maths renderer load as the reader nears
+   them, and the header mark is the WebP. Homepage, Lighthouse, four runs of the final build: mobile
+   **69 → 81–88** (median **84**), desktop **99**, accessibility, best practices and SEO **100**. The
+   mobile spread is main-thread blocking — the main bundle's evaluation on the simulated slow CPU — so
+   the 85 target is met in two runs of four, **not reliably**; and mobile LCP is **3.3–3.4 s** against
+   2.5 s. The page is drawn by the browser: pre-rendering it, which also takes the bundle's evaluation
+   off the first paint, is the next step, recorded rather than rushed.
+9. **One name**: `backend/src/lib/brand.ts` (`PRODUCT_NAME`) for everything the backend writes to people,
+   and "Daily Quiz" everywhere the retired "daily challenge" still showed. The printed certificate and the
+   invoice's issuer name are deliberately untouched.
+
+**Consequences.** The browser suite is 44 tests (about nine minutes). A public page is listed by one row
+in `pageMeta.ts`. The CSP must be edited when the site starts loading anything from a new origin — the
+suite will say so. `docs/launch/LAUNCH_REPORT.md` is the owner's one page for launch.
+
+**Alternatives considered.** Pre-rendering the homepage (the remaining LCP gap) — a larger change than
+launch week warrants. Self-hosting the icon font — removes unpkg, but changes a recorded decision for a
+smaller gain once the stylesheets stopped blocking. A Lighthouse dev dependency — run through `npx`
+instead, since it measures rather than ships. Sentry — needs a DSN from the owner. `SameSite=Lax` — the
+plan's R5 says verify on a staging copy with its own backend first, and every preview points at the
+production API.
+
+---
+
 ## 2026-10-05 — Milestone 30 Phase 5: every button and link, enforced by lint and a crawler
 
 **Context.** The brief's Phase 5 (§9) asks for every clickable element to be re-verified after the

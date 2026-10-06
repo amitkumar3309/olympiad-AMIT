@@ -51,6 +51,11 @@ export interface InViewOptions {
    * "not visible yet" is working, and is trusted to report the scroll.
    */
   fallbackMs?: number
+  /**
+   * Grows the area that counts as "in view", as `IntersectionObserver` takes it — e.g.
+   * `'200px 0px'` to start something just before the reader reaches it (Milestone 30, Phase 6).
+   */
+  rootMargin?: string
 }
 
 /**
@@ -64,7 +69,7 @@ export interface InViewOptions {
  */
 export function useInView<T extends Element>(
   ref: RefObject<T | null>,
-  { threshold = 0.25, fallbackMs = 2000 }: InViewOptions = {},
+  { threshold = 0.25, fallbackMs = 2000, rootMargin }: InViewOptions = {},
 ): boolean {
   const [inView, setInView] = useState(false)
 
@@ -85,7 +90,7 @@ export function useInView<T extends Element>(
           observer.disconnect()
         }
       },
-      { threshold },
+      { threshold, rootMargin },
     )
     observer.observe(el)
 
@@ -97,7 +102,7 @@ export function useInView<T extends Element>(
       observer.disconnect()
       window.clearTimeout(timer)
     }
-  }, [ref, threshold, fallbackMs, inView])
+  }, [ref, threshold, fallbackMs, rootMargin, inView])
 
   return inView
 }

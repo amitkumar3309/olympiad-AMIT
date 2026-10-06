@@ -59,5 +59,5 @@ together at `/dev/ui` (development only) under **Illustration**.
 
 | Asset | Where | Notes |
 |---|---|---|
-| Social share image | `og:image` for links shared on WhatsApp and social media (Phase 6) | 1200 × 630 PNG or JPG; the brand, "A.M.I.T. Olympiad", the year; under 300 kB. |
-| Apple touch icon and a full favicon set | Browser tabs and phone home screens (Phase 6) | From the existing emblem: 180 × 180 PNG, plus 32 × 32 and 512 × 512. The current manifest has one 192 × 192 icon. |
+| Social share image | `og:image` for links shared on WhatsApp and social media | ✅ **Generated in Phase 6** — `frontend/public/og-image.jpg` (1200 × 630, 94 kB): the emblem, "A.M.I.T. Olympiad", the full form and the year, in the brand font. Replace it with your own art at the same name and size if you like — nothing else changes. |
+| Apple touch icon and a full favicon set | Browser tabs and phone home screens | ✅ **Generated in Phase 6** from the emblem in `logo.png` — `favicon.ico` (16/32/48), `favicon-16.png`, `favicon-32.png`, `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png` and `icon-maskable-512.png`, all in `frontend/public/`. To regenerate after changing the logo: `node scripts/make-brand-images.ts` in `frontend/` (needs Edge). |

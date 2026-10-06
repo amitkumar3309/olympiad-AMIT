@@ -89,6 +89,14 @@ export interface RegisterInput {
    * the register page checks first and tells the student plainly when it is dropping one.
    */
   referralCode?: string
+  /**
+   * A parent or guardian's consent, and how to reach them (Milestone 30, Phase 6 — brief §10).
+   * The box must be ticked, and at least one of the two contacts given; the server records
+   * when consent was given.
+   */
+  guardianConsent: true
+  guardianPhone?: string
+  guardianEmail?: string
 }
 
 export interface Student {
@@ -1082,6 +1090,8 @@ export interface OwnProfile {
   city: string | null
   guardianPhone: string | null
   guardianEmail: string | null
+  /** When a parent or guardian agreed (Milestone 30, Phase 6); `null` on an older account. */
+  guardianConsentAt: string | null
   hideFromPublicLists: boolean
   prizeEligibility: QuizEligibility
   /** Identity fields — displayed, but not editable here. See profileSchemas.ts. */
@@ -1111,6 +1121,8 @@ export interface ProfileUpdateInput {
   guardianPhone?: string | null
   guardianEmail?: string | null
   hideFromPublicLists?: boolean
+  /** Only `true`, and only the first time counts (Milestone 30, Phase 6). */
+  guardianConsent?: true
 }
 
 /** Mirrors `ACTIVITY_TYPES` in `backend/src/models/StudentActivity.ts`. */
@@ -1635,6 +1647,7 @@ export type EligibilityRequirement =
   | 'school'
   | 'city'
   | 'guardian-phone'
+  | 'guardian-consent'
 
 export const ELIGIBILITY_LABELS: Record<EligibilityRequirement, string> = {
   'verified-email': 'a verified email address',
@@ -1644,6 +1657,7 @@ export const ELIGIBILITY_LABELS: Record<EligibilityRequirement, string> = {
   school: 'your school',
   city: 'your city',
   'guardian-phone': 'a parent or guardian’s phone number',
+  'guardian-consent': 'a parent or guardian’s consent',
 }
 
 export interface QuizEligibility {

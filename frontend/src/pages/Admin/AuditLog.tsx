@@ -40,9 +40,10 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'mocktest.status.changed': 'Mock test published/unpublished',
   'mocktest.deleted': 'Mock test deleted',
   'questions.imported': 'Questions imported',
-  'dailychallenge.scheduled': 'Daily challenge scheduled',
-  'dailychallenge.updated': 'Daily challenge changed',
-  'dailychallenge.deleted': 'Daily challenge cleared',
+  // The Daily Quiz's scheduling still records these action names (Milestone 30); the labels say what they are now.
+  'dailychallenge.scheduled': 'Daily Quiz scheduled',
+  'dailychallenge.updated': 'Daily Quiz changed',
+  'dailychallenge.deleted': 'Daily Quiz removed',
   // Milestone 30 — the Daily Quiz, and every step of choosing a winner.
   'dailyquiz.scheduled': 'Daily Quiz scheduled',
   'dailyquiz.updated': 'Daily Quiz question changed',

@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
-import { Avatar, Button, ButtonLink, Icon, Menu, usePrefersReducedMotion } from './ui'
+import { Avatar, Button, ButtonLink, Icon, Menu, SkipLink, usePrefersReducedMotion } from './ui'
 import { lockScroll, unlockScroll } from './ui/scrollLock'
 import ThemeToggle from './ThemeToggle'
-import logoMark from '../assets/logo-mark.png'
+import logoMark from '../assets/logo-mark.webp'
 import { AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_TAGLINE } from '../lib/brand'
 import styles from './Navbar.module.css'
 
@@ -259,17 +259,21 @@ export default function Navbar() {
     )
 
   return (
+    <>
+    {/* The first stop for a keyboard on every public page (Milestone 30, Phase 6). */}
+    <SkipLink />
     <header className={styles.nav} data-scrolled={scrolled ? 'true' : 'false'}>
       <div className={`container ${styles.inner}`}>
         {/*
           **The mark is the emblem alone** — `logo-mark.png`, built from `logo.png` by
-          `scripts/crop-logo-mark.cjs` — **and the name beside it is text.** In the full
+          `scripts/crop-logo-mark.cjs` and served as the 6 KB `logo-mark.webp` (Milestone 30
+          Phase 6) — **and the name beside it is text.** In the full
           lockup the wordmark is 8px tall at this size and the expansion one pixel, so the
           text is the only legible instance of the name in the header, not a second one.
           The expansion is on the link's `title`, never on screen here (CLAUDE.md).
         */}
         <Link to="/" className={styles.brand} title={`${AMIT_OLYMPIAD} — ${AMIT_FULL_FORM}`} onClick={onHomeClick}>
-          <img src={logoMark} alt="" aria-hidden="true" />
+          <img src={logoMark} alt="" aria-hidden="true" width={48} height={48} />
           <span className={styles.brandText}>
             <span className={styles.brandName}>{AMIT_OLYMPIAD}</span>
             <span className={styles.brandTagline} aria-hidden="true">
@@ -322,5 +326,6 @@ export default function Navbar() {
         </>
       )}
     </header>
+    </>
   )
 }

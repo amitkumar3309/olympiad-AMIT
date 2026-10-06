@@ -800,7 +800,10 @@ export interface TodayInput {
 
 /** Facts for the "complete your profile to be eligible for prizes" prompt. */
 export function eligibilityOf(
-  student: Pick<StudentDocument, 'isEmailVerified' | 'status' | 'firstName' | 'lastName' | 'classLevel' | 'schoolName' | 'city' | 'guardianPhone'>,
+  student: Pick<
+    StudentDocument,
+    'isEmailVerified' | 'status' | 'firstName' | 'lastName' | 'classLevel' | 'schoolName' | 'city' | 'guardianPhone' | 'guardianConsentAt'
+  >,
 ): { eligible: boolean; missing: EligibilityRequirement[] } {
   return prizeEligibility({
     isEmailVerified: student.isEmailVerified,
@@ -811,6 +814,7 @@ export function eligibilityOf(
     schoolName: student.schoolName,
     city: student.city ?? null,
     guardianPhone: student.guardianPhone ?? null,
+    guardianConsentAt: student.guardianConsentAt ?? null,
   });
 }
 
@@ -1422,7 +1426,7 @@ export async function listQuizCandidates(options: CandidateOptions) {
 const PROVISIONAL_COUNT = 5;
 
 const WINNER_STUDENT_FIELDS =
-  'studentId firstName lastName fullName classLevel schoolName city guardianPhone guardianEmail email isEmailVerified status hideFromPublicLists';
+  'studentId firstName lastName fullName classLevel schoolName city guardianPhone guardianEmail guardianConsentAt email isEmailVerified status hideFromPublicLists';
 
 /**
  * Ranks the quiz's correct answers by the configured rule and writes the leading few as
@@ -1627,6 +1631,7 @@ type WinnerStudentFacts = Pick<
   | 'city'
   | 'guardianPhone'
   | 'guardianEmail'
+  | 'guardianConsentAt'
   | 'email'
   | 'isEmailVerified'
   | 'status'

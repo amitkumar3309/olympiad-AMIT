@@ -4,7 +4,7 @@ import StudentShell from '../../components/StudentShell'
 import { Alert, Badge, Button, Card, CardHeader, DataCard, DataCardList, DataRow, EmptyState, ErrorState, Icon, SkeletonCards, StatTile, Table, TableScroll, type BadgeTone } from '../../components/ui'
 import { api } from '../../api/client'
 import type { ReferralRewardStatus, StudentReferralSummary } from '../../api/types'
-import { AMIT_SHORT } from '../../lib/brand'
+import { AMIT_OLYMPIAD } from '../../lib/brand'
 import styles from './Referrals.module.css'
 import { humanizeError } from '../../lib/errors'
 
@@ -121,7 +121,7 @@ export default function Referrals() {
    * be right.
    */
   const shareText = summary
-    ? `I'm preparing for the ${AMIT_SHORT} Maths Olympiad — practice, mock tests and a daily challenge are free. Join with my link: ${summary.link}`
+    ? `I'm preparing for the ${AMIT_OLYMPIAD} — practice, mock tests and the Daily Quiz are free. Join with my link: ${summary.link}`
     : ''
 
   async function nativeShare() {
@@ -129,7 +129,7 @@ export default function Referrals() {
     try {
       // Present on Android Chrome and iOS Safari; absent on most desktops. The WhatsApp
       // link beside it works everywhere, so this is an upgrade rather than the only path.
-      await navigator.share?.({ title: `${AMIT_SHORT} Maths Olympiad`, text: shareText, url: summary.link })
+      await navigator.share?.({ title: AMIT_OLYMPIAD, text: shareText, url: summary.link })
     } catch {
       /* The student dismissed the sheet. Not an error. */
     }

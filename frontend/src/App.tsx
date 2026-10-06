@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactNode } from 'react'
-import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { ProtectedRoute, RequirePermission, RequirePaidEntry } from './components/ProtectedRoute'
@@ -7,6 +7,8 @@ import ForcePasswordChange from './components/ForcePasswordChange'
 import Unauthorized from './components/Unauthorized'
 import ToastProvider from './components/ui/ToastProvider'
 import ScrollToTop from './components/ScrollToTop'
+import PageMeta from './components/PageMeta'
+import AppErrorBoundary from './components/AppErrorBoundary'
 import Spinner from './components/Spinner'
 /* Eager on purpose: it is the entry route, so deferring it would add a round trip
    to the first paint that matters most. Every other page below is lazy. */
@@ -127,6 +129,12 @@ const ResetPassword = lazy(() => import('./pages/Auth/ResetPassword'))
  * many, and anything the student typed into the address bar would step around it.
  * Here there is simply nothing else rendered until the password is changed.
  */
+/** The crash page around every route, cleared by moving to another page (Milestone 30, Phase 6). */
+function RouteErrorBoundary({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation()
+  return <AppErrorBoundary resetKey={pathname}>{children}</AppErrorBoundary>
+}
+
 function SessionGate({ children }: { children: ReactNode }) {
   const { state } = useAuth()
   const mustChange = (state.status === 'student' || state.status === 'admin') && state.mustChangePassword
@@ -143,10 +151,16 @@ export default function App() {
       <BrowserRouter>
       {/* A new page starts at the top — the router keeps the old depth otherwise. */}
       <ScrollToTop />
+      {/* The tab title, description, robots and canonical link of the page in view. */}
+      <PageMeta />
       {/* The toast host, mounted once. Inside the router deliberately: a toast may
           carry a link, and a portal keeps React context from where it is declared
           rather than from where it lands in the DOM. */}
       <ToastProvider>
+        {/* A page that throws, or a page file a deploy replaced, lands on the crash page
+            rather than a blank white screen. Outside the Suspense, so a failed download
+            of a lazy route is caught too. */}
+        <RouteErrorBoundary>
         {/* One boundary around every route: only the lazily-loaded ones can suspend,
             and a single fallback is simpler than wrapping each of them. */}
         <Suspense
@@ -642,6 +656,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
         </Suspense>
+        </RouteErrorBoundary>
       </ToastProvider>
       </BrowserRouter>
       </SessionGate>

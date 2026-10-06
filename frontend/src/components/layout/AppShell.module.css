@@ -28,26 +28,7 @@
  * page — 30-odd navigation links otherwise stand between a keyboard user and the
  * content on every single page.
  */
-.skipLink {
-  position: fixed;
-  top: var(--space-2);
-  left: var(--space-2);
-  z-index: var(--z-tooltip);
-  transform: translateY(-200%);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  background: var(--primary);
-  color: var(--primary-on);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  text-decoration: none;
-  box-shadow: var(--shadow-lg);
-  transition: transform var(--dur) var(--ease);
-}
-
-.skipLink:focus-visible {
-  transform: translateY(0);
-}
+/* The skip link is `ui/SkipLink` since Milestone 30 Phase 6, shared with the public header. */
 
 /* ==========================================================================
    SIDEBAR AND DRAWER

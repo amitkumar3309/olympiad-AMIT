@@ -577,15 +577,17 @@ export default function QuestionImport() {
         ---------------------------------------------------------------- */}
         <div className={`card ${styles.formats}`}>
           <h2>Where are the questions coming from?</h2>
-          <div className={styles.tabs} role="tablist">
+          {/* A choice of one, so a labelled group of pressed buttons — `ui/Tabs`' filter mode —
+              not the tabs pattern it was marked up as (Milestone 30, Phase 6): `role="tab"`
+              promised panels, `aria-controls` and arrow keys, and there were none. */}
+          <div className={styles.tabs} role="group" aria-label="File format">
             {IMPORT_FILE_KINDS.map((option) => {
               const info = status?.parsers.find((p) => p.kind === option)
               return (
                 <button
                   key={option}
                   type="button"
-                  role="tab"
-                  aria-selected={kind === option}
+                  aria-pressed={kind === option}
                   className={styles.tab}
                   data-active={kind === option}
                   disabled={busy !== null}

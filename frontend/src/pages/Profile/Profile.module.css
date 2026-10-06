@@ -244,6 +244,13 @@
   gap: 14px;
 }
 
+/* "A parent or guardian agreed on …" — prize details, once consent is given (Phase 6). */
+.consentGiven {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 /* The password change: `ui/Field` + `ui/PasswordInput`, so none of `.form`'s element rules. */
 .passwordForm {
   display: flex;

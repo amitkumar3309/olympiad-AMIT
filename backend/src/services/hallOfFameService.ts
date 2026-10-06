@@ -380,7 +380,7 @@ async function challengeChampions(limit: number): Promise<HallOfFameBoard> {
   return {
     code: 'challenge_champions',
     title: 'Challenge champions',
-    description: "The most daily challenges answered correctly — one question a day, one chance at it.",
+    description: 'The most Daily Quizzes answered correctly — one question a day, one chance at it.',
     icon: 'ph-dice-five',
     entries: rank(
       rows.map((row) => {
@@ -396,7 +396,7 @@ async function challengeChampions(limit: number): Promise<HallOfFameBoard> {
         };
       }),
     ),
-    emptyReason: 'Nobody has answered a daily challenge correctly yet. Today’s is waiting.',
+    emptyReason: 'Nobody has answered a Daily Quiz correctly yet. Today’s is waiting.',
   };
 }
 

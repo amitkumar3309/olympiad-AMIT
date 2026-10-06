@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { config } from '../config';
 import { ApiError } from '../lib/ApiError';
 import { logger } from '../lib/logger';
+import { PRODUCT_NAME } from '../lib/brand';
 
 /**
  * THE cross-site request forgery defence (security audit, 2026-08-17).
@@ -120,7 +121,7 @@ export function verifyRequestOrigin(req: Request, _res: Response, next: NextFunc
 
   next(
     ApiError.forbidden(
-      'This request did not come from the AMIT Olympiad website and was refused. If you were signed in, sign out and in again.',
+      `This request did not come from the ${PRODUCT_NAME} website and was refused. If you were signed in, sign out and in again.`,
     ),
   );
 }

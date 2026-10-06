@@ -70,18 +70,21 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 
 **Password policy** (owner, 2026-09-02): at least 8 characters with at least one lowercase letter, one uppercase letter, one number and one special character. Defined once in `validation/authSchemas.ts` and shared by the reset-link and change-password flows. All failing rules are reported in one response rather than the next one each time.
 - **Auth**: none. **Rate limit**: 10/hour per IP.
-- **Request** (Milestone 4 — every field below is required except `middleName`):
+- **Request** (Milestone 4 — every field below is required except those marked `?`):
   ```
   { firstName, middleName?, lastName, fatherName, motherName,
     dateOfBirth, classLevel, schoolName, address,
-    mobile, email, password, photo }
+    mobile, email, password, photo,
+    guardianConsent, guardianPhone?, guardianEmail?,   // Milestone 30 Phase 6
+    referralCode?, next? }
   ```
 - **Validation**:
   - Names (`firstName`, `middleName`, `lastName`, `fatherName`, `motherName`) 2–60 chars, letters in **any script** plus spaces, apostrophes, hyphens and full stops — no digits. `middleName` may be omitted or empty, and stores as `null`.
   - `dateOfBirth` — `YYYY-MM-DD`, a real date, not in the future, implying an age of 5–40.
-  - `classLevel` — one of the ten values in `backend/src/lib/classLevels.ts`: `Class 5`…`Class 11`, `Class 12 - Science`, `Class 12 - Commerce`, `Class 12 - Humanities`.
+  - `classLevel` — one of the ten values in `backend/src/lib/classLevels.ts`: `Class 3`…`Class 12` (the three Class-12 streams were merged into `Class 12`).
   - `schoolName` 2–150 chars; `address` 10–500 chars.
-  - `mobile` 10–15 digits (spaces/dashes stripped); `email` a valid address, lowercased; `password` ≥8 chars containing at least one letter and one number.
+  - `mobile` 10–15 digits (spaces/dashes stripped); `email` a valid address, lowercased; `password` the policy above.
+  - **Parental consent** (Milestone 30 Phase 6 — brief §10): `guardianConsent` must be the literal `true` (the box: "I am the parent/guardian, or I have my parent/guardian's permission, and I agree to the Terms and Privacy Policy"), and **at least one** of `guardianPhone` (the mobile rule) or `guardianEmail` (an email address) must be given — `""` counts as absent. Both errors are reported on their own field. The server stores the time it accepted the registration as `guardianConsentAt`; **no request can supply that time**.
   - `photo` — a base64 data URL (`data:image/jpeg;base64,…`). JPEG, PNG or WebP; **2 MB maximum decoded**. The declared MIME type is checked against the file's actual magic bytes, so a non-image cannot be stored and later served back as one.
 - **Body limit**: this is the only route that accepts a large body (2.8 MB, to allow for base64 inflation). Every other endpoint keeps body-parser's 100 KB default.
 - **Response 201**: `{ success, message, requiresEmailVerification, student }` — and **no session cookies**. The student must verify first. `student` now includes the registration details (`dateOfBirth` as `YYYY-MM-DD`), but never the photo bytes.
@@ -766,7 +769,7 @@ All in `routes/v1/me.routes.ts`. Gated with `requireAuth()` rather than `require
 The environment-configured root administrator has no `Student` document, so every one of these answers **404** with an explanatory message rather than a 500.
 
 ### `GET /api/v1/me/profile`
-The caller's full profile: the nine registration fields plus `mobile`, `email`, `isEmailVerified`, `status`, `role`, `registeredAt`, `lastLoginAt` and `hasPhoto`. Photo *existence* only — the bytes are served separately, so a profile load never drags a 2 MB image through the response. Never includes `passwordHash` (asserted by test).
+The caller's full profile: the nine registration fields plus `mobile`, `email`, `isEmailVerified`, `status`, `role`, `registeredAt`, `lastLoginAt`, `hasPhoto` and `guardianConsentAt` (when a parent or guardian agreed, or `null` — Milestone 30 Phase 6). Photo *existence* only — the bytes are served separately, so a profile load never drags a 2 MB image through the response. Never includes `passwordHash` (asserted by test).
 
 ### `PATCH /api/v1/me/profile`
 Edits the caller's own details. Body: `firstName`, `middleName` (nullable), `lastName`, `fatherName`, `motherName`, `dateOfBirth` (`YYYY-MM-DD`), `classLevel`, `schoolName`, `address` — a full replacement of the editable set, so a missing field is a validation error rather than a silent no-change. `fullName` is re-derived by the schema, never submitted.
@@ -774,6 +777,8 @@ Edits the caller's own details. Body: `firstName`, `middleName` (nullable), `las
 **`email` and `mobile` cannot be changed here**, and are absent from the schema rather than filtered in the handler — see the ADR in [`DECISIONS.md`](DECISIONS.md). Nor can `studentId`, `role`, `status`, `isEmailVerified` or `tokenVersion`; sending them changes nothing (asserted by test).
 
 **Prize fields (Milestone 30)** — `city`, `guardianPhone` (the mobile rule), `guardianEmail`, `hideFromPublicLists` — are **optional keys**: absent leaves the stored value, `null` or `""` clears it. They are the exception to the full-replacement rule so that a page loaded before they existed can still save. `GET /me/profile` returns them, plus `prizeEligibility: { eligible, missing[] }` from the same check the winner computation uses.
+
+**`guardianConsent: true`** (optional, Milestone 30 Phase 6) records a parent or guardian's consent on an account made before registration asked for it — the server sets `guardianConsentAt` to its own time, **once**: sending it again leaves the first time in place, and `false` is refused (consent cannot be withdrawn through the site; see `docs/launch/LEGAL_REVIEW.md`). `missing[]` is drawn from `verified-email`, `active-account`, `name`, `class`, `school`, `city`, `guardian-phone` and `guardian-consent`.
 
 Returns `{ changed, profile }`. Records a `profile_updated` activity (0 XP) and a `student.profile.updated` audit entry naming the changed **field names, never their values**. Rate limited 20/hour.
 

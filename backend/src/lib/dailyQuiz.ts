@@ -301,6 +301,7 @@ export const ELIGIBILITY_REQUIREMENTS = [
   'school',
   'city',
   'guardian-phone',
+  'guardian-consent',
 ] as const;
 export type EligibilityRequirement = (typeof ELIGIBILITY_REQUIREMENTS)[number];
 
@@ -313,6 +314,8 @@ export interface EligibilityFacts {
   schoolName?: string | null;
   city?: string | null;
   guardianPhone?: string | null;
+  /** When a parent or guardian agreed (Phase 6). Absent on accounts made before the box. */
+  guardianConsentAt?: Date | null;
 }
 
 const present = (value: string | null | undefined): boolean => typeof value === 'string' && value.trim().length > 0;
@@ -323,8 +326,10 @@ const present = (value: string | null | undefined): boolean => typeof value === 
  * The prize goes to a child, through their parent or guardian, after the organisers have
  * checked who they are — so a winner needs a verified email address, an active account
  * and a complete enough profile to be reached and verified: name, class, school, city and
- * a parent or guardian's phone number. Playing never requires any of this; only winning
- * does, and the quiz card tells a student what to add before it matters.
+ * a parent or guardian's phone number — and, since Phase 6, that parent or guardian's
+ * recorded consent (an account made before the registration box gives it on its profile).
+ * Playing never requires any of this; only winning does, and the quiz card tells a student
+ * what to add before it matters.
  */
 export function prizeEligibility(facts: EligibilityFacts): { eligible: boolean; missing: EligibilityRequirement[] } {
   const missing: EligibilityRequirement[] = [];
@@ -335,6 +340,7 @@ export function prizeEligibility(facts: EligibilityFacts): { eligible: boolean; 
   if (!present(facts.schoolName)) missing.push('school');
   if (!present(facts.city)) missing.push('city');
   if (!present(facts.guardianPhone)) missing.push('guardian-phone');
+  if (!(facts.guardianConsentAt instanceof Date)) missing.push('guardian-consent');
   return { eligible: missing.length === 0, missing };
 }
 

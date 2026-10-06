@@ -2,30 +2,32 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.ico.png" />
-    <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!--
-      The brand's full form (Milestone 22, Phase D), owner-supplied on 2026-08-28.
-
-      Spelled out literally here, and *only* here, outside `src/lib/brand.ts`. This file is
-      static and served before any JavaScript runs, so it cannot import the constant —
-      putting the page title behind a script would cost every visitor a render for a string
-      that never changes. **If the name changes, it changes in both places.**
+      The title, the description, the share card's Open Graph and Twitter tags and the
+      organisation's structured data are written in at build time from `src/lib/brand.ts`
+      and `src/lib/pageMeta.ts` by `vite.seo.ts` (Milestone 30, Phase 6), so this file holds
+      no second copy of the name, the domain or the contact details. They are in the HTML
+      the server sends — a link preview never runs the script. After that, the app keeps the
+      title, description, `robots` and canonical link right for each page (`PageMeta`).
     -->
-    <title>A.M.I.T. Olympiad — Advance Mathematics and Intelligence Test | National Level Maths Competition</title>
-    <meta
-      name="description"
-      content="A.M.I.T. — the Advance Mathematics and Intelligence Test — is a national-level mathematics olympiad for students in Class 3 to Class 12, open to every school board. Free practice, mock tests and a Daily Quiz with prizes; pay once to sit the official Olympiad."
-    />
-    <!-- Shown when the site is shared into a chat or on social media. -->
-    <meta property="og:title" content="A.M.I.T. Olympiad — Advance Mathematics and Intelligence Test" />
-    <meta
-      property="og:description"
-      content="A national-level mathematics olympiad for Class 3 to Class 12. Practice, mock tests and the Daily Quiz are free."
-    />
-    <meta property="og:type" content="website" />
+    <title>%AMIT_HOME_TITLE%</title>
+    <meta name="description" content="%AMIT_HOME_DESCRIPTION%" />
+
+    <!--
+      The icons (Milestone 30, Phase 6), all made from the emblem in `src/assets/logo.png` by
+      `scripts/make-brand-images.ts` — they replaced a 1 MB PNG that every visit downloaded
+      as its favicon. The theme colours are the light page and the dark one (`--bg` in
+      tokens.css; a static file cannot read a token).
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#f4f8fe" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
 
     <!--
       Fonts (Milestone 30, Phase 1): **self-hosted**, declared in `src/styles/tokens.css`.
@@ -62,8 +64,13 @@
       to open the connection is time the icons are missing.
     -->
     <link rel="preconnect" href="https://unpkg.com" crossorigin />
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css" />
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css" />
+    <!--
+      The two stylesheets themselves are added by `src/main.tsx` once the page has loaded
+      (Milestone 30, Phase 6): linked here they blocked the first paint of every page, and on
+      a slow phone connection that cost the homepage about 2.3 seconds (Lighthouse) for a
+      file 99% of which the homepage does not use. An icon is never the only carrier of
+      meaning, so a glyph arriving a moment after its words is fine.
+    -->
   </head>
   <body>
     <div id="root"></div>

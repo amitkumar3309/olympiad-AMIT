@@ -8,6 +8,7 @@ import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import { Icon } from '../../components/ui'
 import styles from './Verify.module.css'
+import { AMIT_OLYMPIAD } from '../../lib/brand'
 
 /**
  * Public certificate verification.
@@ -61,11 +62,11 @@ export default function Verify() {
   return (
     <>
       <Navbar />
-      <main className={styles.wrap}>
+      <main id="main-content" className={styles.wrap}>
         <header className={styles.header}>
           <h1>Verify a certificate</h1>
           <p>
-            Enter the verification code printed on an A.M.I.T Maths Olympiad certificate to confirm it is genuine. No
+            Enter the verification code printed on an {AMIT_OLYMPIAD} certificate to confirm it is genuine. No
             account is needed.
           </p>
         </header>
@@ -96,7 +97,7 @@ export default function Verify() {
             <h2>No certificate matches that code</h2>
             <p>
               Check the code against the printed certificate. If it still does not match, the document may not have
-              been issued by A.M.I.T Maths Olympiad.
+              been issued by the {AMIT_OLYMPIAD}.
             </p>
           </div>
         )}
@@ -109,7 +110,7 @@ export default function Verify() {
                   <Icon name="ph-check" weight="bold" size="sm" className={styles.tick} />
                   <div>
                     <h2>This certificate is genuine</h2>
-                    <p>Issued by A.M.I.T Maths Olympiad and not withdrawn.</p>
+                    <p>Issued by the {AMIT_OLYMPIAD} and not withdrawn.</p>
                   </div>
                 </>
               ) : (

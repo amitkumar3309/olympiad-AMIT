@@ -208,9 +208,12 @@ export default function Rewards() {
               {achievement.earned ? (
                 <span className={styles.tickMark}>
                   <Icon name="ph-check" weight="bold" />
+                  {/* The tick is not the only way it says so (CLAUDE.md: no icon alone). */}
+                  <span className="sr-only">Earned</span>
                 </span>
               ) : (
                 <span className={styles.achievementProgress}>
+                  <span className="sr-only">Progress: </span>
                   {achievement.progress}/{achievement.target}
                 </span>
               )}

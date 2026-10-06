@@ -39,9 +39,20 @@ parental consent** for anyone under 18; what is built is a minimum, not a legal 
 
 7. **How long is data kept** after a student stops using the site, or after the Olympiad? The draft
    says data can be deleted on request, with issued results and certificates kept as a record.
-8. **Parental consent at registration.** The brief (§10) asks for a required checkbox ("I am the
-   parent/guardian, or I have my parent/guardian's permission…") and a parent/guardian phone or email
-   at registration. Not built yet — planned for Phase 6. Confirm the wording you want.
+8. **Parental consent at registration — built in Phase 6; please review.** Registration now
+   requires the brief's box, word for word ("I am the parent/guardian, or I have my parent/guardian's
+   permission, and I agree to the Terms and Privacy Policy" — never pre-ticked, the two policies linked)
+   and a parent or guardian's phone **or** email; the server records the date and time they agreed.
+   Accounts made earlier are asked under My Profile → Prize details, and cannot win a prize until they
+   agree. The Privacy Policy's "What we collect" was updated to say so (6 October) — **that addition is
+   draft wording too.** Questions:
+   - **a. Is a ticked box enough?** The DPDP Act asks for *verifiable* parental consent. What is built
+     records that consent was given; it does not prove a parent gave it (no message is sent to the
+     parent's phone or email to confirm). Do you want a confirmation sent to the parent before an
+     account can be used, or before a prize is paid?
+   - **b. Withdrawing consent.** Not possible on the site: a parent would write to the support address.
+     What should happen then — the account deactivated, deleted, or kept without public listing?
+   - **c. Keeping the parent's details.** How long after a student leaves (part of question 7)?
 
 ### Daily Quiz & Rewards Rules
 
@@ -56,7 +67,7 @@ parental consent** for anyone under 18; what is built is a minimum, not a legal 
 
 - No refund window, refund timeline or cancellation remedy (questions 4–6).
 - No organiser name, address, registration number or jurisdiction (questions 1–3).
-- No claim that the site is DPDP-compliant.
+- No claim that the site is DPDP-compliant — the consent record (question 8) is a minimum.
 - The prize, the winner rule and the number of winners on the rules page are **fetched from the
   owner's settings** (Admin → Daily Quiz → Settings), never typed into the page — change the
   settings and the page follows.
