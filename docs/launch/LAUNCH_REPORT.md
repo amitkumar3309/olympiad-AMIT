@@ -143,7 +143,7 @@ The **Prize desk** tab lists every confirmed winner across days, with what is st
 
 | Limitation | What it means | What would fix it |
 |---|---|---|
-| **The homepage's first second on a slow phone** | The homepage arrives already drawn, so it can be read before its script has loaded; for that second or two its buttons (Sign in, the menu, the theme switch) do nothing, while its links work | Expected for a page drawn ahead of its script — the price of the fast first paint (§11). Nothing to fix unless readers report it |
+| **The homepage's first second on a slow phone** | The homepage arrives already drawn, so it can be read before its script has loaded; for that second or two its buttons (Sign in, the menu, the theme switch) do nothing and the menu and theme switch show no icon yet, while its links work | Expected for a page drawn ahead of its script — the price of the fast first paint (§11). Nothing to fix unless readers report it |
 | **D10** — the root administrator on a brand-new database | The sign-in box cannot create the administrator account the first time; your live site is unaffected (it exists) | Your decision — see PROGRESS.md "Open questions" |
 | **Session cookies are `SameSite=None`** | The brief asks for `Lax`; the site may already be same-site through the `/api` rewrite, but a wrong change logs everybody out | Test on a staging copy with its own backend first (PLAN.md R5) |
 | **The icon font comes from unpkg.com** | If that service is down, icons disappear (never words — no icon carries meaning alone) | Self-host the two icon fonts |
@@ -174,7 +174,9 @@ Do these in order; each says exactly where.
 8. **The email sender's name** (optional): Vercel → the backend project → Settings → Environment
    Variables → `EMAIL_FROM`. The part before `<` is what an inbox shows; change it to
    `A.M.I.T. Olympiad` to match the emails' own wording, keeping the address exactly as it is.
-9. **Decide D10** and **R5** (§7) — both can wait until after launch.
+9. **Decide D10** and **R5** (§7), and **the organiser's name** on invoices and certificates
+   (PROGRESS.md, "Open questions" — it follows from `LEGAL_REVIEW.md` question 1). All three can wait
+   until after launch.
 
 ## 9. The phone checklist — 15 minutes, on your own phone
 

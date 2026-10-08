@@ -2,6 +2,23 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-08 — Milestone 30 Phase 6: the last of the definition of done
+
+Branch `feat/diwali-launch-phase-6-polish` (PR #8), on `main` after the follow-up's merge (PR #7).
+
+- **"How winners are chosen" names the parent's consent.** Winning has required a parent or
+  guardian's recorded consent since Phase 6, but the public sentence — on the rules page, the homepage
+  and the Daily Quiz page — still listed only the profile fields. A test now fails if the sentence
+  leaves out any requirement `prizeEligibility()` checks.
+- **The student export's workbook author** is the product name (`PRODUCT_NAME`), not "AMIT Maths
+  Olympiad".
+- **Spell-check** (brief §10): the 6,292 strings a reader can see and the owner's documents, through
+  cspell's British English dictionary — no misspellings, no doubled words.
+- **Phase 6 screenshots** in `docs/launch/screenshots/phase-6/`, with the comparison against the
+  mockups in `docs/launch/PROGRESS.md`.
+
+Backend 1361 tests / 38 files (one new); E2E unchanged (54).
+
 ## 2026-10-06 — Milestone 30 Phase 6 follow-up: a fast homepage, and fast taps
 
 The two §10 targets Phase 6 left unmet — mobile Lighthouse ≥ 85 with LCP ≤ 2.5 s, and INP ≤ 200 ms.

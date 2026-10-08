@@ -1,5 +1,6 @@
 import type { Workbook, Worksheet } from 'exceljs' with { 'resolution-mode': 'import' };
 import type { StudentDirectoryEntry, StudentDirectoryFilters, StudentPaymentState } from './studentDirectoryService';
+import { PRODUCT_NAME } from '../lib/brand';
 
 /**
  * The student registration export (Milestone 22, Phase B) — the `.xlsx` an administrator
@@ -166,7 +167,7 @@ export async function buildStudentExportWorkbook(
   meta: ExportMeta,
 ): Promise<Buffer> {
   const workbook: Workbook = new exceljs.Workbook();
-  workbook.creator = 'AMIT Maths Olympiad';
+  workbook.creator = PRODUCT_NAME;
   workbook.created = meta.generatedAt;
 
   const sheet = workbook.addWorksheet('Students', { views: [{ state: 'frozen', ySplit: 1 }] });

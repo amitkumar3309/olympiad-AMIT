@@ -17,6 +17,8 @@ import {
   seededOrder,
   sharedIpCounts,
   shuffleSeed,
+  WINNER_RULES,
+  type EligibilityRequirement,
   type WinnerCandidate,
 } from '../src/lib/dailyQuiz';
 import { parseCsv, jsonToTable } from '../src/services/tabularImportParsers';
@@ -264,9 +266,25 @@ describe('the winner rule', () => {
     expect(describeWinnerRule('FIRST_CORRECT', 2)).toMatch(/reached our server first/i);
     expect(describeWinnerRule('FIRST_CORRECT', 2)).toMatch(/2 winners are chosen/);
     expect(describeWinnerRule('MANUAL', 1)).toMatch(/organisers choose/i);
-    // Every version states the eligibility rule, because the rules page prints it.
-    for (const rule of ['FASTEST_CORRECT', 'FIRST_CORRECT', 'MANUAL'] as const) {
-      expect(describeWinnerRule(rule, 1)).toMatch(/parent or guardian’s phone number/);
+  });
+
+  it('names every prize requirement a student can meet — the rules page lists them nowhere else', () => {
+    // A Record, so a requirement added to prizeEligibility() fails the typecheck here until it
+    // is named — the parent's consent went unmentioned for a while after Phase 6 added it.
+    const phrase: Record<EligibilityRequirement, RegExp | null> = {
+      'verified-email': /verified email address/,
+      'active-account': null, // not a step a student takes: a suspended account cannot sign in
+      name: /\bname\b/,
+      class: /\bclass\b/,
+      school: /\bschool\b/,
+      city: /\bcity\b/,
+      'guardian-phone': /parent or guardian’s phone number/,
+      'guardian-consent': /parent or guardian’s consent/,
+    };
+    for (const rule of WINNER_RULES) {
+      for (const pattern of Object.values(phrase)) {
+        if (pattern) expect(describeWinnerRule(rule, 1)).toMatch(pattern);
+      }
     }
   });
 });

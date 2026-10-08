@@ -7,13 +7,15 @@ _Last updated 2026-10-08._
 ## Current state
 
 **Phase 6 (launch readiness) complete and merged** (PR #6, squash-merged 2026-10-06). Its follow-up —
-the two §10 targets Phase 6 left unmet — is done on `feat/diwali-launch-phase-6-perf`, moved onto `main`
-after that merge and **not pushed** (waiting for the owner): the homepage is drawn at build
-time (mobile Lighthouse **98** ×4, LCP 1.8–2.0 s) and every tap answers within 200 ms on a slowed phone
-(a new INP test). Every phase of the brief is now built and every Phase 6 target met. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one page**: what was built, how
+the two §10 targets Phase 6 left unmet — is **merged too** (PR #7, squash-merged 2026-10-08): the
+homepage is drawn at build time (mobile Lighthouse **98** ×4, LCP 1.8–2.0 s) and every tap answers
+within 200 ms on a slowed phone (a new INP test). The last two items of the brief's definition of done —
+**the spell-check and the Phase 6 screenshots** — are done, with the two fixes they turned up, and are
+**PR #8** (`feat/diwali-launch-phase-6-polish`, replayed onto `main` after PR #7's merge). Every phase of the brief is now built and
+every Phase 6 target met. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one page**: what was built, how
 to run it, the Daily Quiz and winners how-to, known limitations, the action list before launch, the
 phone checklist and the launch-day runbook. Open for the owner: D10, R5, the site's address, the
-consent questions (below).
+consent questions and the organiser's name on invoices and certificates (below).
 
 ## Tasks
 
@@ -88,6 +90,11 @@ consent questions (below).
 | 6+ | INP: `e2e/responsiveness.spec.ts` (390px, CPU 4×, Event Timing); theme change applied after the next paint (~390 → 24 ms); `Landing` memoises its sections (sign-in dialog ~220 → 168–184 ms) | ✅ done |
 | 6+ | Lighthouse, homepage, four mobile runs: **98, 98, 98, 98**; LCP 1.8–2.0 s; TBT 36–68 ms; CLS 0; desktop 100 | ✅ done |
 | 6+ | Tests: E2E 54 (`prerender.spec.ts` 4, `responsiveness.spec.ts` 1; `waitForApp()` where a test acts on `/` at once) | ✅ done |
+| 6+ | Spell-check (§10, "spell-check every string"): the 6,292 strings a reader can see — JSX text and prose literals in `frontend/src` and `backend/src`, read with the TypeScript compiler — and the owner's documents, through cspell's British English dictionary (the brief asks for Indian English, which largely follows British spelling): **0 misspellings, no doubled words**. The 32 words it did not know are names, code, LaTeX and Indian terms (lakh, crore, paise, NEFT, GSTIN, Hinglish) | ✅ done |
+| 6+ | The public "how winners are chosen" sentence names the parent's consent, which winning has required since Phase 6 — the only place the rules page lists what a winner needs; a test now fails if the sentence leaves out any requirement (mutation-checked against the old sentence) | ✅ done |
+| 6+ | Names: the student export's workbook author is `PRODUCT_NAME`. The organiser's name on invoices and certificates is left for the owner (below) | ✅ done |
+| 6+ | Screenshots in `docs/launch/screenshots/phase-6/`, compared with both mockups (below) | ✅ done |
+| 6+ | Tests: backend 1361 / 38 (one new) | ✅ done |
 
 ## Open questions for the owner
 
@@ -109,6 +116,13 @@ consent questions (below).
 - **Parental consent (Phase 6)** — built with the brief's wording; `LEGAL_REVIEW.md` question 8 asks
   whether a ticked box is enough for the DPDP Act's *verifiable* consent, how a parent withdraws it,
   and how long a parent's details are kept.
+- **The organiser's name on invoices and certificates** — money and legal, so not guessed. A few
+  strings there still use older spellings: the invoice's line item ("AMIT Maths Olympiad — entry fee
+  (one-off registration for the official Olympiad)"), the issuer name an invoice uses when
+  `INVOICE_ORG_NAME` is not set in Vercel ("A.M.I.T Maths Olympiad"), the certificate's signature line
+  ("Founder, A.M.I.T Maths Olympiad") and the PDFs' hidden author and producer fields. They name the
+  organiser rather than the product, so they wait on `LEGAL_REVIEW.md` question 1 (the organiser's legal
+  name). Both documents are drawn afresh on every download, so a change also reaches ones already issued.
 - **Other browsers.** The suite drives Edge (Chromium) only; running it in Firefox and WebKit needs
   Playwright's own browsers downloaded (about 200 MB) — say if you want that. The report's phone
   checklist covers Safari by hand.
@@ -126,6 +140,20 @@ owner reviews; **Q9** `+91-97828-70716` and `support@amitolympiad.me`. New, from
   Quiz → Import a file) — each also becomes the homepage's "Can you crack this?" the day after it runs; if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel
   project, update them (a set variable beats the new default); supply the illustrations
   (`ASSETS_NEEDED.md` — placeholders until then).
+
+## Phase 6 — screenshots, and what differs from the mockups
+
+Compared side by side with both mockups (screenshots in `docs/launch/screenshots/phase-6/`, taken
+2026-10-08 from a production build against the local database). Phase 6 changed no layout on either
+page, so the Phase 3 and Phase 4 tables below still hold. What is new:
+
+| Screenshot | Shows | Note |
+|---|---|---|
+| `homepage-1440`, `homepage-390`, `homepage-dark-390` | The homepage | The Phase 3 layout. "How winners are chosen" now names the parent's consent. Top Scholars is a table, not a podium: only two local students have XP, and a podium needs distinct ranks 1, 2 and 3. |
+| `homepage-before-script-390` | The drawn homepage with the app's script held back — a slow phone's first screen | The same page the app draws, except that the header's theme switch and menu button have no icon yet: the icon font is added by the app once the page has loaded (report §7). |
+| `dashboard-1440`, `dashboard-390`, `dashboard-dark-390` | The student dashboard | The Phase 4 layout. "No quiz today" is real — nothing was scheduled locally for 8 Oct. The phone shots use a viewport as tall as the page, so the bottom bar sits at the foot; in the Phase 4 and 5 shots a full-page capture drew it over the Daily Quiz card, where no reader ever sees it. |
+| `register-consent-390`, `profile-consent-390` | Registration's parent-or-guardian section; My Profile → Prize details for an account made before it | New in Phase 6; neither mockup has a form. |
+| `new-version-390` | What a reader sees when a deploy has replaced a page file | New in Phase 6; no mockup. |
 
 ## Phase 4 — deviations from the dashboard mockup, and why
 
@@ -173,9 +201,11 @@ Compared side by side with `docs/design/mockup-landing.jpeg` (screenshots in
   `git rm` before it — and `df6cc0d` is the commit whose message describes them. The tree at the tip is
   right; the PR is squash-merged. History was not rewritten (CLAUDE.md: new commits, not amends).
 - **Screenshots** for a signed-in page: a Playwright script (installed Edge) against the local
-  servers (5180 → 8091) that signs in with the `seed-demo.ts` account through `POST /auth/login` and
-  shoots full pages. The local backend's general rate limiter (300 requests / 15 min) runs out after
-  a few dozen captures — restart `launch-backend-local-db` to empty it.
+  servers (5180 or the production build on 5190 → 8091) that signs in with the `seed-demo.ts` account
+  through `POST /auth/login` and shoots full pages. The local backend's general rate limiter (300
+  requests / 15 min) runs out after a few dozen captures — restart `launch-backend-local-db` to empty it.
+  A full-page capture draws a fixed element (the phone's bottom bar) where the first screen ends: for
+  those pages, set the viewport to the page's height and take an ordinary screenshot.
 
 - **Local run:** `.claude/launch.json` has `launch-backend-local-db` (port 8091, `dev:local`, local
   MongoDB `amit-olympiad-local`) and `launch-frontend` (port 5180, proxying to 8091). The backend is

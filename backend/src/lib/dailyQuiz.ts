@@ -397,7 +397,9 @@ export function rankCandidates(candidates: readonly WinnerCandidate[], rule: Win
 /**
  * The public, plain-English statement of how winners are chosen — **generated from the
  * same settings the code uses** (brief §6.6), so the rules page and the computation can
- * never disagree.
+ * never disagree. Its eligibility sentence restates `prizeEligibility()` and is the only place
+ * the rules page lists what a winner needs — so a requirement added there is named here too (a
+ * test checks each one; the parent's consent was missing for a while after Phase 6 added it).
  */
 export function describeWinnerRule(rule: WinnerRule, winnersPerQuiz: number): string {
   const count =
@@ -415,7 +417,7 @@ export function describeWinnerRule(rule: WinnerRule, winnersPerQuiz: number): st
 
   return (
     `${how[rule]} ${count} ` +
-    'To win, a student needs a verified email address and a complete profile — name, class, school, city and a parent or guardian’s phone number. ' +
+    'To win, a student needs a verified email address, a complete profile — name, class, school, city and a parent or guardian’s phone number — and that parent or guardian’s consent. ' +
     'The organisers check every winner before announcing them, the day after the quiz.'
   );
 }
