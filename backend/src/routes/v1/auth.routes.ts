@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { config } from '../../config';
 import { Student, StudentPhoto, type AccountStatus, type StudentDocument } from '../../models';
-import { resolveRootSuperadmin, isRootAdminEmail } from '../../services/rootAdminService';
+import { resolveRootSuperadmin, isRootAdminEmail, isRootBootstrapCredentials } from '../../services/rootAdminService';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { connectDB, isConnected } from '../../db/connection';
@@ -755,8 +755,28 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
     // One message for both "no such account" and "wrong password": telling them
     // apart would let an attacker enumerate registered accounts.
     const invalidCredentials = 'Invalid credentials. Check your mobile number or email and password.';
+    const adminPortal: AuthFailure = {
+      ok: false,
+      status: 403,
+      message: 'Administrator accounts sign in from the administrator portal at /admin.',
+      code: 'ADMIN_PORTAL_REQUIRED',
+    };
 
     if (!student) {
+      /**
+       * D10 (Milestone 30 Phase 7): the root administrator **before its account exists** —
+       * a brand-new database, a staging copy, a restored backup. The account is created by
+       * its first sign-in at `/auth/admin/login`, and the one sign-in box only goes there
+       * on `ADMIN_PORTAL_REQUIRED`; answering "invalid credentials" here meant the website
+       * could never create it. So the configured address with the configured password is
+       * handed over exactly as the existing account is below — after the password, never
+       * before it, and with no session and no document made here. A wrong password is the
+       * same 401 as any unknown account.
+       */
+      if (await isRootBootstrapCredentials(identifier, password)) {
+        sendError(res, adminPortal.status, adminPortal.message, { code: adminPortal.code });
+        return;
+      }
       sendError(res, 401, invalidCredentials);
       return;
     }
@@ -783,15 +803,7 @@ router.post('/auth/login', loginLimiter, validate({ body: loginSchema }), ensure
      * at the super administrator. Moving it earlier would break that, whatever the client
      * does with the code.
      */
-    const staffOnly: AuthFailure | null =
-      student.role === 'superadmin'
-        ? {
-            ok: false,
-            status: 403,
-            message: 'Administrator accounts sign in from the administrator portal at /admin.',
-            code: 'ADMIN_PORTAL_REQUIRED',
-          }
-        : null;
+    const staffOnly: AuthFailure | null = student.role === 'superadmin' ? adminPortal : null;
 
     const outcome = await authenticateAccount(student, password, req, res, invalidCredentials, staffOnly);
     if (!outcome.ok) {
