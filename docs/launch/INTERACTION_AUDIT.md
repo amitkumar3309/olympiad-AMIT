@@ -2,7 +2,8 @@
 
 _Phase 0 baseline, 2026-10-04, read from the code at `a8bfad0`. **Re-verified in Phase 5 (2026-10-05)** — the
 **Final** column; how, in the next section. **Phase 6 (2026-10-05)** added axe on every crawled page and a
-keyboard suite: D17 is resolved, and D18–D21 were found and fixed._
+keyboard suite: D17 is resolved, and D18–D21 were found and fixed. Its follow-up measured interactions
+(INP) and found D22–D23._
 
 Status key: ✅ works · ⚠️ works but wrong/misleading · ❌ broken · — not yet re-verified.
 
@@ -71,6 +72,8 @@ Paths are relative to `frontend/src/`. Routes are declared only in `App.tsx`; gu
 | D19 | `components/ChartCard.tsx` (axe, `role-img-alt`) | `react-chartjs-2` gives its canvas a `role="img"` of its own, so inside the card's labelled image a reader met a second, nameless one | Low | ✅ **Resolved in Phase 6** — the canvas is `aria-hidden`; the wrapper carries the summary and the numbers are in the table beside it |
 | D20 | `pages/Rewards/Rewards.tsx` + `.module.css` (axe, `color-contrast`) | Unearned badges and locked achievements faded the **whole** card, which took their descriptions — how to earn them — below 4.5:1; "earned" was said by a tick alone | Low | ✅ **Resolved in Phase 6** — only the icon fades; "Earned" and "Progress:" are in the text for a screen reader |
 | D21 | `pages/Admin/QuestionImport.tsx` (Phase 6 review of `role="tab"`) | The file-format choice was marked up as tabs (`role="tab"`, `aria-selected`) with no panels, `aria-controls` or arrow keys — the defect CLAUDE.md's `Tabs` rule names | Low | ✅ **Resolved in Phase 6** — a labelled group of pressed buttons ("File format", `aria-pressed`), the filter pattern |
+| D22 | `context/ThemeContext.tsx` (Phase 6 follow-up, `e2e/responsiveness.spec.ts`) | The theme switch took ~390 ms to show anything on a phone slowed 4× — React applies the class in an effect before a click's next frame, and restyling the whole homepage is the slow part | Medium | ✅ **Resolved in the Phase 6 follow-up** — a change is applied after the next paint: the switch flips at once (24 ms), the page recolours a moment later |
+| D23 | `pages/Landing/Landing.tsx` (same test) | Opening the sign-in dialog re-rendered every section of the homepage (the dialog's open state lives in `Landing`) — ~220 ms | Low | ✅ **Resolved in the Phase 6 follow-up** — the page is memoised on what its sections read; opening a dialog renders the dialog (168–184 ms) |
 
 ## Route inventory (52 declared)
 

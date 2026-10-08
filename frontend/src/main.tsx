@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, startTransition } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/theme.css'
 import App from './App.tsx'
@@ -24,8 +24,61 @@ function addIconStylesheets() {
 if (document.readyState === 'complete') addIconStylesheets()
 else window.addEventListener('load', addIconStylesheets, { once: true })
 
-createRoot(document.getElementById('root')!).render(
+const container = document.getElementById('root')!
+const root = createRoot(container)
+const app = (
   <StrictMode>
     <App />
-  </StrictMode>,
+  </StrictMode>
 )
+
+/** What identifies a link or a button in both the drawn page and the live one. */
+function signatureOf(element: Element): string {
+  return [
+    element.tagName,
+    element.id,
+    element.getAttribute('href'),
+    element.getAttribute('aria-label'),
+    element.textContent?.trim(),
+  ].join('|')
+}
+
+/**
+ * Keeps a keyboard reader's place when React replaces the drawn page. A control focused before
+ * the app arrived — the "Skip to content" link, most likely — is removed with the rest of the
+ * drawn page, and the focus would drop to the document, sending the reader back to the top.
+ * So the last control focused in the drawn page is noted, and once React's first commit has
+ * replaced it, its counterpart in the live page is focused instead.
+ */
+function keepFocusThroughTakeover(drawn: HTMLElement) {
+  let last = drawn.contains(document.activeElement) && document.activeElement ? signatureOf(document.activeElement) : null
+  const onFocus = (event: FocusEvent) => {
+    if (event.target instanceof Element) last = signatureOf(event.target)
+  }
+  drawn.addEventListener('focusin', onFocus)
+  // React's first commit removes the drawn children and adds its own in one go.
+  const observer = new MutationObserver(() => {
+    observer.disconnect()
+    drawn.removeEventListener('focusin', onFocus)
+    if (last === null || document.activeElement !== document.body) return
+    const tag = last.split('|')[0]!
+    const counterpart = [...drawn.querySelectorAll(tag)].find((element) => signatureOf(element) === last)
+    if (counterpart instanceof HTMLElement) counterpart.focus({ preventScroll: true })
+  })
+  observer.observe(drawn, { childList: true })
+}
+
+/*
+ * The homepage arrives already drawn (`vite.prerender.ts`); every other route arrives empty.
+ * Over a drawn page React's first render replaces it rather than hydrating it — see the note
+ * in vite.prerender.ts — and runs as a transition: the reader is already looking at the page,
+ * so that work can yield to the browser in small slices instead of holding a phone's
+ * processor for most of a second (Lighthouse's "total blocking time"). An empty root is
+ * rendered at once, as before, because there is nothing on screen to wait behind.
+ */
+if (container.hasChildNodes()) {
+  keepFocusThroughTakeover(container)
+  startTransition(() => root.render(app))
+} else {
+  root.render(app)
+}

@@ -66,6 +66,12 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             index.html from lib/brand.ts, and writes the three files
   scripts/make-brand-images.ts  the favicons, icons, share card and WebP mark (M30 Phase 6)
   src/components/AppErrorBoundary.tsx  the crash page around every route (M30 Phase 6)
+  src/prerender.tsx         the homepage rendered for Node at build time (M30 Phase 6
+                            follow-up) — the same AppProviders + AppRoutes as the browser
+  vite.prerender.ts         draws / into dist/index.html, keeps dist/app.html as the shell
+                            for every other route, and fails the build on a broken draw
+  public/boot.js            the first script on every page: the theme before paint, and on
+                            the drawn homepage the app after the first paint
   src/components/Illustration.tsx + illustrations.ts
                             the launch artwork by name; files are discovered in
                             src/assets/illustrations/ at BUILD time (M30)
@@ -86,7 +92,8 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   e2e/ + playwright.config.ts  the browser end-to-end suite (M30); starts its own
                             backend on an in-memory MongoDB and serves a production
                             build — `npm run e2e`. crawler.spec.ts (every page: errors,
-                            links, h1, meta, axe), keyboard.spec.ts, resilience.spec.ts
+                            links, h1, meta, axe), keyboard.spec.ts, resilience.spec.ts,
+                            prerender.spec.ts, responsiveness.spec.ts (INP ≤ 200 ms)
   src/lib/format.ts         THE number/date formatting: en-IN grouping, IST dates
                             ("Sun, 8 Nov 2026 • 10:00 AM"), countdown text (M30)
   public/fonts/             the self-hosted font files + their OFL licences (M30)
@@ -314,7 +321,25 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
 - **The Content Security Policy lives in `frontend/vercel.json` and nowhere else** (Milestone 30
   Phase 6), and `vite preview` serves it too, so the browser suite runs under the real policy. Loading
   anything from a new origin means adding it there — the crawler fails on the refusal. Do not add
-  `'unsafe-eval'` or inline scripts: nothing needs them (Razorpay's checkout uses no `eval`).
+  `'unsafe-eval'` or inline scripts: nothing needs them (Razorpay's checkout uses no `eval`, and the
+  one script that must run before paint, `public/boot.js`, is a file for exactly this reason).
+- **The homepage is drawn at build time, and React renders over it — never hydrates it**
+  (Milestone 30 Phase 6 follow-up). `vite.prerender.ts` renders `/` with `src/prerender.tsx` (the
+  same `AppProviders` + `AppRoutes` as the browser) into `dist/index.html`; every other route gets
+  `dist/app.html`, the empty shell (`vercel.json`; `vite preview` mirrors it). So **nothing on `/`
+  may read `window`, `document` or storage during render** — effects and handlers are fine — and its
+  first render must not depend on the visitor (the HTML is built once for everybody); a render that
+  throws, a missing hero heading, more or fewer than one `h1`, or a CSS-module class no stylesheet
+  defines fails the build. Do not switch to `hydrateRoot`: a mismatched attribute is left as it is in
+  a production build, and the Register link's `?ref=` is exactly such an attribute. On the drawn page
+  `public/boot.js` starts the app after the first paint, and `src/main.tsx` keeps a keyboard reader's
+  focus when the app takes over. The drawn page's buttons are inert until then — a test that acts on
+  `/` calls `waitForApp()` first.
+- **Every interaction answers within 200 ms on a slowed phone** (INP, brief §10).
+  `e2e/responsiveness.spec.ts` taps what a student taps at 390px with the CPU slowed 4× and fails
+  beyond 200 ms. If it fails, make the interaction cheaper — visible feedback first, heavy work after
+  the next paint (as `ThemeContext` applies a theme change), no re-render of the page for a dialog (as
+  `Landing` memoises its sections) — never loosen the bound.
 - **Every asynchronous submit button carries `loading`**, which shows the spinner, sets `aria-busy` and disables it — the last is what stops a double submission. A form that saves is a `<form onSubmit>` with a `type="submit"` button, so Enter submits; a click-only save is a deliberate exception (the mock-test editor) and is recorded as one.
 - Route guards: `ProtectedRoute` (requires a student account) and `RequirePermission` (requires a capability) in `src/components/ProtectedRoute.tsx`. `AdminRoute` was **removed** in Milestone 3 — use `RequirePermission permission="..."`, which renders the `Unauthorized` component for a signed-in user rather than silently redirecting.
 - Read permissions with `can('...')` from `useAuth()`. The permission list arrives from the backend on every auth response; **never** reimplement the role → permission mapping on the frontend, and never branch on `state.status` to decide whether something administrative is allowed (`status` says which *kind* of account is signed in, not what it may do — a promoted admin has `status: 'student'`). Wrap new authenticated pages in these rather than checking `state.status` ad hoc in the page body (existing pages do check `state.status` for conditional rendering, e.g. to show a preview vs. real data — that's fine; the *route-level* gate should still use the wrapper).
@@ -363,7 +388,11 @@ look wrong however carefully it is tokenised — read them before touching a sur
   indicating a dark theme existed. **When verifying a theme, kill transitions first**: the
   class is applied in an effect after first paint, so `getComputedStyle` reports the *old*
   background mid-transition — this reported a white `body` under `.theme-dark` during the
-  very change that introduced it.
+  very change that introduced it. Since Milestone 30 Phase 6 **`public/boot.js` applies the same
+  precedence before the first paint** (key `amit-theme`) — change one, change the other — and a
+  theme *change* is applied to the document **after the next paint**: restyling the whole page is
+  ~400 ms on a slow phone, and doing it before the switch could repaint made the switch itself
+  feel dead.
 - **Landing-page icons animate continuously, and the rule is SCALE AND ROTATE — NEVER
   TRANSLATE.** Three attempts got here. *Hover only* was invisible — nobody hovers a
   marketing page deliberately and **a phone has no hover at all**. *A 3–4px loop on the
@@ -795,7 +824,8 @@ look wrong however carefully it is tokenised — read them before touching a sur
   so every visitor downloaded the admin console, the profile page and the practice zone before
   the landing page painted; making them lazy took the main bundle from 543 kB (167 kB gzipped)
   to **244 kB (75 kB)**. `Landing` stays eager on purpose — deferring it adds a round trip to
-  the first paint that matters most.
+  the first paint that matters most, and since Milestone 30 Phase 6 the build-time draw of `/`
+  renders it from the entry too.
 - **Nothing on the landing page may be a claim the code cannot back.** It is the most public
   surface in the product and the one most likely to accumulate copy nobody re-reads: three
   statements on it were checked in Milestone 23 Phase F and three were wrong — "there is no
@@ -1002,7 +1032,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
 
 ## Testing Requirements
 
-- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1360 tests across 38 files** (measured 2026-10-06 after Milestone 30 Phase 6; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 44 tests of which 35 run and nine are one-width-only — the link crawler with axe, keyboard use, resilience; about seven minutes), which starts its own backend on an in-memory MongoDB, serves a **production build** of the frontend (`vite preview`, since Phase 5 — the dev server's per-module requests starved the browser during the crawl) and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
+- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1360 tests across 38 files** (measured 2026-10-06 after Milestone 30 Phase 6; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 54 tests of which 40 run and fourteen are one-width-only — the link crawler with axe, keyboard use, resilience, the drawn homepage, INP; about eight minutes), which starts its own backend on an in-memory MongoDB, serves a **production build** of the frontend (`vite preview`, since Phase 5 — the dev server's per-module requests starved the browser during the crawl) and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
 - `NODE_ENV=test` skips `.env` loading, so tests can never pick up real secrets, and also lowers bcrypt cost and disables rate limiters for speed/determinism. Don't "fix" any of that.
 - **The Gemini tests must never touch the network.** `setGeminiClientFactory()` in `services/geminiQuestionGenerator.ts` swaps the whole SDK client and throws outside the test environment; use it rather than a real key, and note that `enableGemini()` only needs an obviously-fake string because `isAvailable()` merely asks whether a key is present. The failing paths are the ones worth testing — a spent quota, a truncated reply, prose where JSON was asked for — and none of them can be produced on demand against a real provider.
 - Use `tests/helpers/db.ts` (real in-memory MongoDB) and `tests/helpers/auth.ts` (`registerVerifyLogin`, cookie parsing, real token extraction from the captured email) rather than writing new harnesses. **`registerVerifyLogin()` grants the entry fee by default** — a student exercising practice in production has paid, and a test student who cannot practise asserts behaviour no real student reaches. Pass `{ paid: false }` where *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants, and an admin with an entry-fee payment would appear in the payments console's collected total.

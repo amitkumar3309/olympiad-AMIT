@@ -2,6 +2,36 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-06 — Milestone 30 Phase 6 follow-up: a fast homepage, and fast taps
+
+The two §10 targets Phase 6 left unmet — mobile Lighthouse ≥ 85 with LCP ≤ 2.5 s, and INP ≤ 200 ms.
+Branch `feat/diwali-launch-phase-6-perf`.
+
+### Students and visitors
+
+- **The homepage appears about twice as fast on a phone.** It arrives already drawn: Lighthouse
+  mobile went from 81–88 to **98** (four runs), and its heading paints at 1.8–2.0 s instead of
+  3.3–3.4 s.
+- **No flash of the light theme** for a reader whose device or choice is dark: the theme is set
+  before the first paint, on every page.
+- **The theme switch answers at once** — 24 ms on a phone slowed 4×, from ~390 ms; the page
+  recolours a moment after.
+- **The sign-in dialog opens faster**: the homepage no longer redraws every section to show it.
+- A keyboard reader who tabs into the homepage before it has finished loading keeps their place.
+
+### Under the hood
+
+- `src/prerender.tsx` + `vite.prerender.ts`: `/` is rendered at build time into `index.html`; every
+  other route is served `app.html` (`vercel.json`; mirrored by `vite preview`). React renders over the
+  drawn page instead of hydrating it. The build fails on a broken draw.
+- `public/boot.js`: the theme before the first paint; on the drawn page, the app after it.
+- `App.tsx` split into `AppProviders` + `AppRoutes`, shared by the browser and the build.
+- E2E: `prerender.spec.ts` (readable without the app, the theme's precedence before the app runs,
+  focus kept through the takeover, only `/` drawn) and `responsiveness.spec.ts` (every tap ≤ 200 ms
+  at 390px with the CPU slowed 4×); `waitForApp()` where a test acts on `/` at once.
+
+E2E 54 tests (40 run, 14 one-width-only); backend unchanged (1360 / 38).
+
 ## 2026-10-06 — Milestone 30 Phase 6: launch readiness
 
 Everything a launch needs beyond features (brief §10–11): search and sharing, safety, parental consent,

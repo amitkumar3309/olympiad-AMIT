@@ -141,14 +141,27 @@ function SessionGate({ children }: { children: ReactNode }) {
   return mustChange ? <ForcePasswordChange /> : <>{children}</>
 }
 
-export default function App() {
+/**
+ * The providers around the router — one definition for the browser (`App`, below) and for
+ * the homepage drawn at build time (`src/prerender.tsx`, Milestone 30 Phase 6), so the
+ * page in the HTML and the page React draws over it cannot differ in what wraps them.
+ */
+export function AppProviders({ children }: { children: ReactNode }) {
   return (
     // Theme sits outermost so it applies to every route, and to the auth-loading
     // state before any page has rendered.
     <ThemeProvider>
     <AuthProvider>
-      <SessionGate>
-      <BrowserRouter>
+      <SessionGate>{children}</SessionGate>
+    </AuthProvider>
+    </ThemeProvider>
+  )
+}
+
+/** Everything inside the router: shared the same way, so both render one route table. */
+export function AppRoutes() {
+  return (
+    <>
       {/* A new page starts at the top — the router keeps the old depth otherwise. */}
       <ScrollToTop />
       {/* The tab title, description, robots and canonical link of the page in view. */}
@@ -658,9 +671,16 @@ export default function App() {
         </Suspense>
         </RouteErrorBoundary>
       </ToastProvider>
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <AppProviders>
+      <BrowserRouter>
+        <AppRoutes />
       </BrowserRouter>
-      </SessionGate>
-    </AuthProvider>
-    </ThemeProvider>
+    </AppProviders>
   )
 }

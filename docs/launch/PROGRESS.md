@@ -2,13 +2,15 @@
 
 A fresh session should read `LAUNCH_SPEC.md`, then `PLAN.md`, then this file.
 
-_Last updated 2026-10-06._
+_Last updated 2026-10-08._
 
 ## Current state
 
-**Phase 6 (launch readiness) complete** on branch `feat/diwali-launch-phase-6` — started from `main`
-after PR #5 (Phase 5) was squash-merged; **not pushed** — waiting for the owner. Every phase of the brief
-is now built. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one page**: what was built, how
+**Phase 6 (launch readiness) complete and merged** (PR #6, squash-merged 2026-10-06). Its follow-up —
+the two §10 targets Phase 6 left unmet — is done on `feat/diwali-launch-phase-6-perf`, moved onto `main`
+after that merge and **not pushed** (waiting for the owner): the homepage is drawn at build
+time (mobile Lighthouse **98** ×4, LCP 1.8–2.0 s) and every tap answers within 200 ms on a slowed phone
+(a new INP test). Every phase of the brief is now built and every Phase 6 target met. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one page**: what was built, how
 to run it, the Daily Quiz and winners how-to, known limitations, the action list before launch, the
 phone checklist and the launch-day runbook. Open for the owner: D10, R5, the site's address, the
 consent questions (below).
@@ -81,6 +83,11 @@ consent questions (below).
 | 6 | `docs/launch/LAUNCH_REPORT.md` (the owner's launch report), `daily-quiz-example.csv` | ✅ done |
 | 6 | Tests: backend 1360 / 38 (eight new, consent); E2E 44 — 35 passed, 9 one-width-only, 7.1 minutes | ✅ done |
 | 6 | Docs: ADR, CLAUDE.md, API, schema, security, env, testing, troubleshooting, feature status, state, changelog, audit, legal review, assets | ✅ done |
+| 6+ | Homepage drawn at build time: `src/prerender.tsx` + `vite.prerender.ts` → `index.html` for `/`, `app.html` for every other route (`vercel.json`, mirrored by `vite preview`); React renders over it (no hydration); the build fails on a broken draw | ✅ done |
+| 6+ | `public/boot.js`: the theme before the first paint; on the drawn page the app after it. Focus kept through the takeover (`main.tsx`) | ✅ done |
+| 6+ | INP: `e2e/responsiveness.spec.ts` (390px, CPU 4×, Event Timing); theme change applied after the next paint (~390 → 24 ms); `Landing` memoises its sections (sign-in dialog ~220 → 168–184 ms) | ✅ done |
+| 6+ | Lighthouse, homepage, four mobile runs: **98, 98, 98, 98**; LCP 1.8–2.0 s; TBT 36–68 ms; CLS 0; desktop 100 | ✅ done |
+| 6+ | Tests: E2E 54 (`prerender.spec.ts` 4, `responsiveness.spec.ts` 1; `waitForApp()` where a test acts on `/` at once) | ✅ done |
 
 ## Open questions for the owner
 
@@ -180,7 +187,7 @@ Compared side by side with `docs/design/mockup-landing.jpeg` (screenshots in
 - Seeded local accounts come from the project's own scripts (`scripts/seed-demo.ts`,
   `scripts/dev-local.ts`, `frontend/e2e/fixtures.ts`); do not paste their credentials into chat.
 - **E2E:** `npm run e2e` in `frontend/` starts its own backend (in-memory DB, port 8092) and Vite
-  (5181) and drives the installed Edge — 44 tests (35 run), about 7 minutes. Since Phase 5 the
+  (5181) and drives the installed Edge — 54 tests (40 run), about 8 minutes. Since Phase 5 the
   frontend it serves is a **production build** (`vite build` + `vite preview`), not the dev server, and
   since Phase 6 `vite preview` sends `vercel.json`'s headers, so the suite runs under the real CSP.
 - **Measuring speed:** `launch-frontend-prod` in `.claude/launch.json` serves the production build on
