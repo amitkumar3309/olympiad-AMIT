@@ -122,16 +122,19 @@ export function prerender(): Plugin {
       })
       const entry = readdirSync(serverOut).find((name) => name === 'prerender.mjs')
       if (!entry) throw new Error(`prerender: the Node build of ${ENTRY} wrote no prerender.mjs`)
-      const { renderHome } = (await import(`${pathToFileURL(join(serverOut, entry)).href}?t=${Date.now()}`)) as {
+      const { renderHome, renderIntro } = (await import(`${pathToFileURL(join(serverOut, entry)).href}?t=${Date.now()}`)) as {
         renderHome: () => string
+        renderIntro: () => string
       }
       const page = renderHome()
+      // The Diwali intro (Phase 7) — beside the root, where the app taking over cannot restart it.
+      const intro = renderIntro()
 
-      const problems = problemsWith(page, cssOf(outDir))
+      const problems = problemsWith(intro + page, cssOf(outDir))
       if (problems.length > 0) throw new Error(`prerender: the drawn homepage is not fit to ship:\n  - ${problems.join('\n  - ')}`)
 
       writeFileSync(join(outDir, APP_SHELL), shell)
-      writeFileSync(indexPath, startAppAfterPaint(shell).replace(EMPTY_ROOT, `<div id="root">${page}</div>`))
+      writeFileSync(indexPath, startAppAfterPaint(shell).replace(EMPTY_ROOT, `${intro}<div id="root">${page}</div>`))
       rmSync(serverOut, { recursive: true, force: true })
       config.logger.info(`prerender: / drawn into index.html (${(page.length / 1024).toFixed(1)} KiB); every other route gets ${APP_SHELL}`)
     },

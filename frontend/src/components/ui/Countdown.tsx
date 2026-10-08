@@ -36,6 +36,11 @@ export interface CountdownProps {
    * DAYS / HOURS / MINUTES / SECONDS under them (the Boss Battle card).
    */
   variant?: 'clock' | 'compact' | 'units'
+  /**
+   * `units` only. False drops the DAYS box, for a count that is always under a day — today's
+   * Daily Quiz closing (Phase 7): a box reading 00 for ever is noise. Hours then carry any days.
+   */
+  showDays?: boolean
   /** What is being counted, for a screen reader. */
   label: string
   /** Called once, when a countdown reaches zero. */
@@ -50,6 +55,7 @@ export default function Countdown({
   offsetMs = 0,
   direction = 'down',
   variant = 'clock',
+  showDays = true,
   label,
   onComplete,
   className,
@@ -86,13 +92,16 @@ export default function Countdown({
 
   if (variant === 'units') {
     const parts = splitDuration(seconds)
-    const values = [parts.days, parts.hours, parts.minutes, parts.seconds]
+    const values = showDays
+      ? [parts.days, parts.hours, parts.minutes, parts.seconds]
+      : [parts.days * 24 + parts.hours, parts.minutes, parts.seconds]
+    const labels = showDays ? UNIT_LABELS : UNIT_LABELS.slice(1)
     return (
       <div role="timer" aria-label={label} className={classes}>
         {values.map((value, i) => (
-          <span key={UNIT_LABELS[i]} className={styles.unit}>
+          <span key={labels[i]} className={styles.unit}>
             <span className={styles.unitValue}>{String(value).padStart(2, '0')}</span>
-            <span className={styles.unitLabel}>{UNIT_LABELS[i]}</span>
+            <span className={styles.unitLabel}>{labels[i]}</span>
           </span>
         ))}
       </div>

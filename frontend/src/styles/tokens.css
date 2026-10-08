@@ -319,6 +319,15 @@
   --gold-600: #a87006; /* a mark on white: 4.21:1 */
   --gold-700: #7d5304; /* words: 5.95:1 at worst */
 
+  /**
+   * Night — the Diwali edition's sky (Phase 7). Only ever reached through the `--festive-*`
+   * tokens, and only on the edition's own night-scene surfaces.
+   */
+  --night-950: #04081f;
+  --night-900: #0a1440;
+  --night-600: #2a3f94;
+  --cream-50: #fdf8ec;
+
   /** Orange — the streak. `--orange-400` is the mockup's `#f97a4a`. */
   --orange-50: #fff1eb;
   --orange-100: #fedccf;
@@ -560,6 +569,8 @@
   --dur-pulse: 1.8s; /* the LIVE dot's ring */
   --dur-sweep: 700ms; /* the FAB's light streak on hover */
   --dur-celebrate: 1.4s; /* the confetti burst — the brief caps it at 1.5s */
+  --dur-flicker: 800ms; /* a diya's flame (Phase 7) */
+  --intro-beat: 240ms; /* the Diwali intro's count: every step of it is a multiple of this (Phase 7) */
   --ease-sine: cubic-bezier(0.37, 0, 0.63, 1); /* loops */
   --ease: cubic-bezier(0.44, 0, 0.56, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* entrances: fast, then settle */
@@ -581,6 +592,7 @@
   --z-modal: 70;
   --z-toast: 90;
   --z-tooltip: 100;
+  --z-intro: 200; /* the Diwali edition's two-second intro covers everything (Phase 7) */
 
   /* ==================================================================
      7. LAYOUT
@@ -786,6 +798,34 @@
   --tooltip-bg: var(--ink-900);
   --tooltip-text: var(--ink-50);
   --tooltip-border: transparent;
+
+  /* ==================================================================
+     FESTIVE — the Diwali edition (Phase 7, 8 to 15 November 2026)
+     ================================================================== */
+
+  /**
+   * A night scene in **either** theme, so `.theme-dark` does not re-point these: they are
+   * drawn only by the edition's own surfaces (the hero's sky, the intro, the Diwali Special
+   * band), which carry only festive text. Measured: gold on the night 10.80:1, the cream
+   * text 16.69:1, its muted step 10.84:1, the night's ink on a gold button 12.10:1 — and at
+   * least 5.05:1 everywhere on the brightest patch of the sky (`--festive-night-glow`).
+   */
+  --festive-night: var(--night-900);
+  --festive-night-deep: var(--night-950);
+  --festive-night-glow: var(--night-600);
+  --festive-gold: var(--gold-300);
+  --festive-gold-strong: var(--gold-400);
+  --festive-flame: var(--gold-200);
+  --festive-flame-core: var(--gold-50);
+  --festive-ember: var(--orange-400);
+  --festive-text: var(--cream-50);
+  --festive-text-muted: rgba(253, 248, 236, 0.8);
+  --festive-on-gold: var(--night-950);
+  --festive-hairline: rgba(248, 194, 79, 0.35);
+  --festive-panel: rgba(255, 255, 255, 0.06);
+  --festive-glow: 0 0 24px rgba(248, 194, 79, 0.55);
+  --festive-light: rgba(248, 194, 79, 0.28); /* the diya's light, at its brightest */
+  --festive-light-faint: rgba(248, 194, 79, 0.08);
 }
 
 /**
@@ -951,4 +991,19 @@
   --royal-blue: var(--primary);
   --royal-blue-dark: var(--primary-hover);
   --gold: var(--accent);
+}
+
+/**
+ * ==================================================================
+ * 10. THE DIWALI EDITION (Phase 7) — `data-season`, set by public/boot.js
+ * ==================================================================
+ *
+ * Its one app-wide change of value, 8 to 15 November 2026: the page's loudest action and the
+ * Daily Quiz button glow gold. In both themes — `:root[data-season]` outranks `.theme-dark`.
+ * Everything else festive is a component's own markup, shown only under this attribute.
+ */
+:root[data-season='diwali'] {
+  --shadow-brand: 0 8px 22px -6px rgba(248, 177, 30, 0.6);
+  --shadow-fab: 0 10px 26px -6px rgba(248, 177, 30, 0.6);
+  --shadow-fab-hover: 0 0 0 6px rgba(248, 194, 79, 0.22), 0 16px 36px -6px rgba(248, 177, 30, 0.7);
 }

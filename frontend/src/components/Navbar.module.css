@@ -40,6 +40,15 @@
 
 /* ---------- brand ------------------------------------------------------- */
 
+/* The brand and, during the Diwali edition, its greeting — one item in the bar's row, so the
+   greeting never shifts the links (Phase 7). */
+.brandGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -277,4 +286,26 @@
   .mobileActions {
     display: none;
   }
+}
+
+/* ---------- the Diwali edition (Phase 7) ---------------------------------------------------
+
+   A solid bar from the top of the page — the homepage's hero beneath is a night sky, which a
+   transparent bar's dark words would vanish into — and a string of lights along its edge.
+   Opaque, not frosted: a frosted bar re-blurs whatever moves behind it on every frame, and
+   during the edition the hero's sky never stops moving. */
+
+:global(:root[data-season='diwali']) .nav,
+:global(:root[data-season='diwali']) .nav[data-scrolled='true'] {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom-color: var(--border-subtle);
+}
+
+.lights {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -14px;
 }

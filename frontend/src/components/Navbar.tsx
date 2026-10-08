@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { Avatar, Button, ButtonLink, Icon, Menu, SkipLink, usePrefersReducedMotion } from './ui'
+import { DiwaliGreeting, StringLights } from './Diwali'
 import { lockScroll, unlockScroll } from './ui/scrollLock'
 import ThemeToggle from './ThemeToggle'
 import logoMark from '../assets/logo-mark.webp'
@@ -272,15 +273,19 @@ export default function Navbar() {
           text is the only legible instance of the name in the header, not a second one.
           The expansion is on the link's `title`, never on screen here (CLAUDE.md).
         */}
-        <Link to="/" className={styles.brand} title={`${AMIT_OLYMPIAD} — ${AMIT_FULL_FORM}`} onClick={onHomeClick}>
-          <img src={logoMark} alt="" aria-hidden="true" width={48} height={48} />
-          <span className={styles.brandText}>
-            <span className={styles.brandName}>{AMIT_OLYMPIAD}</span>
-            <span className={styles.brandTagline} aria-hidden="true">
-              {AMIT_TAGLINE}
+        <div className={styles.brandGroup}>
+          <Link to="/" className={styles.brand} title={`${AMIT_OLYMPIAD} — ${AMIT_FULL_FORM}`} onClick={onHomeClick}>
+            <img src={logoMark} alt="" aria-hidden="true" width={48} height={48} />
+            <span className={styles.brandText}>
+              <span className={styles.brandName}>{AMIT_OLYMPIAD}</span>
+              <span className={styles.brandTagline} aria-hidden="true">
+                {AMIT_TAGLINE}
+              </span>
             </span>
-          </span>
-        </Link>
+          </Link>
+          {/* The Diwali edition's greeting (Phase 7) — beside the link, not in it: it is no part of its name. */}
+          <DiwaliGreeting />
+        </div>
 
         <nav className={styles.desktopNav} aria-label="Primary">
           {links}
@@ -325,6 +330,9 @@ export default function Navbar() {
           </div>
         </>
       )}
+
+      {/* The Diwali edition's string of lights (Phase 7), hanging from the bar's lower edge. */}
+      <StringLights className={styles.lights} />
     </header>
     </>
   )

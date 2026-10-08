@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Badge, Icon, SkipLink } from '../ui'
 import { lockScroll, unlockScroll } from '../ui/scrollLock'
 import DeveloperCredit from '../DeveloperCredit'
+import { DiwaliGreeting, StringLights } from '../Diwali'
 import ThemeToggle from '../ThemeToggle'
 import { findActiveItem, type NavGroup, type NavItem } from './navigation'
 import styles from './AppShell.module.css'
@@ -422,6 +423,8 @@ export default function AppShell({
             <>
               {/* The emblem alone, below 1024px — the sidebar carries the lockup above it. */}
               <span className={styles.topBrand}>{brandMark(undefined, true)}</span>
+              {/* The Diwali edition's greeting (Phase 7) — the student area only, like the lights below. */}
+              <DiwaliGreeting />
 
               {topNav && topNav.length > 0 && (
                 <nav className={styles.topNav} aria-label="Quick links">
@@ -445,6 +448,7 @@ export default function AppShell({
               )}
 
               <div className={styles.headerEnd}>{headerEnd}</div>
+              <StringLights className={styles.lights} />
             </>
           ) : (
             <>
