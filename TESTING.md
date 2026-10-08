@@ -37,6 +37,13 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Milestone 30 Phase 6 polish (2026-10-08): 1361 passing backend tests across 38 files; the browser
+> suite is unchanged (54).** One new test in `tests/dailyQuizRules.test.ts`: the public "how winners are
+> chosen" sentence names every prize requirement a student can meet. Its requirement-to-phrase table is
+> a `Record` over `EligibilityRequirement`, so a requirement added to `prizeEligibility()` fails the
+> typecheck until the sentence names it too. Mutation-checked: the old sentence, which left out the
+> parent's consent, fails it.
+>
 > **Milestone 30 Phase 6 follow-up (2026-10-06): 54 browser tests (40 run, 14 one-width-only); the
 > backend is unchanged (1360 / 38).** **`e2e/prerender.spec.ts`** (desktop): the homepage can be read
 > with the app's script blocked, already in the dark theme the device asks for (boot.js, not React —
