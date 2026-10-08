@@ -2,7 +2,9 @@
 
 _Last updated: 2026-10-08 (**Milestone 30 — the Diwali launch: Phases 0–6 are merged (Phase 6: PR #6),
 and so is the Phase 6 follow-up that closed the last two §10 targets (PR #7); the spell-check and the
-Phase 6 screenshots are PR #8 (`feat/diwali-launch-phase-6-polish`)**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+Phase 6 screenshots are PR #8 (`feat/diwali-launch-phase-6-polish`); Phase 7a — the owner's requests of
+2026-10-08, first half: the www address, D10, the Daily Quiz archive and the Diwali edition — is complete on
+`feat/diwali-launch-phase-7`, not yet pushed**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -117,8 +119,8 @@ The work happens in phases, and each one stops for the owner's approval.
   **Names**: `PRODUCT_NAME` (`backend/src/lib/brand.ts`) in everything the backend writes; "Daily
   Quiz" wherever "daily challenge" still showed. **[`docs/launch/LAUNCH_REPORT.md`](docs/launch/LAUNCH_REPORT.md)
   is the owner's one page for launch.** Tests: backend **1360 / 38 files**; E2E **44** (35 run, all
-  passing, about seven minutes). **Open for the owner:** D10, R5, the site's address (`SITE_URL` —
-  inferred as `https://amitolympiad.me`), and the consent questions in `LEGAL_REVIEW.md`.
+  passing, about seven minutes). **Open for the owner:** R5 and the consent questions in
+  `LEGAL_REVIEW.md` (D10 and the site's address were answered on 2026-10-08 and built in Phase 7a).
 - **Phase 6 follow-up — the two targets Phase 6 missed — done and merged** (PR #7,
   `feat/diwali-launch-phase-6-perf`). **The homepage is drawn at build time**:
   `src/prerender.tsx` + the `vite.prerender.ts` plugin write `/` into `dist/index.html`, every other
@@ -138,6 +140,22 @@ The work happens in phases, and each one stops for the owner's approval.
   the student export's workbook author is `PRODUCT_NAME`. **Screenshots**:
   `docs/launch/screenshots/phase-6/`, compared with the mockups in PROGRESS.md. Backend **1361 / 38
   files**. **New for the owner:** the organiser's name on invoices and certificates (PROGRESS.md).
+- **Phase 7a — the owner's requests of 2026-10-08, first half — done, on `feat/diwali-launch-phase-7`**
+  (stacked on PR #8; not pushed). Decisions in PLAN.md §5b (Q14–Q20). **`SITE_URL`** is
+  `https://www.amitolympiad.me`. **D10**: `/auth/login` hands the configured `ADMIN_EMAIL` with the
+  configured password over to the admin route before the account exists (after the password, never
+  before). **The archive**: `GET /daily-quiz/archive` + `/daily-quiz/archive` — one class group, a page of
+  days, never today's. **The Diwali edition**, 8–15 Nov 2026: `frontend/src/lib/season.ts` → a `<meta>` →
+  `public/boot.js` sets `<html data-season>` before the first paint; every festive touch is CSS keyed on it
+  (the markup is always there, hidden outside the dates), so the drawn homepage needs no second version;
+  a two-second intro drawn beside the app's root; a night hero with a server-timed countdown
+  (`GET /daily-quiz/today`); the lights and "Happy Diwali" in the headers; a `diwali_2026` achievement
+  (`backend/src/lib/seasons.ts`, seasonal `window`). **Speed**: festive loops move whole elements only
+  and pause under the intro; a compositor version of the Daily Quiz button's loops was tried and
+  **reverted** (it doubled the tap time measured with motion on). Backend **1369 / 38**; E2E **70**.
+  Open: taps with motion on — 220–260 ms in headless Edge, as before Phase 7a, and 320–430 ms during the
+  edition — and LCP on the intro's first visit; both in PROGRESS.md. **Next: Phase 7b** (picture
+  questions, reminders).
 
 ## Milestone 29 at a glance
 

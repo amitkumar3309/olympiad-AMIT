@@ -2,6 +2,41 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-09 — Milestone 30 Phase 7a: the www address, D10, the archive, and the Diwali edition
+
+The owner's requests of 2026-10-08, first half (PLAN.md §5b). Branch `feat/diwali-launch-phase-7`.
+
+### Students and visitors
+
+- **The Diwali edition, 8 to 15 November 2026** — on by itself at 12:00 AM IST on the 8th, off at the end
+  of the 15th. A two-second intro the first time a browser opens the homepage that week (3-2-1, a diya
+  lights, the mathematics glows, the name, "Think • Solve • Grow"; any key or tap skips it); the
+  homepage at night — lanterns, fireworks, diyas, the name in gold, "Launched this Diwali", a countdown
+  to today's quiz closing; the **Diwali Special** band; a string of lights and "Happy Diwali" across the
+  site; a gold glow on the main buttons. `?season=diwali` previews it.
+- **The Diwali 2026 badge** — answer any Daily Quiz that week and it joins your achievements for good.
+- **Past Daily Quizzes** (`/daily-quiz/archive`): every earlier quiz for a class group, with its answer
+  and worked solution behind "Show the answer". Never today's.
+- The site's address is **www.amitolympiad.me** in search results, shared links and the sitemap.
+
+### Staff
+
+- **D10**: on a brand-new database the root administrator can now be created from the one sign-in box.
+- The rewards overview counts the Diwali badge's holders exactly.
+
+### Under the hood
+
+- `lib/season.ts` → `<meta name="amit-season">` → `public/boot.js` → `<html data-season="diwali">`;
+  every festive touch is CSS keyed on it; the intro is drawn beside the app's root at build time.
+- `GET /daily-quiz/archive`, `GET /daily-quiz/today` (uncached, for the countdown).
+- `ui/Countdown` gains `showDays`.
+- **Speed**: festive loops move whole elements only (the GPU's work); the page's loops pause under the
+  intro; the bars are solid, not frosted, during the edition. A compositor version of the Daily Quiz
+  button's ring and float was tried and **reverted**: it removed the button's main-thread work, yet
+  doubled the time a tap took to show with motion on (TROUBLESHOOTING.md).
+
+Backend 1369 tests / 38 files (eight new); E2E 70 (50 run, 20 one-width-only).
+
 ## 2026-10-08 — `CLAUDE.md` and `SECURITY.md` stop calling CSRF an open gap
 
 Documentation only; no code changed. `CLAUDE.md`'s Security Rules still listed "no CSRF tokens" as

@@ -156,6 +156,22 @@ the owner has; **all four were answered on 2026-10-04**, after Phase 2:
 | **Q12** | **Prize copy and amount.** | "Surprise gift + cash prize", amount hidden until you set one in admin settings. |
 | **Q13** | **Prize eligibility needs** verified email + name, class, school, **city**, **parent/guardian phone**. City and guardian phone don't exist today. | Add optional `city`, `guardianPhone`, `guardianEmail`, `guardianConsentAt`, `hideFromPublicLists` to `Student`. Required at registration from now on (consent checkbox + guardian phone); existing students get a "complete your profile to be eligible for prizes" prompt. Registration stays otherwise identical. |
 
+## 5b. The owner's requests of 2026-10-08 (Phase 7)
+
+After the brief was finished (PRs #1–#8), the owner asked for more, and answered the questions it
+raised the same day. Phase 7 builds them in two halves: **7a** the address, D10, the archive and the
+Diwali edition; **7b** picture questions and Daily Quiz reminders.
+
+| Row | Owner's answer (2026-10-08) | Where it lands |
+|---|---|---|
+| Q14 | The live site is **`www.amitolympiad.me`**. | `SITE_URL` (`lib/brand.ts`). The bare domain should redirect to it, and the backend's `FRONTEND_URL` must match it exactly (owner action) — 7a |
+| Q15 | **D10: yes**, as proposed — the one sign-in box may create the root administrator on a brand-new database. | `/auth/login` hands over before the account exists — 7a |
+| Q16 | **A public archive of past Daily Quizzes** (the brief's optional extra). | `/daily-quiz/archive` — 7a |
+| Q17 | **The Diwali edition, 8–15 November 2026 only, then back to normal**: the Diwali landing mockup (supplied in chat) and "the Diwali launch moment" intro (dark, 3-2-1, a diya lights, equations glow, the name, the line). Asked and answered: the hero says **"Launched this Diwali · A brighter mind for a brighter future"** with a countdown to today's quiz closing — not the mockup's launch countdown, "Notify me" email box or "Early access", untrue from 8 November; the intro ends on **"Think • Solve • Grow"** (the logo's line, not "Conquer"); other pages get **festive touches** (lights, a greeting, a gold glow), not a full recolour; **fixed in code**. | `lib/season.ts`, `public/boot.js` — 7a |
+| Q18 | **A real Diwali 2026 badge**, so the Diwali Special strip's promise is true: answer any Daily Quiz from 8 to 15 November. | The `diwali_2026` achievement — 7a |
+| Q19 | **Picture questions instead of OCR, "as of now"**: the uploaded image *is* the question, the admin types the options and marks the right one, the worked solution is a second picture, plus a one-line description for screen readers. | 7b |
+| Q20 | **Daily Quiz reminder emails: opt-in, at 7:00 AM IST.** | 7b |
+
 ## 6. Schema changes (all additive, all reversible)
 
 | Collection | Change | Migration |

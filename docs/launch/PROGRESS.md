@@ -12,10 +12,17 @@ homepage is drawn at build time (mobile Lighthouse **98** ×4, LCP 1.8–2.0 s) 
 within 200 ms on a slowed phone (a new INP test). The last two items of the brief's definition of done —
 **the spell-check and the Phase 6 screenshots** — are done, with the two fixes they turned up, and are
 **PR #8** (`feat/diwali-launch-phase-6-polish`, replayed onto `main` after PR #7's merge). Every phase of the brief is now built and
-every Phase 6 target met. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one page**: what was built, how
+every Phase 6 target met.
+
+**Phase 7a (the owner's requests of 2026-10-08, first half) is complete** on `feat/diwali-launch-phase-7`,
+stacked on PR #8 and **not pushed**: the site's address is `www.amitolympiad.me`; D10 is fixed (the one
+sign-in box can create the root administrator); a public archive of past Daily Quizzes; and **the Diwali
+edition** — 8 to 15 November 2026, switching itself on and off — with its intro, the festive homepage, the
+festive touches across the student area, and a real Diwali 2026 badge. Phase 7b (picture questions,
+reminders) is next. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one page**: what was built, how
 to run it, the Daily Quiz and winners how-to, known limitations, the action list before launch, the
-phone checklist and the launch-day runbook. Open for the owner: D10, R5, the site's address, the
-consent questions and the organiser's name on invoices and certificates (below).
+phone checklist and the launch-day runbook. Open for the owner: R5, the consent questions, the
+organiser's name on invoices and certificates, and two speed findings from Phase 7a (below).
 
 ## Tasks
 
@@ -95,22 +102,40 @@ consent questions and the organiser's name on invoices and certificates (below).
 | 6+ | Names: the student export's workbook author is `PRODUCT_NAME`. The organiser's name on invoices and certificates is left for the owner (below) | ✅ done |
 | 6+ | Screenshots in `docs/launch/screenshots/phase-6/`, compared with both mockups (below) | ✅ done |
 | 6+ | Tests: backend 1361 / 38 (one new) | ✅ done |
+| 7a | The owner's answers of 2026-10-08 recorded (PLAN.md §5b, Q14–Q20) | ✅ done |
+| 7a | `SITE_URL` is `https://www.amitolympiad.me` (Q14) — sitemap, robots, canonical links and share tags follow | ✅ done — owner action: redirect the bare domain, match `FRONTEND_URL` |
+| 7a | D10: `/auth/login` hands the configured address with the configured password to the admin route before the account exists — after the password, never before; a wrong one is the unknown-account 401 (Q15) | ✅ done |
+| 7a | Archive: `GET /daily-quiz/archive` (one class group, a page of days; never today's — `before` cannot reach it, and every problem still passes `revealOf()`) and `/daily-quiz/archive`, linked from the footer, "Can you crack this?" and the Daily Quiz page; in the sitemap (Q16) | ✅ done |
+| 7a | The Diwali edition (Q17): `lib/season.ts` dates → a `<meta>` → `public/boot.js` sets `<html data-season>` before the first paint; every festive touch is CSS keyed on it; `?season=diwali` / `off` / `auto` previews | ✅ done |
+| 7a | The intro: drawn at build time *beside* the app's root (the takeover cannot restart it), two seconds, once per browser, any key or tap ends it, a timer ends it regardless; never for reduced motion, a hidden tab, `#login` or `?next=` | ✅ done |
+| 7a | The festive homepage: a night sky (lanterns, fireworks), the name in gold, "Launched this Diwali", a countdown to today's quiz closing by the server's clock (`GET /daily-quiz/today`, uncached), the Diwali Special band; the header solid with a string of lights and "Happy Diwali" | ✅ done |
+| 7a | Festive touches in the student area: the lights and the greeting in the top bar; the loudest button and the Daily Quiz button glow gold. Admin unchanged | ✅ done |
+| 7a | The `diwali_2026` achievement: any answer on a quiz day 8–15 Nov; listed only during the week or once earned (a seasonal `window`); counted exactly on the admin rewards overview (Q18) | ✅ done |
+| 7a | Speed: every festive loop moves a whole element (GPU); the intro pauses the page's loops; solid bars instead of frosted ones during the edition. A compositor version of the Daily Quiz button's loops was tried and **reverted** — it doubled the tap time measured with motion on | ✅ done |
+| 7a | Tests: backend 1369 / 38 (eight new); E2E 70 — `diwali.spec.ts` (dates, preview, intro, no shift, axe, no sideways scroll), `archive.spec.ts`, the INP test also during the edition | ✅ done |
+| 7a | Screenshots in `docs/launch/screenshots/phase-7/` (below) | ✅ done |
+| 7b | Picture questions (Q19), Daily Quiz reminders (Q20) | ⬜ next |
 
 ## Open questions for the owner
 
-- **D10 (Phase 5) — how should the root administrator be created on a brand-new database?** The one
-  sign-in dialog hands an administrator over to `/auth/admin/login` only once the account exists, and
-  the account is created by its first sign-in there — which has had no form since Milestone 28. Your
-  production administrator already exists, so nothing is broken today; a new environment (a staging
-  copy, a restored backup without it) could not create one from the website. Proposed: the sign-in
-  route also hands over when the address is the configured `ADMIN_EMAIL` and the password matches
-  `ADMIN_PASSWORD_HASH`, before the account exists. It is an authentication change, so it waits for
-  your yes.
+- ~~D10~~ — **answered 2026-10-08: yes; built in Phase 7a.** ~~The site's address~~ — **answered:
+  `www.amitolympiad.me`; built in 7a.** Your part: in Vercel, set the bare `amitolympiad.me` to
+  *redirect* to `www.amitolympiad.me`, and set the backend's `FRONTEND_URL` to exactly
+  `https://www.amitolympiad.me` (LAUNCH_REPORT §8, step 2).
 
-- **The site's address (Phase 6).** Search results, the sitemap and shared links use `SITE_URL` in
-  `frontend/src/lib/brand.ts`, set to `https://amitolympiad.me` — inferred from the support address's
-  domain, which points at Vercel. If the live site is `www.amitolympiad.me` or another address, it is a
-  one-line change; and the backend's `FRONTEND_URL` must match it exactly.
+- **Taps with motion on (Phase 7a finding — nothing to decide now; one check on a real phone).** The
+  INP test measures with motion reduced, as every browser test here does, and passes with room to spare:
+  the slowest tap took 104 ms every day and 144 ms during the edition, in the final run.
+  With motion **on** — what most visitors have — the slowest tap measures 220–260 ms on the everyday
+  homepage and 320–430 ms during the edition, in headless Edge with the CPU slowed 4×. The everyday figure
+  is what it was before Phase 7a (200–310 ms on the pre-7a code, measured side by side). Nearly all of
+  it is drawing the next frame, which this browser does without a GPU and a phone does with one, so it
+  likely over-states a real phone — by how much, only a phone can say (LAUNCH_REPORT §9, step 13). Two
+  things were tried and **not kept**: a compositor version of the Daily Quiz button's loops (it doubled
+  the time) and a solid everyday header (no faster).
+- **The first homepage visit during Diwali week (Phase 7a).** With the two-second intro playing, mobile
+  Lighthouse measures 86–92 (target ≥ 85) but LCP 2.7–2.9 s (target 2.5 s): the browser paints the hero
+  only once the intro fades. Every later visit, and every other page, is unaffected (1.9 s).
 - **R5 (PLAN.md) — `SameSite=Lax` session cookies.** Still `None`. Changing it safely needs a staging
   copy with its own backend; every preview deployment points at the production API.
 - **Parental consent (Phase 6)** — built with the brief's wording; `LEGAL_REVIEW.md` question 8 asks
@@ -140,6 +165,24 @@ owner reviews; **Q9** `+91-97828-70716` and `support@amitolympiad.me`. New, from
   Quiz → Import a file) — each also becomes the homepage's "Can you crack this?" the day after it runs; if `INVOICE_ORG_EMAIL` / `INVOICE_ORG_PHONE` are set in the backend's Vercel
   project, update them (a set variable beats the new default); supply the illustrations
   (`ASSETS_NEEDED.md` — placeholders until then).
+
+## Phase 7a — the Diwali edition: screenshots, and what differs from its mockup
+
+Compared with the Diwali landing mockup the owner supplied in chat on 2026-10-08 (screenshots in
+`docs/launch/screenshots/phase-7/`, taken 2026-10-09 from a production build with `?season=diwali`):
+
+| Mockup | Built | Why |
+|---|---|---|
+| "LAUNCHING THIS DIWALI", a countdown to the launch, "Stay tuned!" | "LAUNCHED THIS DIWALI", a countdown to **today's Daily Quiz closing** (or, on a day without one, to the end of Diwali week) | The edition runs from the launch onward (owner, Q17): a launch countdown would be untrue |
+| "Enter your email to get launch updates" + Notify me | Absent | The site is live, and an email list of children is data nothing keeps (Q17) |
+| Early Access · Launch Updates · Special Diwali Surprises | Absent | Promises nothing backs |
+| "Think Beyond the Textbook" under the name | The full form, as every day | It is shown once, under the wordmark (CLAUDE.md) |
+| Classes 3 to 12 · Online · **Free to participate** · **Exciting prizes** | The everyday chips — Classes 3 to 12, any board, **free to prepare**, online | The Olympiad has an entry fee; prizes are the Daily Quiz's, named elsewhere |
+| A painted night: the student, lanterns, fireworks, diyas, books | A drawn sky (SVG and CSS: lanterns, fireworks, diyas) behind the everyday hero art | No image to download on a slow phone; the mockup's art is one flattened picture |
+| A five-card strip (Daily Challenges, XP & Streaks, 6-Month Journey…) | The everyday sections | They are on the page already, true as written (the journey has nine milestones, not six months) |
+| "DIWALI SPECIAL — Be among the first to join… exclusive launch benefits, special badges and surprises" | "DIWALI SPECIAL — Earn the Diwali 2026 badge: answer any Daily Quiz from 8 to 15 November and it joins your achievements for good" | The one promise the code keeps (Q18) |
+| A gold "Register Now" | The blue action button, glowing gold during the edition | One action colour (design system) |
+| — | "The Diwali launch moment" intro, the lights and "Happy Diwali" in the header | Q17 |
 
 ## Phase 6 — screenshots, and what differs from the mockups
 

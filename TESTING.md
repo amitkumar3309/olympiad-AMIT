@@ -37,6 +37,23 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Milestone 30 Phase 7a (2026-10-09): 1369 passing backend tests across 38 files; 70 browser tests
+> (50 run, 20 one-width-only), about ten minutes.** Backend, eight new: D10 — the bootstrap address
+> with its password is handed over before the account exists, and a wrong password's body equals an
+> unknown account's (`accountManagement.test.ts`, mutation-checked); the archive — pages of whole days,
+> `before` cannot reach today, validation, and both leak checks (`dailyQuiz.test.ts`, mutation-checked);
+> `GET /daily-quiz/today` — no-store, never names the question; the `diwali_2026` achievement — offered
+> only 8–15 Nov, kept once earned, counted from answers in the week only (`dashboard.test.ts`).
+> Browser: **`e2e/diwali.spec.ts`** — the dates switch it at 00:00 IST on the 8th and the 16th, not a
+> second either side (`page.clock` sets the device's date; the server's is untouched); `?season=`; the
+> intro plays once, ends on a key and by its timer, never for reduced motion, `#login`, `?next=` or
+> another page (caught at its start: it lasts 2.1 s at most); the homepage keeps one `h1`, no shift, no
+> sideways scroll (mutation-checked — the lights once overflowed), the server's countdown, axe; the
+> student area. **`e2e/archive.spec.ts`** — only revealed quizzes, the answer behind its disclosure, axe.
+> **`responsiveness.spec.ts`** measures INP twice, as every day and during the edition, both with
+> motion reduced; with motion on the numbers are recorded in the launch report, not asserted
+> (headless Edge draws without a GPU, which over-weights animation).
+>
 > **Milestone 30 Phase 6 polish (2026-10-08): 1361 passing backend tests across 38 files; the browser
 > suite is unchanged (54).** One new test in `tests/dailyQuizRules.test.ts`: the public "how winners are
 > chosen" sentence names every prize requirement a student can meet. Its requirement-to-phrase table is

@@ -59,6 +59,11 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             added CountUp, Reveal, OptionTile, Countdown, Podium,
                             LeaderboardTable, JourneyTrack, ActivityList, Confetti;
                             Phase 6 SkipLink)
+  src/lib/season.ts         THE festive editions' dates (the Diwali edition, 8–15 Nov 2026 — Phase 7a);
+                            boot.js reads them from a <meta> vite.seo.ts writes
+  src/components/Diwali.tsx + DiwaliIntro.tsx  the edition's drawn artwork and its intro (the intro
+                            is drawn beside #root by vite.prerender.ts)
+  src/pages/DailyQuizArchive/  /daily-quiz/archive — every revealed quiz, public (Phase 7a)
   src/lib/pageMeta.ts       THE route table for search: title, description, indexed or
                             not (M30 Phase 6). components/PageMeta applies it; vite.seo.ts
                             builds robots.txt, sitemap.xml and manifest.json from it
@@ -312,7 +317,8 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   signed-in, staff and emailed page is `noindex` with no canonical; a private area crawlers must not
   fetch goes in `DISALLOWED_PREFIXES` (robots.txt). The canonical link is set only by `PageMeta`, never in
   `index.html`, which is served for every route. **Every page has exactly one `h1`** — the crawler checks.
-  The site's address is `SITE_URL` in `lib/brand.ts` (an inference the owner is to confirm).
+  The site's address is `SITE_URL` in `lib/brand.ts` — `https://www.amitolympiad.me`, confirmed by the
+  owner on 2026-10-08 (the bare domain redirects to it; the backend's `FRONTEND_URL` must match it).
 - **A crash lands on `AppErrorBoundary`, never a white screen**, and a page file replaced by a deploy
   says "a new version is ready". **Every request has `REQUEST_TIMEOUT_MS` (90 s)** — above the slowest
   real work (the model's 60 s budget) — and a timeout is a `RequestTimeoutError` with its own message.
@@ -340,6 +346,28 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   beyond 200 ms. If it fails, make the interaction cheaper — visible feedback first, heavy work after
   the next paint (as `ThemeContext` applies a theme change), no re-render of the page for a dialog (as
   `Landing` memoises its sections) — never loosen the bound.
+- **The Diwali edition (Milestone 30 Phase 7a) switches itself on and off — 8 to 15 November 2026.**
+  The dates are `src/lib/season.ts` (and `backend/src/lib/seasons.ts` for the achievement — change both);
+  `vite.seo.ts` writes them into a `<meta name="amit-season">` above `public/boot.js`, which sets
+  `<html data-season="diwali">` before the first paint. **Every festive touch is CSS keyed on that
+  attribute**: the markup is always rendered and hidden outside the dates, so the homepage drawn at build
+  time needs no second version and nothing shifts when the app takes over — **never branch on the date
+  in a render**. `?season=diwali` / `off` / `auto` preview it for a tab's session. **The intro is drawn by
+  `vite.prerender.ts` beside `#root`, never inside it** (the takeover would restart it), plays only while
+  `<html data-intro="play">`, which boot.js removes on any input and at `INTRO_MS` regardless, and is
+  never played under reduced motion, in a hidden tab, or for `#…`/`?next=`. Its stylesheet reaches the
+  bundle only because `main.tsx` reads a class name from it. The festive tokens (`--festive-*`) are a
+  night scene in either theme and live in `:root` only.
+- **A festive loop moves or fades a whole element — and a change made for speed is proven on the tap.**
+  Move or fade a whole element (an `<svg>`, a `<span>`), never a shape inside an SVG; never loop a
+  `filter` or `visibility`; never put a `backdrop-filter` over something that moves (the bars are solid
+  during the edition). Phase 7a traced each of those keeping a slowed phone's main thread busy every
+  frame, and fixing them (with the loops paused under a shorter intro) took the Diwali homepage's mobile
+  Lighthouse score from 79–85 to 86–93. **But a trace is not the verdict**: moving the Daily Quiz
+  button's ring (an animated `box-shadow`) and float onto the compositor removed their main-thread work
+  and still **doubled** the time a tap took to show with motion on (200–310 → 310–740 ms in headless
+  Edge), so it was reverted. Measure the tap with motion on, before and after, in alternating runs
+  (TROUBLESHOOTING.md) — never keep a speed change on theory.
 - **Every asynchronous submit button carries `loading`**, which shows the spinner, sets `aria-busy` and disables it — the last is what stops a double submission. A form that saves is a `<form onSubmit>` with a `type="submit"` button, so Enter submits; a click-only save is a deliberate exception (the mock-test editor) and is recorded as one.
 - Route guards: `ProtectedRoute` (requires a student account) and `RequirePermission` (requires a capability) in `src/components/ProtectedRoute.tsx`. `AdminRoute` was **removed** in Milestone 3 — use `RequirePermission permission="..."`, which renders the `Unauthorized` component for a signed-in user rather than silently redirecting.
 - Read permissions with `can('...')` from `useAuth()`. The permission list arrives from the backend on every auth response; **never** reimplement the role → permission mapping on the frontend, and never branch on `state.status` to decide whether something administrative is allowed (`status` says which *kind* of account is signed in, not what it may do — a promoted admin has `status: 'student'`). Wrap new authenticated pages in these rather than checking `state.status` ad hoc in the page body (existing pages do check `state.status` for conditional rendering, e.g. to show a preview vs. real data — that's fine; the *route-level* gate should still use the wrapper).
@@ -764,7 +792,8 @@ look wrong however carefully it is tokenised — read them before touching a sur
   final value when its duration ends. A `CountUp` also renders the final figure in an `sr-only`
   span, so a screen reader and a copy-paste never meet a half-counted number. Reduced motion
   shows everything final and still. Animate `transform` and `opacity` only (a glow on the small
-  Daily Quiz button is the one exception).
+  Daily Quiz button is the one exception — Phase 7a tried a compositor version and measured taps
+  slower, so it stays).
 - **A countdown displays the server's clock** — `ui/Countdown` generalises the rule the
   daily challenge's countdown followed: the caller passes `offsetMs` from `clockOffset()`
   (measured when the response arrived), every tick recomputes from the wall clock, a countdown
@@ -1020,7 +1049,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
 - Students register via `/api/v1/auth/register` with fullName + mobile + **email** + password. `role` submitted at registration is ignored; the schema default is the only way it is set.
 - Students log in with **either** their mobile number or their email (`identifier` field). Email verification is **real** and required before login; the old fake client-side OTP step has been deleted. Do not reintroduce any mock verification.
 - **Every account gets a rotating refresh token**, the super admin included. There is no longer a longer-lived admin token and no `ADMIN_TOKEN_TTL`; the `root: true` claim is gone, and `resolveCurrentRole()` has **no exemption** — every privileged request re-reads the role from the database. Do not reintroduce a document-less identity (see the Milestone 11 ADR for the five things the old design could not do).
-- **The bootstrap super admin signs in only at `/auth/admin/login`.** `/auth/login` refuses it — *after* verifying the password, so the refusal is not an enumeration oracle pointing at the most privileged account. It is staff: no class, no school, no photo, and the public login form is the most-attacked surface in the product. A *promoted* admin is unaffected and uses `/auth/login` normally.
+- **The bootstrap super admin signs in only at `/auth/admin/login`.** `/auth/login` refuses it — *after* verifying the password, so the refusal is not an enumeration oracle pointing at the most privileged account. It is staff: no class, no school, no photo, and the public login form is the most-attacked surface in the product. A *promoted* admin is unaffected and uses `/auth/login` normally. **Before its account exists** (a brand-new database) `/auth/login` hands the configured `ADMIN_EMAIL` with a password matching `ADMIN_PASSWORD_HASH` over the same way (D10, Phase 7a — `isRootBootstrapCredentials()`): after the password, never before, creating nothing; the admin route provisions as it always has.
 - **The bootstrap super admin earns no XP.** `grantReward()` refuses it, because every leaderboard aggregates `StudentActivity` and a staff account must never rank above the children who competed. A *promoted* admin does earn — it genuinely registered.
 - Registration deliberately does **not** create a session. Don't "helpfully" log the student in on registration.
 
@@ -1032,7 +1061,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
 
 ## Testing Requirements
 
-- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1361 tests across 38 files** (measured 2026-10-08 after Milestone 30 Phase 6's polish; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 54 tests of which 40 run and fourteen are one-width-only — the link crawler with axe, keyboard use, resilience, the drawn homepage, INP; about eight minutes), which starts its own backend on an in-memory MongoDB, serves a **production build** of the frontend (`vite preview`, since Phase 5 — the dev server's per-module requests starved the browser during the crawl) and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
+- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1369 tests across 38 files** (measured 2026-10-09 after Milestone 30 Phase 7a; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 70 tests of which 50 run and twenty are one-width-only — the link crawler with axe, keyboard use, resilience, the drawn homepage, INP, the Diwali edition, the archive; about ten minutes), which starts its own backend on an in-memory MongoDB, serves a **production build** of the frontend (`vite preview`, since Phase 5 — the dev server's per-module requests starved the browser during the crawl) and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
 - `NODE_ENV=test` skips `.env` loading, so tests can never pick up real secrets, and also lowers bcrypt cost and disables rate limiters for speed/determinism. Don't "fix" any of that.
 - **The Gemini tests must never touch the network.** `setGeminiClientFactory()` in `services/geminiQuestionGenerator.ts` swaps the whole SDK client and throws outside the test environment; use it rather than a real key, and note that `enableGemini()` only needs an obviously-fake string because `isAvailable()` merely asks whether a key is present. The failing paths are the ones worth testing — a spent quota, a truncated reply, prose where JSON was asked for — and none of them can be produced on demand against a real provider.
 - Use `tests/helpers/db.ts` (real in-memory MongoDB) and `tests/helpers/auth.ts` (`registerVerifyLogin`, cookie parsing, real token extraction from the captured email) rather than writing new harnesses. **`registerVerifyLogin()` grants the entry fee by default** — a student exercising practice in production has paid, and a test student who cannot practise asserts behaviour no real student reaches. Pass `{ paid: false }` where *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants, and an admin with an entry-fee payment would appear in the payments console's collected total.

@@ -116,6 +116,10 @@ Both are `httpOnly`, `secure` in production, and `sameSite: 'none'` in productio
 - **Errors**:
   - `400` validation.
   - `401` invalid credentials — identical message for "no such account" and "wrong password", to prevent enumeration.
+  - `403` with `code: 'ADMIN_PORTAL_REQUIRED'` for the root administrator, once the password is right — the sign-in box
+    then re-posts to `/auth/admin/login`. **Since Phase 7a (D10) also before its account exists**: the configured
+    `ADMIN_EMAIL` with a password matching `ADMIN_PASSWORD_HASH` is handed over the same way, so a brand-new database's
+    administrator can be created from the website. Nothing is created here; a wrong password is the ordinary `401`.
   - `403` account `suspended` / `deactivated`.
   - `403` with `code: 'EMAIL_NOT_VERIFIED'` when the address is unverified and `REQUIRE_EMAIL_VERIFICATION` is on. The frontend keys off `code` to offer a resend link.
   - `423` account temporarily locked (after `MAX_FAILED_LOGINS`, for `ACCOUNT_LOCK_MINUTES`). The message includes the remaining minutes.
@@ -1119,6 +1123,19 @@ The most recent **published** winners (`limit` ≤ 20, default 7): `{ day, displ
 Recent Daily Quiz problems **whose answers are already public** — the homepage's "Can you crack this?" (added 2026-10-05). **Never today's and never a future day**: only days before the server's today, each through `revealOf()`, because today's quiz is a prize question timed from Start. `limit` (1–14, default 7) is per class group.
 
 `{ groups: [{ id: '3-5' | '6-8' | '9-12', label, min, max, problems: [{ day, classRange: { min, max, label }, topic, difficulty, questionText, options: [{ letter, text }], answer: { letter, text }, solution }] }] }` — all three groups always, `problems` newest first and empty until one has been revealed; **one entry per quiz** (a quiz for Classes 6–8 is one problem, not three); a quiz for a custom range under every group it overlaps. Display letters only — no opaque option id, no bank key — in an order seeded by the quiz, the same on every request. A pre-quiz daily challenge (no snapshot) is never included. `Cache-Control: public, max-age=300, s-maxage=600, stale-while-revalidate=60`, set only on success. **400** for a `limit` outside 1–14.
+
+#### `GET /api/v1/daily-quiz/archive`
+The public archive of past quizzes (Phase 7a). Query: `group` (`3-5` | `6-8` | `9-12`, required), `before` (a day,
+optional), `days` (1–31, default 14). One class group's revealed quizzes, newest day first, **a page of whole days**
+(never split inside one): `{ group: { id, label, min, max }, problems: [same shape as /past], nextBefore }` —
+`nextBefore` is the `before` for the next page, `null` on the last. **Never today's**: only days before the server's
+today are read, `before` can only move that bound earlier, and every problem passes `revealOf()`. `400` on an unknown
+group, a page size outside 1–31 or an impossible date. `Cache-Control: public, max-age=300, s-maxage=600`.
+
+#### `GET /api/v1/daily-quiz/today`
+Whether any class group has a Daily Quiz today, by the server's clock, and when today closes — the Diwali hero's
+countdown (Phase 7a): `{ today: { day, hasQuiz, closesAt, serverNow } }`. Names no question, option or answer.
+`Cache-Control: no-store` (`serverNow` is what a countdown is offset from).
 
 ### Running the quiz (staff — `challenges:write`)
 

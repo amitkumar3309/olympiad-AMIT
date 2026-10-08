@@ -250,6 +250,17 @@ Note the rule order inside `emailAllowedFor()`: the **category** check runs befo
 
 **The super administrator cannot use the student login.** `POST /auth/login` refuses `role: 'superadmin'` with a `403` pointing at the administrator portal. The refusal is applied **after** the password is verified, and that ordering is load-bearing: refusing earlier would answer differently for the administrator's address than for any other, which is an account-enumeration oracle aimed at the most privileged account in the system. A caller who does not already know the password gets the same generic failure as for any other wrong guess, and no session is established either way.
 
+**The bootstrap address before its account exists (D10, Phase 7a — owner's yes, 2026-10-08).** The one sign-in
+box posts to `/auth/login`, which hands the root administrator over to `/auth/admin/login` with `ADMIN_PORTAL_REQUIRED`.
+Until Phase 7a it did so only once the account existed, so a brand-new database's administrator could not be created
+from the website. Now `/auth/login` also hands over when no account holds the address, the address is the configured
+`ADMIN_EMAIL` and the password matches `ADMIN_PASSWORD_HASH` (`isRootBootstrapCredentials()`). The properties that matter
+are unchanged: the hand-over comes only **after** the password is right, so it is no enumeration oracle; a wrong password
+answers the same `401` body as an unknown account (a test compares them); nothing is created and no session set — the
+admin route provisions exactly as before, and its rate limit and the per-IP login limiter still bound guessing (which
+`/auth/admin/login` already allowed before the account existed). Timing: the bcrypt check makes that one address cost
+what an existing account costs — no different from any registered address.
+
 **Staff do not hold competitor identifiers.** The bootstrap account's `studentId` is `ADMIN_xxxx`, not `AMIT_xxxx`. There are only ten thousand `AMIT_` numbers and they are what a child writes on an exam paper, so staff are not given one — and the namespace makes a staff actor obvious at a glance in the audit trail.
 
 **The line between `admin` and `superadmin` is reversibility.** Everything an admin may do can be undone — a suspension lifted, a status restored, a password reset again. The three withheld capabilities cannot be: `users:role:write` can mint another administrator, `users:delete` destroys an account, and `content:reset` (Milestone 22) empties a whole content area — the question bank included. Confining escalation to the super admin is what stops a compromised admin session widening itself; confining deletion is what stops it erasing the evidence of having tried.
