@@ -4,7 +4,7 @@ Chronological development history. For current state, see [`PROJECT_STATE.md`](P
 
 ## 2026-10-08 — Milestone 30 Phase 6: the last of the definition of done
 
-Branch `feat/diwali-launch-phase-6-polish`, stacked on the follow-up (PR #7).
+Branch `feat/diwali-launch-phase-6-polish` (PR #8), on `main` after the follow-up's merge (PR #7).
 
 - **"How winners are chosen" names the parent's consent.** Winning has required a parent or
   guardian's recorded consent since Phase 6, but the public sentence — on the rules page, the homepage

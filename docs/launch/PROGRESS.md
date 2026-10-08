@@ -7,11 +7,11 @@ _Last updated 2026-10-08._
 ## Current state
 
 **Phase 6 (launch readiness) complete and merged** (PR #6, squash-merged 2026-10-06). Its follow-up —
-the two §10 targets Phase 6 left unmet — is **in review as PR #7** (`feat/diwali-launch-phase-6-perf`):
-the homepage is drawn at build time (mobile Lighthouse **98** ×4, LCP 1.8–2.0 s) and every tap answers
+the two §10 targets Phase 6 left unmet — is **merged too** (PR #7, squash-merged 2026-10-08): the
+homepage is drawn at build time (mobile Lighthouse **98** ×4, LCP 1.8–2.0 s) and every tap answers
 within 200 ms on a slowed phone (a new INP test). The last two items of the brief's definition of done —
-**the spell-check and the Phase 6 screenshots** — are done on `feat/diwali-launch-phase-6-polish`, stacked
-on PR #7 and **not pushed**, with the two fixes they turned up. Every phase of the brief is now built and
+**the spell-check and the Phase 6 screenshots** — are done, with the two fixes they turned up, and are
+**PR #8** (`feat/diwali-launch-phase-6-polish`, replayed onto `main` after PR #7's merge). Every phase of the brief is now built and
 every Phase 6 target met. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one page**: what was built, how
 to run it, the Daily Quiz and winners how-to, known limitations, the action list before launch, the
 phone checklist and the launch-day runbook. Open for the owner: D10, R5, the site's address, the
