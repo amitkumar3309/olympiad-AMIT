@@ -2,13 +2,13 @@
 
 A fresh session should read `LAUNCH_SPEC.md`, then `PLAN.md`, then this file.
 
-_Last updated 2026-10-06._
+_Last updated 2026-10-08._
 
 ## Current state
 
-**Phase 6 (launch readiness) complete** and in review as PR #6 (`feat/diwali-launch-phase-6`, pushed on
-the owner's instruction). Its follow-up — the two §10 targets Phase 6 left unmet — is done on
-`feat/diwali-launch-phase-6-perf`, branched from it and **not pushed**: the homepage is drawn at build
+**Phase 6 (launch readiness) complete and merged** (PR #6, squash-merged 2026-10-06). Its follow-up —
+the two §10 targets Phase 6 left unmet — is done on `feat/diwali-launch-phase-6-perf`, moved onto `main`
+after that merge and **not pushed** (waiting for the owner): the homepage is drawn at build
 time (mobile Lighthouse **98** ×4, LCP 1.8–2.0 s) and every tap answers within 200 ms on a slowed phone
 (a new INP test). Every phase of the brief is now built and every Phase 6 target met. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one page**: what was built, how
 to run it, the Daily Quiz and winners how-to, known limitations, the action list before launch, the

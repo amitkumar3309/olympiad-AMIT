@@ -1,8 +1,8 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-06 (**Milestone 30 — the Diwali launch: Phase 6, launch readiness, complete and
-in review as PR #6; its follow-up, closing the last two §10 targets, complete on
-`feat/diwali-launch-phase-6-perf`**). Phases 0–5 are merged (Phase 5: PR #5). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+_Last updated: 2026-10-08 (**Milestone 30 — the Diwali launch: Phases 0–6 are merged (Phase 6: PR #6);
+the Phase 6 follow-up, closing the last two §10 targets, is complete on
+`feat/diwali-launch-phase-6-perf`, not yet pushed**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -120,7 +120,7 @@ The work happens in phases, and each one stops for the owner's approval.
   passing, about seven minutes). **Open for the owner:** D10, R5, the site's address (`SITE_URL` —
   inferred as `https://amitolympiad.me`), and the consent questions in `LEGAL_REVIEW.md`.
 - **Phase 6 follow-up — the two targets Phase 6 missed — done, on `feat/diwali-launch-phase-6-perf`**
-  (branched from the Phase 6 branch; not pushed). **The homepage is drawn at build time**:
+  (on `main` after PR #6's merge; not pushed). **The homepage is drawn at build time**:
   `src/prerender.tsx` + the `vite.prerender.ts` plugin write `/` into `dist/index.html`, every other
   route gets `dist/app.html` (`vercel.json`, mirrored by `vite preview`), and React renders over the
   drawn page rather than hydrating it (a hydration mismatch would drop the Register link's `?ref=`).
