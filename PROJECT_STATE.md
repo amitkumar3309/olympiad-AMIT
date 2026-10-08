@@ -1,8 +1,8 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-08 (**Milestone 30 — the Diwali launch: Phases 0–6 are merged (Phase 6: PR #6);
-the Phase 6 follow-up, closing the last two §10 targets, is complete on
-`feat/diwali-launch-phase-6-perf`, not yet pushed**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+_Last updated: 2026-10-08 (**Milestone 30 — the Diwali launch: Phases 0–6 are merged (Phase 6: PR #6),
+and so is the Phase 6 follow-up that closed the last two §10 targets (PR #7); the spell-check and the
+Phase 6 screenshots are PR #8 (`feat/diwali-launch-phase-6-polish`)**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -119,8 +119,8 @@ The work happens in phases, and each one stops for the owner's approval.
   is the owner's one page for launch.** Tests: backend **1360 / 38 files**; E2E **44** (35 run, all
   passing, about seven minutes). **Open for the owner:** D10, R5, the site's address (`SITE_URL` —
   inferred as `https://amitolympiad.me`), and the consent questions in `LEGAL_REVIEW.md`.
-- **Phase 6 follow-up — the two targets Phase 6 missed — done, on `feat/diwali-launch-phase-6-perf`**
-  (on `main` after PR #6's merge; not pushed). **The homepage is drawn at build time**:
+- **Phase 6 follow-up — the two targets Phase 6 missed — done and merged** (PR #7,
+  `feat/diwali-launch-phase-6-perf`). **The homepage is drawn at build time**:
   `src/prerender.tsx` + the `vite.prerender.ts` plugin write `/` into `dist/index.html`, every other
   route gets `dist/app.html` (`vercel.json`, mirrored by `vite preview`), and React renders over the
   drawn page rather than hydrating it (a hydration mismatch would drop the Register link's `?ref=`).
@@ -130,6 +130,14 @@ The work happens in phases, and each one stops for the owner's approval.
   measured** (`e2e/responsiveness.spec.ts`, 390px, CPU 4×): a theme change is applied after the next
   paint (~390 → 24 ms) and the homepage no longer re-renders for a dialog (sign-in 168–184 ms); every
   tap is within 200 ms. E2E **54** tests. The ADR is the newest entry in `DECISIONS.md`.
+- **Phase 6 polish — the last of the definition of done — done, PR #8**
+  (`feat/diwali-launch-phase-6-polish`). **Spell-check**: every string a reader can see (6,292, read from the
+  source with the TypeScript compiler) and the owner's documents — 0 misspellings. Reviewing them and
+  the screenshots turned up two fixes: the public "how winners are chosen" sentence now names the
+  parent's consent winning has required since Phase 6 (a test checks it names every requirement), and
+  the student export's workbook author is `PRODUCT_NAME`. **Screenshots**:
+  `docs/launch/screenshots/phase-6/`, compared with the mockups in PROGRESS.md. Backend **1361 / 38
+  files**. **New for the owner:** the organiser's name on invoices and certificates (PROGRESS.md).
 
 ## Milestone 29 at a glance
 
