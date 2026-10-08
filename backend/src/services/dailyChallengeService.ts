@@ -211,6 +211,17 @@ export function publicQuizInfo(settings: QuizSettings, xpForCorrect: number) {
   };
 }
 
+/**
+ * Today, by the server's clock: whether any class group has a Daily Quiz, and when the day
+ * closes (Phase 7 — the Diwali hero's countdown). Public, because that a quiz is on is no
+ * secret — the floating button says so; what it asks is, and this carries none of it.
+ */
+export async function publicQuizToday(at: Date): Promise<{ day: DayKey; hasQuiz: boolean; closesAt: string; serverNow: string }> {
+  const day = todayOf(at);
+  const hasQuiz = Boolean(await DailyChallenge.exists({ day, content: { $ne: null } }));
+  return { day, hasQuiz, closesAt: quizWindow(day).closesAt.toISOString(), serverNow: at.toISOString() };
+}
+
 // ---------------------------------------------------------------------------
 // Choosing the question (staff)
 // ---------------------------------------------------------------------------

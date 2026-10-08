@@ -362,6 +362,7 @@ describe('the answer key', () => {
     expectNoKey('history', (await history(cookies)).body);
     expectNoKey('public info', (await request(app).get(`${API}/daily-quiz/info`)).body);
     expectNoKey('public winners', (await request(app).get(`${API}/daily-quiz/winners`)).body);
+    expectNoKey('public today', (await request(app).get(`${API}/daily-quiz/today`)).body);
     expectNoKey('public past problems', (await request(app).get(`${API}/daily-quiz/past`)).body);
     expectNoKey('public archive', (await request(app).get(`${API}/daily-quiz/archive?group=9-12`)).body);
     // Paging "back" from a day after today must not reach today's quiz either.
@@ -518,6 +519,36 @@ describe('GET /daily-quiz/past', () => {
 
     const res = await past().expect(200);
     expect(group(res.body, '9-12').problems).toEqual([]);
+  });
+});
+
+// ===========================================================================
+// Today, for the Diwali hero's countdown (Phase 7)
+// ===========================================================================
+
+describe('GET /daily-quiz/today', () => {
+  const todayPublic = () => request(app).get(`${API}/daily-quiz/today`);
+
+  it('says whether a quiz is on and when today closes, by the server clock, and is never cached', async () => {
+    clockTo(today(), 10);
+    const none = await todayPublic().expect(200);
+    expect(none.body.today).toEqual({
+      day: today(),
+      hasQuiz: false,
+      closesAt: quizWindow(today()).closesAt.toISOString(),
+      serverNow: now().toISOString(),
+    });
+    expect(none.headers['cache-control']).toBe('no-store');
+
+    await seedTodaysQuiz();
+    const on = await todayPublic().expect(200);
+    expect(on.body.today.hasQuiz).toBe(true);
+    // It names no question, option or answer.
+    expect(JSON.stringify(on.body)).not.toContain('x^2 - 5x + 6');
+
+    // A quiz on another day is not today's.
+    clockTo(shiftDay(today(), -1), 10);
+    expect((await todayPublic().expect(200)).body.today.hasQuiz).toBe(false);
   });
 });
 

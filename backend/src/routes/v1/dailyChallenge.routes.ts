@@ -17,6 +17,7 @@ import {
   listQuizHistory,
   pastQuizProblems,
   publicQuizInfo,
+  publicQuizToday,
   quizArchive,
   publicRecentWinners,
   quizStatusFor,
@@ -50,6 +51,7 @@ import {
  *  - `POST /me/daily-quiz/submit`  answer it, once
  *  - `GET  /me/daily-quiz/history` every quiz day, with solutions once unlocked
  *  - `GET  /daily-quiz/info`       public: the prize and how winners are chosen
+ *  - `GET  /daily-quiz/today`      public: whether a quiz is on today, and when today closes
  *  - `GET  /daily-quiz/winners`    public: recent published winners
  *  - `GET  /daily-quiz/past`       public: recent problems whose answers are unlocked
  *  - `GET  /daily-quiz/archive`    public: every earlier quiz for one class group, a page of days at a time
@@ -278,6 +280,21 @@ router.get('/daily-quiz/info', ensureDb, async (_req: Request, res: Response) =>
   } catch (err) {
     logger.error({ err }, 'Failed to load the Daily Quiz info');
     sendError(res, 500, 'Could not load the quiz details. Please try again.');
+  }
+});
+
+/**
+ * Today, by the server's clock — whether a quiz is on, and when the day closes (Phase 7, the
+ * Diwali hero's countdown). **Never cached**: `serverNow` is what a countdown is offset from,
+ * and a stored copy would be minutes wrong. It says nothing about what the quiz asks.
+ */
+router.get('/daily-quiz/today', ensureDb, async (_req: Request, res: Response) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    sendSuccess(res, 200, { today: await publicQuizToday(now()) });
+  } catch (err) {
+    logger.error({ err }, 'Failed to load today’s Daily Quiz');
+    sendError(res, 500, 'Could not load today’s quiz. Please try again.');
   }
 });
 
