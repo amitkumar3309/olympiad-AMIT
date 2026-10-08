@@ -67,6 +67,14 @@ const ROUTES: ReadonlyArray<readonly [string, PageMeta]> = [
   ],
   ['/gallery', { title: 'Event gallery', description: `Photographs from ${AMIT_OLYMPIAD} events.`, index: true }],
   [
+    '/daily-quiz/archive',
+    {
+      title: 'Past Daily Quizzes',
+      description: `Every earlier ${AMIT_OLYMPIAD} Daily Quiz for Classes 3 to 12, with the answer and a worked solution.`,
+      index: true,
+    },
+  ],
+  [
     '/register',
     {
       title: 'Register',

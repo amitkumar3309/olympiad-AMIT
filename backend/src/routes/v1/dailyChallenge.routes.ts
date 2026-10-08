@@ -17,6 +17,7 @@ import {
   listQuizHistory,
   pastQuizProblems,
   publicQuizInfo,
+  quizArchive,
   publicRecentWinners,
   quizStatusFor,
   quizSummary,
@@ -29,10 +30,12 @@ import { rewardSubmission, settlePendingQuizRewards } from '../../services/daily
 import {
   pastProblemsQuerySchema,
   publicWinnersQuerySchema,
+  quizArchiveQuerySchema,
   quizHistoryQuerySchema,
   submitQuizSchema,
   type PastProblemsQuery,
   type PublicWinnersQuery,
+  type QuizArchiveQuery,
   type QuizHistoryQuery,
   type SubmitQuizBody,
 } from '../../validation/dailyChallengeSchemas';
@@ -49,6 +52,7 @@ import {
  *  - `GET  /daily-quiz/info`       public: the prize and how winners are chosen
  *  - `GET  /daily-quiz/winners`    public: recent published winners
  *  - `GET  /daily-quiz/past`       public: recent problems whose answers are unlocked
+ *  - `GET  /daily-quiz/archive`    public: every earlier quiz for one class group, a page of days at a time
  *
  * ## What is not negotiable from the client
  *
@@ -315,6 +319,33 @@ router.get(
     } catch (err) {
       logger.error({ err }, 'Failed to load the past Daily Quiz problems');
       sendError(res, 500, 'Could not load the problems. Please try again.');
+    }
+  },
+);
+
+/**
+ * The public archive of past Daily Quizzes (Milestone 30 Phase 7): one class group's
+ * revealed quizzes, a page of days at a time. **Never today's**: see `quizArchive()`.
+ * Cached publicly for the reason `/daily-quiz/past` is — a reveal never un-happens.
+ */
+router.get(
+  '/daily-quiz/archive',
+  validate({ query: quizArchiveQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const { group, before, days } = req.query as unknown as QuizArchiveQuery;
+      const page = await quizArchive(group, before ?? null, days, now());
+      if (!page) {
+        // Unreachable through the schema, which names the groups; kept so the type says so.
+        sendError(res, 404, 'There is no such class group.');
+        return;
+      }
+      res.set('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=60');
+      sendSuccess(res, 200, { ...page });
+    } catch (err) {
+      logger.error({ err }, 'Failed to load the Daily Quiz archive');
+      sendError(res, 500, 'Could not load the past quizzes. Please try again.');
     }
   },
 );

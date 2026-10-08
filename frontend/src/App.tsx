@@ -97,6 +97,7 @@ const VerifyCertificate = lazy(() => import('./pages/Certificates/Verify'))
 const AdminExams = lazy(() => import('./pages/Admin/Exams'))
 const AdminCertificates = lazy(() => import('./pages/Admin/Certificates'))
 const HallOfFame = lazy(() => import('./pages/HallOfFame/HallOfFame'))
+const DailyQuizArchive = lazy(() => import('./pages/DailyQuizArchive/DailyQuizArchive'))
 /**
  * The design-system reference (Milestone 23, Phase A) — **development only**.
  *
@@ -600,6 +601,8 @@ export function AppRoutes() {
           />
           {/* The old address, kept so a bookmark or an old notification still arrives. */}
           <Route path="/daily-challenge" element={<Navigate to="/daily-quiz" replace />} />
+          {/* Public (Phase 7): every earlier quiz, with its answer. Never today's — the server decides. */}
+          <Route path="/daily-quiz/archive" element={<DailyQuizArchive />} />
           {/**
            * `/exam` was the old practice paper — real questions, but no marking, because
            * nothing could grade them. The Practice Zone supersedes it entirely, so this

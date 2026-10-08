@@ -305,3 +305,24 @@
   font-size: var(--type-micro);
   text-align: center;
 }
+
+/* The way into the archive of every past quiz (Phase 7). */
+.archive {
+  margin: 0;
+  text-align: center;
+}
+
+.archiveLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 44px;
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+}
+
+.archiveLink svg {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import DailyQuizPanel from '../../components/DailyQuizPanel'
 import { Card, CardHeader, SkeletonText } from '../../components/ui'
@@ -65,6 +66,9 @@ export default function DailyQuizPage() {
           ) : (
             <SkeletonText lines={4} label="Loading how winners are chosen" />
           )}
+          <p className={styles.archive}>
+            <Link to="/daily-quiz/archive">Earlier quizzes, with their answers</Link>
+          </p>
         </Card>
       </div>
     </StudentShell>

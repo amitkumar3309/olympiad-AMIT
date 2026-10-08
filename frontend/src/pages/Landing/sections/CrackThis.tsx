@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarDays, RotateCcw, Sparkles, Timer, Zap } from 'lucide-react'
 import { api } from '../../../api/client'
 import type { ClassLevel, PastProblemGroup, PastQuizProblem } from '../../../api/types'
@@ -257,6 +258,16 @@ export default function CrackThis({ onPlay, classLevel = null }: CrackThisProps)
           </div>
         ) : (
           content
+        )}
+
+        {/* Phase 7: every earlier problem, a page at a time — shown once there is one. */}
+        {available.length > 0 && (
+          <p className={styles.archive}>
+            <Link to="/daily-quiz/archive" className={styles.archiveLink}>
+              Every past Daily Quiz, with solutions
+              <ArrowRight aria-hidden="true" />
+            </Link>
+          </p>
         )}
       </div>
     </section>

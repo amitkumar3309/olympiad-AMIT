@@ -1888,6 +1888,64 @@ export async function pastQuizProblems(perGroup: number, at: Date): Promise<Past
   );
 }
 
+/** One page of the public archive: one class group's revealed quizzes, newest day first. */
+export interface QuizArchivePage {
+  group: Omit<PastProblemGroup, 'problems'>;
+  problems: PastQuizProblem[];
+  /** The `before` for the next page, or null when this one reaches the first quiz. */
+  nextBefore: DayKey | null;
+}
+
+/**
+ * The public archive of past Daily Quizzes (Milestone 30 Phase 7 — the brief's optional
+ * "public archive of past Daily Quizzes", approved by the owner on 2026-10-08): every
+ * revealed quiz for one class group, `days` days at a time, newest first.
+ *
+ * The same guarantees as `pastQuizProblems()`, by the same means. Only days **before
+ * today** are asked for, and `before` can only move that bound earlier — so no value of it
+ * reaches today's prize question. Every problem still passes through `revealOf()`, the one
+ * reveal gate. Pages are cut on **days**, never inside one, so a day's quizzes are never
+ * split across two pages.
+ */
+export async function quizArchive(groupKey: string, before: DayKey | null, days: number, at: Date): Promise<QuizArchivePage | null> {
+  const group = CLASS_GROUPS.find((candidate) => candidate.key === groupKey);
+  if (!group) return null;
+
+  const today = todayOf(at);
+  const bound = before !== null && before < today ? before : today;
+  const match = { classLevel: { $in: classesInRange(group.min, group.max) }, day: { $lt: bound }, content: { $ne: null } };
+
+  // One more day than the page holds says whether there is a next page.
+  const dayRows = await DailyChallenge.aggregate<{ _id: DayKey }>([
+    { $match: match },
+    { $group: { _id: '$day' } },
+    { $sort: { _id: -1 } },
+    { $limit: days + 1 },
+  ]);
+  const pageDays = dayRows.slice(0, days).map((row) => row._id);
+  const nextBefore = dayRows.length > days ? (pageDays[pageDays.length - 1] ?? null) : null;
+
+  const docs = pageDays.length
+    ? await DailyChallenge.find({ ...match, day: { $in: pageDays } }).sort({ day: -1, classMin: 1, _id: 1 })
+    : [];
+
+  const seen = new Set<string>();
+  const problems: PastQuizProblem[] = [];
+  for (const doc of docs) {
+    const quiz = String(groupIdOf(doc));
+    if (seen.has(quiz)) continue;
+    seen.add(quiz);
+    const problem = pastProblemView(doc, at);
+    if (problem) problems.push(problem);
+  }
+
+  return {
+    group: { id: group.key, label: classRangeLabel(group.min, group.max), min: group.min, max: group.max },
+    problems,
+    nextBefore,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Streak and the facts the achievement catalogue needs (unchanged since Milestone 8)
 // ---------------------------------------------------------------------------

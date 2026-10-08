@@ -44,6 +44,7 @@ export default function Footer() {
           <h2 className={styles.colTitle}>Explore</h2>
           <Link to="/leaderboard">Leaderboard</Link>
           <Link to="/hall-of-fame">Hall of Fame</Link>
+          <Link to="/daily-quiz/archive">Past Daily Quizzes</Link>
           <Link to="/gallery">Event gallery</Link>
         </nav>
 

@@ -363,10 +363,14 @@ describe('the answer key', () => {
     expectNoKey('public info', (await request(app).get(`${API}/daily-quiz/info`)).body);
     expectNoKey('public winners', (await request(app).get(`${API}/daily-quiz/winners`)).body);
     expectNoKey('public past problems', (await request(app).get(`${API}/daily-quiz/past`)).body);
+    expectNoKey('public archive', (await request(app).get(`${API}/daily-quiz/archive?group=9-12`)).body);
+    // Paging "back" from a day after today must not reach today's quiz either.
+    expectNoKey('public archive from the future', (await request(app).get(`${API}/daily-quiz/archive?group=9-12&before=2099-12-31`)).body);
 
     // One second before midnight it is still locked; at midnight it opens.
     clockTo(day, 24, -1000);
     expectNoKey('history at 23:59:59', (await history(cookies)).body);
+    expectNoKey('public archive at 23:59:59', (await request(app).get(`${API}/daily-quiz/archive?group=9-12`)).body);
 
     clockTo(day, 24);
     const after = await history(cookies).expect(200);
@@ -514,6 +518,65 @@ describe('GET /daily-quiz/past', () => {
 
     const res = await past().expect(200);
     expect(group(res.body, '9-12').problems).toEqual([]);
+  });
+});
+
+// ===========================================================================
+// The public archive of past quizzes (Phase 7)
+// ===========================================================================
+
+describe('GET /daily-quiz/archive', () => {
+  const archive = (query: string) => request(app).get(`${API}/daily-quiz/archive${query}`);
+  const daysOf = (body: { problems: Array<{ day: string }> }) => body.problems.map((problem) => problem.day);
+
+  it('pages one class group back a whole day at a time, and never reaches today', async () => {
+    const { adminCookies, taxonomy } = await seedAdmin();
+    const d0 = today();
+    const after = (n: number) => shiftDay(d0, -n); // n days after d0
+    const set = async (day: string, classMin: number, classMax: number, classLevel: string) => {
+      const questionId = await draftQuestion(adminCookies, taxonomy, { classLevel });
+      await schedule(adminCookies, { day, classMin, classMax, questionId }).expect(201);
+    };
+    await set(d0, 6, 8, 'Class 7');
+    await set(after(1), 3, 12, 'Class 9'); // every class: one quiz, ten documents
+    await set(after(2), 7, 7, 'Class 7');
+    await set(after(2), 8, 8, 'Class 8'); // a second quiz on the same day, for another class
+    await set(after(3), 6, 8, 'Class 6'); // today, once the clock moves
+    await set(after(4), 6, 8, 'Class 8'); // tomorrow
+
+    clockTo(after(3), 12);
+    const first = await archive('?group=6-8&days=2').expect(200);
+    expect(first.body.group).toEqual({ id: '6-8', label: 'Classes 6–8', min: 6, max: 8 });
+    // Two days — and both of the second day's quizzes: a page is cut between days, never inside one.
+    expect(daysOf(first.body)).toEqual([after(2), after(2), after(1)]);
+    expect(first.body.problems.map((p: { classRange: { label: string } }) => p.classRange.label)).toEqual([
+      'Class 7',
+      'Class 8',
+      'All classes',
+    ]);
+    expect(first.body.nextBefore).toBe(after(1));
+    expect(first.headers['cache-control']).toContain('public');
+    expect(first.headers['set-cookie']).toBeUndefined();
+
+    const second = await archive(`?group=6-8&days=2&before=${first.body.nextBefore}`).expect(200);
+    expect(daysOf(second.body)).toEqual([d0]);
+    expect(second.body.nextBefore).toBeNull();
+
+    // Asking to page back from a day after today starts from today, not from that day.
+    const ahead = await archive(`?group=6-8&before=${after(9)}`).expect(200);
+    expect(daysOf(ahead.body)).toEqual([after(2), after(2), after(1), d0]);
+
+    // Another group sees only the quiz that covered it.
+    expect(daysOf((await archive('?group=3-5').expect(200)).body)).toEqual([after(1)]);
+  });
+
+  it('refuses a class group, a page size or a day it does not know', async () => {
+    expect((await archive('')).status).toBe(400);
+    expect((await archive('?group=1-2')).status).toBe(400);
+    expect((await archive('?group=6-8&days=0')).status).toBe(400);
+    expect((await archive('?group=6-8&days=32')).status).toBe(400);
+    expect((await archive('?group=6-8&before=2026-02-30')).status).toBe(400);
+    expect((await archive('?group=6-8')).status).toBe(200);
   });
 });
 
