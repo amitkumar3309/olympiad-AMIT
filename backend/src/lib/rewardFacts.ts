@@ -1,3 +1,5 @@
+import type { DayKey } from './competitionDay';
+
 /**
  * Everything the gamification catalogues are allowed to look at — all of it real.
  *
@@ -42,6 +44,16 @@ export interface RewardFacts {
   longestChallengeStreak: number;
   /** Submitted **official** exam attempts. Always 0 until that milestone exists. */
   examsCompleted: number;
+  /** Daily Quizzes answered during Diwali 2026, 8 to 15 November (Phase 7, `lib/seasons.ts`). */
+  diwali2026Quizzes: number;
+
+  // --- When ---
+  /**
+   * The competition day these facts were assembled for. Not a count: it is what a seasonal
+   * achievement's window is checked against (Phase 7), which keeps the catalogue a pure
+   * function of this object. Null when nothing could be read.
+   */
+  today: DayKey | null;
 }
 
 /**
@@ -62,6 +74,8 @@ export const EMPTY_REWARD_FACTS: RewardFacts = {
   challengesCompleted: 0,
   longestChallengeStreak: 0,
   examsCompleted: 0,
+  diwali2026Quizzes: 0,
+  today: null,
 };
 
 /** Progress toward a "reach N" goal, never overstated past the target. */

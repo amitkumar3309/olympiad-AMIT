@@ -3,12 +3,13 @@ import type { PipelineStage, Types } from 'mongoose';
 import { requirePermission } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
-import { Student, StudentActivity } from '../../models';
+import { DailyChallengeAttempt, Student, StudentActivity } from '../../models';
 import { sendSuccess, sendError } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
 import { getPlatformAnalytics } from '../../services/platformAnalyticsService';
 import { periodWindow, type LeaderboardPeriod } from '../../services/leaderboardService';
 import { ACHIEVEMENTS } from '../../lib/achievements';
+import { DIWALI_2026, type SeasonWindow } from '../../lib/seasons';
 import { levelProgressFor } from '../../lib/xp';
 import {
   getQuestionPerformance,
@@ -212,6 +213,8 @@ type HolderRule =
   | { kind: 'levelAtLeast'; level: number }
   /** Active on at least this many distinct competition days. */
   | { kind: 'activeDays'; days: number }
+  /** Answered a Daily Quiz on a day inside a season's window (Phase 7) — counted from the attempts. */
+  | { kind: 'quizAnsweredWithin'; window: SeasonWindow }
   /** A consecutive-day streak: not answerable by aggregation. Honestly uncounted. */
   | { kind: 'notCounted' };
 
@@ -226,6 +229,7 @@ const HOLDER_RULES: Record<string, HolderRule> = {
   streak_3: { kind: 'notCounted' },
   streak_7: { kind: 'notCounted' },
   challenge_streak_5: { kind: 'notCounted' },
+  diwali_2026: { kind: 'quizAnsweredWithin', window: DIWALI_2026 },
 };
 
 router.get(
@@ -253,11 +257,25 @@ router.get(
         { $group: { _id: '$_id.student', days: { $sum: 1 } } },
       ];
 
-      const [earners, byType, activeDays, totalStudents] = await Promise.all([
+      // A seasonal achievement is held by whoever answered a quiz inside its window — one
+      // distinct-students query per window.
+      const seasonalWindows = Object.values(HOLDER_RULES).flatMap((rule) =>
+        rule.kind === 'quizAnsweredWithin' ? [rule.window] : [],
+      );
+
+      const [earners, byType, activeDays, totalStudents, seasonalHolders] = await Promise.all([
         StudentActivity.aggregate<{ _id: Types.ObjectId; xp: number }>(perStudentPipeline),
         StudentActivity.aggregate<{ _id: string; students: number }>(byTypePipeline),
         StudentActivity.aggregate<{ _id: Types.ObjectId; days: number }>(activeDaysPipeline),
         Student.countDocuments({ role: { $ne: 'superadmin' } }),
+        Promise.all(
+          seasonalWindows.map(async (window) => {
+            const students = await DailyChallengeAttempt.distinct('student', {
+              day: { $gte: window.firstDay, $lte: window.lastDay },
+            });
+            return [window, students.length] as const;
+          }),
+        ).then((pairs) => new Map<SeasonWindow, number>(pairs)),
       ]);
 
       // Level distribution, computed from the same thresholds the student's own page
@@ -282,6 +300,8 @@ router.get(
             return earners.filter((row) => levelProgressFor(row.xp).level >= rule.level).length;
           case 'activeDays':
             return activeDays.filter((row) => row.days >= rule.days).length;
+          case 'quizAnsweredWithin':
+            return seasonalHolders.get(rule.window) ?? 0;
         }
       }
 

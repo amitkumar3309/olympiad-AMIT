@@ -6,10 +6,12 @@ import { DailyChallengeAttempt, MockTestAttempt, PracticeSession, Student, Stude
 import { dayKeyOf, daysBetween, isDayKey, shiftDay, todayKey } from '../src/lib/competitionDay';
 import { levelProgressFor, XP_AWARDS } from '../src/lib/xp';
 import { summariseAchievements } from '../src/lib/achievements';
+import type { RewardFacts } from '../src/lib/rewardFacts';
 import { getCachedPublicStats, resetPublicStatsCache, summariseStreak } from '../src/services/progressService';
 import { JOURNEY_STAGES } from '../src/lib/journey';
 import { displayNameFor } from '../src/services/leaderboardService';
 import { recordActivity } from '../src/services/activityService';
+import { buildRewardFacts } from '../src/services/rewardService';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import { API, clearTestInbox, cookieHeader, createAdminSession, loginRootAdmin, otherStudent, registerVerifyLogin } from './helpers/auth';
 import { createPublishedQuestion, createQuestionVia, createTaxonomy } from './helpers/questions';
@@ -172,7 +174,7 @@ describe('streaks', () => {
 });
 
 describe('achievements', () => {
-  const noProgress = {
+  const noProgress: RewardFacts = {
     registered: true,
     xp: 0,
     level: 1,
@@ -189,6 +191,9 @@ describe('achievements', () => {
     // badge and journey catalogues, so a new fact lands here too.
     practiceSessionsCompleted: 0,
     mockTestsCompleted: 0,
+    // Phase 7: no Diwali answer, and no day — so no seasonal row is offered.
+    diwali2026Quizzes: 0,
+    today: null,
   };
 
   it('earns only what the facts support', () => {
@@ -219,6 +224,31 @@ describe('achievements', () => {
     const codes = summariseAchievements(noProgress, 99).earned.concat(summariseAchievements(noProgress, 99).next).map((a) => a.code);
     expect(codes.some((code) => code.includes('exam'))).toBe(false);
     expect(codes.some((code) => code.includes('accuracy'))).toBe(false);
+  });
+
+  // Phase 7. A seasonal achievement is a goal only while it can be reached: shown for its
+  // week, kept by whoever earned it, and otherwise gone — never a lock nobody can open.
+  describe('Diwali 2026', () => {
+    const listed = (facts: RewardFacts) => {
+      const summary = summariseAchievements(facts, 99);
+      return [...summary.earned, ...summary.next].map((a) => a.code);
+    };
+
+    it('is offered only during Diwali week, 8 to 15 November 2026', () => {
+      expect(listed({ ...noProgress, today: '2026-11-07' })).not.toContain('diwali_2026');
+      expect(listed({ ...noProgress, today: '2026-11-08' })).toContain('diwali_2026');
+      expect(listed({ ...noProgress, today: '2026-11-15' })).toContain('diwali_2026');
+      expect(listed({ ...noProgress, today: '2026-11-16' })).not.toContain('diwali_2026');
+      expect(listed(noProgress)).not.toContain('diwali_2026');
+    });
+
+    it('is earned by one Daily Quiz answered that week, and kept afterwards', () => {
+      const during = summariseAchievements({ ...noProgress, today: '2026-11-10', diwali2026Quizzes: 1 }, 99);
+      expect(during.earned.map((a) => a.code)).toContain('diwali_2026');
+      const later = summariseAchievements({ ...noProgress, today: '2027-03-01', diwali2026Quizzes: 1 }, 99);
+      expect(later.earned.map((a) => a.code)).toContain('diwali_2026');
+      expect(later.total).toBe(summariseAchievements({ ...noProgress, today: '2027-03-01' }, 99).total + 1);
+    });
   });
 
   it('caps its progress at the target so a bar cannot overfill', () => {
@@ -433,6 +463,25 @@ describe('GET /me/dashboard — the launch figures', () => {
       submittedAt,
       correctCount: correct,
     });
+
+  // Phase 7. Asserted on the facts with an explicit day, and through the API only for the
+  // earned case — which holds whatever day the suite runs on.
+  it('earns Diwali 2026 from any answer that week, and counts nothing either side of it', async () => {
+    const { cookies, studentId } = await registerVerifyLogin(app);
+    const doc = (await Student.findOne({ studentId }))!;
+    const id = doc._id as mongoose.Types.ObjectId;
+
+    await quizAnswer(id, '2026-11-07', true);
+    await quizAnswer(id, '2026-11-16', true);
+    expect((await buildRewardFacts(doc, '2026-11-12')).facts.diwali2026Quizzes).toBe(0);
+
+    await quizAnswer(id, '2026-11-08', false); // a wrong answer counts: the award comes at submission
+    await quizAnswer(id, '2026-11-15', true);
+    expect((await buildRewardFacts(doc, '2026-11-12')).facts.diwali2026Quizzes).toBe(2);
+
+    const dashboard = await loadDashboard(cookies);
+    expect(dashboard.achievements.earned.map((a: { code: string }) => a.code)).toContain('diwali_2026');
+  });
 
   it('tells a new student the truth: XP this week, nothing solved, no accuracy yet, the journey started', async () => {
     const { cookies } = await registerVerifyLogin(app);

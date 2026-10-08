@@ -1,5 +1,6 @@
 import { reach, type RewardFacts } from './rewardFacts';
 import { PRODUCT_NAME } from './brand';
+import { DIWALI_2026, isWithin, type SeasonWindow } from './seasons';
 
 /**
  * The achievement catalogue.
@@ -45,6 +46,12 @@ export interface AchievementDefinition {
    * decorative empty bar.
    */
   measure: (facts: ProgressFacts) => { progress: number; target: number };
+  /**
+   * A **seasonal** achievement (Phase 7): offered only while its window is open, and kept
+   * for good by whoever earned it. Outside the window an unearned one is not listed at all:
+   * it could never be earned again, and rule 2 is that nothing unearnable is advertised.
+   */
+  window?: SeasonWindow;
 }
 
 export interface EvaluatedAchievement {
@@ -140,20 +147,39 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
     icon: 'ph-lightning',
     measure: (f) => reach(f.longestChallengeStreak, 5),
   },
+  /**
+   * The Diwali edition's achievement (Phase 7 — owner, 2026-10-08): the homepage's "Diwali
+   * Special" strip promises a badge, so the promise is this row and nothing more. Any answer
+   * counts, right or wrong — it is earned at submission, so it tells nobody whether they were
+   * right before the answer unlocks.
+   */
+  {
+    code: 'diwali_2026',
+    name: 'Diwali 2026',
+    description: 'Answered a Daily Quiz during Diwali week, 8 to 15 November 2026.',
+    icon: 'ph-flame',
+    window: DIWALI_2026,
+    measure: (f) => reach(f.diwali2026Quizzes, 1),
+  },
 ];
 
 export function evaluateAchievements(facts: ProgressFacts): EvaluatedAchievement[] {
-  return ACHIEVEMENTS.map((definition) => {
+  return ACHIEVEMENTS.flatMap((definition) => {
     const { progress, target } = definition.measure(facts);
-    return {
-      code: definition.code,
-      name: definition.name,
-      description: definition.description,
-      icon: definition.icon,
-      earned: progress >= target,
-      progress,
-      target,
-    };
+    const earned = progress >= target;
+    // A seasonal row outside its window is shown only to the students who earned it.
+    if (definition.window && !earned && !(facts.today !== null && isWithin(facts.today, definition.window))) return [];
+    return [
+      {
+        code: definition.code,
+        name: definition.name,
+        description: definition.description,
+        icon: definition.icon,
+        earned,
+        progress,
+        target,
+      },
+    ];
   });
 }
 
