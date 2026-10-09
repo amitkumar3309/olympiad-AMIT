@@ -108,7 +108,14 @@ export function QuestionPicker({ classMin, classMax, value, onChange }: Question
                   onChange={() => onChange(candidate)}
                 />
                 <span className={styles.pickerText}>
-                  <MathText>{candidate.questionText}</MathText>
+                  {candidate.questionText.trim() !== '' && <MathText>{candidate.questionText}</MathText>}
+                  {/* A picture question (Phase 7b): its picture, small, and its description beside it. */}
+                  {candidate.image && (
+                    <span className={styles.pickerPicture}>
+                      <img src={candidate.image.url} alt="" width={candidate.image.width} height={candidate.image.height} loading="lazy" />
+                      <span>Picture: {candidate.image.alt}</span>
+                    </span>
+                  )}
                   <span className={styles.pickerMeta}>
                     <Badge size="sm" tone="neutral">
                       {candidate.classLevel}

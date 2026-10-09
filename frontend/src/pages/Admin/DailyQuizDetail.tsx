@@ -4,6 +4,7 @@ import { api } from '../../api/client'
 import { type AdminQuizDetailResponse, type QuizCandidate, type QuizWinnerRow } from '../../api/types'
 import AdminShell from './AdminShell'
 import MathText from '../../components/MathText'
+import QuestionPicture from '../../components/QuestionPicture'
 import { Alert, Badge, Breadcrumb, Button, Card, CardHeader, ErrorState, Modal, SkeletonText, StatTile, useToast } from '../../components/ui'
 import { formatDayKey, formatNumber, formatSolveTime } from '../../lib/format'
 import { humanizeError } from '../../lib/errors'
@@ -145,11 +146,15 @@ export default function AdminDailyQuizDetail() {
                 : 'Students have started this quiz, so its question can no longer be changed or removed.'}
             </p>
           )}
-          {quiz.question.text ? (
+          {/* Playable, not "has text": a picture question's words may be empty (Phase 7b). */}
+          {quiz.playable ? (
             <div className={styles.stack}>
-              <div className={styles.questionText}>
-                <MathText block>{quiz.question.text}</MathText>
-              </div>
+              {quiz.question.text && (
+                <div className={styles.questionText}>
+                  <MathText block>{quiz.question.text}</MathText>
+                </div>
+              )}
+              <QuestionPicture picture={quiz.question.image} name="the question" eager />
               <ol className={styles.staffOptions}>
                 {quiz.question.options.map((option) => (
                   <li key={option.id} data-correct={option.id === quiz.question.correctOptionId}>
@@ -162,10 +167,11 @@ export default function AdminDailyQuizDetail() {
                   </li>
                 ))}
               </ol>
-              {quiz.question.solution && (
+              {(quiz.question.solution || quiz.question.solutionImage) && (
                 <div className={styles.solution}>
                   <h3>Worked solution — students see this from the next day</h3>
-                  <MathText block>{quiz.question.solution}</MathText>
+                  {quiz.question.solution && <MathText block>{quiz.question.solution}</MathText>}
+                  <QuestionPicture picture={quiz.question.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
                 </div>
               )}
               <Link to={`/admin/questions/${quiz.question.id}/edit`} className={styles.inlineLink}>
