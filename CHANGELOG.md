@@ -2,6 +2,27 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-09 — The homepage: a figure of the day, smoother motion, a calmer page
+
+The owner's requests of 2026-10-09: a better hero picture than "the think grow solve picture", and a
+homepage that looks "more premium … with react animations for smoother effects", not "cheap AI slop".
+Branch `feat/homepage-premium`.
+
+- **The hero's figure of the day** (`HeroArt`): seven pieces of real mathematics, drawn exactly on graph
+  paper — compound growth, the Fibonacci spiral, Pythagoras, Gauss's staircase, doubling, the primes and
+  a triangle's angles — each with its formula and a true line, one a day as before. It replaced the
+  seven cartoon pictures, the four doodles and the handwritten "Think Solve Grow".
+- **Motion** (the library formerly Framer Motion, 13.4.4), loaded after the page is up: the figure tilts
+  towards a mouse; the stats, the four ways to prepare, the steps, the prize cards, the journey, the
+  leaderboard, the FAQ and the closing band rise into place when scrolled to; the FAQ opens smoothly.
+  Nothing a reader can see is ever hidden, and reduced motion turns it off.
+- **Calmer**: the four facts are a checklist; the eyebrow a white pill; faint graph paper behind the
+  hero and the closing band; the prize card's placeholder became a drawn gold medal; the closing banner
+  is a centred band with the tagline; the 🎁 emoji and the handwritten lines are gone.
+- **The hero's entrance plays once** — it used to start again when the app took over the drawn page.
+- **Browser tests open on the everyday site by default** (`e2e/fixtures.ts`): the 24-hour trial, or
+  the real Diwali week, no longer fails tests that are not about it.
+
 ## 2026-10-09 — The Diwali edition on the live site for 24 hours, for testing
 
 The owner's request of 2026-10-09: "make the diwali theme go live for 24 hours from now for testing

@@ -37,6 +37,14 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The homepage redesign (2026-10-09): every browser test opens on the everyday site.** Specs take
+> `test` from `e2e/fixtures.ts`, whose `page` sets `?season=off`'s switch (`sessionStorage`
+> `amit-season`) before each page loads, so the 24-hour trial — or the real Diwali week — cannot fail a
+> test that is not about it. `diwali.spec.ts` and the edition half of `responsiveness.spec.ts` opt out
+> with `test.use({ everyday: false })` and pin their dates. `prerender.spec.ts` reads the figure of the
+> day by `[data-picture-index]`. A test that scrolls the homepage should wait for a group to finish rising
+> before measuring it: an item rising reads `opacity: 0` inline until Motion finishes.
+>
 > **The Diwali trial (2026-10-09):** two browser tests assumed the day they ran was an ordinary one —
 > `diwali.spec.ts`'s `?season=auto` check and `prerender.spec.ts`'s dark-theme check — and failed during
 > the 24-hour trial, as they would have during the real week. Both now pin 1 December with `page.clock`.

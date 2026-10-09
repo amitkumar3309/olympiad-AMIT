@@ -31,7 +31,7 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
 
 ## Technology Stack
 
-- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **thirty-five** primitives in `src/components/ui` — one file each; several export more than one component. Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg, added by `src/main.tsx` after the page loads), always through `components/ui/Icon.tsx`, plus **`lucide-react`** on the two launch surfaces (homepage, student dashboard). Fonts (Milestone 30): **Plus Jakarta Sans** (everything a reader reads — headings and body; it replaced both Bricolage Grotesque and Instrument Sans), **Geist Mono** (serials and ids), **Cinzel** (the printed certificate), **Caveat** (the mockups' two handwritten accents only). **All self-hosted** from `public/fonts/` (OFL, the `@fontsource-variable/*` 5.3.0 files, version in the file name), declared with `@font-face` at the top of `tokens.css` — the **only** place a family is named — and the main Latin file preloaded from `index.html`, whose `href` must match `tokens.css` exactly. There is no Google Fonts request. Linter: `oxlint` with its `jsx-a11y` plugin, plus `scripts/check-handlers.mjs` (both are `npm run lint`). Browser end-to-end tests: **Playwright** (`@playwright/test`, dev only, Milestone 30 — `npm run e2e`, see TESTING.md), with **`@axe-core/playwright`** for accessibility (Phase 6).
+- **Frontend**: React 19 + TypeScript, Vite 8, `react-router-dom` v7, `chart.js` / `react-chartjs-2`, CSS Modules (no UI framework/Tailwind) over a **token layer + design system** since Milestone 23 Phase A — `src/styles/tokens.css` and the **thirty-five** primitives in `src/components/ui` — one file each; several export more than one component. Icons: **Phosphor** as a webfont (`regular` and `bold` only, from unpkg, added by `src/main.tsx` after the page loads), always through `components/ui/Icon.tsx`, plus **`lucide-react`** on the two launch surfaces (homepage, student dashboard). Fonts (Milestone 30): **Plus Jakarta Sans** (everything a reader reads — headings and body; it replaced both Bricolage Grotesque and Instrument Sans), **Geist Mono** (serials and ids), **Cinzel** (the printed certificate), **Caveat** (the mockups' two handwritten accents only). **All self-hosted** from `public/fonts/` (OFL, the `@fontsource-variable/*` 5.3.0 files, version in the file name), declared with `@font-face` at the top of `tokens.css` — the **only** place a family is named — and the main Latin file preloaded from `index.html`, whose `href` must match `tokens.css` exactly. There is no Google Fonts request. Linter: `oxlint` with its `jsx-a11y` plugin, plus `scripts/check-handlers.mjs` (both are `npm run lint`). Browser end-to-end tests: **Playwright** (`@playwright/test`, dev only, Milestone 30 — `npm run e2e`, see TESTING.md), with **`@axe-core/playwright`** for accessibility (Phase 6). Animation: **Motion** (`motion`, pinned **13.4.4** — the library formerly called Framer Motion), on the homepage only, and loaded after the page is up (`pages/Landing/motion.ts`, 2026-10-09).
 - **Backend**: Node.js + Express 5 + TypeScript, run via `tsx`. One AI dependency: **`@google/genai`** (question drafting only — see the Milestone 20 ADR, which supersedes Milestone 17's decision against an SDK; it is `require`d rather than `import`ed for a packaging reason documented at the top of `services/geminiQuestionGenerator.ts`). Modular structure since Milestone 1 (`config/`, `db/`, `lib/`, `middleware/`, `models/`, `routes/v1/`, `validation/`). Uses `zod` (validation), `pino` (logging), `helmet`, `express-rate-limit`. Linter: `eslint` + `typescript-eslint`. Tests: `vitest` + `supertest`.
 - **Database**: MongoDB via Mongoose.
 - **Auth**: short-lived access JWT + rotating opaque refresh token, both in `httpOnly` cookies; passwords hashed with `bcryptjs` (cost 12). Email via `nodemailer` over SMTP.
@@ -79,8 +79,12 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             the drawn homepage the app after the first paint; also the
                             festive edition (data-season) and the picture of the day
                             (data-picture), both decided before the first paint
-  src/lib/pictureOfTheDay.ts + pages/Landing/sections/PictureOfTheDay.tsx
-                            the hero's seven drawn pictures, one a day (2026-10-09)
+  src/lib/pictureOfTheDay.ts + pages/Landing/sections/HeroArt.tsx
+                            the hero's figure of the day: seven pieces of real maths,
+                            drawn exactly, one a day (redrawn 2026-10-09)
+  pages/Landing/motion.ts + motionKit.ts
+                            the homepage's motion — Motion, loaded after the page is up:
+                            the hero's tilt, groups rising into place, the FAQ (2026-10-09)
   src/components/Fireworks.tsx + src/lib/fireworks/
                             the Diwali edition's night sky behind every page, and its
                             fireworks: engine.ts (the particles), driver.ts (when frames
@@ -369,15 +373,19 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   beyond 200 ms. If it fails, make the interaction cheaper — visible feedback first, heavy work after
   the next paint (as `ThemeContext` applies a theme change), no re-render of the page for a dialog (as
   `Landing` memoises its sections) — never loosen the bound.
-- **The hero's picture of the day is chosen before the first paint, never in a render** (owner,
-  2026-10-09). `PictureOfTheDay` draws all seven pictures inline; `public/boot.js` names today's by the
-  India date (`<html data-picture>`, the count read from `<meta name="amit-art">`, which `vite.seo.ts`
-  writes from `lib/pictureOfTheDay.ts`), and CSS shows that one. Choosing it in React would draw one
-  picture at build time and swap it when the app took over. The drawings take their colours from the
-  `--art-*` tokens (themed, and a night scene under `data-season`). Adding one is a name in the list, a
-  drawing, and a line for its index in `PictureOfTheDay.module.css`. Keep the top-right corner clear —
-  the handwritten "Think Solve Grow" sits over it on a desktop.
-- **A trial of the Diwali edition on the live site is `DIWALI_EDITION.trial`** (`src/lib/season.ts`, first used 9–10 October 2026 at the owner's request): the same edition for a few hours, written into the season `<meta>` as three more parts that `public/boot.js` reads, under its own id (`data-season-id`) so a browser that saw a trial's intro still plays the real week's. It switches itself off; set it back to `null` afterwards. **Never copy a trial into `backend/src/lib/seasons.ts`** — a trial must not award the Diwali 2026 badge. A browser test that needs the everyday site must pin an ordinary date (`page.clock`), never trust the day it runs.
+- **The hero's figure of the day is chosen before the first paint, never in a render** (owner,
+  2026-10-09; redrawn the same day — "the think grow solve picture doesn't look good"). `HeroArt` draws
+  all seven figures inline — compound growth, the Fibonacci spiral, Pythagoras, Gauss's staircase,
+  doubling, the primes, a triangle's angles — each with its formula and **one line that is true as
+  written**; `public/boot.js` names today's by the India date (`<html data-picture>`, the count read from
+  `<meta name="amit-art">`, which `vite.seo.ts` writes from `lib/pictureOfTheDay.ts`), and CSS shows that
+  one (`[data-picture-index]`). Choosing it in React would draw one figure at build time and swap it when
+  the app took over. **Geometry, not scenes**: a hand-written SVG draws mathematics exactly, and the
+  cartoon pictures it replaced are what looked home-made — do not bring back illustrations drawn in
+  code, and never an AI-generated or stock picture. Every colour is a semantic token (the figure is
+  right in the dark theme and at night with no rules of its own); adding a figure is a name in the
+  list, a drawing and its words in `HeroArt.tsx`, and a line for its index in `HeroArt.module.css`.
+- **A trial of the Diwali edition on the live site is `DIWALI_EDITION.trial`** (`src/lib/season.ts`, first used 9–10 October 2026 at the owner's request): the same edition for a few hours, written into the season `<meta>` as three more parts that `public/boot.js` reads, under its own id (`data-season-id`) so a browser that saw a trial's intro still plays the real week's. It switches itself off; set it back to `null` afterwards. **Never copy a trial into `backend/src/lib/seasons.ts`** — a trial must not award the Diwali 2026 badge. **Every browser test opens on the everyday site** (2026-10-09): specs take `test` from `e2e/fixtures.ts`, which sets `?season=off`'s switch for each page, so a trial or the real week cannot fail an unrelated test; a test of the edition itself says `test.use({ everyday: false })` and pins its date with `page.clock`.
 - **The Diwali edition (Milestone 30 Phase 7a) switches itself on and off — 8 to 15 November 2026.**
   The dates are `src/lib/season.ts` (and `backend/src/lib/seasons.ts` for the achievement — change both);
   `vite.seo.ts` writes them into a `<meta name="amit-season">` above `public/boot.js`, which sets
@@ -845,7 +853,16 @@ look wrong however carefully it is tokenised — read them before touching a sur
   span, so a screen reader and a copy-paste never meet a half-counted number. Reduced motion
   shows everything final and still. Animate `transform` and `opacity` only (a glow on the small
   Daily Quiz button is the one exception — Phase 7a tried a compositor version and measured taps
-  slower, so it stays).
+  slower, so it stays). **The homepage's motion is Motion's** (2026-10-09, the owner: "use react
+  animations for smoother effects" — `pages/Landing/motion.ts`): the hero's figure tilts towards a
+  mouse (never a finger), groups of cards rise into place when scrolled to (`useReveal`), and the FAQ
+  opens smoothly (`smoothToggle`, over a native `<details>` that still works before the takeover).
+  Motion is **fetched after the page is up**, never with it; a group is hidden **only after its
+  observer has reported it entirely off screen**, and comes back when scrolled to, focused, printed,
+  or at once if Motion is not there within 400 ms — so the rule above holds. Do not switch to
+  Motion's components with an `initial` state: the build-time draw would carry it as hidden content.
+  An entrance the drawn page plays subtracts **`--drawn-for`** (set by `src/main.tsx` when React
+  replaces the drawn page) from its delay, so it carries on instead of playing twice.
 - **A countdown displays the server's clock** — `ui/Countdown` generalises the rule the
   daily challenge's countdown followed: the caller passes `offsetMs` from `clockOffset()`
   (measured when the response arrived), every tick recomputes from the wall clock, a countdown
