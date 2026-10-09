@@ -465,12 +465,16 @@ function SettingsForm() {
       .then((res) => {
         setSettings(res.settings)
         setCash(res.settings.cashAmount === null ? '' : String(res.settings.cashAmount))
-        setCap(String(res.settings.reminderDailyCap))
+        setCap(res.settings.reminderDailyCap === undefined ? '' : String(res.settings.reminderDailyCap))
         setSchedulerConfigured(res.scheduler?.configured ?? null)
       })
       .catch(setError)
     void loadPublished()
   }, [loadPublished])
+
+  // A backend older than Phase 7b reports no reminder settings (the two apps deploy separately):
+  // the section is then left out, and a save sends only what that backend knows.
+  const remindersSupported = typeof settings?.reminderDailyCap === 'number'
 
   if (error) return <ErrorState title="Could not load the settings" error={error} />
   if (!settings) {
@@ -484,7 +488,8 @@ function SettingsForm() {
   const cashValue = cash.trim() === '' ? null : Number(cash)
   const cashInvalid = cashValue !== null && (!Number.isInteger(cashValue) || cashValue < 0 || cashValue > 100000)
   const capValue = Number(cap)
-  const capInvalid = cap.trim() === '' || !Number.isInteger(capValue) || capValue < 0 || capValue > REMINDER_CAP_MAX
+  const capInvalid =
+    remindersSupported && (cap.trim() === '' || !Number.isInteger(capValue) || capValue < 0 || capValue > REMINDER_CAP_MAX)
 
   async function save() {
     if (!settings || cashInvalid || capInvalid) return
@@ -496,11 +501,10 @@ function SettingsForm() {
         prizeText: settings.prizeText,
         cashAmount: cashValue,
         instantResult: settings.instantResult,
-        remindersEnabled: settings.remindersEnabled,
-        reminderDailyCap: capValue,
+        ...(remindersSupported ? { remindersEnabled: settings.remindersEnabled, reminderDailyCap: capValue } : {}),
       })
       setSettings(res.settings)
-      setCap(String(res.settings.reminderDailyCap))
+      setCap(res.settings.reminderDailyCap === undefined ? '' : String(res.settings.reminderDailyCap))
       toast.success('Daily Quiz settings saved.')
       void loadPublished()
     } catch (err) {
@@ -558,30 +562,34 @@ function SettingsForm() {
         </Alert>
 
         {/* The 7:00 AM reminder emails (Milestone 30 Phase 7b). */}
-        <h3 className={styles.settingsHeading}>Reminder emails</h3>
-        <Checkbox
-          label="Send reminder emails"
-          description="At 7:00 AM, to students who asked for one, on days their class has a quiz they have not started. Each student turns reminders on for themselves — this switch sends nothing on its own."
-          checked={settings.remindersEnabled}
-          onChange={(event) => setSettings({ ...settings, remindersEnabled: event.target.checked })}
-        />
-        <div className={styles.formGrid}>
-          <Field
-            label="Most reminders a day"
-            error={capInvalid ? `A whole number from 0 to ${REMINDER_CAP_MAX}.` : undefined}
-            hint={`0 to ${REMINDER_CAP_MAX}. The email provider's free quota (300 a day) is shared with sign-up and password emails, so keep room for them.`}
-          >
-            <Input inputMode="numeric" value={cap} onChange={(event) => setCap(event.target.value)} />
-          </Field>
-        </div>
-        {schedulerConfigured === false && (
-          <Alert tone="warning" title="The scheduler is not set up">
-            The server has no JOBS_SECRET, so no reminder is offered to students or sent. The launch report has the steps.
-          </Alert>
+        {remindersSupported && (
+          <>
+            <h3 className={styles.settingsHeading}>Reminder emails</h3>
+            <Checkbox
+              label="Send reminder emails"
+              description="At 7:00 AM, to students who asked for one, on days their class has a quiz they have not started. Each student turns reminders on for themselves — this switch sends nothing on its own."
+              checked={settings.remindersEnabled === true}
+              onChange={(event) => setSettings({ ...settings, remindersEnabled: event.target.checked })}
+            />
+            <div className={styles.formGrid}>
+              <Field
+                label="Most reminders a day"
+                error={capInvalid ? `A whole number from 0 to ${REMINDER_CAP_MAX}.` : undefined}
+                hint={`0 to ${REMINDER_CAP_MAX}. The email provider's free quota (300 a day) is shared with sign-up and password emails, so keep room for them.`}
+              >
+                <Input inputMode="numeric" value={cap} onChange={(event) => setCap(event.target.value)} />
+              </Field>
+            </div>
+            {schedulerConfigured === false && (
+              <Alert tone="warning" title="The scheduler is not set up">
+                The server has no JOBS_SECRET, so no reminder is offered to students or sent. The launch report has the steps.
+              </Alert>
+            )}
+            <p className={styles.lastRun}>
+              {settings.lastReminderRun ? describeRun(settings.lastReminderRun) : 'Not run yet — the scheduler has not called it.'}
+            </p>
+          </>
         )}
-        <p className={styles.lastRun}>
-          {settings.lastReminderRun ? describeRun(settings.lastReminderRun) : 'Not run yet — the scheduler has not called it.'}
-        </p>
 
         {saveError && <Alert tone="danger">{saveError}</Alert>}
         <div className={styles.inlineActions}>

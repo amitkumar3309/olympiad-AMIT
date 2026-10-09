@@ -1817,6 +1817,10 @@ export interface QuizResult {
  * is false unless something will really send one — the scheduler is set up on the server and
  * the programme is switched on — and the page offers nothing then. `on` is the student's own
  * switch, the same one as My Profile → Notification preferences.
+ *
+ * Optional where it is used, like the other Phase 7b fields below: the two apps deploy
+ * separately, and a backend from before Phase 7b sends none of them — the page must then show
+ * nothing about reminders rather than fail.
  */
 export interface QuizReminders {
   on: boolean
@@ -1829,7 +1833,8 @@ export interface DailyQuizToday {
   today: string
   prize: QuizPrizeInfo
   eligibility: QuizEligibility
-  reminders: QuizReminders
+  /** Absent from a backend older than Phase 7b. */
+  reminders?: QuizReminders
   streak: { current: number; longest: number }
   /** The student's most recent earlier quiz, once its answer is unlocked. */
   previous: { day: string; topic: string | null; isCorrect: boolean; revealed: boolean } | null
@@ -2067,11 +2072,11 @@ export interface QuizSettings {
   prizeText: string
   cashAmount: number | null
   instantResult: boolean
-  /** The reminder programme's switch — students still turn reminders on one by one. */
-  remindersEnabled: boolean
-  /** The most reminder emails one day may queue (0–300). */
-  reminderDailyCap: number
-  lastReminderRun: ReminderRun | null
+  /** The reminder programme's switch — students still turn reminders on one by one. Absent before Phase 7b. */
+  remindersEnabled?: boolean
+  /** The most reminder emails one day may queue (0–300). Absent before Phase 7b. */
+  reminderDailyCap?: number
+  lastReminderRun?: ReminderRun | null
   updatedAt: string | null
   updatedByLabel: string | null
 }
@@ -2705,7 +2710,8 @@ export interface BroadcastOutcome {
 export interface NotificationPrefs {
   announcements: boolean
   results: boolean
-  dailyQuizReminders: boolean
+  /** Absent from a backend older than Phase 7b, which has no such switch. */
+  dailyQuizReminders?: boolean
 }
 
 export interface NotificationPrefsResponse {

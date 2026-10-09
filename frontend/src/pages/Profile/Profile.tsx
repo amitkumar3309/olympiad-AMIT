@@ -686,20 +686,23 @@ export default function Profile() {
                   The Daily Quiz reminder (Milestone 30 Phase 7b) — off until the student turns
                   it on, unlike the two above. Shown even when the scheduler is not set up, so a
                   student can always turn one off; the quiz itself offers it only when it can be
-                  sent.
+                  sent. Left out when the server does not report the switch at all (a backend from
+                  before Phase 7b — the two apps deploy separately), which would refuse the save.
                 */}
-                <label className={styles.prefRow}>
-                  <input
-                    type="checkbox"
-                    checked={prefs.preferences.dailyQuizReminders}
-                    disabled={prefsSaving}
-                    onChange={(e) => void savePrefs({ dailyQuizReminders: e.target.checked })}
-                  />
-                  <span>
-                    <strong>Daily Quiz reminder</strong>
-                    <em>An email at 7:00 AM when today’s quiz is open and you have not started it.</em>
-                  </span>
-                </label>
+                {typeof prefs.preferences.dailyQuizReminders === 'boolean' && (
+                  <label className={styles.prefRow}>
+                    <input
+                      type="checkbox"
+                      checked={prefs.preferences.dailyQuizReminders}
+                      disabled={prefsSaving}
+                      onChange={(e) => void savePrefs({ dailyQuizReminders: e.target.checked })}
+                    />
+                    <span>
+                      <strong>Daily Quiz reminder</strong>
+                      <em>An email at 7:00 AM when today’s quiz is open and you have not started it.</em>
+                    </span>
+                  </label>
+                )}
 
                 {/*
                   Stating what cannot be switched off, rather than quietly offering

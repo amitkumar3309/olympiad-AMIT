@@ -202,7 +202,7 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
 
   /** The reminder switch changed in the card: the server's answer is what is shown. */
   const reminderChanged = useCallback((on: boolean) => {
-    setToday((current) => (current ? { ...current, reminders: { ...current.reminders, on } } : current))
+    setToday((current) => (current?.reminders ? { ...current, reminders: { ...current.reminders, on } } : current))
   }, [])
 
   // ---------------------------------------------------------------------------
@@ -566,7 +566,8 @@ function ReminderOffer({
   onChange,
   centred = false,
 }: {
-  reminders: QuizReminders
+  /** Undefined from a backend older than Phase 7b: then there is nothing to offer. */
+  reminders: QuizReminders | undefined
   onChange: (on: boolean) => void
   centred?: boolean
 }) {
@@ -580,15 +581,16 @@ function ReminderOffer({
     if (confirmed) noteRef.current?.focus()
   }, [confirmed])
 
-  if (!reminders.available) return null
+  if (!reminders?.available) return null
 
   async function turnOn() {
     setSaving(true)
     setError(null)
     try {
       const res = await api.patch<{ preferences: NotificationPrefs }>('/me/notification-preferences', { dailyQuizReminders: true })
-      onChange(res.preferences.dailyQuizReminders)
-      setConfirmed(res.preferences.dailyQuizReminders)
+      const on = res.preferences.dailyQuizReminders === true
+      onChange(on)
+      setConfirmed(on)
     } catch (err) {
       setError(humanizeError(err, { fallback: 'The reminder could not be turned on. Please try again.' }))
     } finally {
