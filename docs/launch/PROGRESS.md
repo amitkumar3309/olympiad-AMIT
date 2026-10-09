@@ -117,6 +117,11 @@ organiser's name on invoices and certificates, and two speed findings from Phase
 | 7b | Picture questions (Q19), Daily Quiz reminders (Q20) | ⬜ next |
 | 7+ | The hero's picture of the day (Q21): seven drawn pictures (a summit, a growing book, a bright idea, a rocket, steps to a trophy, a sunrise, a target hit), a different one each day by the India date — chosen by `public/boot.js` before the first paint, themed, a night version during Diwali | ✅ done |
 | 7+ | The founder's quotes signed "— Amit" (Q22) | ✅ done |
+| 7+ | The Diwali intro slowed (Q23): about seven seconds — embers rise; 3, 2, 1, a second each, each with a ring of light; a diya catches with a burst of sparks; the mathematics appears in its light; the name; the line. Any key or tap still ends it, and its timer (7.3 s) regardless | ✅ done |
+| 7+ | The whole site at night during the edition (Q23): the dark theme's values under `data-season` in either theme; the page transparent over a night sky; gold card edges; bands half seen through; the theme switch hidden for the week (it would change nothing); the night's veil and a halo behind words that stand on the sky | ✅ done |
+| 7+ | Fireworks behind every page (Q23): `components/Fireworks` at the app's root — rockets from random places, bursting at random heights as a peony, a streaking chrysanthemum, a tilted ring or a drooping gold willow, light adding to light; drawn on a canvas in a worker; a salute as the intro hands over. Still for reduced motion, on staff pages and in a paper being answered; they hold still while a tap is answered (below). The hero's three looping SVG fireworks are gone | ✅ done |
+| 7+ | The intro for a signed-in student, once that week (Q23): `DiwaliIntroPlayer` in the student area, sharing the homepage's "seen" key; never over a timed paper | ✅ done |
+| 7+ | Tests: E2E — the student intro once and never again; the night for a reader who chose light, no theme switch, and the everyday site on the 16th; the fireworks drawing for motion, still on an admin page | ✅ done |
 
 ## Open questions for the owner
 
@@ -125,19 +130,30 @@ organiser's name on invoices and certificates, and two speed findings from Phase
   *redirect* to `www.amitolympiad.me`, and set the backend's `FRONTEND_URL` to exactly
   `https://www.amitolympiad.me` (LAUNCH_REPORT §8, step 2).
 
-- **Taps with motion on (Phase 7a finding — nothing to decide now; one check on a real phone).** The
-  INP test measures with motion reduced, as every browser test here does, and passes with room to spare:
-  the slowest tap took 104 ms every day and 144 ms during the edition, in the final run.
-  With motion **on** — what most visitors have — the slowest tap measures 220–260 ms on the everyday
-  homepage and 320–430 ms during the edition, in headless Edge with the CPU slowed 4×. The everyday figure
-  is what it was before Phase 7a (200–310 ms on the pre-7a code, measured side by side). Nearly all of
-  it is drawing the next frame, which this browser does without a GPU and a phone does with one, so it
-  likely over-states a real phone — by how much, only a phone can say (LAUNCH_REPORT §9, step 13). Two
-  things were tried and **not kept**: a compositor version of the Daily Quiz button's loops (it doubled
-  the time) and a solid everyday header (no faster).
-- **The first homepage visit during Diwali week (Phase 7a).** With the two-second intro playing, mobile
-  Lighthouse measures 86–92 (target ≥ 85) but LCP 2.7–2.9 s (target 2.5 s): the browser paints the hero
-  only once the intro fades. Every later visit, and every other page, is unaffected (1.9 s).
+- **Taps with motion on (nothing to decide now; one check on a real phone).** The INP test measures
+  with motion reduced, as every browser test here does, and passes. With motion **on** — what most
+  visitors have — the slowest tap measures about 190–260 ms on the everyday homepage, and during the
+  edition, with the fireworks running behind every page since 2026-10-09, typically 300–360 ms
+  (224–632 across eight runs) — the same as Phase 7a's edition measured (320–430 ms). That figure needed
+  the fireworks to **hold still while a tap is answered**: drawing straight through, it was 490–940 ms;
+  the night sky with no fireworks at all measures 230–280 ms. Measured in headless Edge with the CPU
+  slowed 4× — which draws with this laptop's integrated GPU (hardware compositing and raster, checked in
+  `edge://gpu` on 2026-10-09), not without one as these notes first said, so it is no reason to expect a
+  phone to do better. Only a phone can say (LAUNCH_REPORT §9, step 13). Tried and **not kept**: a
+  compositor version of the Daily Quiz button's loops (it doubled the time) and a solid everyday header
+  (no faster). The fireworks at 30 frames a second did not change the tap either, but are kept for the
+  processor (next point).
+- **What the edition costs while it plays (nothing to decide now; one check on a real phone).** Measured
+  in headless Edge, all of its processes, motion on, on the homepage: an ordinary day uses 71–89% of one
+  core at 390px (93–94% at 1280px) — the same as the live site today. During the edition, with the night
+  sky and the fireworks, **165–225%** (220–245% at 1280px), against Phase 7a's edition at 103–128%
+  (132–153%). Thirty frames a second instead of sixty took a tenth to a third off that. A phone that
+  runs warm or drains during Diwali week would be the sign to tone it down — fewer fireworks, or the
+  fireworks on the homepage only.
+- **The first homepage visit during Diwali week.** With the intro playing — about seven seconds since
+  2026-10-09 — mobile Lighthouse measures 87–91 (target ≥ 85) and LCP 3.0–3.1 s (target 2.5 s): the
+  hero's heading beneath the intro is the largest paint. Every later visit, and every other page, is
+  unaffected (97, LCP 2.1 s).
 - **R5 (PLAN.md) — `SameSite=Lax` session cookies.** Still `None`. Changing it safely needs a staging
   copy with its own backend; every preview deployment points at the production API.
 - **Parental consent (Phase 6)** — built with the brief's wording; `LEGAL_REVIEW.md` question 8 asks

@@ -8,6 +8,7 @@ import Unauthorized from './components/Unauthorized'
 import ToastProvider from './components/ui/ToastProvider'
 import ScrollToTop from './components/ScrollToTop'
 import PageMeta from './components/PageMeta'
+import Fireworks from './components/Fireworks'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import Spinner from './components/Spinner'
 /* Eager on purpose: it is the entry route, so deferring it would add a round trip
@@ -163,6 +164,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
 export function AppRoutes() {
   return (
     <>
+      {/* The Diwali edition's night sky and its fireworks, behind every page — shown only
+          during the edition, and still for a reader who asked for less motion. */}
+      <Fireworks />
       {/* A new page starts at the top — the router keeps the old depth otherwise. */}
       <ScrollToTop />
       {/* The tab title, description, robots and canonical link of the page in view. */}

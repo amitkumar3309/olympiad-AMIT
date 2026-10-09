@@ -1,0 +1,24 @@
+/* The Diwali edition's night sky behind every page — see Fireworks.tsx. Hidden outside the dates. */
+
+.sky {
+  display: none;
+}
+
+:global(:root[data-season='diwali']) .sky {
+  display: block;
+  position: fixed;
+  inset: 0;
+  /* Behind every page: the pages are transparent during the edition (tokens.css section 10). */
+  z-index: -1;
+  background:
+    radial-gradient(ellipse 70% 45% at 75% 0%, var(--festive-night-glow), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 10% 100%, var(--festive-light-faint), transparent 70%),
+    linear-gradient(180deg, var(--festive-night-deep), var(--festive-night));
+  pointer-events: none;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

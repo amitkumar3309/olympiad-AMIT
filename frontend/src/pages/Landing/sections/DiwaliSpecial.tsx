@@ -1,5 +1,5 @@
 import { ArrowRight, Gift } from 'lucide-react'
-import { Diya, Firework } from '../../../components/Diwali'
+import { Diya } from '../../../components/Diwali'
 import { Button, ButtonLink } from '../../../components/ui'
 import styles from './DiwaliSpecial.module.css'
 
@@ -26,7 +26,6 @@ export default function DiwaliSpecial({ signedIn, registerTo, onPlay }: DiwaliSp
     <section className={`container ${styles.section}`} aria-labelledby="diwali-special-title">
       <div className={styles.band}>
         <div className={styles.art} aria-hidden="true">
-          <Firework className={styles.firework} />
           <span className={styles.gift}>
             <Gift />
           </span>

@@ -42,6 +42,18 @@ html {
 }
 
 /**
+ * The Diwali edition (Phase 7): the page is transparent (tokens.css section 10), so every
+ * page stands on the night sky drawn behind it, and what lies beyond the page — a phone's
+ * overscroll — is the night too. The browser's own controls and scrollbars are dark for the
+ * week whatever the theme: `ThemeContext` writes the theme's `color-scheme` on this element
+ * itself, which only `!important` outranks.
+ */
+:root[data-season='diwali'] {
+  background: var(--festive-night-deep);
+  color-scheme: dark !important;
+}
+
+/**
  * Body carries what every element inherits, which is how a type change reaches pages
  * nobody edited:
  *

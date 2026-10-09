@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test'
-import { expectAccessible, resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
+import { BACKEND, E2E_ADMIN, expectAccessible, fillSignIn, resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
 
 /**
  * Milestone 30 Phase 7 — the Diwali edition (`src/lib/season.ts`, `public/boot.js`).
@@ -18,11 +18,11 @@ async function at(page: Page, when: Date) {
 
 const seasonOf = (page: Page) => page.evaluate(() => document.documentElement.getAttribute('data-season'))
 const introOf = (page: Page) => page.evaluate(() => document.documentElement.getAttribute('data-intro'))
+/** The night sky behind every page, and — only while they burst — the fireworks' canvas in it. */
+const sky = (page: Page) => page.locator('[data-fireworks]')
+const fireworks = (page: Page) => page.locator('[data-fireworks][data-running="true"] canvas')
 
-/**
- * Opens the homepage and returns as soon as the intro is playing. The intro lasts 2.1 s at most,
- * and waiting for the page's `load` can take most of that, so these tests catch it at the start.
- */
+/** Opens the homepage and returns as soon as the intro is playing, without waiting for `load`. */
 async function openToIntro(page: Page) {
   await page.goto('/', { waitUntil: 'commit' })
   await page.waitForFunction(
@@ -32,6 +32,19 @@ async function openToIntro(page: Page) {
 
 test.beforeEach(async ({ request }) => {
   await resetBackend(request)
+})
+
+/**
+ * A page still drawing the fireworks is slow for this harness to close — seconds, once over a
+ * minute, against a tenth of a second for a still one — so every test leaves its page first. A
+ * reader never meets it: a reload during the edition measures a quarter of a second.
+ */
+async function leave(page: Page) {
+  await page.goto('about:blank')
+}
+
+test.afterEach(async ({ page }) => {
+  await leave(page)
 })
 
 test.describe('the edition switches itself on and off', () => {
@@ -100,8 +113,8 @@ test.describe('the intro', () => {
     test.skip(testInfo.project.name !== 'desktop', 'Checked once.')
     await at(page, DIWALI_WEEK)
     await openToIntro(page)
-    // No input at all: the timer ends it, whether or not its animation ran.
-    await page.waitForFunction(() => !document.documentElement.hasAttribute('data-intro'), null, { timeout: 4000 })
+    // No input at all: the timer ends it (7.3 s), whether or not its animation ran.
+    await page.waitForFunction(() => !document.documentElement.hasAttribute('data-intro'), null, { timeout: 10_000 })
 
     // A context made here does not inherit the config's `use`, so the address is passed on.
     const fresh = async (options: Parameters<typeof browser.newContext>[0], path: string) => {
@@ -110,6 +123,7 @@ test.describe('the intro', () => {
       await other.clock.setFixedTime(DIWALI_WEEK)
       await other.goto(path)
       const state = { season: await seasonOf(other), intro: await introOf(other) }
+      await leave(other)
       await context.close()
       return state
     }
@@ -117,6 +131,113 @@ test.describe('the intro', () => {
     expect(await fresh({}, '/#login')).toEqual({ season: 'diwali', intro: null })
     expect(await fresh({}, '/?next=/daily-quiz')).toEqual({ season: 'diwali', intro: null })
     expect(await fresh({}, '/leaderboard')).toEqual({ season: 'diwali', intro: null })
+  })
+
+  test('a signed-in student sees it once that week in the student area, and never again', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'Checked once.')
+    await seedQuiz(request)
+    await at(page, DIWALI_WEEK)
+    // Signed in without it, as from a link with a purpose; then straight into the student area.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await signIn(page)
+    expect(await introOf(page)).toBeNull()
+    await page.emulateMedia({ reducedMotion: 'no-preference' })
+    await page.goto('/dashboard')
+    await page.waitForFunction(
+      () => document.documentElement.getAttribute('data-intro') === 'play' && document.getElementById('amit-intro') !== null,
+    )
+    expect(
+      await page.evaluate(() => {
+        const intro = document.getElementById('amit-intro')!
+        return {
+          ariaHidden: intro.getAttribute('aria-hidden'),
+          controls: intro.querySelectorAll('a, button, input, select, textarea, [tabindex]').length,
+        }
+      }),
+    ).toEqual({ ariaHidden: 'true', controls: 0 })
+
+    await page.keyboard.press('Shift')
+    expect(await introOf(page)).toBeNull()
+    await expect(page.locator('#amit-intro')).toHaveCount(0)
+
+    // Seen: not on the next page, nor on the homepage.
+    await page.goto('/leaderboard')
+    await waitForApp(page)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    expect(await introOf(page)).toBeNull()
+    await page.goto('/')
+    expect(await introOf(page)).toBeNull()
+  })
+})
+
+test.describe('the whole site at night', () => {
+  test.use({ reducedMotion: 'reduce' })
+
+  test('every page is the night in either theme, with no switch left to press — and the everyday site after', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'Tokens, not layout: checked once.')
+    await seedQuiz(request)
+    // A reader who chose the light theme: during the edition it is the night all the same.
+    await page.addInitScript(() => window.localStorage.setItem('amit-theme', 'light'))
+    // The page's colour, a card's (resolved through an element, as a card paints it) and the
+    // colour scheme the browser draws its own controls in.
+    const look = () =>
+      page.evaluate(() => {
+        const probe = document.body.appendChild(document.createElement('div'))
+        probe.style.background = 'var(--surface)'
+        const card = getComputedStyle(probe).backgroundColor
+        probe.remove()
+        return { page: getComputedStyle(document.body).backgroundColor, card, scheme: getComputedStyle(document.documentElement).colorScheme }
+      })
+    const themeSwitches = page.getByRole('button', { name: /^Switch to (dark|light) mode$/ })
+
+    await at(page, DIWALI_WEEK)
+    await signIn(page)
+    // The page is see-through to the sky, the cards are the night's blue, the browser's own
+    // controls are dark — and the switch is gone, because it would change nothing.
+    expect(await look()).toEqual({ page: 'rgba(0, 0, 0, 0)', card: 'rgb(18, 30, 71)', scheme: 'dark' })
+    await expect(sky(page)).toBeVisible()
+    await expect(themeSwitches).toHaveCount(0)
+    // Still, for a reader who asked for less motion: the night, and no fireworks.
+    await expect(sky(page).locator('canvas')).toHaveCount(0)
+
+    await at(page, new Date('2026-11-16T00:00:00+05:30'))
+    await page.goto('/dashboard')
+    await waitForApp(page)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    expect(await look()).toEqual({ page: 'rgb(244, 248, 254)', card: 'rgb(255, 255, 255)', scheme: 'light' })
+    await expect(sky(page)).toBeHidden()
+    await expect(themeSwitches.filter({ visible: true })).not.toHaveCount(0)
+  })
+})
+
+test.describe('the fireworks', () => {
+  test.use({ reducedMotion: 'no-preference' })
+
+  test('burst behind the page for a reader who is fine with motion, and keep still on staff pages', async ({ page, request }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'Checked once.')
+    await at(page, DIWALI_WEEK)
+    await page.addInitScript(() => window.localStorage.setItem('amit-intro', 'diwali-2026'))
+    await page.goto('/')
+    await waitForApp(page)
+    await expect(fireworks(page)).toHaveCount(1)
+    // Drawing: with everything but the sky hidden, the screen is not the same a second later.
+    await page.addStyleTag({
+      content: 'body * { visibility: hidden !important } [data-fireworks], [data-fireworks] * { visibility: visible !important }',
+    })
+    const first = await page.screenshot()
+    await page.waitForTimeout(1500)
+    expect(first.equals(await page.screenshot()), 'the sky did not change in 1.5 s').toBe(false)
+
+    // An administrator's pages are the night, and still.
+    const provisioned = await request.post(`${BACKEND}/api/v1/auth/admin/login`, { data: { email: E2E_ADMIN.email, password: E2E_ADMIN.password } })
+    expect(provisioned.ok()).toBe(true)
+    await page.goto('/')
+    await waitForApp(page)
+    await page.getByRole('button', { name: 'I already have an account' }).click()
+    await fillSignIn(page, E2E_ADMIN.email, E2E_ADMIN.password)
+    await page.waitForURL('**/admin', { timeout: 30_000 })
+    await expect(sky(page)).toBeVisible()
+    await expect(sky(page).locator('canvas')).toHaveCount(0)
   })
 })
 
