@@ -776,7 +776,8 @@ describe('the shared screener, not the parser, judges the question', () => {
 // ---------------------------------------------------------------------------
 
 describe('per-row taxonomy from a spreadsheet', () => {
-  it('honours a Class column written as a bare number', async () => {
+  /** The owner's simplified upload (2026-10-09): the class chosen on the form is every row's. */
+  it('files every row under the class chosen on the form, saying so where the Class column differs', async () => {
     const { cookies, taxonomy } = await adminSetup();
     const bytes = await standardSheet([
       mcqRow({ Class: 10 }),
@@ -784,10 +785,11 @@ describe('per-row taxonomy from a spreadsheet', () => {
     ]);
 
     const body = await upload(cookies, taxonomy, bytes, { classLevel: 'Class 8' });
-    expect(body.questions.map((q) => q.classLevel)).toEqual(['Class 10', 'Class 9']);
+    expect(body.questions.map((q) => q.classLevel)).toEqual(['Class 8', 'Class 8']);
+    expect(notesOf(body.questions[0]!)).toMatch(/file says "10"; it goes to Class 8/);
   });
 
-  it('reports a Class of 13 with its row number, and imports the rest', async () => {
+  it('files a row whose Class is 13 under the chosen class as well, and says so', async () => {
     const { cookies, taxonomy } = await adminSetup();
     const bytes = await standardSheet([
       mcqRow(),
@@ -795,18 +797,18 @@ describe('per-row taxonomy from a spreadsheet', () => {
     ]);
 
     const body = await upload(cookies, taxonomy, bytes);
-    expect(body.questions).toHaveLength(1);
-    expect(body.rejected).toHaveLength(1);
-    expect(body.rejected[0]!.reason).toContain('Row 3');
-    expect(body.rejected[0]!.reason).toMatch(/not a class this platform runs/i);
+    expect(body.questions).toHaveLength(2);
+    expect(body.rejected).toEqual([]);
+    expect(notesOf(body.questions[1]!)).toMatch(/file says "13"/);
   });
 
-  it('reports an unknown chapter and creates nothing', async () => {
+  it('offers an unknown chapter as a new topic, and reading the file creates nothing', async () => {
     const { cookies, taxonomy } = await adminSetup();
     const bytes = await standardSheet([mcqRow({ Topic: 'Thermodynamics' })]);
 
     const body = await upload(cookies, taxonomy, bytes);
-    expect(body.rejected[0]!.reason).toMatch(/no chapter called "Thermodynamics"/i);
+    expect(body.rejected).toEqual([]);
+    expect(body.questions[0]).toMatchObject({ topic: null, topicName: 'Thermodynamics' });
 
     const topics = await request(app)
       .get(`${API}/topics?subject=${taxonomy.subjectId}`)
@@ -831,6 +833,62 @@ describe('per-row taxonomy from a spreadsheet', () => {
 
     const body = await upload(cookies, taxonomy, bytes);
     expect(body.questions[0]!.tags).toEqual(['quadratic', 'roots', 'factorising']);
+  });
+});
+
+/** A previewed question's notes, as one string. */
+function notesOf(question: Record<string, unknown>): string {
+  return (question.warnings as Array<{ message: string }>).map((warning) => warning.message).join(' ');
+}
+
+describe('the type chosen on the upload form', () => {
+  it('reads every row as that type, and reports a row marked as another', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    const bytes = await standardSheet([
+      mcqRow({ Type: '' }),
+      mcqRow({ Question: 'What is $6 \\times 6$?', 'Option A': '$36$', 'Option B': '$30$', 'Correct Answer': 'A', Type: 'single_choice' }),
+      mcqRow({
+        Question: 'The sum of the angles of a triangle is $180$ degrees.',
+        Type: 'true_false',
+        'Option A': '',
+        'Option B': '',
+        'Option C': '',
+        'Option D': '',
+        'Correct Answer': 'TRUE',
+      }),
+    ]);
+
+    const body = await upload(cookies, taxonomy, bytes, { questionType: 'single_choice' });
+    expect(body.questions.map((q) => q.type)).toEqual(['single_choice', 'single_choice']);
+    expect(body.failures).toHaveLength(1);
+    expect(body.failures[0]!.sourceRef).toBe('questions.xlsx — Row 4');
+    expect(body.failures[0]!.reason).toMatch(/marked "true_false", but this upload is for single correct questions/);
+  });
+
+  it('reads a row with two answers as multiple correct, even one labelled MCQ', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    const bytes = await standardSheet([
+      mcqRow({
+        Question: 'Which of the following are prime numbers?',
+        // "MCQ" alone means single correct when a file says its own type — not when the form has.
+        Type: 'MCQ',
+        'Option A': '$17$',
+        'Option B': '$21$',
+        'Option C': '$23$',
+        'Option D': '$27$',
+        'Correct Answer': 'A, C',
+        Solution: '$17$ and $23$ have no other divisors.',
+      }),
+    ]);
+
+    const body = await upload(cookies, taxonomy, bytes, { questionType: 'multiple_choice' });
+    expect(body.questions[0]).toMatchObject({ type: 'multiple_choice' });
+    expect((body.questions[0]!.options as Array<{ isCorrect: boolean }>).map((option) => option.isCorrect)).toEqual([
+      true,
+      false,
+      true,
+      false,
+    ]);
   });
 });
 

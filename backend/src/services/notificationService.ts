@@ -15,6 +15,7 @@ import { buildNotificationEmail } from '../lib/email';
 import {
   SYSTEM_EVENT_DEFINITIONS,
   isOptionalCategory,
+  type OptionalEmailCategory,
   type SystemEvent,
   type NotificationCopy,
 } from '../lib/systemNotifications';
@@ -198,24 +199,36 @@ export async function readCountsFor(notificationIds: Types.ObjectId[]): Promise<
 export interface NotificationPrefs {
   announcements: boolean;
   results: boolean;
+  /** The Daily Quiz reminder at 7:00 AM (Milestone 30 Phase 7b) — opt-in. */
+  dailyQuizReminders: boolean;
 }
 
-export const DEFAULT_PREFS: NotificationPrefs = { announcements: true, results: true };
+export const DEFAULT_PREFS: NotificationPrefs = { announcements: true, results: true, dailyQuizReminders: false };
 
 /**
  * The stored preferences, or the defaults for an account that has never set them.
  *
- * Missing means "never chose", and the default is **on**: a student who registered
- * before Milestone 14 was already receiving everything the platform sent, so
- * defaulting to off would silently take something away from them. New accounts get
- * the schema defaults, which are the same values.
+ * Missing means "never chose". For the two Milestone 14 streams the default is **on**:
+ * a student who registered before Milestone 14 was already receiving everything the
+ * platform sent, so defaulting to off would silently take something away from them.
+ * For the Daily Quiz reminder it is **off** (PLAN.md Q20): nobody was receiving one
+ * before, and a daily email is something a student asks for. New accounts get the
+ * schema defaults, which are the same values.
  */
 export function resolvePrefs(student: Pick<StudentDocument, 'notificationPrefs'>): NotificationPrefs {
   return {
     announcements: student.notificationPrefs?.announcements ?? DEFAULT_PREFS.announcements,
     results: student.notificationPrefs?.results ?? DEFAULT_PREFS.results,
+    dailyQuizReminders: student.notificationPrefs?.dailyQuizReminders ?? DEFAULT_PREFS.dailyQuizReminders,
   };
 }
+
+/** Which switch decides each optional stream. A `Record`, so a new stream needs a switch. */
+const PREFERENCE_FOR: Readonly<Record<OptionalEmailCategory, keyof NotificationPrefs>> = {
+  announcement: 'announcements',
+  results: 'results',
+  reminders: 'dailyQuizReminders',
+};
 
 /**
  * THE only place a preference is interpreted. Four rules, in order:
@@ -243,8 +256,7 @@ export function emailAllowedFor(
   if (!isOptionalCategory(category)) return true;
   if (student.status !== 'active') return false;
 
-  const prefs = resolvePrefs(student);
-  return category === 'announcement' ? prefs.announcements : prefs.results;
+  return resolvePrefs(student)[PREFERENCE_FOR[category]];
 }
 
 // ---------------------------------------------------------------------------

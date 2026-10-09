@@ -115,6 +115,12 @@ export interface ImportDefaults {
    * and report the row as needing review if it cannot.
    */
   questionType: QuestionType | null;
+  /**
+   * The simplified upload (owner, 2026-10-09): the form chose `questionType` for **every**
+   * question, so a row's own Type column may only agree with it — see `fixedTypeFor()`. Absent
+   * (false) for the Daily Quiz import, whose rows may still say their own.
+   */
+  typeIsFixed?: boolean;
   marks: number;
   negativeMarks: number;
   /** The topic every row is filed under unless the row names its own. */

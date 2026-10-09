@@ -327,6 +327,34 @@ Neither needs to be set for the feature to work. Add them to Vercel only if you 
 default, and — as with every backend variable — **never to the frontend project**, which reads no
 environment variables at all.
 
+## Scheduled jobs — Daily Quiz reminders and the email queue (Milestone 30 Phase 7b)
+
+| Variable | Required? | What it does | Where to get it | Example (fake) |
+| --- | --- | --- | --- | --- |
+| `JOBS_SECRET` | optional — needed only for Daily Quiz reminder emails and the every-minute email sender | The shared secret a free outside scheduler (cron-job.org) sends as `Authorization: Bearer <secret>` to `POST /api/v1/jobs/daily-quiz-reminders` (daily, 07:00 India time) and `POST /api/v1/jobs/outbox` (every minute). **At least 32 characters** (a shorter value is refused at startup); surrounding spaces are trimmed. **Unset**: both routes answer 503 naming this variable, and the Daily Quiz offers no reminders — everything else works. | You generate it (below). It is a password: never commit it, never put it in the frontend project. | `3f9c2b7e1d0a4c6b8e5f2a9d7c1b3e60f4a8d2c6b9e1f3a5c7d9b2e4f6a8c0d1` |
+
+**Generating one.** From any terminal with Node installed:
+
+```
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+That prints 64 random hex characters. Put the **same** value in two places: the backend's Vercel
+environment variables (Settings → Environment Variables → `JOBS_SECRET`, then redeploy) and the
+`Authorization` header of both cron-job.org jobs (`Bearer ` followed by the value). The step-by-step is
+in [`docs/launch/LAUNCH_REPORT.md`](docs/launch/LAUNCH_REPORT.md). To **rotate** it, generate a new one,
+replace it in both places, and redeploy the backend — the old value stops working at once.
+
+**Why it is in `.env.example` commented out.** `JOBS_SECRET=` with nothing after it is an *empty*
+value, which fails the 32-character minimum and stops the backend starting. Leave the line commented
+until you have a real value. Locally you rarely need it: the jobs can be exercised by the test suite,
+which sets its own fake secret.
+
+**Why not Vercel Cron?** The free plan's cron runs at most once a day and only to the hour, and a
+reliable minute-level schedule is a paid plan. The owner chose a free external pinger instead (see the
+Milestone 30 Phase 7b ADR in [`DECISIONS.md`](DECISIONS.md)), which is why the routes are on the public
+internet behind this secret rather than behind Vercel's own cron header.
+
 ## End-to-end test hooks (Milestone 30, Phase 2)
 
 | Variable | Required? | What it does | Where to get it | Example |
@@ -343,7 +371,9 @@ to `backend/.env`, or anywhere else** — there is no situation outside the test
 `E2E_BACKEND_PORT` (`8092`), `E2E_FRONTEND_URL` (`http://localhost:5181`), and — since Milestone 30
 Phase 5 — `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD`, the throwaway root administrator the link crawler
 signs in as, on the in-memory database only. The script turns them into `PORT`, `FRONTEND_URL`,
-`ADMIN_EMAIL` and a bcrypt `ADMIN_PASSWORD_HASH` before the app loads. They are listed, commented out,
+`ADMIN_EMAIL` and a bcrypt `ADMIN_PASSWORD_HASH` before the app loads, and — since Milestone 30 Phase
+7b — sets a test-only `JOBS_SECRET` of its own, so the Daily Quiz offers its reminder and the crawler
+checks that button too. They are listed, commented out,
 at the end of `backend/.env.example`; **never set them yourself.** And with `E2E_TEST_HOOKS=true` the
 backend does **not read `backend/.env` at all** (Phase 5), so none of your real credentials — a Gemini
 or Razorpay key — can reach the test server.

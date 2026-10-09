@@ -23,6 +23,76 @@ Branch `feat/homepage-premium`.
 - **Browser tests open on the everyday site by default** (`e2e/fixtures.ts`): the 24-hour trial, or
   the real Diwali week, no longer fails tests that are not about it.
 
+## 2026-10-09 — Uploading questions: the owner's five-field form, with no chapter to choose
+
+The owner's request of 2026-10-09: "simplify the question upload process for admin, remove the part where
+he/she has to choose the chapters" — choose the file type, the class, the question type and an optional
+topic, give the answers, submit, and see the questions in that class. Branch `feat/simple-question-upload`.
+
+- **The form** (Admin → Bulk Import): 1. Word, Excel, CSV, JSON or Photo · 2. the class, 3 to 12 ·
+  3. the type — MCQ (more than one correct), single correct, fill in the blank, true or false · 4. a topic,
+  optional · 5. the file or photos. Difficulty and marks moved under "More settings". No chapter, no
+  subtopic, nothing to create under Chapters first.
+- **The form decides.** The class and the type chosen are every question's: a file naming another class
+  is noted on the question; a row marked as another type is reported (a bare "MCQ" is not, since a file has
+  always meant single correct by it). The hint under the type says how to write the answer in the file.
+- **The topic is a name** — typed, else the file's own, else the chapter the question's words point to,
+  else General — and **becomes a chapter when the questions are saved** (never by reading the file), for
+  a staff member who may manage chapters, each one audited. Every card shows "Class 7 · Mensuration" and
+  marks a topic saving will add.
+- **Each card asks for the answer its type needs**: one option marked (radio buttons) for single correct,
+  several for MCQ, True / False for true or false (nothing chosen until you choose), the accepted answers
+  for fill in the blank — whose box no longer swallowed the `|` as it was typed.
+- **"It should reflect in the chosen class"**: the confirmation says "Saved 12 questions to Class 7", names
+  any topic added, and links to the question bank filtered to that class — the bank now reads its filters
+  from the address, so the old "Open the question bank" link's `?source=` stopped being ignored.
+- Unchanged: questions are saved as drafts (a Daily Quiz needs one; "Save and publish to Practice" is
+  beside it), one screener, re-validation on saving, provenance from the batch. **The Daily Quiz import
+  reads files as before** — its file's class and chapter decide, and an unknown chapter is refused.
+- Tests: **1415 backend tests across 39 files** (+16: the form's class, type and topic; General; a typed
+  topic matched whatever its case; a new topic made once on saving and audited; an archived one refused;
+  no chapter without the permission; the dry run on a new topic; the real Excel and Word readers with a
+  fixed type; pictures with no chapter). The photo browser test drives the new form to the filtered bank.
+
+## 2026-10-09 — Milestone 30 Phase 7b: Daily Quiz reminder emails
+
+The owner's request of 2026-10-08 (PLAN.md Q20): "Daily Quiz reminder emails: opt-in, at 7:00 AM IST".
+Branch `feat/daily-quiz-reminders`.
+
+### Students
+- **A reminder at 7:00 AM, only if you ask for one.** On the Daily Quiz card, one tap — **Email me a
+  reminder at 7 AM** — or the new **Daily Quiz reminder** switch in My Profile → Notification
+  preferences. Off for everybody until they turn it on.
+- The email arrives on a day your class has a quiz you have not started, and says only what the quiz
+  card says before Start — the classes, the topic, and that it is open until 11:59 PM tonight, India
+  time. **Never the question.** It ends with how to turn reminders off.
+- The card offers a reminder only when one will really be sent; once on, it says so and where to turn
+  it off.
+
+### Staff
+- **Admin → Daily Quiz → Settings → Reminder emails**: a switch for the whole programme, **Most
+  reminders a day** (0–300, default 100 — the email provider's free quota is 300 a day and sign-ups
+  share it), and a **Last run** line showing what the job did the last time the scheduler called it,
+  so you can see it is working. A warning appears when the server has no scheduler secret.
+- The delivery console can filter by the new `reminders` category.
+
+### Under the hood
+- **Two scheduled-job routes** for a free outside scheduler (cron-job.org): `POST /jobs/daily-quiz-reminders`
+  (daily, 07:00 India time) and `POST /jobs/outbox` (every minute — which finally gives the email queue a
+  deadline on a quiet site, known bug #41). Both need `Authorization: Bearer <JOBS_SECRET>` — a new
+  optional environment variable, compared in constant time; unset, they answer 503 naming it.
+- **The outbox sends in priority order** — account emails first, then announcements and results, then
+  reminders — so a verification link never waits behind a batch of reminders.
+- **Reminder rows expire 14 days after they are queued** (a TTL index on `expiresAt`, which no other
+  email has — every other delivery record is still kept).
+- One reminder per student per day, whatever the scheduler does; the daily cap counts what is already
+  queued; when the cap bites, who is left out rotates daily.
+- Tests: backend **1421 / 40** — `tests/dailyQuizReminders.test.ts` (22). The browser suite's backend now
+  sets a test-only scheduler secret, so the link crawler checks the reminder button too.
+- **Owner action**: generate a `JOBS_SECRET`, add it to the backend on Vercel, and create the two
+  cron-job.org jobs — step by step in `docs/launch/LAUNCH_REPORT.md`. Until then nothing changes for
+  students: no reminder is offered.
+
 ## 2026-10-09 — The Diwali edition on the live site for 24 hours, for testing
 
 The owner's request of 2026-10-09: "make the diwali theme go live for 24 hours from now for testing

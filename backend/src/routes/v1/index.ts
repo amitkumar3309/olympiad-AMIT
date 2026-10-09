@@ -26,6 +26,7 @@ import contentResetRoutes from './contentReset.routes';
 import referralRoutes from './referrals.routes';
 import miscRoutes from './misc.routes';
 import paymentRoutes from './payments.routes';
+import jobRoutes from './jobs.routes';
 
 const router = Router();
 
@@ -64,6 +65,8 @@ router.use(usersRoutes);
 router.use(contentResetRoutes);
 router.use(referralRoutes);
 router.use(paymentRoutes);
+// The scheduled jobs (Milestone 30 Phase 7b): an outside scheduler with JOBS_SECRET, never a person.
+router.use(jobRoutes);
 router.use(miscRoutes);
 
 export default router;

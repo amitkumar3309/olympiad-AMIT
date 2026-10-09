@@ -88,3 +88,22 @@ test('a second submission never changes the first', async ({ page, request }) =>
   expect(replay.alreadySubmitted).toBe(true)
   expect(replay.result?.isCorrect).toBe(false)
 })
+
+/**
+ * The 7:00 AM reminder (Milestone 30 Phase 7b, PLAN.md Q20): offered under today's quiz with one
+ * tap, saved to the same switch as My Profile, and confirmed where the button was.
+ */
+test('a student turns on the 7 AM reminder from the quiz card, and My Profile shows it on', async ({ page, request }) => {
+  await seedQuiz(request)
+  await signIn(page)
+
+  await page.goto('/daily-quiz')
+  await expect(page.getByRole('heading', { name: 'Today’s question is ready' })).toBeVisible()
+  await page.getByRole('button', { name: 'Email me a reminder at 7 AM' }).click()
+  await expect(page.getByText('Done — reminders are on:')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Email me a reminder at 7 AM' })).toHaveCount(0)
+  await expectAccessible(page, 'the quiz with its reminder on')
+
+  await page.goto('/profile#notification-preferences')
+  await expect(page.getByRole('checkbox', { name: /Daily Quiz reminder/ })).toBeChecked()
+})

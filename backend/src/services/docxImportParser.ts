@@ -3,6 +3,7 @@ import { QUESTION_TYPES, type QuestionType } from '../models/Question';
 import { containsWordEquations, looksLikeWordDocument, looksLikeWorkbook } from '../lib/ooxml';
 import {
   countAnswerTokens,
+  fixedTypeFor,
   inferType,
   normaliseLabel,
   readAcceptedAnswers,
@@ -364,7 +365,11 @@ export function readBlock(block: Block, defaults: ImportDefaults): BlockOutcome 
 
   // ---- Type ---------------------------------------------------------------
   let type: QuestionType;
-  if (statedType) {
+  if (defaults.typeIsFixed && defaults.questionType) {
+    const fixed = fixedTypeFor(statedType, defaults.questionType);
+    if ('reason' in fixed) return fail(fixed.reason);
+    type = fixed.type;
+  } else if (statedType) {
     const resolved = readQuestionType(statedType);
     if (!resolved) {
       return fail(`"${statedType}" is not a question type. Use one of: ${QUESTION_TYPES.join(', ')}.`);

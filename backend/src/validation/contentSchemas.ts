@@ -179,6 +179,8 @@ export const updateNotificationPrefsSchema = z
   .object({
     announcements: z.boolean().optional(),
     results: z.boolean().optional(),
+    /** The Daily Quiz reminder at 7:00 AM (Milestone 30 Phase 7b) — off until turned on. */
+    dailyQuizReminders: z.boolean().optional(),
   })
   .refine((body) => Object.keys(body).length > 0, 'Choose at least one preference to change');
 export type UpdateNotificationPrefsInput = z.infer<typeof updateNotificationPrefsSchema>;

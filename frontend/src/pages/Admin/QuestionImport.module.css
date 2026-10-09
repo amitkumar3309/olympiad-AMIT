@@ -1,5 +1,5 @@
 /*
- * Bulk import (Milestone 21, Phase F).
+ * Bulk import (Milestone 21, Phase F; the owner's simpler form since 2026-10-09).
  *
  * Follows the AI generator's review styling closely on purpose: the two screens do the same job —
  * candidates, warnings, per-card verdicts, approve — and an examiner who has learned one should
@@ -21,7 +21,6 @@
 
 /* ---------------------------------------------------------------- format tabs */
 
-.formats h2, .formats h3,
 .uploadCard h2, .uploadCard h3,
 .counts h2, .counts h3,
 .reviewBar h2, .reviewBar h3,
@@ -70,21 +69,6 @@
   color: var(--text-muted);
 }
 
-.basis {
-  margin: 12px 0 0;
-  font-size: var(--text-sm);
-  color: var(--text-muted);
-  line-height: 1.55;
-}
-
-/* A model really did read the file, so the page says so plainly. */
-.modelTag {
-  margin: 8px 0 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--primary-text);
-}
-
 .offNotice {
   margin: 10px 0 0;
   padding: 10px 14px;
@@ -120,6 +104,33 @@
 }
 
 /* ---------------------------------------------------------------- upload form */
+
+/* The format choice: one answer to one question, so a fieldset with the question as its legend. */
+.field {
+  min-width: 0;
+  margin: var(--space-4) 0;
+  padding: 0;
+  border: 0;
+}
+
+.field legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-weight: var(--weight-semibold);
+}
+
+/* Difficulty and marks, out of the way: most uploads want the defaults. */
+.more {
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.more summary {
+  margin-bottom: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
 
 .grid {
   display: grid;
@@ -236,44 +247,6 @@
   padding-left: 20px;
   font-size: var(--text-sm);
   line-height: 1.7;
-}
-
-/*
- * The missing-chapter offer.
- *
- * Given its own box, above the plain rejection lists, because it is the one refusal on this screen
- * an examiner can act on — and because the names have to be *read* before the button is pressed.
- * A flat bullet in a list of ten identical "there is no chapter called X" messages is exactly what
- * made this feature look broken rather than answerable.
- */
-.missingChapters {
-  margin: 14px 0;
-  padding: 14px 16px;
-  border: 1px solid var(--warning);
-  border-radius: var(--radius-xs);
-  background: var(--warning-soft);
-}
-
-.missingChapters h4 {
-  margin: 0 0 6px;
-  font-size: var(--text-sm);
-  text-transform: uppercase;
-  color: var(--text-strong, inherit);
-}
-
-.missingHint {
-  margin: 6px 0 10px;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--text-muted);
-}
-
-.missingList {
-  margin: 0 0 12px;
-  padding-left: 20px;
-  font-size: var(--text-sm);
-  line-height: 1.8;
-  font-weight: 600;
 }
 
 .warnBox {
@@ -521,28 +494,53 @@
   font-weight: 600;
 }
 
-/* ---------------------------------------------------------------- placement */
+/* ---------------------------------------------------------------- where it goes */
 
-.placement {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-}
-
-.placement label {
+/* The form's class and the question's topic — shown, not edited on the card (2026-10-09). */
+.metaLine {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
 
-.placement span {
+/* A topic saving will add as a chapter. */
+.newTag {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--info-soft);
+  color: var(--info-text);
   font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
-  color: var(--text-muted);
-  font-weight: 700;
+}
+
+/* True or false as two choices: nothing is chosen until the examiner chooses. */
+.answerChoice {
+  min-width: 0;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.answerChoice legend {
+  margin-bottom: var(--space-1);
+  padding: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.answerChoice label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target);
+  margin-right: var(--space-5);
+  cursor: pointer;
 }
 
 .qActions {

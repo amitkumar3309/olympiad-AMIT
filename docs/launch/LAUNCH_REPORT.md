@@ -1,8 +1,9 @@
 # A.M.I.T. Olympiad — Diwali launch report
 
 _Launch: **Sunday 8 November 2026**. Written 2026-10-06 at the end of Milestone 30, Phase 6 (brief §10–11);
-updated 2026-10-09 for Phase 7a (your requests of 8 October — §1, §6b) and for the monthly Daily Quiz
-prize (your request of 9 October — §5)._
+updated 2026-10-09 for Phase 7a (your requests of 8 October — §1, §6b), for the monthly Daily Quiz
+prize (your request of 9 October — §5), and for Phase 7b — picture questions and **Daily Quiz reminder
+emails**, which need three steps from you before they send anything (§8, step 12)._
 
 This is the one page to read before launch. It says what was built, how to run it, how to fill the
 Daily Quiz and pay out its prizes, what is still yours to do, and how to launch and — if needed — roll
@@ -27,11 +28,13 @@ The launch brief (`docs/launch/LAUNCH_SPEC.md`) in seven phases — merged as pu
 | 6 — Launch readiness | Search and sharing, accessibility, security headers, parental consent, crash page, performance, this report |
 | 7a — Your requests of 8 Oct | The address `www.amitolympiad.me`; the first administrator can be created from the sign-in box (D10); **Past Daily Quizzes**, a public archive; **the Diwali edition** (§6b) with its intro and the Diwali 2026 badge |
 | Your follow-ups of 9 Oct | The hero's picture of the day; the founder's quotes signed "— Amit"; the Diwali edition made immersive (the whole site at night, fireworks behind every page); **monthly winners** instead of daily ones (§5) |
+| 7b — Your requests of 8 Oct, second half | **Picture questions** (the uploaded picture is the question; no OCR); **Daily Quiz reminder emails** — a student who asks gets an email at 7:00 AM on days their class has a quiz they have not started (§8, step 12) |
 
 **The checks that guard it** — run before every commit:
 
-- **Backend: 1,399 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
-  student response carries the answer before midnight).
+- **Backend: 1,421 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
+  student response carries the answer before midnight) and the reminder email's own check that it never
+  carries the question.
 - **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 86 tests, about fifteen minutes) — the
   Diwali edition on its dates and off either side of them, the archive,
   the quiz from start to the next day's reveal, registration → email → quiz, the dashboard,
@@ -78,6 +81,7 @@ that matter on launch day are:
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Taking the entry fee |
 | `INVOICE_ORG_NAME`, `INVOICE_ORG_EMAIL`, `INVOICE_ORG_PHONE` (and `INVOICE_GSTIN` if registered) | What an invoice and the support line say |
 | `GEMINI_API_KEY` | Optional — only the AI question drafting uses it |
+| `JOBS_SECRET` | Optional — the password the outside scheduler uses for the Daily Quiz reminders and the every-minute email sender. Without it no reminder is offered or sent (§8, step 12) |
 
 ## 4. Scheduling the Daily Quiz
 
@@ -117,10 +121,18 @@ what those students were asked.
 question): Admin → Question Bank → **New question** → **Picture of the question** → choose the picture,
 then **describe it in one line** — a screen reader says that line instead of the picture, so for a
 student who cannot see it, that line is the question. Type the options and mark the right one as usual.
-The worked solution can be written, or be a second picture (**Picture of the worked solution**). Many at
-once: Admin → **Bulk Import** → **Pictures** → choose a chapter and up to 20 pictures → **Prepare the
-pictures**, then describe and answer each card and approve. Pictures are made smaller before they are
-uploaded, so a phone photograph is fine; crop each to its one question. Then schedule it like any other.
+The worked solution can be written, or be a second picture (**Picture of the worked solution**).
+
+**Many questions at once** (simplified on 9 October, as you asked): Admin → **Bulk Import**, then
+1. what you are uploading — **Word, Excel, CSV, JSON or Photo**; 2. the **class**; 3. the **question type**
+— MCQ (more than one correct), single correct, fill in the blank, or true or false; 4. a **topic** if you
+want one (leave it blank and the file's own topic is used, or "General"); 5. the file, or up to 20 photos.
+Press **Read the questions** (or **Upload the photos**): each question appears as a card — for a photo,
+describe it in one line and give its answer in the boxes its type shows. Then **Save … to Class 7**. The
+questions are saved to that class as drafts (ready to schedule as a Daily Quiz; **Save and publish to
+Practice** publishes the ones that have a solution), a new topic becomes a chapter, and the link under the
+message opens the question bank on that class. For Excel, CSV and JSON, **Download the Excel template**
+first; for Word, the box under the file field shows how to write each question.
 
 ## 5. Choosing, confirming and announcing winners
 
@@ -157,7 +169,7 @@ The **Prize desk** tab lists every confirmed winner across months, with what is 
 
 | Where | What |
 |---|---|
-| Admin → Daily Quiz → Settings | Prize headline and wording and the **cash amount** (blank = "cash prize" with no figure) — what each month's four winners each receive — and whether right/wrong shows at once |
+| Admin → Daily Quiz → Settings | Prize headline and wording and the **cash amount** (blank = "cash prize" with no figure) — what each month's four winners each receive — and whether right/wrong shows at once. **Reminder emails**: the switch for all of them, the **most a day** (default 100 — your email service's free 300 a day is shared with sign-ups), and the **Last run** line that shows the scheduler is calling |
 | Admin → Payments | The **entry fee** (₹199 now) and the switch that turns it off (e.g. during a payment-provider outage) |
 | Admin → XP awards | How much XP each event earns (history is never re-priced) |
 | Admin → Referrals | Whether referrals earn anything, and how much (off by default) |
@@ -216,6 +228,7 @@ still sees the launch moment again in November. To hide it on one phone before t
 | **Legal pages are drafts** | Marked `TODO(legal-review)`; they invent no business term | Your lawyer — `LEGAL_REVIEW.md` |
 | **Consent cannot be withdrawn on the site** | A parent who withdraws consent writes to support | A legal-review decision first |
 | **Illustrations are placeholders** | Soft tinted shapes where the mockup has art | Drop the files in — `ASSETS_NEEDED.md`, no code change |
+| **Reminders depend on an outside scheduler** | The 7:00 AM reminders and the every-minute email sender are calls from cron-job.org (free). If it is down or the job is switched off, no reminder goes out that day — and emails go back to being sent when somebody next uses the site, as before | Look at the **Last run** line (Admin → Daily Quiz → Settings) now and then, and turn on cron-job.org's failure emails (§8, step 12) |
 
 ## 8. Your action list before launch
 
@@ -249,6 +262,71 @@ Do these in order; each says exactly where.
     **Metrics → Data Size** (the free tier holds 512 MB). A picture is about 100 KB; a picture question
     with a picture solution for all three class groups every day would be about 220 MB a year. When it
     passes about 400 MB, ask for the pictures to move to file storage (a contained change).
+12. **Turn on Daily Quiz reminder emails** (about 15 minutes; free). Until you do, nothing changes for
+    students — the Daily Quiz simply offers no reminder. Three parts: make a secret, give it to the
+    backend, and ask a free scheduler to call the site with it.
+
+    **A. Make the secret** — a long random password that only the backend and the scheduler know.
+    1. Open a terminal on your computer (Windows: press **Start**, type `cmd`, press **Enter**).
+    2. Paste this line and press **Enter**:
+       `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+    3. It prints 64 letters and digits. **That is the secret.** Copy it into your password manager. Do not
+       email it, paste it into a chat, or save it in a file inside the project. (No Node on this computer?
+       Any password generator set to at least 40 random letters and digits works too.)
+
+    **B. Give it to the backend.**
+    1. Go to **vercel.com** and open the **backend** project (`amit-olympiad`).
+    2. **Settings → Environment Variables → Add**. Key: `JOBS_SECRET`. Value: paste the secret.
+       Environment: **Production**. Press **Save**.
+    3. **Deployments** → the newest production deployment → **⋯** → **Redeploy** → confirm, and wait for
+       **Ready** (the backend only reads its variables when it starts).
+    4. Check: sign in as the administrator, open **Admin → Daily Quiz → Settings**, scroll to **Reminder
+       emails**. The yellow box "The scheduler is not set up" should be gone. (If it is still there, the
+       variable was not saved or the redeploy has not finished.)
+
+    **C. Create two jobs on cron-job.org** (free; its screens change now and then, but the fields keep
+    these names).
+    1. Go to **cron-job.org** → **Sign up** → confirm your email → sign in.
+    2. Press **Create cronjob** and fill in:
+       - **Title**: `AMIT — send queued email`
+       - **URL**: `https://amit-olympiad.vercel.app/api/v1/jobs/outbox` (your backend's address — the one
+         in `frontend/vercel.json`'s `/api` line; change it if your backend lives elsewhere)
+       - **Execution schedule**: **every 1 minute**
+       - Under **Advanced**: **Request method** → **POST**; **Headers** → **Add**: key `Authorization`,
+         value `Bearer ` followed by your secret — the word Bearer, **one space**, then the secret, all on
+         one line; **Time zone** → **Asia/Kolkata**.
+       - Press **Save**.
+    3. Press **Create cronjob** again for the second job:
+       - **Title**: `AMIT — Daily Quiz reminders`
+       - **URL**: `https://amit-olympiad.vercel.app/api/v1/jobs/daily-quiz-reminders`
+       - **Execution schedule**: **every day at 07:00**
+       - Under **Advanced**: method **POST**, the same `Authorization` header, **Time zone** →
+         **Asia/Kolkata** (this is what makes 07:00 mean 7:00 AM India time).
+       - Press **Save**.
+    4. Optional but wise: in each job's **Notifications**, tick **notify me when an execution fails**.
+
+    **D. Check it worked.**
+    1. On cron-job.org, open the **send queued email** job and press **Test run** (or wait a minute and
+       open its **History**). The response should be **200** with text starting `{"success":true,"drain":`.
+       - **401** — the header is wrong: it must be exactly `Bearer `, one space, then the secret.
+       - **503** — the backend has no secret: redo part B, including the **Redeploy**.
+       - **404** — the method is GET: change it to **POST**.
+       - **403** ("did not come from the website") — the job is sending an `Origin` or `Referer` header;
+         delete it. `Authorization` is the only header the jobs need.
+    2. The next morning after 7:00, open **Admin → Daily Quiz → Settings → Reminder emails**. The line
+       under the settings reads **"Last run (today's date) • 7:00 AM: … queued"**. "Not run yet" means the
+       reminders job has not reached the site — look at that job's **History** on cron-job.org.
+    3. To see a real reminder: sign in as a test student whose class has a quiz tomorrow, open the Daily
+       Quiz and press **Email me a reminder at 7 AM** (or tick **Daily Quiz reminder** in My Profile →
+       Notification preferences). The email arrives a little after 7:00 the next morning.
+       (**Test run** on the reminders job sends today's reminders at once — to every student who has
+       turned them on and not started today's quiz — so only use it when you mean to. Running it twice is
+       harmless: nobody gets two on the same day.)
+
+    To change the secret later: make a new one (part A), replace it in Vercel and redeploy (part B), then
+    edit the `Authorization` header of **both** jobs. The old one stops working at once. The scheduler
+    calls the site about 1,440 times a day; that is well inside Vercel's free plan, but glance at Vercel →
+    **Usage** after the first week.
 
 ## 9. The phone checklist — 15 minutes, on your own phone
 
@@ -292,7 +370,8 @@ both deploy when a pull request is merged into `main`.
 1. `https://<your-site>/` loads; `https://<your-api>/health` answers `{"success":true…}`.
 2. Sign in as a student → dashboard → Daily Quiz page shows today's quiz.
 3. Sign in as the administrator → Admin → Daily Quiz: today and the next days have quizzes, no warnings.
-4. Admin → Email delivery: the newest emails are **SENT**, not waiting.
+4. Admin → Email delivery: the newest emails are **SENT**, not waiting. If you turned reminders on (§8,
+   step 12), Admin → Daily Quiz → Settings also shows a **Last run** from this morning.
 5. `https://<your-site>/robots.txt` and `/sitemap.xml` show your domain.
 6. Paste `https://<your-site>/leaderboard` straight into the address bar: the leaderboard opens, not the
    homepage. (The homepage is a page of its own now; every other address is served the app's shell.)

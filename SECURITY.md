@@ -533,6 +533,7 @@ Not done, and worth knowing: the image is **not** re-encoded or stripped of meta
 - `JWT_SECRET` is **mandatory in production** — the process throws at startup rather than falling back to a default.
 - `.env*` is gitignored, with `!.env.example` so the placeholder template stays tracked. `backend/.env` has never been committed (verified against git history).
 - `ADMIN_PASSWORD_HASH` and `SMTP_PASS` are secrets; the former must be a bcrypt hash, never a plaintext password.
+- `JOBS_SECRET` (Milestone 30 Phase 7b) is a secret: the scheduler's bearer token for `POST /jobs/*`. At least 32 characters (a shorter one is refused at startup), set in the backend's Vercel project and in the scheduler's job headers, nowhere else — never in the frontend project, never in the repository. See "Scheduled jobs" below.
 
 ## Audit Logging
 
@@ -750,6 +751,51 @@ mounted only when `E2E_TEST_HOOKS=true`; `config` forces that off when `NODE_ENV
 hook refuses unless the connected database's name ends in `-e2e`. They are mounted ahead of the rate
 limiter and the origin check, which is acceptable only because of those locks. A backend test asserts
 they answer 404 in a normal app.
+
+## Scheduled jobs and the Daily Quiz reminders (Milestone 30 Phase 7b)
+
+`POST /jobs/daily-quiz-reminders` and `POST /jobs/outbox` (`routes/v1/jobs.routes.ts`) are on the
+public internet, because the scheduler that calls them is: the owner chose a free external pinger
+(cron-job.org) over paid Vercel Cron. What stands in front of them:
+
+1. **A bearer secret, `JOBS_SECRET`, compared in constant time.** The scheduler sends
+   `Authorization: Bearer <secret>`. The comparison is `crypto.timingSafeEqual` over the **SHA-256 of
+   each side**: constant-time, so a guess that gets more characters right is not measurably faster;
+   and over digests, so both buffers are always 32 bytes (`timingSafeEqual` throws on a length
+   mismatch) and neither the comparison nor an exception reveals the secret's length. A missing or
+   wrong token is **401** with `WWW-Authenticate`; an unset secret is **503** naming the variable, so
+   an unconfigured deployment fails closed rather than open. The secret is at least 32 characters
+   (64 hex characters as generated), which no rate of guessing reaches.
+2. **Checked before any database work.** The gate runs before `ensureDb`, so a flood of wrong secrets
+   costs one hash each and touches nothing; the general rate limiter applies as well.
+3. **Never logged.** `lib/logger.ts` redacts the `authorization` header from the request log (since
+   the first half of Phase 7b, which redacted the session cookies for the same reason), and the
+   refusal's own log line records the path and the client address, never the presented value.
+4. **The CSRF check is not weakened for them.** A scheduler sends no `Origin`, which the origin check
+   already passes as a non-browser client; a browser cannot forge the request usefully because the
+   secret is in no page and no bundle.
+5. **What a stolen secret could do is bounded.** It can make the reminder job run again — which sends
+   nobody a second email (one dedupe key per student per day) and never more than the daily cap — and
+   drain the outbox early, which sends only mail that was already going to be sent. It reads nothing
+   and exposes no data: both routes answer with counts. Rotate it by replacing the value in Vercel
+   and in the scheduler and redeploying.
+
+**What the reminder email does not contain.** The question, any option, the solution, or anything
+derived from them. It names the class range, the topic and the closing time — what the quiz card
+shows before Start. The reason is the solve-time rule: the question appears only at Start so that
+nobody can read it, work it out and then start the clock, and an email carrying it would give every
+reader exactly that head start (and an inbox is easier to share than a signed-in page). The builder's
+input type admits no question field, and a test schedules a quiz with marker text in its question,
+options and solution and asserts none of it reaches either part of the email. Like every email here it
+loads nothing — no image, font or tracking pixel — and its one link is to `/daily-quiz`.
+
+**Reminders are opt-in, and the switch is the student's.** `notificationPrefs.dailyQuizReminders` is
+off on every account until the student turns it on; `emailAllowedFor(student, 'reminders')` — the one
+interpreter of a preference — also refuses a suspended or deactivated account and one with no address,
+and the job asks only for verified addresses. Every reminder says how to turn reminders off. The daily
+cap (staff-editable, at most 300 — the provider's whole free quota) and the send order (account mail
+first, reminders last) keep a reminder batch from starving verification links, which is an
+availability property: a student who cannot get their link cannot sign in.
 
 ## Remaining Gaps, in priority order
 
@@ -1108,9 +1154,11 @@ because what it receives is whatever the review screen sent after the examiner c
 candidate is **rejected and reported, never repaired**. Nothing is stored before a human approves it,
 and questions are created as `draft`: importing is not publishing.
 
-A parser also cannot supply an id — it reports the taxonomy it read as *names*, resolved server-side —
-so **an importer cannot create taxonomy rows**. One bad spreadsheet cannot reshape the syllabus; an
-unknown chapter is an error reported against that row.
+A parser also cannot supply an id — it reports the taxonomy it read as *names*, resolved server-side.
+**Since 2026-10-09 the question upload makes a chapter of a topic name the bank lacks** (the owner removed
+choosing chapters), but only when the questions are **approved** — the preview writes nothing — only for a
+caller who holds `taxonomy:write`, through `createTopic()` and its rules, and each one is audited as
+`topic.changed`. The Daily Quiz import still refuses an unknown chapter against its row.
 
 ### Open, and deliberately not attempted
 

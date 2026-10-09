@@ -104,6 +104,15 @@ export const SYSTEM_EVENT_DEFINITIONS: Record<SystemEvent, SystemEventDefinition
 };
 
 /**
+ * The streams a student may switch off — each one has a switch in
+ * `Student.notificationPrefs`, and `emailAllowedFor()` maps it to that switch. `reminders`
+ * (the Daily Quiz reminder, Milestone 30 Phase 7b) is the third, and the only one that is
+ * off until the student turns it on.
+ */
+export const OPTIONAL_EMAIL_CATEGORIES = ['announcement', 'results', 'reminders'] as const satisfies readonly EmailCategory[];
+export type OptionalEmailCategory = (typeof OPTIONAL_EMAIL_CATEGORIES)[number];
+
+/**
  * True when a student may switch this stream off.
  *
  * `security` cannot be switched off, and that is a deliberate asymmetry rather than
@@ -112,9 +121,11 @@ export const SYSTEM_EVENT_DEFINITIONS: Record<SystemEvent, SystemEventDefinition
  * option to silence them would be a feature for an attacker. `transactional` is not
  * optional either, for the simpler reason that without it the account cannot be used
  * at all.
+ *
+ * A type guard, so the code after it knows which switch to read.
  */
-export function isOptionalCategory(category: EmailCategory): boolean {
-  return category === 'announcement' || category === 'results';
+export function isOptionalCategory(category: EmailCategory): category is OptionalEmailCategory {
+  return (OPTIONAL_EMAIL_CATEGORIES as readonly EmailCategory[]).includes(category);
 }
 
 // ---------------------------------------------------------------------------

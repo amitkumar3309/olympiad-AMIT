@@ -170,7 +170,7 @@ Diwali edition; **7b** picture questions and Daily Quiz reminders.
 | Q17 | **The Diwali edition, 8–15 November 2026 only, then back to normal**: the Diwali landing mockup (supplied in chat) and "the Diwali launch moment" intro (dark, 3-2-1, a diya lights, equations glow, the name, the line). Asked and answered: the hero says **"Launched this Diwali · A brighter mind for a brighter future"** with a countdown to today's quiz closing — not the mockup's launch countdown, "Notify me" email box or "Early access", untrue from 8 November; the intro ends on **"Think • Solve • Grow"** (the logo's line, not "Conquer"); other pages get **festive touches** (lights, a greeting, a gold glow), not a full recolour; **fixed in code**. | `lib/season.ts`, `public/boot.js` — 7a |
 | Q18 | **A real Diwali 2026 badge**, so the Diwali Special strip's promise is true: answer any Daily Quiz from 8 to 15 November. | The `diwali_2026` achievement — 7a |
 | Q19 | **Picture questions instead of OCR, "as of now"**: the uploaded image *is* the question, the admin types the options and marks the right one, the worked solution is a second picture, plus a one-line description for screen readers. | 7b — **built 2026-10-09** (`feat/picture-questions`; §5c) |
-| Q20 | **Daily Quiz reminder emails: opt-in, at 7:00 AM IST.** | 7b |
+| Q20 | **Daily Quiz reminder emails: opt-in, at 7:00 AM IST.** | 7b — **built 2026-10-09** (`feat/daily-quiz-reminders`; §5c). Owner action: `JOBS_SECRET` and two cron-job.org jobs (LAUNCH_REPORT §8, step 12) |
 | Q21 | (2026-10-09) **The hero's empty square gets a picture — "positive and motivational", "updated regularly".** | Seven drawn pictures, a different one each day (`PictureOfTheDay`) — owner's follow-up |
 | Q22 | (2026-10-09) **The quotes are the founder's: sign them "— Amit", not "— A.M.I.T."** | `FOUNDER` (`lib/brand.ts`): the hero's quote, the student motto and the dashboard's thought — owner's follow-up |
 | Q23 | (2026-10-09) **The Diwali intro "very fast … keep it a bit slow, engaging and immersive"; the fireworks "more realistic and dynamic", bursting "at different random places"; "full immersive for home page and logged in users as well".** Asked and answered: **the whole site at night** for the week — the homepage and every signed-in page, in either theme, with fireworks bursting at random places behind the content (superseding Q17's "festive touches, not a full recolour") — and the intro **once that week** for a signed-in student too. | The intro about seven seconds, a second per number (`DiwaliIntro`, `INTRO_MS` 7300); the dark values under `data-season` (`tokens.css` §10); `components/Fireworks` — a canvas drawn in a worker (`lib/fireworks/`); `DiwaliIntroPlayer` in the student area — owner's follow-up |
@@ -233,6 +233,12 @@ Diwali edition; **7b** picture questions and Daily Quiz reminders.
   this reason.
 
 ### Daily Quiz reminders (Q20)
+
+> **Built 2026-10-09** on `feat/daily-quiz-reminders`, as planned below. Additions made while building
+> it: a run also records `enabled`, `alreadyReminded` and `failed`; the admin settings response says
+> whether the server has the secret (`scheduler.configured`, never the value), so the page can explain
+> an empty "Last run"; the browser suite's backend sets a test-only secret so the crawler covers the
+> reminder button. See the ADR of 2026-10-09 in `DECISIONS.md`.
 
 - **Opt-in per student**: `notificationPrefs.dailyQuizReminders`, **off** unless the student turns it
   on — in My Profile, and with one tap on the Daily Quiz page. A new optional email category,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../../api/client'
 import { loadChapters } from '../../api/implicitSubject'
 import {
@@ -68,6 +68,20 @@ const EMPTY_FILTERS = {
   source: '',
 }
 
+/**
+ * The filters an address asks for. The upload page links here with the class and the source of what
+ * it just saved ("it should reflect in the respective chosen class" — owner, 2026-10-09), and before
+ * this every such link opened the whole bank, its `?source=` quietly ignored.
+ */
+function filtersFrom(params: URLSearchParams): typeof EMPTY_FILTERS {
+  const filters = { ...EMPTY_FILTERS }
+  for (const key of ['status', 'topic', 'classLevel', 'difficulty', 'type', 'tag', 'source'] as const) {
+    const value = params.get(key)
+    if (value) filters[key] = value
+  }
+  return filters
+}
+
 export default function Questions() {
   const { can } = useAuth()
   const canDelete = can('questions:delete')
@@ -79,7 +93,8 @@ export default function Questions() {
   const [notice, setNotice] = useState('')
   const [busyId, setBusyId] = useState('')
 
-  const [filters, setFilters] = useState(EMPTY_FILTERS)
+  const [searchParams] = useSearchParams()
+  const [filters, setFilters] = useState(() => filtersFrom(searchParams))
   const [appliedSearch, setAppliedSearch] = useState('')
   const [sort, setSort] = useState<QuestionSortKey>('createdAt')
   const [order, setOrder] = useState<'asc' | 'desc'>('desc')

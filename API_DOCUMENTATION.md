@@ -610,11 +610,11 @@ Staff write **one** document carrying an audience *rule*; each student's inbox i
 
 ### `GET /api/v1/me/notification-preferences` (Milestone 14)
 - **Auth**: `requireAuth()`.
-- **Response 200**: `{ success, preferences: { announcements, results }, always: [{ category, reason }], inAppAlwaysOn: true }`.
-- `always` names the streams that **cannot** be switched off (`transactional`, `security`) **with their reasons**, so the UI can state them rather than silently offering only two toggles. A missing stored object reads as all-on, matching what a pre-Milestone-14 account was already receiving.
+- **Response 200**: `{ success, preferences: { announcements, results, dailyQuizReminders }, always: [{ category, reason }], inAppAlwaysOn: true }`.
+- `always` names the streams that **cannot** be switched off (`transactional`, `security`) **with their reasons**, so the UI can state them rather than silently offering only two toggles. A missing stored object reads as all-on, matching what a pre-Milestone-14 account was already receiving — **except `dailyQuizReminders`** (Milestone 30 Phase 7b), the 7:00 AM Daily Quiz reminder, which is **opt-in**: `false` unless the student turned it on, including on every account from before it existed.
 
 ### `PATCH /api/v1/me/notification-preferences` (Milestone 14)
-- **Auth**: `requireAuth()`. **Request**: `{ announcements?, results? }` — at least one (`400` otherwise).
+- **Auth**: `requireAuth()`. **Request**: `{ announcements?, results?, dailyQuizReminders? }` — at least one (`400` otherwise). The Daily Quiz card's one-tap "Email me a reminder at 7 AM" is this route with `{ dailyQuizReminders: true }`.
 - There is deliberately **no field** for `transactional` or `security`: they are absent from the schema rather than ignored by the handler, so "I turned it off and it kept sending" is not a state the API can be asked to produce.
 - **These control email only.** In-app rows are always written, so declining an email never costs the student the message.
 - **Response 200**: `{ success, preferences }`. Writes `student.profile.updated` naming the changed field names.
@@ -651,9 +651,11 @@ Staff write **one** document carrying an audience *rule*; each student's inbox i
 
 Because the free tier has no scheduler, delivery is driven by three things, none of which is a deadline: an opportunistic kick at enqueue time (held open by the platform's `waitUntil` since Milestone 25, so it is no longer suspended when the response is flushed), a lazy sweep on later requests (`middleware/outboxSweep.ts` — described in the code from Milestone 14 but only **written** in Milestone 25), and the explicit staff drain below. That last one stays visible rather than hidden precisely because nothing here can promise a delivery time on a completely idle site.
 
+**Since Milestone 30 Phase 7b there is a fourth, and it is the one with a deadline**: `POST /api/v1/jobs/outbox`, which an outside scheduler calls every minute (see "Scheduled jobs" below). And **the queue sends by priority**: account mail (`transactional`, `security`) first, then `announcement` and `results`, then `reminders` — so the Daily Quiz reminders queued at 07:00 never hold up a verification link. A `reminders` row also **expires 14 days after it was queued** (a TTL on `expiresAt`, which no other category has).
+
 ### `GET /api/v1/admin/email-deliveries`
 - **Permission**: `notifications:write`.
-- **Query**: `page`, `limit`, `status` (`pending`/`sent`/`failed`), `category` (`transactional`/`security`/`announcement`/`results`).
+- **Query**: `page`, `limit`, `status` (`pending`/`sent`/`failed`), `category` (`transactional`/`security`/`announcement`/`results`/`reminders`).
 - **Response 200**: `{ success, deliveries: EmailDelivery[], stats: { pending, sent, failed, oldestPendingAt }, pagination }`.
 - Each row carries `to`, `subject`, `category`, `status`, `attempts`/`maxAttempts`, `nextAttemptAt`, `lastAttemptAt`, `lastError`, `sentAt` and — since Milestone 25 — `providerMs` and `queuedForMs`. **The body is never returned** — a delivery record has no business reproducing the contents of somebody's password-reset email.
 - `providerMs` and `queuedForMs` are **additive fields, not a contract change**: both are `null` on anything not yet delivered, and on rows written before Milestone 25. They are separate because they have different owners — `providerMs` is wall-clock time inside the provider request, `queuedForMs` is `sentAt - createdAt`, which is the queue's own latency. A large `queuedForMs` beside a small `providerMs` is our delay; the reverse is the provider's. Before this existed, "the verification email was slow" could only be answered by reading a server log, so it was answered by guessing.
@@ -979,7 +981,7 @@ All six routes are gated on `requireAuth()` and resolve the caller's own account
 ### `POST /api/v1/admin/chapters/bulk`
 Creates several chapters at once, by name, under the implicit subject. Body: `names` (1–60). Requires `taxonomy:write`.
 
-Exists because a bulk import **refuses** any row naming a chapter the bank does not have — an importer never creates taxonomy, so one bad spreadsheet cannot reshape the syllabus — and the preview's `unknownChapters` list is what makes that fixable in one action instead of ten by hand. The safety property is that the examiner reads the list first, which the review screen shows verbatim; this route is only reached by a deliberate action on it.
+Exists because the **Daily Quiz** import refuses any row naming a chapter the bank does not have, and the preview's `unknownChapters` list is what makes that fixable in one action instead of ten by hand. (The question upload page no longer needs it: since 2026-10-09 a topic named there becomes a chapter when its questions are approved.) The safety property is that the examiner reads the list first, which the review screen shows verbatim; this route is only reached by a deliberate action on it.
 
 Answers **200 with per-name results** (`created`, `existing`, `failed`), never a 400 for a partial failure — the same shape as `PATCH /admin/questions/bulk-status`, and for the same reason. A name that already exists is `existing`, not `failed`: two examiners importing overlapping papers is ordinary. It loops `createTopic()` rather than using `insertMany`, so the taxonomy rules are not skipped and one bad name fails alone.
 
@@ -1110,6 +1112,7 @@ Today's quiz for the caller's class and their state in it. Settles any XP that w
 | `today` | The IST day key. |
 | `prize` | `prizeHeadline`, `prizeText`, `cashAmount` (null unless set), `period` (`'month'` — the prize is monthly since 2026-10-09), `bands` (the four prize bands, `{ id, min, max, label }` with `id` one of `3-5`, `6-8`, `9-10`, `11-12`), `winnersPerBand` (1), `prizesFrom` (`"2026-11-08"` — the first day an answer counts towards a prize; a page promises nothing before it), `howWinnersAreChosen` (the server's sentence, `describeWinnerRule()`), `instantResult`, `xpForCorrect`. |
 | `eligibility` | `{ eligible, missing[] }` — what a prize winner must have on their profile. |
+| `reminders` | `{ on, available }` (Milestone 30 Phase 7b) — the 7:00 AM reminder email. `on` is the student's own switch (`notificationPrefs.dailyQuizReminders`); `available` is true only when the server has `JOBS_SECRET` **and** the settings' `remindersEnabled` is on — otherwise the page offers nothing, because nothing would send it. Present in every state, including no quiz today. |
 | `streak` | `{ current, longest }` — days with a submitted answer. |
 | `previous` | The most recent earlier quiz, once unlocked: `{ day, topic, isCorrect, revealed }`, or null. |
 | `quiz` | Null when there is none (`reason: 'none-scheduled'` or `'no-class'`, both 200). Otherwise `{ id, groupId, day, classRange, topic, difficulty, opensAt, closesAt, revealAt, phase }` — **no question and no options**. |
@@ -1173,7 +1176,9 @@ Quizzes newest first (`page`, `limit` ≤ 100, `from`, `to`), each `{ groupId, d
 `classMin`, `classMax`, optional `search`, `page`, `limit` ≤ 50. Bank questions that can be a quiz for the range: single choice, **unpublished** (draft or in review), a worked solution, a class inside the range, the implicit subject, never used by another quiz. `ready` is false when the options are not 2–6 with exactly one correct.
 
 #### `GET` / `PUT /api/v1/admin/daily-quiz/settings`
-`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), instantResult }`. Audited with before and after. Since 2026-10-09 the winner rule is not a setting — one winner a month in each class band, in code — and a body still carrying `winnerRule` or `winnersPerQuiz` has them dropped. A saved headline still reading the retired "Solve daily. Win daily." is served as the new default, "Solve daily. Win every month."
+`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), instantResult, remindersEnabled?, reminderDailyCap? }`. Audited with before and after.
+
+The reminder settings (Milestone 30 Phase 7b): `remindersEnabled` (default **true** — each student still turns reminders on for themselves, so it sends nothing alone) and `reminderDailyCap` (a whole number **0–300**, default **100** — the email provider's free quota is 300 a day and is shared with sign-ups; **400** outside it). Both are **optional on `PUT`: an omitted one keeps its stored value**, so a client that does not know about reminders cannot switch them off by saving the prize. Both responses also carry `settings.lastReminderRun` — what the reminder job did the last time the scheduler called it, `{ day, at, enabled, eligible, alreadyStarted, alreadyReminded, overCap, queued, failed }` or `null` if it never has — and `scheduler: { configured }`, whether the server has `JOBS_SECRET` (a yes or no, never the value). `lastReminderRun` cannot be written through this route; the job writes it, without changing `updatedAt` (which stays "when an administrator last changed the settings"). Since 2026-10-09 the winner rule is not a setting — one winner a month in each class band, in code — and a body still carrying `winnerRule` or `winnersPerQuiz` has them dropped. A saved headline still reading the retired "Solve daily. Win daily." is served as the new default, "Solve daily. Win every month."
 
 #### `POST /api/v1/admin/daily-quiz`
 Body: `{ day, classMin, classMax, questionId }`. Writes one document per class in the range, sharing a `groupId` and one snapshot. Refusals: a past day **400**; a question that is published **409**, archived **409**, not single choice / not 2–6 options / not exactly one correct / no solution / class outside the range **400**, already a quiz on another day **409**; a class that already has a quiz that day **409** (or a pre-quiz challenge holding it — the message says so). **201** `{ groupId, day, classes }`. Audited.
@@ -1208,6 +1213,24 @@ The staff winner view — here, on the prize desk and on a quiz's page — carri
 `GET` → `{ quiz, winners, prizeMonth }` (`winners`: candidates computed for that quiz before 2026-10-09 — a newer quiz has none; `prizeMonth`: `{ month, label }`, the monthly prize its answers count towards, or null for a day before 8 November 2026). `PUT { questionId }` re-points the quiz; `DELETE` removes it — both **409** once anybody has **started** it, and a past quiz is never changed. Audited.
 
 `POST /api/v1/admin/daily-quiz/:groupId/winners/compute` — one quiz's winners — was **removed on 2026-10-09** with the per-quiz prize.
+
+### Scheduled jobs (Milestone 30 Phase 7b — `routes/v1/jobs.routes.ts`)
+
+Called by an **outside scheduler**, never by a person or a browser: the owner chose a free external pinger (cron-job.org) over paid Vercel Cron, whose free tier is only hour-accurate. Both routes require **`Authorization: Bearer <JOBS_SECRET>`** (the scheme is case-insensitive):
+
+- `JOBS_SECRET` **unset** → **503**, `{ success: false, error }` naming `JOBS_SECRET`.
+- Header missing, a different scheme, or a wrong secret → **401** with `WWW-Authenticate: Bearer realm="jobs"`. Compared in constant time (`timingSafeEqual` over the SHA-256 of each side), **before** `ensureDb`, so a wrong secret costs no database work. The presented value is never logged.
+- Every response is `Cache-Control: no-store`. Both prefixes (`/api/v1/jobs/…` and the `/api/jobs/…` alias) carry the same gate. The general rate limiter applies; the CSRF check passes them because a scheduler sends no `Origin`.
+
+#### `POST /api/v1/jobs/daily-quiz-reminders`
+Once a day at **07:00 Asia/Kolkata**. Queues today's Daily Quiz reminder emails (`services/dailyQuizReminders.ts → queueDailyQuizReminders()`) and records the run on the settings document. A reminder goes to a student who turned reminders on, with a verified address and an active account, in a class that has a playable quiz **today**, who has **not pressed Start** — each through `emailAllowedFor(student, 'reminders')`. One per student per day (dedupe key `dailyquiz-reminder:<day>:<student>`), so calling twice sends nobody a second email; at most `reminderDailyCap` a day, counting reminders already queued that day. When there are more students than room, they are taken in an order hashed from the day and the student, so the cap does not always leave out the same people. Queues every row first and then starts **one** drain. With `remindersEnabled` off it queues nothing and still records the run.
+
+**Response 200**: `{ success, run: { day, at, enabled, eligible, alreadyStarted, alreadyReminded, overCap, queued, failed } }` — `eligible` counts the students who asked for a reminder and could receive one in a class with a quiz today; the other four counts say what became of each of them. **500** if the job fails part-way — calling again is safe.
+
+The email names the class range, the topic and the closing time ("open until 11:59 PM tonight, India time") — what the quiz card shows before Start — and **never the question or an option**; a button to `<FRONTEND_URL>/daily-quiz`; and how to turn reminders off.
+
+#### `POST /api/v1/jobs/outbox`
+Every minute. Sends up to 10 due emails, highest priority first — exactly `POST /admin/email-deliveries/drain` without a person — and answers `{ success, drain: { claimed, sent, failed, retrying } }`. This is what gives the queue a deadline on an idle site (known bug #41).
 
 ### Test-only hooks — never in a real deployment
 
@@ -1582,15 +1605,22 @@ That is what lets a `.docx` posted to the Excel endpoint be refused by name ("th
 workbook") instead of failing obscurely inside a parser — both are ZIPs, so the byte signature cannot
 tell them apart.
 
+> **The owner's simple form (2026-10-09).** These routes always read with `formDecides`: the request's
+> `classLevel` and `questionType` are **every** question's, and the topic is a **name**. A row naming
+> another class keeps this one, with a note in its `warnings`; a row marked as another type is a
+> `failure` naming it (a bare "MCQ" or "objective" is not, as it cannot say single or multiple). A
+> question's topic is `topicName` if sent, else the row's own Topic, else the chapter its words point to,
+> else `topic` (an older caller's chapter id), else **General**. A name the bank does not have comes back
+> with **`topic: null`** and is made a chapter only by `/approve`. `unknownChapters` is always `[]` here.
+
 Request:
 
 ```json
 {
-  "topic": "<chapter ObjectId>",
-  "subtopic": null,
+  "topicName": "Mensuration",
   "classLevel": "Class 8",
+  "questionType": "single_choice",
   "difficulty": "Medium",
-  "questionType": null,
   "marks": 4,
   "negativeMarks": 1,
   "files": [{ "name": "class8-algebra.xlsx", "content": "data:application/vnd…sheet;base64,UEsDBB…" }]
@@ -1599,8 +1629,10 @@ Request:
 
 **There is no `subject` field, deliberately.** The chapter already records which subject it belongs to,
 so accepting both would admit a pair that can disagree — and there is no user-facing subject in this
-product. `topic` is required and must be a **top-level, active** chapter; a subtopic in that position is
-a 400. `questionType: null` means "infer it per row".
+product. `topicName` is optional, trimmed, and held to a chapter name's rules (2–120 characters, no `$`,
+`<` or `>` — a 400 otherwise); blank is none. `topic` (a chapter id) and `subtopic` are still accepted from
+an older caller: `topic` must be a **top-level, active** chapter, and a subtopic in that position is a
+400. `questionType: null` means "infer it per row" — the upload page always sends one.
 
 Files travel as **base64 data URLs inside the JSON body**, like the registration photo and the event
 gallery, not as multipart. Validation: extension allow-list, a permissive MIME allow-list, and **magic
@@ -1634,10 +1666,10 @@ Response `200`:
 }
 ```
 
-**`unknownChapters`** is the distinct set of chapter names the file *stated* that this bank does not
-have — deduplicated case-insensitively, spelled as the file spelled them, because that is the string an
-examiner has to recognise as right or wrong. Those rows are in `rejected` as before and are **not**
-imported: an importer never creates taxonomy. The list exists so the review screen can offer
+**`unknownChapters`** belongs to the Daily Quiz import, which reads a file without `formDecides`: there
+it is the distinct set of chapter names the file *stated* that this bank does not have — deduplicated
+case-insensitively, spelled as the file spelled them, because that is the string an examiner has to
+recognise as right or wrong — and those rows are in `rejected`, not imported. The list exists so the review screen can offer
 [`POST /admin/chapters/bulk`](#post-apiv1adminchaptersbulk) and re-run the upload, which is what turns
 "there is no chapter called X" from a dead end into one click. Chapters are **not class-scoped**, so a
 bank seeded for one class refuses every row of another class's paper — the ordinary case this serves.
@@ -1658,14 +1690,14 @@ validation, naming the file and what was wrong with it.
 ### `POST /admin/questions/import/pictures` (Milestone 30 Phase 7b)
 
 Pictures as questions, **instead of OCR** (PLAN.md Q19). Each picture is uploaded first by
-`POST /admin/question-images`; this takes them by key and makes each a single-choice candidate that is
-nothing yet but its picture. **Writes no question and reads no picture** — the only row stored is the
+`POST /admin/question-images`; this takes them by key and makes each a candidate of the chosen
+`questionType` (single choice when none is sent) that is nothing yet but its picture. **Writes no question and reads no picture** — the only row stored is the
 `ImportBatch` (`kind: picture`, `deterministic`) that approval reads the provenance from.
 
-- **Request**: `{ topic (required — a picture has no words to detect one from), subtopic?, classLevel, difficulty, marks, negativeMarks, pictures: [{ key, name }] }` — 1 to 20 pictures, each named once; `name` is a label for the review screen, never a path.
+- **Request**: `{ classLevel, questionType?, topicName?, topic?, subtopic?, difficulty, marks, negativeMarks, pictures: [{ key, name }] }` — 1 to 20 pictures, each named once; `name` is a label for the review screen, never a path. **No chapter is required** (2026-10-09): the topic is `topicName` (matched to a chapter whatever its case, or `topic: null` for a new one), else an older caller's `topic` id, else **General**.
 - **Response 200**: the same shape as a file preview, `kind: 'picture'`, each question `{ questionText: '', image: { key, alt: '', url, width, height }, type: 'single_choice', options: [], solution: null, solutionImage: null, … }`. The reviewer describes each picture, writes its options, marks the answer and gives the solution — written or as a picture — then validates and approves through the routes below, which accept `image` and `solutionImage` (`{ key, alt }`) on every question.
 - A picture candidate is a duplicate only of one carrying the **same picture**: their words are at most a line around it.
-- **Errors**: `400` (no chapter, a picture this site did not store or has swept), `401`/`403`, `429` (`importLimiter`).
+- **Errors**: `400` (a topic no chapter could be called, a picture this site did not store or has swept), `401`/`403`, `429` (`importLimiter`).
 
 ### `POST /admin/questions/import/approve`
 
@@ -1679,11 +1711,18 @@ database write whose cost does not scale with a third party.
   "questions": [{
     "questionText": "…", "type": "single_choice", "options": [{ "text": "…", "isCorrect": true }],
     "solution": "…", "marks": 4, "negativeMarks": 1, "tags": [],
-    "topic": "<id>", "subtopic": null, "classLevel": "Class 8", "difficulty": "Medium",
+    "topic": "<id> or null", "topicName": "Mensuration", "subtopic": null, "classLevel": "Class 8", "difficulty": "Medium",
     "edited": true
   }]
 }
 ```
+
+**A topic the bank does not have** arrives as `topic: null` with its `topicName`, and approval makes it a
+chapter before saving the question (the owner's simple form, 2026-10-09): found by name in the batch's
+subject whatever its case, otherwise created through `createTopic()` — **only for a caller holding
+`taxonomy:write`** (a question is refused otherwise), each new chapter audited as `topic.changed` with
+`fromImport`, and listed in the response's `chaptersCreated`. A name only an archived chapter holds
+refuses the question, naming the chapter, rather than reviving it.
 
 Each question carries **its own** placement, unlike the generator's approval where the taxonomy arrives
 once for the batch. The two differ for a reason rather than by a relaxed rule: there, one batch-wide
@@ -1710,7 +1749,8 @@ Response `201`:
   "questions": [{ "id": "…", "questionText": "…", "type": "single_choice", "classLevel": "Class 8", "status": "draft" }],
   "rejected": [{ "index": 2, "reason": "options: A choice question needs at least 2 options." }],
   "published": 0,
-  "publishFailures": []
+  "publishFailures": [],
+  "chaptersCreated": [{ "id": "…", "name": "Mensuration" }]
 }
 ```
 
@@ -1778,10 +1818,10 @@ and **Instructions** (what each column means and what the valid values are).
 | `Option A`–`Option H` | For choice questions | Also matched as `A`, `Option 1`, `Choice A`. A **gap** (A and C filled, B empty) is an error, not something to close — closing it would turn "the answer is C" into "the answer is B". Trailing blanks are simply unused. |
 | `Correct Answer` | **Yes** | Read per type — see below. |
 | `Solution` | To publish | Blank imports fine as a draft and carries a note; publishing needs one. |
-| `Class` | No | A real class, or a bare number (`8`), ordinal (`8th`) or `Grade 8`. Blank uses the upload default. **An unrecognised value is reported, not guessed at.** |
+| `Class` | No | On the question upload page the form's class is every row's, and a row naming another is noted. For the Daily Quiz import: a real class, or a bare number (`8`), ordinal (`8th`) or `Grade 8`; blank uses the upload default, and **an unrecognised value is reported, not guessed at.** |
 | `Difficulty` | No | `Easy` / `Medium` / `Hard`, case-insensitive. |
 | `Marks`, `Negative Marks` | No | Blank uses the upload default. A **non-numeric** value is a failure, not a default — marks are what a score is computed from. |
-| `Topic`, `Subtopic` | No | Chapter names as they appear under Chapters, matched case-insensitively. A chapter that does not exist is reported; **importing never creates one.** |
+| `Topic`, `Subtopic` | No | Chapter names, matched case-insensitively. On the question upload page a topic typed on the form wins, and a name the bank does not have **becomes a chapter when the questions are saved**; a subtopic the chapter lacks is left out with a note. For the Daily Quiz import a chapter that does not exist is reported and never created. |
 | `Tags` | No | Comma-separated, at most 20. |
 | `Tolerance` | For numeric | Only read for `numeric`. |
 
@@ -1818,8 +1858,9 @@ everything it had to interpret rather than guessing quietly.
 | Metadata | `Class: 8`, `Topic: Algebra`, `Subtopic: …`, `Difficulty: Hard`, `Marks: 6`, `Negative Marks: 2`, `Type: multiple_choice`, `Tags: a, b` | Per question. Anything matching the shape but not a known key stays in the question text. |
 
 A stem or option that Word wrapped across paragraphs is rejoined. `Type` blank is inferred with a
-note. `Class`/`Topic` follow the same rules as Excel: unresolvable values are **reported with the
-question number**, never defaulted, and importing never creates a chapter.
+note, unless the form chose one, which is then every question's. `Class`/`Topic` follow the same rules
+as Excel: on the question upload page the form's class wins and a new topic becomes a chapter on saving;
+for the Daily Quiz import unresolvable values are **reported with the question number**.
 
 ### Two file-level warnings, in `batchWarnings`
 

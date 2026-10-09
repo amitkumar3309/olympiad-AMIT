@@ -116,10 +116,18 @@ export interface StudentDocument extends Document {
    * Optional on the interface, because accounts created before Milestone 14 have no
    * such field. `resolvePrefs()` treats a missing object as all-on, which matches
    * the behaviour those students already had.
+   *
+   * **`dailyQuizReminders` is the exception to "on by default"** (Milestone 30 Phase 7b,
+   * PLAN.md Q20): a 7:00 AM email every day is something a student asks for, never
+   * something they find they have been given. Off on a new account, off when missing (an
+   * account from before it existed), and on only once the student turns it on — on My
+   * Profile, or with one tap on the Daily Quiz.
    */
   notificationPrefs?: {
     announcements: boolean;
     results: boolean;
+    /** Optional because accounts from before Milestone 30 Phase 7b lack it; missing is off. */
+    dailyQuizReminders?: boolean;
   };
   /**
    * This account's Refer & Earn code — `AMIT` plus six characters (Milestone 22, Phase E).
@@ -209,6 +217,8 @@ const studentSchema = new Schema<StudentDocument>({
   notificationPrefs: {
     announcements: { type: Boolean, default: true },
     results: { type: Boolean, default: true },
+    // Opt-in: see the interface above.
+    dailyQuizReminders: { type: Boolean, default: false },
   },
   /**
    * `unique` with `sparse`, and **deliberately no `default`**.

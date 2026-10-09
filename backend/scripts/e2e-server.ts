@@ -35,6 +35,9 @@ async function main(): Promise<void> {
   // from `frontend/e2e/fixtures.ts`, passed in by `playwright.config.ts`, on a throwaway database.
   process.env.ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'e2e-admin@amit.test';
   process.env.ADMIN_PASSWORD_HASH = bcrypt.hashSync(process.env.E2E_ADMIN_PASSWORD ?? 'E2e-Admin-Pass-9', 10);
+  // A scheduler secret (Milestone 30 Phase 7b), so the Daily Quiz offers its reminder and the
+  // crawler checks that button like every other. A test value; nothing here schedules anything.
+  process.env.JOBS_SECRET = 'e2e-only-jobs-secret-not-used-anywhere-else-0123456789';
 
   console.log(`[e2e-server] in-memory MongoDB at ${process.env.MONGO_URI}`);
   console.log(`[e2e-server] API on :${process.env.PORT}, accepting ${process.env.FRONTEND_URL}`);

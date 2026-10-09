@@ -2,14 +2,16 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import app from '../src/app';
 import { config } from '../src/config';
-import { ImportBatch, Question } from '../src/models';
+import { AuditLog, ImportBatch, Question, Topic } from '../src/models';
 import {
+  approveImport,
   normaliseClassLevel,
   normaliseDifficulty,
   previewImport,
   registerImportParser,
   resetImportParsers,
   IMPORT_HARD_MAX,
+  type PreviewImportInput,
 } from '../src/services/questionImportService';
 import { BULK_CHAPTER_MAX } from '../src/validation/taxonomySchemas';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
@@ -493,13 +495,15 @@ describe('taxonomy resolution', () => {
     });
   });
 
-  it("honours a row's own class, topic and difficulty over the defaults", async () => {
+  /**
+   * The owner's simplified upload (2026-10-09): the class chosen on the form is every question's.
+   * A file that names another is not obeyed, and not silently ignored either — the question says so.
+   */
+  it('puts every question in the class chosen on the form, and says when the file named another', async () => {
     const { cookies, taxonomy } = await adminSetup();
     fakeExcelParser({
       'questions.xlsx': {
-        // `10` rather than `12`: there is no plain "Class 12" until Phase J collapses the
-        // three Class-12 streams, and a test asserting today's list is the honest one.
-        candidates: [candidate({ classLevel: '10', topicName: 'Algebra', difficulty: 'easy' })],
+        candidates: [candidate({ classLevel: '10', difficulty: 'easy' })],
         failures: [],
         examined: 1,
       },
@@ -511,14 +515,26 @@ describe('taxonomy resolution', () => {
       .send(importBody(taxonomy, { classLevel: 'Class 8' }))
       .expect(200);
 
-    expect(res.body.questions[0]).toMatchObject({
-      classLevel: 'Class 10',
-      difficulty: 'Easy',
-      topicName: 'Algebra',
-    });
+    expect(res.body.questions[0]).toMatchObject({ classLevel: 'Class 8', difficulty: 'Easy' });
+    expect(warningText(res.body.questions[0])).toMatch(/file says "10".*Class 8/);
   });
 
-  it('reports a row naming a class that does not exist, rather than defaulting it', async () => {
+  it("uses a row's own topic when the form names none", async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({
+      'questions.xlsx': { candidates: [candidate({ topicName: 'algebra' })], failures: [], examined: 1 },
+    });
+
+    const res = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { topic: null }))
+      .expect(200);
+
+    expect(res.body.questions[0]).toMatchObject({ topic: taxonomy.topicId, topicName: 'Algebra' });
+  });
+
+  it('files a row naming a class that does not exist under the chosen class, with a note', async () => {
     const { cookies, taxonomy } = await adminSetup();
     fakeExcelParser({
       'questions.xlsx': {
@@ -534,14 +550,12 @@ describe('taxonomy resolution', () => {
       .send(importBody(taxonomy))
       .expect(200);
 
-    expect(res.body.questions).toHaveLength(0);
-    expect(res.body.rejected).toHaveLength(1);
-    // The reason names the row *and* what was wrong, which is what makes it fixable.
-    expect(res.body.rejected[0].reason).toContain('Row 21');
-    expect(res.body.rejected[0].reason).toMatch(/not a class this platform runs/i);
+    expect(res.body.rejected).toEqual([]);
+    expect(res.body.questions[0].classLevel).toBe('Class 8');
+    expect(warningText(res.body.questions[0])).toMatch(/file says "13"/);
   });
 
-  it('reports an unknown chapter and does not create it', async () => {
+  it('offers a topic the bank does not have as a new one, and previewing does not create it', async () => {
     const { cookies, taxonomy } = await adminSetup();
     fakeExcelParser({
       'questions.xlsx': {
@@ -554,13 +568,13 @@ describe('taxonomy resolution', () => {
     const res = await request(app)
       .post(EXCEL_URL)
       .set('Cookie', cookieHeader(cookies))
-      .send(importBody(taxonomy))
+      .send(importBody(taxonomy, { topic: null }))
       .expect(200);
 
-    expect(res.body.rejected[0].reason).toMatch(/no chapter called "Astrophysics"/i);
+    expect(res.body.rejected).toEqual([]);
+    expect(res.body.questions[0]).toMatchObject({ topic: null, topicName: 'Astrophysics' });
 
-    // An importer that could add taxonomy rows would let one bad spreadsheet reshape the
-    // syllabus, so the chapter must still not exist.
+    // Previewing writes nothing: a new topic becomes a chapter only when its questions are approved.
     const topics = await request(app)
       .get(`${API}/topics?subject=${taxonomy.subjectId}`)
       .set('Cookie', cookieHeader(cookies))
@@ -568,22 +582,14 @@ describe('taxonomy resolution', () => {
     expect(topics.body.topics.map((t: { name: string }) => t.name)).not.toContain('Astrophysics');
   });
 
-  /**
-   * The refusal above is right, but on its own it was a dead end: a real NCERT Class 9 paper names
-   * ten chapters a Class-12-seeded bank has never heard of, and "create it under Chapters first"
-   * meant retyping all ten by hand into a one-field form — with the rejected rows unreachable from
-   * the review screen. So the *names* come back structurally as well as in the prose.
-   */
-  it('reports the distinct unknown chapter names so they can be acted on', async () => {
+  it('lists no unknown chapters any more: a new topic is not a refusal', async () => {
     const { cookies, taxonomy } = await adminSetup();
     fakeExcelParser({
       'questions.xlsx': {
         candidates: [
           candidate({ topicName: 'Number Systems', sourceRef: 'Row 2' }),
           candidate({ topicName: 'Polynomials', sourceRef: 'Row 3', text: 'What is $3 + 3$?' }),
-          // The same chapter again, and in a different case: one entry, spelled as the file spelled it.
           candidate({ topicName: 'number systems', sourceRef: 'Row 4', text: 'What is $4 + 4$?' }),
-          // A resolvable one, to prove the list is only the unknowns.
           candidate({ topicName: 'Algebra', sourceRef: 'Row 5', text: 'What is $5 + 5$?' }),
         ],
         failures: [],
@@ -594,17 +600,17 @@ describe('taxonomy resolution', () => {
     const res = await request(app)
       .post(EXCEL_URL)
       .set('Cookie', cookieHeader(cookies))
-      .send(importBody(taxonomy))
+      .send(importBody(taxonomy, { topic: null }))
       .expect(200);
 
-    expect(res.body.unknownChapters).toEqual(['Number Systems', 'Polynomials']);
-    // Still refused, and still not created — the list is an offer, not an action.
-    expect(res.body.rejected).toHaveLength(3);
-    const topics = await request(app)
-      .get(`${API}/topics?subject=${taxonomy.subjectId}`)
-      .set('Cookie', cookieHeader(cookies))
-      .expect(200);
-    expect(topics.body.topics.map((t: { name: string }) => t.name)).not.toContain('Number Systems');
+    expect(res.body.unknownChapters).toEqual([]);
+    expect(res.body.rejected).toEqual([]);
+    expect(res.body.questions.map((q: { topicName: string; topic: string | null }) => [q.topicName, q.topic === null])).toEqual([
+      ['Number Systems', true],
+      ['Polynomials', true],
+      ['number systems', true],
+      ['Algebra', false],
+    ]);
   });
 
   it('reports no unknown chapters when every stated chapter resolves', async () => {
@@ -626,7 +632,7 @@ describe('taxonomy resolution', () => {
     expect(res.body.unknownChapters).toEqual([]);
   });
 
-  it('refuses a subtopic that belongs to a different chapter', async () => {
+  it('leaves out a subtopic the chapter does not have, with a note, rather than refusing the question', async () => {
     const { cookies, taxonomy } = await adminSetup();
     fakeExcelParser({
       'questions.xlsx': {
@@ -642,7 +648,9 @@ describe('taxonomy resolution', () => {
       .send(importBody(taxonomy))
       .expect(200);
 
-    expect(res.body.rejected[0].reason).toMatch(/not a subtopic/i);
+    expect(res.body.rejected).toEqual([]);
+    expect(res.body.questions[0].subtopic).toBeNull();
+    expect(warningText(res.body.questions[0])).toMatch(/not a subtopic/i);
   });
 
   it('refuses a subtopic in the chapter field', async () => {
@@ -656,6 +664,263 @@ describe('taxonomy resolution', () => {
       .expect(400);
 
     expect(res.body.error).toMatch(/chapter, not a subtopic/i);
+  });
+});
+
+/** Everything a previewed question was annotated with, as one string. */
+function warningText(question: { warnings: Array<{ message: string }> }): string {
+  return question.warnings.map((warning) => warning.message).join(' ');
+}
+
+// ---------------------------------------------------------------------------
+// The simplified upload (owner, 2026-10-09): the form decides
+// ---------------------------------------------------------------------------
+
+describe('the upload form decides the class, the type and the topic', () => {
+  const APPROVE_URL = `${API}/admin/questions/import/approve`;
+
+  it('tells the parser that the type chosen on the form is every question’s', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    const { calls } = fakeExcelParser({ 'questions.xlsx': { candidates: [], failures: [], examined: 0 } });
+
+    await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { questionType: 'true_false' }))
+      .expect(200);
+
+    expect(calls[0]!.defaults).toMatchObject({ questionType: 'true_false', typeIsFixed: true });
+  });
+
+  it('files a question nothing names a topic for under General', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({ 'questions.xlsx': { candidates: [candidate()], failures: [], examined: 1 } });
+
+    const res = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { topic: null }))
+      .expect(200);
+
+    expect(res.body.questions[0]).toMatchObject({ topic: null, topicName: 'General' });
+  });
+
+  it('takes the typed topic for every question, matching a chapter whatever its case', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({ 'questions.xlsx': { candidates: [candidate({ topicName: 'Geometry' })], failures: [], examined: 1 } });
+
+    const res = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { topic: null, topicName: '  algebra ' }))
+      .expect(200);
+
+    expect(res.body.questions[0]).toMatchObject({ topic: taxonomy.topicId, topicName: 'Algebra' });
+  });
+
+  it('refuses a typed topic no chapter could be called', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({});
+
+    for (const topicName of ['A', 'Area of $x$']) {
+      const res = await request(app)
+        .post(EXCEL_URL)
+        .set('Cookie', cookieHeader(cookies))
+        .send(importBody(taxonomy, { topic: null, topicName }));
+      expect(res.status).toBe(400);
+      expect(res.status).not.toBe(500);
+    }
+  });
+
+  it('makes a typed topic a chapter once, when its questions are saved, and records it', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({
+      'questions.xlsx': { candidates: [candidate(), candidate({ text: 'What is $3 + 3$?' })], failures: [], examined: 2 },
+    });
+
+    const preview = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { topic: null, topicName: 'Mensuration' }))
+      .expect(200);
+    expect(preview.body.questions.map((q: { topic: string | null }) => q.topic)).toEqual([null, null]);
+
+    // The second spelled differently, as a reviewer might leave it: one chapter either way.
+    const questions = preview.body.questions.map((q: Record<string, unknown>, i: number) => ({
+      ...q,
+      topicName: i === 0 ? 'Mensuration' : 'mensuration',
+    }));
+    const approved = await request(app)
+      .post(APPROVE_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ batchId: preview.body.batchId, questions })
+      .expect(201);
+
+    expect(approved.body.questions).toHaveLength(2);
+    expect(approved.body.chaptersCreated.map((chapter: { name: string }) => chapter.name)).toEqual(['Mensuration']);
+
+    const chapters = await Topic.find({ name: /^mensuration$/i }).lean();
+    expect(chapters).toHaveLength(1);
+    const saved = await Question.find({}).lean();
+    expect(saved.every((q) => String(q.topic) === String(chapters[0]!._id))).toBe(true);
+    // And they are where the form said: the class chosen for the upload.
+    expect(saved.every((q) => q.classLevel === 'Class 8')).toBe(true);
+
+    const audit = await AuditLog.findOne({ action: 'topic.changed', targetLabel: 'Mensuration' }).lean();
+    expect(audit?.metadata).toMatchObject({ operation: 'created', fromImport: preview.body.batchId });
+  });
+
+  it('refuses a question whose typed topic only an archived chapter has', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({ 'questions.xlsx': { candidates: [candidate()], failures: [], examined: 1 } });
+    await request(app)
+      .patch(`${API}/admin/topics/${taxonomy.topicId}`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ status: 'archived' })
+      .expect(200);
+
+    const preview = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { topic: null, topicName: 'Algebra' }))
+      .expect(200);
+    expect(preview.body.questions[0]).toMatchObject({ topic: null, topicName: 'Algebra' });
+
+    const approved = await request(app)
+      .post(APPROVE_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ batchId: preview.body.batchId, questions: preview.body.questions })
+      .expect(201);
+    expect(approved.body.questions).toHaveLength(0);
+    expect(approved.body.rejected[0].reason).toMatch(/archived/i);
+  });
+
+  it('lets nobody without the chapters permission make one through an import', async () => {
+    await adminSetup();
+    fakeExcelParser({ 'q.xlsx': { candidates: [candidate()], failures: [], examined: 1 } });
+    const actor = { id: null, label: 'Tester' };
+
+    const preview = await previewImport(
+      {
+        kind: 'excel',
+        files: [{ name: 'q.xlsx', declaredType: XLSX_MIME, data: ZIP_BYTES }],
+        classLevel: 'Class 8',
+        difficulty: 'Medium',
+        marks: 4,
+        negativeMarks: 1,
+        questionType: null,
+        formDecides: true,
+        topicName: 'Probability',
+      },
+      actor,
+    );
+    const outcome = await approveImport(
+      { batchId: preview.batchId!, questions: preview.questions, mayCreateChapters: false },
+      actor,
+    );
+
+    expect(outcome.created).toHaveLength(0);
+    expect(outcome.rejected[0]!.reason).toMatch(/cannot add topics/);
+    expect(await Topic.countDocuments({ name: 'Probability' })).toBe(0);
+  });
+
+  it('checks a question with a new topic exactly as approval will', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+    fakeExcelParser({ 'questions.xlsx': { candidates: [candidate()], failures: [], examined: 1 } });
+
+    const preview = await request(app)
+      .post(EXCEL_URL)
+      .set('Cookie', cookieHeader(cookies))
+      .send(importBody(taxonomy, { topic: null, topicName: 'Trigonometry' }))
+      .expect(200);
+    const checked = await request(app)
+      .post(`${API}/admin/questions/import/validate`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ questions: preview.body.questions })
+      .expect(200);
+
+    expect(checked.body.wouldSave).toBe(1);
+    expect(checked.body.verdicts[0]).toMatchObject({ ok: true, reason: null });
+  });
+});
+
+/**
+ * The Daily Quiz import still reads a file the earlier way: a row's own class and chapter are
+ * obeyed, and one the platform does not have is refused — it calls `previewImport()` without
+ * `formDecides`. These hold that reading; the upload route above no longer uses it.
+ */
+describe('previewImport() without formDecides — how the Daily Quiz import reads a file', () => {
+  const read = (taxonomy: Taxonomy, overrides: Partial<PreviewImportInput> = {}) =>
+    previewImport(
+      {
+        kind: 'excel',
+        files: [{ name: 'questions.xlsx', declaredType: XLSX_MIME, data: ZIP_BYTES }],
+        topic: taxonomy.topicId,
+        classLevel: 'Class 8',
+        difficulty: 'Medium',
+        marks: 4,
+        negativeMarks: 1,
+        questionType: null,
+        ...overrides,
+      },
+      { id: null, label: 'Tester' },
+    );
+
+  it("honours a row's own class, topic and difficulty over the defaults", async () => {
+    const { taxonomy } = await adminSetup();
+    fakeExcelParser({
+      'questions.xlsx': {
+        candidates: [candidate({ classLevel: '10', topicName: 'Algebra', difficulty: 'easy' })],
+        failures: [],
+        examined: 1,
+      },
+    });
+
+    const outcome = await read(taxonomy);
+    expect(outcome.questions[0]).toMatchObject({ classLevel: 'Class 10', difficulty: 'Easy', topicName: 'Algebra' });
+  });
+
+  it('reports a row naming a class that does not exist, rather than defaulting it', async () => {
+    const { taxonomy } = await adminSetup();
+    fakeExcelParser({
+      'questions.xlsx': { candidates: [candidate({ classLevel: '13', sourceRef: 'Row 21' })], failures: [], examined: 1 },
+    });
+
+    const outcome = await read(taxonomy);
+    expect(outcome.questions).toHaveLength(0);
+    // The reason names the row *and* what was wrong, which is what makes it fixable.
+    expect(outcome.rejected[0]!.reason).toContain('Row 21');
+    expect(outcome.rejected[0]!.reason).toMatch(/not a class this platform runs/i);
+  });
+
+  it('reports an unknown chapter by name, and does not create it', async () => {
+    const { taxonomy } = await adminSetup();
+    fakeExcelParser({
+      'questions.xlsx': {
+        candidates: [
+          candidate({ topicName: 'Number Systems', sourceRef: 'Row 2' }),
+          candidate({ topicName: 'number systems', sourceRef: 'Row 3', text: 'What is $3 + 3$?' }),
+        ],
+        failures: [],
+        examined: 2,
+      },
+    });
+
+    const outcome = await read(taxonomy);
+    expect(outcome.rejected[0]!.reason).toMatch(/no chapter called "Number Systems"/i);
+    // One entry for both spellings, as the file first spelled it.
+    expect(outcome.unknownChapters).toEqual(['Number Systems']);
+    expect(await Topic.countDocuments({ name: 'Number Systems' })).toBe(0);
+  });
+
+  it('refuses a subtopic the chapter does not have', async () => {
+    const { taxonomy } = await adminSetup();
+    fakeExcelParser({
+      'questions.xlsx': { candidates: [candidate({ subtopicName: 'Not A Real Subtopic' })], failures: [], examined: 1 },
+    });
+
+    const outcome = await read(taxonomy);
+    expect(outcome.rejected[0]!.reason).toMatch(/not a subtopic/i);
   });
 });
 
@@ -1419,10 +1684,26 @@ describe('POST /admin/chapters/bulk', () => {
   /**
    * The whole loop, which is the point: a file naming chapters this bank has never heard of is
    * refused, the examiner creates the named chapters in one action, and the identical file then
-   * imports cleanly. That is the journey a real NCERT Class 9 paper could not complete.
+   * imports cleanly. That is the journey a real NCERT Class 9 paper could not complete. Since
+   * 2026-10-09 it is the Daily Quiz import's (the question upload makes a typed topic a chapter on
+   * approval instead), so the file is read the way that import reads it.
    */
   it('closes the loop: rejected for unknown chapters, created, then imports cleanly', async () => {
     const { cookies, taxonomy } = await adminSetup();
+    const readPaper = () =>
+      previewImport(
+        {
+          kind: 'excel',
+          files: [{ name: 'class9.xlsx', declaredType: XLSX_MIME, data: ZIP_BYTES }],
+          topic: taxonomy.topicId,
+          classLevel: 'Class 8',
+          difficulty: 'Medium',
+          marks: 4,
+          negativeMarks: 1,
+          questionType: null,
+        },
+        { id: null, label: 'Tester' },
+      );
 
     const paper = () =>
       fakeExcelParser({
@@ -1437,19 +1718,15 @@ describe('POST /admin/chapters/bulk', () => {
       });
 
     paper();
-    const before = await request(app)
-      .post(EXCEL_URL)
-      .set('Cookie', cookieHeader(cookies))
-      .send(importBody(taxonomy, { files: [xlsxFile('class9.xlsx')] }))
-      .expect(200);
+    const before = await readPaper();
 
-    expect(before.body.questions).toHaveLength(0);
-    expect(before.body.unknownChapters).toEqual(['Number Systems', "Heron's Formula"]);
+    expect(before.questions).toHaveLength(0);
+    expect(before.unknownChapters).toEqual(['Number Systems', "Heron's Formula"]);
 
     const made = await request(app)
       .post(BULK_URL)
       .set('Cookie', cookieHeader(cookies))
-      .send({ names: before.body.unknownChapters })
+      .send({ names: before.unknownChapters })
       .expect(200);
 
     expect(made.body.created.map((entry: { name: string }) => entry.name)).toEqual([
@@ -1459,15 +1736,11 @@ describe('POST /admin/chapters/bulk', () => {
     expect(made.body.failed).toEqual([]);
 
     paper();
-    const after = await request(app)
-      .post(EXCEL_URL)
-      .set('Cookie', cookieHeader(cookies))
-      .send(importBody(taxonomy, { files: [xlsxFile('class9.xlsx')] }))
-      .expect(200);
+    const after = await readPaper();
 
-    expect(after.body.questions).toHaveLength(2);
-    expect(after.body.unknownChapters).toEqual([]);
-    expect(after.body.rejected).toEqual([]);
+    expect(after.questions).toHaveLength(2);
+    expect(after.unknownChapters).toEqual([]);
+    expect(after.rejected).toEqual([]);
   });
 
   it('files the new chapters under the implicit subject, at the top level', async () => {
