@@ -17,7 +17,8 @@ import { test as base, expect, type APIRequestContext, type Page } from '@playwr
  */
 export const test = base.extend<{ everyday: boolean }>({
   everyday: [true, { option: true }],
-  page: async ({ page, everyday }, use) => {
+  // The callback is Playwright's `use`, named otherwise so the React rules do not take it for React's.
+  page: async ({ page, everyday }, provide) => {
     if (everyday) {
       await page.addInitScript(() => {
         try {
@@ -27,7 +28,7 @@ export const test = base.extend<{ everyday: boolean }>({
         }
       })
     }
-    await use(page)
+    await provide(page)
   },
 })
 
