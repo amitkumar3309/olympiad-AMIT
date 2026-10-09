@@ -29,6 +29,11 @@ immersive Diwali edition, PR #12): no daily winner — one a month in each class
 answers that month, the lower total solve time breaking a tie, November counted from the 8th, chosen on
 Admin → Daily Quiz → Monthly winners once the month is over (PLAN.md Q24).
 
+**Phase 7b is complete** (`feat/picture-questions`, then `feat/daily-quiz-reminders`): picture questions
+(Q19), and **Daily Quiz reminder emails** (Q20) — opt-in, at 7:00 AM India time, sent by two job routes a
+free outside scheduler calls with `JOBS_SECRET`. Nothing reaches a student until the owner sets the
+secret and the two cron-job.org jobs (LAUNCH_REPORT §8).
+
 ## Tasks
 
 | Phase | Task | Status |
@@ -124,7 +129,13 @@ Admin → Daily Quiz → Monthly winners once the month is over (PLAN.md Q24).
 | 7b | Pictures in the bank, practice, mock tests, the Olympiad and the Daily Quiz — the solution picture only where the written solution may be (leak tests extended) | ✅ done |
 | 7b | The editor attaches a question picture (description required) and a solution picture; the import page's Image tab imports pictures instead of OCR; every page that shows a question shows its picture, with Enlarge | ✅ done |
 | 7b | Tests: backend 1399 / 39; E2E 86 — `picture-questions.spec.ts` (the editor stores a 2,400 px PNG as a 1,600 px WebP; the picture import; a student's picture quiz, its solution picture from the next day) | ✅ done |
-| 7b | Daily Quiz reminders (Q20) | ⬜ next |
+| 7b | Daily Quiz reminders (Q20): opt-in per student (`notificationPrefs.dailyQuizReminders`, off by default) — the switch in My Profile → Notification preferences, and one tap on the Daily Quiz card, which offers it only when one can be sent; a new switchable email category, `reminders` | ✅ done |
+| 7b | The job routes, for a free outside scheduler: `POST /jobs/daily-quiz-reminders` (07:00 IST) and `POST /jobs/outbox` (every minute — closes known bug #41), each `Authorization: Bearer <JOBS_SECRET>` compared in constant time; 503 naming the variable when it is unset | ✅ done — owner action: the secret and two cron-job.org jobs (LAUNCH_REPORT §8) |
+| 7b | Who gets one: opted in, verified, active, in a class with a quiz today, not yet started; one per student per day (dedupe key); at most `reminderDailyCap` a day (default 100, 0–300) counting what is already queued, the cut rotating daily; the run recorded as `lastReminderRun` | ✅ done |
+| 7b | The outbox sends by priority (account mail, then news, then reminders — a verification link never waits behind reminders); reminder rows expire 14 days after queueing (a TTL only they carry); a batch starts one drain | ✅ done |
+| 7b | The email: the class range, the topic and the closing time — never the question or an option; a button to the Daily Quiz; how to turn reminders off | ✅ done |
+| 7b | Admin → Daily Quiz → Settings: "Send reminder emails", "Most reminders a day", the last run (or "Not run yet"), a warning when the server has no secret; the delivery console filters by `reminders` | ✅ done |
+| 7b | Tests: backend 1421 / 40 — `dailyQuizReminders.test.ts` (22); the browser suite's backend sets a test-only `JOBS_SECRET`, so the crawler checks the reminder button. The Privacy Policy draft does not mention reminder emails — LEGAL_REVIEW.md question 13 | ✅ done |
 | 7+ | The hero's picture of the day (Q21): seven drawn pictures (a summit, a growing book, a bright idea, a rocket, steps to a trophy, a sunrise, a target hit), a different one each day by the India date — chosen by `public/boot.js` before the first paint, themed, a night version during Diwali | ✅ done |
 | 7+ | The founder's quotes signed "— Amit" (Q22) | ✅ done |
 | 7+ | The Diwali intro slowed (Q23): about seven seconds — embers rise; 3, 2, 1, a second each, each with a ring of light; a diya catches with a burst of sparks; the mathematics appears in its light; the name; the line. Any key or tap still ends it, and its timer (7.3 s) regardless | ✅ done |
