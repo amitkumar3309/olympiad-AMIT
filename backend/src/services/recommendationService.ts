@@ -4,7 +4,7 @@ import { config } from '../config';
 import { logger } from '../lib/logger';
 import type { ClassLevel } from '../lib/classLevels';
 import { MIN_AREA_SAMPLE, getStudentAnalytics } from './analyticsService';
-import { getPracticeAvailability } from './practiceService';
+import { countPracticeQuestions, getPracticeAvailability } from './practiceService';
 import { statisticalEngine, STATISTICAL_ENGINE_ID } from '../lib/statisticalRecommender';
 import type {
   RecommendationDraft,
@@ -102,24 +102,26 @@ export function resolveRecommendationEngine(id: string = config.recommendations.
 /**
  * Assembles everything an engine is allowed to see.
  *
- * Three reads on top of the analytics derivation's own eight, all parallel: the
- * student's performance, the published bank for their class, and how many mock tests
- * are set for it. The bank is what keeps a recommendation honourable — advice to
- * practise a topic with no published questions is advice the product cannot carry out.
+ * Four reads on top of the analytics derivation's own eight, all parallel: the
+ * student's performance, the published bank for their class by chapter, how many
+ * questions a practice test for it is drawn from, and how many mock tests are set for
+ * it. The bank is what keeps a recommendation honourable — advice the product cannot
+ * carry out is worse than none.
  */
 export async function buildRecommendationFacts(
   student: Types.ObjectId,
   classLevel: ClassLevel | null,
   now = new Date(),
 ): Promise<RecommendationFacts> {
-  const [analytics, availability, publishedMockTests] = await Promise.all([
+  const [analytics, availability, practiceQuestions, publishedMockTests] = await Promise.all([
     getStudentAnalytics(student),
     // A staff account has no class, so there is no bank to offer it.
     classLevel ? getPracticeAvailability(classLevel) : Promise.resolve([]),
+    classLevel ? countPracticeQuestions(classLevel) : Promise.resolve(0),
     classLevel ? MockTest.countDocuments({ classLevel, status: 'published' }) : Promise.resolve(0),
   ]);
 
-  return { classLevel, analytics, availability, publishedMockTests, now };
+  return { classLevel, analytics, availability, practiceQuestions, publishedMockTests, now };
 }
 
 // ---------------------------------------------------------------------------

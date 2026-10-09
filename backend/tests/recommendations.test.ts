@@ -221,23 +221,28 @@ describe('weak topics', () => {
     expect(result.notes).toContain(`topics-need-at-least-${MIN_AREA_SAMPLE}-answers`);
   });
 
-  it('offers no practice link for a weakness the class bank cannot serve', async () => {
+  /**
+   * A practice test is a random mix of the class's questions (owner, 2026-10-09), so "Practise
+   * Trigonometry" would be a promise the practice page cannot keep. The weakness is named; nothing
+   * links to the chapter — even though this class's bank could have served one.
+   */
+  it('names a weakness without linking to a single chapter, which practice cannot serve', async () => {
     const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
     const { studentId } = await registerVerifyLogin(app);
-    const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Calculus' });
-    // Published for a different class, so this Class 9 student has answered them
-    // historically but cannot be sent to practise them now.
-    const ids = await publishMany(adminCookies, taxonomy, 10, { classLevel: 'Class 11' });
+    const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Trigonometry' });
+    const ids = await publishMany(adminCookies, taxonomy, 10);
 
     await seedTopicRecord(studentId, ids, 20, 2);
 
     const result = await recommendationsFor(studentId);
 
-    expect(result.weakTopics[0]!.title).toBe('Calculus');
-    // A link here would land the student on an empty picker, which reads as the site
-    // being broken rather than as advice being approximate.
+    expect(result.weakTopics[0]!.title).toBe('Trigonometry');
     expect(result.weakTopics[0]!.action).toBeNull();
-    expect(result.practice.some((entry) => entry.title.includes('Calculus'))).toBe(false);
+    // The figure stays: how much of the class's bank that chapter is.
+    expect(result.weakTopics[0]!.basis.figures.availableQuestions).toBe(10);
+    expect(result.practice.some((entry) => entry.title.includes('Trigonometry'))).toBe(false);
+    const hrefs = [...result.weakTopics, ...result.practice].map((entry) => entry.action?.href ?? '');
+    expect(hrefs.some((href) => href.includes('topic='))).toBe(false);
   });
 });
 
@@ -303,72 +308,25 @@ describe('strong topics', () => {
 // ===========================================================================
 
 describe('difficulty recommendations', () => {
-  it('suggests stepping up from a level the student has mastered', async () => {
+  /**
+   * Nothing lets a student choose a difficulty since practice became a mixed test (2026-10-09), so
+   * "Try Medium questions" or "Stay with Easy for now" could not be acted on. Both records below
+   * produced exactly that advice before: one mastered Easy with Medium on offer, one struggling.
+   */
+  it('gives none, because no surface lets a student choose a difficulty', async () => {
     const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
-    const { studentId } = await registerVerifyLogin(app);
-    const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
-    const easy = await publishMany(adminCookies, taxonomy, 10, { difficulty: 'Easy' });
-    // The bank has to offer the level being recommended.
-    await publishMany(adminCookies, taxonomy, 3, { difficulty: 'Medium' });
-
-    await seedTopicRecord(studentId, easy, 20, 20);
-
-    const result = await recommendationsFor(studentId);
-
-    expect(byId(result.difficulty, 'difficulty:step_up:Medium')).toBeDefined();
-    expect(byId(result.difficulty, 'difficulty:step_up:Medium')!.title).toBe('Try Medium questions');
-  });
-
-  it('never recommends a level the class bank does not publish', async () => {
-    const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
-    const { studentId } = await registerVerifyLogin(app);
-    const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
-    const easy = await publishMany(adminCookies, taxonomy, 10, { difficulty: 'Easy' });
-
-    await seedTopicRecord(studentId, easy, 20, 20);
-
-    const result = await recommendationsFor(studentId);
-
-    // Only Easy exists for this class, so there is nothing to step up to.
-    expect(result.difficulty.map((entry) => entry.id)).not.toContain('difficulty:step_up:Medium');
-    expect(result.difficulty.map((entry) => entry.id)).not.toContain('difficulty:untried:Medium');
-  });
-
-  it('tells a struggling student to consolidate, and does not also send them upward', async () => {
-    const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
-    const { studentId } = await registerVerifyLogin(app);
+    const mastered = await registerVerifyLogin(app);
+    const struggling = await registerVerifyLogin(app, otherStudent);
     const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
     const easy = await publishMany(adminCookies, taxonomy, 10, { difficulty: 'Easy' });
     await publishMany(adminCookies, taxonomy, 5, { difficulty: 'Medium' });
     await publishMany(adminCookies, taxonomy, 5, { difficulty: 'Hard' });
 
-    await seedTopicRecord(studentId, easy, 20, 4);
+    await seedTopicRecord(mastered.studentId, easy, 20, 20);
+    await seedTopicRecord(struggling.studentId, easy, 20, 4);
 
-    const result = await recommendationsFor(studentId);
-    const ids = result.difficulty.map((entry) => entry.id);
-
-    expect(ids).toContain('difficulty:consolidate:Easy');
-    // "Shore up Easy" and "try Hard" in the same breath is not two pieces of advice,
-    // it is one incoherent one.
-    expect(ids.some((id) => id.startsWith('difficulty:step_up'))).toBe(false);
-    expect(ids.some((id) => id.startsWith('difficulty:untried'))).toBe(false);
-  });
-
-  it('points out a published level the student has never met', async () => {
-    const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
-    const { studentId } = await registerVerifyLogin(app);
-    const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
-    const medium = await publishMany(adminCookies, taxonomy, 10, { difficulty: 'Medium' });
-    await publishMany(adminCookies, taxonomy, 4, { difficulty: 'Easy' });
-
-    // Middling at Medium: neither mastered nor struggling, so neither other rule fires.
-    await seedTopicRecord(studentId, medium, 20, 13);
-
-    const result = await recommendationsFor(studentId);
-    const untried = byId(result.difficulty, 'difficulty:untried:Easy');
-
-    expect(untried).toBeDefined();
-    expect(untried!.detail).toContain('20 questions you have answered');
+    expect((await recommendationsFor(mastered.studentId)).difficulty).toEqual([]);
+    expect((await recommendationsFor(struggling.studentId)).difficulty).toEqual([]);
   });
 });
 
@@ -377,52 +335,37 @@ describe('difficulty recommendations', () => {
 // ===========================================================================
 
 describe('practice recommendations', () => {
-  it('links a weakness to a real session, addressed by real ids', async () => {
+  /**
+   * A practice test is a random mix of the class's questions (owner, 2026-10-09). The old advice —
+   * "Practise Trigonometry", "You have not tried Mensuration" — linked to one chapter, which the
+   * practice page can no longer serve.
+   */
+  it('never sends a student to one chapter, weak or untried', async () => {
     const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
     const { studentId } = await registerVerifyLogin(app);
-    const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Trigonometry' });
-    const ids = await publishMany(adminCookies, taxonomy, 10);
+    const weak = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Trigonometry' });
+    const untried = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Mensuration' });
+    const ids = await publishMany(adminCookies, weak, 10);
+    await publishMany(adminCookies, untried, 7);
 
     await seedTopicRecord(studentId, ids, 20, 3);
 
     const result = await recommendationsFor(studentId);
-    const suggestion = result.practice[0]!;
 
-    expect(suggestion.title).toBe('Practise Trigonometry');
-    expect(suggestion.action!.href).toBe(`/practice?subject=${taxonomy.subjectId}&topic=${taxonomy.topicId}`);
-    // The count comes from the bank, not from a guess about it.
-    expect(suggestion.basis.figures.availableQuestions).toBe(10);
+    expect(result.weakTopics.map((entry) => entry.title)).toEqual(['Trigonometry']);
+    expect(result.practice.some((entry) => /Trigonometry|Mensuration/.test(entry.title + entry.detail))).toBe(false);
+    expect(result.practice.every((entry) => !entry.action || !entry.action.href.includes('?'))).toBe(true);
   });
 
-  it('surfaces a published topic the student has never been served', async () => {
+  it('gives a student with no record a first practice test rather than a verdict', async () => {
     const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
     const { studentId } = await registerVerifyLogin(app);
-    const seen = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
-    // Both chapters under the one subject. This used to file the unseen one under "Physics" purely
-    // to make it distinct, which stopped being a neutral choice once practice availability became
-    // scoped to the implicit subject — a second subject's chapter is now correctly unreachable, so
-    // the fixture was asserting the recommendation of something a student could never practise.
-    const unseen = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Mensuration' });
-    const seenIds = await publishMany(adminCookies, seen, 10);
-    await publishMany(adminCookies, unseen, 7);
-
-    await seedTopicRecord(studentId, seenIds, 20, 15);
-
-    const result = await recommendationsFor(studentId);
-    const gap = result.practice.find((entry) => entry.title.includes('Mensuration'))!;
-
-    expect(gap.title).toBe('You have not tried Mensuration');
-    expect(gap.detail).toContain('7 published questions');
-    // A statement about which questions were served, counted exactly — not a sample.
-    expect(gap.confidence).toBe('high');
-    expect(gap.basis.answered).toBe(0);
-  });
-
-  it('gives a student with no record a starting point rather than a verdict', async () => {
-    const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
-    const { studentId } = await registerVerifyLogin(app);
-    const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
-    await publishMany(adminCookies, taxonomy, 6);
+    const algebra = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
+    const circles = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Circles' });
+    await publishMany(adminCookies, algebra, 4);
+    await publishMany(adminCookies, circles, 2);
+    // Another class's question is not part of this student's test, so it is not counted.
+    await publishMany(adminCookies, algebra, 1, { classLevel: 'Class 6' });
 
     const result = await recommendationsFor(studentId);
 
@@ -432,8 +375,25 @@ describe('practice recommendations', () => {
     expect(result.weakTopics).toHaveLength(0);
     expect(result.strongTopics).toHaveLength(0);
     expect(result.insights).toHaveLength(0);
-    expect(result.practice[0]!.title).toBe('Start with Algebra');
-    expect(result.practice[0]!.basis.figures.availableQuestions).toBe(6);
+    const first = result.practice[0]!;
+    expect(first.title).toBe('Take your first practice test');
+    expect(first.detail).toContain('6 published questions for Class 9');
+    expect(first.action).toEqual({ label: 'Start a practice test', href: '/practice' });
+    // The same count the practice page shows, from the same function the draw uses.
+    expect(first.basis.figures.availableQuestions).toBe(6);
+    expect(first.confidence).toBe('high');
+  });
+
+  it('stops offering a first test once the student has a record', async () => {
+    const { cookies: adminCookies } = await createAdminSession(app, { email: 'staff@example.com', mobile: '9000000001' });
+    const { studentId } = await registerVerifyLogin(app);
+    const taxonomy = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Algebra' });
+    const ids = await publishMany(adminCookies, taxonomy, 10);
+
+    await seedTopicRecord(studentId, ids, 10, 7);
+
+    const result = await recommendationsFor(studentId);
+    expect(byId(result.practice, 'practice:first_test')).toBeUndefined();
   });
 
   it('says so when the class has no published questions at all', async () => {
@@ -709,6 +669,7 @@ describe('the engine seam', () => {
         notes: [],
       },
       availability: [],
+      practiceQuestions: 0,
       publishedMockTests: 0,
       now: new Date(),
     });

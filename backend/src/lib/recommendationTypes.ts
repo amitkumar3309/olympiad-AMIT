@@ -1,4 +1,3 @@
-import type { Difficulty } from '../models';
 import type { ClassLevel } from './classLevels';
 import type { StudentAnalytics } from '../services/analyticsService';
 import type { SubjectAvailability } from '../services/practiceService';
@@ -51,10 +50,11 @@ import type { SubjectAvailability } from '../services/practiceService';
  * `analytics` is THE Milestone 15 derivation, unchanged and un-re-implemented, and
  * `availability` is the real published question bank for this student's own class.
  *
- * The bank matters as much as the performance does. A recommendation to practise a
- * topic that has no published questions for the student's class is one the product
- * cannot honour, and a student who follows it lands on an empty picker — which reads as
- * the site being broken rather than as advice being approximate.
+ * The bank matters as much as the performance does: advice the product cannot carry out
+ * reads as the site being broken rather than as advice being approximate. Since
+ * 2026-10-09 a practice test is a random mix of the class's questions, so no
+ * recommendation may send a student to one chapter or one difficulty — there is no way
+ * to practise either — and `practiceQuestions` is the size of the mix.
  */
 export interface RecommendationFacts {
   /**
@@ -67,6 +67,11 @@ export interface RecommendationFacts {
   analytics: StudentAnalytics;
   /** Published questions for this class, subject → topic, with real counts. */
   availability: SubjectAvailability[];
+  /**
+   * How many questions a practice test for this class is drawn from — the figure the
+   * practice page shows, from the same function the draw uses. 0 for a staff account.
+   */
+  practiceQuestions: number;
   /** Published mock tests set for this class. A count, because that is all a rule needs. */
   publishedMockTests: number;
   /** Fixed at assembly so an engine cannot produce time-dependent output twice. */
@@ -218,12 +223,4 @@ export function confidenceFor(answered: number): Confidence {
   if (answered >= CONFIDENCE_HIGH_SAMPLE) return 'high';
   if (answered >= CONFIDENCE_MEDIUM_SAMPLE) return 'medium';
   return 'low';
-}
-
-/** The difficulty ladder, low to high. Used to decide what "the next level up" means. */
-export const DIFFICULTY_LADDER: readonly Difficulty[] = ['Easy', 'Medium', 'Hard'];
-
-export function nextDifficultyUp(level: Difficulty): Difficulty | null {
-  const index = DIFFICULTY_LADDER.indexOf(level);
-  return index >= 0 ? (DIFFICULTY_LADDER[index + 1] ?? null) : null;
 }
