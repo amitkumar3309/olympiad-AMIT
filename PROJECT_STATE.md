@@ -166,7 +166,8 @@ The work happens in phases, and each one stops for the owner's approval.
   before the first paint by `public/boot.js`; **Motion** (13.4.4), loaded after the page is up, tilts it
   towards a mouse, brings groups of cards into place as they are scrolled to and opens the FAQ smoothly
   (`pages/Landing/motion.ts`); placeholder pictures, the emoji and the handwritten lines are gone.
-  Browser tests now open on the everyday site unless they test the edition.
+  Browser tests now open on the everyday site unless they test the edition. E2E **92** (63 run), all
+  passing after merging `main`.
 - **Uploading questions is the owner's five-field form** (`feat/simple-question-upload`, 2026-10-09):
   Admin → Bulk Import asks for the file type, the class, the question type and an optional topic — no
   chapter. The form's class and type are every question's; the topic is a name (else the file's, else
