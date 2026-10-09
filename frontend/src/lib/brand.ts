@@ -113,6 +113,14 @@ export const SUPPORT_TEL_HREF = `tel:${SUPPORT.phone.replace(/[^\d+]/g, '')}`
 export const SITE_URL = 'https://www.amitolympiad.me'
 
 /**
+ * The founder's name as the quotes on the site are signed (owner, 2026-10-09: "the quote is by
+ * founder Amit so don't add A.M.I.T just use Amit"). The homepage's quote, the student area's motto
+ * and the dashboard's thought of the day are the founder's words, so they are signed "— Amit"
+ * rather than with the platform's initials.
+ */
+export const FOUNDER = 'Amit'
+
+/**
  * Who built the site, and where to find them.
  *
  * Rendered by `components/DeveloperCredit.tsx` in the public footer and at the foot of the

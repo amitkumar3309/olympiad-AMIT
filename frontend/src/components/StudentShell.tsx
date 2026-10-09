@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import logoMark from '../assets/logo-mark.webp'
-import { AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, AMIT_TAGLINE } from '../lib/brand'
+import { AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_TAGLINE, FOUNDER } from '../lib/brand'
 import { SIDEBAR_MOTTO } from '../lib/siteConfig'
 import AppShell from './layout/AppShell'
 import AccountMenu from './layout/AccountMenu'
@@ -155,7 +155,7 @@ export default function StudentShell({ title, subtitle, actions, headless, focus
       sidebarFooter={
         <aside className={styles.motto} aria-label="Motto">
           <p className={styles.mottoText}>{SIDEBAR_MOTTO}</p>
-          <p className={styles.mottoSign}>— {AMIT_SHORT}</p>
+          <p className={styles.mottoSign}>— {FOUNDER}</p>
           <Illustration name="mountain-climber" className={styles.mottoArt} />
         </aside>
       }
