@@ -173,7 +173,8 @@ router.put(
         targetId: 'settings',
         targetLabel: 'Daily Quiz settings',
         metadata: {
-          before: { ...before, updatedAt: undefined, updatedByLabel: undefined },
+          // The last reminder run is the job's record, not a setting anybody changed.
+          before: { ...before, updatedAt: undefined, updatedByLabel: undefined, lastReminderRun: undefined },
           after: body,
         },
       });

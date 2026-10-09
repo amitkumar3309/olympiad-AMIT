@@ -4,6 +4,7 @@ import { isDayKey, isMonthKey } from '../lib/competitionDay';
 import { CLASS_GROUPS, isPrizeBandKey, MAX_CLASS, MIN_CLASS, PRIZE_DESK_VIEWS, type PrizeBandKey } from '../lib/dailyQuiz';
 import type { ImportFileKind } from '../lib/importTypes';
 import { DIFFICULTIES } from '../models/Question';
+import { REMINDER_DAILY_CAP_MAX } from '../models/DailyQuizSettings';
 import { QUIZ_IMPORT_MAX_ROWS } from '../services/dailyQuizImportService';
 import { reviewedImportQuestion } from './importSchemas';
 import { importFileSchema } from './uploadSchemas';
@@ -218,11 +219,25 @@ export type QuizTemplateQuery = z.infer<typeof quizTemplateQuerySchema>;
  * null is the default, so no figure is ever shown until someone chooses one. How winners are
  * chosen is not a setting since the prize became monthly (PLAN.md Q24): a request still
  * naming `winnerRule` or `winnersPerQuiz` has them dropped, like any field not listed here.
+ *
+ * The two reminder settings (Milestone 30 Phase 7b) are **optional**: a request that leaves
+ * one out keeps the stored value rather than resetting it. `lastReminderRun` is absent on
+ * purpose — the job writes it, and a person cannot.
  */
 export const quizSettingsSchema = z.object({
   prizeHeadline: z.string().trim().min(3, 'Add a headline.').max(80),
   prizeText: z.string().trim().min(3, 'Describe the prize.').max(120),
   cashAmount: z.number().int('Use a whole number of rupees.').min(0).max(100000).nullable(),
   instantResult: z.boolean(),
+  remindersEnabled: z.boolean().optional(),
+  reminderDailyCap: z
+    .number()
+    .int('Use a whole number of emails.')
+    .min(0, 'Use 0 or more.')
+    .max(
+      REMINDER_DAILY_CAP_MAX,
+      `At most ${REMINDER_DAILY_CAP_MAX} a day — that is the email provider's whole free daily quota, which sign-ups share.`,
+    )
+    .optional(),
 });
 export type QuizSettingsBody = z.infer<typeof quizSettingsSchema>;
