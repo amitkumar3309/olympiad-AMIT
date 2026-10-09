@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { Types } from 'mongoose';
+import { config } from '../../config';
 import { requirePermission } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
@@ -149,9 +150,15 @@ router.get(
 // Settings
 // ---------------------------------------------------------------------------
 
+/**
+ * Whether the scheduled jobs can run here (Milestone 30 Phase 7b) — `JOBS_SECRET` is set — so
+ * the settings page can say why no reminder is going out. A yes or no, never the secret.
+ */
+const schedulerState = () => ({ configured: Boolean(config.jobs.secret) });
+
 router.get('/admin/daily-quiz/settings', GATE, ensureDb, async (_req: Request, res: Response) => {
   try {
-    sendSuccess(res, 200, { settings: await getQuizSettings() });
+    sendSuccess(res, 200, { settings: await getQuizSettings(), scheduler: schedulerState() });
   } catch (err) {
     respondToServiceError(res, err, { log: 'Failed to read Daily Quiz settings', fallback: 'Could not load the settings. Please try again.' });
   }
@@ -178,7 +185,7 @@ router.put(
           after: body,
         },
       });
-      sendSuccess(res, 200, { settings });
+      sendSuccess(res, 200, { settings, scheduler: schedulerState() });
     } catch (err) {
       respondToServiceError(res, err, { log: 'Failed to update Daily Quiz settings', fallback: 'Could not save the settings. Please try again.' });
     }
