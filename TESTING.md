@@ -37,6 +37,25 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Daily Quiz reminders (2026-10-09, Milestone 30 Phase 7b): 1421 passing backend tests across 40 files**
+> (`npm test` in `backend/`, about seven minutes on this laptop). New: `tests/dailyQuizReminders.test.ts`
+> (22) — the job routes' 503 naming `JOBS_SECRET` with no secret, 401 for a missing, wrong,
+> one-character-off or non-Bearer header on both prefixes, 200 with the right one; exactly one email for
+> each opted-in, verified, active student in a class with a quiz today who has not started, and nobody
+> else; a second trigger sending nothing new; the daily cap counting what is already queued, a cap of 0,
+> and the hashed order that rotates by day; `remindersEnabled` off; the email naming the classes, the
+> topic and the closing time but **never** the question, an option or the solution (marker text in all
+> three); a verification email sent before reminders queued earlier (mutation-checked: with the old sort
+> the test fails); the priorities; `/jobs/outbox` draining; reminder rows expiring 14 days after
+> queueing and no other row carrying `expiresAt`; the TTL and priority indexes; the preference off by
+> default, saved alone and audited; the settings round-trip, an omitted field kept, a cap outside 0–300
+> refused; `lastReminderRun` recorded without touching `updatedAt`; and today's quiz carrying
+> `reminders` in every state. `notifications.test.ts` now expects the third preference. Mutating
+> `config.jobs.secret` in a test is how the secret is set — restore it afterwards, as this file does.
+> **The browser suite was not run in this session**; its backend (`scripts/e2e-server.ts`) now sets a
+> test-only `JOBS_SECRET`, so the crawler sees the Daily Quiz's "Email me a reminder at 7 AM" button and
+> checks it like every other (a name, 44 px at 390, axe).
+>
 > **The Diwali trial (2026-10-09):** two browser tests assumed the day they ran was an ordinary one —
 > `diwali.spec.ts`'s `?season=auto` check and `prerender.spec.ts`'s dark-theme check — and failed during
 > the 24-hour trial, as they would have during the real week. Both now pin 1 December with `page.clock`.
