@@ -610,11 +610,11 @@ Staff write **one** document carrying an audience *rule*; each student's inbox i
 
 ### `GET /api/v1/me/notification-preferences` (Milestone 14)
 - **Auth**: `requireAuth()`.
-- **Response 200**: `{ success, preferences: { announcements, results }, always: [{ category, reason }], inAppAlwaysOn: true }`.
-- `always` names the streams that **cannot** be switched off (`transactional`, `security`) **with their reasons**, so the UI can state them rather than silently offering only two toggles. A missing stored object reads as all-on, matching what a pre-Milestone-14 account was already receiving.
+- **Response 200**: `{ success, preferences: { announcements, results, dailyQuizReminders }, always: [{ category, reason }], inAppAlwaysOn: true }`.
+- `always` names the streams that **cannot** be switched off (`transactional`, `security`) **with their reasons**, so the UI can state them rather than silently offering only two toggles. A missing stored object reads as all-on, matching what a pre-Milestone-14 account was already receiving — **except `dailyQuizReminders`** (Milestone 30 Phase 7b), the 7:00 AM Daily Quiz reminder, which is **opt-in**: `false` unless the student turned it on, including on every account from before it existed.
 
 ### `PATCH /api/v1/me/notification-preferences` (Milestone 14)
-- **Auth**: `requireAuth()`. **Request**: `{ announcements?, results? }` — at least one (`400` otherwise).
+- **Auth**: `requireAuth()`. **Request**: `{ announcements?, results?, dailyQuizReminders? }` — at least one (`400` otherwise). The Daily Quiz card's one-tap "Email me a reminder at 7 AM" is this route with `{ dailyQuizReminders: true }`.
 - There is deliberately **no field** for `transactional` or `security`: they are absent from the schema rather than ignored by the handler, so "I turned it off and it kept sending" is not a state the API can be asked to produce.
 - **These control email only.** In-app rows are always written, so declining an email never costs the student the message.
 - **Response 200**: `{ success, preferences }`. Writes `student.profile.updated` naming the changed field names.
@@ -651,9 +651,11 @@ Staff write **one** document carrying an audience *rule*; each student's inbox i
 
 Because the free tier has no scheduler, delivery is driven by three things, none of which is a deadline: an opportunistic kick at enqueue time (held open by the platform's `waitUntil` since Milestone 25, so it is no longer suspended when the response is flushed), a lazy sweep on later requests (`middleware/outboxSweep.ts` — described in the code from Milestone 14 but only **written** in Milestone 25), and the explicit staff drain below. That last one stays visible rather than hidden precisely because nothing here can promise a delivery time on a completely idle site.
 
+**Since Milestone 30 Phase 7b there is a fourth, and it is the one with a deadline**: `POST /api/v1/jobs/outbox`, which an outside scheduler calls every minute (see "Scheduled jobs" below). And **the queue sends by priority**: account mail (`transactional`, `security`) first, then `announcement` and `results`, then `reminders` — so the Daily Quiz reminders queued at 07:00 never hold up a verification link. A `reminders` row also **expires 14 days after it was queued** (a TTL on `expiresAt`, which no other category has).
+
 ### `GET /api/v1/admin/email-deliveries`
 - **Permission**: `notifications:write`.
-- **Query**: `page`, `limit`, `status` (`pending`/`sent`/`failed`), `category` (`transactional`/`security`/`announcement`/`results`).
+- **Query**: `page`, `limit`, `status` (`pending`/`sent`/`failed`), `category` (`transactional`/`security`/`announcement`/`results`/`reminders`).
 - **Response 200**: `{ success, deliveries: EmailDelivery[], stats: { pending, sent, failed, oldestPendingAt }, pagination }`.
 - Each row carries `to`, `subject`, `category`, `status`, `attempts`/`maxAttempts`, `nextAttemptAt`, `lastAttemptAt`, `lastError`, `sentAt` and — since Milestone 25 — `providerMs` and `queuedForMs`. **The body is never returned** — a delivery record has no business reproducing the contents of somebody's password-reset email.
 - `providerMs` and `queuedForMs` are **additive fields, not a contract change**: both are `null` on anything not yet delivered, and on rows written before Milestone 25. They are separate because they have different owners — `providerMs` is wall-clock time inside the provider request, `queuedForMs` is `sentAt - createdAt`, which is the queue's own latency. A large `queuedForMs` beside a small `providerMs` is our delay; the reverse is the provider's. Before this existed, "the verification email was slow" could only be answered by reading a server log, so it was answered by guessing.
@@ -1110,6 +1112,7 @@ Today's quiz for the caller's class and their state in it. Settles any XP that w
 | `today` | The IST day key. |
 | `prize` | `prizeHeadline`, `prizeText`, `cashAmount` (null unless set), `period` (`'month'` — the prize is monthly since 2026-10-09), `bands` (the four prize bands, `{ id, min, max, label }` with `id` one of `3-5`, `6-8`, `9-10`, `11-12`), `winnersPerBand` (1), `prizesFrom` (`"2026-11-08"` — the first day an answer counts towards a prize; a page promises nothing before it), `howWinnersAreChosen` (the server's sentence, `describeWinnerRule()`), `instantResult`, `xpForCorrect`. |
 | `eligibility` | `{ eligible, missing[] }` — what a prize winner must have on their profile. |
+| `reminders` | `{ on, available }` (Milestone 30 Phase 7b) — the 7:00 AM reminder email. `on` is the student's own switch (`notificationPrefs.dailyQuizReminders`); `available` is true only when the server has `JOBS_SECRET` **and** the settings' `remindersEnabled` is on — otherwise the page offers nothing, because nothing would send it. Present in every state, including no quiz today. |
 | `streak` | `{ current, longest }` — days with a submitted answer. |
 | `previous` | The most recent earlier quiz, once unlocked: `{ day, topic, isCorrect, revealed }`, or null. |
 | `quiz` | Null when there is none (`reason: 'none-scheduled'` or `'no-class'`, both 200). Otherwise `{ id, groupId, day, classRange, topic, difficulty, opensAt, closesAt, revealAt, phase }` — **no question and no options**. |
@@ -1173,7 +1176,9 @@ Quizzes newest first (`page`, `limit` ≤ 100, `from`, `to`), each `{ groupId, d
 `classMin`, `classMax`, optional `search`, `page`, `limit` ≤ 50. Bank questions that can be a quiz for the range: single choice, **unpublished** (draft or in review), a worked solution, a class inside the range, the implicit subject, never used by another quiz. `ready` is false when the options are not 2–6 with exactly one correct.
 
 #### `GET` / `PUT /api/v1/admin/daily-quiz/settings`
-`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), instantResult }`. Audited with before and after. Since 2026-10-09 the winner rule is not a setting — one winner a month in each class band, in code — and a body still carrying `winnerRule` or `winnersPerQuiz` has them dropped. A saved headline still reading the retired "Solve daily. Win daily." is served as the new default, "Solve daily. Win every month."
+`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), instantResult, remindersEnabled?, reminderDailyCap? }`. Audited with before and after.
+
+The reminder settings (Milestone 30 Phase 7b): `remindersEnabled` (default **true** — each student still turns reminders on for themselves, so it sends nothing alone) and `reminderDailyCap` (a whole number **0–300**, default **100** — the email provider's free quota is 300 a day and is shared with sign-ups; **400** outside it). Both are **optional on `PUT`: an omitted one keeps its stored value**, so a client that does not know about reminders cannot switch them off by saving the prize. Both responses also carry `settings.lastReminderRun` — what the reminder job did the last time the scheduler called it, `{ day, at, enabled, eligible, alreadyStarted, alreadyReminded, overCap, queued, failed }` or `null` if it never has — and `scheduler: { configured }`, whether the server has `JOBS_SECRET` (a yes or no, never the value). `lastReminderRun` cannot be written through this route; the job writes it, without changing `updatedAt` (which stays "when an administrator last changed the settings"). Since 2026-10-09 the winner rule is not a setting — one winner a month in each class band, in code — and a body still carrying `winnerRule` or `winnersPerQuiz` has them dropped. A saved headline still reading the retired "Solve daily. Win daily." is served as the new default, "Solve daily. Win every month."
 
 #### `POST /api/v1/admin/daily-quiz`
 Body: `{ day, classMin, classMax, questionId }`. Writes one document per class in the range, sharing a `groupId` and one snapshot. Refusals: a past day **400**; a question that is published **409**, archived **409**, not single choice / not 2–6 options / not exactly one correct / no solution / class outside the range **400**, already a quiz on another day **409**; a class that already has a quiz that day **409** (or a pre-quiz challenge holding it — the message says so). **201** `{ groupId, day, classes }`. Audited.
@@ -1208,6 +1213,24 @@ The staff winner view — here, on the prize desk and on a quiz's page — carri
 `GET` → `{ quiz, winners, prizeMonth }` (`winners`: candidates computed for that quiz before 2026-10-09 — a newer quiz has none; `prizeMonth`: `{ month, label }`, the monthly prize its answers count towards, or null for a day before 8 November 2026). `PUT { questionId }` re-points the quiz; `DELETE` removes it — both **409** once anybody has **started** it, and a past quiz is never changed. Audited.
 
 `POST /api/v1/admin/daily-quiz/:groupId/winners/compute` — one quiz's winners — was **removed on 2026-10-09** with the per-quiz prize.
+
+### Scheduled jobs (Milestone 30 Phase 7b — `routes/v1/jobs.routes.ts`)
+
+Called by an **outside scheduler**, never by a person or a browser: the owner chose a free external pinger (cron-job.org) over paid Vercel Cron, whose free tier is only hour-accurate. Both routes require **`Authorization: Bearer <JOBS_SECRET>`** (the scheme is case-insensitive):
+
+- `JOBS_SECRET` **unset** → **503**, `{ success: false, error }` naming `JOBS_SECRET`.
+- Header missing, a different scheme, or a wrong secret → **401** with `WWW-Authenticate: Bearer realm="jobs"`. Compared in constant time (`timingSafeEqual` over the SHA-256 of each side), **before** `ensureDb`, so a wrong secret costs no database work. The presented value is never logged.
+- Every response is `Cache-Control: no-store`. Both prefixes (`/api/v1/jobs/…` and the `/api/jobs/…` alias) carry the same gate. The general rate limiter applies; the CSRF check passes them because a scheduler sends no `Origin`.
+
+#### `POST /api/v1/jobs/daily-quiz-reminders`
+Once a day at **07:00 Asia/Kolkata**. Queues today's Daily Quiz reminder emails (`services/dailyQuizReminders.ts → queueDailyQuizReminders()`) and records the run on the settings document. A reminder goes to a student who turned reminders on, with a verified address and an active account, in a class that has a playable quiz **today**, who has **not pressed Start** — each through `emailAllowedFor(student, 'reminders')`. One per student per day (dedupe key `dailyquiz-reminder:<day>:<student>`), so calling twice sends nobody a second email; at most `reminderDailyCap` a day, counting reminders already queued that day. When there are more students than room, they are taken in an order hashed from the day and the student, so the cap does not always leave out the same people. Queues every row first and then starts **one** drain. With `remindersEnabled` off it queues nothing and still records the run.
+
+**Response 200**: `{ success, run: { day, at, enabled, eligible, alreadyStarted, alreadyReminded, overCap, queued, failed } }` — `eligible` counts the students who asked for a reminder and could receive one in a class with a quiz today; the other four counts say what became of each of them. **500** if the job fails part-way — calling again is safe.
+
+The email names the class range, the topic and the closing time ("open until 11:59 PM tonight, India time") — what the quiz card shows before Start — and **never the question or an option**; a button to `<FRONTEND_URL>/daily-quiz`; and how to turn reminders off.
+
+#### `POST /api/v1/jobs/outbox`
+Every minute. Sends up to 10 due emails, highest priority first — exactly `POST /admin/email-deliveries/drain` without a person — and answers `{ success, drain: { claimed, sent, failed, retrying } }`. This is what gives the queue a deadline on an idle site (known bug #41).
 
 ### Test-only hooks — never in a real deployment
 

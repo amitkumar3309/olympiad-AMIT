@@ -255,6 +255,23 @@ const envSchema = z.object({
    * because only the owner's accountant knows what is correct here.
    */
   INVOICE_TAX_NOTE: z.string().min(1).optional(),
+
+  // --- Scheduled jobs (Milestone 30 Phase 7b) ---
+  /**
+   * The shared secret an outside scheduler presents to `POST /jobs/*` as
+   * `Authorization: Bearer <secret>` — the Daily Quiz reminders at 07:00 IST and the email
+   * outbox every minute (PLAN.md Q20). The owner chose a free external pinger (cron-job.org)
+   * over paid Vercel Cron, so these routes are reachable from the internet and this is the
+   * only thing that stands in front of them.
+   *
+   * **Optional**: unset, both routes answer 503 naming this variable and nothing else
+   * changes — the site still works, reminders simply are not offered. At least 32
+   * characters, because it is compared, not hashed with a work factor: a short secret could
+   * be guessed. Trimmed, so a value pasted with a trailing newline still matches the header.
+   * Generate one with
+   * `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
+   */
+  JOBS_SECRET: z.string().trim().min(32).optional(),
   /**
    * Mounts `/__e2e/*`, the browser test suite's hooks: move the server clock, reset and
    * seed the database (Milestone 30, Phase 2). **Off by default**, refused outright when

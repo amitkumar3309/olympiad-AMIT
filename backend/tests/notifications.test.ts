@@ -592,18 +592,20 @@ describe('notification preferences', () => {
       .expect(200);
 
     // On, because a student who registered before this existed was already receiving
-    // everything — defaulting to off would silently take something away.
-    expect(res.body.preferences).toEqual({ announcements: true, results: true });
+    // everything — defaulting to off would silently take something away. The Daily Quiz
+    // reminder (Milestone 30 Phase 7b) is the exception: a daily email is opt-in.
+    expect(res.body.preferences).toEqual({ announcements: true, results: true, dailyQuizReminders: false });
     expect(res.body.inAppAlwaysOn).toBe(true);
     // The page is told what it may *not* switch off, rather than silently omitting it.
     expect(res.body.always.map((a: { category: string }) => a.category)).toEqual(['transactional', 'security']);
   });
 
-  it('treats a missing preferences object as all-on', () => {
-    expect(resolvePrefs({})).toEqual({ announcements: true, results: true });
+  it('treats a missing preferences object as all-on — except the reminder, which is opt-in', () => {
+    expect(resolvePrefs({})).toEqual({ announcements: true, results: true, dailyQuizReminders: false });
     expect(resolvePrefs({ notificationPrefs: { announcements: false, results: true } })).toEqual({
       announcements: false,
       results: true,
+      dailyQuizReminders: false,
     });
   });
 
@@ -617,9 +619,9 @@ describe('notification preferences', () => {
       .send({ results: false })
       .expect(200);
 
-    expect(res.body.preferences).toEqual({ announcements: true, results: false });
+    expect(res.body.preferences).toEqual({ announcements: true, results: false, dailyQuizReminders: false });
     const reread = await request(app).get(`${API}/me/notification-preferences`).set('Cookie', header).expect(200);
-    expect(reread.body.preferences).toEqual({ announcements: true, results: false });
+    expect(reread.body.preferences).toEqual({ announcements: true, results: false, dailyQuizReminders: false });
   });
 
   it('rejects an empty update', async () => {
@@ -660,16 +662,23 @@ describe('notification preferences', () => {
     expect(isOptionalCategory('security')).toBe(false);
     expect(isOptionalCategory('announcement')).toBe(true);
     expect(isOptionalCategory('results')).toBe(true);
+    expect(isOptionalCategory('reminders')).toBe(true);
 
     const optedOut = {
       email: 'x@example.com',
       status: 'active' as const,
-      notificationPrefs: { announcements: false, results: false },
+      notificationPrefs: { announcements: false, results: false, dailyQuizReminders: false },
     };
     expect(emailAllowedFor(optedOut, 'security')).toBe(true);
     expect(emailAllowedFor(optedOut, 'transactional')).toBe(true);
     expect(emailAllowedFor(optedOut, 'announcement')).toBe(false);
     expect(emailAllowedFor(optedOut, 'results')).toBe(false);
+    expect(emailAllowedFor(optedOut, 'reminders')).toBe(false);
+    // Reminders are opt-in: an account that never chose gets none, and one that chose gets them.
+    expect(emailAllowedFor({ ...optedOut, notificationPrefs: undefined }, 'reminders')).toBe(false);
+    expect(
+      emailAllowedFor({ ...optedOut, notificationPrefs: { announcements: false, results: false, dailyQuizReminders: true } }, 'reminders'),
+    ).toBe(true);
   });
 
   it('stops optional email to an account not in good standing', () => {

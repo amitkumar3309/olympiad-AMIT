@@ -319,3 +319,23 @@
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+
+/* ---------- the settings' reminder emails (Phase 7b) ---------------------------- */
+
+/* A section of the settings card: the card's own title is the h2, this is its h3. */
+.settingsHeading {
+  margin: var(--space-2) 0 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+}
+
+/* What the job did last, read off its own record — the owner's proof the scheduler calls. */
+.lastRun {
+  margin: 0;
+  font-size: var(--type-small);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}

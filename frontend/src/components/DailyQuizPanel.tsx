@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Alert,
@@ -27,8 +27,10 @@ import {
   type DailyQuizStartResponse,
   type DailyQuizSubmitResponse,
   type DailyQuizToday,
+  type NotificationPrefs,
   type QuizHistoryRow,
   type QuizPrizeInfo,
+  type QuizReminders,
 } from '../api/types'
 import { formatDayKey, formatSolveTime, formatTime } from '../lib/format'
 import { humanizeError } from '../lib/errors'
@@ -54,6 +56,11 @@ import styles from './DailyQuizPanel.module.css'
  * second tab or a session that expired mid-quiz returns to the same choice. Submitting
  * is idempotent on the server, so a retry after a failure is always safe: it either
  * records the answer or reports the one already recorded.
+ *
+ * ## The 7:00 AM reminder (Milestone 30 Phase 7b)
+ *
+ * Offered with one tap below the quiz — never while a question is being answered — and only
+ * when the server says one can really be sent (`reminders.available`). See `ReminderOffer`.
  */
 
 export interface DailyQuizPanelProps {
@@ -193,6 +200,11 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
     [today?.question, selected],
   )
 
+  /** The reminder switch changed in the card: the server's answer is what is shown. */
+  const reminderChanged = useCallback((on: boolean) => {
+    setToday((current) => (current?.reminders ? { ...current, reminders: { ...current.reminders, on } } : current))
+  }, [])
+
   // ---------------------------------------------------------------------------
 
   const heading = variant === 'page' ? 'h2' : 'h3'
@@ -274,6 +286,7 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
               .
             </p>
           )}
+          {today.reason !== 'no-class' && <ReminderOffer reminders={today.reminders} onChange={reminderChanged} centred />}
         </Card>
         {unlockedCard}
       </>
@@ -342,6 +355,7 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
             </Button>
             <span className={styles.note}>The question appears when you press Start.</span>
           </div>
+          <ReminderOffer reminders={today.reminders} onChange={reminderChanged} />
         </Card>
         {unlockedCard}
       </>
@@ -514,6 +528,7 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
               </ButtonLink>
             )}
           </div>
+          <ReminderOffer reminders={today.reminders} onChange={reminderChanged} />
         </Card>
         {unlockedCard}
       </>
@@ -531,6 +546,80 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
         onRetry={() => void load()}
       />
     </Card>
+  )
+}
+
+/**
+ * The 7:00 AM reminder email (Milestone 30 Phase 7b, PLAN.md Q20), in the quiz card.
+ *
+ *  - **Not available** (the server has no scheduler, or staff switched reminders off):
+ *    nothing at all. A reminder nobody will send is a promise the page must not make.
+ *  - **Available, off**: one tap — "Email me a reminder at 7 AM" — saving the same switch as
+ *    My Profile → Notification preferences. The button carries `loading` while it saves.
+ *  - **On**: a quiet line saying so and where to turn it off. Straight after the tap it says
+ *    "Done" and takes the focus, so the confirmation is read out where the button was.
+ *
+ * The server's answer to the save is what is shown, never the value this component asked for.
+ */
+function ReminderOffer({
+  reminders,
+  onChange,
+  centred = false,
+}: {
+  /** Undefined from a backend older than Phase 7b: then there is nothing to offer. */
+  reminders: QuizReminders | undefined
+  onChange: (on: boolean) => void
+  centred?: boolean
+}) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [confirmed, setConfirmed] = useState(false)
+  const noteRef = useRef<HTMLParagraphElement>(null)
+
+  // The button the student pressed is gone once the save lands; the focus goes to what replaced it.
+  useEffect(() => {
+    if (confirmed) noteRef.current?.focus()
+  }, [confirmed])
+
+  if (!reminders?.available) return null
+
+  async function turnOn() {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await api.patch<{ preferences: NotificationPrefs }>('/me/notification-preferences', { dailyQuizReminders: true })
+      const on = res.preferences.dailyQuizReminders === true
+      onChange(on)
+      setConfirmed(on)
+    } catch (err) {
+      setError(humanizeError(err, { fallback: 'The reminder could not be turned on. Please try again.' }))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const placement = centred ? ` ${styles.reminderCentred}` : ''
+
+  if (reminders.on) {
+    return (
+      <p ref={noteRef} tabIndex={-1} className={`${styles.reminderNote}${placement}`}>
+        <Icon name="ph-bell-ringing" />
+        <span>
+          {confirmed ? 'Done — reminders are on: ' : 'Reminders are on: '}
+          an email at 7:00 AM on days your class has a quiz. Turn them off in{' '}
+          <Link to="/profile#notification-preferences">My Profile → Notification preferences</Link>.
+        </span>
+      </p>
+    )
+  }
+
+  return (
+    <div className={`${styles.reminderOffer}${placement}`}>
+      <Button variant="secondary" size="sm" icon="ph-bell" loading={saving} onClick={() => void turnOn()}>
+        Email me a reminder at 7 AM
+      </Button>
+      {error && <Alert tone="danger">{error}</Alert>}
+    </div>
   )
 }
 

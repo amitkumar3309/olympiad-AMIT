@@ -465,3 +465,52 @@ export function buildNotificationEmail(input: {
     }),
   };
 }
+
+/**
+ * The Daily Quiz reminder (Milestone 30 Phase 7b, PLAN.md Q20) — sent at 7:00 AM to a student
+ * who turned reminders on, on a day their class has a quiz they have not started.
+ *
+ * ## What it may say, and what it must not
+ *
+ * Only what the quiz card already shows **before Start**: the class range, the topic and when
+ * the quiz closes. **Never the question, an option or anything derived from them.** A solve
+ * time starts at Start, and the question appears only then, so that nobody can read it, work
+ * it out and *then* start the clock. An email carrying the question would hand every reader
+ * exactly that head start — and an inbox is easier to share than a signed-in page. The input
+ * type admits none of it, so a caller cannot pass the question in by mistake.
+ *
+ * It loads nothing (`layout()`), links only to the Daily Quiz page, and ends with how to turn
+ * reminders off — they are opt-in, and an email that hides its own off switch is spam.
+ */
+export function buildDailyQuizReminderEmail(input: {
+  to: string;
+  /** "Classes 9–12" — `classRangeLabel()`. */
+  classRange: string;
+  /** The quiz's topic as the card shows it, or null when it has none. */
+  topic: string | null;
+}): OutboundEmail {
+  const url = `${config.publicAppUrl}/daily-quiz`;
+  const closes = 'open until 11:59 PM tonight, India time';
+  const topicLine = input.topic ? `Topic: ${input.topic}\n\n` : '';
+  const body =
+    `The Daily Quiz for ${input.classRange} is ${closes}.\n\n` +
+    topicLine +
+    `One question, one attempt. The question appears when you press Start, and your time is measured from that moment — so open it when you are ready.`;
+  const offSwitch =
+    'You are receiving this because Daily Quiz reminders are on for your account. ' +
+    'To turn them off, go to My Profile → Notification preferences, or use the Daily Quiz page.';
+
+  return {
+    to: input.to,
+    subject: `Today's Daily Quiz is open — ${input.classRange}`,
+    text: `${body}\n\nOpen the Daily Quiz:\n${url}\n\n—\n${offSwitch.replace('→', '>')}${textFooter()}`,
+    html: layout({
+      preheader: `${input.classRange}${input.topic ? ` · ${input.topic}` : ''} — ${closes}.`,
+      heading: "Today's Daily Quiz is open",
+      body,
+      actionUrl: url,
+      actionLabel: 'Open the Daily Quiz',
+      footer: offSwitch,
+    }),
+  };
+}

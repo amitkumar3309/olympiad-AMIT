@@ -7,7 +7,8 @@ Phase 6 screenshots are PR #8 (`feat/diwali-launch-phase-6-polish`); Phase 7a �
 (PR #10) and live, the edition previewable at `/?season=diwali`; the hero's picture of the day and the
 founder's signature are merged (PR #11); the immersive Diwali edition (PR #12) was merged into
 `feat/home-motivation` rather than `main`, and PR #13 brings it to `main`; the monthly Daily Quiz prize
-is PR #14, and picture questions are on `feat/picture-questions`**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+is PR #14, picture questions are PR #15, and the Daily Quiz reminder emails are on
+`feat/daily-quiz-reminders`, waiting on three owner steps before they send anything**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -193,7 +194,21 @@ The work happens in phases, and each one stops for the owner's approval.
   and strips it. The editor attaches pictures, the import page's Image tab imports pictures **instead of
   OCR**, and every page that shows a question shows its picture. Two fixes went first: request logs no
   longer hold session tokens, and an oversized body is a 413 (the gallery can take its 1 MB pictures at
-  last). Backend **1399 / 39**; E2E **86**. **Next: Daily Quiz reminders (Q20).**
+  last). Backend **1399 / 39**; E2E **86**.
+- **Phase 7b, second half — Daily Quiz reminder emails** (`feat/daily-quiz-reminders`, PLAN.md Q20 and
+  §5c): an email at **7:00 AM India time** to a student who **asked for one**
+  (`notificationPrefs.dailyQuizReminders`, off by default — My Profile, or one tap on the Daily Quiz card,
+  offered only when one can be sent), on a day their class has a quiz they have not started. It names the
+  classes, the topic and the closing time, **never the question**. Sent by two job routes an outside
+  scheduler calls with **`JOBS_SECRET`** (new, optional; constant-time bearer check; 503 naming it when
+  unset): `POST /jobs/daily-quiz-reminders` once a day and `POST /jobs/outbox` every minute — which also
+  gives the email queue a deadline (known bug #41). The outbox now **sends by priority** (account mail,
+  then news, then reminders), reminder rows **expire 14 days** after queueing (the only TTL in the
+  outbox), and a staff-editable **daily cap** (100, 0–300) keeps them inside the provider's free quota;
+  Admin → Daily Quiz → Settings shows the **last run**. Backend **1421 / 40**; E2E not run in this session
+  (its backend now sets a test-only secret, so the crawler covers the reminder button). **Owner action**:
+  the secret in Vercel and two cron-job.org jobs — LAUNCH_REPORT §8, step 12. **Open**: LEGAL_REVIEW.md
+  question 13 (the Privacy Policy draft does not mention reminder emails).
 
 ## Milestone 29 at a glance
 
@@ -1951,6 +1966,8 @@ Milestone 3 adds no new environment variables and no new deploy step, but two th
 | Password hashing | [backend/src/lib/password.ts](backend/src/lib/password.ts) |
 | Email transport + templates (`deliverEmail` **throws**) | [backend/src/lib/email.ts](backend/src/lib/email.ts) |
 | **THE email queue — nothing else may deliver** | [backend/src/services/emailOutbox.ts](backend/src/services/emailOutbox.ts) |
+| **The Daily Quiz reminder job** (Milestone 30 Phase 7b) | [backend/src/services/dailyQuizReminders.ts](backend/src/services/dailyQuizReminders.ts) |
+| **The scheduled jobs — `JOBS_SECRET`, a free outside scheduler** (Milestone 30 Phase 7b) | [backend/src/routes/v1/jobs.routes.ts](backend/src/routes/v1/jobs.routes.ts) |
 | **THE automated-event catalogue (copy, category, opt-out)** | [backend/src/lib/systemNotifications.ts](backend/src/lib/systemNotifications.ts) |
 | Domain event → notification wiring | [backend/src/services/systemNotifier.ts](backend/src/services/systemNotifier.ts) |
 | Notification-system tests (46, incl. failure handling) | [backend/tests/notifications.test.ts](backend/tests/notifications.test.ts) |
@@ -2089,7 +2106,7 @@ Backend: `MONGO_URI`, `JWT_SECRET` (mandatory in production), `ADMIN_EMAIL`, `AD
 38. **An abandoned official-exam attempt is finalised lazily**, the same shape as mock tests (bug #20): `sweepExpiredExamAttempts()` runs when results are published and when an attempt is read. Deliberate — the free tier has no scheduler, and grading uses the stored `expiresAt` rather than the moment of discovery, so a late finalisation produces the same mark. Publishing results sweeps first, specifically so an abandoned paper is ranked rather than dropped.
 39. **A certificate PDF is rendered on every download**, not cached. `pdf-lib` is fast and the snapshot makes the output deterministic, so this is correct rather than wrong — but it is CPU per request on a free serverless tier, and the first place to look if downloads ever feel slow.
 40. **Milestone 14 has not been driven through a real browser.** The backend is covered by 46 integration tests against a real MongoDB, and the frontend type-checks, lints and builds — but the new surfaces (the unread badge, the preferences panel, the delivery console, the broadcast opt-in) have not been clicked through. A second Claude session was holding port 8081 with a backend process started *before* these changes, and since `dev:local` is not a watcher, verifying against it would have exercised stale code — which is worse than not verifying. Do this before deploying: stop any other dev server, then `npm run dev:local --prefix backend` and the frontend.
-41. **Email delivery has no deadline on an idle site.** The queue drains on an opportunistic kick and on later requests, because the free tier has no scheduler. If nothing touches the API, a queued message waits. Mitigated by the explicit "Send queued now" action on `/admin/email-deliveries`, and by the fact that the *transactional* mail that matters most is queued during a request that has just happened. A real fix is a cron ping, which needs either a paid Vercel plan or a free external uptime pinger — worth doing before a large cohort registers.
+41. **Email delivery has no deadline on an idle site — FIX BUILT (Milestone 30 Phase 7b), waiting on the owner.** The queue drains on an opportunistic kick and on later requests, because the free tier has no scheduler. If nothing touches the API, a queued message waits. Mitigated by the explicit "Send queued now" action on `/admin/email-deliveries`, and by the fact that the *transactional* mail that matters most is queued during a request that has just happened. **The fix is `POST /jobs/outbox`**, which a free external scheduler (cron-job.org) calls every minute with `JOBS_SECRET`; it closes this once the owner has set the secret and the job (LAUNCH_REPORT §8, step 12). Until then the old behaviour stands.
 42. **Delivery is at-least-once, so a duplicate email is possible.** If a container dies after the provider accepted a message but before the row was marked `sent`, it is sent twice. Deliberate (see the `EmailOutbox` comment): the alternative bookkeeping cannot close the window without provider-side idempotency, and a duplicate notice is a much smaller harm than a lost one.
 43. **A broadcast email is capped at 500 recipients and does not resume past the cap.** `EMAIL_BROADCAST_CAP` reports `cappedAt` so staff can see it happened, but there is no "continue from where it stopped" — the honest workaround is a second, class-targeted announcement. Fine at the scale photo storage caps the cohort to (~250), and it is the explicit ceiling rather than a silent one.
 44. **`notificationPrefs` is not exposed on the admin account view.** Staff cannot see why a student is not receiving announcement email, only that the broadcast reported them as suppressed. The aggregate count is enough to explain the outcome, but not to answer "why didn't *this* child get it?".
@@ -2205,7 +2222,7 @@ If you decide to go ahead, the mechanical part is small and is deliberately the 
 
 **Two operational follow-ups specific to Milestone 14, worth doing before a large cohort registers:**
 
-1. **Give the queue a heartbeat.** Delivery has no deadline on an idle site (known bug #41). The cheapest fix inside the ₹0 constraint is a free external uptime pinger (UptimeRobot, cron-job.org) hitting a cheap endpoint every few minutes, which is enough to make the lazy sweep run. A Vercel cron needs a paid plan.
+1. **Give the queue a heartbeat.** Delivery has no deadline on an idle site (known bug #41). **Built in Milestone 30 Phase 7b**: `POST /jobs/outbox`, for a free external scheduler (cron-job.org) every minute, behind `JOBS_SECRET`. What remains is the owner's setup — LAUNCH_REPORT §8, step 12.
 2. **Watch `/admin/email-deliveries` after the first real broadcast.** A free-tier provider's daily limit is the actual constraint here, and the console is where it will show up — as a run of rows retrying with the provider's own quota error.
 
 **After that, the strongest remaining candidates, in order:**

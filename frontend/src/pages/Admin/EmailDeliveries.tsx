@@ -17,7 +17,8 @@ interface ListResponse {
 }
 
 const STATUSES: EmailStatus[] = ['pending', 'sent', 'failed']
-const CATEGORIES: EmailCategory[] = ['transactional', 'security', 'announcement', 'results']
+// `reminders` is the Daily Quiz reminder (Milestone 30 Phase 7b), queued last and kept 14 days.
+const CATEGORIES: EmailCategory[] = ['transactional', 'security', 'announcement', 'results', 'reminders']
 
 /**
  * The email delivery console (Milestone 14).

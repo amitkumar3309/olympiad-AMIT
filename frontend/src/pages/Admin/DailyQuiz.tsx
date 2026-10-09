@@ -10,6 +10,7 @@ import type {
   QuizPrizeInfo,
   QuizSettings,
   QuizWinnerRow,
+  ReminderRun,
 } from '../../api/types'
 import AdminShell from './AdminShell'
 import MathText from '../../components/MathText'
@@ -34,7 +35,7 @@ import {
   type BadgeTone,
   useToast,
 } from '../../components/ui'
-import { formatDateTime, formatDayKey, formatSolveTime } from '../../lib/format'
+import { formatDateTime, formatDayKey, formatNumber, formatSolveTime } from '../../lib/format'
 import { humanizeError } from '../../lib/errors'
 import ScheduleDialog from './DailyQuizSchedule'
 import { QuizBankBulk, QuizFileImport } from './DailyQuizBulk'
@@ -56,6 +57,8 @@ import styles from './DailyQuiz.module.css'
  *  - **Settings** — the prize and when results are shown, beside the public "how winners are
  *    chosen" sentence exactly as the server generates it — fetched, never re-written here, so
  *    the console cannot show different words from the site. The rule itself is not a setting.
+ *    And the 7:00 AM reminder emails (Milestone 30 Phase 7b): the switch, the daily cap, and
+ *    what the job did the last time the scheduler called it.
  *
  * Days come from the server (`calendar.today`), never the browser: a competition day is an
  * IST day, and a laptop elsewhere disagrees about which one is today.
@@ -409,6 +412,33 @@ function PrizeDesk({ onChanged }: { onChanged: () => void }) {
 // Settings
 // ---------------------------------------------------------------------------
 
+/** The most reminders a day the server accepts — the email provider's whole free daily quota. */
+const REMINDER_CAP_MAX = 300
+
+interface SettingsResponse {
+  settings: QuizSettings
+  /** Whether the server has `JOBS_SECRET`, without which no reminder is offered or sent. */
+  scheduler?: { configured: boolean }
+}
+
+/**
+ * "Last run Fri, 9 Oct 2026 • 7:00 AM: 42 queued, of 47 who asked for one. Skipped: 5 already
+ * started, 0 already reminded today, 0 over the daily limit." — read off the job's own record.
+ * The time is India time (`formatDateTime`), and the run is always for that day's quiz. Worded
+ * so a count of one reads as correctly as a count of forty.
+ */
+function describeRun(run: ReminderRun): string {
+  const when = `Last run ${formatDateTime(run.at)}`
+  if (!run.enabled) return `${when}: reminders were switched off, so none were sent.`
+  const skipped = [
+    `${formatNumber(run.alreadyStarted)} already started`,
+    `${formatNumber(run.alreadyReminded)} already reminded today`,
+    `${formatNumber(run.overCap)} over the daily limit`,
+  ]
+  if (run.failed > 0) skipped.push(`${formatNumber(run.failed)} could not be queued`)
+  return `${when}: ${formatNumber(run.queued)} queued, of ${formatNumber(run.eligible)} who asked for one. Skipped: ${skipped.join(', ')}.`
+}
+
 function SettingsForm() {
   const toast = useToast()
   const [settings, setSettings] = useState<QuizSettings | null>(null)
@@ -416,6 +446,8 @@ function SettingsForm() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [cash, setCash] = useState('')
+  const [cap, setCap] = useState('')
+  const [schedulerConfigured, setSchedulerConfigured] = useState<boolean | null>(null)
   const [published, setPublished] = useState<QuizPrizeInfo | null>(null)
 
   /** The public sentence, as the site prints it. A fresh query string, because the public route caches for a minute. */
@@ -429,14 +461,20 @@ function SettingsForm() {
 
   useEffect(() => {
     api
-      .get<{ settings: QuizSettings }>('/admin/daily-quiz/settings')
+      .get<SettingsResponse>('/admin/daily-quiz/settings')
       .then((res) => {
         setSettings(res.settings)
         setCash(res.settings.cashAmount === null ? '' : String(res.settings.cashAmount))
+        setCap(res.settings.reminderDailyCap === undefined ? '' : String(res.settings.reminderDailyCap))
+        setSchedulerConfigured(res.scheduler?.configured ?? null)
       })
       .catch(setError)
     void loadPublished()
   }, [loadPublished])
+
+  // A backend older than Phase 7b reports no reminder settings (the two apps deploy separately):
+  // the section is then left out, and a save sends only what that backend knows.
+  const remindersSupported = typeof settings?.reminderDailyCap === 'number'
 
   if (error) return <ErrorState title="Could not load the settings" error={error} />
   if (!settings) {
@@ -449,19 +487,24 @@ function SettingsForm() {
 
   const cashValue = cash.trim() === '' ? null : Number(cash)
   const cashInvalid = cashValue !== null && (!Number.isInteger(cashValue) || cashValue < 0 || cashValue > 100000)
+  const capValue = Number(cap)
+  const capInvalid =
+    remindersSupported && (cap.trim() === '' || !Number.isInteger(capValue) || capValue < 0 || capValue > REMINDER_CAP_MAX)
 
   async function save() {
-    if (!settings || cashInvalid) return
+    if (!settings || cashInvalid || capInvalid) return
     setBusy(true)
     setSaveError(null)
     try {
-      const res = await api.put<{ settings: QuizSettings }>('/admin/daily-quiz/settings', {
+      const res = await api.put<SettingsResponse>('/admin/daily-quiz/settings', {
         prizeHeadline: settings.prizeHeadline,
         prizeText: settings.prizeText,
         cashAmount: cashValue,
         instantResult: settings.instantResult,
+        ...(remindersSupported ? { remindersEnabled: settings.remindersEnabled, reminderDailyCap: capValue } : {}),
       })
       setSettings(res.settings)
+      setCap(res.settings.reminderDailyCap === undefined ? '' : String(res.settings.reminderDailyCap))
       toast.success('Daily Quiz settings saved.')
       void loadPublished()
     } catch (err) {
@@ -517,9 +560,40 @@ function SettingsForm() {
           {published ? published.howWinnersAreChosen : 'The public wording could not be loaded.'} The rule is fixed: one winner a month in
           each class band, four prizes a month. The prize above is what each winner is told they have won.
         </Alert>
+
+        {/* The 7:00 AM reminder emails (Milestone 30 Phase 7b). */}
+        {remindersSupported && (
+          <>
+            <h3 className={styles.settingsHeading}>Reminder emails</h3>
+            <Checkbox
+              label="Send reminder emails"
+              description="At 7:00 AM, to students who asked for one, on days their class has a quiz they have not started. Each student turns reminders on for themselves — this switch sends nothing on its own."
+              checked={settings.remindersEnabled === true}
+              onChange={(event) => setSettings({ ...settings, remindersEnabled: event.target.checked })}
+            />
+            <div className={styles.formGrid}>
+              <Field
+                label="Most reminders a day"
+                error={capInvalid ? `A whole number from 0 to ${REMINDER_CAP_MAX}.` : undefined}
+                hint={`0 to ${REMINDER_CAP_MAX}. The email provider's free quota (300 a day) is shared with sign-up and password emails, so keep room for them.`}
+              >
+                <Input inputMode="numeric" value={cap} onChange={(event) => setCap(event.target.value)} />
+              </Field>
+            </div>
+            {schedulerConfigured === false && (
+              <Alert tone="warning" title="The scheduler is not set up">
+                The server has no JOBS_SECRET, so no reminder is offered to students or sent. The launch report has the steps.
+              </Alert>
+            )}
+            <p className={styles.lastRun}>
+              {settings.lastReminderRun ? describeRun(settings.lastReminderRun) : 'Not run yet — the scheduler has not called it.'}
+            </p>
+          </>
+        )}
+
         {saveError && <Alert tone="danger">{saveError}</Alert>}
         <div className={styles.inlineActions}>
-          <Button type="submit" icon="ph-floppy-disk" loading={busy} disabled={cashInvalid}>
+          <Button type="submit" icon="ph-floppy-disk" loading={busy} disabled={cashInvalid || capInvalid}>
             Save settings
           </Button>
         </div>

@@ -71,11 +71,28 @@ parental consent** for anyone under 18; what is built is a minimum, not a legal 
     the organisers work the candidates out. Should the profile have to be complete by the month's end?
     (A deadline for a winner to respond is question 9.)
 
+### Daily Quiz reminder emails (built 2026-10-09, Phase 7b — PLAN.md Q20)
+
+13. **The Privacy Policy does not mention reminder emails yet, and has not been changed.** Since Phase 7b
+    a student can ask for an email at 7:00 AM India time on days their class has a Daily Quiz they have
+    not started — **off unless they turn it on** (My Profile → Notification preferences, or one tap on the
+    Daily Quiz). It goes to the account's own email address, names the classes, the topic and that the
+    quiz is open until 11:59 PM, and says how to turn it off; it is sent through the same email service
+    the policy already mentions, and a record of it is kept for 14 days. The policy's list of emails ("to
+    send emails you need — verifying your address, resetting a password, results and prize news") does not
+    include it (nor staff announcements, which a student can also switch off). Questions for the reviewer:
+    - **a.** Should the policy list the optional emails — the Daily Quiz reminder and announcements — with
+      how to turn them off?
+    - **b.** For a minor, is the student's own tap enough to turn a daily email on, or should a parent or
+      guardian be told (or agree) — given that the address is often the parent's?
+    - **c.** Should the 14-day record of reminders be stated alongside the retention answer in question 7?
+
 ## What the drafts deliberately do not say
 
 - No refund window, refund timeline or cancellation remedy (questions 4–6).
 - No organiser name, address, registration number or jurisdiction (questions 1–3).
 - No claim that the site is DPDP-compliant — the consent record (question 8) is a minimum.
+- Nothing about the optional Daily Quiz reminder email (question 13) — the legal text was left for you.
 - The prize on the rules page is **fetched from the owner's settings** (Admin → Daily Quiz →
   Settings), and the winner rule and the class bands from the server's own rule (monthly since
   2026-10-09, fixed in code) — never typed into the page, so it follows a change to either.
