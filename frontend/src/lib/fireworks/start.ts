@@ -61,13 +61,21 @@ export function startFireworks(canvas: HTMLCanvasElement): () => void {
     if (introPlaying()) return
     send({ type: visible() ? 'resume' : 'pause' })
   }
-  // Leaving the page stops the drawing first. Closing a page whose fireworks were still running took
-  // 2–42 s in the browser tests (a tenth of a second without them); this brought the median from
-  // about 9 s to about 3 s. A reader's reload was never slow (a quarter of a second). A page kept for
-  // the back button goes on where it stopped when it is shown again.
-  const onPageHide = () => send({ type: 'pause' })
+  // Leaving the page ends the drawing first. A page kept for the back button only pauses, and goes
+  // on where it stopped when it is shown again; a page being thrown away ends its worker outright,
+  // because tearing a page down while its worker is mid-frame was measured at 2–42 s in the browser
+  // tests (a tenth of a second without the fireworks), and merely pausing it still left 1–10 s.
+  let ended = false
+  const onPageHide = (event: PageTransitionEvent) => {
+    if (event.persisted) {
+      send({ type: 'pause' })
+      return
+    }
+    ended = true
+    stopEngine()
+  }
   const onPageShow = (event: PageTransitionEvent) => {
-    if (event.persisted && visible() && !introPlaying()) send({ type: 'resume' })
+    if (!ended && event.persisted && visible() && !introPlaying()) send({ type: 'resume' })
   }
   // While an intro covers the page the fireworks wait, and its ending is the cue for the salute.
   // Watched throughout: the student area's intro begins after the fireworks have.

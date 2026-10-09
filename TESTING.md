@@ -44,9 +44,10 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > on the 16th; the fireworks draw for motion (a screenshot of the sky alone changes within 1.5 s) and
 > keep still on an admin page; the intro's timer test allows its 7.3 s. (`prerender.spec.ts` gained
 > the picture-of-the-day test with PR #11: 72.) With motion reduced, the INP test's slowest tap was
-> 112 ms every day and 96 ms during the edition. A page still drawing the fireworks is slow for the
-> harness to close (seconds; once over a minute, which timed a test out), so `diwali.spec.ts` leaves
-> every page for `about:blank` first — see TROUBLESHOOTING.md.
+> 112 ms every day and 96 ms during the edition. A page torn down while its fireworks were drawing
+> took seconds to go (once over a minute, which timed a test out): the fireworks now end their worker
+> on `pagehide`, and `diwali.spec.ts` leaves every page for `about:blank` before closing it — see
+> TROUBLESHOOTING.md.
 >
 > **Milestone 30 Phase 7a (2026-10-09): 1369 passing backend tests across 38 files; 70 browser tests
 > (50 run, 20 one-width-only), about ten minutes.** Backend, eight new: D10 — the bootstrap address

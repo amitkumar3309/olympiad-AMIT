@@ -115,14 +115,15 @@ alternating runs, four each, as the entry above says.
 **Symptom.** `diwali.spec.ts`'s intro-timer test failed with "Tearing down "context" exceeded the test
 timeout", after taking ~40 s on the runs it passed.
 
-**Cause.** Closing a page whose fireworks are still drawing is slow in the harness: 2.4–42 s measured,
-against 0.13 s with motion reduced (the everyday site's own loops: 0.5–1.6 s). Stopping the drawing on
-`pagehide` (kept, `lib/fireworks/start.ts`) brought the median from about 9 s to about 3 s, not to zero.
-It is the harness's closing, not a reader's: a reload during the edition takes 0.24–0.29 s to commit
-(0.11–0.20 s on an ordinary day).
+**Cause.** Tearing a page down while its fireworks' worker is mid-frame is slow: closing took 2.4–42 s,
+and leaving the page for another one 12–21 s on a busy machine — against 0.13 s with motion reduced
+(the everyday site's own loops: 0.5–1.6 s). Pausing the worker on `pagehide` still left 1–10 s.
 
-**Fix.** The spec leaves every page for `about:blank` before its browser closes (`leave()`, and an
-`afterEach`). Do the same in any new test that runs with motion on during the edition.
+**Fix.** `lib/fireworks/start.ts` **ends the worker on `pagehide`** when the page is being thrown away
+(a page kept for the back button only pauses): leaving a page now takes 0.2–0.3 s. The spec also
+leaves every page for `about:blank` before its browser closes (`leave()`, and an `afterEach`), because
+closing the browser outright does not always pass through `pagehide`. Do the same in any new test that
+runs with motion on during the edition.
 
 ## A firework's glow made the hero's word the page's largest paint
 
