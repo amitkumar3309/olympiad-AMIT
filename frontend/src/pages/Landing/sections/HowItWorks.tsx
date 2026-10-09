@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { BookOpen, FilePenLine, FileText, Send, Trophy } from 'lucide-react'
 import { IconTile, Section, useInView, type IconTileTone } from '../../../components/ui'
+import { useReveal } from '../motion'
 import styles from './HowItWorks.module.css'
 
 /**
@@ -33,6 +34,7 @@ export interface HowItWorksProps {
 export default function HowItWorks({ registerTo }: HowItWorksProps) {
   const pathRef = useRef<HTMLDivElement>(null)
   const drawn = useInView(pathRef, { threshold: 0.3 })
+  const reveal = useReveal<HTMLOListElement>()
 
   const steps: Step[] = [
     { title: 'Register', body: 'Free. Confirm your email address before signing in.', to: registerTo, icon: FileText, tone: 'blue' },
@@ -62,7 +64,7 @@ export default function HowItWorks({ registerTo }: HowItWorksProps) {
         <Send className={styles.plane} />
       </div>
 
-      <ol className={styles.steps}>
+      <ol ref={reveal} className={styles.steps}>
         {steps.map(({ title, body, to, icon: Glyph, tone }, index) => (
           <li key={title}>
             <Link to={to} className={styles.step}>

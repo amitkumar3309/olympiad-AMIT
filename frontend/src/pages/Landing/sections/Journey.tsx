@@ -5,6 +5,7 @@ import type { PublicJourneyStage } from '../../../api/types'
 import Illustration from '../../../components/Illustration'
 import type { IllustrationName } from '../../../components/illustrations'
 import { Button, JourneyTrack, Modal, Section } from '../../../components/ui'
+import { useReveal } from '../motion'
 import styles from '../Landing.module.css'
 
 /**
@@ -36,6 +37,7 @@ const ART: Record<string, IllustrationName> = {
 export default function Journey() {
   const [stages, setStages] = useState<PublicJourneyStage[] | null>(null)
   const [open, setOpen] = useState(false)
+  const reveal = useReveal<HTMLDivElement>({ selector: null })
 
   useEffect(() => {
     let cancelled = false
@@ -67,7 +69,7 @@ export default function Journey() {
         </Button>
       }
     >
-      <div className={styles.journeyCard}>
+      <div ref={reveal} className={styles.journeyCard}>
         <JourneyTrack
           label="The journey's nine milestones"
           stages={stages.map((stage, i) => {

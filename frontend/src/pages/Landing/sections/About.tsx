@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarCheck, ClipboardList, Target, TrendingUp } from 'lucide-react'
 import { IconTile, Section, type IconTileTone } from '../../../components/ui'
+import { useReveal } from '../motion'
 import styles from '../Landing.module.css'
 
 /**
@@ -59,6 +60,7 @@ export interface AboutProps {
 }
 
 export default function About({ onPlay }: AboutProps) {
+  const reveal = useReveal<HTMLUListElement>()
   return (
     <Section
       id="about"
@@ -67,7 +69,7 @@ export default function About({ onPlay }: AboutProps) {
       title="Four ways to prepare, all of them free"
       lead="The entry fee buys a seat in the Olympiad. Getting ready for it costs nothing."
     >
-      <ul className={styles.featureGrid}>
+      <ul ref={reveal} className={styles.featureGrid}>
         {FEATURES.map((feature) => {
           const inner = (
             <>

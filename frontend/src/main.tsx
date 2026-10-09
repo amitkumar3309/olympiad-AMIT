@@ -88,6 +88,7 @@ function keepFocusThroughTakeover(drawn: HTMLElement) {
   // React's first commit removes the drawn children and adds its own in one go.
   const observer = new MutationObserver(() => {
     observer.disconnect()
+    markDrawnFor()
     drawn.removeEventListener('focusin', onFocus)
     if (last === null || document.activeElement !== document.body) return
     const tag = last.split('|')[0]!
@@ -95,6 +96,23 @@ function keepFocusThroughTakeover(drawn: HTMLElement) {
     if (counterpart instanceof HTMLElement) counterpart.focus({ preventScroll: true })
   })
   observer.observe(drawn, { childList: true })
+}
+
+/**
+ * How long the drawn page had been on screen when React replaced it, as `--drawn-for` on <html>.
+ *
+ * The hero settles into place once, with CSS, when the drawn page first paints. React's first
+ * commit then replaces those elements with its own, which would start the same entrance again —
+ * the words dipping and rising a second time. A stylesheet that subtracts `--drawn-for` from its
+ * animation's delay carries on from where the drawn page had got to instead, and one that has
+ * already finished stays finished. Set at the commit itself (a mutation observer's callback runs
+ * before the next paint), from the first paint's time; without that entry, long enough that
+ * every entrance counts as done.
+ */
+function markDrawnFor() {
+  const paint = performance.getEntriesByName('first-contentful-paint')[0]
+  const elapsed = paint ? performance.now() - paint.startTime : 60_000
+  document.documentElement.style.setProperty('--drawn-for', `${Math.max(0, Math.round(elapsed))}ms`)
 }
 
 /*

@@ -5,6 +5,7 @@ import type { LeaderboardRow } from '../../../api/types'
 import { Avatar, ButtonLink, EmptyState, LeaderboardTable, Podium, Section, SkeletonTable } from '../../../components/ui'
 import { formatNumber } from '../../../lib/format'
 import { TOP_SCHOLARS } from '../../../lib/siteConfig'
+import { useReveal } from '../motion'
 import styles from '../Landing.module.css'
 
 /**
@@ -29,6 +30,7 @@ function placeOf(row: LeaderboardRow): string {
 
 export default function TopScholars() {
   const [rows, setRows] = useState<LeaderboardRow[] | null>(null)
+  const reveal = useReveal<HTMLDivElement>()
 
   useEffect(() => {
     let cancelled = false
@@ -69,7 +71,7 @@ export default function TopScholars() {
           description="XP is earned by practising, sitting mock tests and answering the Daily Quiz. Register and you could be the first name here."
         />
       ) : (
-        <div className={podium ? styles.scholars : styles.scholarsTableOnly}>
+        <div ref={reveal} className={podium ? styles.scholars : styles.scholarsTableOnly}>
           {podium && (
             <Podium
               label="The top three on the leaderboard"
