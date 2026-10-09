@@ -51,6 +51,67 @@ keeps every one of them working with no migration.
 **Supersedes**, for the question upload only: "An importer still never creates chapters" (2026-08-28) and
 the "never creates one" half of "An importer suggests a taxonomy by name" (2026-08-18).
 
+## 2026-10-09 — Milestone 30 Phase 7b: Daily Quiz reminders — an outside scheduler with a bearer secret, a send order, a daily cap, and reminders that expire
+
+**Context.** The owner asked for Daily Quiz reminder emails, opt-in, at 7:00 AM IST (PLAN.md Q20,
+§5c). Nothing in this product runs on a clock: the email queue drains when a request happens to kick
+it (known bug #41 — mail waits on an idle site), and the free Vercel plan's cron runs at most daily and
+only to the hour. The email provider's free quota (Brevo: 300 a day) is shared with every verification
+link, without which a student cannot sign in. And the outbox kept every row for ever.
+
+**Decision.**
+1. **An outside scheduler, behind a bearer secret.** Two routes, `POST /jobs/daily-quiz-reminders`
+   (daily at 07:00 Asia/Kolkata) and `POST /jobs/outbox` (every minute), called by a free external
+   pinger — the owner had already chosen cron-job.org over paid Vercel Cron (PROJECT_STATE.md,
+   "Daily-challenge automation"). Each requires `Authorization: Bearer <JOBS_SECRET>`: a new optional
+   environment variable of at least 32 characters, compared with `timingSafeEqual` over SHA-256 digests
+   (constant time, equal lengths, the secret's length not revealed), checked before `ensureDb`. Unset,
+   both answer **503 naming the variable** and the Daily Quiz offers no reminder — failing closed, and
+   saying why. The every-minute outbox call is the first driver of the queue with a deadline, which is
+   what closes bug #41 where the owner sets it up; the three existing drivers stay, because a scheduler
+   is configuration somebody can forget.
+2. **Opt-in, per student.** `Student.notificationPrefs.dailyQuizReminders`, **false** on a new account
+   and when missing — the only preference that defaults off, because a daily email is something a
+   student asks for. A new switchable category, `reminders`, interpreted only by `emailAllowedFor()`.
+   Turned on in My Profile or with one tap on the Daily Quiz card, which offers it only when something
+   will really send it (`reminders.available`: the secret is set and staff have not switched the
+   programme off).
+3. **A send order.** `EmailOutbox.priority`, set from the category by `enqueueEmail()`: 0 for
+   transactional and security mail, 1 for announcements and results, 2 for reminders; the drain claims
+   the lowest first (`{ status, priority, nextAttemptAt }`). A verification link queued at 07:01 goes
+   ahead of the hundred reminders queued at 07:00.
+4. **A daily cap**, staff-editable (`DailyQuizSettings.reminderDailyCap`, default 100, at most 300 —
+   the whole free quota), with an on/off switch (`remindersEnabled`, default on: students still opt in
+   one by one). Reminders already queued that day count against it, so two runs cannot together exceed
+   it, and when there is less room than students they are taken in an order hashed from the day and the
+   student — fixed within a day, different between days — so the cap does not always cut the same
+   children.
+5. **Once per student per day.** The dedupe key `dailyquiz-reminder:<day>:<student>` on the outbox's
+   existing partial-unique index, so a retried or doubled trigger sends nobody a second email. The job
+   queues the whole batch with `enqueueEmail(..., { dispatch: false })` and starts one drain.
+6. **Reminders expire; nothing else does.** A reminder row carries `expiresAt`, 14 days after it was
+   queued, and a TTL index on that field removes it. No other category is given the field, so the
+   outbox's no-TTL rule — a delivery record is the evidence for "we did tell them" — holds for
+   everything that is evidence. Up to 100 reminders a day is growth bounded by the calendar rather than
+   by events, which a free 512 MB database should not keep for ever.
+7. **The email gives nothing away.** The class range, the topic and the closing time — what the quiz
+   card shows before Start — never the question or an option, because the solve time starts at Start
+   and a question in an inbox is a head start anybody can forward. It loads nothing and says how to
+   turn reminders off.
+8. **The run is visible.** Each run (even one that found reminders off) is written to
+   `DailyQuizSettings.lastReminderRun` — without touching `updatedAt`, which means "an administrator
+   changed the settings" — and the settings page shows it, with a warning when the server has no
+   secret, so the owner can see the scheduler is really calling.
+
+Rejected: **Vercel Cron** (the free plan is hour-accurate and daily; minute-level is paid — against
+₹0); **a scheduler inside the app** (a serverless function does not run between requests); **a secret
+in the query string** (it would sit in every proxy and access log; a header is redacted from ours);
+**a plain `===` on the secret** (its timing depends on the first difference); **opt-out reminders**
+(unasked daily mail is how a free sender loses its reputation, and with it every verification link);
+**a separate reminders queue or collection** (one queue, `enqueueEmail()`, is the rule — priority
+expresses the difference); **a TTL on the whole outbox** (it would delete the evidence the outbox
+keeps); **naming the question in the email** (see 7).
+
 ## 2026-10-09 — Milestone 30 Phase 7b: picture questions — the picture is the question
 
 **Context.** The owner asked for questions that are pictures, "instead of OCR, as of now": the uploaded

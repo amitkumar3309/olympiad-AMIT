@@ -33,6 +33,45 @@ topic, give the answers, submit, and see the questions in that class. Branch `fe
   no chapter without the permission; the dry run on a new topic; the real Excel and Word readers with a
   fixed type; pictures with no chapter). The photo browser test drives the new form to the filtered bank.
 
+## 2026-10-09 — Milestone 30 Phase 7b: Daily Quiz reminder emails
+
+The owner's request of 2026-10-08 (PLAN.md Q20): "Daily Quiz reminder emails: opt-in, at 7:00 AM IST".
+Branch `feat/daily-quiz-reminders`.
+
+### Students
+- **A reminder at 7:00 AM, only if you ask for one.** On the Daily Quiz card, one tap — **Email me a
+  reminder at 7 AM** — or the new **Daily Quiz reminder** switch in My Profile → Notification
+  preferences. Off for everybody until they turn it on.
+- The email arrives on a day your class has a quiz you have not started, and says only what the quiz
+  card says before Start — the classes, the topic, and that it is open until 11:59 PM tonight, India
+  time. **Never the question.** It ends with how to turn reminders off.
+- The card offers a reminder only when one will really be sent; once on, it says so and where to turn
+  it off.
+
+### Staff
+- **Admin → Daily Quiz → Settings → Reminder emails**: a switch for the whole programme, **Most
+  reminders a day** (0–300, default 100 — the email provider's free quota is 300 a day and sign-ups
+  share it), and a **Last run** line showing what the job did the last time the scheduler called it,
+  so you can see it is working. A warning appears when the server has no scheduler secret.
+- The delivery console can filter by the new `reminders` category.
+
+### Under the hood
+- **Two scheduled-job routes** for a free outside scheduler (cron-job.org): `POST /jobs/daily-quiz-reminders`
+  (daily, 07:00 India time) and `POST /jobs/outbox` (every minute — which finally gives the email queue a
+  deadline on a quiet site, known bug #41). Both need `Authorization: Bearer <JOBS_SECRET>` — a new
+  optional environment variable, compared in constant time; unset, they answer 503 naming it.
+- **The outbox sends in priority order** — account emails first, then announcements and results, then
+  reminders — so a verification link never waits behind a batch of reminders.
+- **Reminder rows expire 14 days after they are queued** (a TTL index on `expiresAt`, which no other
+  email has — every other delivery record is still kept).
+- One reminder per student per day, whatever the scheduler does; the daily cap counts what is already
+  queued; when the cap bites, who is left out rotates daily.
+- Tests: backend **1421 / 40** — `tests/dailyQuizReminders.test.ts` (22). The browser suite's backend now
+  sets a test-only scheduler secret, so the link crawler checks the reminder button too.
+- **Owner action**: generate a `JOBS_SECRET`, add it to the backend on Vercel, and create the two
+  cron-job.org jobs — step by step in `docs/launch/LAUNCH_REPORT.md`. Until then nothing changes for
+  students: no reminder is offered.
+
 ## 2026-10-09 — The Diwali edition on the live site for 24 hours, for testing
 
 The owner's request of 2026-10-09: "make the diwali theme go live for 24 hours from now for testing
