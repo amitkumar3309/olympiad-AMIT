@@ -4,6 +4,31 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-10 — Practice is a random mixed test; the size is the only choice
+
+**Context.** The owner, 2026-10-09: "student should not have the option to practise topic wise, when they
+go to practice session, a random test which consists of mixed questions of their class which are uploaded
+by the admin (they have option for 10/20/30/40 questions to select)". Practice offered a chapter, a
+difficulty and 5/10/20 questions; the recommendations linked to a chapter's practice and advised a
+difficulty to work at.
+
+**Decision.**
+- A practice test is a `$sample` of every question published for the student's class in the implicit
+  subject. Its size is one of `PRACTICE_TEST_SIZES` (10, 20, 30, 40), enforced by the request schema and
+  published by `GET /practice/options` so the page offers exactly that list.
+- Chapter, difficulty and subject are **dropped by the parse, not refused**: a page on the previous release
+  still gets a test rather than an error, and a refusal would protect nothing.
+- `countPracticeQuestions()` is one pool definition for the page's figure, the draw, the admin preview's
+  total and the recommendations' first-test suggestion.
+- The recommendations keep naming weak and strong topics (true and useful), but no recommendation links
+  to a chapter and the default engine gives no difficulty advice — neither can be acted on. `difficulty`
+  stays in the response, empty, so a frontend on the previous release does not break.
+- Old sessions keep the chapter they were drawn for; history still names it.
+
+**Rejected.** A chapter *spread* (round-robin like `suggestPaper()`): the owner asked for a random mix, and
+a spread would starve a small chapter's questions less but would not be what was asked. Excluding archived
+chapters from the pool: the API already refuses to archive a chapter with published questions.
+
 ## 2026-10-09 — The homepage: a figure of the day, and Motion for its animations, loaded after the page
 
 **Context.** Two requests from the owner on 2026-10-09: "The think grow solve picture doesn't look good on

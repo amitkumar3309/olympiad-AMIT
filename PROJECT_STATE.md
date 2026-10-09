@@ -168,6 +168,12 @@ The work happens in phases, and each one stops for the owner's approval.
   (`pages/Landing/motion.ts`); placeholder pictures, the emoji and the handwritten lines are gone.
   Browser tests now open on the everyday site unless they test the edition. E2E **92** (63 run), all
   passing after merging `main`.
+- **Practice is a mixed test** (`feat/practice-mixed-tests`, owner 2026-10-09: "student should not have
+  the option to practise topic wise"): a random mix of the questions published for the student's class,
+  **10, 20, 30 or 40** — the only choice on `/practice`. `GET /practice/options` answers
+  `{ available, sizes }`; `POST /practice/sessions` takes only `questionCount`. The recommendations no
+  longer link to a chapter or advise a difficulty; a new student is offered a first practice test. An
+  uploaded question reaches practice by being **published** (a solution is required). Backend **1437 / 40**.
 - **Uploading questions is the owner's five-field form** (`feat/simple-question-upload`, 2026-10-09):
   Admin → Bulk Import asks for the file type, the class, the question type and an optional topic — no
   chapter. The form's class and type are every question's; the topic is a name (else the file's, else

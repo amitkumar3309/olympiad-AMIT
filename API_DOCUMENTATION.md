@@ -232,8 +232,8 @@ Returns `{ recommendations }` — what the student should work on next, derived 
 | `hasData` | False when nothing has been submitted. Stamped from the analytics facts, so an engine cannot claim data a student does not have. |
 | `minimumSample` | Answers an area needs before it may be called a strength or weakness — the same `MIN_AREA_SAMPLE` (5) the analytics endpoint reports. |
 | `weakTopics` / `strongTopics` | Topics asserted **on a 95% Wilson interval**, from the conservative end: a weakness on the upper bound, a strength on the lower. So 2 of 5 (40%) is not a weakness while 30 of 80 (37.5%) is. |
-| `difficulty` | At most one entry per level, and never contradictory: if a level is flagged for consolidation, no step-up above it is offered. |
-| `practice` | Actionable, and **only ever addressed at questions the class bank really has**. Each carries an `action.href` into `/practice?subject=&topic=`. |
+| `difficulty` | **Always empty from the default engine since 2026-10-09**: nothing lets a student choose a difficulty once practice is a mixed test, so "Try Hard questions" could not be acted on. Kept in the contract for another engine and for a page on the previous release. |
+| `practice` | Actionable, and **only ever addressed at something the product can serve**: a first practice test for a student with no record (`practice:first_test`, quoting `countPracticeQuestions()`, `action.href` `/practice`) and a timed mock test once there is a practice record but no mock. **No link names a chapter** — practice cannot serve one — and a weak topic's `action` is `null`. |
 | `insights` | Observations about the record as a whole — trend, blank rate, pace, surface mix. |
 | `notes` | Machine-readable reasons a section is empty, e.g. `no-published-questions-for-your-class`, `no-topic-is-confidently-below-par`. |
 
@@ -988,16 +988,16 @@ Answers **200 with per-name results** (`created`, `existing`, `failed`), never a
 **Top-level chapters only.** Subtopics are not creatable this way, because a subtopic needs a parent chosen deliberately per item. The subject is never accepted — there is no user-facing subject, and the server resolves the implicit one.
 
 ### `GET /api/v1/practice/options`
-Real availability for the caller's class: subjects → topics with per-topic question counts and only the difficulties that actually exist. An empty bank returns `{ subjects: [] }`; an account with no class returns `reason: 'no-class'`. The picker is built from this, so a combination with nothing behind it can never be selected.
+**Changed 2026-10-09 — a practice test is a random mix of the class's questions (owner).** Returns `{ classLevel, available, sizes }`: `available` is how many published questions a test for the caller's class is drawn from — `countPracticeQuestions()`, the same pool the draw uses — and `sizes` is `[10, 20, 30, 40]`, the list the start route accepts (`PRACTICE_TEST_SIZES`), so the page cannot offer another. There is no per-chapter or per-difficulty breakdown any more: nothing on the page chooses either. An empty bank answers `available: 0`; an account with no class answers `reason: 'no-class'`.
 
-**Scoped to the implicit subject** since Milestone 21 Phase L, so the response holds at most one subject entry. Before Phase J the page had a subject dropdown; it now flattens the grouping into one chapter list, which on a database holding a legacy second subject offered "Semiconductor Electronics" as maths practice. The grouped shape is kept because a genuine second subject would make it meaningful again. Where no subject resolves (none exist, or several with none named for mathematics) the filter is dropped rather than returning nothing.
+**Scoped to the implicit subject** (Milestone 21 Phase L): a legacy second subject's questions are neither counted nor drawn. Where no subject resolves (none exist, or several with none named for mathematics) the filter is dropped rather than returning nothing.
 
 ### `POST /api/v1/practice/sessions`
-Body: optional `subjectId`, `topicId`, `difficulty`; `questionCount` (1–50, default 10). **`classLevel` is not accepted** — the paper is always drawn for the student's own class, so a Class 6 student cannot request the Class 12 paper (asserted by test).
+Body: `questionCount` — **10, 20, 30 or 40** (default 10); anything else is a **400** ("Choose 10, 20, 30 or 40 questions."). A `topicId`, `difficulty` or `subjectId` from a page older than 2026-10-09 is **dropped by the parse, not refused**: the student gets the mixed test every student gets, and the session records no chapter. **`classLevel` is not accepted** — the paper is always drawn for the student's own class, so a Class 6 student cannot request the Class 12 paper (asserted by test).
 
-**With no `subjectId` the implicit subject is applied**, so "mixed practice" means mixed *mathematics*. A caller that names one is trusted and left alone — that is a deliberate narrowing, not the absence of one. This matters more than the availability scope above, because a session snapshots its answer key at serve time: an unfiltered draw made a Physics question a real mark on a maths report.
+The draw is every question published for the class in the implicit subject, so a test is mixed *mathematics* — a session snapshots its answer key at serve time, and an unfiltered draw once made a Physics question a real mark on a maths report.
 
-Draws with `$sample`, so repeating the same filters gives fresh questions — the opposite of the daily challenge, which is deterministic on purpose. Fewer questions than asked for is not an error. Returns **409** when nothing published matches, rather than opening an empty session. Rate limited (120/hour).
+Draws with `$sample`, so every test is a fresh mix — the opposite of the Daily Quiz, one question for everybody. Fewer questions than asked for is not an error. Returns **409** ("No questions have been published for Class 9 yet, so there is nothing to practise.") when the class has nothing published, rather than opening an empty session. Rate limited (120/hour).
 
 Responds with the in-progress view: question text, options (`key` + `text` only), taxonomy, marks — and **no answer key**.
 
@@ -2024,9 +2024,10 @@ not per question.
 }
 ```
 
-Answers "what would a student of this class find in the practice picker right now?" by calling
-the **same `getPracticeAvailability()`** the student route calls — a second count would
-eventually disagree with the picker it is previewing.
+Answers "what is a practice test for this class drawn from right now?": `totalQuestions` is the
+**same `countPracticeQuestions()`** the student's practice page shows, and `topics` is
+`getPracticeAvailability()` — the same questions by chapter, for staff only (a student no longer
+chooses a chapter). A count of its own would eventually disagree with the student's page.
 
 Takes a `classLevel` because this is the staff view; the student route deliberately takes none
 and uses the caller's own class. Returns **counts and names only** — no question text and no
