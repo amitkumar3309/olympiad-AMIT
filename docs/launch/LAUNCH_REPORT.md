@@ -150,17 +150,22 @@ India time. Nothing to deploy, nothing to remember**; on the 16th the site is ex
 
 What a visitor sees during the week:
 
-- **The intro** — about two seconds, the first time each phone or computer opens the homepage that
-  week: dark; 3, 2, 1; a diya lights; its glow finds the mathematics around it; "A.M.I.T. OLYMPIAD
-  2027"; "THINK • SOLVE • GROW". Any tap or key skips it. It never plays for someone whose phone asks
-  for less motion, or when the address is for something else (`/#login`, a link back from sign-in).
-- **The homepage at night** — lanterns, fireworks and diyas behind the usual hero, the name in gold,
-  "Launched this Diwali · A brighter mind for a brighter future", and a countdown to when **today's**
-  Daily Quiz closes (on a day with no quiz, to the end of Diwali week). Below it, **Diwali Special: earn
-  the Diwali 2026 badge** — answer any Daily Quiz that week and it stays in the student's achievements
-  for good.
+- **The intro** — about seven seconds, the first time each phone or computer opens the homepage that
+  week (or, for a signed-in student who has not seen it, the first page of the student area): dark,
+  embers rising; 3, 2, 1, a second each; a diya catches with a burst of sparks; its glow finds the
+  mathematics around it; "A.M.I.T. OLYMPIAD 2027"; "THINK • SOLVE • GROW". Any tap or key skips it. It
+  never plays for someone whose phone asks for less motion, over a timed paper, or when the address is
+  for something else (`/#login`, a link back from sign-in).
+- **The whole site at night** — every page, in either theme, on a night sky with **fireworks bursting at
+  random places behind the content**, and cards edged in gold. The fireworks keep still for anybody whose
+  phone asks for less motion, on the admin pages, and during a practice session, a mock test or the
+  Olympiad. The light/dark switch is hidden for the week.
+- **The homepage** — lanterns and diyas, the name in gold, "Launched this Diwali · A brighter mind for a
+  brighter future", and a countdown to when **today's** Daily Quiz closes (on a day with no quiz, to the
+  end of Diwali week). Below it, **Diwali Special: earn the Diwali 2026 badge** — answer any Daily Quiz
+  that week and it stays in the student's achievements for good.
 - **Everywhere a student goes** — a string of lights along the top bar, "Happy Diwali" beside the logo,
-  and a warm gold glow on the main button and the Daily Quiz button. The admin area is unchanged.
+  and a warm gold glow on the main button and the Daily Quiz button.
 
 **To see it before the 8th**, open `https://www.amitolympiad.me/?season=diwali` — it stays on for that
 browser tab, and replays the intro. `?season=off` hides it again; `?season=auto` goes back to the dates.
@@ -171,8 +176,9 @@ To change the dates, change both files named in §6 and deploy.
 | Limitation | What it means | What would fix it |
 |---|---|---|
 | **The homepage's first second on a slow phone** | The homepage arrives already drawn, so it can be read before its script has loaded; for that second or two its buttons (Sign in, the menu, the theme switch) do nothing and the menu and theme switch show no icon yet, while its links work | Expected for a page drawn ahead of its script — the price of the fast first paint (§11). Nothing to fix unless readers report it |
-| **The first homepage visit during Diwali week** | The two-second intro covers the page, so the hero's first paint (LCP) is measured at 2.7–2.9 s on a slowed phone against 2.5 s; the score stays 86–92 | Expected for a full-screen intro; every later visit and every other page is unaffected |
-| **A tap with motion on** | The browser test (motion reduced) passes — the slowest tap 104 ms, 144 ms during Diwali week. With motion on, a headless browser with no GPU and the CPU slowed 4× measures 220–260 ms (target 200), the same as before Phase 7a, and 320–430 ms during Diwali week; nearly all of it is drawing, which a phone does with its GPU | Check it on a real phone (§9, step 13) |
+| **The first homepage visit during Diwali week** | The seven-second intro covers the page; the hero's heading beneath it is the largest paint, measured at 3.0–3.1 s on a slowed phone against 2.5 s; the score stays 87–91 | Expected for a full-screen intro; every later visit and every other page is unaffected (97) |
+| **A tap with motion on** | The browser test (motion reduced) passes. With motion on — headless Edge on this laptop's GPU, the CPU slowed 4× — the slowest tap measures about 190–260 ms on an ordinary day (target 200) and typically 300–360 ms during Diwali week with the fireworks running (Phase 7a's edition: 320–430); the fireworks hold still while a tap is answered, without which it was 490–940 ms | Check it on a real phone (§9, step 13) |
+| **Diwali week costs more battery** | With motion on, the homepage keeps the browser busier during the edition — 165–225% of one processor core at phone width, against 103–128% for Phase 7a's quieter edition and 71–89% on an ordinary day (headless Edge, all its processes). The fireworks already run at 30 frames a second, hold still for taps, stop in a hidden tab and never run for "less motion" | If a phone runs warm or drains that week: fewer fireworks, or fireworks on the homepage only (a small change) |
 | **Session cookies are `SameSite=None`** | The brief asks for `Lax`; the site may already be same-site through the `/api` rewrite, but a wrong change logs everybody out | Test on a staging copy with its own backend first (PLAN.md R5) |
 | **The icon font comes from unpkg.com** | If that service is down, icons disappear (never words — no icon carries meaning alone) | Self-host the two icon fonts |
 | **Rate limits are per server instance** | Limits reset when Vercel starts a new instance; a school of 40 behind one connection shares one address | A shared store (Redis) — a cost decision |

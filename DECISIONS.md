@@ -4,6 +4,43 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — The Diwali edition at night: a transparent page over a fireworks canvas in a worker
+
+**Context.** On seeing the Diwali edition the owner asked for a slower intro, for fireworks "more
+realistic and dynamic" that burst "at different random places", and for it to be "full immersive" for
+signed-in students as well; asked, they chose the whole site at night for the week, fireworks behind the
+content everywhere, and the intro once that week in the student area (PLAN.md Q23). Phase 7a's
+fireworks were three SVGs looping in fixed places in the hero, and its edition recoloured nothing.
+
+**Decision.**
+1. **The night is the dark theme's values, under the edition's attribute.** `.theme-dark`'s block also
+   matches `:root[data-season='diwali']`, which outranks both `:root` and `.theme-dark`, so a reader's
+   theme choice is kept and simply not applied for the week; `tokens.css` §10 adds a transparent `--bg`,
+   see-through bands and gold card edges. The theme switch is hidden for the week rather than left doing
+   nothing.
+2. **The page is transparent and stands on a fixed sky** (`components/Fireworks`, mounted once at the
+   app's root): a gradient layer at `z-index: -1` with a canvas in it. Words standing straight on the sky
+   carry a dark halo (`--festive-halo`), and the hero and the sidebar a veil of the night.
+3. **The fireworks are a particle engine on a 2D canvas, in a worker** (`transferControlToOffscreen`),
+   loaded only during the edition, only for readers who have not asked for less motion, and never on
+   staff pages or in a paper being answered. Every random choice is the engine's, at run time — the
+   homepage drawn at build time holds only the empty sky. Where a worker cannot draw, the same engine and
+   driver run on the page's thread at a smaller budget.
+4. **The fireworks hold still while a tap is answered**: from a pointer or key going down until the page
+   has drawn its next frame. Measured with motion on, this — not resolution or frame rate — is what made
+   the difference (490–940 → about 300–360 ms for the slowest tap).
+5. **Thirty frames a second.** It did not change the tap, but it cut the whole browser's processor use
+   by a tenth to a third. The edition still costs more than Phase 7a's: with motion on, the homepage uses
+   165–225% of a core at 390px against Phase 7a's 103–128% (everyday: 71–89%, unchanged), measured in
+   headless Edge. That is what the owner's "full immersive" costs; a phone's battery is the check.
+
+Rejected: **CSS or SVG fireworks** — a loop in a fixed place is what the owner asked to change, and
+random positions would mean a render reading the date or `Math.random()`, which the drawn homepage
+cannot; **a canvas over the content** with `pointer-events: none` — it would draw over words; **an
+animation library** — a dependency for something one file does; **keeping the reader's theme** — fireworks
+on the light page wash out, and the owner chose the night; **WebGL** — faster at scale, but a 2D canvas
+holds a few hundred sparks easily, and WebGL's failure modes on old phones are worse.
+
 ## 2026-10-09 — The hero's picture of the day: drawn, inline, chosen before the first paint
 
 **Context.** The owner asked for the hero's empty square (the `hero-student` placeholder: a tint and a

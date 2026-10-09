@@ -81,6 +81,11 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             (data-picture), both decided before the first paint
   src/lib/pictureOfTheDay.ts + pages/Landing/sections/PictureOfTheDay.tsx
                             the hero's seven drawn pictures, one a day (2026-10-09)
+  src/components/Fireworks.tsx + src/lib/fireworks/
+                            the Diwali edition's night sky behind every page, and its
+                            fireworks: engine.ts (the particles), driver.ts (when frames
+                            run), worker.ts, start.ts (2026-10-09)
+  src/components/DiwaliIntroPlayer.tsx  the Diwali intro in the student area, once that week
   src/components/Illustration.tsx + illustrations.ts
                             the launch artwork by name; files are discovered in
                             src/assets/illustrations/ at BUILD time (M30)
@@ -369,7 +374,26 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   `<html data-intro="play">`, which boot.js removes on any input and at `INTRO_MS` regardless, and is
   never played under reduced motion, in a hidden tab, or for `#…`/`?next=`. Its stylesheet reaches the
   bundle only because `main.tsx` reads a class name from it. The festive tokens (`--festive-*`) are a
-  night scene in either theme and live in `:root` only.
+  night scene in either theme and live in `:root` only. **The intro is about seven seconds** (owner,
+  2026-10-09: the first two-second version was "very fast"); every step of it is counted in
+  `--intro-beat` (one second), and `INTRO_MS` (7300) is the one number boot.js and `DiwaliIntroPlayer`
+  end it by. In the student area `DiwaliIntroPlayer` (in `StudentShell`, never with `focus`) plays the
+  same component once that week, sharing boot.js's `amit-intro` key.
+- **During the edition the whole site is the night, and fireworks burst behind every page** (owner,
+  2026-10-09, PLAN.md Q23). The dark block in `tokens.css` also matches `:root[data-season='diwali']`
+  (which outranks `.theme-dark`), and §10 makes `--bg` **transparent**, so every page stands on the fixed
+  sky that `components/Fireworks` draws at `z-index: -1` — **anything that paints `--bg` is see-through for
+  the week**, which is right for a page and wrong for anything that must hide what scrolls beneath it
+  (give that a surface). The theme switch is hidden for the week. Words that stand straight on the sky
+  get `--festive-halo`; a band is `--band-accent`, see-through but dark enough to read on. **The
+  fireworks** are `lib/fireworks/` on a canvas in a worker, started only from an effect: never under
+  reduced motion, never in a hidden tab or under the intro, never on the `STILL` routes (staff pages and
+  a paper being answered — add a new runner there), they **hold still from a pointer or key going
+  down until the page has drawn its next frame** — without that the slowest tap with motion on was
+  490–940 ms, with it about 300–360 — and they run at **thirty frames a second** (`FRAME_MS`, a
+  battery decision: the edition still keeps the browser 1.6–1.8× as busy as Phase 7a's, measured).
+  Do not draw the fireworks on the page's thread where a worker can, and do not put them above the
+  content.
 - **A festive loop moves or fades a whole element — and a change made for speed is proven on the tap.**
   Move or fade a whole element (an `<svg>`, a `<span>`), never a shape inside an SVG; never loop a
   `filter` or `visibility`; never put a `backdrop-filter` over something that moves (the bars are solid

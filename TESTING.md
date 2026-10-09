@@ -37,6 +37,17 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The Diwali edition, immersive (2026-10-09): the backend unchanged (1369 / 38); 78 browser tests
+> (54 run, 24 one-width-only), about twelve minutes.** New in `diwali.spec.ts`: a signed-in student
+> sees the intro once in the student area and never again; a reader who chose the light theme gets the
+> night (a see-through page, the night's cards, dark controls, no theme switch) and the everyday site
+> on the 16th; the fireworks draw for motion (a screenshot of the sky alone changes within 1.5 s) and
+> keep still on an admin page; the intro's timer test allows its 7.3 s. (`prerender.spec.ts` gained
+> the picture-of-the-day test with PR #11: 72.) With motion reduced, the INP test's slowest tap was
+> 112 ms every day and 96 ms during the edition. A page still drawing the fireworks is slow for the
+> harness to close (seconds; once over a minute, which timed a test out), so `diwali.spec.ts` leaves
+> every page for `about:blank` first — see TROUBLESHOOTING.md.
+>
 > **Milestone 30 Phase 7a (2026-10-09): 1369 passing backend tests across 38 files; 70 browser tests
 > (50 run, 20 one-width-only), about ten minutes.** Backend, eight new: D10 — the bootstrap address
 > with its password is handed over before the account exists, and a wrong password's body equals an
@@ -51,8 +62,9 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > sideways scroll (mutation-checked — the lights once overflowed), the server's countdown, axe; the
 > student area. **`e2e/archive.spec.ts`** — only revealed quizzes, the answer behind its disclosure, axe.
 > **`responsiveness.spec.ts`** measures INP twice, as every day and during the edition, both with
-> motion reduced; with motion on the numbers are recorded in the launch report, not asserted
-> (headless Edge draws without a GPU, which over-weights animation).
+> motion reduced; with motion on the numbers are recorded in the launch report, not asserted.
+> (This note first said headless Edge draws without a GPU; it does not — `edge://gpu` reports hardware
+> compositing and raster on this laptop's integrated GPU, checked 2026-10-09.)
 >
 > **Milestone 30 Phase 6 polish (2026-10-08): 1361 passing backend tests across 38 files; the browser
 > suite is unchanged (54).** One new test in `tests/dailyQuizRules.test.ts`: the public "how winners are
