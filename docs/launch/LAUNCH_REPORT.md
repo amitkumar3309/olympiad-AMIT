@@ -171,6 +171,13 @@ What a visitor sees during the week:
 browser tab, and replays the intro. `?season=off` hides it again; `?season=auto` goes back to the dates.
 To change the dates, change both files named in §6 and deploy.
 
+**A trial for everybody** (your request of 9 October): the whole edition is on for every visitor **until
+6:30 PM on Saturday 10 October, India time**, then switches itself off — nothing to do. It awards no
+badge (the badge is still only for answers from 8 to 15 November). A phone that sees the trial's intro
+still sees the launch moment again in November. To hide it on one phone before then, open
+`https://www.amitolympiad.me/?season=off`. To end it early for everybody, ask for the trial to be removed
+(one line in `frontend/src/lib/season.ts`) and redeployed.
+
 ## 7. Known limitations — honestly
 
 | Limitation | What it means | What would fix it |
