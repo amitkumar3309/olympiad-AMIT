@@ -14,7 +14,7 @@ import {
   otherStudent,
   registerVerifyLogin,
 } from './helpers/auth';
-import { createPublishedQuestion, createTaxonomy, type Taxonomy } from './helpers/questions';
+import { createPublishedQuestion, createQuestionVia, createTaxonomy, type Taxonomy } from './helpers/questions';
 
 /**
  * Milestone 6 — the Practice Zone.
@@ -174,24 +174,26 @@ describe('GET /practice/options', () => {
     const { cookies } = await registerVerifyLogin(app);
     const res = await request(app).get(`${API}/practice/options`).set('Cookie', cookieHeader(cookies)).expect(200);
 
-    expect(res.body.subjects).toEqual([]);
+    expect(res.body.available).toBe(0);
     expect(res.body.classLevel).toBe('Class 9');
   });
 
-  it('returns real per-topic counts and only the difficulties that exist', async () => {
-    await seedBank([{ difficulty: 'Easy' }, { difficulty: 'Easy' }, { difficulty: 'Hard' }]);
+  /**
+   * A practice test is a random mix of the class's questions (owner, 2026-10-09), so the page is
+   * told how many there are and which sizes it may offer — and nothing about chapters or
+   * difficulties, which it no longer offers a choice of.
+   */
+  it('counts the class’s published questions across every chapter and difficulty, and offers the four sizes', async () => {
+    const { adminCookies } = await seedBank([{ difficulty: 'Easy' }, { difficulty: 'Easy' }, { difficulty: 'Hard' }]);
+    const geometry = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Circles' });
+    await createPublishedQuestion(app, adminCookies, geometry);
     const { cookies } = await registerVerifyLogin(app);
 
     const res = await request(app).get(`${API}/practice/options`).set('Cookie', cookieHeader(cookies)).expect(200);
 
-    expect(res.body.subjects).toHaveLength(1);
-    const subject = res.body.subjects[0];
-    expect(subject.subjectName).toBe('Mathematics');
-    expect(subject.questionCount).toBe(3);
-    // Medium was never published, so it must not be offered.
-    expect(subject.difficulties).toEqual(['Easy', 'Hard']);
-    expect(subject.topics[0].topicName).toBe('Algebra');
-    expect(subject.topics[0].questionCount).toBe(3);
+    expect(res.body.available).toBe(4);
+    expect(res.body.sizes).toEqual([10, 20, 30, 40]);
+    expect(res.body).not.toHaveProperty('subjects');
   });
 
   it('does not count questions published for another class', async () => {
@@ -199,18 +201,24 @@ describe('GET /practice/options', () => {
     const { cookies } = await registerVerifyLogin(app);
 
     const res = await request(app).get(`${API}/practice/options`).set('Cookie', cookieHeader(cookies)).expect(200);
-    expect(res.body.subjects).toEqual([]);
+    expect(res.body.available).toBe(0);
+  });
+
+  it('does not count a draft — a question reaches practice by being published', async () => {
+    const { adminCookies, taxonomy } = await seedBank([{}]);
+    // Created and never published: a draft.
+    await createQuestionVia(app, adminCookies, taxonomy);
+    const { cookies } = await registerVerifyLogin(app);
+
+    const res = await request(app).get(`${API}/practice/options`).set('Cookie', cookieHeader(cookies)).expect(200);
+    expect(res.body.available).toBe(1);
   });
 
   /**
-   * The Mathematics-only scope, enforced where it is served rather than where it is displayed.
-   *
-   * Milestone 21 Phase J removed the subject dropdown, and the practice page now flattens every
-   * subject's chapters into one list. On a database still holding a legacy second subject that
-   * turned a stray Physics chapter into an offer of maths practice. Hiding it in the browser would
-   * not have been enough — the session endpoint would still serve the questions.
+   * The Mathematics-only scope, enforced where it is served rather than where it is displayed: a
+   * legacy second subject's questions are neither counted nor drawn (the draw is tested below).
    */
-  it('does not offer another subject’s chapters now that nobody picks a subject', async () => {
+  it('does not count another subject’s questions', async () => {
     const { adminCookies } = await seedBank();
     const physics = await createTaxonomy(app, adminCookies, {
       subject: 'Physics',
@@ -221,10 +229,7 @@ describe('GET /practice/options', () => {
     const { cookies } = await registerVerifyLogin(app);
     const res = await request(app).get(`${API}/practice/options`).set('Cookie', cookieHeader(cookies)).expect(200);
 
-    expect(res.body.subjects).toHaveLength(1);
-    expect(res.body.subjects[0].subjectName).toBe('Mathematics');
-    const topicNames = res.body.subjects[0].topics.map((topic: { topicName: string }) => topic.topicName);
-    expect(topicNames).not.toContain('Semiconductor Electronics');
+    expect(res.body.available).toBe(1);
   });
 
   it('refuses a guest', async () => {
@@ -237,19 +242,19 @@ describe('GET /practice/options', () => {
 // ===========================================================================
 
 describe('POST /practice/sessions', () => {
-  it('refuses when nothing published matches the selection', async () => {
+  it('refuses when nothing is published for the class', async () => {
     const { cookies } = await registerVerifyLogin(app);
     const res = await request(app).post(`${API}/practice/sessions`).set('Cookie', cookieHeader(cookies)).send({});
 
     expect(res.status).toBe(409);
-    expect(res.body.error).toMatch(/no published questions/i);
+    expect(res.body.error).toBe('No questions have been published for Class 9 yet, so there is nothing to practise.');
   });
 
   it('serves a paper and persists the session with its questions', async () => {
     await seedBank([{}, {}, {}]);
     const { cookies, studentId } = await registerVerifyLogin(app);
 
-    const session = await startSession(cookies, { questionCount: 3 });
+    const session = await startSession(cookies, { questionCount: 10 });
 
     expect(session.questions).toHaveLength(3);
 
@@ -270,8 +275,41 @@ describe('POST /practice/sessions', () => {
     await seedBank([{}]);
     const { cookies } = await registerVerifyLogin(app);
 
-    const session = await startSession(cookies, { questionCount: 25 });
+    const session = await startSession(cookies, { questionCount: 30 });
     expect(session.questions).toHaveLength(1);
+  });
+
+  it('draws exactly the size chosen when the class has more', async () => {
+    await seedBank(Array.from({ length: 12 }, () => ({})));
+    const { cookies } = await registerVerifyLogin(app);
+
+    const session = await startSession(cookies, { questionCount: 10 });
+    expect(session.questions).toHaveLength(10);
+    // Ten different questions, not one drawn twice.
+    expect(new Set(session.questions.map((question) => question.id)).size).toBe(10);
+  });
+
+  it('starts a 10-question test when no size is sent', async () => {
+    await seedBank(Array.from({ length: 12 }, () => ({})));
+    const { cookies } = await registerVerifyLogin(app);
+
+    const session = await startSession(cookies);
+    expect(session.questions).toHaveLength(10);
+  });
+
+  it('refuses a size that is not on offer, without searching for anything', async () => {
+    await seedBank([{}]);
+    const { cookies } = await registerVerifyLogin(app);
+
+    for (const questionCount of [0, 5, 25, 50, 400]) {
+      const res = await request(app)
+        .post(`${API}/practice/sessions`)
+        .set('Cookie', cookieHeader(cookies))
+        .send({ questionCount });
+      expect(res.status, `a test of ${questionCount}`).toBe(400);
+      expect(res.body.error).toContain('Choose 10, 20, 30 or 40 questions.');
+    }
+    expect(await PracticeSession.countDocuments({})).toBe(0);
   });
 
   it('draws only from the caller’s own class, and ignores a class sent in the body', async () => {
@@ -286,18 +324,30 @@ describe('POST /practice/sessions', () => {
     expect(stored!.filters.classLevel).toBe('Class 9');
   });
 
-  it('narrows by topic and difficulty', async () => {
+  /**
+   * There is no topic-wise practice (owner, 2026-10-09). A page from before still sends a chapter
+   * and a difficulty; the parse drops both, so the student gets the mixed test every student gets
+   * rather than an error — and the session records no chapter, so its history entry reads as a
+   * practice test.
+   */
+  it('mixes every chapter and difficulty, ignoring a chapter or difficulty sent by an older page', async () => {
     const { adminCookies, taxonomy } = await seedBank([{ difficulty: 'Easy' }, { difficulty: 'Hard' }]);
-    const other = await createTaxonomy(app, adminCookies, { subject: 'Geometry', topic: 'Circles', subtopic: 'Arcs' });
-    await createPublishedQuestion(app, adminCookies, other, { difficulty: 'Easy' });
+    const circles = await createTaxonomy(app, adminCookies, { subject: 'Mathematics', topic: 'Circles' });
+    await createPublishedQuestion(app, adminCookies, circles, { difficulty: 'Medium' });
 
     const { cookies } = await registerVerifyLogin(app);
+    const session = await startSession(cookies, {
+      questionCount: 10,
+      topicId: taxonomy.topicId,
+      subjectId: taxonomy.subjectId,
+      difficulty: 'Hard',
+    });
 
-    const byDifficulty = await startSession(cookies, { difficulty: 'Hard', questionCount: 10 });
-    expect(byDifficulty.questions).toHaveLength(1);
-
-    const byTopic = await startSession(cookies, { topicId: taxonomy.topicId, questionCount: 10 });
-    expect(byTopic.questions).toHaveLength(2);
+    expect(session.questions).toHaveLength(3);
+    const stored = await PracticeSession.findById(session.id);
+    expect(stored!.filters.topic).toBeNull();
+    expect(stored!.filters.difficulty).toBeNull();
+    expect(stored!.filters.subject).toBeNull();
   });
 
   /**
@@ -321,18 +371,6 @@ describe('POST /practice/sessions', () => {
     expect(session.questions).toHaveLength(2);
   });
 
-  it('rejects a malformed subject id instead of searching for it', async () => {
-    await seedBank();
-    const { cookies } = await registerVerifyLogin(app);
-    const res = await request(app)
-      .post(`${API}/practice/sessions`)
-      .set('Cookie', cookieHeader(cookies))
-      .send({ subjectId: 'not-an-id' });
-
-    expect(res.status).toBe(400);
-    expect(res.status).not.toBe(500);
-  });
-
   it('refuses a guest', async () => {
     await request(app).post(`${API}/practice/sessions`).send({}).expect(401);
   });
@@ -350,7 +388,7 @@ describe('answer integrity', () => {
     const res = await request(app)
       .post(`${API}/practice/sessions`)
       .set('Cookie', cookieHeader(cookies))
-      .send({ questionCount: 2 })
+      .send({ questionCount: 10 })
       .expect(201);
 
     const body = JSON.stringify(res.body);
@@ -464,7 +502,7 @@ describe('PUT /practice/sessions/:id/answers', () => {
   it('persists an answer and reports progress', async () => {
     await seedBank([{}, {}]);
     const { cookies } = await registerVerifyLogin(app);
-    const session = await startSession(cookies, { questionCount: 2 });
+    const session = await startSession(cookies, { questionCount: 10 });
     const first = session.questions[0]!;
 
     const res = await saveAnswer(cookies, session.id, {
@@ -527,9 +565,10 @@ describe('PUT /practice/sessions/:id/answers', () => {
 
   it('refuses a question that is not part of the session', async () => {
     const { adminCookies, taxonomy } = await seedBank([{}]);
-    const outsider = await createPublishedQuestion(app, adminCookies, taxonomy, { difficulty: 'Hard' });
     const { cookies } = await registerVerifyLogin(app);
-    const session = await startSession(cookies, { difficulty: 'Medium' });
+    const session = await startSession(cookies);
+    // Published after the paper was drawn, so it is in the bank and not in this session.
+    const outsider = await createPublishedQuestion(app, adminCookies, taxonomy);
 
     const res = await saveAnswer(cookies, session.id, { questionId: outsider.id, selectedOptionKeys: ['a'] });
     expect(res.status).toBe(404);
@@ -558,7 +597,7 @@ describe('POST /practice/sessions/:id/submit', () => {
     // Three questions: one answered right, one answered wrong, one left blank.
     await seedBank([{}, {}, {}]);
     const { cookies } = await registerVerifyLogin(app);
-    const session = await startSession(cookies, { questionCount: 3 });
+    const session = await startSession(cookies, { questionCount: 10 });
 
     await saveAnswer(cookies, session.id, { questionId: session.questions[0]!.id, selectedOptionKeys: ['a'] });
     await saveAnswer(cookies, session.id, { questionId: session.questions[1]!.id, selectedOptionKeys: ['b'] });
@@ -607,7 +646,7 @@ describe('POST /practice/sessions/:id/submit', () => {
   it('gives an untouched paper a zero score and no penalty', async () => {
     await seedBank([{}, {}]);
     const { cookies } = await registerVerifyLogin(app);
-    const session = await startSession(cookies, { questionCount: 2 });
+    const session = await startSession(cookies, { questionCount: 10 });
 
     const res = await submit(cookies, session.id);
 
@@ -637,7 +676,7 @@ describe('POST /practice/sessions/:id/submit', () => {
     });
 
     const { cookies } = await registerVerifyLogin(app);
-    const session = await startSession(cookies, { questionCount: 2 });
+    const session = await startSession(cookies, { questionCount: 10 });
 
     for (const question of session.questions) {
       const isBoolean = (question as unknown as { type: string }).type === 'true_false';

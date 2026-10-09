@@ -25,8 +25,9 @@ import { findImplicitSubject } from './taxonomyService';
 export { gradeEntry, isAnswered, type GradeOutcome };
 
 /**
- * The Practice Zone: everything about choosing, serving, grading and reviewing a
- * self-directed practice session.
+ * The Practice Zone: everything about drawing, serving, grading and reviewing a
+ * self-directed practice test — a random mix of the questions published for the student's
+ * class, 10 to 40 at a time (owner, 2026-10-09; there is no chapter or difficulty to choose).
  *
  * ## Answer integrity
  *
@@ -81,23 +82,24 @@ interface AvailabilityRow {
 /**
  * Real counts of published questions for one class, grouped subject → topic.
  *
- * Every number the picker shows comes from here, so an empty bank produces an empty
- * list and the page says so. Archived subjects and topics are excluded even when
- * published questions still reference them — they are not on offer.
+ * No student chooses from this list since practice became a mixed test (2026-10-09): it is
+ * the question bank's "available to practise" preview for staff, and what the
+ * recommendations read to know which chapters a class's bank covers. Archived subjects and
+ * topics are excluded even when published questions still reference them — they are not on
+ * offer.
  */
 function availabilityPipeline(classLevel: ClassLevel, subject: Types.ObjectId | null): PipelineStage[] {
   const match: Record<string, unknown> = { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } };
 
   /**
-   * Scoped to the implicit subject — AMIT is a mathematics olympiad, and this is the list a child
-   * chooses what to practise from.
+   * Scoped to the implicit subject — AMIT is a mathematics olympiad.
    *
-   * Before Milestone 21 Phase J the picker had a subject dropdown, so a legacy second subject in the
-   * database was merely an odd extra entry a student would not pick. Phase J removed the dropdown
-   * and the page now flattens every subject's chapters into one list, which turned that stray data
-   * into "Semiconductor Electronics" offered as maths practice. The fix belongs here rather than in
-   * the flattening, because the guarantee wanted is that the product *serves* mathematics, not that
-   * one screen happens to hide the rest.
+   * Before Milestone 21 Phase J the student picker had a subject dropdown, so a legacy second
+   * subject in the database was merely an odd extra entry a student would not pick. Phase J removed
+   * the dropdown and the page flattened every subject's chapters into one list, which turned that
+   * stray data into "Semiconductor Electronics" offered as maths practice. The fix belongs here
+   * rather than in a screen, because the guarantee wanted is that the product *serves* mathematics,
+   * not that one screen happens to hide the rest.
    *
    * `null` (no subject, or several with none named for mathematics) leaves it unscoped, matching
    * `suggestPaper()`: refusing to offer any practice at all because legacy data is ambiguous would
@@ -182,39 +184,61 @@ export async function getPracticeAvailability(classLevel: ClassLevel): Promise<S
 }
 
 // ---------------------------------------------------------------------------
-// Starting a session
+// Starting a practice test
 // ---------------------------------------------------------------------------
 
 export interface StartPracticeInput {
   student: Types.ObjectId;
   classLevel: ClassLevel;
-  subjectId?: string;
-  topicId?: string;
-  difficulty?: Difficulty;
+  /** One of `PRACTICE_TEST_SIZES` — the request schema accepts nothing else. */
   questionCount: number;
 }
 
 /**
- * Spelled out rather than using a Mongoose helper type, for the same reason
- * `users.routes.ts` does it: this filter is assembled from user-supplied query values,
- * and a narrow type is what guarantees only these fields — never an operator object
- * smuggled in from the request — can reach Mongo. `status` carries the literal union
- * so it cannot widen to an arbitrary string.
+ * Spelled out rather than using a Mongoose helper type, so that only these fields — never
+ * an operator object — can reach Mongo. `status` carries the literal union so it cannot
+ * widen to an arbitrary string.
  */
 interface QuestionFilter {
   classLevel: ClassLevel;
   status: { $in: QuestionStatus[] };
   /**
-   * Real `ObjectId`s, **not** strings. This matters: `find()` and `countDocuments()`
+   * A real `ObjectId`, **not** a string. This matters: `find()` and `countDocuments()`
    * cast a 24-character hex string to an ObjectId for you, but `$match` inside an
    * `aggregate()` pipeline does **not** — it compares the raw BSON types and silently
-   * matches nothing. Passing a string here therefore produced a session with zero
-   * questions, which then failed the model's `min: 1` and surfaced as a 500. Caught by
-   * the "narrows by topic" test.
+   * matches nothing. A string here once produced a session with zero questions, which
+   * then failed the model's `min: 1` and surfaced as a 500.
    */
   subject?: Types.ObjectId;
-  topic?: Types.ObjectId;
-  difficulty?: Difficulty;
+}
+
+/**
+ * What a practice test is drawn from: every question published for the class, in the
+ * implicit subject.
+ *
+ * One definition for the count the page shows (`countPracticeQuestions`) and for the draw
+ * (`startPracticeSession`), so the page cannot promise a number the draw then misses.
+ *
+ * The implicit subject makes a mixed test mixed *mathematics*: a draw over every subject in
+ * the database could deal a student a Physics question in a mathematics olympiad, and the
+ * answer-key snapshot would make it a real mark against them. `null` (no subject, or several
+ * with none named for mathematics) leaves it unscoped, as `suggestPaper()` does — refusing all
+ * practice over legacy data the student cannot see would break a working feature.
+ */
+async function practicePool(classLevel: ClassLevel): Promise<QuestionFilter> {
+  const filter: QuestionFilter = { classLevel, status: { $in: [...STUDENT_VISIBLE_STATUSES] } };
+  const subject = await findImplicitSubject();
+  if (subject) filter.subject = subject;
+  return filter;
+}
+
+/** How many questions a practice test for this class is drawn from. */
+export async function countPracticeQuestions(classLevel: ClassLevel): Promise<number> {
+  return Question.countDocuments(await practicePool(classLevel));
+}
+
+function nothingToPractise(classLevel: ClassLevel): ApiError {
+  return new ApiError(409, `No questions have been published for ${classLevel} yet, so there is nothing to practise.`);
 }
 
 /** The answer-key snapshot for one served question. */
@@ -240,49 +264,24 @@ function snapshotOf(question: QuestionDocument): PracticeQuestionEntry {
 }
 
 /**
- * Draws a paper and opens a session.
+ * Draws a practice test and opens a session.
  *
- * Questions are picked with `$sample`, so two sessions over the same filters are not
- * the same paper — the opposite of the daily challenge, which is deliberately
- * deterministic. Practice is meant to be repeatable with fresh questions.
+ * A random mix of the class's published questions: the student chooses only how many.
+ * Questions are picked with `$sample`, so two tests are not the same paper — the opposite
+ * of the Daily Quiz, which is one question for everybody. Practice is meant to be
+ * repeatable with fresh questions.
  *
- * Throws `409` when the filters match nothing published, rather than opening an empty
- * session the student could not do anything with.
+ * Throws `409` when the class has nothing published, rather than opening an empty session
+ * the student could not do anything with.
  */
 export async function startPracticeSession(input: StartPracticeInput): Promise<PracticeSessionDocument> {
-  const filter: QuestionFilter = {
-    classLevel: input.classLevel,
-    status: { $in: [...STUDENT_VISIBLE_STATUSES] },
-  };
-  // Safe to construct: the request schema has already required 24-character hex.
-  if (input.subjectId) filter.subject = new Types.ObjectId(input.subjectId);
-  if (input.topicId) filter.topic = new Types.ObjectId(input.topicId);
-
-  /**
-   * With no subject named, the implicit one — so "mixed practice" means mixed *mathematics*.
-   *
-   * This is the paper itself rather than the menu, so it matters more than the availability scope
-   * above: since Phase J the student picker sends no `subjectId` at all, which left an unfiltered
-   * draw over every subject in the database. A student asking for mixed practice could be dealt a
-   * Physics question in a mathematics olympiad, and the answer-key snapshot would make it a real
-   * mark against them.
-   *
-   * A caller that *does* name a subject is trusted and left alone — that is a deliberate narrowing,
-   * not the absence of one.
-   */
-  if (!input.subjectId) {
-    const implicit = await findImplicitSubject();
-    if (implicit) filter.subject = implicit;
-  }
-  if (input.difficulty) filter.difficulty = input.difficulty;
+  const filter = await practicePool(input.classLevel);
 
   const available = await Question.countDocuments(filter);
-  if (available === 0) {
-    throw new ApiError(409, 'No published questions match that selection yet. Try a different subject or topic.');
-  }
+  if (available === 0) throw nothingToPractise(input.classLevel);
 
-  // Fewer questions than asked for is fine and is not an error: the student gets
-  // however many really exist, and the response reports the count.
+  // Fewer questions than asked for is fine and is not an error: the student gets however
+  // many really exist, which the page told them before they pressed Start.
   const size = Math.min(input.questionCount, available);
   const sampled = await Question.aggregate<QuestionDocument>([{ $match: filter }, { $sample: { size } }]);
 
@@ -292,19 +291,15 @@ export async function startPracticeSession(input: StartPracticeInput): Promise<P
   // means the two queries disagreed — which is exactly what the ObjectId-casting bug
   // noted above did. Refusing here keeps that class of mistake a clear 409 rather than
   // a confusing 500 out of the model's `min: 1` validator.
-  if (questions.length === 0) {
-    throw new ApiError(409, 'No published questions match that selection yet. Try a different subject or topic.');
-  }
+  if (questions.length === 0) throw nothingToPractise(input.classLevel);
 
   return PracticeSession.create({
     student: input.student,
     status: 'in_progress',
-    filters: {
-      subject: input.subjectId ?? null,
-      topic: input.topicId ?? null,
-      difficulty: input.difficulty ?? null,
-      classLevel: input.classLevel,
-    },
+    // What the student chose, which is now only a size — so no chapter, difficulty or
+    // subject. Sessions from before 2026-10-09 keep the chapter they were drawn for, and
+    // their history entries still name it.
+    filters: { subject: null, topic: null, difficulty: null, classLevel: input.classLevel },
     questions,
     totalQuestions: questions.length,
     maxMarks: questions.reduce((sum, entry) => sum + entry.marks, 0),
