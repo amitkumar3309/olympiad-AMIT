@@ -13,6 +13,7 @@ import { registerHref, safeNext, type NextPath } from '../../lib/nextPath'
 import { HOME_SECTIONS, type HomeSectionId } from '../../lib/siteConfig'
 import LoginDialog from '../Auth/LoginDialog'
 import Hero from './sections/Hero'
+import DiwaliSpecial from './sections/DiwaliSpecial'
 import Stats from './sections/Stats'
 import Rewards from './sections/Rewards'
 import About from './sections/About'
@@ -167,6 +168,8 @@ export default function Landing() {
   const page = useMemo(() => {
     const sections: Record<HomeSectionId, ReactNode> = {
       hero: <Hero signedIn={isStudent} registerTo={registerTo} />,
+      // Shown only during the Diwali edition (Phase 7) — CSS decides, from <html data-season>.
+      diwali: <DiwaliSpecial signedIn={isStudent} registerTo={registerTo} onPlay={play} />,
       stats: <Stats />,
       crack: <DeferredCrackThis onPlay={play} classLevel={classLevel} />,
       rewards: <Rewards prize={prize} onPlay={play} />,

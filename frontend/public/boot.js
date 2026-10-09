@@ -1,5 +1,6 @@
 /*
- * Runs first, in the <head> of every page (Milestone 30, Phase 6). Two jobs.
+ * Runs first, in the <head> of every page (Milestone 30, Phase 6). Three jobs — the third,
+ * a festive edition and its intro, is described where it runs (Phase 7).
  *
  * 1. The theme, before the first paint. The homepage arrives already drawn
  *    (vite.prerender.ts), so it paints before React has loaded — and before
@@ -41,6 +42,76 @@
   if (dark) {
     root.classList.add('theme-dark')
     root.style.colorScheme = 'dark'
+  }
+
+  /*
+   * 3. A festive edition (Phase 7 — the Diwali edition, 8 to 15 November 2026), also before
+   *    the first paint. Its dates are src/lib/season.ts's, written into the
+   *    <meta name="amit-season"> above this tag as "kind id startsAt endsAt introMs". While it
+   *    is on, <html data-season="diwali">, and every festive touch is CSS keyed on that — so
+   *    the drawn homepage needs no second version, and after the end date the site is simply
+   *    itself again. ?season=diwali previews it for the tab's session (and replays the intro),
+   *    ?season=off hides it, ?season=auto goes back to the dates.
+   */
+  var season = (function () {
+    var meta = document.querySelector('meta[name="amit-season"]')
+    var parts = meta ? (meta.getAttribute('content') || '').split(' ') : []
+    return parts.length === 5 ? parts : null
+  })()
+  if (season) {
+    var kind = season[0]
+    var asked = null
+    var mode = null
+    try {
+      asked = new URLSearchParams(window.location.search).get('season')
+      if (asked === kind || asked === 'off') window.sessionStorage.setItem('amit-season', asked)
+      if (asked === 'auto') window.sessionStorage.removeItem('amit-season')
+      mode = window.sessionStorage.getItem('amit-season')
+    } catch {
+      // Storage blocked: the dates alone decide, as they do for everybody else.
+    }
+    var nowMs = Date.now()
+    var dated = nowMs >= Date.parse(season[2]) && nowMs < Date.parse(season[3])
+    if (mode === kind || (mode !== 'off' && dated)) {
+      root.setAttribute('data-season', kind)
+      playIntro(season[1], Number(season[4]) || 2100, asked === kind)
+    }
+  }
+
+  /*
+   * The intro — "the Diwali launch moment" — on the homepage, the first time each browser sees
+   * the edition. Its markup is drawn outside the app's root (vite.prerender.ts), so the app
+   * taking over cannot restart it. Never for a reader who asked for less motion, never in a tab
+   * nobody is looking at, never when the address asks for something (#login, ?next=). Any key,
+   * tap, click or scroll ends it — and the timer ends it regardless, because an animation that
+   * never runs must not leave the page covered (CLAUDE.md).
+   */
+  function playIntro(id, ms, replay) {
+    var where = window.location
+    if (where.pathname !== '/' || where.hash || /[?&]next=/.test(where.search)) return
+    if (document.visibilityState && document.visibilityState !== 'visible') return
+    try {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    } catch {
+      // No matchMedia: treated as no preference.
+    }
+    var seen = null
+    try {
+      seen = window.localStorage.getItem('amit-intro')
+      if (seen !== id) window.localStorage.setItem('amit-intro', id)
+    } catch {
+      // Storage blocked: it plays on this visit and cannot be remembered.
+    }
+    if (seen === id && !replay) return
+
+    root.setAttribute('data-intro', 'play')
+    var events = ['keydown', 'pointerdown', 'touchstart', 'wheel']
+    function end() {
+      root.removeAttribute('data-intro')
+      for (var i = 0; i < events.length; i++) window.removeEventListener(events[i], end, true)
+    }
+    for (var i = 0; i < events.length; i++) window.addEventListener(events[i], end, { capture: true, passive: true })
+    setTimeout(end, ms)
   }
 
   var self = document.currentScript

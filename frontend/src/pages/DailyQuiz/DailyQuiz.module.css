@@ -43,3 +43,9 @@
   color: var(--text-body);
   line-height: var(--leading-normal);
 }
+
+/* The way into the archive of every earlier quiz (Phase 7). */
+.archive {
+  margin: var(--space-4) 0 0;
+  font-weight: var(--weight-semibold);
+}

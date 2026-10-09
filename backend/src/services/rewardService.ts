@@ -6,6 +6,7 @@ import { summariseAchievements, type AchievementSummary } from '../lib/achieveme
 import { summariseBadges, type BadgeSummary } from '../lib/badges';
 import { summariseJourney, type JourneySummary } from '../lib/journey';
 import { EMPTY_REWARD_FACTS, type RewardFacts } from '../lib/rewardFacts';
+import { DIWALI_2026, isWithin } from '../lib/seasons';
 import { levelProgressFor, XP_AWARDS, xpFor, type LevelProgress } from '../lib/xp';
 import {
   ACTIVITY_TYPES,
@@ -283,6 +284,8 @@ export async function buildRewardFacts(
     // The official exam records nothing yet. Stated as 0 rather than omitted, so a rule
     // that reads it gets an honest zero instead of undefined.
     examsCompleted: 0,
+    diwali2026Quizzes: challengeDays.filter((day) => isWithin(day, DIWALI_2026)).length,
+    today,
   };
 
   return { facts, level: progress.level, streak: progress.streak };

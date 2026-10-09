@@ -1842,6 +1842,25 @@ export interface PastProblemGroup {
   problems: PastQuizProblem[]
 }
 
+/**
+ * The Daily Quiz's three class groups, in order — a mirror of `CLASS_GROUPS` in
+ * `backend/src/lib/dailyQuiz.ts` (Milestone 30 Phase 7), which the archive needs before
+ * any response arrives. Change both together.
+ */
+export const QUIZ_CLASS_GROUPS = [
+  { id: '3-5', label: 'Classes 3–5', min: 3, max: 5 },
+  { id: '6-8', label: 'Classes 6–8', min: 6, max: 8 },
+  { id: '9-12', label: 'Classes 9–12', min: 9, max: 12 },
+] as const
+
+/** One page of the public archive (`GET /daily-quiz/archive`): a group's quizzes, newest day first. */
+export interface QuizArchivePage {
+  group: Omit<PastProblemGroup, 'problems'>
+  problems: PastQuizProblem[]
+  /** Pass back as `before` for the next page; null once this page reaches the first quiz. */
+  nextBefore: string | null
+}
+
 // --- Staff ---
 
 export interface QuizStats {

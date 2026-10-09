@@ -1,13 +1,15 @@
 import type { HtmlTagDescriptor, Plugin } from 'vite'
 import { AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, SITE_URL, SUPPORT } from './src/lib/brand.ts'
 import { DEFAULT_DESCRIPTION, DISALLOWED_PREFIXES, HOME_DESCRIPTION, HOME_TITLE, INDEXED_PATHS } from './src/lib/pageMeta.ts'
+import { seasonMetaContent } from './src/lib/season.ts'
 
 /**
  * Search and sharing, generated from the app's own constants (Milestone 30, Phase 6 — brief
  * §10, "SEO and sharing").
  *
  *  - **`index.html`**: the title and description (`%AMIT_HOME_TITLE%`,
- *    `%AMIT_HOME_DESCRIPTION%`), the share card's Open Graph and Twitter tags with the
+ *    `%AMIT_HOME_DESCRIPTION%`), the festive edition's dates for `public/boot.js`
+ *    (`%AMIT_SEASON%`, from `src/lib/season.ts` — Phase 7), the share card's Open Graph and Twitter tags with the
  *    absolute image URL, and the organisation's structured data — all from
  *    `src/lib/brand.ts` and `src/lib/pageMeta.ts`, so the HTML carries no second copy of the
  *    name, the domain or the contact details.
@@ -137,7 +139,8 @@ export function seo(): Plugin {
         return {
           html: html
             .replace('%AMIT_HOME_TITLE%', escapeHtml(HOME_TITLE))
-            .replace('%AMIT_HOME_DESCRIPTION%', escapeHtml(HOME_DESCRIPTION)),
+            .replace('%AMIT_HOME_DESCRIPTION%', escapeHtml(HOME_DESCRIPTION))
+            .replace('%AMIT_SEASON%', escapeHtml(seasonMetaContent())),
           tags: [
             meta({ property: 'og:type', content: 'website' }),
             meta({ property: 'og:site_name', content: AMIT_OLYMPIAD }),

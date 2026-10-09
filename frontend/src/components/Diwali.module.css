@@ -1,0 +1,261 @@
+/* The Diwali edition's artwork (Phase 7). Tokens only; every loop ends on a resting frame
+   that is visible, because reduced motion (base.css) jumps each animation to its end. */
+
+/* ---------- the diya ---------------------------------------------------- */
+
+.diya {
+  position: relative;
+  display: inline-block;
+}
+
+/* The flame's glow — a gradient drawn once, behind it. A filter on the moving flame would be
+   recomputed every frame it moves. */
+.diya::before {
+  content: '';
+  position: absolute;
+  left: 25%;
+  right: 25%;
+  top: -20%;
+  bottom: 30%;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle at 50% 60%, var(--festive-light), transparent 70%);
+  pointer-events: none;
+}
+
+.diyaBowl,
+.diyaFlame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.bowl {
+  fill: var(--festive-ember);
+}
+
+.bowlBand {
+  fill: none;
+  stroke: var(--festive-gold);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+/* The whole flame SVG moves, from the wick (32, 28 of 64 x 48). */
+.diyaFlame {
+  transform-origin: 50% 58%;
+  animation: diya-flicker var(--dur-flicker) var(--ease-sine) infinite alternate;
+}
+
+.flameOuter {
+  fill: var(--festive-gold);
+}
+
+.flameInner {
+  fill: var(--festive-flame-core);
+}
+
+@keyframes diya-flicker {
+  0% {
+    transform: scale(0.92, 1.06) rotate(-3deg);
+  }
+  100% {
+    transform: scale(1, 1) rotate(0);
+  }
+}
+
+/* ---------- the lantern ------------------------------------------------- */
+
+.lantern {
+  display: block;
+  overflow: visible;
+  transform-origin: 50% 0;
+  animation: lantern-sway var(--dur-idle) var(--ease-sine) infinite alternate;
+}
+
+.cord,
+.lanternTassel {
+  fill: none;
+  stroke: var(--festive-gold);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.lanternCap {
+  fill: var(--festive-gold-strong);
+}
+
+.lanternShade {
+  fill: var(--festive-ember);
+}
+
+.lanternLight {
+  fill: var(--festive-flame);
+  filter: drop-shadow(0 0 10px var(--festive-gold));
+}
+
+@keyframes lantern-sway {
+  0% {
+    transform: rotate(-5deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+
+/* ---------- the firework ------------------------------------------------ */
+
+/* Bursts, fades, and comes back — the visible burst is both the first and the last frame. The
+   whole SVG moves, never a shape inside it. */
+.firework {
+  display: block;
+  overflow: visible;
+  transform-origin: center;
+  animation: firework-burst var(--dur-idle-slow) var(--ease-out) infinite both;
+}
+
+.ray {
+  fill: none;
+  stroke: var(--festive-gold);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.spark {
+  fill: var(--festive-flame-core);
+}
+
+@keyframes firework-burst {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  35% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+  36% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---------- the string of lights (only during the edition) -------------- */
+
+.lights {
+  display: none;
+  height: 16px;
+  pointer-events: none;
+  /* The wire: one hairline across the top. */
+  background: linear-gradient(var(--festive-hairline), var(--festive-hairline)) 0 3px / 100% 1px no-repeat;
+}
+
+:global(:root[data-season='diwali']) .lights {
+  display: block;
+}
+
+/* One strand of the two: its bulbs evenly spaced; the strand, not the bulb, twinkles. */
+.strand {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  animation: bulb-twinkle var(--dur-pulse) var(--ease-sine) infinite alternate;
+}
+
+/* The second strand sits half a bulb along, out of step with the first — moved by padding
+   inside its own box, not by a transform, which pushed it past the page's edge (a sideways
+   scroll on every page during the edition, caught by a full-page screenshot). */
+.strand.strandTwo {
+  padding-left: calc(100% / 28);
+  animation-delay: calc(var(--dur-pulse) / -1);
+}
+
+.bulb {
+  width: 6px;
+  height: 9px;
+  margin-top: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--festive-gold);
+  box-shadow: var(--festive-glow);
+}
+
+.bulb:nth-child(even) {
+  margin-top: 6px;
+}
+
+.strandTwo .bulb {
+  background: var(--festive-ember);
+}
+
+.strandTwo .bulb:nth-child(3n) {
+  background: var(--festive-flame-core);
+}
+
+/* While the intro covers the page the loops beneath it wait: nobody can see them, and a slowed
+   phone needs the time for the page itself. The intro's own diya is outside the app's root, so
+   it still burns. */
+:global(:root[data-intro='play'] #root) .diyaFlame,
+:global(:root[data-intro='play'] #root) .lantern,
+:global(:root[data-intro='play'] #root) .firework,
+:global(:root[data-intro='play'] #root) .strand {
+  animation-play-state: paused;
+}
+
+@keyframes bulb-twinkle {
+  0% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ---------- the greeting (only during the edition) ---------------------- */
+
+.greeting {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--festive-hairline);
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+:global(:root[data-season='diwali']) .greeting {
+  display: inline-flex;
+}
+
+.greetingDiya {
+  width: 22px;
+  height: 17px;
+}
+
+/* A phone keeps the diya and lets the header breathe; the words stay for a screen reader. */
+@media (max-width: 479px) {
+  .greeting {
+    padding: var(--space-1);
+  }
+
+  .greetingText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

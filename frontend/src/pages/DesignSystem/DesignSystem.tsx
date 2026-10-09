@@ -1062,6 +1062,9 @@ export default function DesignSystem() {
           <Row label="units — the Boss Battle card">
             <Countdown target={instants.inTwoDays} variant="units" label="Sample: time until the next battle" />
           </Row>
+          <Row label="units · showDays={false} — always under a day (the Diwali hero's quiz countdown)">
+            <Countdown target={instants.inFiveHours} variant="units" showDays={false} label="Sample: time until today’s quiz closes" />
+          </Row>
           <p className={styles.note}>
             Dates read like the brief asks, in IST whatever the device&rsquo;s zone: {formatDateTime(instants.inTwoDays)}.
           </p>

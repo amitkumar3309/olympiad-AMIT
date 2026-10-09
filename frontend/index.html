@@ -8,6 +8,11 @@
       never shown light to a dark reader first — and, on that page only, starts the app once a
       frame has been drawn. Blocking on purpose, and tiny; see the file.
     -->
+    <!--
+      A festive edition's dates (src/lib/season.ts), written in at build time by vite.seo.ts.
+      Above boot.js on purpose: that script reads it before the first paint.
+    -->
+    <meta name="amit-season" content="%AMIT_SEASON%" />
     <script src="/boot.js"></script>
 
     <!--

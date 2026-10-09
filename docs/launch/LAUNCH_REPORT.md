@@ -1,6 +1,7 @@
 # A.M.I.T. Olympiad — Diwali launch report
 
-_Launch: **Sunday 8 November 2026**. Written 2026-10-06 at the end of Milestone 30, Phase 6 (brief §10–11)._
+_Launch: **Sunday 8 November 2026**. Written 2026-10-06 at the end of Milestone 30, Phase 6 (brief §10–11);
+updated 2026-10-09 for Phase 7a (your requests of 8 October — §1, §6b)._
 
 This is the one page to read before launch. It says what was built, how to run it, how to fill the
 Daily Quiz and pay out its prizes, what is still yours to do, and how to launch and — if needed — roll
@@ -23,15 +24,17 @@ The launch brief (`docs/launch/LAUNCH_SPEC.md`) in seven phases — merged as pu
 | 4 — Dashboard | The student dashboard and shell from the mockup, the bell and account menus, `/activity` |
 | 5 — Every button and link | Every control re-checked; a lint step that fails on a dead control; a link crawler over every page |
 | 6 — Launch readiness | Search and sharing, accessibility, security headers, parental consent, crash page, performance, this report |
+| 7a — Your requests of 8 Oct | The address `www.amitolympiad.me`; the first administrator can be created from the sign-in box (D10); **Past Daily Quizzes**, a public archive; **the Diwali edition** (§6b) with its intro and the Diwali 2026 badge |
 
 **The checks that guard it** — run before every commit:
 
-- **Backend: 1,360 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
+- **Backend: 1,369 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
   student response carries the answer before midnight).
-- **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 54 tests, about eight minutes) —
+- **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 70 tests, about ten minutes) — the
+  Diwali edition on its dates and off either side of them, the archive,
   the quiz from start to the next day's reveal, registration → email → quiz, the dashboard,
   keyboard-only use, a crash and a weak connection, the homepage readable before its script has run,
-  **every tap answering within 200 ms on a slowed phone**, and a **crawler over every page** (guest
+  **every tap answering within 200 ms on a slowed phone** (motion reduced — see §7), and a **crawler over every page** (guest
   and student on desktop and phone, the student also in the dark theme, the administrator on
   desktop) that fails on any console error, failed request, broken link, page without one heading, or
   **any serious accessibility violation (axe)**.
@@ -67,7 +70,7 @@ that matter on launch day are:
 |---|---|
 | `MONGO_URI` | The live database |
 | `JWT_SECRET` | Signs every sign-in; a long random value, never shared |
-| `FRONTEND_URL` | **Must be the site's exact address** (e.g. `https://amitolympiad.me`, no trailing slash): every email link is built from it, and any other address is refused for every save |
+| `FRONTEND_URL` | **Must be the site's exact address** — `https://www.amitolympiad.me`, no trailing slash: every email link is built from it, and any other address is refused for every save |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD_HASH` | The root administrator |
 | `SMTP_*`, `EMAIL_FROM` | Sending the verification and password emails |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Taking the entry fee |
@@ -138,13 +141,38 @@ The **Prize desk** tab lists every confirmed winner across days, with what is st
 | Admin → Referrals | Whether referrals earn anything, and how much (off by default) |
 | `frontend/src/lib/siteConfig.ts` (a deploy) | The homepage's sections and their order |
 | `frontend/src/lib/brand.ts` (a deploy) | The competition year (`2027`), the contact details, **the site's address** |
+| `frontend/src/lib/season.ts` and `backend/src/lib/seasons.ts` (a deploy) | **The Diwali edition's dates** — see §6b |
+
+## 6b. The Diwali edition — 8 to 15 November 2026
+
+**It switches itself on at 12:00 AM on Sunday 8 November and off at the end of Sunday 15 November,
+India time. Nothing to deploy, nothing to remember**; on the 16th the site is exactly as it is today.
+
+What a visitor sees during the week:
+
+- **The intro** — about two seconds, the first time each phone or computer opens the homepage that
+  week: dark; 3, 2, 1; a diya lights; its glow finds the mathematics around it; "A.M.I.T. OLYMPIAD
+  2027"; "THINK • SOLVE • GROW". Any tap or key skips it. It never plays for someone whose phone asks
+  for less motion, or when the address is for something else (`/#login`, a link back from sign-in).
+- **The homepage at night** — lanterns, fireworks and diyas behind the usual hero, the name in gold,
+  "Launched this Diwali · A brighter mind for a brighter future", and a countdown to when **today's**
+  Daily Quiz closes (on a day with no quiz, to the end of Diwali week). Below it, **Diwali Special: earn
+  the Diwali 2026 badge** — answer any Daily Quiz that week and it stays in the student's achievements
+  for good.
+- **Everywhere a student goes** — a string of lights along the top bar, "Happy Diwali" beside the logo,
+  and a warm gold glow on the main button and the Daily Quiz button. The admin area is unchanged.
+
+**To see it before the 8th**, open `https://www.amitolympiad.me/?season=diwali` — it stays on for that
+browser tab, and replays the intro. `?season=off` hides it again; `?season=auto` goes back to the dates.
+To change the dates, change both files named in §6 and deploy.
 
 ## 7. Known limitations — honestly
 
 | Limitation | What it means | What would fix it |
 |---|---|---|
 | **The homepage's first second on a slow phone** | The homepage arrives already drawn, so it can be read before its script has loaded; for that second or two its buttons (Sign in, the menu, the theme switch) do nothing and the menu and theme switch show no icon yet, while its links work | Expected for a page drawn ahead of its script — the price of the fast first paint (§11). Nothing to fix unless readers report it |
-| **D10** — the root administrator on a brand-new database | The sign-in box cannot create the administrator account the first time; your live site is unaffected (it exists) | Your decision — see PROGRESS.md "Open questions" |
+| **The first homepage visit during Diwali week** | The two-second intro covers the page, so the hero's first paint (LCP) is measured at 2.7–2.9 s on a slowed phone against 2.5 s; the score stays 86–92 | Expected for a full-screen intro; every later visit and every other page is unaffected |
+| **A tap with motion on** | The browser test (motion reduced) passes — the slowest tap 104 ms, 144 ms during Diwali week. With motion on, a headless browser with no GPU and the CPU slowed 4× measures 220–260 ms (target 200), the same as before Phase 7a, and 320–430 ms during Diwali week; nearly all of it is drawing, which a phone does with its GPU | Check it on a real phone (§9, step 13) |
 | **Session cookies are `SameSite=None`** | The brief asks for `Lax`; the site may already be same-site through the `/api` rewrite, but a wrong change logs everybody out | Test on a staging copy with its own backend first (PLAN.md R5) |
 | **The icon font comes from unpkg.com** | If that service is down, icons disappear (never words — no icon carries meaning alone) | Self-host the two icon fonts |
 | **Rate limits are per server instance** | Limits reset when Vercel starts a new instance; a school of 40 behind one connection shares one address | A shared store (Redis) — a cost decision |
@@ -159,10 +187,15 @@ The **Prize desk** tab lists every confirmed winner across days, with what is st
 Do these in order; each says exactly where.
 
 1. **Load at least two weeks of Daily Quiz questions** (§4) — 3 a day, about 45 questions.
-2. **Confirm the site's address.** It is set to `https://amitolympiad.me` in `frontend/src/lib/brand.ts`
-   (used for search results and shared links). If the live site is `www.amitolympiad.me` or another
-   address, tell me — it is a one-line change. Then check the backend's `FRONTEND_URL` in Vercel matches
-   it **exactly**: Vercel → the backend project → Settings → Environment Variables → `FRONTEND_URL`.
+2. **Point both addresses at one site — `www.amitolympiad.me`** (your answer of 8 October). The backend
+   accepts sign-ins from exactly one address, so the bare domain must *redirect* rather than serve:
+   1. Vercel → the **site** project (`amit-olympiad-web`) → **Settings → Domains**.
+   2. Make sure `www.amitolympiad.me` is listed. If `amitolympiad.me` is listed too, open its **Edit**
+      and choose **Redirect to `www.amitolympiad.me`** (308 Permanent). Save.
+   3. Vercel → the **backend** project (`amit-olympiad`) → **Settings → Environment Variables** →
+      `FRONTEND_URL` → set it to exactly `https://www.amitolympiad.me` (no slash at the end) → **Save**.
+   4. **Deployments** → the latest → **⋯** → **Redeploy** (the backend only reads variables at start).
+   5. Check: `https://amitolympiad.me` lands on `https://www.amitolympiad.me`, and signing in works there.
 3. **Set the prize amount** if there is one: Admin → Daily Quiz → Settings → Cash amount.
 4. **Legal review**: give `docs/launch/LEGAL_REVIEW.md` and the five pages (`/privacy`, `/terms`,
    `/refunds`, `/rewards/rules`, `/contact`) to your lawyer; the refund policy especially.
@@ -174,9 +207,9 @@ Do these in order; each says exactly where.
 8. **The email sender's name** (optional): Vercel → the backend project → Settings → Environment
    Variables → `EMAIL_FROM`. The part before `<` is what an inbox shows; change it to
    `A.M.I.T. Olympiad` to match the emails' own wording, keeping the address exactly as it is.
-9. **Decide D10** and **R5** (§7), and **the organiser's name** on invoices and certificates
-   (PROGRESS.md, "Open questions" — it follows from `LEGAL_REVIEW.md` question 1). All three can wait
-   until after launch.
+9. **Decide R5** (§7) and **the organiser's name** on invoices and certificates (PROGRESS.md, "Open
+   questions" — it follows from `LEGAL_REVIEW.md` question 1). Both can wait until after launch.
+10. **Preview the Diwali edition** on your phone before the 8th (§6b): `https://www.amitolympiad.me/?season=diwali`.
 
 ## 9. The phone checklist — 15 minutes, on your own phone
 
@@ -193,6 +226,12 @@ account you create for it.
 8. Open **Payment** — the fee shows (do not pay unless you mean to; a real payment is real money).
 9. Sign out from the account menu.
 10. Share the homepage link into WhatsApp: the preview card shows the A.M.I.T. Olympiad card.
+11. Open `/?season=diwali`: the intro plays, then the night hero, the lights and "Happy Diwali"; reload —
+    no intro the second time; open `/?season=off` to put it back.
+12. Open **Past Daily Quizzes** from the footer: earlier quizzes, each answer behind **Show the answer**.
+13. On the homepage, tap **I already have an account**: the sign-in box should open at once, with no
+    pause you notice. If it lags, note the phone's model — it decides whether the homepage's moving
+    pictures need to calm down (§7, "A tap with motion on").
 
 If any step fails, note the step number and the phone and browser, and stop.
 
@@ -218,6 +257,9 @@ both deploy when a pull request is merged into `main`.
 5. `https://<your-site>/robots.txt` and `/sitemap.xml` show your domain.
 6. Paste `https://<your-site>/leaderboard` straight into the address bar: the leaderboard opens, not the
    homepage. (The homepage is a page of its own now; every other address is served the app's shell.)
+7. **On 8 November**, after 12:00 AM India time, open the homepage in a private window: the Diwali intro
+   plays and the night hero shows. Nothing to deploy — the dates switch it (§6b). On the 16th, the same
+   check shows the everyday homepage.
 
 **Roll back** if something is badly wrong:
 
@@ -238,5 +280,5 @@ both deploy when a pull request is merged into `main`.
 | The Daily Quiz end to end: button → login → attempt → right/wrong → profile history → next-day reveal; scheduling and bulk import; winners computed, reviewed and published | ✅ (E2E + backend tests) |
 | The answer-key leak test passes | ✅ |
 | The Rewards section, rules page and legal pages exist and are linked | ✅ (legal pages are drafts for review) |
-| Every row of `INTERACTION_AUDIT.md` passes and the link crawler is green | ✅ (D10 open for your decision) |
-| Lighthouse, axe and security-header targets; no high/critical dependency vulnerabilities | ✅ Lighthouse, homepage, four runs: mobile **98** each (≥ 85), LCP **1.8–2.0 s** (≤ 2.5 s), CLS **0**, desktop **100**; INP — every tap within **200 ms** on a phone slowed 4× (slowest: opening Sign in, 168–184 ms); axe **0 serious/critical** on every page; CSP, HSTS, `frame-ancestors 'none'` and the rest set; **0 high/critical** in what ships (two moderate, unreachable — `SECURITY.md`) |
+| Every row of `INTERACTION_AUDIT.md` passes and the link crawler is green | ✅ (D10 fixed in Phase 7a) |
+| Lighthouse, axe and security-header targets; no high/critical dependency vulnerabilities | ✅ Lighthouse, homepage, four runs: mobile **98** each (≥ 85), LCP **1.8–2.0 s** (≤ 2.5 s), CLS **0**, desktop **100**; INP — every tap within **200 ms** on a phone slowed 4× **with motion reduced** (slowest: 104 ms, and 144 ms during the Diwali edition, in the final run) — with motion on it measures 220–260 ms in a headless browser without a GPU, as before Phase 7a (§7); during Diwali week the first homepage visit plays the intro, and measures 86–92 with LCP 2.7–2.9 s (§7); axe **0 serious/critical** on every page; CSP, HSTS, `frame-ancestors 'none'` and the rest set; **0 high/critical** in what ships (two moderate, unreachable — `SECURITY.md`) |

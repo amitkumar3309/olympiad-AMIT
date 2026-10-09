@@ -17,9 +17,13 @@
  * (PLAN.md Q6), and advertising one would be a promise nothing keeps. `about` is the
  * target of the navbar's About link — what the Olympiad offers, not an explanation of
  * the name (CLAUDE.md: the expansion is shown once, never glossed).
+ *
+ * `diwali` is the Diwali edition's "Diwali Special" band (Phase 7): always listed, and shown
+ * only from 8 to 15 November 2026 — the dates, not this switch, decide (`lib/season.ts`).
  */
 export const HOME_SECTIONS = [
   { id: 'hero', enabled: true },
+  { id: 'diwali', enabled: true },
   { id: 'stats', enabled: true },
   { id: 'crack', enabled: true },
   { id: 'rewards', enabled: true },

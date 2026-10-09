@@ -104,13 +104,13 @@ export const SUPPORT_TEL_HREF = `tel:${SUPPORT.phone.replace(/[^\d+]/g, '')}`
  * the share card's `og:image`, the organisation's structured data, and the URLs in the
  * generated `sitemap.xml` and `robots.txt` (`vite.seo.ts`).
  *
- * **To be confirmed by the owner.** It is inferred, not supplied: the support address is
- * `@amitolympiad.me` (owner, 2026-10-04) and both `amitolympiad.me` and
- * `www.amitolympiad.me` resolve to Vercel. If the live site is `www.` (or another domain),
- * this line is the whole change. It must also match the backend's `FRONTEND_URL`, which
- * builds the links in every email.
+ * **Owner-confirmed on 2026-10-08: the live site is `www.amitolympiad.me`** (it was inferred
+ * as the bare domain until then). It must match the backend's `FRONTEND_URL` exactly — that
+ * variable builds the link in every email, and it is the one origin the backend's CORS
+ * allow-list and CSRF check accept — which is also why the bare `amitolympiad.me` should
+ * *redirect* here rather than serve the site itself: a sign-in from it would be refused.
  */
-export const SITE_URL = 'https://amitolympiad.me'
+export const SITE_URL = 'https://www.amitolympiad.me'
 
 /**
  * Who built the site, and where to find them.

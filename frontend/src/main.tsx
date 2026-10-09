@@ -1,6 +1,13 @@
 import { StrictMode, startTransition } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/theme.css'
+/*
+ * The Diwali intro's stylesheet (Phase 7). Its markup is drawn into the homepage's HTML outside
+ * the app's root (vite.prerender.ts), and the app never renders the component — so this import
+ * is the only thing that puts its rules in the stylesheet the drawn homepage links. It is *used*
+ * below, because the bundler drops a stylesheet whose class names nothing reads.
+ */
+import introStyles from './components/DiwaliIntro.module.css'
 import App from './App.tsx'
 
 /**
@@ -23,6 +30,28 @@ function addIconStylesheets() {
 }
 if (document.readyState === 'complete') addIconStylesheets()
 else window.addEventListener('load', addIconStylesheets, { once: true })
+
+/**
+ * Takes the Diwali intro's markup out of the page once it has ended — at once when it never
+ * played. `public/boot.js` ends it (on a key, a tap, a scroll, or its timer) by removing
+ * `data-intro` from <html>; until then it is left exactly as it is, mid-animation.
+ */
+function releaseIntro() {
+  const intro = document.querySelector(`.${introStyles.intro}`)
+  if (!intro) return
+  const html = document.documentElement
+  if (!html.hasAttribute('data-intro')) {
+    intro.remove()
+    return
+  }
+  const watcher = new MutationObserver(() => {
+    if (html.hasAttribute('data-intro')) return
+    watcher.disconnect()
+    intro.remove()
+  })
+  watcher.observe(html, { attributes: true, attributeFilter: ['data-intro'] })
+}
+releaseIntro()
 
 const container = document.getElementById('root')!
 const root = createRoot(container)

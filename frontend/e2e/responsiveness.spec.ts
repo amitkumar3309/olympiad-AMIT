@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test'
 import { resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
 
 /**
@@ -12,6 +12,13 @@ import { resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
  * start it, choose an option, open the confirm dialog. The browser's Event Timing API
  * reports each interaction from the input to the next paint — the definition INP uses — and
  * the slowest of them must be within 200 ms.
+ *
+ * Twice since Phase 7: as the site is every day, and during the Diwali edition — the same
+ * method both times (motion reduced, as every test here), so the second measures what the
+ * edition's own drawing adds to a tap. With motion on, this environment (headless Edge without a
+ * GPU, the CPU slowed 4×) measured the slowest tap at 220–260 ms on the everyday
+ * homepage — as before Phase 7 — and 320–430 ms during the edition: recorded in the launch report,
+ * not asserted, because nearly all of it is drawing, which a phone does with its GPU.
  */
 
 test.use({ reducedMotion: 'reduce' })
@@ -89,6 +96,20 @@ async function interactionsSoFar(page: Page): Promise<Interaction[]> {
 }
 
 test('every interaction a student makes answers within 200 ms on a slowed phone', async ({ page }, testInfo) => {
+  await measureInteractions(page, testInfo)
+})
+
+test.describe('during the Diwali edition', () => {
+  test('every interaction still answers within 200 ms with the edition drawn', async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date('2026-11-09T10:00:00+05:30'))
+    // Already seen: the intro is diwali.spec.ts's; these taps are on the page beneath it.
+    await page.addInitScript(() => window.localStorage.setItem('amit-intro', 'diwali-2026'))
+    await measureInteractions(page, testInfo)
+    expect(await page.evaluate(() => document.documentElement.getAttribute('data-season'))).toBe('diwali')
+  })
+})
+
+async function measureInteractions(page: Page, testInfo: TestInfo) {
   await recordInteractions(page)
   const measured: Interaction[] = []
 
@@ -126,4 +147,4 @@ test('every interaction a student makes answers within 200 ms on a slowed phone'
   console.log(`Interactions on the phone layout, CPU 4× slower — slowest first:\n${report}`)
   expect(measured.length, 'no interaction was timed — the observer did not run').toBeGreaterThan(5)
   expect(measured[0]!.duration, `slowest: ${measured[0]!.name} on ${measured[0]!.target}`).toBeLessThanOrEqual(200)
-})
+}

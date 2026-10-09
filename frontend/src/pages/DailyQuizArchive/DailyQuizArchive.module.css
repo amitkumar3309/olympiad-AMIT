@@ -1,0 +1,193 @@
+/* /daily-quiz/archive — past Daily Quizzes (Milestone 30 Phase 7). Mobile first; tokens only. */
+
+.page {
+  display: grid;
+  gap: var(--space-5);
+  min-width: 0;
+}
+
+.intro {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--text-muted);
+  font-size: var(--type-body);
+  line-height: var(--leading-normal);
+}
+
+.tabs {
+  min-width: 0;
+}
+
+.loading {
+  min-height: 240px;
+}
+
+.list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+/* ---------- one problem ------------------------------------------------- */
+
+.problem {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.problemHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.calendar {
+  flex-shrink: 0;
+  color: var(--primary-text);
+}
+
+.problemTitle {
+  min-width: 0;
+}
+
+.day {
+  margin: 0;
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+}
+
+.meta {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+}
+
+.question {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 768px) {
+  .options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--fill-subtle);
+}
+
+.letter {
+  display: inline-grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--type-small);
+  font-weight: var(--weight-bold);
+}
+
+.optionText {
+  min-width: 0;
+  color: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+/* ---------- the answer, behind "Show the answer" ------------------------- */
+
+.answer {
+  border-top: var(--border-width) solid var(--card-border);
+  padding-top: var(--space-3);
+}
+
+.summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--primary-text);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.reveal {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--success-soft);
+  color: var(--text);
+}
+
+.answerLine {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+}
+
+.answerLabel {
+  color: var(--success-text);
+  font-weight: var(--weight-bold);
+}
+
+.solution {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.solutionLabel {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.explanation {
+  color: var(--text-body);
+  font-size: var(--type-small);
+  line-height: var(--leading-normal);
+}
+
+/* ---------- earlier pages ----------------------------------------------- */
+
+.more {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+}
+
+.moreError {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--type-small);
+}

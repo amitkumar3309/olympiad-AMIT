@@ -1,6 +1,7 @@
 import { config } from '../config';
 import { Student, type StudentDocument } from '../models';
 import { logger } from '../lib/logger';
+import { verifyPassword } from '../lib/password';
 
 /**
  * The bootstrap super administrator.
@@ -157,4 +158,22 @@ async function createRootSuperadmin(email: string, passwordHash: string): Promis
 export function isRootAdminEmail(email: string): boolean {
   const adminEmail = config.admin.email;
   return Boolean(adminEmail) && email.trim().toLowerCase() === adminEmail!.trim().toLowerCase();
+}
+
+/**
+ * True if a sign-in names the configured bootstrap address **and** carries the configured
+ * password (D10, Milestone 30 Phase 7). Only meaningful while no account holds that
+ * address — the caller has just looked and found none — because afterwards the account's
+ * own hash is the truth and this one is merely where it started.
+ *
+ * It exists for the one sign-in box. That box posts to `/auth/login`, and the hand-over to
+ * `/auth/admin/login` used to happen only once the account existed, so on a brand-new
+ * database (a staging copy, a restored backup) the account could never be created from the
+ * website at all. This creates nothing either: it only tells the route to answer
+ * `ADMIN_PORTAL_REQUIRED`, and the admin route provisions exactly as before.
+ */
+export async function isRootBootstrapCredentials(email: string, password: string): Promise<boolean> {
+  const { passwordHash } = config.admin;
+  if (!passwordHash || !isRootAdminEmail(email)) return false;
+  return verifyPassword(password, passwordHash);
 }

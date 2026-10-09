@@ -4,6 +4,58 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — Milestone 30 Phase 7a: a festive edition switched by its own dates; the bootstrap address before its account exists
+
+**Context.** On 2026-10-08 the owner asked for a Diwali edition of the whole site from 8 to 15 November
+2026, "then back to normal as it is now", with a full-screen "launch moment" intro, and chose for it to be
+fixed in code (PLAN.md §5b, Q17). The same day they said yes to D10 (Q15). The homepage is drawn at
+build time and React renders over it (the Phase 6 follow-up ADR below), which constrains anything that
+changes by date.
+
+**Decision — the edition.**
+
+1. **The dates are in code, and the browser applies them before the first paint.** `src/lib/season.ts`
+   holds the window; `vite.seo.ts` writes it into a `<meta name="amit-season">`; `public/boot.js` sets
+   `<html data-season="diwali">` while the device's clock is inside it. Rejected: an admin switch or a
+   server flag (the owner chose fixed dates; a switch is one more thing to forget at midnight, and a
+   request on the first paint's path for a cosmetic choice); a build for the edition (a deploy on the 8th
+   and another on the 16th — exactly what the owner asked not to need); deciding in React (the drawn
+   homepage is built once for everybody, so a render that depends on the date would differ from the
+   drawn page and shift when the app takes over).
+2. **Every festive touch is CSS keyed on that attribute, and its markup is always there** — hidden
+   outside the dates. One drawn homepage serves both, nothing moves at takeover, and the 16th needs no
+   change. The cost is some hidden markup all year, which is small.
+3. **The device's clock decides only what is drawn.** A wrong device clock shows lanterns a day early —
+   a cosmetic error. What matters stays on the server's clock: the hero's countdown is offset from
+   `serverNow` (`GET /daily-quiz/today`), and the Diwali 2026 badge is counted by the server from the
+   days of a student's own quiz attempts (`backend/src/lib/seasons.ts`). The browser's season awards
+   nothing.
+4. **The intro is drawn beside `#root`, not inside it** (`vite.prerender.ts`), so the app taking over
+   cannot restart it. It shows only while `<html data-intro="play">`, which boot.js removes on the first
+   key, tap or scroll and at `INTRO_MS` regardless — an animation that never runs must not leave the page
+   covered. Once per browser; never for reduced motion, a hidden tab, or an address that asks for
+   something (`#login`, `?next=`).
+5. **Every festive loop moves or fades a whole element** — no animated filter, `visibility` or SVG
+   child, no `backdrop-filter` over anything that moves. Each of these was traced keeping a slowed
+   phone's main thread busy every frame; fixing them, with the loops paused under a shorter intro, took
+   the Diwali homepage's mobile Lighthouse score from 79–85 to 86–93. The same treatment for the everyday
+   Daily Quiz button's ring and float was **reverted**: it removed their main-thread work, yet doubled the
+   time a tap took to show with motion on (200–310 → 310–740 ms; headless Edge, the CPU slowed 4×). A
+   change made for speed is kept only if the tap measures faster.
+
+**Decision — D10.** `/auth/login` answers `ADMIN_PORTAL_REQUIRED` when no account holds the address, the
+address is the configured `ADMIN_EMAIL` and the password matches `ADMIN_PASSWORD_HASH`
+(`isRootBootstrapCredentials()`); the sign-in box then posts to `/auth/admin/login`, which provisions as
+it always has. Rejected: a form on `/admin` again (Milestone 28 removed it — it advertises the admin
+door); creating the account from `/auth/login` (the bootstrap stays in one place,
+`resolveRootSuperadmin()`, with its guards). Kept: the hand-over comes only after the password is right,
+and a wrong one answers exactly as an unknown account does.
+
+**Consequences.** Nothing needs doing on the 8th or the 16th. Another edition is a new `FestiveEdition`
+and its CSS. During the week the intro delays the first homepage visit's largest paint (measured
+2.7–2.9 s against 2.5 s; Lighthouse still 86–92), which a full-screen intro cannot avoid; later visits and
+every other page are unaffected.
+
 ## 2026-10-06 — Milestone 30 Phase 6 follow-up: the homepage is drawn at build time; interactions answer within 200 ms
 
 **Context.** Phase 6 left two of the brief's §10 targets unmet. On four Lighthouse runs of the final
@@ -90,7 +142,8 @@ same, and PLAN.md Q13 already decided the consent data (`guardianConsentAt`).
    therefore holds **no copy** of the name any more. A private page is `noindex` with no canonical; the
    canonical is never in the HTML itself, which is served for every route. **The site's address is an
    inference** (`SITE_URL = https://amitolympiad.me` — the support domain, which resolves to Vercel),
-   recorded as such and in the owner's list to confirm.
+   recorded as such and in the owner's list to confirm. *(Superseded 2026-10-09: the owner confirmed
+   `https://www.amitolympiad.me` — Milestone 30 Phase 7a.)*
 2. **Brand images are generated, not drawn by hand**: `scripts/make-brand-images.ts` renders the
    favicons, the touch and manifest icons, the 1200×630 share card (in the self-hosted brand font) and
    a 6 KB WebP of the header mark, with the installed Edge. They replaced a 1 MB PNG favicon.

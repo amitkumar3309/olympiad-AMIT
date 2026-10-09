@@ -49,6 +49,50 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## A CSS module's rules are missing from the build, though the file is imported
+
+**Symptom.** `prerender: … CSS-module classes no stylesheet defines: _intro_…` — or, without the
+prerender check, an element with a hashed class that nothing styles.
+
+**Cause.** A `*.module.css` imported only for its side effect (`import './X.module.css'`) is dropped by
+the bundler when nothing reads its class names. The Diwali intro hit this: its markup is drawn at build
+time and the app never renders the component, so `main.tsx` imported the stylesheet "to bundle it".
+
+**Fix.** Read a class name from it — `main.tsx` finds the intro by `introStyles.intro`.
+
+## A festive (or any) token is undefined in the light theme only
+
+**Symptom.** A component looks right in the dark theme and unstyled — black shapes, no background — in
+the light one.
+
+**Cause.** The token was added inside `.theme-dark { … }` instead of `:root { … }` in `tokens.css` (the
+two blocks end alike — both close on the tooltip tokens). Phase 7a's `--festive-*` tokens did this.
+
+**Fix.** Move it into `:root`. A theme-invariant token lives only there.
+
+## A tap is slow only with motion on, or a page keeps the main thread busy while idle
+
+**Find the animation the GPU refused.** Record a trace with `devtools.timeline` and
+`disabled-by-default-devtools.timeline` (Playwright's CDP session: `Tracing.start`) and read the
+`Animation` events' `args.data.compositeFailed` and `unsupportedProperties`. Phase 7a found, in the
+festive artwork: shapes animated *inside* an SVG (animate the `<svg>` itself), a `filter` on a moving
+flame, `visibility` in a keyframe, and a `backdrop-filter` re-blurring over moving content. Fixing those
+(with the loops paused under a shorter intro) took the Diwali homepage's mobile Lighthouse score from
+79–85 to 86–93.
+
+**Then measure the tap — a trace is not the verdict.** The Daily Quiz button's ring animates a
+`box-shadow` (repainted on the main thread every frame) and its float shares an element with its
+entrance (two `transform` animations: `compositeFailed` 64). Moving both onto the compositor removed that
+main-thread work — and **doubled** the time opening the sign-in dialog took to show with motion on
+(200–310 → 310–740 ms in headless Edge with the CPU slowed 4×, nearly all of it "next frame"). It was
+reverted. Headless Edge draws without a GPU, so compositor work costs it CPU too; a phone may differ, but
+a change kept for speed has to measure faster.
+
+**Measure like with like.** The INP test runs with motion reduced. To measure with motion on, copy
+`e2e/responsiveness.spec.ts` with `reducedMotion: 'no-preference'` and run it on one width with
+`--repeat-each=3`. The same code moved by ±100 ms between runs on one machine, so compare two versions
+in alternating runs, several each — never one run each.
+
 ## The frontend build fails with `prerender: …`
 
 **Symptom.** `npm run build` (or the E2E suite's build) stops with `prerender: the drawn homepage is not fit

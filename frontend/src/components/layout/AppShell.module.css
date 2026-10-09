@@ -713,6 +713,23 @@
   min-width: 0;
 }
 
+/* The Diwali edition's string of lights (Phase 7), hanging from the student bar's lower edge. */
+.lights {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -14px;
+}
+
+/* Solid during the edition, not frosted: a frosted bar has to blur again on every frame that
+   something inside it moves, and the lights inside it never stop. Measured on a slowed phone. */
+:global(:root[data-season='diwali']) .student .topbar,
+:global(:root[data-season='diwali']) .student .bottomNav {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 /* The page's `h1`, with the page rather than in the chrome. */
 .pageHead {
   display: flex;

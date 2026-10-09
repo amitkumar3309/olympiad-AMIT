@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
 import { isDayKey } from '../lib/competitionDay';
-import { MAX_CLASS, MIN_CLASS, PRIZE_DESK_VIEWS, WINNER_RULES } from '../lib/dailyQuiz';
+import { CLASS_GROUPS, MAX_CLASS, MIN_CLASS, PRIZE_DESK_VIEWS, WINNER_RULES } from '../lib/dailyQuiz';
 import type { ImportFileKind } from '../lib/importTypes';
 import { DIFFICULTIES } from '../models/Question';
 import { QUIZ_IMPORT_MAX_ROWS } from '../services/dailyQuizImportService';
@@ -71,6 +71,23 @@ export const pastProblemsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(14).default(7),
 });
 export type PastProblemsQuery = z.infer<typeof pastProblemsQuerySchema>;
+
+/**
+ * One page of the public archive (Milestone 30 Phase 7): a class group, the day to page back
+ * from, and how many days. No value of `before` can reach an unrevealed quiz — the service
+ * pages from the earlier of it and today — so it needs no upper bound here.
+ */
+export const quizArchiveQuerySchema = z.object({
+  group: z
+    .string()
+    .trim()
+    .refine((value) => CLASS_GROUPS.some((group) => group.key === value), {
+      message: `Choose a class group: ${CLASS_GROUPS.map((group) => group.key).join(', ')}.`,
+    }),
+  before: dayKey.optional(),
+  days: z.coerce.number().int().min(1).max(31).default(14),
+});
+export type QuizArchiveQuery = z.infer<typeof quizArchiveQuerySchema>;
 
 // ---------------------------------------------------------------------------
 // Staff

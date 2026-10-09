@@ -155,6 +155,44 @@ describe('the super administrator has a real account', () => {
     expect(res.body.error).not.toMatch(/administrator portal/i);
   });
 
+  // D10 (Milestone 30 Phase 7). The one sign-in box posts to /auth/login and goes on to the
+  // admin route only on ADMIN_PORTAL_REQUIRED, so on a brand-new database — where the account
+  // is created by that first admin sign-in — the website could never create it.
+  it('is handed to the administrator route before its account exists, and signs in there', async () => {
+    expect(await Student.countDocuments({ email: rootAdmin.email })).toBe(0);
+
+    const handOver = await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: rootAdmin.email, password: rootAdmin.password });
+
+    expect(handOver.status).toBe(403);
+    expect(handOver.body.code).toBe('ADMIN_PORTAL_REQUIRED');
+    expect(handOver.headers['set-cookie']).toBeUndefined();
+    // Handing over makes nothing: the admin route provisions, exactly as before.
+    expect(await Student.countDocuments({ email: rootAdmin.email })).toBe(0);
+
+    // The re-post the sign-in box makes on that code.
+    const signedIn = await request(app)
+      .post(`${API}/auth/admin/login`)
+      .send({ email: rootAdmin.email, password: rootAdmin.password })
+      .expect(200);
+    expect(signedIn.body.role).toBe('superadmin');
+    expect(await Student.countDocuments({ email: rootAdmin.email })).toBe(1);
+  });
+
+  it('answers a wrong password before the account exists exactly as it answers an unknown account', async () => {
+    const wrong = await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: rootAdmin.email, password: 'NotTheRootPassword1' });
+    const unknown = await request(app)
+      .post(`${API}/auth/login`)
+      .send({ identifier: 'nobody-registered@amit.test', password: 'NotTheRootPassword1' });
+
+    expect(wrong.status).toBe(401);
+    expect(wrong.body).toEqual(unknown.body);
+    expect(await Student.countDocuments({ email: rootAdmin.email })).toBe(0);
+  });
+
   it('holds a staff id, not a competitor one', async () => {
     await loginRootAdmin(app);
     const account = await Student.findOne({ role: 'superadmin' });

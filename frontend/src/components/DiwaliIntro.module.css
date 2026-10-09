@@ -1,0 +1,274 @@
+/* The Diwali intro (Phase 7). Shown only while <html data-intro="play"> (public/boot.js).
+   Every step is counted in --intro-beat (240ms): 3-2-1, the diya lights, its glow finds the
+   equations, the name, the line, and the whole layer fades away by 2.0 s. boot.js removes the
+   attribute at INTRO_MS (2.1 s) whether or not any of this ran. */
+
+.intro {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-intro);
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(ellipse 70% 55% at 50% 60%, var(--festive-night), var(--festive-night-deep) 75%);
+  color: var(--festive-text);
+  animation: intro-out calc(var(--intro-beat) * 1.33) var(--ease-in-out) calc(var(--intro-beat) * 7) both;
+}
+
+:global(:root[data-intro='play']) .intro {
+  display: grid;
+}
+
+/* Opacity only, so the GPU runs it: `public/boot.js` takes the layer away at INTRO_MS. */
+@keyframes intro-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* ---------- 3, 2, 1 ------------------------------------------------------ */
+
+.count {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.count span {
+  grid-area: 1 / 1;
+  color: var(--festive-gold);
+  font-size: var(--type-hero);
+  font-weight: var(--weight-black);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  animation: intro-count var(--intro-beat) var(--ease-out) both;
+}
+
+.count .two {
+  animation-delay: var(--intro-beat);
+}
+
+.count .one {
+  animation-delay: calc(var(--intro-beat) * 2);
+}
+
+@keyframes intro-count {
+  0% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+
+/* ---------- the diya's light, and the mathematics it finds -------------- */
+
+.light {
+  position: absolute;
+  left: 50%;
+  top: 55%;
+  width: min(120vmin, 900px);
+  aspect-ratio: 1;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle, var(--festive-light), var(--festive-light-faint) 40%, transparent 68%);
+  transform: translate(-50%, -50%) scale(0.2);
+  opacity: 0;
+  animation: intro-light calc(var(--intro-beat) * 3) var(--ease-out) calc(var(--intro-beat) * 3.2) both;
+  pointer-events: none;
+}
+
+@keyframes intro-light {
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.equations {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.equation {
+  position: absolute;
+  color: var(--festive-flame);
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  opacity: 0;
+  animation: intro-reveal calc(var(--intro-beat) * 1.6) var(--ease-out) both;
+}
+
+.equation sup {
+  font-size: 0.7em;
+}
+
+/* Scattered round the lamp, nearest first, so the light seems to reach them in turn. */
+.equation:nth-child(1) {
+  left: 18%;
+  top: 30%;
+  animation-delay: calc(var(--intro-beat) * 3.6);
+}
+
+.equation:nth-child(2) {
+  right: 16%;
+  top: 26%;
+  animation-delay: calc(var(--intro-beat) * 3.8);
+}
+
+.equation:nth-child(3) {
+  left: 10%;
+  top: 62%;
+  animation-delay: calc(var(--intro-beat) * 4);
+}
+
+.equation:nth-child(4) {
+  right: 9%;
+  top: 66%;
+  animation-delay: calc(var(--intro-beat) * 4.1);
+}
+
+.equation:nth-child(5) {
+  left: 34%;
+  top: 14%;
+  animation-delay: calc(var(--intro-beat) * 4.3);
+}
+
+.equation:nth-child(6) {
+  right: 30%;
+  top: 82%;
+  animation-delay: calc(var(--intro-beat) * 4.4);
+}
+
+.equation:nth-child(7) {
+  left: 6%;
+  top: 84%;
+  animation-delay: calc(var(--intro-beat) * 4.6);
+}
+
+.equation:nth-child(8) {
+  right: 5%;
+  top: 10%;
+  animation-delay: calc(var(--intro-beat) * 4.7);
+}
+
+/* On a phone the four farthest stay dark: eight would crowd the name. */
+@media (max-width: 479px) {
+  .equation:nth-child(n + 5) {
+    display: none;
+  }
+
+  .equation:nth-child(1) {
+    left: 8%;
+    top: 22%;
+  }
+
+  .equation:nth-child(2) {
+    right: 6%;
+    top: 30%;
+  }
+}
+
+@keyframes intro-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+}
+
+/* ---------- the lamp, the name, the line --------------------------------- */
+
+.stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  text-align: center;
+}
+
+.diya {
+  width: 88px;
+  height: 66px;
+  opacity: 0;
+  animation: intro-ignite calc(var(--intro-beat) * 1.6) var(--ease-out) calc(var(--intro-beat) * 3) both;
+}
+
+@keyframes intro-ignite {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Smaller than the hero's own heading beneath, which stays the page's largest paint. */
+.title {
+  margin: 0;
+  color: var(--festive-gold);
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-black);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: intro-appear calc(var(--intro-beat) * 1.4) var(--ease-out) calc(var(--intro-beat) * 4.7) both;
+}
+
+.tagline {
+  margin: 0;
+  color: var(--festive-text);
+  font-size: var(--type-small);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  opacity: 0;
+  animation: intro-appear calc(var(--intro-beat) * 1.4) var(--ease-out) calc(var(--intro-beat) * 5.5) both;
+}
+
+@media (min-width: 768px) {
+  .title {
+    font-size: var(--type-section-title);
+  }
+}
+
+@keyframes intro-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.skip {
+  position: absolute;
+  bottom: var(--space-6);
+  left: 0;
+  right: 0;
+  margin: 0;
+  color: var(--festive-text-muted);
+  font-size: var(--type-micro);
+  text-align: center;
+  opacity: 0;
+  animation: intro-appear var(--intro-beat) var(--ease-out) var(--intro-beat) both;
+}
