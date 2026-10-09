@@ -30,7 +30,7 @@ const FEATURES: Feature[] = [
     tone: 'blue',
     icon: <Target />,
     title: 'Practice',
-    body: 'Questions for your class, by chapter and difficulty. Marked instantly, with the solution.',
+    body: 'A random test from every chapter for your class, as long as you choose. Marked instantly, with the solution.',
     to: '/practice',
   },
   {

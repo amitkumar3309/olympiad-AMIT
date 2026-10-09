@@ -1615,24 +1615,17 @@ export function isReviewed(session: PracticeSessionView): session is PracticeSes
   return session.status === 'submitted'
 }
 
-export interface PracticeTopicOption {
-  topicId: string
-  topicName: string
-  questionCount: number
-  difficulties: Difficulty[]
-}
-
-export interface PracticeSubjectOption {
-  subjectId: string
-  subjectName: string
-  questionCount: number
-  difficulties: Difficulty[]
-  topics: PracticeTopicOption[]
-}
-
+/**
+ * `GET /practice/options` (2026-10-09): a practice test is a random mix of the class's
+ * published questions, so the page is told only how many there are and which sizes it
+ * may offer.
+ */
 export interface PracticeOptionsResponse {
   classLevel: ClassLevel | null
-  subjects: PracticeSubjectOption[]
+  /** Published questions a test for this class is drawn from — the draw's own count. */
+  available: number
+  /** The sizes the server accepts, smallest first: 10, 20, 30, 40. */
+  sizes: number[]
   reason?: 'no-class'
 }
 
@@ -3182,11 +3175,12 @@ export interface BulkStatusOutcome {
 }
 
 /**
- * What a student of one class would currently find in the practice picker.
+ * What a practice test for one class is currently drawn from: the total, and the same
+ * questions by chapter.
  *
- * Counts and names only — no question text and no answer key. Derived by the **same**
- * `getPracticeAvailability()` the student route uses, so the preview cannot disagree with the
- * picker it is previewing.
+ * Counts and names only — no question text and no answer key. The total is the **same**
+ * count the student's practice page shows (`countPracticeQuestions()`), so the preview cannot
+ * disagree with it.
  */
 export interface PracticeAvailability {
   classLevel: ClassLevel
