@@ -1,5 +1,6 @@
 /* "Diwali Special" (Phase 7). Shown only under <html data-season="diwali">. Mobile first;
-   tokens only. A night band in either theme — only festive text sits on it. */
+   tokens only. A night band in either theme — only festive text sits on it — and half seen
+   through, so the fireworks behind the page glow faintly in it. */
 
 .section {
   display: none;
@@ -20,8 +21,8 @@
   border: var(--border-width) solid var(--festive-hairline);
   border-radius: var(--radius-xl);
   background:
-    radial-gradient(ellipse 50% 80% at 12% 50%, var(--festive-night-glow), transparent 70%),
-    linear-gradient(120deg, var(--festive-night-deep), var(--festive-night));
+    radial-gradient(ellipse 50% 80% at 12% 50%, var(--festive-light-faint), transparent 70%),
+    var(--festive-veil);
   color: var(--festive-text);
   text-align: center;
 }
@@ -37,7 +38,7 @@
   }
 }
 
-/* ---------- the art: a gift between a firework and a diya ---------------- */
+/* ---------- the art: a gift with a diya beside it ------------------------ */
 
 .art {
   position: relative;
@@ -45,13 +46,6 @@
   place-items: center;
   width: 120px;
   height: 104px;
-}
-
-.firework {
-  position: absolute;
-  inset: -12px auto auto -16px;
-  width: 80px;
-  height: 80px;
 }
 
 .gift {

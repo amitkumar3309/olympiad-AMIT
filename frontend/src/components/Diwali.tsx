@@ -2,7 +2,9 @@ import styles from './Diwali.module.css'
 
 /**
  * The Diwali edition's artwork (Milestone 30 Phase 7 — `lib/season.ts`): a diya, a hanging
- * lantern, a firework, a string of lights and the header's greeting.
+ * lantern, a string of lights and the header's greeting. The fireworks are not here: they are
+ * drawn on a canvas behind every page (`components/Fireworks`), bursting somewhere different
+ * each time, which an SVG looping in one place could not do (owner, 2026-10-09).
  *
  * **Drawn here in SVG and CSS**, so the edition downloads no image and nothing from anywhere
  * else, and costs the slow phone it is mostly seen on almost nothing. Every piece is
@@ -10,9 +12,9 @@ import styles from './Diwali.module.css'
  * fading in place (the landing page's rule for anything that moves), and not at all for a
  * reader who asked for less motion.
  *
- * `StringLights` and `DiwaliGreeting` hide themselves outside the edition; the diya, the
- * lantern and the firework do not, because the surfaces that use them (the hero's sky, the
- * intro, the Diwali Special band) are already shown only during it.
+ * `StringLights` and `DiwaliGreeting` hide themselves outside the edition; the diya and the
+ * lantern do not, because the surfaces that use them (the hero's sky, the intro, the Diwali
+ * Special band) are already shown only during it.
  *
  * **Only whole elements move** — an `<svg>`, a `<span>` — never a shape inside an SVG. A shape
  * inside an SVG can only be redrawn on the main thread, every frame; a whole element is moved
@@ -50,22 +52,6 @@ export function Lantern({ className }: { className?: string }) {
       <path className={styles.lanternShade} d="M12 40 H28 L35 62 L28 84 H12 L5 62 Z" />
       <path className={styles.lanternLight} d="M15 45 H25 L30 62 L25 79 H15 L10 62 Z" />
       <path className={styles.lanternTassel} d="M20 84 V102 M16 102 H24" />
-    </svg>
-  )
-}
-
-const RAYS = Array.from({ length: 12 }, (_, i) => i * 30)
-
-/** One firework, bursting and fading on a loop. */
-export function Firework({ className }: { className?: string }) {
-  return (
-    <svg className={cx(styles.firework, className)} viewBox="-50 -50 100 100" aria-hidden="true" focusable="false">
-      {RAYS.map((angle) => (
-        <path key={angle} className={styles.ray} d="M0 -14 V-38" transform={`rotate(${angle})`} />
-      ))}
-      {RAYS.map((angle) => (
-        <circle key={`spark-${angle}`} className={styles.spark} cx="0" cy="-44" r="2.4" transform={`rotate(${angle + 15})`} />
-      ))}
     </svg>
   )
 }
