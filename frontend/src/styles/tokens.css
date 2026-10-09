@@ -570,7 +570,7 @@
   --dur-sweep: 700ms; /* the FAB's light streak on hover */
   --dur-celebrate: 1.4s; /* the confetti burst — the brief caps it at 1.5s */
   --dur-flicker: 800ms; /* a diya's flame (Phase 7) */
-  --intro-beat: 240ms; /* the Diwali intro's count: every step of it is a multiple of this (Phase 7) */
+  --intro-beat: 1000ms; /* the Diwali intro: one number of its count, and the unit every other step of it is timed in (Phase 7) */
   --ease-sine: cubic-bezier(0.37, 0, 0.63, 1); /* loops */
   --ease: cubic-bezier(0.44, 0, 0.56, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* entrances: fast, then settle */
@@ -592,7 +592,7 @@
   --z-modal: 70;
   --z-toast: 90;
   --z-tooltip: 100;
-  --z-intro: 200; /* the Diwali edition's two-second intro covers everything (Phase 7) */
+  --z-intro: 200; /* the Diwali edition's intro covers everything (Phase 7) */
 
   /* ==================================================================
      7. LAYOUT

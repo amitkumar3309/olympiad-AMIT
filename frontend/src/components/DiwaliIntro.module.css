@@ -1,7 +1,15 @@
-/* The Diwali intro (Phase 7). Shown only while <html data-intro="play"> (public/boot.js).
-   Every step is counted in --intro-beat (240ms): 3-2-1, the diya lights, its glow finds the
-   equations, the name, the line, and the whole layer fades away by 2.0 s. boot.js removes the
-   attribute at INTRO_MS (2.1 s) whether or not any of this ran. */
+/* The Diwali intro (Phase 7; slowed 2026-10-09). Shown only while <html data-intro="play">.
+   Every step is counted in --intro-beat (one second — one number of the count):
+
+     0.3 – 3.3   3, 2, 1 — a beat each, each with a ring of light going out from it
+     3.3 – 4.3   the diya catches, with a burst of sparks
+     3.5 – 5.0   its light spreads; the mathematics appears in it, nearest first
+     4.7 – 6.1   the name, then the line
+     6.6 – 7.2   the whole layer fades away
+
+   and embers rise through the dark from the start. public/boot.js (the homepage) and
+   DiwaliIntroPlayer (the student area) remove the attribute at INTRO_MS, 7.3 s, whether or not
+   any of this ran. Transform and opacity only, so the GPU runs all of it. */
 
 .intro {
   display: none;
@@ -12,17 +20,57 @@
   overflow: hidden;
   background: radial-gradient(ellipse 70% 55% at 50% 60%, var(--festive-night), var(--festive-night-deep) 75%);
   color: var(--festive-text);
-  animation: intro-out calc(var(--intro-beat) * 1.33) var(--ease-in-out) calc(var(--intro-beat) * 7) both;
+  animation: intro-out calc(var(--intro-beat) * 0.6) var(--ease-in-out) calc(var(--intro-beat) * 6.6) both;
 }
 
 :global(:root[data-intro='play']) .intro {
   display: grid;
 }
 
-/* Opacity only, so the GPU runs it: `public/boot.js` takes the layer away at INTRO_MS. */
 @keyframes intro-out {
   to {
     opacity: 0;
+  }
+}
+
+/* ---------- embers, rising through the dark ------------------------------ */
+
+.embers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Each one's place, start, speed, size and sway come from DiwaliIntro.tsx. */
+.ember {
+  position: absolute;
+  bottom: -12px;
+  left: calc(var(--x) * 1%);
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle, var(--festive-flame-core), var(--festive-gold) 45%, transparent 72%);
+  opacity: 0;
+  animation: intro-rise calc(var(--intro-beat) * var(--rise)) linear calc(var(--intro-beat) * var(--delay)) infinite both;
+}
+
+@keyframes intro-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(var(--size));
+  }
+  12% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate3d(calc(var(--sway) * 1px), -50vh, 0) scale(var(--size));
+  }
+  80% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(calc(var(--sway) * -0.5px), -100vh, 0) scale(calc(var(--size) * 0.4));
   }
 }
 
@@ -33,38 +81,94 @@
   inset: 0;
   display: grid;
   place-items: center;
+  pointer-events: none;
 }
 
-.count span {
+/* One number, its glow and its ring, on one spot; --n is which beat. */
+.beat {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+}
+
+.beat::before {
+  content: '';
+  grid-area: 1 / 1;
+  width: 260px;
+  height: 260px;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle, var(--festive-light), transparent 65%);
+  opacity: 0;
+  animation: intro-glow var(--intro-beat) var(--ease-out) calc(var(--intro-beat) * (0.3 + var(--n))) both;
+}
+
+.ring {
+  grid-area: 1 / 1;
+  width: 150px;
+  height: 150px;
+  border: calc(var(--border-width) * 2) solid var(--festive-gold);
+  border-radius: var(--radius-pill);
+  opacity: 0;
+  animation: intro-ring var(--intro-beat) var(--ease-out) calc(var(--intro-beat) * (0.3 + var(--n))) both;
+}
+
+/* Smaller than the hero's own heading beneath, which stays the page's largest paint. */
+.number {
   grid-area: 1 / 1;
   color: var(--festive-gold);
-  font-size: var(--type-hero);
+  font-size: calc(var(--type-hero) * 2.4);
   font-weight: var(--weight-black);
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   opacity: 0;
-  animation: intro-count var(--intro-beat) var(--ease-out) both;
+  animation: intro-count var(--intro-beat) var(--ease-out) calc(var(--intro-beat) * (0.3 + var(--n))) both;
 }
 
-.count .two {
-  animation-delay: var(--intro-beat);
-}
-
-.count .one {
-  animation-delay: calc(var(--intro-beat) * 2);
-}
-
+/* In, held long enough to read, and away — each number has the whole of its second. */
 @keyframes intro-count {
   0% {
     opacity: 0;
-    transform: scale(1.5);
+    transform: scale(1.7);
   }
-  35% {
+  20% {
     opacity: 1;
     transform: scale(1);
   }
+  72% {
+    opacity: 1;
+    transform: scale(0.94);
+  }
   100% {
     opacity: 0;
-    transform: scale(0.85);
+    transform: scale(0.6);
+  }
+}
+
+@keyframes intro-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@keyframes intro-glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
   }
 }
 
@@ -80,7 +184,7 @@
   background: radial-gradient(circle, var(--festive-light), var(--festive-light-faint) 40%, transparent 68%);
   transform: translate(-50%, -50%) scale(0.2);
   opacity: 0;
-  animation: intro-light calc(var(--intro-beat) * 3) var(--ease-out) calc(var(--intro-beat) * 3.2) both;
+  animation: intro-light calc(var(--intro-beat) * 1.5) var(--ease-out) calc(var(--intro-beat) * 3.5) both;
   pointer-events: none;
 }
 
@@ -100,6 +204,7 @@
   pointer-events: none;
 }
 
+/* Nearest first, so the light seems to reach them in turn: --n is the order. */
 .equation {
   position: absolute;
   color: var(--festive-flame);
@@ -107,60 +212,57 @@
   font-weight: var(--weight-semibold);
   white-space: nowrap;
   opacity: 0;
-  animation: intro-reveal calc(var(--intro-beat) * 1.6) var(--ease-out) both;
+  animation: intro-reveal calc(var(--intro-beat) * 1.2) var(--ease-out) calc(var(--intro-beat) * (3.9 + var(--n) * 0.17)) both;
 }
 
 .equation sup {
   font-size: 0.7em;
 }
 
-/* Scattered round the lamp, nearest first, so the light seems to reach them in turn. */
 .equation:nth-child(1) {
   left: 18%;
   top: 30%;
-  animation-delay: calc(var(--intro-beat) * 3.6);
 }
 
 .equation:nth-child(2) {
   right: 16%;
   top: 26%;
-  animation-delay: calc(var(--intro-beat) * 3.8);
 }
 
 .equation:nth-child(3) {
   left: 10%;
   top: 62%;
-  animation-delay: calc(var(--intro-beat) * 4);
 }
 
 .equation:nth-child(4) {
   right: 9%;
   top: 66%;
-  animation-delay: calc(var(--intro-beat) * 4.1);
 }
 
 .equation:nth-child(5) {
   left: 34%;
   top: 14%;
-  animation-delay: calc(var(--intro-beat) * 4.3);
 }
 
 .equation:nth-child(6) {
   right: 30%;
   top: 82%;
-  animation-delay: calc(var(--intro-beat) * 4.4);
 }
 
 .equation:nth-child(7) {
   left: 6%;
   top: 84%;
-  animation-delay: calc(var(--intro-beat) * 4.6);
 }
 
 .equation:nth-child(8) {
   right: 5%;
   top: 10%;
-  animation-delay: calc(var(--intro-beat) * 4.7);
+}
+
+@media (min-width: 768px) {
+  .equation {
+    font-size: var(--type-body);
+  }
 }
 
 /* On a phone the four farthest stay dark: eight would crowd the name. */
@@ -183,7 +285,7 @@
 @keyframes intro-reveal {
   0% {
     opacity: 0;
-    transform: scale(0.9);
+    transform: scale(0.85);
   }
   100% {
     opacity: 0.85;
@@ -202,11 +304,17 @@
   text-align: center;
 }
 
+.lamp {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
 .diya {
   width: 88px;
   height: 66px;
   opacity: 0;
-  animation: intro-ignite calc(var(--intro-beat) * 1.6) var(--ease-out) calc(var(--intro-beat) * 3) both;
+  animation: intro-ignite var(--intro-beat) var(--ease-out) calc(var(--intro-beat) * 3.3) both;
 }
 
 @keyframes intro-ignite {
@@ -220,6 +328,45 @@
   }
 }
 
+/* The sparks the diya throws as it catches: --n is the direction, a twelfth of a turn each,
+   and --reach how far it flies. */
+.spark {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: var(--radius-pill);
+  background: radial-gradient(circle, var(--festive-flame-core), var(--festive-gold) 45%, transparent 72%);
+  opacity: 0;
+  animation: intro-spark calc(var(--intro-beat) * 1.1) linear calc(var(--intro-beat) * 3.35) both;
+}
+
+/* Linear, with the slowing drawn into the keyframes: fast out, then drifting, and bright for
+   most of the flight rather than fading the moment it starts. */
+@keyframes intro-spark {
+  0% {
+    opacity: 0;
+    transform: rotate(calc(var(--n) * 30deg)) translateY(0) scale(1.3);
+  }
+  8% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 1;
+    transform: rotate(calc(var(--n) * 30deg)) translateY(calc(var(--reach) * -0.7px)) scale(1);
+  }
+  70% {
+    opacity: 0.7;
+    transform: rotate(calc(var(--n) * 30deg)) translateY(calc(var(--reach) * -0.92px)) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(calc(var(--n) * 30deg)) translateY(calc(var(--reach) * -1px)) scale(0.3);
+  }
+}
+
 /* Smaller than the hero's own heading beneath, which stays the page's largest paint. */
 .title {
   margin: 0;
@@ -229,7 +376,7 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   opacity: 0;
-  animation: intro-appear calc(var(--intro-beat) * 1.4) var(--ease-out) calc(var(--intro-beat) * 4.7) both;
+  animation: intro-appear calc(var(--intro-beat) * 0.8) var(--ease-out) calc(var(--intro-beat) * 4.7) both;
 }
 
 .tagline {
@@ -240,7 +387,7 @@
   letter-spacing: 0.32em;
   text-transform: uppercase;
   opacity: 0;
-  animation: intro-appear calc(var(--intro-beat) * 1.4) var(--ease-out) calc(var(--intro-beat) * 5.5) both;
+  animation: intro-appear calc(var(--intro-beat) * 0.7) var(--ease-out) calc(var(--intro-beat) * 5.4) both;
 }
 
 @media (min-width: 768px) {
@@ -252,7 +399,7 @@
 @keyframes intro-appear {
   0% {
     opacity: 0;
-    transform: scale(0.96);
+    transform: scale(0.94);
   }
   100% {
     opacity: 1;
@@ -270,5 +417,5 @@
   font-size: var(--type-micro);
   text-align: center;
   opacity: 0;
-  animation: intro-appear var(--intro-beat) var(--ease-out) var(--intro-beat) both;
+  animation: intro-appear calc(var(--intro-beat) * 0.5) var(--ease-out) calc(var(--intro-beat) * 0.2) both;
 }
