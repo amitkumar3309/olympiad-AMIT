@@ -76,6 +76,8 @@ export interface QuizQuestionShape {
   type: string;
   options: ReadonlyArray<{ isCorrect: boolean }>;
   solution?: string | null;
+  /** The worked solution as a picture (Phase 7b) — as good as a written one. */
+  solutionImage?: { key?: string | null } | null;
   classLevel?: string | null;
 }
 
@@ -85,7 +87,8 @@ export interface QuizQuestionShape {
  * bulk import (checking a row before it is a question) cannot disagree:
  *
  *  - **single choice** with **2–6 options** and **exactly one correct** — the brief's A–D quiz;
- *  - a **worked solution**, because unlocking it the next day is the point (R6);
+ *  - a **worked solution** — written out or as a picture — because unlocking it the next day is
+ *    the point (R6);
  *  - for a class **inside the quiz's range**.
  *
  * Whether it is published or already used on another day needs the database, so the
@@ -101,8 +104,8 @@ export function quizQuestionProblem(question: QuizQuestionShape, range: { min: n
   if (question.options.filter((option) => option.isCorrect).length !== 1) {
     return 'A Daily Quiz question needs exactly one correct option.';
   }
-  if (!question.solution || question.solution.trim().length === 0) {
-    return 'Add a worked solution first — it unlocks for students the day after the quiz.';
+  if (!question.solution?.trim() && !question.solutionImage?.key) {
+    return 'Add a worked solution first — written out or as a picture — it unlocks for students the day after the quiz.';
   }
   if (!question.classLevel || !isClassLevel(question.classLevel)) return 'That question has no class.';
   const n = classNumber(question.classLevel);

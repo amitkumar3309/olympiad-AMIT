@@ -12,6 +12,7 @@ import {
   type QuestionStatus,
 } from '../models';
 import { refView, studentQuestionView } from './questionView';
+import { pictureView } from './questionImageService';
 import { gradeEntries, gradeEntry, isAnswered, type GradeOutcome } from './grading';
 import { findImplicitSubject } from './taxonomyService';
 
@@ -512,6 +513,8 @@ export function sessionReviewView(session: PracticeSessionDocument, questions: Q
           acceptedAnswers: entry.acceptedAnswers ?? [],
         },
         explanation: question?.solution ?? null,
+        // The worked solution as a picture (Phase 7b): revealed where the text is, and nowhere else.
+        explanationImage: pictureView(question?.solutionImage),
         revisionChanged: question ? question.revision !== entry.revision : false,
       };
     }),

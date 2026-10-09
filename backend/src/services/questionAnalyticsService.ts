@@ -11,6 +11,7 @@ import {
   type QuestionType,
 } from '../models';
 import type { ClassLevel } from '../lib/classLevels';
+import { questionLabel } from '../lib/questionLabel';
 
 /**
  * Administrative performance analytics: how the **questions** and the **papers** are
@@ -175,7 +176,7 @@ export async function getQuestionPerformance(query: QuestionPerformanceQuery): P
   // fields. Filtering before the join is not possible — the counts come from the
   // attempts, and the class and difficulty come from the questions.
   const docs = await Question.find({ _id: { $in: eligible.map((row) => row._id) } })
-    .select('questionText type difficulty classLevel status topic subject')
+    .select('questionText image type difficulty classLevel status topic subject')
     .populate<{
       topic: { _id: Types.ObjectId; name: string } | null;
       subject: { _id: Types.ObjectId; name: string } | null;
@@ -194,9 +195,10 @@ export async function getQuestionPerformance(query: QuestionPerformanceQuery): P
       // "Unknown", because staff cannot act on a question that no longer exists.
       if (!doc) return null;
 
+      const label = questionLabel(doc, 5000);
       return {
         id: String(row._id),
-        preview: doc.questionText.length > 120 ? `${doc.questionText.slice(0, 120)}…` : doc.questionText,
+        preview: label.length > 120 ? `${label.slice(0, 120)}…` : label,
         type: doc.type,
         difficulty: doc.difficulty,
         classLevel: doc.classLevel,

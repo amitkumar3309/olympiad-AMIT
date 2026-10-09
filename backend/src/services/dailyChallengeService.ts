@@ -64,11 +64,13 @@ import {
   type DailyQuizStartDocument,
   type DailyQuizWinnerDocument,
   type QuestionDocument,
+  type QuestionPicture,
   type QuizContent,
   type StudentDocument,
   type WinnerStatus,
 } from '../models';
 import { findImplicitSubject, type Actor } from './taxonomyService';
+import { authorPictureView, pictureView, type PictureView } from './questionImageService';
 import { gradeEntry } from './grading';
 import { publicListingFor } from './leaderboardService';
 
@@ -310,14 +312,24 @@ async function requireQuizQuestion(
   return { question, topicName: topic?.name ?? null };
 }
 
-/** The quiz's own copy of the question, every option given a fresh opaque id. */
+/** A picture reference as a plain value — the quiz keeps its own copy, as it does of the text. */
+function copyPicture(picture: QuestionPicture | null | undefined): QuestionPicture | null {
+  return picture?.key ? { key: picture.key, alt: picture.alt ?? '', width: picture.width, height: picture.height } : null;
+}
+
+/**
+ * The quiz's own copy of the question, every option given a fresh opaque id. A picture is
+ * copied by its key (Phase 7b): pictures never change, so the key pins exactly what was shown.
+ */
 function snapshotContent(question: QuestionDocument, topicName: string | null): QuizContent {
   const correct = question.options.find((option) => option.isCorrect);
   return {
     questionText: question.questionText,
+    image: copyPicture(question.image),
     options: question.options.map((option) => ({ key: option.key, id: newOptionId(), text: option.text })),
     correctOptionKey: correct!.key,
     solution: question.solution ?? '',
+    solutionImage: copyPicture(question.solutionImage),
     difficulty: question.difficulty,
     topicName,
     revision: question.revision,
@@ -790,6 +802,8 @@ export function quizQuestionView(challenge: DailyChallengeDocument & { content: 
   for (const option of challenge.content.options) if (!optionOrder.includes(option.id)) ordered.push(option);
   return {
     text: challenge.content.questionText,
+    // The question as a picture (Phase 7b) — never the solution's picture, which is `revealOf()`'s.
+    image: pictureView(challenge.content.image),
     options: ordered.map((option, index) => ({ id: option.id, text: option.text, letter: optionLetter(index) })),
   };
 }
@@ -800,12 +814,21 @@ export function quizQuestionView(challenge: DailyChallengeDocument & { content: 
  * goes through this one function, and the leak test checks every response on both sides
  * of the boundary.
  */
-export function revealOf(challenge: DailyChallengeDocument, at: Date): { correctOptionId: string; correctOptionText: string; solution: string } | null {
+export function revealOf(
+  challenge: DailyChallengeDocument,
+  at: Date,
+): { correctOptionId: string; correctOptionText: string; solution: string; solutionImage: PictureView | null } | null {
   if (!isPlayable(challenge)) return null;
   if (quizPhaseAt(challenge.day, at) !== 'revealed') return null;
   const correct = challenge.content.options.find((option) => option.key === challenge.content.correctOptionKey);
   if (!correct) return null;
-  return { correctOptionId: correct.id, correctOptionText: correct.text, solution: challenge.content.solution };
+  return {
+    correctOptionId: correct.id,
+    correctOptionText: correct.text,
+    solution: challenge.content.solution,
+    // The solution's picture (Phase 7b): its key is the permission to fetch it, so it passes here.
+    solutionImage: pictureView(challenge.content.solutionImage),
+  };
 }
 
 /**
@@ -1006,6 +1029,8 @@ export interface QuizHistoryRow {
   status: 'submitted' | 'not-submitted' | 'in-progress';
   topic: string | null;
   questionText: string | null;
+  /** The question as a picture (Phase 7b), once the student has started it. */
+  questionImage: PictureView | null;
   /** The options in the order this student saw them — empty for a pre-quiz challenge. */
   options: Array<{ id: string; text: string; letter: string }>;
   selectedOptionId: string | null;
@@ -1017,7 +1042,12 @@ export interface QuizHistoryRow {
   xpPending: boolean;
   revealAt: string;
   revealed: boolean;
-  reveal: { correctOptionId: string | null; correctOptionText: string | null; solution: string | null } | null;
+  reveal: {
+    correctOptionId: string | null;
+    correctOptionText: string | null;
+    solution: string | null;
+    solutionImage: PictureView | null;
+  } | null;
   won: boolean;
 }
 
@@ -1099,6 +1129,7 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
         status: 'submitted',
         topic: challenge.content.topicName,
         questionText: question.text,
+        questionImage: question.image,
         options: question.options,
         selectedOptionId: result.selectedOptionId,
         selectedOptionText: question.options.find((option) => option.id === result.selectedOptionId)?.text ?? null,
@@ -1123,6 +1154,8 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
         status: 'submitted',
         topic: topic?.name ?? null,
         questionText: legacy?.questionText ?? null,
+        // A challenge from before the quiz had no picture.
+        questionImage: null,
         options: [],
         selectedOptionId: null,
         selectedOptionText: keyText(attempt.answer.selectedOptionKeys[0]),
@@ -1136,6 +1169,7 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
           correctOptionId: null,
           correctOptionText: keyText(attempt.answer.correctOptionKeys[0]),
           solution: legacy?.solution ?? null,
+          solutionImage: null,
         },
         won: wonDays.has(day),
       };
@@ -1148,6 +1182,7 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
       status: day === today ? 'in-progress' : 'not-submitted',
       topic: challenge?.content?.topicName ?? null,
       questionText: challenge && isPlayable(challenge) ? challenge.content.questionText : null,
+      questionImage: challenge && isPlayable(challenge) ? pictureView(challenge.content.image) : null,
       options: [],
       selectedOptionId: null,
       selectedOptionText: null,
@@ -1342,11 +1377,13 @@ export function adminQuizView(group: GroupRow, stats: QuizStats | undefined, at:
     question: {
       id: String(group.question),
       text: group.content?.questionText ?? null,
+      image: authorPictureView(group.content?.image),
       topic: group.content?.topicName ?? null,
       difficulty: group.content?.difficulty ?? null,
       options: group.content?.options.map((option) => ({ id: option.id, text: option.text })) ?? [],
       correctOptionId: correct?.id ?? null,
       solution: group.content?.solution ?? null,
+      solutionImage: authorPictureView(group.content?.solutionImage),
     },
     stats: stats ?? { started: 0, submitted: 0, correct: 0, correctPercent: null, medianSolveMs: null },
     winner,
@@ -1446,12 +1483,15 @@ export async function listQuizCandidates(options: CandidateOptions) {
     type: 'single_choice',
     status: { $in: [...QUIZ_SOURCE_STATUSES] },
     classLevel: { $in: classes },
-    solution: { $nin: [null, ''] },
+    // A worked solution, written out or as a picture (Phase 7b).
+    $and: [{ $or: [{ solution: { $nin: [null, ''] } }, { 'solutionImage.key': { $exists: true } }] }],
     _id: { $nin: used },
     ...(subject ? { subject } : {}),
   };
   if (options.search && options.search.trim()) {
-    filter.questionText = { $regex: escapeRegex(options.search.trim()), $options: 'i' };
+    const pattern = { $regex: escapeRegex(options.search.trim()), $options: 'i' };
+    // A picture question is found by what its picture shows.
+    (filter.$and as unknown[]).push({ $or: [{ questionText: pattern }, { 'image.alt': pattern }] });
   }
 
   const [docs, total] = await Promise.all([
@@ -1470,6 +1510,7 @@ export async function listQuizCandidates(options: CandidateOptions) {
       return {
         id: String(question._id),
         questionText: question.questionText,
+        image: pictureView(question.image),
         classLevel: question.classLevel,
         difficulty: question.difficulty,
         topic: topic?.name ?? null,
@@ -1962,10 +2003,14 @@ export interface PastQuizProblem {
   topic: string | null;
   difficulty: string | null;
   questionText: string;
+  /** The question as a picture (Phase 7b). */
+  image: PictureView | null;
   /** Display letters only — no option id and no bank key, which a reader has no use for. */
   options: Array<{ letter: string; text: string }>;
   answer: { letter: string; text: string };
   solution: string;
+  /** The worked solution as a picture — revealed, as everything here is. */
+  solutionImage: PictureView | null;
 }
 
 export interface PastProblemGroup {
@@ -2004,9 +2049,11 @@ function pastProblemView(challenge: DailyChallengeDocument, at: Date): PastQuizP
     topic: challenge.content.topicName ?? null,
     difficulty: challenge.content.difficulty ?? null,
     questionText: challenge.content.questionText,
+    image: pictureView(challenge.content.image),
     options: options.map((option, index) => ({ letter: optionLetter(index), text: option.text })),
     answer: { letter: optionLetter(answerIndex), text: reveal.correctOptionText },
     solution: reveal.solution,
+    solutionImage: reveal.solutionImage,
   };
 }
 

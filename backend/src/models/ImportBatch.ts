@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
-import { IMPORT_FILE_KINDS, type ImportFileKind } from '../lib/importTypes';
+import { IMPORT_BATCH_KINDS, type ImportBatchKind } from '../lib/importTypes';
 
 /**
  * One record of a bulk import: what was uploaded, what came out of it, and what the
@@ -71,7 +71,7 @@ export interface ImportBatchDocument extends Document {
   actorLabel: string;
 
   // --- What was uploaded, and what read it ---
-  kind: ImportFileKind;
+  kind: ImportBatchKind;
   parserId: string;
   /**
    * `'deterministic'` or `'model'`. A statement of fact that the UI prints and provenance
@@ -148,7 +148,7 @@ const importBatchSchema = new Schema<ImportBatchDocument>(
     actor: { type: Schema.Types.ObjectId, ref: 'Student', default: null },
     actorLabel: { type: String, required: true, trim: true, maxlength: 200 },
 
-    kind: { type: String, enum: IMPORT_FILE_KINDS, required: true, index: true },
+    kind: { type: String, enum: IMPORT_BATCH_KINDS, required: true, index: true },
     parserId: { type: String, required: true, trim: true, maxlength: 60 },
     extraction: { type: String, required: true, trim: true, maxlength: 40 },
     modelName: { type: String, default: null, trim: true, maxlength: 120 },

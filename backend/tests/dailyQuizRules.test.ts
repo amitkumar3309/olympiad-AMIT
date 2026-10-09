@@ -403,6 +403,12 @@ describe('what a quiz question must look like', () => {
     expect(quizQuestionProblem({ ...question, solution: '  ' }, { min: 9, max: 12 })).toMatch(/worked solution/);
     expect(quizQuestionProblem(question, { min: 3, max: 5 })).toMatch(/outside Classes 3–5/);
   });
+
+  it('takes a picture of the worked solution in place of a written one (Phase 7b)', () => {
+    const pictured = { ...question, solution: '', solutionImage: { key: 'a'.repeat(32) } };
+    expect(quizQuestionProblem(pictured, { min: 9, max: 12 })).toBeNull();
+    expect(quizQuestionProblem({ ...pictured, solutionImage: null }, { min: 9, max: 12 })).toMatch(/written out or as a picture/);
+  });
 });
 
 // ===========================================================================

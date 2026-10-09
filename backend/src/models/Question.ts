@@ -1,5 +1,6 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
 import { CLASS_LEVELS, type ClassLevel } from '../lib/classLevels';
+import { QUESTION_IMAGE_KEY } from './QuestionImage';
 
 export const DIFFICULTIES = ['Easy', 'Medium', 'Hard'] as const;
 export type Difficulty = (typeof DIFFICULTIES)[number];
@@ -71,6 +72,8 @@ export const QUESTION_SOURCES = [
   // Milestone 30: the Daily Quiz's bulk import added two tabular formats.
   'csv_import',
   'json_import',
+  // Milestone 30 Phase 7b: pictures uploaded as questions, read by nothing (no OCR).
+  'picture_import',
 ] as const;
 export type QuestionSource = (typeof QUESTION_SOURCES)[number];
 
@@ -119,6 +122,21 @@ export interface QuestionProvenance {
   reviewedAt?: Date | null;
 }
 
+/**
+ * A picture attached to a question (Milestone 30 Phase 7b — picture questions, PLAN.md Q19).
+ *
+ * The bytes are a `QuestionImage`, named by its unguessable key; the size is copied here from the
+ * stored picture so every view can reserve its space without a second read. Never taken from a
+ * request — `questionService` fills it in from the picture itself.
+ */
+export interface QuestionPicture {
+  key: string;
+  /** What a screen reader says instead of the picture. Required for the question picture. */
+  alt: string;
+  width: number;
+  height: number;
+}
+
 export interface QuestionOption {
   /**
    * Stable per-question identifier (`a`, `b`, `c`, ...). An answer is recorded
@@ -133,7 +151,13 @@ export interface QuestionOption {
 }
 
 export interface QuestionDocument extends Document {
+  /**
+   * The question's words. Empty only when `image` is set: then the picture is the question, and
+   * the text — if any — a line around it ("Look at the figure").
+   */
   questionText: string;
+  /** The question as a picture (Phase 7b). */
+  image?: QuestionPicture | null;
   type: QuestionType;
   /** Populated for `single_choice` / `multiple_choice` only; empty otherwise. */
   options: QuestionOption[];
@@ -152,8 +176,13 @@ export interface QuestionDocument extends Document {
    * *meaningfully* different answers rather than every capitalisation.
    */
   acceptedAnswers: string[];
-  /** Worked explanation. Required before a question may be published. */
+  /** Worked explanation. This or `solutionImage` is required before a question may be published. */
   solution?: string | null;
+  /**
+   * The worked solution as a picture (Phase 7b). Served only where the text solution may be — a
+   * submitted practice session, a mock test's permitted review, a Daily Quiz's reveal.
+   */
+  solutionImage?: QuestionPicture | null;
   subject: Types.ObjectId;
   topic: Types.ObjectId;
   subtopic?: Types.ObjectId | null;
@@ -203,6 +232,16 @@ const optionSchema = new Schema<QuestionOption>(
   { _id: false },
 );
 
+const pictureSchema = new Schema<QuestionPicture>(
+  {
+    key: { type: String, required: true, match: QUESTION_IMAGE_KEY },
+    alt: { type: String, trim: true, maxlength: 300, default: '' },
+    width: { type: Number, required: true, min: 1 },
+    height: { type: Number, required: true, min: 1 },
+  },
+  { _id: false },
+);
+
 const provenanceSchema = new Schema<QuestionProvenance>(
   {
     source: { type: String, enum: QUESTION_SOURCES, required: true, default: 'human' },
@@ -221,7 +260,24 @@ const provenanceSchema = new Schema<QuestionProvenance>(
 
 const questionSchema = new Schema<QuestionDocument>(
   {
-    questionText: { type: String, required: true, trim: true, maxlength: 5000 },
+    questionText: {
+      type: String,
+      trim: true,
+      maxlength: 5000,
+      default: '',
+      // Required unless the question is a picture (Phase 7b) — the rule `createQuestionSchema` states.
+      validate: {
+        validator(value: string) {
+          // On a query update `this` is the query, not the question; the request schema has
+          // already applied the rule there, and questions are written by `save()` anyway.
+          if (!(this instanceof mongoose.Document)) return true;
+          const image = (this as unknown as { image?: { key?: string } | null }).image;
+          return value.trim().length > 0 || Boolean(image?.key);
+        },
+        message: 'A question needs its text or a picture of it.',
+      },
+    },
+    image: { type: pictureSchema, default: null },
     type: { type: String, enum: QUESTION_TYPES, required: true },
     options: { type: [optionSchema], default: [] },
     booleanAnswer: { type: Boolean, default: null },
@@ -229,6 +285,7 @@ const questionSchema = new Schema<QuestionDocument>(
     tolerance: { type: Number, default: null, min: 0 },
     acceptedAnswers: { type: [String], default: [] },
     solution: { type: String, default: null, trim: true, maxlength: 8000 },
+    solutionImage: { type: pictureSchema, default: null },
     subject: { type: Schema.Types.ObjectId, ref: 'Subject', required: true, index: true },
     topic: { type: Schema.Types.ObjectId, ref: 'Topic', required: true, index: true },
     subtopic: { type: Schema.Types.ObjectId, ref: 'Topic', default: null },
@@ -260,5 +317,9 @@ questionSchema.index({ tags: 1 });
 // "Show me everything a model drafted" is the question the provenance block exists to
 // answer, and the admin listing offers it as a filter.
 questionSchema.index({ 'provenance.source': 1, createdAt: -1 });
+// Which pictures are still in use — `sweepUnusedQuestionImages()` asks (Phase 7b). Partial, so the
+// questions without a picture (nearly all of them) cost the index nothing.
+questionSchema.index({ 'image.key': 1 }, { partialFilterExpression: { 'image.key': { $exists: true } } });
+questionSchema.index({ 'solutionImage.key': 1 }, { partialFilterExpression: { 'solutionImage.key': { $exists: true } } });
 
 export const Question = mongoose.model<QuestionDocument>('Question', questionSchema);
