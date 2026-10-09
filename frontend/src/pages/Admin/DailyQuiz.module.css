@@ -264,6 +264,28 @@
   color: var(--text-muted);
 }
 
+/* ---------- the monthly winners, band by band ----------------------------------- */
+
+.band {
+  display: grid;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+
+.bandHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.bandTitle {
+  margin: 0;
+  font-size: var(--type-card-title);
+}
+
 /* ---------- the winner table -------------------------------------------------- */
 
 .checks {

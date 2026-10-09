@@ -479,6 +479,7 @@ export type AuditAction =
   | 'dailyquiz.updated'
   | 'dailyquiz.deleted'
   | 'dailyquiz.winners.computed'
+  | 'dailyquiz.monthly.computed'
   | 'dailyquiz.winner.confirmed'
   | 'dailyquiz.winner.disqualified'
   | 'dailyquiz.winner.published'
@@ -1635,7 +1636,8 @@ export interface StudentQuestion {
  */
 export type QuizPhase = 'upcoming' | 'open' | 'revealed'
 export type QuizState = 'not-started' | 'in-progress' | 'submitted'
-export type WinnerRule = 'FASTEST_CORRECT' | 'FIRST_CORRECT' | 'MANUAL'
+/** `MOST_CORRECT_MONTHLY` since 2026-10-09; the others appear only on rows chosen before. */
+export type WinnerRule = 'MOST_CORRECT_MONTHLY' | 'FASTEST_CORRECT' | 'FIRST_CORRECT' | 'MANUAL'
 export type WinnerStatus = 'provisional' | 'confirmed' | 'published' | 'disqualified'
 
 /** What a prize winner must have, by name (`lib/dailyQuiz.ts` on the backend). */
@@ -1671,15 +1673,40 @@ export interface QuizClassRange {
   label: string
 }
 
+/** A class band the monthly prize is won in (owner, 2026-10-09 — PLAN.md Q24). */
+export interface PrizeBandInfo {
+  /** `3-5`, `6-8`, `9-10` or `11-12`. Never named `key` — see the backend's `prizeBandsView()`. */
+  id: string
+  min: number
+  max: number
+  /** "Classes 9–10". */
+  label: string
+}
+
+/**
+ * The bands, mirrored from `backend/src/lib/dailyQuiz.ts` (`PRIZE_BANDS`) — what a page falls
+ * back to before `GET /daily-quiz/info` has answered. Change both together.
+ */
+export const PRIZE_BANDS: PrizeBandInfo[] = [
+  { id: '3-5', min: 3, max: 5, label: 'Classes 3–5' },
+  { id: '6-8', min: 6, max: 8, label: 'Classes 6–8' },
+  { id: '9-10', min: 9, max: 10, label: 'Classes 9–10' },
+  { id: '11-12', min: 11, max: 12, label: 'Classes 11–12' },
+]
+
 /** The prize and the rule, as any visitor may read them. */
 export interface QuizPrizeInfo {
   prizeHeadline: string
   prizeText: string
   /** Whole rupees, or null — and null is the default: no figure is shown until one is set. */
   cashAmount: number | null
-  winnerRule: WinnerRule
-  winnersPerQuiz: number
-  /** Generated from the same settings the server ranks by. Print verbatim. */
+  /** One winner a month in each class band. Optional only for the moment two deploys differ. */
+  period?: 'month'
+  bands?: PrizeBandInfo[]
+  winnersPerBand?: number
+  /** The first day (IST) an answer counts towards a prize — the launch. Nothing is promised before it. */
+  prizesFrom?: string
+  /** Generated from the same constants the server ranks by. Print verbatim. */
   howWinnersAreChosen: string
   instantResult: boolean
   xpForCorrect: number
@@ -1789,6 +1816,8 @@ export interface QuizHistorySummary {
   currentStreak: number
   longestStreak: number
   wins: number
+  /** This month's correct answers, towards the monthly prize — null in a month with no prize. */
+  thisMonth?: { month: string; label: string; correct: number } | null
 }
 
 export interface DailyQuizHistoryResponse {
@@ -1810,7 +1839,12 @@ export interface DailyQuizStatus {
 }
 
 export interface PublicQuizWinner {
+  /** `month`: one month's prize in one class band; `quiz`: one day's, from before the monthly prize. */
+  period?: 'quiz' | 'month'
   day: string
+  month?: string | null
+  /** A month's prize: "November 2026 · Classes 9–10". */
+  prizeLabel?: string | null
   displayName: string
   classLevel: ClassLevel | null
   place: string | null
@@ -1931,12 +1965,11 @@ export interface QuizCandidatesResponse {
   pagination: Pagination
 }
 
+/** How winners are chosen is not a setting: one a month in each class band (PLAN.md Q24). */
 export interface QuizSettings {
   prizeHeadline: string
   prizeText: string
   cashAmount: number | null
-  winnerRule: WinnerRule
-  winnersPerQuiz: number
   instantResult: boolean
   updatedAt: string | null
   updatedByLabel: string | null
@@ -1944,6 +1977,14 @@ export interface QuizSettings {
 
 export interface QuizWinnerRow {
   id: string
+  /** `month`: one month's prize in one band (`solveTimeMs` is then the total); `quiz`: one day's, from before. */
+  period: 'quiz' | 'month'
+  month: string | null
+  band: string | null
+  /** "Classes 9–10 · November 2026". */
+  label: string
+  /** A month's prize: correct answers that month, in the band. */
+  correctCount: number | null
   groupId: string
   day: string
   classMin: number
@@ -1984,12 +2025,36 @@ export type WinnerAction = 'confirm' | 'disqualify' | 'publish' | 'contacted' | 
 export interface AdminQuizDetailResponse {
   quiz: AdminQuiz
   winners: QuizWinnerRow[]
+  /** The monthly prize this quiz's answers count towards, null before the prizes start. Absent from an older backend. */
+  prizeMonth?: { month: string; label: string } | null
 }
 
-export interface ComputeWinnersResponse {
-  correctCount: number
-  ineligible: Array<{ studentId: string | null; name: string | null; solveTimeMs: number | null; missing: EligibilityRequirement[] }>
+/** `POST /admin/daily-quiz/monthly/:month/:band/compute`. */
+export interface ComputeMonthlyResponse {
+  /** Correct answers in the band that month, and how many students gave them. */
+  correctAnswers: number
+  students: number
+  ineligible: Array<{
+    studentId: string | null
+    name: string | null
+    correctCount: number
+    totalSolveMs: number | null
+    missing: EligibilityRequirement[]
+  }>
   winners: QuizWinnerRow[]
+}
+
+/** `GET /admin/daily-quiz/monthly` — one month's prize, band by band. */
+export interface MonthlyWinnersView {
+  month: string
+  label: string
+  /** The first day that counts — the 8th for November 2026, the launch. */
+  countsFrom: string
+  /** When the month is over and its candidates can be worked out. */
+  endsAt: string
+  closed: boolean
+  bands: Array<PrizeBandInfo & { winners: QuizWinnerRow[] }>
+  months: Array<{ key: string; label: string }>
 }
 
 export type PrizeDeskView = 'outstanding' | 'published' | 'disqualified' | 'all'

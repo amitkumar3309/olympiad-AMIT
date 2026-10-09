@@ -86,7 +86,7 @@ export default function NotificationBell({ unread, onChange }: NotificationBellP
       items.push({
         id: 'quiz-live',
         label: 'Today’s Daily Quiz is live',
-        meta: 'Answer before midnight to be in the running',
+        meta: 'Open until midnight, India time',
         icon: 'ph-lightning',
         emphasis: true,
         to: '/daily-quiz',

@@ -13,7 +13,7 @@ import styles from './DailyQuiz.module.css'
  *
  * The quiz itself is `components/DailyQuizPanel`, shared with the dashboard card. This
  * page adds the one thing a student should be able to read before playing for a prize:
- * how the winner is chosen, in the sentence the server generates from the same settings
+ * how the winner is chosen, in the sentence the server generates from the same constants
  * it ranks by — so the page and the ranking cannot disagree.
  *
  * **Lazily loaded** by `App.tsx`: the panel renders maths through `MathText`, which pulls
@@ -58,7 +58,7 @@ export default function DailyQuizPage() {
                     ? 'You see right or wrong as soon as you submit; the correct option and the full solution unlock the next day.'
                     : 'Results, the correct option and the full solution all unlock the next day.'}
                 </li>
-                <li>Winners are announced the day after the quiz, once the organisers have checked them.</li>
+                <li>Winners are announced early the following month, once the organisers have checked them.</li>
               </ul>
             </>
           ) : infoFailed ? (

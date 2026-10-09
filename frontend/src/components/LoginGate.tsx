@@ -56,7 +56,7 @@ export default function LoginGate({ open, onClose, onSignIn, registerTo, prize }
               <Gift size={20} strokeWidth={2.25} />
             </span>
             <span>
-              <strong>Each day’s winner gets:</strong> {prizeLine(prize)}
+              <strong>Every month, the top scorer in each class band wins:</strong> {prizeLine(prize)}
             </span>
           </p>
         )}

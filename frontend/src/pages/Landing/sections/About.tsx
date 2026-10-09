@@ -43,7 +43,7 @@ const FEATURES: Feature[] = [
     tone: 'magenta',
     icon: <CalendarCheck />,
     title: 'Daily Quiz',
-    body: 'One question a day for your class group. Each day’s winner gets a prize.',
+    body: 'One question a day for your class group. Each month, the top scorer in every class band wins a prize.',
   },
   {
     tone: 'green',
