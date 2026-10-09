@@ -52,9 +52,14 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > refused; `lastReminderRun` recorded without touching `updatedAt`; and today's quiz carrying
 > `reminders` in every state. `notifications.test.ts` now expects the third preference. Mutating
 > `config.jobs.secret` in a test is how the secret is set — restore it afterwards, as this file does.
-> **The browser suite was not run in this session**; its backend (`scripts/e2e-server.ts`) now sets a
-> test-only `JOBS_SECRET`, so the crawler sees the Daily Quiz's "Email me a reminder at 7 AM" button and
-> checks it like every other (a name, 44 px at 390, axe).
+> Its backend (`scripts/e2e-server.ts`) now sets a test-only `JOBS_SECRET`, so the crawler sees the Daily
+> Quiz's "Email me a reminder at 7 AM" button and checks it like every other (a name, 44 px at 390, axe).
+> **Browser:** `daily-quiz.spec.ts` gains "a student turns on the 7 AM reminder from the quiz card, and My
+> Profile shows it on" (both widths) — **88 browser tests (61 run, 27 one-width-only)**. Run on this
+> branch, 2026-10-09: `daily-quiz` + `dashboard` 11/11 and `crawler` 6/6 at both widths.
+> `responsiveness.spec.ts` failed at 390px — and failed the same way on the branch's base (`ae2c17e`,
+> 584 ms for "I already have an account" against 264 ms here): the 24-hour Diwali trial was live, so the
+> first test, on the real clock, drew the edition. Not this branch's; see the trial note below.
 >
 > **The Diwali trial (2026-10-09):** two browser tests assumed the day they ran was an ordinary one —
 > `diwali.spec.ts`'s `?season=auto` check and `prerender.spec.ts`'s dark-theme check — and failed during
