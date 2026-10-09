@@ -303,6 +303,8 @@ Do these in order; each says exactly where.
        - **401** — the header is wrong: it must be exactly `Bearer `, one space, then the secret.
        - **503** — the backend has no secret: redo part B, including the **Redeploy**.
        - **404** — the method is GET: change it to **POST**.
+       - **403** ("did not come from the website") — the job is sending an `Origin` or `Referer` header;
+         delete it. `Authorization` is the only header the jobs need.
     2. The next morning after 7:00, open **Admin → Daily Quiz → Settings → Reminder emails**. The line
        under the settings reads **"Last run (today's date) • 7:00 AM: … queued"**. "Not run yet" means the
        reminders job has not reached the site — look at that job's **History** on cron-job.org.
