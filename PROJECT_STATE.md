@@ -160,6 +160,13 @@ The work happens in phases, and each one stops for the owner's approval.
 - **The owner's follow-ups of 2026-10-09** (`feat/home-motivation`): the hero's square shows **a picture
   of the day** — seven drawn pictures, one a day, chosen before the first paint by `public/boot.js`
   (`PictureOfTheDay`, `--art-*` tokens) — and the founder's quotes are signed **"— Amit"** (`FOUNDER`).
+- **The Diwali edition, immersive** (`feat/diwali-immersive`, PLAN.md Q23): the intro is about seven
+  seconds; during the edition **the whole site is the night** (the dark values under `data-season`, a
+  transparent page over a fixed sky) with **fireworks behind every page** (`components/Fireworks`, a
+  canvas in a worker; still for reduced motion, staff pages and papers; they hold still while a tap is
+  answered); the theme switch is hidden for the week; the intro plays once that week in the student area
+  too (`DiwaliIntroPlayer`). Lighthouse on the first Diwali visit 87–91; taps with motion on about
+  300–360 ms (PROGRESS.md).
 
 ## Milestone 29 at a glance
 

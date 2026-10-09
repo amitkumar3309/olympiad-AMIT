@@ -8,17 +8,18 @@ import { resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
  * Lighthouse measures a page load and never sees an interaction, so this measures the
  * interactions a student makes, on the phone layout with the processor slowed 4× — the
  * slowdown Lighthouse's mobile run assumes. On the homepage: open and close the sign-in
- * dialog, open and close the menu, open a FAQ answer, switch the theme. On the Daily Quiz:
+ * dialog, open and close the menu, open a FAQ answer, switch the theme (on an everyday site —
+ * the Diwali edition is the night in either theme and has no switch). On the Daily Quiz:
  * start it, choose an option, open the confirm dialog. The browser's Event Timing API
  * reports each interaction from the input to the next paint — the definition INP uses — and
  * the slowest of them must be within 200 ms.
  *
  * Twice since Phase 7: as the site is every day, and during the Diwali edition — the same
  * method both times (motion reduced, as every test here), so the second measures what the
- * edition's own drawing adds to a tap. With motion on, this environment (headless Edge without a
- * GPU, the CPU slowed 4×) measured the slowest tap at 220–260 ms on the everyday
- * homepage — as before Phase 7 — and 320–430 ms during the edition: recorded in the launch report,
- * not asserted, because nearly all of it is drawing, which a phone does with its GPU.
+ * edition's own drawing adds to a tap. With motion on, this environment (headless Edge on the
+ * laptop's integrated GPU, the CPU slowed 4×) measures the slowest tap at about 190–260 ms on the
+ * everyday homepage and typically 300–360 ms during the edition with its fireworks (which hold still
+ * while a tap is answered — 490–940 ms without that): recorded in the launch report, not asserted.
  */
 
 test.use({ reducedMotion: 'reduce' })
@@ -104,12 +105,12 @@ test.describe('during the Diwali edition', () => {
     await page.clock.setFixedTime(new Date('2026-11-09T10:00:00+05:30'))
     // Already seen: the intro is diwali.spec.ts's; these taps are on the page beneath it.
     await page.addInitScript(() => window.localStorage.setItem('amit-intro', 'diwali-2026'))
-    await measureInteractions(page, testInfo)
+    await measureInteractions(page, testInfo, { themeSwitch: false })
     expect(await page.evaluate(() => document.documentElement.getAttribute('data-season'))).toBe('diwali')
   })
 })
 
-async function measureInteractions(page: Page, testInfo: TestInfo) {
+async function measureInteractions(page: Page, testInfo: TestInfo, { themeSwitch = true } = {}) {
   await recordInteractions(page)
   const measured: Interaction[] = []
 
@@ -125,7 +126,7 @@ async function measureInteractions(page: Page, testInfo: TestInfo) {
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: 'Open menu' })).toBeVisible()
   await tap(page, page.locator('#faq summary').first())
-  await tap(page, page.getByRole('button', { name: /^Switch to (dark|light) mode$/ }).filter({ visible: true }).first())
+  if (themeSwitch) await tap(page, page.getByRole('button', { name: /^Switch to (dark|light) mode$/ }).filter({ visible: true }).first())
   measured.push(...(await interactionsSoFar(page)))
 
   // The Daily Quiz, signed in.

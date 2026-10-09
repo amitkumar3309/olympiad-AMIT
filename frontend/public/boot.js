@@ -75,7 +75,7 @@
     var dated = nowMs >= Date.parse(season[2]) && nowMs < Date.parse(season[3])
     if (mode === kind || (mode !== 'off' && dated)) {
       root.setAttribute('data-season', kind)
-      playIntro(season[1], Number(season[4]) || 2100, asked === kind)
+      playIntro(season[1], Number(season[4]) || 7300, asked === kind)
     }
   }
 

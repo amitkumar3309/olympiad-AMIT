@@ -173,6 +173,7 @@ Diwali edition; **7b** picture questions and Daily Quiz reminders.
 | Q20 | **Daily Quiz reminder emails: opt-in, at 7:00 AM IST.** | 7b |
 | Q21 | (2026-10-09) **The hero's empty square gets a picture — "positive and motivational", "updated regularly".** | Seven drawn pictures, a different one each day (`PictureOfTheDay`) — owner's follow-up |
 | Q22 | (2026-10-09) **The quotes are the founder's: sign them "— Amit", not "— A.M.I.T."** | `FOUNDER` (`lib/brand.ts`): the hero's quote, the student motto and the dashboard's thought — owner's follow-up |
+| Q23 | (2026-10-09) **The Diwali intro "very fast … keep it a bit slow, engaging and immersive"; the fireworks "more realistic and dynamic", bursting "at different random places"; "full immersive for home page and logged in users as well".** Asked and answered: **the whole site at night** for the week — the homepage and every signed-in page, in either theme, with fireworks bursting at random places behind the content (superseding Q17's "festive touches, not a full recolour") — and the intro **once that week** for a signed-in student too. | The intro about seven seconds, a second per number (`DiwaliIntro`, `INTRO_MS` 7300); the dark values under `data-season` (`tokens.css` §10); `components/Fireworks` — a canvas drawn in a worker (`lib/fireworks/`); `DiwaliIntroPlayer` in the student area — owner's follow-up |
 
 ## 6. Schema changes (all additive, all reversible)
 

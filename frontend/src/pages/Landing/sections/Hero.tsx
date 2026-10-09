@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { ArrowRight, BookOpen, GraduationCap, Laptop, Lightbulb, Pi, Quote, School, Sigma, Trophy, Triangle } from 'lucide-react'
-import { Diya, Firework, Lantern } from '../../../components/Diwali'
+import { Diya, Lantern } from '../../../components/Diwali'
 import { ButtonLink, Countdown, clockOffset } from '../../../components/ui'
 import { api } from '../../../api/client'
 import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, AMIT_TAGLINE, FOUNDER } from '../../../lib/brand'
@@ -34,8 +34,11 @@ import styles from './Hero.module.css'
  *
  * ## The Diwali edition (Phase 7 — 8 to 15 November 2026, `lib/season.ts`)
  *
- * The same hero, at night: a sky with lanterns and fireworks behind it, the name in gold,
- * and "Launched this Diwali" with a countdown. There is still exactly one hero and one `h1`
+ * The same hero, at night: lanterns hanging in the sky, the name in gold, and "Launched this
+ * Diwali" with a countdown. The sky and its fireworks are the whole site's, behind every page
+ * (`components/Fireworks`); the hero keeps only the night's veil behind its words, so a
+ * firework bursting behind the name never takes it below its contrast, and around the words
+ * the sky is open. There is still exactly one hero and one `h1`
  * — the festive parts are always in the markup and shown only under
  * `<html data-season="diwali">`, which `public/boot.js` sets before the first paint, so the
  * homepage drawn at build time is right on either side of the dates and nothing moves when
@@ -59,13 +62,10 @@ const CHIPS = [
 export default function Hero({ signedIn, registerTo }: HeroProps) {
   return (
     <section className={styles.hero} aria-labelledby="hero-title">
-      {/* The Diwali night sky — decoration, shown only during the edition. */}
+      {/* The Diwali lanterns — decoration, shown only during the edition. */}
       <div className={styles.sky} aria-hidden="true">
         <Lantern className={`${styles.lantern} ${styles.lanternLeft}`} />
         <Lantern className={`${styles.lantern} ${styles.lanternRight}`} />
-        <Firework className={`${styles.firework} ${styles.fireworkOne}`} />
-        <Firework className={`${styles.firework} ${styles.fireworkTwo}`} />
-        <Firework className={`${styles.firework} ${styles.fireworkThree}`} />
       </div>
 
       <div className={`container ${styles.inner}`}>

@@ -721,6 +721,19 @@
   bottom: -14px;
 }
 
+/* The page's heading stands straight on the night sky during the edition, so it carries the
+   night's halo: a firework bursting behind it never washes it out. */
+:global(:root[data-season='diwali']) .pageHead .titles {
+  text-shadow: var(--festive-halo);
+}
+
+/* The sidebar is the page's own colour, which is transparent during the edition: there it is
+   the night, mostly opaque, so the fireworks behind it are seen dimmed and the links stay
+   legible over them. Not frosted, for the reason below. */
+:global(:root[data-season='diwali']) .sidebar {
+  background: var(--festive-veil);
+}
+
 /* Solid during the edition, not frosted: a frosted bar has to blur again on every frame that
    something inside it moves, and the lights inside it never stop. Measured on a slowed phone. */
 :global(:root[data-season='diwali']) .student .topbar,

@@ -42,12 +42,14 @@ export const DIWALI_EDITION: FestiveEdition = {
 export const INTRO_ID = 'amit-intro'
 
 /**
- * How long the intro may cover the homepage, at most: `public/boot.js` ends it here whether or
- * not its animation ever ran. The animation itself is done by 2.0 s (`DiwaliIntro.module.css`) —
- * the owner's "two seconds", and also what keeps the hero's first paint, which waits for the
- * intro to fade, inside the brief's 2.5 s (LCP) on a slowed phone.
+ * How long the intro may cover the page, at most: `public/boot.js` (the homepage) and
+ * `DiwaliIntroPlayer` (the student area) end it here whether or not its animation ever ran.
+ * The animation itself is done by 7.2 s (`DiwaliIntro.module.css`). It was two seconds, the
+ * owner's first ask; on seeing it, "very fast … users might not be able to process it", so
+ * since 2026-10-09 each number of the count has a full second. Any key, tap or scroll still
+ * ends it at once.
  */
-export const INTRO_MS = 2100
+export const INTRO_MS = 7300
 
 /**
  * What `public/boot.js` parses out of `<meta name="amit-season">`:

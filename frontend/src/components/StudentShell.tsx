@@ -14,6 +14,7 @@ import Illustration from './Illustration'
 import Navbar from './Navbar'
 import Footer from './Footer'
 import ThemeToggle from './ThemeToggle'
+import DiwaliIntroPlayer from './DiwaliIntroPlayer'
 import styles from './StudentShell.module.css'
 
 /**
@@ -167,6 +168,9 @@ export default function StudentShell({ title, subtitle, actions, headless, focus
       hasPaid={hasPaid}
       focus={focus}
     >
+      {/* The Diwali intro, once that week, for a student who has not seen it — never over a
+          timed paper. A portal: where it sits here does not matter. */}
+      {!focus && <DiwaliIntroPlayer />}
       {children}
     </AppShell>
   )
