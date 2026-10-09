@@ -169,12 +169,104 @@ Diwali edition; **7b** picture questions and Daily Quiz reminders.
 | Q16 | **A public archive of past Daily Quizzes** (the brief's optional extra). | `/daily-quiz/archive` — 7a |
 | Q17 | **The Diwali edition, 8–15 November 2026 only, then back to normal**: the Diwali landing mockup (supplied in chat) and "the Diwali launch moment" intro (dark, 3-2-1, a diya lights, equations glow, the name, the line). Asked and answered: the hero says **"Launched this Diwali · A brighter mind for a brighter future"** with a countdown to today's quiz closing — not the mockup's launch countdown, "Notify me" email box or "Early access", untrue from 8 November; the intro ends on **"Think • Solve • Grow"** (the logo's line, not "Conquer"); other pages get **festive touches** (lights, a greeting, a gold glow), not a full recolour; **fixed in code**. | `lib/season.ts`, `public/boot.js` — 7a |
 | Q18 | **A real Diwali 2026 badge**, so the Diwali Special strip's promise is true: answer any Daily Quiz from 8 to 15 November. | The `diwali_2026` achievement — 7a |
-| Q19 | **Picture questions instead of OCR, "as of now"**: the uploaded image *is* the question, the admin types the options and marks the right one, the worked solution is a second picture, plus a one-line description for screen readers. | 7b |
+| Q19 | **Picture questions instead of OCR, "as of now"**: the uploaded image *is* the question, the admin types the options and marks the right one, the worked solution is a second picture, plus a one-line description for screen readers. | 7b — **built 2026-10-09** (`feat/picture-questions`; §5c) |
 | Q20 | **Daily Quiz reminder emails: opt-in, at 7:00 AM IST.** | 7b |
 | Q21 | (2026-10-09) **The hero's empty square gets a picture — "positive and motivational", "updated regularly".** | Seven drawn pictures, a different one each day (`PictureOfTheDay`) — owner's follow-up |
 | Q22 | (2026-10-09) **The quotes are the founder's: sign them "— Amit", not "— A.M.I.T."** | `FOUNDER` (`lib/brand.ts`): the hero's quote, the student motto and the dashboard's thought — owner's follow-up |
 | Q23 | (2026-10-09) **The Diwali intro "very fast … keep it a bit slow, engaging and immersive"; the fireworks "more realistic and dynamic", bursting "at different random places"; "full immersive for home page and logged in users as well".** Asked and answered: **the whole site at night** for the week — the homepage and every signed-in page, in either theme, with fireworks bursting at random places behind the content (superseding Q17's "festive touches, not a full recolour") — and the intro **once that week** for a signed-in student too. | The intro about seven seconds, a second per number (`DiwaliIntro`, `INTRO_MS` 7300); the dark values under `data-season` (`tokens.css` §10); `components/Fireworks` — a canvas drawn in a worker (`lib/fireworks/`); `DiwaliIntroPlayer` in the student area — owner's follow-up |
 | Q24 | (2026-10-09) **"There will not be a daily winner, we'll be having a monthly winner who has highest score."** Asked and answered: the score is **correct answers in the month, the lower total solve time breaking a tie**; **one winner per class band** (3–5, 6–8, 9–10, 11–12); **staff check early the next month**; **November counts from the 8th** (superseding Q3's "one winner each"). | `rankMonthlyCandidates()` and `PRIZE_BANDS` (`lib/dailyQuiz.ts`); a month's prize is a `DailyQuizWinner` row with `period: 'month'`; Admin → Daily Quiz → **Monthly winners**; the winner rule and winners per quiz retired from the settings; every page that names the prize — owner's follow-up |
+
+## 5c. Phase 7b — the plan (2026-10-09)
+
+**Two fixes found while mapping the code come first**, because 7b builds on both:
+
+- **Request logs hold session tokens.** `pino-http`'s default serializers log every request and
+  response header — `cookie` (the access and refresh tokens) and `set-cookie` — so the production
+  logs contain raw tokens (CLAUDE.md: never log a raw token). The reminders' trigger secret would join
+  them. Fix: `redact` those headers in `lib/logger.ts`.
+- **The gallery cannot take the images it promises.** `POST /admin/gallery` accepts 1 MB images but
+  was given no body allowance, so anything over ~73 KB is refused by the 100 KB default parser — and
+  the error handler turns that refusal into a 500. Fix: an allowance, and a 413 that says what the
+  limit is, for every route.
+
+### Picture questions (Q19)
+
+- **A picture is an attachment, not a question type.** `Question` gains `image` (`{key, alt, width,
+  height}`) and `solutionImage` (`{key, alt, width, height}`), both optional. The type stays
+  `single_choice` (or any type): `'single_choice'` is written in 34 places, and the Daily Quiz needs
+  it. The question text becomes optional when there is a picture (it can still carry a line such as
+  "Look at the figure"); the worked solution may be text, a picture, or both — publishing and the
+  Daily Quiz need one of them. The alt text is **required** for the question picture (1–300
+  characters: what a screen reader says instead of the picture); for the solution picture it is
+  optional and defaults to "The worked solution, as a picture".
+- **Images live in MongoDB, in their own collection** (`QuestionImage`: the bytes `select: false`,
+  type, size, width, height, a random 32-character `key`), like the registration photo and the
+  gallery — no new service, ₹0. They are **immutable**: a changed picture is a new image, so a Daily
+  Quiz that snapshotted one keeps showing exactly what it showed. **Budget**: the browser shrinks every
+  picture before upload (longest side 1600 px, WebP or JPEG, typically 50–150 KB) and the server
+  refuses one over 1 MB. At ~100 KB a picture, a picture question with a picture solution for all
+  three class groups every day would take ~220 MB a year of Atlas M0's 512 MB. Real use will be a
+  fraction of that, but the owner is told to watch the database size (LAUNCH_REPORT), and the storage
+  sits behind one service, so moving pictures to object storage later is a contained change.
+- **Served by an unguessable key, never by its database id** (two ids minted in one request differ by
+  a counter, so the solution's id would be guessable from the question's): `GET
+  /question-images/:key`, cacheable for a year because it never changes. The key reaches a browser
+  only inside a view that may show the picture — so the **solution picture's key appears only where
+  the solution may** (a submitted practice session, a mock test's permitted review, the Daily Quiz's
+  `revealOf()`), and today's quiz picture only after Start. The answer-leak tests extend to both.
+- **Metadata is stripped on the server** (EXIF — a phone photo carries its GPS position), because a
+  revealed quiz picture becomes public in the archive; the browser's re-encoding also drops it.
+  Dimensions are read from the file, not trusted from the browser, so every `<img>` reserves its
+  space (no layout shift).
+- **Authoring**: the question editor gets "Picture question" — upload, describe, then the options and
+  the correct one as usual — and a solution picture. **The import page's Image tab stops using OCR**
+  (owner: "i don't want ocr as of now"): it takes up to 20 pictures, makes each a draft candidate,
+  and the review screen asks for each one's description, options, correct option and solution — the
+  same review-then-approve path as every importer, provenance `picture_import` read from the
+  `ImportBatch`. The Gemini OCR route stays in the backend, unused by the interface, until the owner
+  wants it back.
+- **Everywhere a question is shown**, the picture is shown: practice, mock tests, the official exam,
+  the Daily Quiz (panel, history, archive, "Can you crack this?") and the admin pages. A picture can
+  be opened full size (a scanned question at phone width can be small).
+- **Known cost**: on the Daily Quiz the solve time starts at Start, and the picture downloads after it;
+  on a slow connection that is a second or two of the student's time. Pictures are kept small for
+  this reason.
+
+### Daily Quiz reminders (Q20)
+
+- **Opt-in per student**: `notificationPrefs.dailyQuizReminders`, **off** unless the student turns it
+  on — in My Profile, and with one tap on the Daily Quiz page. A new optional email category,
+  `reminders`. Sent only to a verified address, an active account, a class that has a quiz that day,
+  and a student who has not already started it.
+- **At 7:00 AM IST, triggered from outside**: the owner chose a free external pinger over paid Vercel
+  Cron (PROJECT_STATE.md, "Daily-challenge automation"), and Vercel's free cron is only hour-accurate. So `POST
+  /jobs/daily-quiz-reminders` and `POST /jobs/outbox`, each requiring `Authorization: Bearer
+  <JOBS_SECRET>` (a new environment variable, compared in constant time, refused with a 503 naming
+  the variable when unset). The owner points cron-job.org at them: the reminders once a day at 07:00
+  Asia/Kolkata, the outbox every minute — which also closes known bug #41 (mail waiting on an idle
+  site).
+- **Reminders never crowd out a verification email.** The outbox gains a **priority**: security and
+  transactional first, reminders last. A **daily cap** (default 100, staff-editable in Daily Quiz
+  settings, with an on/off switch) keeps reminders inside the email provider's free quota (Brevo's is
+  300 a day, shared with every sign-up). Each reminder carries a dedupe key per student per day, so a
+  second trigger sends nothing twice. Sent reminder rows expire after 14 days (a partial TTL — the
+  rest of the outbox keeps its no-TTL rule), so a year of reminders does not fill the free database.
+- **The email names nothing a student could use before Start**: the class range, the topic and the
+  closing time (what the quiz card already shows) — never the question. It loads nothing (CLAUDE.md)
+  and ends with how to turn reminders off.
+- **The settings page shows the last run** (day, time, how many were queued and skipped), so the
+  owner can see the pinger is working.
+- **Legal text is not changed**: the Privacy Policy draft does not mention reminder emails yet —
+  added as a question to `LEGAL_REVIEW.md`.
+
+### Commits, in order
+
+1. `fix(security)`: redact credentials from request logs. 2. `fix(gallery)`: the upload allowance and a
+real 413. 3. `feat(questions)`: picture storage and serving. 4. `feat(questions)`: picture questions in
+the bank, practice, mock tests and the exam. 5. `feat(daily-quiz)`: picture questions in the Daily
+Quiz. 6. `feat(import)`: picture import instead of OCR. 7. `feat`: picture questions in the interface.
+8. `feat(daily-quiz)`: opt-in reminders and the job endpoints. 9. `feat`: reminders in the interface.
+10. `docs`.
 
 ## 6. Schema changes (all additive, all reversible)
 

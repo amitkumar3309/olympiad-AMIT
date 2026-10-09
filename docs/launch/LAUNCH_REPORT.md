@@ -30,9 +30,9 @@ The launch brief (`docs/launch/LAUNCH_SPEC.md`) in seven phases — merged as pu
 
 **The checks that guard it** — run before every commit:
 
-- **Backend: 1,375 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
+- **Backend: 1,399 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
   student response carries the answer before midnight).
-- **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 80 tests, about twelve minutes) — the
+- **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 86 tests, about fifteen minutes) — the
   Diwali edition on its dates and off either side of them, the archive,
   the quiz from start to the next day's reveal, registration → email → quiz, the dashboard,
   keyboard-only use, a crash and a weak connection, the homepage readable before its script has run,
@@ -112,6 +112,15 @@ Practice).
 
 A quiz can be **changed or removed until somebody presses Start** on it; after that it is the record of
 what those students were asked.
+
+**A question that is a picture** (since 9 October — a diagram, a scanned page, a photograph of a
+question): Admin → Question Bank → **New question** → **Picture of the question** → choose the picture,
+then **describe it in one line** — a screen reader says that line instead of the picture, so for a
+student who cannot see it, that line is the question. Type the options and mark the right one as usual.
+The worked solution can be written, or be a second picture (**Picture of the worked solution**). Many at
+once: Admin → **Bulk Import** → **Pictures** → choose a chapter and up to 20 pictures → **Prepare the
+pictures**, then describe and answer each card and approve. Pictures are made smaller before they are
+uploaded, so a phone photograph is fine; crop each to its one question. Then schedule it like any other.
 
 ## 5. Choosing, confirming and announcing winners
 
@@ -229,6 +238,10 @@ Do these in order; each says exactly where.
 9. **Decide R5** (§7) and **the organiser's name** on invoices and certificates (PROGRESS.md, "Open
    questions" — it follows from `LEGAL_REVIEW.md` question 1). Both can wait until after launch.
 10. **Preview the Diwali edition** on your phone before the 8th (§6b): `https://www.amitolympiad.me/?season=diwali`.
+11. **Watch the database size** once picture questions are in use: MongoDB Atlas → your cluster →
+    **Metrics → Data Size** (the free tier holds 512 MB). A picture is about 100 KB; a picture question
+    with a picture solution for all three class groups every day would be about 220 MB a year. When it
+    passes about 400 MB, ask for the pictures to move to file storage (a contained change).
 
 ## 9. The phone checklist — 15 minutes, on your own phone
 

@@ -2,6 +2,38 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-09 — Milestone 30 Phase 7b: picture questions
+
+The owner's request of 2026-10-08 (PLAN.md Q19): "picture questions instead of OCR, as of now". Branch
+`feat/picture-questions`.
+
+### Students
+- **A question can be a picture**, shown exactly as it was uploaded — in practice, mock tests, the
+  Olympiad, the Daily Quiz (from Start), the quiz history, the archive and the homepage's "Can you crack
+  this?". **Enlarge** opens it bigger. A screen reader hears its one-line description.
+- **A worked solution can be a picture too**, shown only where the written solution would be — after a
+  practice session, in a mock test's review, and from the Daily Quiz's reveal at midnight.
+
+### Staff
+- **The question editor** takes a picture of the question (with a required one-line description) and a
+  picture of the worked solution; the text becomes optional with a picture, and the preview shows both.
+- **Bulk import → Pictures** (the old Photographs tab, which read pictures with a model): choose up to 20
+  pictures and a chapter; each becomes a card to describe, answer and approve as a draft. Nothing reads
+  the picture.
+- The question bank shows a picture question's thumbnail, finds it by its description, and filters by
+  every source an import stamps.
+
+### Under the hood
+- `QuestionImage` (the bytes, under a random 32-hex key), `POST /admin/question-images`,
+  `GET /question-images/:key` (cached for a year — a picture never changes), and
+  `POST /admin/questions/import/pictures`. The browser redraws each picture at most 1,600 px as WebP; the
+  server measures it and strips its metadata. Pictures nothing uses are removed a day after upload.
+- **Fixes**: request logs no longer carry session cookies (redacted); a request body over its allowance
+  is a 413 naming the limit, not a 500 — and the gallery now takes the 1 MB pictures it always promised.
+- Tests: backend 1399 / 39 (picture storage, serving, metadata, the leak rules, import, the Daily Quiz,
+  the log redaction, the 413); E2E 86 — `picture-questions.spec.ts` (the editor shrinks and saves a
+  picture, the picture import, a student's picture quiz and its solution picture next day).
+
 ## 2026-10-09 — The Daily Quiz prize is monthly: one winner a month in each class band
 
 The owner's follow-up of 2026-10-09 (PLAN.md §5b, Q24). Branch `feat/daily-quiz-monthly-winner`.

@@ -119,7 +119,12 @@ Admin → Daily Quiz → Monthly winners once the month is over (PLAN.md Q24).
 | 7a | Speed: every festive loop moves a whole element (GPU); the intro pauses the page's loops; solid bars instead of frosted ones during the edition. A compositor version of the Daily Quiz button's loops was tried and **reverted** — it doubled the tap time measured with motion on | ✅ done |
 | 7a | Tests: backend 1369 / 38 (eight new); E2E 70 — `diwali.spec.ts` (dates, preview, intro, no shift, axe, no sideways scroll), `archive.spec.ts`, the INP test also during the edition | ✅ done |
 | 7a | Screenshots in `docs/launch/screenshots/phase-7/` (below) | ✅ done |
-| 7b | Picture questions (Q19), Daily Quiz reminders (Q20) | ⬜ next |
+| 7b | Two fixes first (§5c): request logs redact session cookies and authorization headers; a body over its allowance is a 413 naming the limit (the gallery gets the allowance its 1 MB pictures needed) | ✅ done |
+| 7b | Picture questions (Q19): `QuestionImage` under an unguessable key, `POST /admin/question-images`, `GET /question-images/:key`; the browser shrinks, the server measures and strips; unused pictures swept after a day | ✅ done |
+| 7b | Pictures in the bank, practice, mock tests, the Olympiad and the Daily Quiz — the solution picture only where the written solution may be (leak tests extended) | ✅ done |
+| 7b | The editor attaches a question picture (description required) and a solution picture; the import page's Image tab imports pictures instead of OCR; every page that shows a question shows its picture, with Enlarge | ✅ done |
+| 7b | Tests: backend 1399 / 39; E2E 86 — `picture-questions.spec.ts` (the editor stores a 2,400 px PNG as a 1,600 px WebP; the picture import; a student's picture quiz, its solution picture from the next day) | ✅ done |
+| 7b | Daily Quiz reminders (Q20) | ⬜ next |
 | 7+ | The hero's picture of the day (Q21): seven drawn pictures (a summit, a growing book, a bright idea, a rocket, steps to a trophy, a sunrise, a target hit), a different one each day by the India date — chosen by `public/boot.js` before the first paint, themed, a night version during Diwali | ✅ done |
 | 7+ | The founder's quotes signed "— Amit" (Q22) | ✅ done |
 | 7+ | The Diwali intro slowed (Q23): about seven seconds — embers rise; 3, 2, 1, a second each, each with a ring of light; a diya catches with a burst of sparks; the mathematics appears in its light; the name; the line. Any key or tap still ends it, and its timer (7.3 s) regardless | ✅ done |
