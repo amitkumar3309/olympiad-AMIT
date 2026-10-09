@@ -13,6 +13,7 @@ import e2eRoutes, { e2eHooksEnabled } from './routes/e2e.routes';
 import v1Routes from './routes/v1';
 import { MAX_PHOTO_BYTES } from './models/StudentPhoto';
 import { MAX_IMPORT_REQUEST_BYTES } from './validation/uploadSchemas';
+import { MAX_GALLERY_IMAGE_BYTES } from './validation/contentSchemas';
 
 /**
  * Two routes carry a photo as a base64 data URL, which inflates the binary by about
@@ -65,6 +66,16 @@ const IMPORT_UPLOAD_PATHS = [
   '/api/admin/daily-quiz/import',
 ];
 
+/**
+ * The gallery's upload carries one picture of up to `MAX_GALLERY_IMAGE_BYTES` (1 MB), and was
+ * never given room for it: under the 100 KB default, any photograph over about 73 KB was refused
+ * before the route ran — and, until the error handler learnt body-parser's errors, answered as a
+ * 500 (found in Milestone 30 Phase 7b). The prefix also covers the edit route, which carries no
+ * picture (an edit cannot replace one), so the allowance costs it nothing.
+ */
+const MAX_GALLERY_BODY_BYTES = Math.ceil(MAX_GALLERY_IMAGE_BYTES * 1.4);
+const GALLERY_UPLOAD_PATHS = ['/api/v1/admin/gallery', '/api/admin/gallery'];
+
 export function createApp() {
   const app = express();
 
@@ -100,6 +111,7 @@ export function createApp() {
   // read, so the general parser below then skips it.
   app.use(PHOTO_UPLOAD_PATHS, express.json({ limit: MAX_PHOTO_BODY_BYTES }));
   app.use(IMPORT_UPLOAD_PATHS, express.json({ limit: MAX_IMPORT_BODY_BYTES }));
+  app.use(GALLERY_UPLOAD_PATHS, express.json({ limit: MAX_GALLERY_BODY_BYTES }));
   /**
    * The default parser, with a copy of the raw bytes kept for webhook verification.
    *
