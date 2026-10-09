@@ -73,7 +73,9 @@
 > mobile; a signed-in student and an anonymous caller are refused every admin route on **both**
 > the `/api/v1` and `/api` prefixes; the bootstrap superadmin is refused at the public sign-in
 > form; and a served question paper contains none of `isCorrect`, `solution`, `booleanAnswer`,
-> `numericAnswer` or `tolerance`. The **CSRF token** gap recorded below is unchanged.
+> `numericAnswer` or `tolerance`. There is still no **CSRF token**, and that is not a gap: the
+> origin check is the defence, and a double-submit token on top of it is a deliberate
+> non-addition — see "Why not a double-submit token" below.
 
 _Last updated: 2026-08-17 (complete security audit)._
 
@@ -715,7 +717,7 @@ they answer 404 in a normal app.
 
 ## Remaining Gaps, in priority order
 
-Items 1 and 5 of the previous list — CSRF and administrative rate limiting — were closed by the 2026-08-17 audit and now have sections of their own above.
+Items 1 and 5 of the previous list — CSRF and administrative rate limiting — were closed by the 2026-08-17 audit and now have sections of their own above. A double-submit CSRF token, listed here as item 7 until 2026-10-08, is not a gap: the origin check is the defence, and a token on top of it is a deliberate non-addition — see "Why not a double-submit token" for the shape it should take if one is ever wanted.
 
 1. **Dependency audit — run 2026-10-05 (Milestone 30 Phase 6).** After `npm audit fix` in both apps, nodemailer 9 → 10, and moving `@vercel/node` to `devDependencies` (nothing imports it; Vercel installs its own builder):
    - **Frontend: 0** findings, production or development.
@@ -726,9 +728,8 @@ Items 1 and 5 of the previous list — CSRF and administrative rate limiting —
 4. **Two-factor authentication** — not started, and now more valuable: an admin account is worth more than it was.
 5. **`JWT_SECRET` rotation** — no mechanism; rotating it invalidates every session at once.
 6. **Changing your own email address or mobile number** — not possible at all, because doing it safely needs a confirm-at-the-new-address flow. Recorded here rather than only as a missing feature, because the reason it is absent is a security one.
-7. **A double-submit CSRF token** as a second layer behind the origin check. Optional rather than required — see "Why not a double-submit token" for the shape it should take if it is ever added.
-8. **Registration photos are not re-encoded**, so EXIF (including GPS tags a phone camera wrote) is stored and served as uploaded. Unchanged since Milestone 4.
-9. **Account lockout is a denial-of-service primitive against a known address** — five wrong guesses lock an account for fifteen minutes, and the address is the student's email. Accepted: the alternative is no lockout, which is worse, and the reset path is self-service.
+7. **Registration photos are not re-encoded**, so EXIF (including GPS tags a phone camera wrote) is stored and served as uploaded. Unchanged since Milestone 4.
+8. **Account lockout is a denial-of-service primitive against a known address** — five wrong guesses lock an account for fifteen minutes, and the address is the student's email. Accepted: the alternative is no lockout, which is worse, and the reset path is self-service.
 
 ---
 

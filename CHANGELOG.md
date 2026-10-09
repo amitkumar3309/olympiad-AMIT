@@ -2,6 +2,17 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-08 — `CLAUDE.md` and `SECURITY.md` stop calling CSRF an open gap
+
+Documentation only; no code changed. `CLAUDE.md`'s Security Rules still listed "no CSRF tokens" as
+the top open gap, which stopped being true on 2026-08-17, when the origin check in
+`middleware/csrf.ts` closed it. The sentence now says so, and that a double-submit token was
+deliberately not added on top. `SECURITY.md` contradicted its own "CSRF" section the same way — the
+2026-09-27 re-verification note called the token gap "unchanged", and "Remaining Gaps" still listed
+the token as item 7 — so both now say the origin check is the defence and the token a deliberate
+non-addition (items 8–9 became 7–8). Still carrying the old wording, and not touched here:
+`PROJECT_STATE.md`, `TESTING.md` and `SCALE_READINESS.md`.
+
 ## 2026-10-08 — Milestone 30 Phase 6: the last of the definition of done
 
 Branch `feat/diwali-launch-phase-6-polish` (PR #8), on `main` after the follow-up's merge (PR #7).
