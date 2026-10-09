@@ -979,7 +979,7 @@ All six routes are gated on `requireAuth()` and resolve the caller's own account
 ### `POST /api/v1/admin/chapters/bulk`
 Creates several chapters at once, by name, under the implicit subject. Body: `names` (1–60). Requires `taxonomy:write`.
 
-Exists because a bulk import **refuses** any row naming a chapter the bank does not have — an importer never creates taxonomy, so one bad spreadsheet cannot reshape the syllabus — and the preview's `unknownChapters` list is what makes that fixable in one action instead of ten by hand. The safety property is that the examiner reads the list first, which the review screen shows verbatim; this route is only reached by a deliberate action on it.
+Exists because the **Daily Quiz** import refuses any row naming a chapter the bank does not have, and the preview's `unknownChapters` list is what makes that fixable in one action instead of ten by hand. (The question upload page no longer needs it: since 2026-10-09 a topic named there becomes a chapter when its questions are approved.) The safety property is that the examiner reads the list first, which the review screen shows verbatim; this route is only reached by a deliberate action on it.
 
 Answers **200 with per-name results** (`created`, `existing`, `failed`), never a 400 for a partial failure — the same shape as `PATCH /admin/questions/bulk-status`, and for the same reason. A name that already exists is `existing`, not `failed`: two examiners importing overlapping papers is ordinary. It loops `createTopic()` rather than using `insertMany`, so the taxonomy rules are not skipped and one bad name fails alone.
 
@@ -1582,15 +1582,22 @@ That is what lets a `.docx` posted to the Excel endpoint be refused by name ("th
 workbook") instead of failing obscurely inside a parser — both are ZIPs, so the byte signature cannot
 tell them apart.
 
+> **The owner's simple form (2026-10-09).** These routes always read with `formDecides`: the request's
+> `classLevel` and `questionType` are **every** question's, and the topic is a **name**. A row naming
+> another class keeps this one, with a note in its `warnings`; a row marked as another type is a
+> `failure` naming it (a bare "MCQ" or "objective" is not, as it cannot say single or multiple). A
+> question's topic is `topicName` if sent, else the row's own Topic, else the chapter its words point to,
+> else `topic` (an older caller's chapter id), else **General**. A name the bank does not have comes back
+> with **`topic: null`** and is made a chapter only by `/approve`. `unknownChapters` is always `[]` here.
+
 Request:
 
 ```json
 {
-  "topic": "<chapter ObjectId>",
-  "subtopic": null,
+  "topicName": "Mensuration",
   "classLevel": "Class 8",
+  "questionType": "single_choice",
   "difficulty": "Medium",
-  "questionType": null,
   "marks": 4,
   "negativeMarks": 1,
   "files": [{ "name": "class8-algebra.xlsx", "content": "data:application/vnd…sheet;base64,UEsDBB…" }]
@@ -1599,8 +1606,10 @@ Request:
 
 **There is no `subject` field, deliberately.** The chapter already records which subject it belongs to,
 so accepting both would admit a pair that can disagree — and there is no user-facing subject in this
-product. `topic` is required and must be a **top-level, active** chapter; a subtopic in that position is
-a 400. `questionType: null` means "infer it per row".
+product. `topicName` is optional, trimmed, and held to a chapter name's rules (2–120 characters, no `$`,
+`<` or `>` — a 400 otherwise); blank is none. `topic` (a chapter id) and `subtopic` are still accepted from
+an older caller: `topic` must be a **top-level, active** chapter, and a subtopic in that position is a
+400. `questionType: null` means "infer it per row" — the upload page always sends one.
 
 Files travel as **base64 data URLs inside the JSON body**, like the registration photo and the event
 gallery, not as multipart. Validation: extension allow-list, a permissive MIME allow-list, and **magic
@@ -1634,10 +1643,10 @@ Response `200`:
 }
 ```
 
-**`unknownChapters`** is the distinct set of chapter names the file *stated* that this bank does not
-have — deduplicated case-insensitively, spelled as the file spelled them, because that is the string an
-examiner has to recognise as right or wrong. Those rows are in `rejected` as before and are **not**
-imported: an importer never creates taxonomy. The list exists so the review screen can offer
+**`unknownChapters`** belongs to the Daily Quiz import, which reads a file without `formDecides`: there
+it is the distinct set of chapter names the file *stated* that this bank does not have — deduplicated
+case-insensitively, spelled as the file spelled them, because that is the string an examiner has to
+recognise as right or wrong — and those rows are in `rejected`, not imported. The list exists so the review screen can offer
 [`POST /admin/chapters/bulk`](#post-apiv1adminchaptersbulk) and re-run the upload, which is what turns
 "there is no chapter called X" from a dead end into one click. Chapters are **not class-scoped**, so a
 bank seeded for one class refuses every row of another class's paper — the ordinary case this serves.
@@ -1658,14 +1667,14 @@ validation, naming the file and what was wrong with it.
 ### `POST /admin/questions/import/pictures` (Milestone 30 Phase 7b)
 
 Pictures as questions, **instead of OCR** (PLAN.md Q19). Each picture is uploaded first by
-`POST /admin/question-images`; this takes them by key and makes each a single-choice candidate that is
-nothing yet but its picture. **Writes no question and reads no picture** — the only row stored is the
+`POST /admin/question-images`; this takes them by key and makes each a candidate of the chosen
+`questionType` (single choice when none is sent) that is nothing yet but its picture. **Writes no question and reads no picture** — the only row stored is the
 `ImportBatch` (`kind: picture`, `deterministic`) that approval reads the provenance from.
 
-- **Request**: `{ topic (required — a picture has no words to detect one from), subtopic?, classLevel, difficulty, marks, negativeMarks, pictures: [{ key, name }] }` — 1 to 20 pictures, each named once; `name` is a label for the review screen, never a path.
+- **Request**: `{ classLevel, questionType?, topicName?, topic?, subtopic?, difficulty, marks, negativeMarks, pictures: [{ key, name }] }` — 1 to 20 pictures, each named once; `name` is a label for the review screen, never a path. **No chapter is required** (2026-10-09): the topic is `topicName` (matched to a chapter whatever its case, or `topic: null` for a new one), else an older caller's `topic` id, else **General**.
 - **Response 200**: the same shape as a file preview, `kind: 'picture'`, each question `{ questionText: '', image: { key, alt: '', url, width, height }, type: 'single_choice', options: [], solution: null, solutionImage: null, … }`. The reviewer describes each picture, writes its options, marks the answer and gives the solution — written or as a picture — then validates and approves through the routes below, which accept `image` and `solutionImage` (`{ key, alt }`) on every question.
 - A picture candidate is a duplicate only of one carrying the **same picture**: their words are at most a line around it.
-- **Errors**: `400` (no chapter, a picture this site did not store or has swept), `401`/`403`, `429` (`importLimiter`).
+- **Errors**: `400` (a topic no chapter could be called, a picture this site did not store or has swept), `401`/`403`, `429` (`importLimiter`).
 
 ### `POST /admin/questions/import/approve`
 
@@ -1679,11 +1688,18 @@ database write whose cost does not scale with a third party.
   "questions": [{
     "questionText": "…", "type": "single_choice", "options": [{ "text": "…", "isCorrect": true }],
     "solution": "…", "marks": 4, "negativeMarks": 1, "tags": [],
-    "topic": "<id>", "subtopic": null, "classLevel": "Class 8", "difficulty": "Medium",
+    "topic": "<id> or null", "topicName": "Mensuration", "subtopic": null, "classLevel": "Class 8", "difficulty": "Medium",
     "edited": true
   }]
 }
 ```
+
+**A topic the bank does not have** arrives as `topic: null` with its `topicName`, and approval makes it a
+chapter before saving the question (the owner's simple form, 2026-10-09): found by name in the batch's
+subject whatever its case, otherwise created through `createTopic()` — **only for a caller holding
+`taxonomy:write`** (a question is refused otherwise), each new chapter audited as `topic.changed` with
+`fromImport`, and listed in the response's `chaptersCreated`. A name only an archived chapter holds
+refuses the question, naming the chapter, rather than reviving it.
 
 Each question carries **its own** placement, unlike the generator's approval where the taxonomy arrives
 once for the batch. The two differ for a reason rather than by a relaxed rule: there, one batch-wide
@@ -1710,7 +1726,8 @@ Response `201`:
   "questions": [{ "id": "…", "questionText": "…", "type": "single_choice", "classLevel": "Class 8", "status": "draft" }],
   "rejected": [{ "index": 2, "reason": "options: A choice question needs at least 2 options." }],
   "published": 0,
-  "publishFailures": []
+  "publishFailures": [],
+  "chaptersCreated": [{ "id": "…", "name": "Mensuration" }]
 }
 ```
 
@@ -1778,10 +1795,10 @@ and **Instructions** (what each column means and what the valid values are).
 | `Option A`–`Option H` | For choice questions | Also matched as `A`, `Option 1`, `Choice A`. A **gap** (A and C filled, B empty) is an error, not something to close — closing it would turn "the answer is C" into "the answer is B". Trailing blanks are simply unused. |
 | `Correct Answer` | **Yes** | Read per type — see below. |
 | `Solution` | To publish | Blank imports fine as a draft and carries a note; publishing needs one. |
-| `Class` | No | A real class, or a bare number (`8`), ordinal (`8th`) or `Grade 8`. Blank uses the upload default. **An unrecognised value is reported, not guessed at.** |
+| `Class` | No | On the question upload page the form's class is every row's, and a row naming another is noted. For the Daily Quiz import: a real class, or a bare number (`8`), ordinal (`8th`) or `Grade 8`; blank uses the upload default, and **an unrecognised value is reported, not guessed at.** |
 | `Difficulty` | No | `Easy` / `Medium` / `Hard`, case-insensitive. |
 | `Marks`, `Negative Marks` | No | Blank uses the upload default. A **non-numeric** value is a failure, not a default — marks are what a score is computed from. |
-| `Topic`, `Subtopic` | No | Chapter names as they appear under Chapters, matched case-insensitively. A chapter that does not exist is reported; **importing never creates one.** |
+| `Topic`, `Subtopic` | No | Chapter names, matched case-insensitively. On the question upload page a topic typed on the form wins, and a name the bank does not have **becomes a chapter when the questions are saved**; a subtopic the chapter lacks is left out with a note. For the Daily Quiz import a chapter that does not exist is reported and never created. |
 | `Tags` | No | Comma-separated, at most 20. |
 | `Tolerance` | For numeric | Only read for `numeric`. |
 
@@ -1818,8 +1835,9 @@ everything it had to interpret rather than guessing quietly.
 | Metadata | `Class: 8`, `Topic: Algebra`, `Subtopic: …`, `Difficulty: Hard`, `Marks: 6`, `Negative Marks: 2`, `Type: multiple_choice`, `Tags: a, b` | Per question. Anything matching the shape but not a known key stays in the question text. |
 
 A stem or option that Word wrapped across paragraphs is rejoined. `Type` blank is inferred with a
-note. `Class`/`Topic` follow the same rules as Excel: unresolvable values are **reported with the
-question number**, never defaulted, and importing never creates a chapter.
+note, unless the form chose one, which is then every question's. `Class`/`Topic` follow the same rules
+as Excel: on the question upload page the form's class wins and a new topic becomes a chapter on saving;
+for the Daily Quiz import unresolvable values are **reported with the question number**.
 
 ### Two file-level warnings, in `batchWarnings`
 

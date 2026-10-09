@@ -4,6 +4,53 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — The question upload: the form decides the class and the type, and a topic is a name
+
+**Context.** The owner (2026-10-09): "Simplify the question upload process for admin, remove the part
+where he/she has to choose the chapters. Just there should be option to select the type of file being
+uploaded (word docx, excel, csv, json, photo) and then there should be dropdown of classes from 3 to 12
+and after that there should be field of selecting the type of question like mcq, single correct, fill in
+blank or true/false, then there should be an optional field to write the topic for that and then field to
+add options accordingly based on the type of question chosen and then submit and after submission it
+should reflect in the respective chosen class." The page asked for a chapter (required for pictures — a
+dead end on a database with none), a subtopic, a class, a difficulty, an optional type and the marks; a
+file's own class and chapter overrode them row by row; and a chapter the bank lacked refused its rows until
+it was created in a separate step.
+
+**Decision.**
+1. **The form is the owner's five fields, in their order**: file type, class, question type (MCQ — more
+   than one correct; single correct; fill in the blank; true or false), an optional topic, the file.
+   Difficulty and marks sit under "More settings" with the old defaults (Medium, 4, 1).
+2. **The class and the type chosen are every question's.** The upload route always passes `formDecides`.
+   A row naming another class keeps the form's, with a note on the question. A row or Word block marked as
+   another type is reported by `fixedTypeFor()`; a bare "MCQ" or "objective" is not, because it has always
+   read as single correct in a file and the owner's MCQ is *multiple* correct.
+3. **A topic is a name, and becomes a chapter when its questions are saved.** Typed on the form it is
+   every question's; otherwise the row's own, the chapter the words point to (detection, unambiguous only),
+   an older caller's chapter id as the fallback it always was, else **General**. Matching ignores case and
+   spacing. A name the bank lacks is made by `approveImport()` through `createTopic()` — never by the
+   preview, which still writes nothing but its `ImportBatch` — only for a caller holding `taxonomy:write`,
+   each chapter audited as `topic.changed`. A name only an archived chapter holds refuses the question
+   with the reason rather than reviving the chapter quietly.
+4. **The Daily Quiz import is unchanged.** It calls `previewImport()` without `formDecides`, so its file's
+   class and chapter still decide and an unknown chapter is still refused and listed (`unknownChapters`).
+5. **"Reflect in the respective class"** is the saved questions being in that class's bank: they are
+   drafts there (what the Daily Quiz needs; "Save and publish to Practice" is beside it), and the
+   confirmation links to `/admin/questions` filtered to the class — that page now reads its filters from
+   the address.
+
+**Why not keep refusing unknown chapters.** The refusal kept "one bad spreadsheet" from reshaping the
+syllabus, at the price of a step the owner found too much and, for pictures, a hard stop. What remains is
+the review: every card shows its topic, marked "new topic", before anything is saved, and a mistaken
+chapter is renamed or archived under Chapters.
+
+**Why a chapter, rather than letting a question have none.** `Question.topic` is required, and practice by
+chapter, the analytics and the mock-test spread all read it. Filing under a named chapter, or General,
+keeps every one of them working with no migration.
+
+**Supersedes**, for the question upload only: "An importer still never creates chapters" (2026-08-28) and
+the "never creates one" half of "An importer suggests a taxonomy by name" (2026-08-18).
+
 ## 2026-10-09 — Milestone 30 Phase 7b: picture questions — the picture is the question
 
 **Context.** The owner asked for questions that are pictures, "instead of OCR, as of now": the uploaded
@@ -2298,6 +2345,9 @@ first thing a competition desk does with this file is a pivot table.
 
 ## 2026-08-28 — An importer still never creates chapters; the review screen offers to
 
+> **Superseded on 2026-10-09 for the question upload page**, where a topic named on the form or in the file
+> becomes a chapter when its questions are saved (ADR of that date). Still true of the Daily Quiz import.
+
 **Decision**: `previewImport()` returns `unknownChapters` — the distinct chapter names a file
 stated that the bank does not have — and the review screen offers to create them in one action via
 `POST /admin/chapters/bulk`. The import path itself is **unchanged**: a stated chapter that does
@@ -2802,6 +2852,10 @@ spec's upper case would have been a migration over the whole bank for a cosmetic
 ---
 
 ## 2026-08-18 — An importer suggests a taxonomy by name; it never supplies an id, and never creates one
+
+> **Partly superseded on 2026-10-09**: on the question upload page a topic named on the form or in the file
+> becomes a chapter when its questions are saved, and the form's class wins over a row's (ADR of that
+> date). An importer still never supplies an id.
 
 **Decision**: `ImportedCandidate.taxonomy` is an `ImportedTaxonomyHint` of **names as the file wrote
 them** (class, chapter, subtopic, difficulty), all nullable. `services/questionImportService.ts` resolves

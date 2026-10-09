@@ -117,10 +117,18 @@ what those students were asked.
 question): Admin → Question Bank → **New question** → **Picture of the question** → choose the picture,
 then **describe it in one line** — a screen reader says that line instead of the picture, so for a
 student who cannot see it, that line is the question. Type the options and mark the right one as usual.
-The worked solution can be written, or be a second picture (**Picture of the worked solution**). Many at
-once: Admin → **Bulk Import** → **Pictures** → choose a chapter and up to 20 pictures → **Prepare the
-pictures**, then describe and answer each card and approve. Pictures are made smaller before they are
-uploaded, so a phone photograph is fine; crop each to its one question. Then schedule it like any other.
+The worked solution can be written, or be a second picture (**Picture of the worked solution**).
+
+**Many questions at once** (simplified on 9 October, as you asked): Admin → **Bulk Import**, then
+1. what you are uploading — **Word, Excel, CSV, JSON or Photo**; 2. the **class**; 3. the **question type**
+— MCQ (more than one correct), single correct, fill in the blank, or true or false; 4. a **topic** if you
+want one (leave it blank and the file's own topic is used, or "General"); 5. the file, or up to 20 photos.
+Press **Read the questions** (or **Upload the photos**): each question appears as a card — for a photo,
+describe it in one line and give its answer in the boxes its type shows. Then **Save … to Class 7**. The
+questions are saved to that class as drafts (ready to schedule as a Daily Quiz; **Save and publish to
+Practice** publishes the ones that have a solution), a new topic becomes a chapter, and the link under the
+message opens the question bank on that class. For Excel, CSV and JSON, **Download the Excel template**
+first; for Word, the box under the file field shows how to write each question.
 
 ## 5. Choosing, confirming and announcing winners
 

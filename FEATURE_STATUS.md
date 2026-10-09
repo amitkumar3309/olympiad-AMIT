@@ -246,6 +246,7 @@ and the export in Phase E, when the data behind them exists.
 | Question validation for imports | **IMPLEMENTED, TESTED** | The *same* `createQuestionSchema` a hand-authored question passes. No second validator. |
 | Class validation for imports | **IMPLEMENTED, TESTED** | Centralised in `lib/classLevels.ts`, already the single source. Still `Class 5`–`Class 11` + three Class-12 streams — **the 3–12 range is Phase J**. |
 | Approve / reject, with provenance and audit | **IMPLEMENTED, TESTED** | Approval is the only writer; questions are created as `draft`. |
+| **The owner's simple upload form (2026-10-09)** | **IMPLEMENTED, TESTED (backend + Playwright)** | File type, class, question type, optional topic — **no chapter**. The form's class and type are every question's (`formDecides`; `fixedTypeFor()`); the topic is a name, made a chapter **on saving** by `approveImport()` for a `taxonomy:write` caller and audited. The save links to the bank filtered to the class. The Daily Quiz import keeps the earlier reading. |
 | Admin authorization on import routes | **IMPLEMENTED, TESTED** | `questions:write`, asserted 403 for a student on both URL prefixes. |
 | Rate limiting + server-side bulk limits | **IMPLEMENTED**, not asserted | `importLimiter` (limiters are disabled under test, as everywhere). |
 | **Excel parsing** | **IMPLEMENTED, TESTED** | Phase C. `services/excelImportParser.ts`, 57 tests against real `.xlsx` files. All five question types; any column order; loose headings; every sheet; per-row class/chapter/difficulty. |
@@ -333,6 +334,10 @@ These are backend capabilities, not user-facing features. `TESTED` here means co
 | Transparent token refresh (frontend) | IMPLEMENTED | NOT_STARTED | `api/client.ts` retries once after a 401, de-duplicating concurrent refreshes through a shared promise so rotation cannot trip theft detection. Verified manually. |
 
 ## Bulk import: naming a chapter the bank does not have — RESOLVABLE IN ONE ACTION
+
+> **Since 2026-10-09 this is the Daily Quiz import's behaviour only.** The question upload page has no
+> chapter to choose: a topic it names (typed, or the file's own) becomes a chapter when the questions are
+> saved — see "The owner's simple upload form" above.
 
 Chapters are **not class-scoped** (`Topic` has no `classLevel`), so there is one flat chapter list per
 subject and each new class needs its chapters adding once. A bank seeded for Class 12 therefore

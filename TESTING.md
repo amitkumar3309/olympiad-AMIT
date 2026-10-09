@@ -37,6 +37,18 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The simple upload form (2026-10-09): 1415 passing backend tests across 39 files** (+16). In
+> `questionImport.test.ts`, the route now reads with `formDecides`: the form's class on every question (a
+> row's other class is a note), a row's own topic when none is typed, a new topic offered and made a
+> chapter only on saving (once, whatever its case, audited), General, an archived name refused, no
+> chapter without `taxonomy:write`, the dry run on a new topic — and the earlier reading, which the Daily
+> Quiz import keeps, is held by direct `previewImport()` tests. `excelImport`/`docxImport`: the type
+> chosen on the form against real files (a row marked otherwise reported; "MCQ" with two answers read as
+> multiple correct). `picture-questions.spec.ts` drives the new form to the bank filtered by class.
+> **Running the browser suite in a git worktree whose `node_modules` is a junction fails** — the build's
+> output goes inside `node_modules`, and the bundler resolves the junction to a different path than the
+> homepage-drawing step reads; point `E2E_DIST` at a real folder for that run (TROUBLESHOOTING.md).
+>
 > **The Diwali trial (2026-10-09):** two browser tests assumed the day they ran was an ordinary one —
 > `diwali.spec.ts`'s `?season=auto` check and `prerender.spec.ts`'s dark-theme check — and failed during
 > the 24-hour trial, as they would have during the real week. Both now pin 1 December with `page.clock`.

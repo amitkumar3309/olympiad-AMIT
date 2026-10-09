@@ -2,6 +2,37 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-09 — Uploading questions: the owner's five-field form, with no chapter to choose
+
+The owner's request of 2026-10-09: "simplify the question upload process for admin, remove the part where
+he/she has to choose the chapters" — choose the file type, the class, the question type and an optional
+topic, give the answers, submit, and see the questions in that class. Branch `feat/simple-question-upload`.
+
+- **The form** (Admin → Bulk Import): 1. Word, Excel, CSV, JSON or Photo · 2. the class, 3 to 12 ·
+  3. the type — MCQ (more than one correct), single correct, fill in the blank, true or false · 4. a topic,
+  optional · 5. the file or photos. Difficulty and marks moved under "More settings". No chapter, no
+  subtopic, nothing to create under Chapters first.
+- **The form decides.** The class and the type chosen are every question's: a file naming another class
+  is noted on the question; a row marked as another type is reported (a bare "MCQ" is not, since a file has
+  always meant single correct by it). The hint under the type says how to write the answer in the file.
+- **The topic is a name** — typed, else the file's own, else the chapter the question's words point to,
+  else General — and **becomes a chapter when the questions are saved** (never by reading the file), for
+  a staff member who may manage chapters, each one audited. Every card shows "Class 7 · Mensuration" and
+  marks a topic saving will add.
+- **Each card asks for the answer its type needs**: one option marked (radio buttons) for single correct,
+  several for MCQ, True / False for true or false (nothing chosen until you choose), the accepted answers
+  for fill in the blank — whose box no longer swallowed the `|` as it was typed.
+- **"It should reflect in the chosen class"**: the confirmation says "Saved 12 questions to Class 7", names
+  any topic added, and links to the question bank filtered to that class — the bank now reads its filters
+  from the address, so the old "Open the question bank" link's `?source=` stopped being ignored.
+- Unchanged: questions are saved as drafts (a Daily Quiz needs one; "Save and publish to Practice" is
+  beside it), one screener, re-validation on saving, provenance from the batch. **The Daily Quiz import
+  reads files as before** — its file's class and chapter decide, and an unknown chapter is refused.
+- Tests: **1415 backend tests across 39 files** (+16: the form's class, type and topic; General; a typed
+  topic matched whatever its case; a new topic made once on saving and audited; an archived one refused;
+  no chapter without the permission; the dry run on a new topic; the real Excel and Word readers with a
+  fixed type; pictures with no chapter). The photo browser test drives the new form to the filtered bank.
+
 ## 2026-10-09 — The Diwali edition on the live site for 24 hours, for testing
 
 The owner's request of 2026-10-09: "make the diwali theme go live for 24 hours from now for testing
