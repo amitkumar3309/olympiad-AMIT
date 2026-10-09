@@ -156,9 +156,10 @@ export default function Profile() {
   }, [load])
 
   /**
-   * `/profile#prize-details` and `/profile#daily-quiz-history` are linked from the Daily
-   * Quiz. The router does not scroll to a fragment on its own, and the sections only exist
-   * once the profile has loaded, so this does it then.
+   * `/profile#prize-details`, `/profile#daily-quiz-history` and
+   * `/profile#notification-preferences` are linked from the Daily Quiz. The router does not
+   * scroll to a fragment on its own, and the sections only exist once the profile has
+   * loaded, so this does it then.
    */
   const { hash } = useLocation()
   useEffect(() => {
@@ -640,7 +641,9 @@ export default function Profile() {
             {/* ---------------------------------------------------------------
                 Notification preferences (Milestone 14)
             --------------------------------------------------------------- */}
-            <h3>Notification preferences</h3>
+            <h3 id="notification-preferences" className={styles.anchored}>
+              Notification preferences
+            </h3>
             <p className={styles.hint}>
               These control <strong>email only</strong>. Everything is always saved to your{' '}
               <Link to="/notifications">notifications page</Link>, so switching an email off never means losing the
@@ -676,6 +679,25 @@ export default function Profile() {
                   <span>
                     <strong>Results</strong>
                     <em>Email me when an official exam result is released to me.</em>
+                  </span>
+                </label>
+
+                {/*
+                  The Daily Quiz reminder (Milestone 30 Phase 7b) — off until the student turns
+                  it on, unlike the two above. Shown even when the scheduler is not set up, so a
+                  student can always turn one off; the quiz itself offers it only when it can be
+                  sent.
+                */}
+                <label className={styles.prefRow}>
+                  <input
+                    type="checkbox"
+                    checked={prefs.preferences.dailyQuizReminders}
+                    disabled={prefsSaving}
+                    onChange={(e) => void savePrefs({ dailyQuizReminders: e.target.checked })}
+                  />
+                  <span>
+                    <strong>Daily Quiz reminder</strong>
+                    <em>An email at 7:00 AM when today’s quiz is open and you have not started it.</em>
                   </span>
                 </label>
 

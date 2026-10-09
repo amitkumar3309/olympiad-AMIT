@@ -1812,12 +1812,24 @@ export interface QuizResult {
   reveal: QuizReveal | null
 }
 
+/**
+ * The 7:00 AM reminder email, as today's quiz reports it (Milestone 30 Phase 7b). `available`
+ * is false unless something will really send one — the scheduler is set up on the server and
+ * the programme is switched on — and the page offers nothing then. `on` is the student's own
+ * switch, the same one as My Profile → Notification preferences.
+ */
+export interface QuizReminders {
+  on: boolean
+  available: boolean
+}
+
 export interface DailyQuizToday {
   /** The server's clock — every countdown on the page is offset from this. */
   serverNow: string
   today: string
   prize: QuizPrizeInfo
   eligibility: QuizEligibility
+  reminders: QuizReminders
   streak: { current: number; longest: number }
   /** The student's most recent earlier quiz, once its answer is unlocked. */
   previous: { day: string; topic: string | null; isCorrect: boolean; revealed: boolean } | null
@@ -2029,12 +2041,37 @@ export interface QuizCandidatesResponse {
   pagination: Pagination
 }
 
+/**
+ * What the reminder job did the last time the scheduler called it (Milestone 30 Phase 7b) —
+ * written by the job, never by a person.
+ */
+export interface ReminderRun {
+  /** The quiz day it ran for (IST). */
+  day: string
+  at: string
+  /** False when it found reminders switched off and queued nothing. */
+  enabled: boolean
+  /** Wanted a reminder and could receive one, in a class with a quiz that day. */
+  eligible: number
+  alreadyStarted: number
+  /** Already reminded that day by an earlier run. */
+  alreadyReminded: number
+  overCap: number
+  queued: number
+  failed: number
+}
+
 /** How winners are chosen is not a setting: one a month in each class band (PLAN.md Q24). */
 export interface QuizSettings {
   prizeHeadline: string
   prizeText: string
   cashAmount: number | null
   instantResult: boolean
+  /** The reminder programme's switch — students still turn reminders on one by one. */
+  remindersEnabled: boolean
+  /** The most reminder emails one day may queue (0–300). */
+  reminderDailyCap: number
+  lastReminderRun: ReminderRun | null
   updatedAt: string | null
   updatedByLabel: string | null
 }
@@ -2657,15 +2694,18 @@ export interface BroadcastOutcome {
 }
 
 /**
- * The two switchable email streams (Milestone 14).
+ * The switchable email streams (Milestone 14; the Daily Quiz reminder since Milestone 30
+ * Phase 7b).
  *
  * Deliberately short: these are the only optional streams that exist. Verification,
  * password reset, password-change warnings and account-status changes are always
  * sent, and the API reports them under `always` rather than offering dead switches.
+ * `dailyQuizReminders` is the one that is off until the student turns it on.
  */
 export interface NotificationPrefs {
   announcements: boolean
   results: boolean
+  dailyQuizReminders: boolean
 }
 
 export interface NotificationPrefsResponse {
@@ -2675,7 +2715,7 @@ export interface NotificationPrefsResponse {
   inAppAlwaysOn: boolean
 }
 
-export type EmailCategory = 'transactional' | 'security' | 'announcement' | 'results'
+export type EmailCategory = 'transactional' | 'security' | 'announcement' | 'results' | 'reminders'
 export type EmailStatus = 'pending' | 'sent' | 'failed'
 
 /** One row of the outbox, as the delivery console shows it. The body is never sent. */
