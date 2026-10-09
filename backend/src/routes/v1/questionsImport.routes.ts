@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { requirePermission } from '../../middleware/auth';
+import { callerCan, requirePermission } from '../../middleware/auth';
 import { validate } from '../../middleware/validate';
 import { ensureDb } from '../../middleware/ensureDb';
 import { importLimiter } from '../../middleware/rateLimiter';
@@ -176,6 +176,10 @@ function previewHandler(kind: ImportFileKind) {
           marks: body.marks,
           negativeMarks: body.negativeMarks,
           questionType: body.questionType,
+          // The upload page (owner, 2026-10-09): the class and type chosen on the form are every
+          // question's, and the topic is a name rather than a chapter to choose.
+          formDecides: true,
+          topicName: body.topicName,
         },
         actorFrom(req),
       );
@@ -244,8 +248,10 @@ router.post(
         {
           pictures: body.pictures,
           topic: body.topic,
+          topicName: body.topicName,
           subtopic: body.subtopic,
           classLevel: body.classLevel,
+          questionType: body.questionType ?? undefined,
           difficulty: body.difficulty,
           marks: body.marks,
           negativeMarks: body.negativeMarks,
@@ -290,9 +296,26 @@ router.post(
       const actor = actorFrom(req);
 
       const outcome = await approveImport(
-        { batchId: input.batchId, questions: input.questions },
+        {
+          batchId: input.batchId,
+          questions: input.questions,
+          // A topic typed as a name becomes a chapter only for somebody who may add chapters —
+          // every staff role today, but the import must not be a way round the permission.
+          mayCreateChapters: callerCan(req, 'taxonomy:write'),
+        },
         actor,
       );
+
+      // Each chapter made for a typed topic is recorded as one made by hand under Chapters is.
+      for (const chapter of outcome.chaptersCreated) {
+        await recordAudit(req, {
+          action: 'topic.changed',
+          targetType: 'topic',
+          targetId: chapter.id,
+          targetLabel: chapter.name,
+          metadata: { operation: 'created', depth: 0, fromImport: input.batchId },
+        });
+      }
 
       /**
        * Publishing is a **second** deliberate act, and it goes through
@@ -332,6 +355,7 @@ router.post(
           created: outcome.created.length,
           rejected: outcome.rejected.length,
           published,
+          chaptersCreated: outcome.chaptersCreated.map((chapter) => chapter.name),
         },
       });
 
@@ -346,6 +370,8 @@ router.post(
         rejected: outcome.rejected,
         published,
         publishFailures,
+        // The topics that became chapters with this save, so the page can say so.
+        chaptersCreated: outcome.chaptersCreated,
       });
     } catch (err) {
       respondToServiceError(res, err, {
@@ -408,7 +434,8 @@ router.post(
           marks: question.marks,
           negativeMarks: question.negativeMarks,
           tags: question.tags,
-          topic: question.topic,
+          topic: question.topic ?? null,
+          topicName: question.topicName ?? null,
           subtopic: question.subtopic ?? null,
           classLevel: question.classLevel,
           difficulty: question.difficulty,

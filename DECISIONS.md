@@ -4,6 +4,114 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — The question upload: the form decides the class and the type, and a topic is a name
+
+**Context.** The owner (2026-10-09): "Simplify the question upload process for admin, remove the part
+where he/she has to choose the chapters. Just there should be option to select the type of file being
+uploaded (word docx, excel, csv, json, photo) and then there should be dropdown of classes from 3 to 12
+and after that there should be field of selecting the type of question like mcq, single correct, fill in
+blank or true/false, then there should be an optional field to write the topic for that and then field to
+add options accordingly based on the type of question chosen and then submit and after submission it
+should reflect in the respective chosen class." The page asked for a chapter (required for pictures — a
+dead end on a database with none), a subtopic, a class, a difficulty, an optional type and the marks; a
+file's own class and chapter overrode them row by row; and a chapter the bank lacked refused its rows until
+it was created in a separate step.
+
+**Decision.**
+1. **The form is the owner's five fields, in their order**: file type, class, question type (MCQ — more
+   than one correct; single correct; fill in the blank; true or false), an optional topic, the file.
+   Difficulty and marks sit under "More settings" with the old defaults (Medium, 4, 1).
+2. **The class and the type chosen are every question's.** The upload route always passes `formDecides`.
+   A row naming another class keeps the form's, with a note on the question. A row or Word block marked as
+   another type is reported by `fixedTypeFor()`; a bare "MCQ" or "objective" is not, because it has always
+   read as single correct in a file and the owner's MCQ is *multiple* correct.
+3. **A topic is a name, and becomes a chapter when its questions are saved.** Typed on the form it is
+   every question's; otherwise the row's own, the chapter the words point to (detection, unambiguous only),
+   an older caller's chapter id as the fallback it always was, else **General**. Matching ignores case and
+   spacing. A name the bank lacks is made by `approveImport()` through `createTopic()` — never by the
+   preview, which still writes nothing but its `ImportBatch` — only for a caller holding `taxonomy:write`,
+   each chapter audited as `topic.changed`. A name only an archived chapter holds refuses the question
+   with the reason rather than reviving the chapter quietly.
+4. **The Daily Quiz import is unchanged.** It calls `previewImport()` without `formDecides`, so its file's
+   class and chapter still decide and an unknown chapter is still refused and listed (`unknownChapters`).
+5. **"Reflect in the respective class"** is the saved questions being in that class's bank: they are
+   drafts there (what the Daily Quiz needs; "Save and publish to Practice" is beside it), and the
+   confirmation links to `/admin/questions` filtered to the class — that page now reads its filters from
+   the address.
+
+**Why not keep refusing unknown chapters.** The refusal kept "one bad spreadsheet" from reshaping the
+syllabus, at the price of a step the owner found too much and, for pictures, a hard stop. What remains is
+the review: every card shows its topic, marked "new topic", before anything is saved, and a mistaken
+chapter is renamed or archived under Chapters.
+
+**Why a chapter, rather than letting a question have none.** `Question.topic` is required, and practice by
+chapter, the analytics and the mock-test spread all read it. Filing under a named chapter, or General,
+keeps every one of them working with no migration.
+
+**Supersedes**, for the question upload only: "An importer still never creates chapters" (2026-08-28) and
+the "never creates one" half of "An importer suggests a taxonomy by name" (2026-08-18).
+
+## 2026-10-09 — Milestone 30 Phase 7b: Daily Quiz reminders — an outside scheduler with a bearer secret, a send order, a daily cap, and reminders that expire
+
+**Context.** The owner asked for Daily Quiz reminder emails, opt-in, at 7:00 AM IST (PLAN.md Q20,
+§5c). Nothing in this product runs on a clock: the email queue drains when a request happens to kick
+it (known bug #41 — mail waits on an idle site), and the free Vercel plan's cron runs at most daily and
+only to the hour. The email provider's free quota (Brevo: 300 a day) is shared with every verification
+link, without which a student cannot sign in. And the outbox kept every row for ever.
+
+**Decision.**
+1. **An outside scheduler, behind a bearer secret.** Two routes, `POST /jobs/daily-quiz-reminders`
+   (daily at 07:00 Asia/Kolkata) and `POST /jobs/outbox` (every minute), called by a free external
+   pinger — the owner had already chosen cron-job.org over paid Vercel Cron (PROJECT_STATE.md,
+   "Daily-challenge automation"). Each requires `Authorization: Bearer <JOBS_SECRET>`: a new optional
+   environment variable of at least 32 characters, compared with `timingSafeEqual` over SHA-256 digests
+   (constant time, equal lengths, the secret's length not revealed), checked before `ensureDb`. Unset,
+   both answer **503 naming the variable** and the Daily Quiz offers no reminder — failing closed, and
+   saying why. The every-minute outbox call is the first driver of the queue with a deadline, which is
+   what closes bug #41 where the owner sets it up; the three existing drivers stay, because a scheduler
+   is configuration somebody can forget.
+2. **Opt-in, per student.** `Student.notificationPrefs.dailyQuizReminders`, **false** on a new account
+   and when missing — the only preference that defaults off, because a daily email is something a
+   student asks for. A new switchable category, `reminders`, interpreted only by `emailAllowedFor()`.
+   Turned on in My Profile or with one tap on the Daily Quiz card, which offers it only when something
+   will really send it (`reminders.available`: the secret is set and staff have not switched the
+   programme off).
+3. **A send order.** `EmailOutbox.priority`, set from the category by `enqueueEmail()`: 0 for
+   transactional and security mail, 1 for announcements and results, 2 for reminders; the drain claims
+   the lowest first (`{ status, priority, nextAttemptAt }`). A verification link queued at 07:01 goes
+   ahead of the hundred reminders queued at 07:00.
+4. **A daily cap**, staff-editable (`DailyQuizSettings.reminderDailyCap`, default 100, at most 300 —
+   the whole free quota), with an on/off switch (`remindersEnabled`, default on: students still opt in
+   one by one). Reminders already queued that day count against it, so two runs cannot together exceed
+   it, and when there is less room than students they are taken in an order hashed from the day and the
+   student — fixed within a day, different between days — so the cap does not always cut the same
+   children.
+5. **Once per student per day.** The dedupe key `dailyquiz-reminder:<day>:<student>` on the outbox's
+   existing partial-unique index, so a retried or doubled trigger sends nobody a second email. The job
+   queues the whole batch with `enqueueEmail(..., { dispatch: false })` and starts one drain.
+6. **Reminders expire; nothing else does.** A reminder row carries `expiresAt`, 14 days after it was
+   queued, and a TTL index on that field removes it. No other category is given the field, so the
+   outbox's no-TTL rule — a delivery record is the evidence for "we did tell them" — holds for
+   everything that is evidence. Up to 100 reminders a day is growth bounded by the calendar rather than
+   by events, which a free 512 MB database should not keep for ever.
+7. **The email gives nothing away.** The class range, the topic and the closing time — what the quiz
+   card shows before Start — never the question or an option, because the solve time starts at Start
+   and a question in an inbox is a head start anybody can forward. It loads nothing and says how to
+   turn reminders off.
+8. **The run is visible.** Each run (even one that found reminders off) is written to
+   `DailyQuizSettings.lastReminderRun` — without touching `updatedAt`, which means "an administrator
+   changed the settings" — and the settings page shows it, with a warning when the server has no
+   secret, so the owner can see the scheduler is really calling.
+
+Rejected: **Vercel Cron** (the free plan is hour-accurate and daily; minute-level is paid — against
+₹0); **a scheduler inside the app** (a serverless function does not run between requests); **a secret
+in the query string** (it would sit in every proxy and access log; a header is redacted from ours);
+**a plain `===` on the secret** (its timing depends on the first difference); **opt-out reminders**
+(unasked daily mail is how a free sender loses its reputation, and with it every verification link);
+**a separate reminders queue or collection** (one queue, `enqueueEmail()`, is the rule — priority
+expresses the difference); **a TTL on the whole outbox** (it would delete the evidence the outbox
+keeps); **naming the question in the email** (see 7).
+
 ## 2026-10-09 — Milestone 30 Phase 7b: picture questions — the picture is the question
 
 **Context.** The owner asked for questions that are pictures, "instead of OCR, as of now": the uploaded
@@ -2298,6 +2406,9 @@ first thing a competition desk does with this file is a pivot table.
 
 ## 2026-08-28 — An importer still never creates chapters; the review screen offers to
 
+> **Superseded on 2026-10-09 for the question upload page**, where a topic named on the form or in the file
+> becomes a chapter when its questions are saved (ADR of that date). Still true of the Daily Quiz import.
+
 **Decision**: `previewImport()` returns `unknownChapters` — the distinct chapter names a file
 stated that the bank does not have — and the review screen offers to create them in one action via
 `POST /admin/chapters/bulk`. The import path itself is **unchanged**: a stated chapter that does
@@ -2802,6 +2913,10 @@ spec's upper case would have been a migration over the whole bank for a cosmetic
 ---
 
 ## 2026-08-18 — An importer suggests a taxonomy by name; it never supplies an id, and never creates one
+
+> **Partly superseded on 2026-10-09**: on the question upload page a topic named on the form or in the file
+> becomes a chapter when its questions are saved, and the form's class wins over a row's (ADR of that
+> date). An importer still never supplies an id.
 
 **Decision**: `ImportedCandidate.taxonomy` is an `ImportedTaxonomyHint` of **names as the file wrote
 them** (class, chapter, subtopic, difficulty), all nullable. `services/questionImportService.ts` resolves

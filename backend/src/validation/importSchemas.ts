@@ -9,6 +9,7 @@ import { questionPictureSchema, solutionPictureSchema } from './questionImageSch
 import { QUESTION_IMAGE_KEY } from '../models/QuestionImage';
 import { config } from '../config';
 import { validateMathContent } from '../lib/mathContent';
+import { chapterNameSchema } from './taxonomySchemas';
 
 /**
  * Request validation for the bulk question importer (Milestone 21).
@@ -53,6 +54,24 @@ const mathText = (label: string, { min = 1, max = 5000 }: { min?: number; max?: 
       if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
     });
 
+/**
+ * The topic typed on the question upload form (owner, 2026-10-09) — a **name**, not a chapter to
+ * pick. Held to a chapter name's rules, because it becomes one when its questions are saved.
+ * Blank or absent is none: the questions then go under the topic their file gives, or General.
+ */
+const topicNameInput = z
+  .string()
+  .trim()
+  .nullish()
+  .transform((value) => (value ? value : null))
+  .superRefine((value, ctx) => {
+    if (value === null) return;
+    const parsed = chapterNameSchema.safeParse(value);
+    if (!parsed.success) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: parsed.error.issues[0]?.message ?? 'That cannot be a topic.' });
+    }
+  });
+
 /** The defaults an examiner sets once for the upload, for rows that do not say. */
 const importDefaults = {
   /**
@@ -66,11 +85,14 @@ const importDefaults = {
    * recommendation engine reads.
    */
   topic: objectId('Chapter').nullish().default(null),
+  /** The topic as a name (the simplified upload). Every question goes in a chapter of this name. */
+  topicName: topicNameInput,
   subtopic: objectId('Subtopic').nullish().default(null),
   classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
   difficulty: z.enum(DIFFICULTIES).default('Medium'),
   /**
-   * The answer shape to assume when a file does not label one.
+   * The answer shape to assume when a file does not label one. On the question upload page the
+   * form always sends one, and it is then every question's type (`fixedTypeFor()`).
    *
    * `null` means "work it out from the row" — a row with four option columns is a choice
    * question whatever the file calls it. A parser that cannot tell reports the row as needing
@@ -138,7 +160,12 @@ export const reviewedImportQuestion = z.object({
   tags: z.array(z.string().trim().max(40)).max(20).default([]),
 
   // --- Where this one goes ---
-  topic: objectId('Chapter'),
+  /**
+   * The chapter — or null for a topic typed as a name that the bank does not have yet, in which
+   * case `topicName` is made a chapter when the question is approved (the simplified upload).
+   */
+  topic: objectId('Chapter').nullish().default(null),
+  topicName: topicNameInput,
   subtopic: objectId('Subtopic').nullish().default(null),
   classLevel: z.enum(CLASS_LEVELS, { message: 'Choose a class' }),
   difficulty: z.enum(DIFFICULTIES).default('Medium'),
@@ -149,13 +176,13 @@ export const reviewedImportQuestion = z.object({
 
 /**
  * A batch of pictures to become questions (Milestone 30 Phase 7b). Each picture was uploaded on its
- * own first; this names them by key. A chapter is **required** — a picture has no words to detect
- * one from — and the file name is a label for the review screen, never a path.
+ * own first; this names them by key. The topic is the one typed on the form, or General — a picture
+ * has no words to work one out from (owner, 2026-10-09: no chapter to choose) — and the file name
+ * is a label for the review screen, never a path.
  */
 export const pictureImportSchema = z
   .object({
     ...importDefaults,
-    topic: objectId('Chapter'),
     pictures: z
       .array(
         z.object({

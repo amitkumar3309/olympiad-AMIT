@@ -399,12 +399,24 @@ describe('picture questions', () => {
       expect(status.body.limits.maxPictures).toBe(20);
     });
 
-    it('needs a chapter and pictures this site stored', async () => {
+    /** The owner, 2026-10-09: no chapter to choose — a topic is typed, or the pictures go under General. */
+    it('needs pictures this site stored, but no chapter: a typed topic, or General', async () => {
       const { cookies, taxonomy, picture } = await setUp();
-      const noChapter = await importPictures(cookies, { classLevel: 'Class 9', pictures: [{ key: picture.key, name: 'a.png' }] });
-      expect(noChapter.status).toBe(400);
+      const general = await importPictures(cookies, { classLevel: 'Class 9', pictures: [{ key: picture.key, name: 'a.png' }] });
+      expect(general.status).toBe(200);
+      expect(general.body.questions[0]).toMatchObject({ topic: null, topicName: 'General', classLevel: 'Class 9' });
+
+      // A typed topic matches a chapter whatever its case, and the form's type shapes each card.
+      const typed = await importPictures(cookies, {
+        classLevel: 'Class 9',
+        topicName: 'algebra',
+        questionType: 'true_false',
+        pictures: [{ key: picture.key, name: 'a.png' }],
+      });
+      expect(typed.status).toBe(200);
+      expect(typed.body.questions[0]).toMatchObject({ topic: taxonomy.topicId, topicName: 'Algebra', type: 'true_false', booleanAnswer: null });
+
       const unknown = await importPictures(cookies, {
-        topic: taxonomy.topicId,
         classLevel: 'Class 9',
         pictures: [{ key: 'e'.repeat(32), name: 'gone.png' }],
       });

@@ -37,6 +37,42 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The simple upload form (2026-10-09): 1415 passing backend tests across 39 files** (+16). In
+> `questionImport.test.ts`, the route now reads with `formDecides`: the form's class on every question (a
+> row's other class is a note), a row's own topic when none is typed, a new topic offered and made a
+> chapter only on saving (once, whatever its case, audited), General, an archived name refused, no
+> chapter without `taxonomy:write`, the dry run on a new topic — and the earlier reading, which the Daily
+> Quiz import keeps, is held by direct `previewImport()` tests. `excelImport`/`docxImport`: the type
+> chosen on the form against real files (a row marked otherwise reported; "MCQ" with two answers read as
+> multiple correct). `picture-questions.spec.ts` drives the new form to the bank filtered by class.
+> **Running the browser suite in a git worktree whose `node_modules` is a junction fails** — the build's
+> output goes inside `node_modules`, and the bundler resolves the junction to a different path than the
+> homepage-drawing step reads; point `E2E_DIST` at a real folder for that run (TROUBLESHOOTING.md).
+>
+> **Daily Quiz reminders (2026-10-09, Milestone 30 Phase 7b): 1421 passing backend tests across 40 files**
+> (`npm test` in `backend/`, about seven minutes on this laptop). New: `tests/dailyQuizReminders.test.ts`
+> (22) — the job routes' 503 naming `JOBS_SECRET` with no secret, 401 for a missing, wrong,
+> one-character-off or non-Bearer header on both prefixes, 200 with the right one; exactly one email for
+> each opted-in, verified, active student in a class with a quiz today who has not started, and nobody
+> else; a second trigger sending nothing new; the daily cap counting what is already queued, a cap of 0,
+> and the hashed order that rotates by day; `remindersEnabled` off; the email naming the classes, the
+> topic and the closing time but **never** the question, an option or the solution (marker text in all
+> three); a verification email sent before reminders queued earlier (mutation-checked: with the old sort
+> the test fails); the priorities; `/jobs/outbox` draining; reminder rows expiring 14 days after
+> queueing and no other row carrying `expiresAt`; the TTL and priority indexes; the preference off by
+> default, saved alone and audited; the settings round-trip, an omitted field kept, a cap outside 0–300
+> refused; `lastReminderRun` recorded without touching `updatedAt`; and today's quiz carrying
+> `reminders` in every state. `notifications.test.ts` now expects the third preference. Mutating
+> `config.jobs.secret` in a test is how the secret is set — restore it afterwards, as this file does.
+> Its backend (`scripts/e2e-server.ts`) now sets a test-only `JOBS_SECRET`, so the crawler sees the Daily
+> Quiz's "Email me a reminder at 7 AM" button and checks it like every other (a name, 44 px at 390, axe).
+> **Browser:** `daily-quiz.spec.ts` gains "a student turns on the 7 AM reminder from the quiz card, and My
+> Profile shows it on" (both widths) — **88 browser tests (61 run, 27 one-width-only)**. Run on this
+> branch, 2026-10-09: `daily-quiz` + `dashboard` 11/11 and `crawler` 6/6 at both widths.
+> `responsiveness.spec.ts` failed at 390px — and failed the same way on the branch's base (`ae2c17e`,
+> 584 ms for "I already have an account" against 264 ms here): the 24-hour Diwali trial was live, so the
+> first test, on the real clock, drew the edition. Not this branch's; see the trial note below.
+>
 > **The Diwali trial (2026-10-09):** two browser tests assumed the day they ran was an ordinary one —
 > `diwali.spec.ts`'s `?season=auto` check and `prerender.spec.ts`'s dark-theme check — and failed during
 > the 24-hour trial, as they would have during the real week. Both now pin 1 December with `page.clock`.

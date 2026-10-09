@@ -187,6 +187,40 @@ export function readQuestionType(value: string): QuestionType | null {
   return TYPE_ALIASES[normalised] ?? null;
 }
 
+/** Type labels that name a choice question without saying whether one option is right or several. */
+const AMBIGUOUS_TYPE_LABELS = new Set(['mcq', 'objective']);
+
+/** How a type is named to a person — in an import's messages, and on the upload form. */
+export const QUESTION_TYPE_NAMES: Record<QuestionType, string> = {
+  single_choice: 'single correct',
+  multiple_choice: 'multiple correct (MCQ)',
+  true_false: 'true or false',
+  numeric: 'numeric answer',
+  fill_blank: 'fill in the blank',
+};
+
+/**
+ * The type a question is read as when the upload form chose one for all of them (owner,
+ * 2026-10-09: "select the type of question … then field to add options accordingly").
+ *
+ * The form's choice is the type. A row or a document block that names **another** type is
+ * reported rather than read as the form's — a true-or-false row read as single correct would have
+ * an answer nobody could mark, and quietly dropping it would lose a question without a word. A
+ * label that names no type at all is ignored: the form has already said.
+ */
+export function fixedTypeFor(stated: string | null, fixed: QuestionType): { type: QuestionType } | { reason: string } {
+  // "MCQ" and "objective" are read as single correct when a file is left to say its own type, but
+  // the owner's form offers MCQ as *multiple* correct — so neither label can contradict the form.
+  if (stated && AMBIGUOUS_TYPE_LABELS.has(normaliseLabel(stated))) return { type: fixed };
+  const resolved = stated ? readQuestionType(stated) : null;
+  if (resolved && resolved !== fixed) {
+    return {
+      reason: `It is marked "${stated!.trim()}", but this upload is for ${QUESTION_TYPE_NAMES[fixed]} questions. Upload it again with that type chosen, or take it out of the file.`,
+    };
+  }
+  return { type: fixed };
+}
+
 /** A difficulty, case-insensitively. Nothing more forgiving than that. */
 export function readDifficulty(value: string): Difficulty | null {
   const trimmed = value.trim().toLowerCase();

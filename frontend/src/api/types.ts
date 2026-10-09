@@ -3056,8 +3056,11 @@ export interface ImportedQuestion {
   marks: number
   negativeMarks: number
   tags: string[]
-  /** Per-question placement, because a spreadsheet files row 3 and row 40 differently. */
-  topic: string
+  /**
+   * Where it goes. `topic` is the chapter's id — or null for a topic the bank does not have yet,
+   * which saving makes a chapter of `topicName` (the simplified upload, owner 2026-10-09).
+   */
+  topic: string | null
   topicName: string
   subtopic: string | null
   classLevel: ClassLevel

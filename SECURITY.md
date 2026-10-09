@@ -1108,9 +1108,11 @@ because what it receives is whatever the review screen sent after the examiner c
 candidate is **rejected and reported, never repaired**. Nothing is stored before a human approves it,
 and questions are created as `draft`: importing is not publishing.
 
-A parser also cannot supply an id — it reports the taxonomy it read as *names*, resolved server-side —
-so **an importer cannot create taxonomy rows**. One bad spreadsheet cannot reshape the syllabus; an
-unknown chapter is an error reported against that row.
+A parser also cannot supply an id — it reports the taxonomy it read as *names*, resolved server-side.
+**Since 2026-10-09 the question upload makes a chapter of a topic name the bank lacks** (the owner removed
+choosing chapters), but only when the questions are **approved** — the preview writes nothing — only for a
+caller who holds `taxonomy:write`, through `createTopic()` and its rules, and each one is audited as
+`topic.changed`. The Daily Quiz import still refuses an unknown chapter against its row.
 
 ### Open, and deliberately not attempted
 

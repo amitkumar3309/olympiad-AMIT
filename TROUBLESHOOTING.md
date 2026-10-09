@@ -49,6 +49,21 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## The browser suite's build fails with `ENOENT … node_modules/.e2e-dist/index.html` (a git worktree)
+
+**Symptom.** `npm run e2e` (or one spec) in a git worktree stops before any test, with the web server
+reporting `Build failed … ENOENT: no such file or directory, open '…/frontend/node_modules/.e2e-dist/index.html'`
+from the `amit-prerender` plugin. `node_modules/.e2e-dist` holds only the `public/` files.
+
+**Cause.** The worktree's `node_modules` is a **junction** to another checkout's (to share one install).
+The suite builds into `node_modules/.e2e-dist`; the bundler resolves the junction to its real location
+when it writes the page and the assets, while the homepage-drawing step reads `index.html` back through
+the junction's path, so it looks in the wrong place.
+
+**Fix, for that run only.** Point `E2E_DIST` in `frontend/playwright.config.ts` at a real folder outside
+`node_modules` (an absolute path without spaces), run the tests, and restore the file before committing.
+A checkout with its own `node_modules` (the usual one) is unaffected.
+
 ## An upload fails with "something went wrong" — or, since 2026-10-09, a 413
 
 **Symptom.** Before Milestone 30 Phase 7b: adding a gallery picture over about 73 KB failed with a
