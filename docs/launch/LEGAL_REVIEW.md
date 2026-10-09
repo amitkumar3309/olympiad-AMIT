@@ -62,12 +62,20 @@ parental consent** for anyone under 18; what is built is a minimum, not a legal 
     the threshold for tax deduction at source on winnings, decide how that is handled and say so.
 11. The rules state **three class groups a day** (3–5, 6–8, 9–12), as you decided (PLAN.md Q3). If a
     day is ever scheduled as one quiz for all classes, this sentence should change.
+12. **The prize is monthly** (your decision of 2026-10-09, PLAN.md Q24), and the rules page changed with
+    it (dated 9 October 2026): each month one winner in each class band — 3–5, 6–8, 9–10 and 11–12 —
+    the student with the most correct answers that month, the lower total solve time breaking a tie;
+    November counted from the 8th; winners checked and announced early the following month. Please have
+    the reviewer read sections 3–6 again. One point for them to settle: today a student who completes
+    their profile **after** the month has ended can still win it, because eligibility is checked when
+    the organisers work the candidates out. Should the profile have to be complete by the month's end?
+    (A deadline for a winner to respond is question 9.)
 
 ## What the drafts deliberately do not say
 
 - No refund window, refund timeline or cancellation remedy (questions 4–6).
 - No organiser name, address, registration number or jurisdiction (questions 1–3).
 - No claim that the site is DPDP-compliant — the consent record (question 8) is a minimum.
-- The prize, the winner rule and the number of winners on the rules page are **fetched from the
-  owner's settings** (Admin → Daily Quiz → Settings), never typed into the page — change the
-  settings and the page follows.
+- The prize on the rules page is **fetched from the owner's settings** (Admin → Daily Quiz →
+  Settings), and the winner rule and the class bands from the server's own rule (monthly since
+  2026-10-09, fixed in code) — never typed into the page, so it follows a change to either.

@@ -110,6 +110,21 @@ frame (`lib/fireworks/start.ts` → `hold` / `release`, which `driver.ts` also e
 400 ms). About 300–360 ms since, level with the night sky and no fireworks (230–280 ms). Measured in
 alternating runs, four each, as the entry above says.
 
+## The tap-timing test finds no options after tapping "Start the quiz" at 390px
+
+**Symptom.** `responsiveness.spec.ts` fails with `expect(getByRole('radio')).toHaveCount(4)` —
+received 0 — straight after tapping Start, and the page snapshot shows the bottom bar's "Quiz" link
+focused rather than the quiz started (2026-10-09, after the quiz card gained a longer prize line).
+
+**Cause.** The test taps at a control's centre after `scrollIntoViewIfNeeded()`, which does nothing for
+a control already inside the viewport — including one under the fixed bottom bar of the phone layout.
+A taller card put Start there, and the bar took the tap. A reader would have scrolled the button up;
+the test did not.
+
+**Fix.** The test's `tap()` scrolls the control to the middle of the screen first
+(`scrollIntoView({ block: 'center' })`). The 200 ms bound did not move. If a control is ever tapped
+by coordinates elsewhere in a phone-width test, do the same.
+
 ## A browser test times out while closing a page with the fireworks
 
 **Symptom.** `diwali.spec.ts`'s intro-timer test failed with "Tearing down "context" exceeded the test
@@ -124,6 +139,10 @@ and leaving the page for another one 12–21 s on a busy machine — against 0.1
 leaves every page for `about:blank` before its browser closes (`leave()`, and an `afterEach`), because
 closing the browser outright does not always pass through `pagehide`. Do the same in any new test that
 runs with motion on during the edition.
+
+**Still seen, rarely.** On 2026-10-09 the same test timed out once more, in `context.close()` for one of
+its fresh contexts (one full run of the suite in a busy afternoon), and passed when re-run alone. Re-run
+it before suspecting a change; if it starts failing every time, the teardown is the place to look.
 
 ## A firework's glow made the hero's word the page's largest paint
 

@@ -1083,7 +1083,7 @@ Today's quiz for the caller's class and their state in it. Settles any XP that w
 | --- | --- |
 | `serverNow` | The server's clock. Every countdown on the page is offset from it. |
 | `today` | The IST day key. |
-| `prize` | `prizeHeadline`, `prizeText`, `cashAmount` (null unless set), `winnerRule`, `winnersPerQuiz`, `howWinnersAreChosen` (generated from the settings), `instantResult`, `xpForCorrect`. |
+| `prize` | `prizeHeadline`, `prizeText`, `cashAmount` (null unless set), `period` (`'month'` — the prize is monthly since 2026-10-09), `bands` (the four prize bands, `{ id, min, max, label }` with `id` one of `3-5`, `6-8`, `9-10`, `11-12`), `winnersPerBand` (1), `prizesFrom` (`"2026-11-08"` — the first day an answer counts towards a prize; a page promises nothing before it), `howWinnersAreChosen` (the server's sentence, `describeWinnerRule()`), `instantResult`, `xpForCorrect`. |
 | `eligibility` | `{ eligible, missing[] }` — what a prize winner must have on their profile. |
 | `streak` | `{ current, longest }` — days with a submitted answer. |
 | `previous` | The most recent earlier quiz, once unlocked: `{ day, topic, isCorrect, revealed }`, or null. |
@@ -1109,15 +1109,15 @@ Body: `{ selectedOptionId }` — the opaque id the student was shown. Marked ser
 Refusals: no Start today is **409** ("Press Start…"); a start from a day that has closed is **409** ("closed at midnight") and **nothing is stored**; an id not in this quiz is **400**. A repeat is **200** with `alreadySubmitted: true` and the **first** result — never re-marked, never re-paid. `xpAwarded` is what this request earned: **20 for a correct answer, 0 for a wrong one** (and 0 for now when results are held). Rate limited per student.
 
 #### `GET /api/v1/me/daily-quiz/history`
-The caller's quiz days, newest first, paginated (`page`, `limit` ≤ 50) — submissions **and** starts never submitted (`status: 'not-submitted'`). Each row: `day`, `status`, `topic`, `questionText`, `options` (as the student saw them), `selectedOptionId`/`Text`, `isCorrect`, `solveTimeMs`, `xpAwarded`, `xpPending`, `revealAt`, `revealed`, `reveal` (null until unlocked), `won`. Plus `summary`: `attempted`, `correct`, `accuracy` (null with none counted), `currentStreak`, `longestStreak`, `wins`.
+The caller's quiz days, newest first, paginated (`page`, `limit` ≤ 50) — submissions **and** starts never submitted (`status: 'not-submitted'`). Each row: `day`, `status`, `topic`, `questionText`, `options` (as the student saw them), `selectedOptionId`/`Text`, `isCorrect`, `solveTimeMs`, `xpAwarded`, `xpPending`, `revealAt`, `revealed`, `reveal` (null until unlocked), `won` (that quiz's own prize — only a quiz from before the monthly prize can have one). Plus `summary`: `attempted`, `correct`, `accuracy` (null with none counted), `currentStreak`, `longestStreak`, `wins` (announced prizes of either kind), `thisMonth` — `{ month, label, correct }`, the correct answers so far this month, counted as `correct` is (at once with instant results, otherwise after the reveal) and from the 8th in November 2026; null before the first prize month.
 
 ### Public
 
 #### `GET /api/v1/daily-quiz/info`
-The prize and the rule in words, as on the Rewards section and the rules page. `Cache-Control: public, max-age=60`.
+The prize and the rule in words, as on the Rewards section and the rules page: `{ info }`, the same object as the status's `prize` (above) — since 2026-10-09 one winner a month in each of the four class bands. `Cache-Control: public, max-age=60`.
 
 #### `GET /api/v1/daily-quiz/winners`
-The most recent **published** winners (`limit` ≤ 20, default 7): `{ day, displayName, classLevel, place, prizeText }`. Names are masked by `displayNameFor()` (first name, last initial); a student with `hideFromPublicLists` appears as "A Class 9 student" with no place; only active accounts. Never a contact detail. `Cache-Control: public, max-age=60`.
+The most recent **published** winners (`limit` ≤ 20, default 7; the homepage asks for 8, two months of four bands): `{ period, day, month, prizeLabel, displayName, classLevel, place, prizeText }` — `period` is `'month'` for a monthly prize (`month` `"2026-11"`, `prizeLabel` "November 2026 · Classes 9–10") and `'quiz'` for one quiz's prize from before 2026-10-09 (`month` and `prizeLabel` null). Names are masked by `displayNameFor()` (first name, last initial); a student with `hideFromPublicLists` appears as "A Class 9 student" with no place; only active accounts. Never a contact detail. `Cache-Control: public, max-age=60`.
 
 #### `GET /api/v1/daily-quiz/past`
 Recent Daily Quiz problems **whose answers are already public** — the homepage's "Can you crack this?" (added 2026-10-05). **Never today's and never a future day**: only days before the server's today, each through `revealOf()`, because today's quiz is a prize question timed from Start. `limit` (1–14, default 7) is per class group.
@@ -1142,13 +1142,13 @@ countdown (Phase 7a): `{ today: { day, hasQuiz, closesAt, serverNow } }`. Names 
 Literal paths are declared before `/:groupId`.
 
 #### `GET /api/v1/admin/daily-quiz`
-Quizzes newest first (`page`, `limit` ≤ 100, `from`, `to`), each `{ groupId, day, phase, classRange, classLevels, source, playable, question (with the key — staff wrote it), stats: { started, submitted, correct, correctPercent, medianSolveMs }, winner, createdByLabel, createdAt }`, plus `calendar`: the next 14 days from the server's today (`days[].quizzes[]` with `legacy: true` for a pre-quiz daily challenge holding the slot) and `warnings` — one per class group with a class uncovered in the next three days.
+Quizzes newest first (`page`, `limit` ≤ 100, `from`, `to`), each `{ groupId, day, phase, classRange, classLevels, source, playable, question (with the key — staff wrote it), stats: { started, submitted, correct, correctPercent, medianSolveMs }, winner (that quiz's own — only a quiz from before the monthly prize has one), createdByLabel, createdAt }`, plus `calendar`: the next 14 days from the server's today (`days[].quizzes[]` with `legacy: true` for a pre-quiz daily challenge holding the slot) and `warnings` — one per class group with a class uncovered in the next three days.
 
 #### `GET /api/v1/admin/daily-quiz/candidates`
 `classMin`, `classMax`, optional `search`, `page`, `limit` ≤ 50. Bank questions that can be a quiz for the range: single choice, **unpublished** (draft or in review), a worked solution, a class inside the range, the implicit subject, never used by another quiz. `ready` is false when the options are not 2–6 with exactly one correct.
 
 #### `GET` / `PUT /api/v1/admin/daily-quiz/settings`
-`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), winnerRule (FASTEST_CORRECT | FIRST_CORRECT | MANUAL), winnersPerQuiz (1–5), instantResult }`. Audited with before and after.
+`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), instantResult }`. Audited with before and after. Since 2026-10-09 the winner rule is not a setting — one winner a month in each class band, in code — and a body still carrying `winnerRule` or `winnersPerQuiz` has them dropped. A saved headline still reading the retired "Solve daily. Win daily." is served as the new default, "Solve daily. Win every month."
 
 #### `POST /api/v1/admin/daily-quiz`
 Body: `{ day, classMin, classMax, questionId }`. Writes one document per class in the range, sharing a `groupId` and one snapshot. Refusals: a past day **400**; a question that is published **409**, archived **409**, not single choice / not 2–6 options / not exactly one correct / no solution / class outside the range **400**, already a quiz on another day **409**; a class that already has a quiz that day **409** (or a pre-quiz challenge holding it — the message says so). **201** `{ groupId, day, classes }`. Audited.
@@ -1166,16 +1166,23 @@ Body: `{ file: { name, content (base64 data URL) }, topic (fallback chapter, opt
 Body: `{ batchId, rows[{ clientId, sourceRef, day, classMin, classMax, question }] }`. Re-checks every day and class, saves the questions as **drafts** through `approveImport()` (provenance from the batch), and schedules each. Per row: `scheduled`, `saved-not-scheduled` (with the reason; the draft is in the bank), or `refused`. Audited as `questions.imported` and `dailyquiz.scheduled`.
 
 #### `GET /api/v1/admin/daily-quiz/winners`
-The prize desk: `view` = `outstanding` (default — confirmed but not announced, or announced and not delivered; oldest first) / `published` / `disqualified` / `all`, paginated. Each row is the staff winner view (below) plus `quizExists`. Also `outstanding` — the programme-wide count.
+The prize desk: `view` = `outstanding` (default — confirmed but not announced, or announced and not delivered; oldest first) / `published` / `disqualified` / `all`, paginated. Each row is the staff winner view (below) plus `quizExists` (always true for a month's row) — monthly prizes and older quiz prizes together. Also `outstanding` — the programme-wide count.
 
 #### `POST /api/v1/admin/daily-quiz/winners/:winnerId/:action`
-`action` = `confirm` (provisional → confirmed; snapshots the prize; refused past `winnersPerQuiz`), `disqualify` (body `{ reason }`, at least 5 characters), `publish` (confirmed → published; notifies the winner), `contacted`, `delivered` (published only). Each is a conditional write on the current status — **409** names the status it needs. Returns `{ winner, winners }`. Audited (`dailyquiz.winner.*`). Rate limited.
+`action` = `confirm` (provisional → confirmed; snapshots the prize; refused once the band has its winner for that month — or, for an older row, the quiz its winner), `disqualify` (body `{ reason }`, at least 5 characters), `publish` (confirmed → published; notifies the winner), `contacted`, `delivered` (published only). Each is a conditional write on the current status — **409** names the status it needs. Returns `{ winner, winners }`. Audited (`dailyquiz.winner.*`). Rate limited.
+
+#### `GET /api/v1/admin/daily-quiz/monthly`
+One month's prize, band by band (since 2026-10-09 — PLAN.md Q24). `month` (`YYYY-MM`, optional; default the last month that has ended, else November 2026): **400** if it is not a month, **404** outside November 2026 → the current month. Returns `{ monthly: { month, label, countsFrom, endsAt, closed, bands[{ id, min, max, label, winners[] }], months[{ key, label }] } }` — `countsFrom` is the first day that counts (`2026-11-08`, the launch, in November 2026), `endsAt` IST midnight on the 1st of the next month, `closed` whether that has passed, and `months` every month the picker offers.
+
+#### `POST /api/v1/admin/daily-quiz/monthly/:month/:band/compute`
+`band` = `3-5`, `6-8`, `9-10` or `11-12`. Only once the month is over (**409** before, naming when). Counts each student's correct answers on the band's classes' quizzes that month — an answer counts in the band of the class it was answered in — and ranks the eligible, not-disqualified students: the most correct; then the lower total solve time (an unknown total last); then whoever reached their total first; then the student id. Writes the top five as **provisional** candidates; decided rows are never touched, a disqualified student is never offered again, and a provisional row that has fallen out of the top five is withdrawn. Returns `{ correctAnswers, students, ineligible[{ studentId, name, correctCount, totalSolveMs, missing[] }], winners }`. Audited (`dailyquiz.monthly.computed`). Rate limited.
+
+The staff winner view — here, on the prize desk and on a quiz's page — carries the student's name, class, school, city, email and whether it is verified, the guardian's phone and email, eligibility, `period` and `label`. A month's row (`label` "Classes 9–10 · November 2026") adds `month`, `band`, `correctCount`, the **total** solve time (`solveTimeMs`), the last correct answer (`submittedAt`) and `sharedIpCount` — how many *other* students answered from a connection this student used that month. An older quiz's row has its one solve time and how many other correct answers came from the same connection. Either count is a prompt for review, never a disqualification.
 
 #### `GET` / `PUT` / `DELETE /api/v1/admin/daily-quiz/:groupId`
-`GET` → `{ quiz, winners }`. `PUT { questionId }` re-points the quiz; `DELETE` removes it — both **409** once anybody has **started** it, and a past quiz is never changed. Audited.
+`GET` → `{ quiz, winners, prizeMonth }` (`winners`: candidates computed for that quiz before 2026-10-09 — a newer quiz has none; `prizeMonth`: `{ month, label }`, the monthly prize its answers count towards, or null for a day before 8 November 2026). `PUT { questionId }` re-points the quiz; `DELETE` removes it — both **409** once anybody has **started** it, and a past quiz is never changed. Audited.
 
-#### `POST /api/v1/admin/daily-quiz/:groupId/winners/compute`
-Only after the quiz has closed (**409** before). Ranks the correct answers by the configured rule and writes up to five **provisional** candidates; decided rows are never touched and a disqualified student is never offered again. Returns `{ correctCount, ineligible[{ studentId, name, solveTimeMs, missing[] }], winners }`. The staff winner view carries the student's name, class, school, city, email and whether it is verified, the guardian's phone and email, eligibility, solve time, submitted at, and `sharedIpCount` — how many *other* correct answers came from the same connection (a prompt for review, never a disqualification).
+`POST /api/v1/admin/daily-quiz/:groupId/winners/compute` — one quiz's winners — was **removed on 2026-10-09** with the per-quiz prize.
 
 ### Test-only hooks — never in a real deployment
 

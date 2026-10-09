@@ -2,6 +2,30 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-09 — The Daily Quiz prize is monthly: one winner a month in each class band
+
+The owner's follow-up of 2026-10-09 (PLAN.md §5b, Q24). Branch `feat/daily-quiz-monthly-winner`.
+
+- **No daily winner.** Each month there is one winner in each class band — Classes 3–5, 6–8, 9–10 and
+  11–12: the student who answers the most Daily Quizzes correctly that month. A tie goes to the lower
+  total solve time, measured by the server from Start to Submit on each correct answer. An answer counts
+  in the band of the class it was answered in.
+- **November counts from the launch on the 8th**; the organisers check every winner and announce them
+  early the following month. Before the 8th the quiz says when prizes start rather than promising one.
+- **Every page that named the prize says so**: the homepage's Rewards section ("Solve daily. Win every
+  month.", "Monthly champion"), About and FAQ, the Login Gate, the Daily Quiz page and card ("One more
+  towards this month's prize" after a correct answer), the profile's quiz history (this month's prize
+  score) and Prize details, the notification menu, and the rules page.
+- **Staff**: Admin → Daily Quiz → **Monthly winners** — pick a month; once it is over, work out each
+  band's candidates, confirm one, announce them. The prize desk lists monthly winners beside any earlier
+  quiz winners, a quiz's page links to its month, and the winner rule and winners-per-quiz settings are
+  gone.
+
+Under the hood: `rankMonthlyCandidates()`; a month's prize is a `DailyQuizWinner` row with
+`period: 'month'`; `GET /admin/daily-quiz/monthly` and `POST /admin/daily-quiz/monthly/:month/:band/compute`
+replace the per-quiz compute route; `prizesFrom` and `thisMonth` on the student's side. Tests: backend
+1375 / 38; E2E 80 (`monthly-winners.spec.ts`).
+
 ## 2026-10-09 — The Diwali edition, immersive: a slower intro, fireworks behind every page, the whole site at night
 
 The owner's follow-up of 2026-10-09 (PLAN.md §5b, Q23). Branch `feat/diwali-immersive`.

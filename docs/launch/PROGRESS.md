@@ -2,7 +2,7 @@
 
 A fresh session should read `LAUNCH_SPEC.md`, then `PLAN.md`, then this file.
 
-_Last updated 2026-10-08._
+_Last updated 2026-10-09._
 
 ## Current state
 
@@ -23,6 +23,11 @@ reminders) is next. **[`LAUNCH_REPORT.md`](LAUNCH_REPORT.md) is the owner's one 
 to run it, the Daily Quiz and winners how-to, known limitations, the action list before launch, the
 phone checklist and the launch-day runbook. Open for the owner: R5, the consent questions, the
 organiser's name on invoices and certificates, and two speed findings from Phase 7a (below).
+
+**Since 2026-10-09 the Daily Quiz prize is monthly** (`feat/daily-quiz-monthly-winner`, stacked on the
+immersive Diwali edition, PR #12): no daily winner — one a month in each class band, the most correct
+answers that month, the lower total solve time breaking a tie, November counted from the 8th, chosen on
+Admin → Daily Quiz → Monthly winners once the month is over (PLAN.md Q24).
 
 ## Tasks
 
@@ -122,6 +127,10 @@ organiser's name on invoices and certificates, and two speed findings from Phase
 | 7+ | Fireworks behind every page (Q23): `components/Fireworks` at the app's root — rockets from random places, bursting at random heights as a peony, a streaking chrysanthemum, a tilted ring or a drooping gold willow, light adding to light; drawn on a canvas in a worker; a salute as the intro hands over. Still for reduced motion, on staff pages and in a paper being answered; they hold still while a tap is answered (below). The hero's three looping SVG fireworks are gone | ✅ done |
 | 7+ | The intro for a signed-in student, once that week (Q23): `DiwaliIntroPlayer` in the student area, sharing the homepage's "seen" key; never over a timed paper | ✅ done |
 | 7+ | Tests: E2E — the student intro once and never again; the night for a reader who chose light, no theme switch, and the everyday site on the 16th; the fireworks drawing for motion, still on an admin page | ✅ done |
+| 7+ | Monthly winners (Q24): no daily winner — one a month in each class band (3–5, 6–8, 9–10, 11–12), the most correct answers that month, the lower total solve time breaking a tie, an answer counting in the band of the class it was answered in; worked out only once the month is over, then confirmed and announced by staff; November counts from the 8th | ✅ done |
+| 7+ | Admin → Daily Quiz → **Monthly winners** (a month picker, four bands, work out → confirm → announce); the prize desk shows monthly rows; a quiz's page links to its month; the settings lose the winner rule and winners per quiz (kept in the database, read by nothing) | ✅ done |
+| 7+ | Every page that named the prize: the Rewards section, About, the FAQ, the Login Gate, the Daily Quiz page and card, the profile's history (this month's prize score) and Prize details, the notification menu, the rules page (dated 9 October 2026 — LEGAL_REVIEW Q12). Before 8 November the quiz says when prizes start (`prizesFrom`) instead of promising one | ✅ done |
+| 7+ | Tests: backend 1375 / 38 — the monthly ranking and ties, every class in one band, months, the whole flow, the 8 November start and a class change mid-month, the opt-out, the reset, the refusals before the month ends; E2E 80 — `monthly-winners.spec.ts` | ✅ done |
 
 ## Open questions for the owner
 
@@ -154,6 +163,17 @@ organiser's name on invoices and certificates, and two speed findings from Phase
   2026-10-09 — mobile Lighthouse measures 87–91 (target ≥ 85) and LCP 3.0–3.1 s (target 2.5 s): the
   hero's heading beneath the intro is the largest paint. Every later visit, and every other page, is
   unaffected (97, LCP 2.1 s).
+- **Monthly winners and several accounts (yours to choose; nothing changed by default).** The prize now
+  goes to the most correct answers in a month. With right or wrong shown at once, one person with
+  several accounts could find each day's answer by elimination and give their main account a perfect
+  month — before, that bought only one quiz's race. The check is the staff review before a winner is
+  announced, with the "same connection" count beside each candidate (LAUNCH_REPORT §5). To remove the
+  possibility entirely, untick **Show right or wrong as soon as an answer is submitted** in Admin → Daily
+  Quiz → Settings: students then learn right or wrong at midnight, with the solution.
+- **Monthly winners and the rules page.** The rules page now describes the monthly prize and is dated
+  9 October 2026; it is a legal draft, so `LEGAL_REVIEW.md` question 12 asks the reviewer to read it
+  again — including whether a student who completes their profile after the month has ended may still
+  win it (today they may: eligibility is read when the candidates are worked out).
 - **R5 (PLAN.md) — `SameSite=Lax` session cookies.** Still `None`. Changing it safely needs a staging
   copy with its own backend; every preview deployment points at the production API.
 - **Parental consent (Phase 6)** — built with the brief's wording; `LEGAL_REVIEW.md` question 8 asks

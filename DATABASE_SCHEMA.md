@@ -997,16 +997,17 @@ indefinitely, like every attempt record.
 
 ### `DailyQuizWinner` — ACTIVE (Milestone 30)
 
-A candidate or a winner for one quiz. Unique **`{ groupId, student }`**; indexes `{ status, publishedAt: -1 }` and `{ student, status }`.
+A candidate or a winner for a Daily Quiz prize — since 2026-10-09 (PLAN.md Q24) **one month's prize in one class band**, `period: 'month'`; rows from before have no `period` and were one quiz's prize, and nothing writes them any more. Unique **`{ groupId, student }`**; indexes `{ status, publishedAt: -1 }`, `{ student, status }` and `{ month, band, rank }` (2026-10-09).
 
 | Field | Notes |
 |---|---|
-| `groupId`, `day`, `classMin`, `classMax` | Which quiz — copied onto the row so it stands alone if the quiz is later removed or reset. |
-| `student`, `attempt` | |
-| `rank`, `ruleUsed` | Position and rule at computation. |
+| `period`, `month`, `band`, `correctCount` | **2026-10-09, optional, no default.** `'month'`, the month (`"2026-11"`), the band (`3-5`, `6-8`, `9-10`, `11-12`) and the correct answers that month in the band. Absent on a quiz's row. |
+| `groupId`, `day`, `classMin`, `classMax` | Which quiz — copied onto the row so it stands alone if the quiz is later removed or reset. For a month's row: a key derived from the month and the band (`monthGroupId()` — a SHA-256 cut to an ObjectId), so the unique index still means one row per student per prize; the month's last day; the band's classes. |
+| `student`, `attempt` | For a month's row, `attempt` is the student's **last** correct answer that month. |
+| `rank`, `ruleUsed` | Position and rule at computation (`MOST_CORRECT_MONTHLY` for a month's row). |
 | `status` | `provisional` → `confirmed` → `published`, or `disqualified`. Each transition is a conditional write on the current status. |
 | `reason` | Required to disqualify (≥ 5 characters). |
-| `solveTimeMs`, `submittedAt`, `sharedIpCount` | The evidence the review is shown. |
+| `solveTimeMs`, `submittedAt`, `sharedIpCount` | The evidence the review is shown. For a month's row: the **total** solve time over the month's correct answers, the last one's time, and how many other students answered from a connection this student used. |
 | `prizeText`, `cashAmount` | **Snapshotted at confirmation**, so a later change to the settings never alters a prize already promised. |
 | `decidedBy`, `decidedByLabel`, `confirmedAt`, `publishedAt`, `contactedAt`, `deliveredAt` | The trail, alongside the `dailyquiz.winner.*` audit entries. |
 
@@ -1016,10 +1017,14 @@ reset); **a decided row is never deleted by anything in the product**.
 ### `DailyQuizSettings` — ACTIVE (Milestone 30)
 
 A single document pinned by a unique `key: 'default'`, like `RewardSettings`. A missing document
-is the defaults. Fields: `prizeHeadline` ("Solve daily. Win daily."), `prizeText` ("Surprise
-gift + cash prize"), `cashAmount` (whole rupees or **null — the default; no figure is shown until
-the owner sets one**), `winnerRule` (`FASTEST_CORRECT` default, `FIRST_CORRECT`, `MANUAL`),
-`winnersPerQuiz` (1–5, default 1), `instantResult` (default true), `updatedBy`, `updatedByLabel`.
+is the defaults. Fields: `prizeHeadline` ("Solve daily. Win every month." since 2026-10-09; a saved
+document still holding the old default, "Solve daily. Win daily.", is read as the new one),
+`prizeText` ("Surprise gift + cash prize"), `cashAmount` (whole rupees or **null — the default; no
+figure is shown until the owner sets one**), `instantResult` (default true), `updatedBy`,
+`updatedByLabel`. **Retired 2026-10-09, kept so a saved document still loads:** `winnerRule`
+(`FASTEST_CORRECT` default, `FIRST_CORRECT`, `MANUAL`) and `winnersPerQuiz` (1–5, default 1) — the
+monthly rule is in code (`lib/dailyQuiz.ts`); nothing reads them, and only a first save still stores
+their defaults.
 
 ### `Student` — four optional prize fields (Milestone 30)
 
