@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import { CLASS_LEVELS, isClassLevel, type ClassLevel } from './classLevels';
-import { isDayKey, istDayBounds, type DayKey } from './competitionDay';
+import { isDayKey, istDayBounds, type DayKey, type MonthKey } from './competitionDay';
 
 /**
  * The Daily Quiz's rules that need no database (Milestone 30, Phase 2).
@@ -16,8 +16,8 @@ import { isDayKey, istDayBounds, type DayKey } from './competitionDay';
  *  - **Option ids and the shuffle** — opaque ids, and an order that differs per student
  *    but is stable for each one.
  *  - **Prize eligibility** — what a winner must have.
- *  - **Winner rules** — how the candidates are ordered, and the one sentence the public
- *    rules page prints about it.
+ *  - **The monthly prize** — the class bands it is won in, how a month's candidates are
+ *    ordered, and the one sentence the public rules page prints about it.
  */
 
 // ---------------------------------------------------------------------------
@@ -76,6 +76,8 @@ export interface QuizQuestionShape {
   type: string;
   options: ReadonlyArray<{ isCorrect: boolean }>;
   solution?: string | null;
+  /** The worked solution as a picture (Phase 7b) — as good as a written one. */
+  solutionImage?: { key?: string | null } | null;
   classLevel?: string | null;
 }
 
@@ -85,7 +87,8 @@ export interface QuizQuestionShape {
  * bulk import (checking a row before it is a question) cannot disagree:
  *
  *  - **single choice** with **2–6 options** and **exactly one correct** — the brief's A–D quiz;
- *  - a **worked solution**, because unlocking it the next day is the point (R6);
+ *  - a **worked solution** — written out or as a picture — because unlocking it the next day is
+ *    the point (R6);
  *  - for a class **inside the quiz's range**.
  *
  * Whether it is published or already used on another day needs the database, so the
@@ -101,8 +104,8 @@ export function quizQuestionProblem(question: QuizQuestionShape, range: { min: n
   if (question.options.filter((option) => option.isCorrect).length !== 1) {
     return 'A Daily Quiz question needs exactly one correct option.';
   }
-  if (!question.solution || question.solution.trim().length === 0) {
-    return 'Add a worked solution first — it unlocks for students the day after the quiz.';
+  if (!question.solution?.trim() && !question.solutionImage?.key) {
+    return 'Add a worked solution first — written out or as a picture — it unlocks for students the day after the quiz.';
   }
   if (!question.classLevel || !isClassLevel(question.classLevel)) return 'That question has no class.';
   const n = classNumber(question.classLevel);
@@ -345,7 +348,7 @@ export function prizeEligibility(facts: EligibilityFacts): { eligible: boolean; 
 }
 
 // ---------------------------------------------------------------------------
-// Winner rules
+// Winners
 // ---------------------------------------------------------------------------
 
 /**
@@ -355,69 +358,128 @@ export function prizeEligibility(facts: EligibilityFacts): { eligible: boolean; 
 export const PRIZE_DESK_VIEWS = ['outstanding', 'published', 'disqualified', 'all'] as const;
 export type PrizeDeskView = (typeof PRIZE_DESK_VIEWS)[number];
 
-export const WINNER_RULES = ['FASTEST_CORRECT', 'FIRST_CORRECT', 'MANUAL'] as const;
+/**
+ * How a winner row was chosen. `MOST_CORRECT_MONTHLY` is the rule since 2026-10-09 (PLAN.md
+ * Q24: one winner a month in each class band, no daily winner). The three per-quiz rules stay
+ * in the list only because rows they chose may exist; nothing chooses that way any more.
+ */
+export const WINNER_RULES = ['MOST_CORRECT_MONTHLY', 'FASTEST_CORRECT', 'FIRST_CORRECT', 'MANUAL'] as const;
 export type WinnerRule = (typeof WINNER_RULES)[number];
 
-export interface WinnerCandidate {
-  attemptId: string;
+// ---------------------------------------------------------------------------
+// The monthly prize (owner, 2026-10-09 — PLAN.md Q24)
+// ---------------------------------------------------------------------------
+
+/**
+ * The class bands the monthly prize is won in — one winner in each, every month. They are not
+ * the scheduling groups (`CLASS_GROUPS`): a quiz set for Classes 9–12 counts towards two
+ * bands, 9–10 and 11–12, by the class each student answered it in.
+ */
+export const PRIZE_BANDS = [
+  { key: '3-5', min: 3, max: 5 },
+  { key: '6-8', min: 6, max: 8 },
+  { key: '9-10', min: 9, max: 10 },
+  { key: '11-12', min: 11, max: 12 },
+] as const;
+export type PrizeBand = (typeof PRIZE_BANDS)[number];
+export type PrizeBandKey = PrizeBand['key'];
+
+export function isPrizeBandKey(value: unknown): value is PrizeBandKey {
+  return PRIZE_BANDS.some((band) => band.key === value);
+}
+
+/** The band a key names. */
+export function prizeBand(key: PrizeBandKey): PrizeBand {
+  return PRIZE_BANDS.find((band) => band.key === key) ?? PRIZE_BANDS[0];
+}
+
+/** The band a class belongs to. Throws for a number outside the class list. */
+export function bandOfClass(classNumber: number): PrizeBand {
+  const band = PRIZE_BANDS.find((candidate) => classNumber >= candidate.min && classNumber <= candidate.max);
+  if (!band) throw new RangeError(`There is no class ${classNumber}.`);
+  return band;
+}
+
+/**
+ * The first day an answer counts towards a monthly prize — the launch (owner: November counts
+ * "8–30 November"). No month before November 2026 has a winner.
+ */
+export const MONTHLY_PRIZES_FROM: DayKey = '2026-11-08';
+export const FIRST_PRIZE_MONTH: MonthKey = '2026-11';
+
+/** One winner a band a month — the owner's choice; confirming a second is refused. */
+export const WINNERS_PER_BAND = 1;
+
+/** One student's month in one band: the facts the ranking reads. */
+export interface MonthlyCandidate {
   studentId: string;
-  /** Server-measured, submit minus start. Null only for an attempt from before the Start step existed. */
-  solveTimeMs: number | null;
-  submittedAt: Date;
+  /** Daily Quizzes answered correctly that month, in this band. */
+  correctCount: number;
+  /** The server-measured solve times of those correct answers, summed; null if any is unknown. */
+  totalSolveMs: number | null;
+  /** When the last of them was submitted. */
+  lastCorrectAt: Date;
   eligible: boolean;
   disqualified: boolean;
 }
 
 /**
- * The eligible, not-disqualified candidates in winning order.
- *
- *  - `FASTEST_CORRECT` (the default) — shortest solve time; ties go to the earlier
- *    submission.
- *  - `FIRST_CORRECT` — earliest submission; ties go to the shorter solve time.
- *  - `MANUAL` — the organisers choose; the list is still offered fastest-first so they
- *    have a sensible order to choose from.
- *
- * The student id is the last key in every order, which makes it **total**: two
- * candidates can never be "equal", so recomputing never shuffles a tie into a different
- * winner. A missing solve time sorts last rather than first.
+ * The eligible, not-disqualified candidates in winning order: **the most correct answers**;
+ * then **the lower total solve time** over them (the owner's tie-break); then whoever reached
+ * their total first; then the student id — which makes the order total, so recomputing can
+ * never shuffle a tie into a different winner. An unknown total sorts after every known one.
  */
-export function rankCandidates(candidates: readonly WinnerCandidate[], rule: WinnerRule): WinnerCandidate[] {
-  const solve = (c: WinnerCandidate) => c.solveTimeMs ?? Number.POSITIVE_INFINITY;
-  const submitted = (c: WinnerCandidate) => c.submittedAt.getTime();
-  const byId = (a: WinnerCandidate, b: WinnerCandidate) => (a.studentId < b.studentId ? -1 : a.studentId > b.studentId ? 1 : 0);
-
-  const compare =
-    rule === 'FIRST_CORRECT'
-      ? (a: WinnerCandidate, b: WinnerCandidate) => submitted(a) - submitted(b) || solve(a) - solve(b) || byId(a, b)
-      : (a: WinnerCandidate, b: WinnerCandidate) => solve(a) - solve(b) || submitted(a) - submitted(b) || byId(a, b);
-
+export function rankMonthlyCandidates(candidates: readonly MonthlyCandidate[]): MonthlyCandidate[] {
+  const time = (c: MonthlyCandidate) => c.totalSolveMs ?? Number.POSITIVE_INFINITY;
+  const byId = (a: MonthlyCandidate, b: MonthlyCandidate) => (a.studentId < b.studentId ? -1 : a.studentId > b.studentId ? 1 : 0);
+  const compare = (a: MonthlyCandidate, b: MonthlyCandidate) =>
+    b.correctCount - a.correctCount ||
+    (time(a) === time(b) ? 0 : time(a) - time(b)) ||
+    a.lastCorrectAt.getTime() - b.lastCorrectAt.getTime() ||
+    byId(a, b);
   return candidates.filter((c) => c.eligible && !c.disqualified).sort(compare);
 }
 
 /**
- * The public, plain-English statement of how winners are chosen — **generated from the
- * same settings the code uses** (brief §6.6), so the rules page and the computation can
- * never disagree. Its eligibility sentence restates `prizeEligibility()` and is the only place
- * the rules page lists what a winner needs — so a requirement added there is named here too (a
- * test checks each one; the parent's consent was missing for a while after Phase 6 added it).
+ * For each student, how many **other** students answered from a connection they also answered
+ * from, over the month — the monthly form of the shared-connection prompt. A flag for a human,
+ * never a verdict: siblings and whole schools legitimately share one address.
  */
-export function describeWinnerRule(rule: WinnerRule, winnersPerQuiz: number): string {
-  const count =
-    winnersPerQuiz === 1
-      ? 'One winner is chosen for each quiz.'
-      : `${winnersPerQuiz} winners are chosen for each quiz.`;
+export function sharedConnectionCounts(answers: ReadonlyArray<{ studentId: string; ipHash: string | null }>): Map<string, number> {
+  const studentsByHash = new Map<string, Set<string>>();
+  const hashesByStudent = new Map<string, Set<string>>();
+  for (const answer of answers) {
+    if (!hashesByStudent.has(answer.studentId)) hashesByStudent.set(answer.studentId, new Set());
+    if (!answer.ipHash) continue;
+    hashesByStudent.get(answer.studentId)!.add(answer.ipHash);
+    if (!studentsByHash.has(answer.ipHash)) studentsByHash.set(answer.ipHash, new Set());
+    studentsByHash.get(answer.ipHash)!.add(answer.studentId);
+  }
+  const counts = new Map<string, number>();
+  for (const [student, hashes] of hashesByStudent) {
+    const others = new Set<string>();
+    for (const hash of hashes) for (const other of studentsByHash.get(hash) ?? []) if (other !== student) others.add(other);
+    counts.set(student, others.size);
+  }
+  return counts;
+}
 
-  const how: Record<WinnerRule, string> = {
-    FASTEST_CORRECT:
-      'Among everyone who answers correctly, the winner is the student with the fastest solve time — measured by our server from the moment they press Start to the moment they submit. If two solve times are equal, the earlier submission wins.',
-    FIRST_CORRECT:
-      'Among everyone who answers correctly, the winner is the student whose correct answer reached our server first. If two arrive at the same moment, the faster solve time wins.',
-    MANUAL: 'The organisers choose the winner from the students who answered correctly.',
-  };
-
+/**
+ * The public, plain-English statement of how winners are chosen — **generated from the same
+ * constants the ranking uses** (`PRIZE_BANDS`, `rankMonthlyCandidates`), so the rules page and
+ * the computation can never disagree. Its eligibility sentence restates `prizeEligibility()`
+ * and is the only place the rules page lists what a winner needs — so a requirement added there
+ * is named here too (a test checks each one; the parent's consent was missing for a while
+ * after Phase 6 added it).
+ */
+export function describeWinnerRule(): string {
+  const ranges = PRIZE_BANDS.map((band) => `${band.min}–${band.max}`);
+  const bands = `Classes ${ranges.slice(0, -1).join(', ')} and ${ranges[ranges.length - 1] ?? ''}`;
   return (
-    `${how[rule]} ${count} ` +
+    `Each month there is one winner in each class band — ${bands}: the student who answers the most Daily Quizzes correctly that month. ` +
+    'If two have the same number of correct answers, the lower total solve time wins — measured by our server on each correct answer, from the moment they press Start to the moment they submit. ' +
+    'Each answer counts in the band of the class it was answered in. ' +
     'To win, a student needs a verified email address, a complete profile — name, class, school, city and a parent or guardian’s phone number — and that parent or guardian’s consent. ' +
-    'The organisers check every winner before announcing them, the day after the quiz.'
+    'The organisers check every winner before announcing them, early the following month.'
   );
 }

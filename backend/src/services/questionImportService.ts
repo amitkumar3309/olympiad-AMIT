@@ -27,6 +27,7 @@ import {
 } from '../lib/chapterDetection';
 import { requireImplicitSubject, type Actor } from './taxonomyService';
 import type {
+  ImportBatchKind,
   ImportDefaults,
   ImportFile,
   ImportFileKind,
@@ -35,6 +36,7 @@ import type {
   ImportedScheduleHint,
   ParseFailure,
 } from '../lib/importTypes';
+import { questionImageUrl, requireQuestionImages } from './questionImageService';
 import type { GeneratedCandidate, RejectedCandidate } from '../lib/questionGeneratorTypes';
 import { excelImportParser } from './excelImportParser';
 import { csvImportParser, jsonImportParser } from './tabularImportParsers';
@@ -996,16 +998,130 @@ export async function recordImportRejections(batchId: string, count: number): Pr
 }
 
 // ---------------------------------------------------------------------------
+// Pictures (Milestone 30 Phase 7b)
+// ---------------------------------------------------------------------------
+
+/** The most pictures one picture import takes — the same as files in one upload. */
+export const MAX_PICTURES_PER_IMPORT = 20;
+
+/** How a picture import describes itself on the review screen. A statement of fact, like a parser's. */
+export const PICTURE_IMPORT_DESCRIPTOR = {
+  id: 'picture',
+  label: 'Pictures',
+  extraction: 'deterministic' as const,
+  basis:
+    'Each picture is the question, shown to students exactly as you uploaded it. Nothing reads it: you describe it, write the options and mark the right one.',
+};
+
+export interface PictureImportInput {
+  /** Pictures already stored by `POST /admin/question-images`, with the file names they came from. */
+  pictures: Array<{ key: string; name: string }>;
+  topic: string;
+  subtopic?: string | null;
+  classLevel: ClassLevel;
+  difficulty: Difficulty;
+  marks: number;
+  negativeMarks: number;
+}
+
+/** A picture candidate shows its picture on the review screen, so it carries where it is and its size. */
+export interface PreviewedPictureQuestion extends PreviewedQuestion {
+  image: { key: string; alt: string; url: string; width: number; height: number };
+}
+
+/**
+ * A batch of pictures as draft candidates (PLAN.md Q19 — instead of OCR, "as of now").
+ *
+ * Each picture becomes one single-choice candidate that is nothing yet but its picture: the
+ * examiner describes it, writes the options, marks the right one and gives the worked solution on
+ * the review screen, and approves through `approveImport()` like every other format — re-validated
+ * from scratch there, saved as drafts. **Nothing reads a picture** (no model, no OCR), and nothing
+ * here writes a question: the only row stored is the `ImportBatch`, which approval reads the
+ * provenance back from (`picture_import`, deterministic).
+ *
+ * A chapter is required, because there are no words to detect one from.
+ */
+export async function previewPictureImport(
+  input: PictureImportInput,
+  actor: Actor,
+): Promise<{ batchId: string; questions: PreviewedPictureQuestion[] }> {
+  const startedAt = Date.now();
+  const sizes = await requireQuestionImages(input.pictures.map((picture) => picture.key));
+  const { subject, topic } = await resolveImportTarget(input.topic, input.subtopic ?? null);
+  const index = await buildTopicIndex(subject);
+  const stamp = Date.now().toString(36);
+
+  const questions = input.pictures.map((picture, position): PreviewedPictureQuestion => {
+    const size = sizes.get(picture.key)!;
+    return {
+      questionText: '',
+      image: { key: picture.key, alt: '', url: questionImageUrl(picture.key), width: size.width, height: size.height },
+      type: 'single_choice',
+      options: [],
+      booleanAnswer: null,
+      numericAnswer: null,
+      tolerance: null,
+      acceptedAnswers: [],
+      solution: null,
+      solutionImage: null,
+      marks: input.marks,
+      negativeMarks: input.negativeMarks,
+      tags: [],
+      clientId: `${stamp}-${position + 1}`,
+      sourceRef: picture.name,
+      topic: String(topic),
+      topicName: index.displayNames.get(String(topic)) ?? 'Unknown chapter',
+      subtopic: input.subtopic ?? null,
+      classLevel: input.classLevel,
+      difficulty: input.difficulty,
+      schedule: null,
+      warnings: [],
+    };
+  });
+
+  const batch = await ImportBatch.create({
+    actor: actor.id,
+    actorLabel: actor.label,
+    kind: 'picture',
+    parserId: PICTURE_IMPORT_DESCRIPTOR.id,
+    extraction: PICTURE_IMPORT_DESCRIPTOR.extraction,
+    modelName: null,
+    files: input.pictures.map((picture) => ({
+      name: picture.name,
+      size: 0,
+      examined: 1,
+      extracted: 1,
+      failed: 0,
+      error: null,
+    })),
+    defaultClassLevel: input.classLevel,
+    defaultDifficulty: input.difficulty,
+    defaultTopic: topic,
+    subject,
+    status: 'succeeded',
+    examined: questions.length,
+    accepted: questions.length,
+    rejected: 0,
+    duplicates: 0,
+    rejectionReasons: [],
+    durationMs: Date.now() - startedAt,
+    error: null,
+  });
+  return { batchId: String(batch._id), questions };
+}
+
+// ---------------------------------------------------------------------------
 // Provenance
 // ---------------------------------------------------------------------------
 
-/** Which `QuestionSource` a file kind becomes. The one mapping, so it cannot drift. */
-const SOURCE_FOR_KIND: Record<ImportFileKind, QuestionSource> = {
+/** Which `QuestionSource` a batch kind becomes. The one mapping, so it cannot drift. */
+const SOURCE_FOR_KIND: Record<ImportBatchKind, QuestionSource> = {
   excel: 'excel_import',
   docx: 'docx_import',
   image: 'image_import',
   csv: 'csv_import',
   json: 'json_import',
+  picture: 'picture_import',
 };
 
 /**

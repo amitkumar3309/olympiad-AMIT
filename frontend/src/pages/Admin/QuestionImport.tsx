@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom'
 import AdminShell from './AdminShell'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
+import QuestionPicture from '../../components/QuestionPicture'
+import QuestionPictureField from '../../components/QuestionPictureField'
 import { api, API_BASE } from '../../api/client'
 import { loadChapters } from '../../api/implicitSubject'
+import { uploadQuestionPicture } from '../../api/questionImages'
+import { ACCEPTED_PICTURE_TYPES, PICTURE_ACCEPT_ATTRIBUTE } from '../../lib/shrinkPicture'
 import {
   CLASS_LEVELS,
   DIFFICULTIES,
@@ -14,6 +18,7 @@ import {
   type ClassLevel,
   type Difficulty,
   type ImportFileKind,
+  type ImportParserInfo,
   type ImportPreview,
   type ImportStatus,
   type ImportValidation,
@@ -48,6 +53,15 @@ import { humanizeError } from '../../lib/errors'
  * checked and approved by identical code here. Three review screens would be three places for the
  * approve payload to drift out of step with the backend.
  *
+ * ## Pictures, instead of reading photographs (Milestone 30 Phase 7b)
+ *
+ * The Image tab no longer sends photographs to a model (owner: "i don't want ocr as of now" —
+ * PLAN.md Q19). Each picture is uploaded on its own (`api/questionImages.ts`, shrunk first), and
+ * `POST /admin/questions/import/pictures` makes every one a candidate that is nothing yet but its
+ * picture. The examiner describes it, types the options, marks the right one and gives the worked
+ * solution — written, or as a second picture — on the same review screen, through the same validate
+ * and approve calls as every other format. The model route stays on the server, unused here.
+ *
  * ## What is deliberately not hidden
  *
  * Failures, duplicates, rejected rows, per-file outcomes and the batch warnings all get their own
@@ -80,10 +94,23 @@ type Busy = 'upload' | 'check' | 'approve' | 'template' | 'chapters' | null
 const KIND_LABELS: Record<ImportFileKind, string> = {
   excel: 'Excel',
   docx: 'Word',
-  image: 'Photographs',
+  image: 'Pictures',
   csv: 'CSV',
   json: 'JSON',
 }
+
+/** Where a saved batch is listed in the question bank, by the provenance approval stamps on it. */
+const SOURCE_FOR_KIND: Record<ImportFileKind | 'picture', string> = {
+  excel: 'excel_import',
+  docx: 'docx_import',
+  image: 'image_import',
+  csv: 'csv_import',
+  json: 'json_import',
+  picture: 'picture_import',
+}
+
+/** A picture's candidate starts with four empty options and none marked: the examiner says which is right. */
+const BLANK_OPTIONS = () => [0, 1, 2, 3].map(() => ({ text: '', isCorrect: false }))
 
 const KIND_ACCEPT: Record<ImportFileKind, string> = {
   excel: '.xlsx',
@@ -150,6 +177,9 @@ export default function QuestionImport() {
   const [marks, setMarks] = useState(4)
   const [negativeMarks, setNegativeMarks] = useState(1)
   const [files, setFiles] = useState<ChosenFile[]>([])
+  /** The Image tab's pictures (Phase 7b): kept as files, shrunk and uploaded one by one when prepared. */
+  const [pictures, setPictures] = useState<File[]>([])
+  const [progress, setProgress] = useState<{ done: number; of: number } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   // --- The review ---
@@ -217,8 +247,14 @@ export default function QuestionImport() {
       .catch(() => setSubtopics([]))
   }, [topic])
 
-  const parser = useMemo(() => status?.parsers.find((p) => p.kind === kind) ?? null, [status, kind])
+  /** The Image tab is pictures imported as questions, which no parser reads (Phase 7b). */
+  const picturesMode = kind === 'image'
+  const parser = useMemo((): ImportParserInfo | null => {
+    if (picturesMode) return status?.pictures ? { ...status.pictures, kind: 'image', available: true } : null
+    return status?.parsers.find((p) => p.kind === kind) ?? null
+  }, [status, kind, picturesMode])
   const limit = status?.limits.maxFileBytes[kind] ?? 0
+  const maxPictures = status?.limits.maxPictures ?? 20
   const chosen = useMemo(() => (batch ?? []).filter((q) => selected.includes(q.clientId)), [batch, selected])
 
   const verdictFor = useCallback(
@@ -235,6 +271,19 @@ export default function QuestionImport() {
     if (picked.length === 0) return
 
     setError(null)
+
+    if (picturesMode) {
+      const usable = picked.filter((file) => ACCEPTED_PICTURE_TYPES.includes(file.type))
+      setPictures(usable.slice(0, maxPictures))
+      const skipped = picked.length - usable.length
+      if (skipped > 0) {
+        setError(`${skipped} file${skipped === 1 ? ' was' : 's were'} not a JPEG, PNG or WebP picture and ${skipped === 1 ? 'was' : 'were'} left out.`)
+      } else if (usable.length > maxPictures) {
+        setError(`Only the first ${maxPictures} pictures were taken — that is the most one import may carry.`)
+      }
+      return
+    }
+
     const maxFiles = status?.limits.maxFiles ?? 20
 
     try {
@@ -260,6 +309,7 @@ export default function QuestionImport() {
   function switchKind(next: ImportFileKind) {
     setKind(next)
     setFiles([])
+    setPictures([])
     setError(null)
     if (fileInput.current) fileInput.current.value = ''
   }
@@ -283,6 +333,10 @@ export default function QuestionImport() {
    * to be sure the second answer is the one approval will act on.
    */
   async function runUpload() {
+    if (picturesMode) {
+      await runPictureUpload()
+      return
+    }
     if (files.length === 0) return
 
     setBusy('upload')
@@ -312,6 +366,67 @@ export default function QuestionImport() {
       setPreview(null)
       setBatch(null)
     } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
+   * The Image tab (Phase 7b): every picture shrunk and stored one by one, then made a candidate.
+   *
+   * One at a time, so a slow connection shows its progress and one picture that fails is reported
+   * by name while the rest go on. Storing a picture writes no question; the candidates exist only on
+   * this screen until they are approved, like every other import's.
+   */
+  async function runPictureUpload() {
+    if (pictures.length === 0) return
+    if (!topic) {
+      setError('Choose a chapter: a picture has no words to work one out from.')
+      return
+    }
+
+    setBusy('upload')
+    setError(null)
+    setSaved(null)
+    setChecked(null)
+    const stored: Array<{ key: string; name: string }> = []
+    const failed: Array<{ sourceRef: string; reason: string }> = []
+    try {
+      for (const [index, file] of pictures.entries()) {
+        setProgress({ done: index, of: pictures.length })
+        const result = await uploadQuestionPicture(file)
+        if ('error' in result) failed.push({ sourceRef: file.name, reason: result.error })
+        else stored.push({ key: result.image.key, name: file.name })
+      }
+      setProgress(null)
+      if (stored.length === 0) {
+        setError(failed.map((failure) => failure.reason).join(' '))
+        return
+      }
+
+      const result = await api.post<ImportPreview>('/admin/questions/import/pictures', {
+        topic,
+        subtopic: subtopic || null,
+        classLevel,
+        difficulty,
+        marks,
+        negativeMarks,
+        pictures: stored,
+      })
+      const questions = result.questions.map((q) => ({
+        ...q,
+        options: q.options.length > 0 ? q.options : BLANK_OPTIONS(),
+        edited: false,
+      }))
+      // A picture that could not be uploaded is listed with the files that could not be read.
+      setPreview({ ...result, examined: result.examined + failed.length, failures: [...result.failures, ...failed] })
+      setBatch(questions)
+      setSelected(questions.map((q) => q.clientId))
+    } catch (err) {
+      setError(humanizeError(err, { fallback: 'Those pictures could not be prepared.' }))
+      setPreview(null)
+      setBatch(null)
+    } finally {
+      setProgress(null)
       setBusy(null)
     }
   }
@@ -555,7 +670,9 @@ export default function QuestionImport() {
     (preview?.failures.length ?? 0) + (preview?.rejected.length ?? 0) + (preview?.duplicates.length ?? 0)
   // A chapter is no longer required: detection fills the gap, and a question it cannot place is
   // reported rather than guessed at.
-  const ready = files.length > 0 && parser?.available === true
+  const ready = picturesMode
+    ? pictures.length > 0 && topic !== '' && parser?.available === true
+    : files.length > 0 && parser?.available === true
 
   /**
    * Where the examiner is, derived from what exists rather than tracked in its own state.
@@ -656,14 +773,14 @@ export default function QuestionImport() {
             </ul>
           )}
 
-          {kind === 'image' && (
+          {picturesMode && (
             <ul className={styles.conventions}>
-              <li>Photograph the page straight on, in focus, one page per image</li>
+              <li>One question per picture — crop away everything else, including other questions</li>
+              <li>Students see each picture exactly as you upload it. Nothing reads it.</li>
               <li>
-                <strong>Include the answer key</strong> — a question with no printed answer cannot be imported
+                Next, for each picture: <strong>describe it</strong> in one line, type its options and mark the right one
               </li>
-              <li>Questions needing a diagram cannot be imported: the bank stores text and LaTeX only</li>
-              <li>Each image is a separate model call, so ten photographs cost ten calls</li>
+              <li>The worked solution can be written out, or be a second picture</li>
             </ul>
           )}
         </div>
@@ -674,14 +791,14 @@ export default function QuestionImport() {
         <form className={`card ${styles.uploadCard}`} onSubmit={(e) => void upload(e)}>
           <h2>What should these questions be filed under?</h2>
           <p className={styles.hint}>
-            Used for anything the file does not say itself. A spreadsheet or Word file that names its own class or
-            chapter overrides these per question — and a value it names that does not exist is reported rather than
-            quietly replaced.
+            {picturesMode
+              ? 'Every picture is filed under these. You can change one on its card before you approve it.'
+              : 'Used for anything the file does not say itself. A spreadsheet or Word file that names its own class or chapter overrides these per question — and a value it names that does not exist is reported rather than quietly replaced.'}
           </p>
 
           <div className={styles.grid}>
             <div className="form-group">
-              <label htmlFor="imp-topic">Chapter</label>
+              <label htmlFor="imp-topic">Chapter{picturesMode ? ' *' : ''}</label>
               <select
                 id="imp-topic"
                 className="form-control"
@@ -694,7 +811,7 @@ export default function QuestionImport() {
                   real choice rather than an omission, and a question that exhausts all three is
                   reported with its row number rather than filed somewhere plausible.
                 */}
-                <option value="">Work it out from each question</option>
+                <option value="">{picturesMode ? 'Choose a chapter' : 'Work it out from each question'}</option>
                 {topics.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -702,9 +819,11 @@ export default function QuestionImport() {
                 ))}
               </select>
               <p className={styles.hint}>
-                {topic
-                  ? 'Used for any question that does not name its own chapter.'
-                  : 'Each question’s chapter will be read from its own words. Anything that cannot be worked out is reported for you to fix — nothing is filed by guesswork.'}
+                {picturesMode
+                  ? 'Required: a picture has no words to work a chapter out from.'
+                  : topic
+                    ? 'Used for any question that does not name its own chapter.'
+                    : 'Each question’s chapter will be read from its own words. Anything that cannot be worked out is reported for you to fix — nothing is filed by guesswork.'}
               </p>
               {topics.length === 0 && (
                 <p className={styles.hint}>
@@ -763,6 +882,8 @@ export default function QuestionImport() {
               </select>
             </div>
 
+            {/* Every picture starts as a single-choice question; a card can change its type. */}
+            {!picturesMode && (
             <div className="form-group">
               <label htmlFor="imp-type">Question type</label>
               <select
@@ -779,6 +900,7 @@ export default function QuestionImport() {
                 ))}
               </select>
             </div>
+            )}
 
             <div className="form-group">
               <label htmlFor="imp-marks">Marks</label>
@@ -811,24 +933,41 @@ export default function QuestionImport() {
 
           <div className="form-group">
             <label htmlFor="imp-files">
-              {kind === 'image' ? 'Images' : `File`} * <span className={styles.hint}>({KIND_ACCEPT[kind]})</span>
+              {picturesMode ? 'Pictures' : `File`} * <span className={styles.hint}>({KIND_ACCEPT[kind]})</span>
             </label>
             <input
               id="imp-files"
               ref={fileInput}
               className="form-control"
               type="file"
-              accept={KIND_ACCEPT[kind]}
-              multiple={kind === 'image'}
+              accept={picturesMode ? PICTURE_ACCEPT_ATTRIBUTE : KIND_ACCEPT[kind]}
+              multiple={picturesMode}
               onChange={(e) => void onFilesChosen(e)}
             />
-            {limit > 0 && (
+            {picturesMode ? (
               <p className={styles.hint}>
-                Up to {formatBytes(limit)} each, {status?.limits.maxFiles} files, {status?.limits.maxQuestions} questions
-                per import.
+                Up to {maxPictures} pictures at a time, one question each. Each is made smaller before it is uploaded, so a
+                phone photograph is fine.
               </p>
+            ) : (
+              limit > 0 && (
+                <p className={styles.hint}>
+                  Up to {formatBytes(limit)} each, {status?.limits.maxFiles} files, {status?.limits.maxQuestions} questions
+                  per import.
+                </p>
+              )
             )}
-            {files.length > 0 && (
+            {picturesMode && pictures.length > 0 && (
+              <ul className={styles.fileList}>
+                {pictures.map((file, index) => (
+                  <li key={`${file.name}-${index}`}>
+                    <Icon name="ph-image" weight="bold" /> {file.name}{' '}
+                    <span className={styles.hint}>{formatBytes(file.size)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!picturesMode && files.length > 0 && (
               <ul className={styles.fileList}>
                 {files.map((f) => (
                   <li key={f.name}>
@@ -841,11 +980,28 @@ export default function QuestionImport() {
           </div>
 
           <Button type="submit" disabled={!ready || busy !== null} loading={busy === 'upload'}>
-            {busy === 'upload' ? 'Reading…' : 'Read the questions'}
+            {busy === 'upload'
+              ? progress
+                ? `Uploading ${progress.done + 1} of ${progress.of}…`
+                : picturesMode
+                  ? 'Preparing…'
+                  : 'Reading…'
+              : picturesMode
+                ? 'Prepare the pictures'
+                : 'Read the questions'}
           </Button>
           <p className={styles.hint}>
-            <strong>Nothing is saved by this.</strong> You will see everything that was read, everything that could not
-            be, and why — and you approve them afterwards.
+            {picturesMode ? (
+              <>
+                <strong>No question is saved by this.</strong> The pictures are uploaded so you can describe them; any you
+                do not approve are removed after a day.
+              </>
+            ) : (
+              <>
+                <strong>Nothing is saved by this.</strong> You will see everything that was read, everything that could not
+                be, and why — and you approve them afterwards.
+              </>
+            )}
           </p>
         </form>
 
@@ -1119,7 +1275,7 @@ export default function QuestionImport() {
               </>
             )}
             <p>
-              <Link to="/admin/questions?source=excel_import" className="link">
+              <Link to={`/admin/questions?source=${SOURCE_FOR_KIND[preview?.kind ?? kind]}`} className="link">
                 Open the question bank
               </Link>
             </p>
@@ -1134,6 +1290,8 @@ export default function QuestionImport() {
 function payloadOf(question: EditableQuestion) {
   return {
     questionText: question.questionText,
+    // A picture is named by its key and its description; its size is the server's to read (Phase 7b).
+    image: question.image ? { key: question.image.key, alt: question.image.alt.trim() } : null,
     type: question.type,
     options: question.options,
     booleanAnswer: question.booleanAnswer,
@@ -1141,6 +1299,7 @@ function payloadOf(question: EditableQuestion) {
     tolerance: question.tolerance,
     acceptedAnswers: question.acceptedAnswers,
     solution: question.solution,
+    solutionImage: question.solutionImage ? { key: question.solutionImage.key, alt: question.solutionImage.alt.trim() } : null,
     marks: question.marks,
     negativeMarks: question.negativeMarks,
     tags: question.tags,
@@ -1209,6 +1368,9 @@ function triggerDownload(blob: Blob, filename: string) {
  * The one thing this card has that the generator's does not is **placement** — class, chapter and
  * difficulty per question — because a spreadsheet legitimately files row 3 and row 40 under
  * different chapters, and the reviewer has to be able to correct a row the file got wrong.
+ *
+ * A picture's card (Phase 7b) starts open, because nothing on it is filled in yet: it shows the
+ * picture, asks for its description, and has options to type, add and remove.
  */
 function ImportCard({
   index,
@@ -1231,8 +1393,18 @@ function ImportCard({
   onChange: (changes: Partial<EditableQuestion>) => void
   onDelete: () => void
 }) {
-  const [open, setOpen] = useState(false)
+  const image = question.image ?? null
+  const [open, setOpen] = useState(() => Boolean(image) && question.options.every((option) => !option.text.trim()))
   const takesOptions = question.type === 'single_choice' || question.type === 'multiple_choice'
+
+  /** Marks an option right or wrong; single choice means one right answer, so marking one unmarks the rest. */
+  function markCorrect(index: number, correct: boolean) {
+    onChange({
+      options: question.options.map((option, j) =>
+        question.type === 'single_choice' ? { ...option, isCorrect: j === index && correct } : j === index ? { ...option, isCorrect: correct } : option,
+      ),
+    })
+  }
   // The check's warnings describe the text as checked; the parser's describe it as read. Prefer
   // the newer of the two.
   const warnings: ImportWarning[] = verdict ? verdict.warnings : question.warnings
@@ -1281,17 +1453,41 @@ function ImportCard({
         </ul>
       )}
 
+      {/* The question as a picture (Phase 7b): shown as students will see it, and described here. */}
+      <QuestionPicture picture={image} name="the question" />
+      {image &&
+        (open ? (
+          <label className={styles.describe}>
+            <span>Describe the picture *</span>
+            <input
+              className="form-control"
+              value={image.alt}
+              maxLength={300}
+              onChange={(e) => onChange({ image: { ...image, alt: e.target.value } })}
+            />
+            <span className={styles.hint}>
+              One line, read aloud instead of the picture — for a student who cannot see it, this is the question.
+            </span>
+          </label>
+        ) : (
+          <p className={styles.hint}>{image.alt.trim() ? `Described as: ${image.alt}` : 'Not described yet — press Edit to describe it.'}</p>
+        ))}
+
       {open ? (
         <textarea
           className="form-control"
-          rows={3}
+          rows={image ? 2 : 3}
+          aria-label={image ? 'Words with the picture (optional)' : 'Question text'}
+          placeholder={image ? 'Optional — a line such as “Look at the figure”' : undefined}
           value={question.questionText}
           onChange={(e) => onChange({ questionText: e.target.value })}
         />
       ) : (
-        <p className={styles.qText}>
-          <MathText>{question.questionText}</MathText>
-        </p>
+        question.questionText.trim() !== '' && (
+          <p className={styles.qText}>
+            <MathText>{question.questionText}</MathText>
+          </p>
+        )
       )}
 
       {takesOptions && (
@@ -1303,20 +1499,27 @@ function ImportCard({
                   <input
                     type="checkbox"
                     checked={option.isCorrect}
-                    aria-label="Correct"
-                    onChange={(e) =>
-                      onChange({
-                        options: question.options.map((o, j) => (j === i ? { ...o, isCorrect: e.target.checked } : o)),
-                      })
-                    }
+                    aria-label={`Option ${String.fromCharCode(65 + i)} is the correct answer`}
+                    onChange={(e) => markCorrect(i, e.target.checked)}
                   />
                   <input
                     className="form-control"
                     value={option.text}
+                    aria-label={`Option ${String.fromCharCode(65 + i)}`}
+                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
                     onChange={(e) =>
                       onChange({ options: question.options.map((o, j) => (j === i ? { ...o, text: e.target.value } : o)) })
                     }
                   />
+                  {question.options.length > 2 && (
+                    <button
+                      type="button"
+                      className={styles.linkAction}
+                      onClick={() => onChange({ options: question.options.filter((_, j) => j !== i) })}
+                    >
+                      Remove<span className="sr-only"> option {String.fromCharCode(65 + i)}</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -1327,6 +1530,15 @@ function ImportCard({
             </li>
           ))}
         </ul>
+      )}
+      {takesOptions && open && question.options.length < 8 && (
+        <button
+          type="button"
+          className={styles.linkAction}
+          onClick={() => onChange({ options: [...question.options, { text: '', isCorrect: false }] })}
+        >
+          + Add an option
+        </button>
       )}
 
       {question.type === 'true_false' && (
@@ -1383,18 +1595,36 @@ function ImportCard({
       )}
 
       <details className={styles.solution} open={open}>
-        <summary>Solution {question.solution ? '' : '(none — needed before publishing)'}</summary>
+        <summary>Solution {question.solution || question.solutionImage ? '' : '(none — needed before publishing)'}</summary>
         {open ? (
-          <textarea
-            className="form-control"
-            rows={3}
-            value={question.solution ?? ''}
-            onChange={(e) => onChange({ solution: e.target.value || null })}
-          />
-        ) : question.solution ? (
-          <MathText>{question.solution}</MathText>
+          <>
+            <textarea
+              className="form-control"
+              rows={3}
+              aria-label="Worked solution"
+              value={question.solution ?? ''}
+              onChange={(e) => onChange({ solution: e.target.value || null })}
+            />
+            {/* Or as a picture (Phase 7b) — a solution worked on paper and photographed. */}
+            <QuestionPictureField
+              label="Picture of the worked solution"
+              hint="Optional — instead of writing it out, or beside it."
+              value={question.solutionImage ?? null}
+              onChange={(next) => onChange({ solutionImage: next })}
+              describeRequired={false}
+              disabled={disabled}
+            />
+          </>
         ) : (
-          <p className={styles.hint}>No solution was found in the file.</p>
+          <>
+            {question.solution && <MathText>{question.solution}</MathText>}
+            <QuestionPicture picture={question.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
+            {!question.solution && !question.solutionImage && (
+              <p className={styles.hint}>
+                {image ? 'No solution yet — write one, or add a picture of it.' : 'No solution was found in the file.'}
+              </p>
+            )}
+          </>
         )}
       </details>
 

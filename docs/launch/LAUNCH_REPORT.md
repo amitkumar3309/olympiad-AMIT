@@ -1,7 +1,8 @@
 # A.M.I.T. Olympiad — Diwali launch report
 
 _Launch: **Sunday 8 November 2026**. Written 2026-10-06 at the end of Milestone 30, Phase 6 (brief §10–11);
-updated 2026-10-09 for Phase 7a (your requests of 8 October — §1, §6b)._
+updated 2026-10-09 for Phase 7a (your requests of 8 October — §1, §6b) and for the monthly Daily Quiz
+prize (your request of 9 October — §5)._
 
 This is the one page to read before launch. It says what was built, how to run it, how to fill the
 Daily Quiz and pay out its prizes, what is still yours to do, and how to launch and — if needed — roll
@@ -25,12 +26,13 @@ The launch brief (`docs/launch/LAUNCH_SPEC.md`) in seven phases — merged as pu
 | 5 — Every button and link | Every control re-checked; a lint step that fails on a dead control; a link crawler over every page |
 | 6 — Launch readiness | Search and sharing, accessibility, security headers, parental consent, crash page, performance, this report |
 | 7a — Your requests of 8 Oct | The address `www.amitolympiad.me`; the first administrator can be created from the sign-in box (D10); **Past Daily Quizzes**, a public archive; **the Diwali edition** (§6b) with its intro and the Diwali 2026 badge |
+| Your follow-ups of 9 Oct | The hero's picture of the day; the founder's quotes signed "— Amit"; the Diwali edition made immersive (the whole site at night, fireworks behind every page); **monthly winners** instead of daily ones (§5) |
 
 **The checks that guard it** — run before every commit:
 
-- **Backend: 1,369 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
+- **Backend: 1,399 automated tests** (`npm test` in `backend/`), including the answer-key leak test (no
   student response carries the answer before midnight).
-- **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 70 tests, about ten minutes) — the
+- **Browser: the end-to-end suite** (`npm run e2e` in `frontend/`, 86 tests, about fifteen minutes) — the
   Diwali edition on its dates and off either side of them, the archive,
   the quiz from start to the next day's reveal, registration → email → quiz, the dashboard,
   keyboard-only use, a crash and a weak connection, the homepage readable before its script has run,
@@ -111,31 +113,51 @@ Practice).
 A quiz can be **changed or removed until somebody presses Start** on it; after that it is the record of
 what those students were asked.
 
+**A question that is a picture** (since 9 October — a diagram, a scanned page, a photograph of a
+question): Admin → Question Bank → **New question** → **Picture of the question** → choose the picture,
+then **describe it in one line** — a screen reader says that line instead of the picture, so for a
+student who cannot see it, that line is the question. Type the options and mark the right one as usual.
+The worked solution can be written, or be a second picture (**Picture of the worked solution**). Many at
+once: Admin → **Bulk Import** → **Pictures** → choose a chapter and up to 20 pictures → **Prepare the
+pictures**, then describe and answer each card and approve. Pictures are made smaller before they are
+uploaded, so a phone photograph is fine; crop each to its one question. Then schedule it like any other.
+
 ## 5. Choosing, confirming and announcing winners
 
-The rule is set in **Admin → Daily Quiz → Settings** (default: the fastest correct answer, measured by
-the server from Start to Submit). Winners are **chosen by the rule and announced by a person**:
+Since 9 October there is **no daily winner** (your decision — PLAN.md Q24). Each month there is **one
+winner in each class band** — Classes 3–5, 6–8, 9–10 and 11–12: the student who answered the most Daily
+Quizzes correctly that month. A tie goes to the lower total solve time (measured by the server from
+Start to Submit on each correct answer). An answer counts in the band of the class it was answered in.
+**November counts from the launch on the 8th.** The rule is fixed, not a setting. Winners are **chosen
+by the rule and announced by a person**:
 
-1. After midnight IST the quiz has closed. Open the quiz from the **calendar**.
-2. Press **Compute winners**. Up to five candidates appear, fastest first, each with their solve time
-   and whether they are **eligible** — a winner needs a verified email, name, class, school, **city**, a
-   **parent or guardian's phone**, and (since Phase 6) **a parent or guardian's consent**. The fastest
-   ineligible students are listed with what they lack.
-3. For the winner: **Confirm** (this fixes the prize as the settings name it now), then **Announce** —
-   the student is notified and appears on the public winners list (first name and last initial, or
-   "A Class 9 student" if they chose to be hidden).
+1. From 12:00 AM India time on the 1st of the next month, open **Admin → Daily Quiz → Monthly winners**
+   and pick the month (it opens on the last month that has ended). Before then the page says the month
+   is not over and offers nothing to work out.
+2. For each band, press **Work out candidates**. Up to five appear, most correct answers first, each
+   with their total solve time and whether they are **eligible** — a winner needs a verified email, name,
+   class, school, **city**, a **parent or guardian's phone** and **a parent or guardian's consent**. The
+   highest-scoring ineligible students are listed with what they lack; eligibility is read at the moment
+   you press the button.
+3. For the winner: **Confirm** (this fixes the prize as the settings name it now — one winner per band),
+   then **Announce** — the student is notified and appears on the public winners list (first name and
+   last initial, or "A Class 9 student" if they chose to be hidden).
 4. Call the parent or guardian on the number shown (staff only see it), then mark **Contacted**, and
    **Delivered** when the prize arrives. Every step is in the audit log.
-5. If something is wrong (two accounts, a shared answer), **Disqualify** with a reason instead. The
-   **"same connection" count** beside a candidate is a prompt to look, never proof.
+5. If something is wrong (two accounts, shared answers), **Disqualify** with a reason instead and confirm
+   the next candidate. The **"same connection" count** beside a candidate — how many other students
+   answered from a connection they used that month — is a prompt to look, never proof. It matters more
+   with a monthly prize: someone using several accounts to find each day's answer by elimination would
+   have a perfect month. Unticking **Show right or wrong as soon as an answer is submitted** (Settings)
+   removes that possibility entirely — students then learn right or wrong at midnight.
 
-The **Prize desk** tab lists every confirmed winner across days, with what is still to be done.
+The **Prize desk** tab lists every confirmed winner across months, with what is still to be done.
 
 ## 6. Switches you can change without a deploy
 
 | Where | What |
 |---|---|
-| Admin → Daily Quiz → Settings | Prize headline and wording, **cash amount** (blank = "cash prize" with no figure), winner rule, winners per quiz, whether right/wrong shows at once |
+| Admin → Daily Quiz → Settings | Prize headline and wording and the **cash amount** (blank = "cash prize" with no figure) — what each month's four winners each receive — and whether right/wrong shows at once |
 | Admin → Payments | The **entry fee** (₹199 now) and the switch that turns it off (e.g. during a payment-provider outage) |
 | Admin → XP awards | How much XP each event earns (history is never re-priced) |
 | Admin → Referrals | Whether referrals earn anything, and how much (off by default) |
@@ -223,6 +245,10 @@ Do these in order; each says exactly where.
 9. **Decide R5** (§7) and **the organiser's name** on invoices and certificates (PROGRESS.md, "Open
    questions" — it follows from `LEGAL_REVIEW.md` question 1). Both can wait until after launch.
 10. **Preview the Diwali edition** on your phone before the 8th (§6b): `https://www.amitolympiad.me/?season=diwali`.
+11. **Watch the database size** once picture questions are in use: MongoDB Atlas → your cluster →
+    **Metrics → Data Size** (the free tier holds 512 MB). A picture is about 100 KB; a picture question
+    with a picture solution for all three class groups every day would be about 220 MB a year. When it
+    passes about 400 MB, ask for the pictures to move to file storage (a contained change).
 
 ## 9. The phone checklist — 15 minutes, on your own phone
 

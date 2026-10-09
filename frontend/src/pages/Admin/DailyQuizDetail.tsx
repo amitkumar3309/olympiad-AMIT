@@ -1,16 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
-import {
-  ELIGIBILITY_LABELS,
-  type AdminQuizDetailResponse,
-  type ComputeWinnersResponse,
-  type QuizCandidate,
-  type QuizWinnerRow,
-} from '../../api/types'
+import { type AdminQuizDetailResponse, type QuizCandidate, type QuizWinnerRow } from '../../api/types'
 import AdminShell from './AdminShell'
 import MathText from '../../components/MathText'
-import { Alert, Badge, Breadcrumb, Button, Card, CardHeader, EmptyState, ErrorState, Modal, SkeletonText, StatTile, useToast } from '../../components/ui'
+import QuestionPicture from '../../components/QuestionPicture'
+import { Alert, Badge, Breadcrumb, Button, Card, CardHeader, ErrorState, Modal, SkeletonText, StatTile, useToast } from '../../components/ui'
 import { formatDayKey, formatNumber, formatSolveTime } from '../../lib/format'
 import { humanizeError } from '../../lib/errors'
 import { QuestionPicker } from './DailyQuizSchedule'
@@ -18,12 +13,12 @@ import WinnerTable from './DailyQuizWinners'
 import styles from './DailyQuiz.module.css'
 
 /**
- * One Daily Quiz, for staff (Milestone 30, Phase 2 — brief §6.5): how it landed, its
- * question with the answer key (staff wrote it), and choosing its winner.
+ * One Daily Quiz, for staff (Milestone 30, Phase 2 — brief §6.5): how it landed, and its
+ * question with the answer key (staff wrote it).
  *
- * The winner steps follow the server's lifecycle — compute (only once the quiz has
- * closed), confirm, announce; disqualify with a reason at any point before — and the page
- * says why an action is unavailable rather than offering one the server would refuse.
+ * A quiz has no winner of its own since 2026-10-09: the prize is monthly, one winner in each
+ * class band (PLAN.md Q24), chosen on the console's Monthly winners tab. A quiz from before
+ * that may still carry candidates; they are listed, and acted on, here.
  */
 export default function AdminDailyQuizDetail() {
   const { groupId = '' } = useParams()
@@ -31,8 +26,7 @@ export default function AdminDailyQuizDetail() {
   const toast = useToast()
   const [data, setData] = useState<AdminQuizDetailResponse | null>(null)
   const [error, setError] = useState<unknown>(null)
-  const [computed, setComputed] = useState<ComputeWinnersResponse | null>(null)
-  const [busy, setBusy] = useState<'compute' | 'change' | 'remove' | null>(null)
+  const [busy, setBusy] = useState<'change' | 'remove' | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [changing, setChanging] = useState(false)
   const [replacement, setReplacement] = useState<QuizCandidate | null>(null)
@@ -50,21 +44,6 @@ export default function AdminDailyQuizDetail() {
   useEffect(() => {
     void load()
   }, [load])
-
-  async function compute() {
-    setBusy('compute')
-    setActionError(null)
-    try {
-      const res = await api.post<ComputeWinnersResponse>(`/admin/daily-quiz/${groupId}/winners/compute`)
-      setComputed(res)
-      setData((current) => (current ? { ...current, winners: res.winners } : current))
-      toast.success(res.correctCount === 0 ? 'Nobody answered correctly, so there is no winner.' : 'Winners computed. Nothing is public until you announce them.')
-    } catch (err) {
-      setActionError(humanizeError(err, { fallback: 'The winners could not be computed.' }))
-    } finally {
-      setBusy(null)
-    }
-  }
 
   async function change() {
     if (!replacement) return
@@ -122,7 +101,10 @@ export default function AdminDailyQuizDetail() {
     )
   }
 
-  const { quiz, winners } = data
+  const { quiz, winners, prizeMonth } = data
+  // An upcoming quiz may be in a month the monthly page cannot show yet: it opens on its default.
+  const monthlyHref =
+    prizeMonth && quiz.phase !== 'upcoming' ? `/admin/daily-quiz?tab=monthly&month=${prizeMonth.month}` : '/admin/daily-quiz?tab=monthly'
   const untouched = quiz.stats.started === 0
   const editable = untouched && quiz.phase !== 'revealed'
   const closed = quiz.phase === 'revealed'
@@ -164,11 +146,15 @@ export default function AdminDailyQuizDetail() {
                 : 'Students have started this quiz, so its question can no longer be changed or removed.'}
             </p>
           )}
-          {quiz.question.text ? (
+          {/* Playable, not "has text": a picture question's words may be empty (Phase 7b). */}
+          {quiz.playable ? (
             <div className={styles.stack}>
-              <div className={styles.questionText}>
-                <MathText block>{quiz.question.text}</MathText>
-              </div>
+              {quiz.question.text && (
+                <div className={styles.questionText}>
+                  <MathText block>{quiz.question.text}</MathText>
+                </div>
+              )}
+              <QuestionPicture picture={quiz.question.image} name="the question" eager />
               <ol className={styles.staffOptions}>
                 {quiz.question.options.map((option) => (
                   <li key={option.id} data-correct={option.id === quiz.question.correctOptionId}>
@@ -181,10 +167,11 @@ export default function AdminDailyQuizDetail() {
                   </li>
                 ))}
               </ol>
-              {quiz.question.solution && (
+              {(quiz.question.solution || quiz.question.solutionImage) && (
                 <div className={styles.solution}>
                   <h3>Worked solution — students see this from the next day</h3>
-                  <MathText block>{quiz.question.solution}</MathText>
+                  {quiz.question.solution && <MathText block>{quiz.question.solution}</MathText>}
+                  <QuestionPicture picture={quiz.question.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
                 </div>
               )}
               <Link to={`/admin/questions/${quiz.question.id}/edit`} className={styles.inlineLink}>
@@ -203,53 +190,27 @@ export default function AdminDailyQuizDetail() {
             title="Winners"
             as="h2"
             size="sm"
-            description="Compute ranks the correct answers by the rule in Settings. Nothing is public until a winner is confirmed and announced."
-            actions={
-              quiz.playable && closed ? (
-                <Button size="sm" icon="ph-calculator" loading={busy === 'compute'} onClick={() => void compute()}>
-                  {winners.length > 0 ? 'Recompute' : 'Compute winners'}
-                </Button>
-              ) : undefined
+            description={
+              prizeMonth === undefined
+                ? 'The prize is monthly, one winner in each class band.'
+                : prizeMonth
+                  ? `Every correct answer here counts towards its student’s score for ${prizeMonth.label}: the prize is monthly, one winner in each class band.`
+                  : 'This quiz’s day is before the monthly prizes start, so its answers count towards no prize.'
             }
           />
-          {!quiz.playable ? null : !closed ? (
-            <EmptyState
-              size="sm"
-              icon="ph-hourglass"
-              title="Winners come after the quiz closes"
-              description="The quiz closes at midnight India time. Compute the winners any time after that — the field is complete by then."
-            />
-          ) : (
-            <div className={styles.stack}>
-              {computed && (
-                <p className={styles.muted}>
-                  {computed.correctCount} correct {computed.correctCount === 1 ? 'answer' : 'answers'}.
-                </p>
-              )}
-              {computed && computed.ineligible.length > 0 && (
-                <Alert tone="info" title="Fast, correct, and not yet eligible">
-                  <ul className={styles.problemList}>
-                    {computed.ineligible.map((row, index) => (
-                      <li key={`${row.studentId ?? 'unknown'}-${index}`}>
-                        {row.name ?? 'An account'} ({row.studentId ?? '—'}){row.solveTimeMs !== null ? `, ${formatSolveTime(row.solveTimeMs)}` : ''} — missing{' '}
-                        {row.missing.map((key) => ELIGIBILITY_LABELS[key]).join(', ')}
-                      </li>
-                    ))}
-                  </ul>
-                </Alert>
-              )}
-              {winners.length === 0 ? (
-                <EmptyState
-                  size="sm"
-                  icon="ph-trophy"
-                  title="No candidates yet"
-                  description={computed ? 'Nobody eligible answered correctly.' : 'Press “Compute winners” to rank the correct answers.'}
-                />
-              ) : (
-                <WinnerTable rows={winners} onChanged={replaceWinner} label="Winner candidates for this quiz" />
-              )}
-            </div>
-          )}
+          <div className={styles.stack}>
+            <p>
+              <Link to={monthlyHref} className={styles.inlineLink}>
+                {prizeMonth ? `Choose ${prizeMonth.label}’s winners on the Monthly winners tab` : 'The monthly winners'}
+              </Link>
+            </p>
+            {winners.length > 0 && (
+              <>
+                <p className={styles.muted}>Candidates this quiz had under the old one-winner-a-day rule:</p>
+                <WinnerTable rows={winners} onChanged={replaceWinner} label="Candidates for this quiz from before the monthly prize" />
+              </>
+            )}
+          </div>
         </Card>
       </div>
 

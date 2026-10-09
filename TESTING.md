@@ -43,6 +43,37 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > Two new tests in `diwali.spec.ts` cover a trial (skipped when none is set). Any new test that needs the
 > everyday site must pin an ordinary date.
 >
+> **Picture questions (2026-10-09, Milestone 30 Phase 7b): 1399 passing backend tests across 39 files;
+> 86 browser tests (59 run, 27 one-width-only).** New: `tests/questionImages.test.ts` — the byte-level
+> reading of JPEG, PNG and WebP (sizes, and EXIF/XMP/comments/text chunks dropped), storing and serving
+> by key (a year's immutable caching, 400 for a non-key, 404 for an unknown one), staff-only upload,
+> picture questions in the bank (sized from the file, a description required, publishing needing a
+> solution of either kind), the solution picture only after submitting, the picture import (each picture
+> a candidate, provenance from the batch, a chapter required, duplicates only by the same picture, the
+> import page's description of it) and the sweep that keeps every picture something shows. Beside them:
+> a picture question as the Daily Quiz (`dailyQuiz.test.ts`), the request log's redaction
+> (`security.audit.test.ts`), the 413 (`errorHandling.test.ts`) and the gallery's allowance
+> (`adminPlatform.test.ts`). In the browser, `picture-questions.spec.ts`: the editor stores a 2,400 ×
+> 1,200 PNG as a 1,600 × 800 WebP and saves it described; pictures import, are described and answered
+> and approved; a student meets a picture question from Start and its solution picture the next day —
+> with axe on each. It found the import card's "edited" tag at too low a contrast (the warning fill used
+> as text); fixed.
+>
+> **The monthly prize (2026-10-09): 1375 passing backend tests across 38 files; 80 browser tests (55
+> run, 25 one-width-only).** `dailyQuiz.test.ts`'s "winners" became "monthly winners" — the ranking and
+> the whole flow from working out to announcing; November counted from the 8th, an answer counted in the
+> band of the class it was answered in, and a quiz's staff page naming its prize month; the public-list
+> opt-out; a reset keeping every decision; the month the page opens on, 404 and 400; the retired rule,
+> settings and headline — and `dailyQuizRules.test.ts`'s per-quiz rule tests became the monthly rule's
+> (the most correct, then the lower total time; every class in exactly one band; the shared-connection
+> count over a month; the public sentence) plus two on months. New in the browser:
+> `monthly-winners.spec.ts`, the administrator's Monthly winners tab before November has ended — four
+> bands, nothing to work out yet, the reason in the page, axe — at desktop only. The INP test's `tap()`
+> now brings a control to the middle of the screen first: a taller quiz card had put Start under the
+> phone layout's fixed bottom bar, which took the tap (TROUBLESHOOTING.md). Slowest tap 112 ms, every
+> day and during the edition. In the full run the Diwali intro-timer test timed out once while closing
+> a context and passed alone (TROUBLESHOOTING.md).
+>
 > **The Diwali edition, immersive (2026-10-09): the backend unchanged (1369 / 38); 78 browser tests
 > (54 run, 24 one-width-only), about twelve minutes.** New in `diwali.spec.ts`: a signed-in student
 > sees the intro once in the student area and never again; a reader who chose the light theme gets the

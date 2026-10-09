@@ -4,6 +4,119 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — Milestone 30 Phase 7b: picture questions — the picture is the question
+
+**Context.** The owner asked for questions that are pictures, "instead of OCR, as of now": the uploaded
+image *is* the question, the administrator types the options and marks the right one, the worked
+solution may be a second picture, and a one-line description serves a screen reader (PLAN.md Q19, §5c).
+The bank held text and LaTeX only, and the import page's Image tab read photographs with a model.
+
+**Decision.**
+1. **A picture is an attachment, not a question type.** `Question.image` and `Question.solutionImage`
+   (`{ key, alt, width, height }`), both optional; the type stays `single_choice` (or any type) —
+   `'single_choice'` is named in 34 places and the Daily Quiz requires it. The words become optional when
+   there is a picture; the solution may be written, a picture, or both, and publishing and the Daily Quiz
+   accept either.
+2. **The question picture's description is required** (1–300 characters, one line of plain text — it
+   becomes an attribute, never markup): for a student who cannot see the picture, it *is* the question.
+   The solution picture's is optional.
+3. **The bytes live in MongoDB, in their own collection** (`QuestionImage`: the bytes `select: false`,
+   the type, size, width and height, and a random 32-hex `key`), as the registration photo and the
+   gallery's do: no new service, ₹0. Beside the question rather than inside it, because several
+   pipelines read whole questions (`$sample`, `$$ROOT`) and a megabyte would ride along each time.
+4. **Served by an unguessable key, never by the database id** — `GET /question-images/:key`, with no
+   session check: **the key is the permission**. It reaches a browser only inside a view allowed to show
+   the picture: a solution picture's key only where the written solution may be (a submitted practice
+   session, a mock test's permitted review, the Daily Quiz's `revealOf()`), today's quiz picture only
+   after Start. The answer-leak tests extend to both. An ObjectId would not do: two minted in one request
+   differ by a counter, so the solution's would be a guess away from the question's.
+5. **Immutable.** A different picture is a new document, so a Daily Quiz that snapshotted one keeps
+   showing exactly what its students saw, and every copy may be cached for a year. A picture nothing
+   refers to is removed a day after upload, by a sweep the uploads themselves run at most hourly — no
+   scheduler.
+6. **Shrunk in the browser, stripped on the server.** The browser redraws every picture at most 1,600
+   pixels on its longer side as WebP (JPEG where it cannot write WebP), on white, typically 50–150 KB
+   (`frontend/src/lib/shrinkPicture.ts`). The server refuses one over 1 MB, reads its real size from the
+   file — so every `<img>` reserves its box — and strips EXIF, XMP and comments with a byte-level walk
+   (`lib/imageFile.ts`), because a revealed quiz picture becomes public in the archive and a phone photo
+   carries where it was taken. It does not trust that the browser shrank anything.
+7. **Uploaded on its own** — `POST /admin/question-images`, with a 1.4 MB body allowance on that path
+   only and `pictureUploadLimiter` (300 an hour) ahead of the permission check — so saving a question
+   stays a small request.
+8. **The import page's Image tab imports pictures, not OCR.** Up to 20 pictures, each a single-choice
+   draft candidate that the reviewer describes and answers on the same review screen, checked and saved
+   through the same `screenEach()` and `approveImport()`; provenance `picture_import`, `deterministic`,
+   read back from the `ImportBatch`. A picture candidate is a duplicate only of one with the same picture.
+   The model's route stays on the server, unused by the interface, until the owner wants it back.
+
+**Two fixes went first, because 7b builds on both.** Request logs no longer hold session tokens: `pino`
+redacts `cookie`, `authorization`, `proxy-authorization` and `set-cookie` (`LOG_REDACTION`). And a body
+over its allowance is a **413** naming the limit, not a 500 — which is also what lets the gallery take
+the 1 MB pictures it always promised: it had no allowance, so anything over about 73 KB was refused.
+
+**Budget.** At ~100 KB a picture, a picture question with a picture solution for all three class groups
+every day is ~220 MB a year of Atlas M0's 512 MB. Real use will be a fraction; the owner is asked to
+watch the database size (LAUNCH_REPORT §8), and the storage sits behind one service, so moving it to an
+object store later is a contained change.
+
+Rejected: **a `picture` question type** (34 places name `single_choice`, and the Daily Quiz needs it);
+**OCR** (the owner's "as of now", and a misread exponent is a wrong question nobody notices); **an object
+store** (a new service against ₹0, when MongoDB already holds the photos); **the database id as the
+address** (guessable from the question's); **trusting the browser's measurements or its re-encoding**
+(a script need not shrink anything, and a browser could claim any size).
+
+## 2026-10-09 — The Daily Quiz prize is monthly: one winner a month in each class band
+
+**Context.** Phase 2 gave every quiz its own winner — by default the fastest correct answer, with the
+rule and the number of winners as settings (decision 8 of the Milestone 30 Phase 2 ADR). On 2026-10-09
+the owner said there will be no daily winner: "a monthly winner who has highest score". Asked, they
+chose the score — **correct answers in the month, the lower total solve time breaking a tie**; **one
+winner per class band** (3–5, 6–8, 9–10, 11–12); **a staff check early the next month**; and **November
+counted from the launch on the 8th** (PLAN.md Q24).
+
+**Decision.**
+1. **The rule is code, not a setting.** `rankMonthlyCandidates()` in `lib/dailyQuiz.ts`, a pure
+   function: the most correct answers that month; then the lower total of the server-measured solve
+   times over them (an unknown total last); then whoever reached their total first; then the student
+   id, so the order is total and working the candidates out again cannot move a tie. The settings'
+   `winnerRule` and `winnersPerQuiz` are retired — kept in the schema so a saved document loads, read by
+   nothing, dropped from a request. The public sentence is still generated (`describeWinnerRule()`, now
+   from constants).
+2. **The prize's bands are not the quiz's groups.** Quizzes are still scheduled for three class groups a
+   day (Q3); the prize has four bands (`PRIZE_BANDS`), so Classes 9–10 and 11–12 compete apart. An answer
+   counts in the band of the class it was answered in — each attempt belongs to one class's
+   `DailyChallenge` — so a student who moves class mid-month does not carry answers across.
+3. **A month's prize is a `DailyQuizWinner` row with `period: 'month'`**, not a new collection. Its
+   `groupId` is derived from the month and the band (SHA-256 of `dailyquiz-month:v1:<month>:<band>`, cut
+   to an ObjectId), so the unique `{ groupId, student }` index means one row per student per prize, and
+   the lifecycle (provisional → confirmed → published, disqualified with a reason, contacted,
+   delivered), the conditional writes, the re-count after confirming, the prize snapshot, the
+   notification, the audit trail, the prize desk and the public list all carry over. New optional
+   fields — `period`, `month`, `band`, `correctCount` — say what a row is; `day` is the month's last day
+   and `solveTimeMs` the total. Rows from before keep `period` absent and read as one quiz's.
+4. **Candidates only once the month is over** — from IST midnight on the 1st (`monthEndsAt()`), a 409
+   naming that moment before. A field ranked mid-month is incomplete, and an early ranking invites an
+   early announcement. Staff then confirm one per band (`WINNERS_PER_BAND`) and announce.
+5. **No promise before the launch.** Nothing counts before 8 November 2026 (`MONTHLY_PRIZES_FROM`). The
+   public prize information carries that day (`prizesFrom`) and a quiz's staff page its prize month
+   (`prizeMonth`), so the quiz panel says "Monthly prizes start on Sun, 8 Nov 2026" until then rather than
+   "counts towards this month's prize".
+6. **The shared-connection prompt is per student over the month**: how many other students answered from
+   a connection this student used. Still a prompt for a person, never a verdict.
+
+Rejected: **a monthly option in the rule setting** — the owner chose one rule, and a dropdown is a way to
+change the prize without anybody deciding to; **a `MonthlyWinner` collection** — a second lifecycle
+beside the first, which would drift from it; **ranking by XP** — XP includes practice and mock tests,
+which a quiz prize must not reward, and its tie-break is who got there first, not speed; **ranking by
+accuracy** — one right out of one would beat twenty out of twenty-one; **a running monthly table for
+students** — the owner asked for a winner, not a new public list of children.
+
+**A consequence worth stating.** The prize is decided first by the number of correct answers, so answer
+elimination with several accounts would buy a perfect month rather than one quiz's race. The person who
+reviews a winner is the control, with the shared-connection count as their prompt; turning instant
+results off removes elimination entirely (SECURITY.md, the Daily Quiz's point 5). The per-quiz compute
+route is gone; a quiz's own page still lists any candidates it had.
+
 ## 2026-10-09 — The Diwali edition at night: a transparent page over a fireworks canvas in a worker
 
 **Context.** On seeing the Diwali edition the owner asked for a slower intro, for fireworks "more
@@ -522,7 +635,8 @@ per day, Q4 no automatic fill, Q12 prize copy, Q13 eligibility fields) by replyi
    the owner's R7, "ChatGPT is their choice"). A submitted answer still counts toward the streak. With
    instant results off, the XP waits for the reveal, because paying it at once would tell the student
    they were right.
-8. **Winners: computed by the rule, decided by a person.** `FASTEST_CORRECT` (server-measured solve
+8. **Winners: computed by the rule, decided by a person.** *(Superseded on 2026-10-09 by "The Daily Quiz
+   prize is monthly" above: one winner a month in each class band, by a rule in code.)* `FASTEST_CORRECT` (server-measured solve
    time, ties to the earlier submission) by default, `FIRST_CORRECT` and `MANUAL` configurable; only
    eligible students (verified email, active account, name, class, school, city, guardian phone);
    provisional → confirmed → published, or disqualified with a reason; conditional writes throughout,

@@ -439,7 +439,7 @@ export function AppRoutes() {
             }
           />
           {/* Running the Daily Quiz (Milestone 30): the calendar, scheduling, bulk import,
-              each quiz's figures and winners, the prize desk and the settings. */}
+              each quiz's figures, the monthly winners, the prize desk and the settings. */}
           <Route
             path="/admin/daily-quiz"
             element={

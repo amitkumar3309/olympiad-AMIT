@@ -9,6 +9,7 @@ import {
   MockTest,
   MockTestAttempt,
   Question,
+  QuestionImage,
   QUESTION_STATUSES,
   Topic,
 } from '../models';
@@ -140,7 +141,7 @@ export interface ResetPreview {
 // ---------------------------------------------------------------------------
 
 async function previewQuestions(): Promise<ResetPreview> {
-  const [total, byStatus, mockTests, challenges, exams] = await Promise.all([
+  const [total, byStatus, mockTests, challenges, exams, pictures] = await Promise.all([
     Question.countDocuments({}),
     // Counted per status from `QUESTION_STATUSES` rather than four hardcoded queries, so
     // adding a status cannot leave the confirmation dialog quietly understating what it is
@@ -151,6 +152,8 @@ async function previewQuestions(): Promise<ResetPreview> {
     MockTest.countDocuments({}),
     DailyChallenge.countDocuments({}),
     Exam.countDocuments({}),
+    // Pictures belong to questions (Phase 7b); with the bank empty nothing can show one.
+    QuestionImage.countDocuments({}),
   ]);
 
   const blockers: ResetBlocker[] = [];
@@ -193,6 +196,9 @@ async function previewQuestions(): Promise<ResetPreview> {
         // administrator might read as "the published ones".
         note: `${byStatus.map((row) => `${row.count} ${row.status.replace('_', ' ')}`).join(', ')} — all of them`,
       },
+      ...(pictures > 0
+        ? [{ label: 'Question pictures', count: pictures, text: phrase(pictures, 'question picture') }]
+        : []),
     ],
     preserves: [
       'Chapters and subtopics',
@@ -267,7 +273,7 @@ async function previewDailyChallenges(): Promise<ResetPreview> {
   const preserves = [
     'The questions themselves, in the Question Bank',
     'XP and streaks already earned — a streak is a record of days a student turned up',
-    'The Daily Quiz settings: the prize, the winner rule and the result timing',
+    'The Daily Quiz settings: the prize and the result timing',
     'Practice sessions, mock tests, the official exam and every certificate',
   ];
   if (decided > 0) {
@@ -405,6 +411,10 @@ export async function performReset(scope: ResetScope, actorLabel: string): Promi
       const result = await Question.deleteMany({});
       const count = result.deletedCount ?? 0;
       deleted.push({ label: 'Questions', count, text: phrase(count, 'question') });
+      // Their pictures (Phase 7b). The Daily Quiz is reset before the bank (a blocker above),
+      // so no quiz is left showing one.
+      const pictures = (await QuestionImage.deleteMany({})).deletedCount ?? 0;
+      if (pictures > 0) deleted.push({ label: 'Question pictures', count: pictures, text: phrase(pictures, 'question picture') });
       break;
     }
 

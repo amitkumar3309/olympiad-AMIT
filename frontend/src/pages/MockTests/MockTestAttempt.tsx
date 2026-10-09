@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import { Alert, Badge, Button, ButtonLink, Card, EmptyState, ErrorState, Icon, Modal, Progress, SkeletonText, StatTile } from '../../components/ui'
 import MathText from '../../components/MathText'
+import QuestionPicture from '../../components/QuestionPicture'
 import { api, ApiError } from '../../api/client'
 import {
   isMockAttemptOpen,
@@ -477,9 +478,13 @@ export default function MockTestAttempt() {
             )}
           </div>
 
-          <div className={styles.qText}>
-            <MathText>{question.questionText}</MathText>
-          </div>
+          {question.questionText.trim() !== '' && (
+            <div className={styles.qText}>
+              <MathText>{question.questionText}</MathText>
+            </div>
+          )}
+          {/* A picture question's picture (Milestone 30 Phase 7b) — the question itself. */}
+          <QuestionPicture picture={question.image} name="the question" eager />
 
           {question.type === 'multiple_choice' && (
             <p className={styles.hint}>Select every correct option — all of them must be right.</p>
@@ -669,9 +674,12 @@ function ReviewQuestion({ entry }: { entry: MockReviewQuestion }) {
         </span>
       </div>
 
-      <div className={styles.qText}>
-        <MathText>{entry.questionText}</MathText>
-      </div>
+      {entry.questionText.trim() !== '' && (
+        <div className={styles.qText}>
+          <MathText>{entry.questionText}</MathText>
+        </div>
+      )}
+      <QuestionPicture picture={entry.image} name="the question" />
 
       {entry.options.length > 0 && (
         <ul className={styles.reviewOptions}>
@@ -704,10 +712,12 @@ function ReviewQuestion({ entry }: { entry: MockReviewQuestion }) {
         </div>
       </dl>
 
-      {entry.explanation && (
+      {(entry.explanation || entry.explanationImage) && (
         <div className={styles.explanation}>
           <h5>Explanation</h5>
-          <MathText>{entry.explanation}</MathText>
+          {entry.explanation && <MathText>{entry.explanation}</MathText>}
+          {/* The worked solution as a picture (Phase 7b): the server sends it only where it sends the text. */}
+          <QuestionPicture picture={entry.explanationImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
         </div>
       )}
 

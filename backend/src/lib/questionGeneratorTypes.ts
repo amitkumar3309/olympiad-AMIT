@@ -127,6 +127,14 @@ export interface GeneratedCandidate {
   marks: number;
   negativeMarks: number;
   tags: string[];
+  /**
+   * The question as a picture (Milestone 30 Phase 7b), named by the key of a picture the examiner
+   * uploaded. Set only by the picture import and the review screen — never by a model or a text
+   * parser, which have no pictures to give.
+   */
+  image?: { key: string; alt: string } | null;
+  /** The worked solution as a picture (Phase 7b). */
+  solutionImage?: { key: string; alt?: string } | null;
 }
 
 /** How a generator describes itself. `kind` is a statement of fact, not a label. */

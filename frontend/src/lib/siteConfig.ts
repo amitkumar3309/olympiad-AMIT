@@ -55,8 +55,8 @@ export const CRACK_THIS_SECONDS = 30
  */
 export const PAST_PROBLEMS_PER_GROUP = 7
 
-/** How many published Daily Quiz winners the Rewards section shows. */
-export const RECENT_WINNERS = 7
+/** How many published Daily Quiz winners the Rewards section shows — two months of four class bands. */
+export const RECENT_WINNERS = 8
 
 /** The podium (1–3) plus the table under it (4–8). */
 export const TOP_SCHOLARS = 8

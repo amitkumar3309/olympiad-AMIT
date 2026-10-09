@@ -1,25 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { dayKeyOf, dayStartsAt, istDayBounds, nextDayStartsAt, secondsUntilNextDay } from '../src/lib/competitionDay';
+import {
+  dayKeyOf,
+  dayStartsAt,
+  isMonthKey,
+  istDayBounds,
+  monthDays,
+  monthEndsAt,
+  monthLabel,
+  monthOf,
+  nextDayStartsAt,
+  nextMonth,
+  secondsUntilNextDay,
+} from '../src/lib/competitionDay';
 import { challengeStreakOf } from '../src/services/dailyChallengeService';
 import {
+  bandOfClass,
   classesInRange,
   classRangeLabel,
   describeWinnerRule,
+  FIRST_PRIZE_MONTH,
   hashIp,
+  MONTHLY_PRIZES_FROM,
   newOptionId,
   parseClassRange,
   parseQuizDay,
   prizeEligibility,
   quizPhaseAt,
   quizQuestionProblem,
+  PRIZE_BANDS,
   quizWindow,
-  rankCandidates,
+  rankMonthlyCandidates,
   seededOrder,
+  sharedConnectionCounts,
   sharedIpCounts,
   shuffleSeed,
-  WINNER_RULES,
   type EligibilityRequirement,
-  type WinnerCandidate,
+  type MonthlyCandidate,
 } from '../src/lib/dailyQuiz';
 import { parseCsv, jsonToTable } from '../src/services/tabularImportParsers';
 
@@ -186,86 +202,89 @@ describe('option ids and the shuffle', () => {
 });
 
 // ===========================================================================
-// Winners
+// The monthly prize (owner, 2026-10-09 — PLAN.md Q24)
 // ===========================================================================
 
-function candidate(overrides: Partial<WinnerCandidate> & { studentId: string }): WinnerCandidate {
+function candidate(overrides: Partial<MonthlyCandidate> & { studentId: string }): MonthlyCandidate {
   return {
-    attemptId: `attempt-${overrides.studentId}`,
-    solveTimeMs: 30_000,
-    submittedAt: new Date('2026-11-08T05:00:00.000Z'),
+    correctCount: 10,
+    totalSolveMs: 300_000,
+    lastCorrectAt: new Date('2026-11-28T05:00:00.000Z'),
     eligible: true,
     disqualified: false,
     ...overrides,
   };
 }
 
-describe('the winner rule', () => {
-  it('FASTEST_CORRECT: the shortest server-measured solve time wins', () => {
-    const ranked = rankCandidates(
-      [
-        candidate({ studentId: 'slow', solveTimeMs: 60_000 }),
-        candidate({ studentId: 'fast', solveTimeMs: 12_000 }),
-        candidate({ studentId: 'middle', solveTimeMs: 30_000 }),
-      ],
-      'FASTEST_CORRECT',
-    );
-    expect(ranked.map((c) => c.studentId)).toEqual(['fast', 'middle', 'slow']);
+describe('the monthly winner rule', () => {
+  it('the most correct answers wins, however long they took', () => {
+    const ranked = rankMonthlyCandidates([
+      candidate({ studentId: 'quick', correctCount: 9, totalSolveMs: 60_000 }),
+      candidate({ studentId: 'most', correctCount: 12, totalSolveMs: 900_000 }),
+      candidate({ studentId: 'middle', correctCount: 10 }),
+    ]);
+    expect(ranked.map((c) => c.studentId)).toEqual(['most', 'middle', 'quick']);
   });
 
-  it('FASTEST_CORRECT: an equal solve time goes to the earlier submission', () => {
-    const ranked = rankCandidates(
-      [
-        candidate({ studentId: 'later', solveTimeMs: 20_000, submittedAt: new Date('2026-11-08T09:00:00.000Z') }),
-        candidate({ studentId: 'earlier', solveTimeMs: 20_000, submittedAt: new Date('2026-11-08T03:00:00.000Z') }),
-      ],
-      'FASTEST_CORRECT',
-    );
-    expect(ranked[0]!.studentId).toBe('earlier');
+  it('an equal number goes to the lower total solve time, then to whoever reached it first', () => {
+    const ranked = rankMonthlyCandidates([
+      candidate({ studentId: 'slower', totalSolveMs: 400_000 }),
+      candidate({ studentId: 'later', totalSolveMs: 300_000, lastCorrectAt: new Date('2026-11-30T05:00:00.000Z') }),
+      candidate({ studentId: 'earlier', totalSolveMs: 300_000, lastCorrectAt: new Date('2026-11-20T05:00:00.000Z') }),
+    ]);
+    expect(ranked.map((c) => c.studentId)).toEqual(['earlier', 'later', 'slower']);
   });
 
-  it('FIRST_CORRECT: the earliest submission wins, however long it took', () => {
-    const ranked = rankCandidates(
-      [
-        candidate({ studentId: 'quick-but-late', solveTimeMs: 5_000, submittedAt: new Date('2026-11-08T10:00:00.000Z') }),
-        candidate({ studentId: 'slow-but-early', solveTimeMs: 90_000, submittedAt: new Date('2026-11-07T19:00:00.000Z') }),
-      ],
-      'FIRST_CORRECT',
-    );
-    expect(ranked[0]!.studentId).toBe('slow-but-early');
-  });
-
-  it('skips the ineligible and the disqualified, whatever their time', () => {
-    const ranked = rankCandidates(
-      [
-        candidate({ studentId: 'no-profile', solveTimeMs: 1_000, eligible: false }),
-        candidate({ studentId: 'disqualified', solveTimeMs: 2_000, disqualified: true }),
-        candidate({ studentId: 'winner', solveTimeMs: 40_000 }),
-      ],
-      'FASTEST_CORRECT',
-    );
+  it('skips the ineligible and the disqualified, whatever their score', () => {
+    const ranked = rankMonthlyCandidates([
+      candidate({ studentId: 'no-profile', correctCount: 30, eligible: false }),
+      candidate({ studentId: 'disqualified', correctCount: 29, disqualified: true }),
+      candidate({ studentId: 'winner', correctCount: 5 }),
+    ]);
     expect(ranked.map((c) => c.studentId)).toEqual(['winner']);
   });
 
-  it('puts a missing solve time last, and breaks a complete tie on the student id', () => {
-    const same = { solveTimeMs: 10_000, submittedAt: new Date('2026-11-08T04:00:00.000Z') };
-    const ranked = rankCandidates(
-      [
-        candidate({ studentId: 'unknown-time', solveTimeMs: null }),
-        candidate({ studentId: 'b', ...same }),
-        candidate({ studentId: 'a', ...same }),
-      ],
-      'FASTEST_CORRECT',
-    );
+  it('puts an unknown total time last among equals, and breaks a complete tie on the student id', () => {
+    const same = { totalSolveMs: 100_000, lastCorrectAt: new Date('2026-11-25T04:00:00.000Z') };
+    const ranked = rankMonthlyCandidates([
+      candidate({ studentId: 'unknown-time', totalSolveMs: null }),
+      candidate({ studentId: 'b', ...same }),
+      candidate({ studentId: 'a', ...same }),
+    ]);
     expect(ranked.map((c) => c.studentId)).toEqual(['a', 'b', 'unknown-time']);
   });
 
-  it('prints how winners are chosen from the same settings the ranking uses', () => {
-    expect(describeWinnerRule('FASTEST_CORRECT', 1)).toMatch(/fastest solve time/i);
-    expect(describeWinnerRule('FASTEST_CORRECT', 1)).toMatch(/One winner is chosen/);
-    expect(describeWinnerRule('FIRST_CORRECT', 2)).toMatch(/reached our server first/i);
-    expect(describeWinnerRule('FIRST_CORRECT', 2)).toMatch(/2 winners are chosen/);
-    expect(describeWinnerRule('MANUAL', 1)).toMatch(/organisers choose/i);
+  it('puts every class in exactly one band', () => {
+    expect(PRIZE_BANDS.map((band) => band.key)).toEqual(['3-5', '6-8', '9-10', '11-12']);
+    for (let n = 3; n <= 12; n += 1) {
+      expect(PRIZE_BANDS.filter((band) => n >= band.min && n <= band.max)).toHaveLength(1);
+    }
+    expect(bandOfClass(9).key).toBe('9-10');
+    expect(bandOfClass(11).key).toBe('11-12');
+    expect(() => bandOfClass(2)).toThrow(RangeError);
+  });
+
+  it('counts the other students who answered from a connection a student did, over the month', () => {
+    const counts = sharedConnectionCounts([
+      { studentId: 'a', ipHash: 'h1' },
+      { studentId: 'a', ipHash: 'h2' },
+      { studentId: 'b', ipHash: 'h1' },
+      { studentId: 'b', ipHash: 'h1' },
+      { studentId: 'c', ipHash: 'h2' },
+      { studentId: 'd', ipHash: null },
+    ]);
+    expect(counts.get('a')).toBe(2); // b on one connection, c on the other
+    expect(counts.get('b')).toBe(1);
+    expect(counts.get('c')).toBe(1);
+    expect(counts.get('d')).toBe(0);
+  });
+
+  it('prints how winners are chosen from the same constants the ranking uses', () => {
+    const sentence = describeWinnerRule();
+    expect(sentence).toMatch(/one winner in each class band — Classes 3–5, 6–8, 9–10 and 11–12/);
+    expect(sentence).toMatch(/the most Daily Quizzes correctly that month/);
+    expect(sentence).toMatch(/the lower total solve time wins/);
+    expect(sentence).toMatch(/early the following month/);
   });
 
   it('names every prize requirement a student can meet — the rules page lists them nowhere else', () => {
@@ -281,11 +300,29 @@ describe('the winner rule', () => {
       'guardian-phone': /parent or guardian’s phone number/,
       'guardian-consent': /parent or guardian’s consent/,
     };
-    for (const rule of WINNER_RULES) {
-      for (const pattern of Object.values(phrase)) {
-        if (pattern) expect(describeWinnerRule(rule, 1)).toMatch(pattern);
-      }
+    for (const pattern of Object.values(phrase)) {
+      if (pattern) expect(describeWinnerRule()).toMatch(pattern);
     }
+  });
+});
+
+describe('months', () => {
+  it('knows a month’s days, the moment it ends in India and its name', () => {
+    expect(monthDays('2026-11')).toEqual({ first: '2026-11-01', last: '2026-11-30' });
+    expect(monthDays('2028-02')).toEqual({ first: '2028-02-01', last: '2028-02-29' });
+    // IST midnight on 1 December is 18:30 UTC on 30 November.
+    expect(monthEndsAt('2026-11').toISOString()).toBe('2026-11-30T18:30:00.000Z');
+    expect(nextMonth('2026-12')).toBe('2027-01');
+    expect(monthLabel('2026-11')).toBe('November 2026');
+    expect(monthOf('2026-11-08')).toBe('2026-11');
+    expect(isMonthKey('2026-11')).toBe(true);
+    expect(isMonthKey('2026-13')).toBe(false);
+    expect(isMonthKey('2026-1')).toBe(false);
+  });
+
+  it('starts the prizes with November 2026, counted from the 8th', () => {
+    expect(FIRST_PRIZE_MONTH).toBe('2026-11');
+    expect(MONTHLY_PRIZES_FROM).toBe('2026-11-08');
   });
 });
 
@@ -365,6 +402,12 @@ describe('what a quiz question must look like', () => {
     ).toMatch(/exactly one correct/);
     expect(quizQuestionProblem({ ...question, solution: '  ' }, { min: 9, max: 12 })).toMatch(/worked solution/);
     expect(quizQuestionProblem(question, { min: 3, max: 5 })).toMatch(/outside Classes 3–5/);
+  });
+
+  it('takes a picture of the worked solution in place of a written one (Phase 7b)', () => {
+    const pictured = { ...question, solution: '', solutionImage: { key: 'a'.repeat(32) } };
+    expect(quizQuestionProblem(pictured, { min: 9, max: 12 })).toBeNull();
+    expect(quizQuestionProblem({ ...pictured, solutionImage: null }, { min: 9, max: 12 })).toMatch(/written out or as a picture/);
   });
 });
 

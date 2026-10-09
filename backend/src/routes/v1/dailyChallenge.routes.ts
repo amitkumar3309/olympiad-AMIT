@@ -269,8 +269,8 @@ router.get(
 
 /**
  * The prize and the rule, for the Rewards section, the Login Gate and the rules page —
- * the sentence about how winners are chosen is generated from the settings the
- * computation itself reads, so the two cannot disagree.
+ * one winner a month in each class band; the sentence about how winners are chosen is
+ * generated from the constants the ranking itself reads, so the two cannot disagree.
  */
 router.get('/daily-quiz/info', ensureDb, async (_req: Request, res: Response) => {
   try {

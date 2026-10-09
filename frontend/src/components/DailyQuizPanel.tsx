@@ -18,7 +18,9 @@ import {
   clockOffset,
 } from './ui'
 import MathText from './MathText'
+import QuestionPicture from './QuestionPicture'
 import { api } from '../api/client'
+import { useAuth } from '../context/AuthContext'
 import {
   ELIGIBILITY_LABELS,
   type DailyQuizHistoryResponse,
@@ -30,7 +32,7 @@ import {
 } from '../api/types'
 import { formatDayKey, formatSolveTime, formatTime } from '../lib/format'
 import { humanizeError } from '../lib/errors'
-import { prizeLine } from '../lib/dailyQuizCopy'
+import { bandLabelFor, prizeLine } from '../lib/dailyQuizCopy'
 import styles from './DailyQuizPanel.module.css'
 
 /**
@@ -78,13 +80,24 @@ function writeSelection(key: string, value: string | null): void {
   }
 }
 
-function ruleHint(prize: QuizPrizeInfo): string | null {
-  if (prize.winnerRule === 'FASTEST_CORRECT') return 'Your solve time is measured by our server from Start to Submit — the fastest correct answer wins.'
-  if (prize.winnerRule === 'FIRST_CORRECT') return 'The first correct answer to reach our server wins.'
-  return null
+/**
+ * The day monthly prizes start while it is still ahead, else null (owner, 2026-10-09 — PLAN.md
+ * Q24: November counts from the launch on the 8th). Both days are the server's: `today` is its
+ * IST day, so a laptop in another time zone cannot promise a prize a day early.
+ */
+function prizesStartOn(prize: QuizPrizeInfo, today: string): string | null {
+  return prize.prizesFrom && today < prize.prizesFrom ? prize.prizesFrom : null
+}
+
+/** "This month’s prize for Classes 9–10: …" — the band from the student's class, when there is one. */
+function monthlyPrizeLine(prize: QuizPrizeInfo, classLevel: string | null): string {
+  const band = bandLabelFor(classLevel, prize.bands)
+  return `This month’s prize${band ? ` for ${band}` : ''}: ${prizeLine(prize)}.`
 }
 
 export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps) {
+  const { state } = useAuth()
+  const classLevel = state.status === 'student' ? state.student.classLevel : null
   const [today, setToday] = useState<DailyQuizToday | null>(null)
   const [offset, setOffset] = useState(0)
   const [loadError, setLoadError] = useState<unknown>(null)
@@ -201,7 +214,7 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
   }
 
   const { prize, eligibility, quiz } = today
-  const hint = ruleHint(prize)
+  const startsOn = prizesStartOn(prize, today.today)
 
   const eligibilityPrompt =
     !eligibility.eligible && eligibility.missing.length > 0 ? (
@@ -309,11 +322,15 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
               <Icon name="ph-star" /> +{prize.xpForCorrect} XP for a correct answer.
             </li>
             <li>
-              <Icon name="ph-gift" /> Today’s prize: {prizeLine(prize)}.
+              <Icon name="ph-gift" />{' '}
+              {startsOn
+                ? `Monthly prizes start on ${formatDayKey(startsOn)}: ${prizeLine(prize)} for the top scorer in each class band.`
+                : monthlyPrizeLine(prize, classLevel)}
             </li>
-            {hint && (
+            {!startsOn && (
               <li>
-                <Icon name="ph-timer" /> {hint}
+                <Icon name="ph-timer" /> Every correct answer counts towards this month’s prize. Your solve time — measured by our
+                server from Start to Submit — breaks a tie.
               </li>
             )}
           </ul>
@@ -342,7 +359,9 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
           <Countdown target={today.startedAt} offsetMs={offset} direction="up" label="Time since you pressed Start" />
         </div>
         <div className={styles.question}>
-          <MathText block>{today.question.text}</MathText>
+          {today.question.text.trim() !== '' && <MathText block>{today.question.text}</MathText>}
+          {/* A picture question (Milestone 30 Phase 7b): served from Start, like the words. */}
+          <QuestionPicture picture={today.question.image} name="the question" eager />
         </div>
         <OptionGroup legend="Choose your answer" value={selected} onChange={choose} columns={2} disabled={busy === 'submit'}>
           {today.question.options.map((option) => (
@@ -425,9 +444,11 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
                   <h2 className={styles.title}>Correct!</h2>
                   <p>
                     {justEarned !== null && justEarned > 0 ? `+${justEarned} XP. ` : result.xpAwarded > 0 ? `+${result.xpAwarded} XP. ` : ''}
-                    {eligibility.eligible
-                      ? 'You’re in the running for today’s prize.'
-                      : 'Complete your profile to be in the running for today’s prize.'}
+                    {startsOn
+                      ? `Monthly prizes start on ${formatDayKey(startsOn)}.`
+                      : eligibility.eligible
+                        ? 'One more towards this month’s prize.'
+                        : 'Complete your profile to be in the running for this month’s prize.'}
                   </p>
                 </div>
               </>
@@ -529,9 +550,10 @@ export function UnlockedAnswer({ row }: { row: QuizHistoryRow }) {
         <span className={styles.day}>{formatDayKey(row.day)}</span>
         {row.topic && <Badge tone="neutral" size="sm">{row.topic}</Badge>}
       </div>
-      {row.questionText && (
+      {(row.questionText || row.questionImage) && (
         <div className={styles.question}>
-          <MathText block>{row.questionText}</MathText>
+          {row.questionText && <MathText block>{row.questionText}</MathText>}
+          <QuestionPicture picture={row.questionImage} name="the question" />
         </div>
       )}
       {row.options.length > 0 ? (
@@ -568,10 +590,11 @@ export function UnlockedAnswer({ row }: { row: QuizHistoryRow }) {
             : 'Your answer was not the correct one.'}
         {row.won && ' 🏆 You won this quiz!'}
       </p>
-      {reveal.solution && (
+      {(reveal.solution || reveal.solutionImage) && (
         <div className={styles.solution}>
           <h3>Worked solution</h3>
-          <MathText block>{reveal.solution}</MathText>
+          {reveal.solution && <MathText block>{reveal.solution}</MathText>}
+          <QuestionPicture picture={reveal.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
         </div>
       )}
       <Link to="/profile#daily-quiz-history" className={styles.historyLink}>

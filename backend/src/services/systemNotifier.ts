@@ -10,8 +10,11 @@ import {
   type StudentDocument,
 } from '../models';
 import { logger } from '../lib/logger';
+import { monthLabel } from '../lib/competitionDay';
+import { classRangeLabel } from '../lib/dailyQuiz';
 import { postSystemNotification } from './notificationService';
 import {
+  dailyQuizMonthlyWinnerCopy,
   dailyQuizWinnerCopy,
   examPublishedCopy,
   mockTestPublishedCopy,
@@ -219,19 +222,20 @@ export async function notifyPasswordChangedById(studentId: Types.ObjectId): Prom
 
 /**
  * Tells a Daily Quiz winner they won, once an administrator has **published** them
- * (Milestone 30). Never on computation or confirmation — nothing about a prize is said to
- * a child until a person has checked it. Keyed on the winner row, so publishing the same
- * winner twice (a retried request) cannot tell them twice.
+ * (Milestone 30) — a month's winner in a class band since 2026-10-09. Never on computation or
+ * confirmation — nothing about a prize is said to a child until a person has checked it.
+ * Keyed on the winner row, so publishing the same winner twice (a retried request) cannot
+ * tell them twice.
  */
 export async function notifyDailyQuizWinner(winner: DailyQuizWinnerDocument, student: StudentDocument): Promise<void> {
+  const prize = { prizeText: winner.prizeText ?? null, cashAmount: winner.cashAmount ?? null };
   await attempt('dailyquiz.winner_published', () =>
     postSystemNotification({
       event: 'dailyquiz.winner_published',
-      copy: dailyQuizWinnerCopy({
-        day: winner.day,
-        prizeText: winner.prizeText ?? null,
-        cashAmount: winner.cashAmount ?? null,
-      }),
+      copy:
+        winner.period === 'month' && winner.month
+          ? dailyQuizMonthlyWinnerCopy({ month: monthLabel(winner.month), band: classRangeLabel(winner.classMin, winner.classMax), ...prize })
+          : dailyQuizWinnerCopy({ day: winner.day, ...prize }),
       target: { audience: 'student', student },
       dedupeKey: `dailyquiz-winner:${String(winner._id)}`,
     }),

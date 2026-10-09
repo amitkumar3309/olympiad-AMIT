@@ -82,7 +82,7 @@ export default function PrizeDetails({ profile, onSaved }: { profile: OwnProfile
         title={<span id="prize-details-title">Prize details</span>}
         as="h2"
         size="sm"
-        description="Daily Quiz winners get a surprise gift and a cash prize, delivered through a parent or guardian."
+        description="Each month’s Daily Quiz winners get a surprise gift and a cash prize, delivered through a parent or guardian."
         actions={
           eligible ? (
             <Badge tone="success" icon="ph-seal-check">

@@ -1,17 +1,30 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
-import type { DayKey } from '../lib/competitionDay';
-import { WINNER_RULES, type WinnerRule } from '../lib/dailyQuiz';
+import type { DayKey, MonthKey } from '../lib/competitionDay';
+import { WINNER_RULES, type PrizeBandKey, type WinnerRule } from '../lib/dailyQuiz';
 
 /**
- * A candidate for, or the winner of, one Daily Quiz's prize (Milestone 30, Phase 2).
+ * A candidate for, or the winner of, a Daily Quiz prize (Milestone 30, Phase 2) — since
+ * 2026-10-09 **one month's prize in one class band** (PLAN.md Q24): `period: 'month'`, with
+ * `month`, `band` and `correctCount`. Rows from before have no `period` and were one quiz's
+ * prize; they stay readable — the prize desk still tracks getting their prizes delivered —
+ * and nothing writes them any more.
+ *
+ * ## A month's row, in the fields a quiz's row already had
+ *
+ *  - `groupId` is a key derived from the month and the band (`monthGroupId()`), so the
+ *    unique `{groupId, student}` index still means "one row per student per prize";
+ *  - `day` is the month's last day, `classMin`/`classMax` the band's;
+ *  - `attempt` and `submittedAt` are the student's **last** correct answer that month;
+ *  - `solveTimeMs` is the **total** solve time over the month's correct answers;
+ *  - `sharedIpCount` counts the other students who answered from a connection they did.
  *
  * ## The lifecycle, and why nothing is public until a person says so
  *
  *   provisional → confirmed → published
  *        └────────→ disqualified (with a reason), from provisional or confirmed
  *
- *  - **provisional** — "Compute winners" ranks the correct, eligible answers by the
- *    configured rule and writes the leading few here. Nobody sees these but staff.
+ *  - **provisional** — "Work out candidates" ranks the month's eligible students by the
+ *    rule and writes the leading few here. Nobody sees these but staff.
  *  - **confirmed** — an administrator has checked the candidate (the profile, the
  *    shared-connection flag, a call to the parent) and chosen them.
  *  - **published** — announced: listed in the public Rewards section and told on their
@@ -33,7 +46,17 @@ import { WINNER_RULES, type WinnerRule } from '../lib/dailyQuiz';
 export const WINNER_STATUSES = ['provisional', 'confirmed', 'published', 'disqualified'] as const;
 export type WinnerStatus = (typeof WINNER_STATUSES)[number];
 
+/** What a row was the prize of. Absent on rows from before the monthly prize: one quiz. */
+export const WINNER_PERIODS = ['quiz', 'month'] as const;
+export type WinnerPeriod = (typeof WINNER_PERIODS)[number];
+
 export interface DailyQuizWinnerDocument extends Document {
+  period?: WinnerPeriod | null;
+  /** A month's prize: which month, and which class band. */
+  month?: MonthKey | null;
+  band?: PrizeBandKey | null;
+  /** A month's prize: the Daily Quizzes this student answered correctly that month, in the band. */
+  correctCount?: number | null;
   groupId: Types.ObjectId;
   day: DayKey;
   classMin: number;
@@ -64,6 +87,10 @@ export interface DailyQuizWinnerDocument extends Document {
 
 const dailyQuizWinnerSchema = new Schema<DailyQuizWinnerDocument>(
   {
+    period: { type: String, enum: WINNER_PERIODS, default: undefined },
+    month: { type: String, default: undefined },
+    band: { type: String, default: undefined },
+    correctCount: { type: Number, default: undefined, min: 0 },
     groupId: { type: Schema.Types.ObjectId, required: true },
     day: { type: String, required: true },
     classMin: { type: Number, required: true, min: 3, max: 12 },
@@ -89,8 +116,11 @@ const dailyQuizWinnerSchema = new Schema<DailyQuizWinnerDocument>(
   { timestamps: true },
 );
 
-/** One row per student per quiz — a recompute updates a candidate rather than adding one. */
+/** One row per student per prize — a recompute updates a candidate rather than adding one. */
 dailyQuizWinnerSchema.index({ groupId: 1, student: 1 }, { unique: true });
+
+// A month's rows, band by band, for the monthly winners page.
+dailyQuizWinnerSchema.index({ month: 1, band: 1, rank: 1 });
 
 // The public "recent winners" list, newest first.
 dailyQuizWinnerSchema.index({ status: 1, publishedAt: -1 });

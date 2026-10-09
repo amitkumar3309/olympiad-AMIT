@@ -1,4 +1,5 @@
 import type { QuestionDocument } from '../models';
+import { pictureView } from './questionImageService';
 
 /**
  * The **student** view of a question — the answer-stripped shape.
@@ -12,7 +13,8 @@ import type { QuestionDocument } from '../models';
  *  - `isCorrect` on each option (options keep only `key` and `text`),
  *  - `booleanAnswer` / `numericAnswer` / `tolerance`,
  *  - `acceptedAnswers` (the `fill_blank` key, Milestone 18),
- *  - `solution`.
+ *  - `solution`, and the solution's picture (`solutionImage`, Milestone 30 Phase 7b) — its key is
+ *    the permission to fetch it, so it may not travel in a view the solution may not.
  *
  * Being an **allow-list** is what made the Milestone 18 question type safe for free:
  * `acceptedAnswers` was added to the model and was never at risk of appearing here,
@@ -53,6 +55,8 @@ export function studentQuestionView(question: QuestionDocument) {
   return {
     id: String(question._id),
     questionText: question.questionText,
+    // The question as a picture (Phase 7b) — never the solution's picture.
+    image: pictureView(question.image),
     type: question.type,
     // Only the key and the text — never `isCorrect`.
     options: question.options.map((option) => ({ key: option.key, text: option.text })),

@@ -1,35 +1,55 @@
+import { createHash } from 'node:crypto';
 import { Types } from 'mongoose';
 import { ApiError } from '../lib/ApiError';
 import { logger } from '../lib/logger';
 import { config } from '../config';
 import { now } from '../lib/clock';
 import { isClassLevel, type ClassLevel } from '../lib/classLevels';
-import { dayKeyOf, daysBetween, isDayKey, shiftDay, type DayKey } from '../lib/competitionDay';
+import {
+  dayKeyOf,
+  daysBetween,
+  isDayKey,
+  monthDays,
+  monthEndsAt,
+  monthLabel,
+  monthOf,
+  nextMonth,
+  shiftDay,
+  type DayKey,
+  type MonthKey,
+} from '../lib/competitionDay';
 import {
   CLASS_GROUPS,
   classesInRange,
   classNumber,
   classRangeLabel,
   describeWinnerRule,
+  FIRST_PRIZE_MONTH,
   hashIp,
+  MONTHLY_PRIZES_FROM,
   newOptionId,
   optionLetter,
+  PRIZE_BANDS,
+  prizeBand,
   prizeEligibility,
   quizPhaseAt,
   quizQuestionProblem,
   quizWindow,
-  rankCandidates,
+  rankMonthlyCandidates,
   seededOrder,
-  sharedIpCounts,
+  sharedConnectionCounts,
   shuffleSeed,
+  WINNERS_PER_BAND,
   type EligibilityRequirement,
+  type MonthlyCandidate,
+  type PrizeBandKey,
   type PrizeDeskView,
   type QuizPhase,
-  type WinnerRule,
 } from '../lib/dailyQuiz';
 import {
   DAILY_QUIZ_DEFAULTS,
   DAILY_QUIZ_SETTINGS_KEY,
+  RETIRED_PRIZE_HEADLINE,
   DailyChallenge,
   DailyChallengeAttempt,
   DailyQuizSettings,
@@ -44,17 +64,20 @@ import {
   type DailyQuizStartDocument,
   type DailyQuizWinnerDocument,
   type QuestionDocument,
+  type QuestionPicture,
   type QuizContent,
   type StudentDocument,
   type WinnerStatus,
 } from '../models';
 import { findImplicitSubject, type Actor } from './taxonomyService';
+import { authorPictureView, pictureView, type PictureView } from './questionImageService';
 import { gradeEntry } from './grading';
 import { publicListingFor } from './leaderboardService';
 
 /**
  * The Daily Quiz — scheduling one, serving today's, the Start/submit pair, the reveal,
- * the history, the figures and the prize winners (Milestone 30, Phase 2).
+ * the history, the figures and the prize winners (Milestone 30, Phase 2) — one a month in
+ * each class band since 2026-10-09 (PLAN.md Q24).
  *
  * This file was the daily challenge (Milestone 8) and is **upgraded in place**, not
  * duplicated: the launch brief's Daily Quiz is the same feature with stricter rules. The
@@ -149,12 +172,15 @@ async function activityCount(docs: readonly DailyChallengeDocument[]): Promise<n
 // Settings
 // ---------------------------------------------------------------------------
 
+/**
+ * The owner-editable settings. How winners are chosen is not among them: since 2026-10-09 it is
+ * one winner a month in each class band, by the rule in `lib/dailyQuiz.ts` (PLAN.md Q24) — the
+ * document's old `winnerRule` and `winnersPerQuiz` are kept so it loads, and read by nothing.
+ */
 export interface QuizSettings {
   prizeHeadline: string;
   prizeText: string;
   cashAmount: number | null;
-  winnerRule: WinnerRule;
-  winnersPerQuiz: number;
   instantResult: boolean;
   updatedAt: Date | null;
   updatedByLabel: string | null;
@@ -162,18 +188,18 @@ export interface QuizSettings {
 
 /**
  * The settings in force. A missing document is the defaults; an unreadable one is the
- * defaults too, logged — a configuration read must never stop a student playing.
+ * defaults too, logged — a configuration read must never stop a student playing. A saved
+ * headline that is still the retired default ("Win daily", untrue once the prize became
+ * monthly) is read as today's default.
  */
 export async function getQuizSettings(): Promise<QuizSettings> {
   try {
     const doc = await DailyQuizSettings.findOne({ key: DAILY_QUIZ_SETTINGS_KEY });
     if (doc) {
       return {
-        prizeHeadline: doc.prizeHeadline,
+        prizeHeadline: doc.prizeHeadline === RETIRED_PRIZE_HEADLINE ? DAILY_QUIZ_DEFAULTS.prizeHeadline : doc.prizeHeadline,
         prizeText: doc.prizeText,
         cashAmount: doc.cashAmount ?? null,
-        winnerRule: doc.winnerRule,
-        winnersPerQuiz: doc.winnersPerQuiz,
         instantResult: doc.instantResult,
         updatedAt: doc.updatedAt ?? null,
         updatedByLabel: doc.updatedByLabel ?? null,
@@ -182,7 +208,8 @@ export async function getQuizSettings(): Promise<QuizSettings> {
   } catch (err) {
     logger.error({ err }, 'Could not read the Daily Quiz settings; using the defaults');
   }
-  return { ...DAILY_QUIZ_DEFAULTS, updatedAt: null, updatedByLabel: null };
+  const { prizeHeadline, prizeText, cashAmount, instantResult } = DAILY_QUIZ_DEFAULTS;
+  return { prizeHeadline, prizeText, cashAmount, instantResult, updatedAt: null, updatedByLabel: null };
 }
 
 export type QuizSettingsInput = Omit<QuizSettings, 'updatedAt' | 'updatedByLabel'>;
@@ -196,16 +223,28 @@ export async function updateQuizSettings(input: QuizSettingsInput, actor: Actor)
   return getQuizSettings();
 }
 
-/** What any visitor may read: the prize, the rule in words, and what a correct answer earns. */
+/**
+ * The class bands a monthly prize is won in, as a page shows them. `id`, never `key`: no
+ * student response may carry a field called `key` (the answer-key leak test forbids the word).
+ */
+export function prizeBandsView() {
+  return PRIZE_BANDS.map((band) => ({ id: band.key, min: band.min, max: band.max, label: classRangeLabel(band.min, band.max) }));
+}
+
+/** What any visitor may read: the prize, how often and in which bands, the rule in words, and what a correct answer earns. */
 export function publicQuizInfo(settings: QuizSettings, xpForCorrect: number) {
   return {
     prizeHeadline: settings.prizeHeadline,
     prizeText: settings.prizeText,
     cashAmount: settings.cashAmount,
-    winnerRule: settings.winnerRule,
-    winnersPerQuiz: settings.winnersPerQuiz,
-    /** Generated from the same settings the computation uses — the rules page prints this verbatim. */
-    howWinnersAreChosen: describeWinnerRule(settings.winnerRule, settings.winnersPerQuiz),
+    /** One winner a month in each class band (PLAN.md Q24). */
+    period: 'month' as const,
+    bands: prizeBandsView(),
+    winnersPerBand: WINNERS_PER_BAND,
+    /** The first day an answer counts towards a prize — the launch. A page must not promise one before it. */
+    prizesFrom: MONTHLY_PRIZES_FROM,
+    /** Generated from the same constants the ranking uses — the rules page prints this verbatim. */
+    howWinnersAreChosen: describeWinnerRule(),
     instantResult: settings.instantResult,
     xpForCorrect,
   };
@@ -273,14 +312,24 @@ async function requireQuizQuestion(
   return { question, topicName: topic?.name ?? null };
 }
 
-/** The quiz's own copy of the question, every option given a fresh opaque id. */
+/** A picture reference as a plain value — the quiz keeps its own copy, as it does of the text. */
+function copyPicture(picture: QuestionPicture | null | undefined): QuestionPicture | null {
+  return picture?.key ? { key: picture.key, alt: picture.alt ?? '', width: picture.width, height: picture.height } : null;
+}
+
+/**
+ * The quiz's own copy of the question, every option given a fresh opaque id. A picture is
+ * copied by its key (Phase 7b): pictures never change, so the key pins exactly what was shown.
+ */
 function snapshotContent(question: QuestionDocument, topicName: string | null): QuizContent {
   const correct = question.options.find((option) => option.isCorrect);
   return {
     questionText: question.questionText,
+    image: copyPicture(question.image),
     options: question.options.map((option) => ({ key: option.key, id: newOptionId(), text: option.text })),
     correctOptionKey: correct!.key,
     solution: question.solution ?? '',
+    solutionImage: copyPicture(question.solutionImage),
     difficulty: question.difficulty,
     topicName,
     revision: question.revision,
@@ -753,6 +802,8 @@ export function quizQuestionView(challenge: DailyChallengeDocument & { content: 
   for (const option of challenge.content.options) if (!optionOrder.includes(option.id)) ordered.push(option);
   return {
     text: challenge.content.questionText,
+    // The question as a picture (Phase 7b) — never the solution's picture, which is `revealOf()`'s.
+    image: pictureView(challenge.content.image),
     options: ordered.map((option, index) => ({ id: option.id, text: option.text, letter: optionLetter(index) })),
   };
 }
@@ -763,12 +814,21 @@ export function quizQuestionView(challenge: DailyChallengeDocument & { content: 
  * goes through this one function, and the leak test checks every response on both sides
  * of the boundary.
  */
-export function revealOf(challenge: DailyChallengeDocument, at: Date): { correctOptionId: string; correctOptionText: string; solution: string } | null {
+export function revealOf(
+  challenge: DailyChallengeDocument,
+  at: Date,
+): { correctOptionId: string; correctOptionText: string; solution: string; solutionImage: PictureView | null } | null {
   if (!isPlayable(challenge)) return null;
   if (quizPhaseAt(challenge.day, at) !== 'revealed') return null;
   const correct = challenge.content.options.find((option) => option.key === challenge.content.correctOptionKey);
   if (!correct) return null;
-  return { correctOptionId: correct.id, correctOptionText: correct.text, solution: challenge.content.solution };
+  return {
+    correctOptionId: correct.id,
+    correctOptionText: correct.text,
+    solution: challenge.content.solution,
+    // The solution's picture (Phase 7b): its key is the permission to fetch it, so it passes here.
+    solutionImage: pictureView(challenge.content.solutionImage),
+  };
 }
 
 /**
@@ -969,6 +1029,8 @@ export interface QuizHistoryRow {
   status: 'submitted' | 'not-submitted' | 'in-progress';
   topic: string | null;
   questionText: string | null;
+  /** The question as a picture (Phase 7b), once the student has started it. */
+  questionImage: PictureView | null;
   /** The options in the order this student saw them — empty for a pre-quiz challenge. */
   options: Array<{ id: string; text: string; letter: string }>;
   selectedOptionId: string | null;
@@ -980,7 +1042,12 @@ export interface QuizHistoryRow {
   xpPending: boolean;
   revealAt: string;
   revealed: boolean;
-  reveal: { correctOptionId: string | null; correctOptionText: string | null; solution: string | null } | null;
+  reveal: {
+    correctOptionId: string | null;
+    correctOptionText: string | null;
+    solution: string | null;
+    solutionImage: PictureView | null;
+  } | null;
   won: boolean;
 }
 
@@ -1021,7 +1088,8 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
   const [attempts, starts, wins] = await Promise.all([
     DailyChallengeAttempt.find({ student, day: { $in: days } }),
     DailyQuizStart.find({ student, day: { $in: days } }),
-    DailyQuizWinner.find({ student, status: 'published', day: { $in: days } }).select('day'),
+    // A day's own prize only — a month's prize row carries its last day, and was not won that day.
+    DailyQuizWinner.find({ student, status: 'published', day: { $in: days }, period: { $ne: 'month' } }).select('day'),
   ]);
 
   const challengeIds = [
@@ -1061,6 +1129,7 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
         status: 'submitted',
         topic: challenge.content.topicName,
         questionText: question.text,
+        questionImage: question.image,
         options: question.options,
         selectedOptionId: result.selectedOptionId,
         selectedOptionText: question.options.find((option) => option.id === result.selectedOptionId)?.text ?? null,
@@ -1085,6 +1154,8 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
         status: 'submitted',
         topic: topic?.name ?? null,
         questionText: legacy?.questionText ?? null,
+        // A challenge from before the quiz had no picture.
+        questionImage: null,
         options: [],
         selectedOptionId: null,
         selectedOptionText: keyText(attempt.answer.selectedOptionKeys[0]),
@@ -1098,6 +1169,7 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
           correctOptionId: null,
           correctOptionText: keyText(attempt.answer.correctOptionKeys[0]),
           solution: legacy?.solution ?? null,
+          solutionImage: null,
         },
         won: wonDays.has(day),
       };
@@ -1110,6 +1182,7 @@ export async function listQuizHistory(student: Types.ObjectId, options: ListHist
       status: day === today ? 'in-progress' : 'not-submitted',
       topic: challenge?.content?.topicName ?? null,
       questionText: challenge && isPlayable(challenge) ? challenge.content.questionText : null,
+      questionImage: challenge && isPlayable(challenge) ? pictureView(challenge.content.image) : null,
       options: [],
       selectedOptionId: null,
       selectedOptionText: null,
@@ -1141,6 +1214,20 @@ export async function quizSummary(student: Types.ObjectId, settings: QuizSetting
   const counted = attempts.filter((attempt) => settings.instantResult || attempt.day < today);
   const correct = counted.filter((attempt) => attempt.answer?.isCorrect === true).length;
 
+  // This month's score towards the monthly prize, by the same rule — null in a month with no prize.
+  const month = monthOf(today);
+  const days = prizeDays(month);
+  const thisMonth =
+    month < FIRST_PRIZE_MONTH
+      ? null
+      : {
+          month,
+          label: monthLabel(month),
+          correct: counted.filter(
+            (attempt) => attempt.day >= days.first && attempt.day <= days.last && attempt.answer?.isCorrect === true,
+          ).length,
+        };
+
   return {
     attempted: attempts.length,
     correct,
@@ -1148,6 +1235,7 @@ export async function quizSummary(student: Types.ObjectId, settings: QuizSetting
     currentStreak: facts.currentChallengeStreak,
     longestStreak: facts.longestChallengeStreak,
     wins,
+    thisMonth,
   };
 }
 
@@ -1289,11 +1377,13 @@ export function adminQuizView(group: GroupRow, stats: QuizStats | undefined, at:
     question: {
       id: String(group.question),
       text: group.content?.questionText ?? null,
+      image: authorPictureView(group.content?.image),
       topic: group.content?.topicName ?? null,
       difficulty: group.content?.difficulty ?? null,
       options: group.content?.options.map((option) => ({ id: option.id, text: option.text })) ?? [],
       correctOptionId: correct?.id ?? null,
       solution: group.content?.solution ?? null,
+      solutionImage: authorPictureView(group.content?.solutionImage),
     },
     stats: stats ?? { started: 0, submitted: 0, correct: 0, correctPercent: null, medianSolveMs: null },
     winner,
@@ -1393,12 +1483,15 @@ export async function listQuizCandidates(options: CandidateOptions) {
     type: 'single_choice',
     status: { $in: [...QUIZ_SOURCE_STATUSES] },
     classLevel: { $in: classes },
-    solution: { $nin: [null, ''] },
+    // A worked solution, written out or as a picture (Phase 7b).
+    $and: [{ $or: [{ solution: { $nin: [null, ''] } }, { 'solutionImage.key': { $exists: true } }] }],
     _id: { $nin: used },
     ...(subject ? { subject } : {}),
   };
   if (options.search && options.search.trim()) {
-    filter.questionText = { $regex: escapeRegex(options.search.trim()), $options: 'i' };
+    const pattern = { $regex: escapeRegex(options.search.trim()), $options: 'i' };
+    // A picture question is found by what its picture shows.
+    (filter.$and as unknown[]).push({ $or: [{ questionText: pattern }, { 'image.alt': pattern }] });
   }
 
   const [docs, total] = await Promise.all([
@@ -1417,6 +1510,7 @@ export async function listQuizCandidates(options: CandidateOptions) {
       return {
         id: String(question._id),
         questionText: question.questionText,
+        image: pictureView(question.image),
         classLevel: question.classLevel,
         difficulty: question.difficulty,
         topic: topic?.name ?? null,
@@ -1430,62 +1524,121 @@ export async function listQuizCandidates(options: CandidateOptions) {
 }
 
 // ---------------------------------------------------------------------------
-// Winners (staff)
+// Winners (staff) — one a month in each class band (owner, 2026-10-09 — PLAN.md Q24)
 // ---------------------------------------------------------------------------
 
-/** How many leading candidates "Compute winners" writes — enough to replace a disqualified one. */
+/** How many leading candidates "Compute candidates" writes — enough to replace a disqualified one. */
 const PROVISIONAL_COUNT = 5;
 
 const WINNER_STUDENT_FIELDS =
   'studentId firstName lastName fullName classLevel schoolName city guardianPhone guardianEmail guardianConsentAt email isEmailVerified status hideFromPublicLists';
 
 /**
- * Ranks the quiz's correct answers by the configured rule and writes the leading few as
- * **provisional** candidates. Nothing becomes public here.
- *
- * Only once the quiz has closed (its answer revealed), so the field is complete. Rows an
- * administrator has already decided — confirmed, published, disqualified — are never
- * touched; a disqualified student is never offered again. Also returns the fastest
- * correct answers that were **not** eligible, with what each lacks, so the review can see
- * who was passed over and why.
+ * The key that stands for one month's prize in one band where a quiz's prize had its group
+ * id, so the winner rows, their unique index and every step after the ranking work alike for
+ * both. Derived, never stored anywhere else: one month and band always give the same key.
  */
-export async function computeWinners(groupId: string, at: Date = now()) {
-  const docs = await requireGroup(groupId);
-  const first = docs[0]!;
-  if (!isPlayable(first)) throw ApiError.conflict('This day’s challenge predates the Daily Quiz and has no prize.');
-  if (quizPhaseAt(first.day, at) !== 'revealed') {
-    throw ApiError.conflict('Winners can be computed once the quiz has closed, after midnight.');
+export function monthGroupId(month: MonthKey, band: PrizeBandKey): Types.ObjectId {
+  return new Types.ObjectId(createHash('sha256').update(`dailyquiz-month:v1:${month}:${band}`).digest('hex').slice(0, 24));
+}
+
+/** The months a monthly prize can be looked at: the first prize month to the current one. */
+export function prizeMonths(at: Date = now()): MonthKey[] {
+  const current = monthOf(dayKeyOf(at));
+  const months: MonthKey[] = [];
+  for (let month = FIRST_PRIZE_MONTH; month <= current || months.length === 0; month = nextMonth(month)) months.push(month);
+  return months;
+}
+
+/** The days of a month that count towards its prize — none before the launch (`MONTHLY_PRIZES_FROM`). */
+function prizeDays(month: MonthKey): { first: DayKey; last: DayKey } {
+  const { first, last } = monthDays(month);
+  return { first: first < MONTHLY_PRIZES_FROM ? MONTHLY_PRIZES_FROM : first, last };
+}
+
+/** The monthly prize a quiz day's answers count towards, for the staff quiz page — null before the launch. */
+export function prizeMonthOf(day: DayKey): { month: MonthKey; label: string } | null {
+  if (day < MONTHLY_PRIZES_FROM) return null;
+  const month = monthOf(day);
+  return { month, label: monthLabel(month) };
+}
+
+/** "Classes 9–10 · November 2026" for a month's prize, "Classes 9–12 · 2026-11-08" for a quiz's. */
+export function winnerLabel(row: Pick<DailyQuizWinnerDocument, 'period' | 'month' | 'classMin' | 'classMax' | 'day'>): string {
+  const classes = classRangeLabel(row.classMin, row.classMax);
+  return row.period === 'month' && row.month ? `${classes} · ${monthLabel(row.month)}` : `${classes} · ${row.day}`;
+}
+
+/**
+ * Ranks one band's month — the most Daily Quizzes answered correctly, then the lower total
+ * solve time (`rankMonthlyCandidates()`) — and writes the leading few as **provisional**
+ * candidates. Nothing becomes public here.
+ *
+ * Only once the month is over (`monthEndsAt()`: its last quiz has revealed), so every answer
+ * is in and final, and never for a month before the first prize month. An answer counts in
+ * the band of the class its quiz was set for — the class the student answered in. Rows an
+ * administrator has already decided are never touched; a disqualified student is never
+ * offered again. Also returns the leading students who were **not** eligible, with what each
+ * lacks, so the review can see who was passed over and why.
+ */
+export async function computeMonthlyWinners(month: MonthKey, bandKey: PrizeBandKey, at: Date = now()) {
+  if (month < FIRST_PRIZE_MONTH) throw ApiError.conflict(`Monthly prizes start with ${monthLabel(FIRST_PRIZE_MONTH)}.`);
+  if (at < monthEndsAt(month)) {
+    throw ApiError.conflict(
+      `${monthLabel(month)}’s candidates can be worked out once the month is over — from 12:00 AM on 1 ${monthLabel(nextMonth(month))}, India time.`,
+    );
   }
 
-  const settings = await getQuizSettings();
-  const id = groupIdOf(first);
-  const range = rangeOf(first);
-  const docIds = docs.map((doc) => doc._id);
+  const band = prizeBand(bandKey);
+  const days = prizeDays(month);
+  const id = monthGroupId(month, band.key);
 
-  const correctAttempts = await DailyChallengeAttempt.find({ challenge: { $in: docIds }, 'answer.isCorrect': true });
+  const challengeIds = (
+    await DailyChallenge.find({ day: { $gte: days.first, $lte: days.last }, classLevel: { $in: classesInRange(band.min, band.max) } }).select('_id')
+  ).map((doc) => doc._id);
+  const correctAnswers =
+    challengeIds.length === 0
+      ? []
+      : await DailyChallengeAttempt.find({ challenge: { $in: challengeIds }, 'answer.isCorrect': true }).select(
+          'student submittedAt solveTimeMs ipHash',
+        );
+
+  // One tally per student: how many, the total time (unknown if any one time is), the last answer.
+  const tallies = new Map<string, { correctCount: number; totalSolveMs: number | null; last: (typeof correctAnswers)[number] }>();
+  for (const answer of correctAnswers) {
+    const key = String(answer.student);
+    const time = answer.solveTimeMs ?? null;
+    const tally = tallies.get(key);
+    if (!tally) {
+      tallies.set(key, { correctCount: 1, totalSolveMs: time, last: answer });
+      continue;
+    }
+    tally.correctCount += 1;
+    tally.totalSolveMs = tally.totalSolveMs === null || time === null ? null : tally.totalSolveMs + time;
+    if (answer.submittedAt > tally.last.submittedAt) tally.last = answer;
+  }
+
   const students = new Map(
-    (await Student.find({ _id: { $in: correctAttempts.map((attempt) => attempt.student) } }).select(WINNER_STUDENT_FIELDS)).map(
+    (await Student.find({ _id: { $in: [...tallies.keys()].map((s) => new Types.ObjectId(s)) } }).select(WINNER_STUDENT_FIELDS)).map(
       (student) => [String(student._id), student],
     ),
   );
-  const existing = new Map(
-    (await DailyQuizWinner.find({ groupId: id })).map((row) => [String(row.student), row]),
-  );
-  const shared = sharedIpCounts(correctAttempts.map((attempt) => ({ id: String(attempt._id), ipHash: attempt.ipHash ?? null })));
+  const existing = new Map((await DailyQuizWinner.find({ groupId: id })).map((row) => [String(row.student), row]));
+  const shared = sharedConnectionCounts(correctAnswers.map((answer) => ({ studentId: String(answer.student), ipHash: answer.ipHash ?? null })));
 
-  const candidates = correctAttempts.map((attempt) => {
-    const student = students.get(String(attempt.student));
+  const candidates: MonthlyCandidate[] = [...tallies].map(([studentId, tally]) => {
+    const student = students.get(studentId);
     return {
-      attemptId: String(attempt._id),
-      studentId: String(attempt.student),
-      solveTimeMs: attempt.solveTimeMs ?? null,
-      submittedAt: attempt.submittedAt,
+      studentId,
+      correctCount: tally.correctCount,
+      totalSolveMs: tally.totalSolveMs,
+      lastCorrectAt: tally.last.submittedAt,
       eligible: student ? eligibilityOf(student).eligible : false,
-      disqualified: existing.get(String(attempt.student))?.status === 'disqualified',
+      disqualified: existing.get(studentId)?.status === 'disqualified',
     };
   });
 
-  const ranked = rankCandidates(candidates, settings.winnerRule).slice(0, PROVISIONAL_COUNT);
+  const ranked = rankMonthlyCandidates(candidates).slice(0, PROVISIONAL_COUNT);
   const keep = new Set(ranked.map((candidate) => candidate.studentId));
 
   // Provisional rows that fell out of the top few are withdrawn; decided rows are kept.
@@ -1500,42 +1653,70 @@ export async function computeWinners(groupId: string, at: Date = now()) {
     rank += 1;
     const prior = existing.get(candidate.studentId);
     if (prior && prior.status !== 'provisional') continue;
+    const tally = tallies.get(candidate.studentId)!;
     await DailyQuizWinner.findOneAndUpdate(
       { groupId: id, student: new Types.ObjectId(candidate.studentId) },
       {
         $set: {
-          day: first.day,
-          classMin: range.min,
-          classMax: range.max,
-          attempt: new Types.ObjectId(candidate.attemptId),
+          period: 'month',
+          month,
+          band: band.key,
+          correctCount: candidate.correctCount,
+          day: days.last,
+          classMin: band.min,
+          classMax: band.max,
+          attempt: tally.last._id,
           rank,
-          ruleUsed: settings.winnerRule,
+          ruleUsed: 'MOST_CORRECT_MONTHLY',
           status: 'provisional',
-          solveTimeMs: candidate.solveTimeMs,
-          submittedAt: candidate.submittedAt,
-          sharedIpCount: shared.get(candidate.attemptId) ?? 0,
+          solveTimeMs: candidate.totalSolveMs,
+          submittedAt: candidate.lastCorrectAt,
+          sharedIpCount: shared.get(candidate.studentId) ?? 0,
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   }
 
-  const ineligible = rankCandidates(
-    candidates.map((candidate) => ({ ...candidate, eligible: !candidate.eligible })),
-    settings.winnerRule,
-  )
+  const ineligible = rankMonthlyCandidates(candidates.map((candidate) => ({ ...candidate, eligible: !candidate.eligible })))
     .slice(0, PROVISIONAL_COUNT)
     .map((candidate) => {
       const student = students.get(candidate.studentId);
       return {
         studentId: student?.studentId ?? null,
         name: student ? (student.fullName ?? `${student.firstName} ${student.lastName}`) : null,
-        solveTimeMs: candidate.solveTimeMs,
+        correctCount: candidate.correctCount,
+        totalSolveMs: candidate.totalSolveMs,
         missing: student ? eligibilityOf(student).missing : (['active-account'] as EligibilityRequirement[]),
       };
     });
 
-  return { correctCount: correctAttempts.length, ineligible };
+  return { correctAnswers: correctAnswers.length, students: tallies.size, ineligible };
+}
+
+/**
+ * One month's prize, band by band, as staff see it: whether its candidates can be worked out
+ * yet, and every candidate and winner in each band, best-ranked first.
+ */
+export async function monthlyWinnersView(month: MonthKey, at: Date = now()) {
+  const rows = await DailyQuizWinner.find({ period: 'month', month }).sort({ rank: 1, _id: 1 });
+  const students = await studentsForWinners(rows);
+  const views = rows.map((row) => winnerRowView(row, students.get(String(row.student))));
+  return {
+    month,
+    label: monthLabel(month),
+    countsFrom: prizeDays(month).first,
+    endsAt: monthEndsAt(month).toISOString(),
+    closed: at >= monthEndsAt(month),
+    bands: prizeBandsView().map((band) => ({ ...band, winners: views.filter((row) => row.band === band.id) })),
+    months: prizeMonths(at).map((key) => ({ key, label: monthLabel(key) })),
+  };
+}
+
+/** The month the monthly winners page opens on: the last one that has ended, else the first. */
+export function defaultPrizeMonth(at: Date = now()): MonthKey {
+  const ended = prizeMonths(at).filter((month) => at >= monthEndsAt(month));
+  return ended[ended.length - 1] ?? FIRST_PRIZE_MONTH;
 }
 
 export const WINNER_ACTIONS = ['confirm', 'disqualify', 'publish', 'contacted', 'delivered'] as const;
@@ -1568,11 +1749,11 @@ export async function applyWinnerAction(
     case 'confirm': {
       const settings = await getQuizSettings();
       const chosen = await DailyQuizWinner.countDocuments({ groupId: row.groupId, status: { $in: ['confirmed', 'published'] } });
-      if (chosen >= settings.winnersPerQuiz) {
+      if (chosen >= WINNERS_PER_BAND) {
         throw ApiError.conflict(
-          settings.winnersPerQuiz === 1
-            ? 'This quiz already has its winner. Disqualify them first to choose someone else.'
-            : `This quiz already has its ${settings.winnersPerQuiz} winners.`,
+          row.period === 'month' && row.month
+            ? `${classRangeLabel(row.classMin, row.classMax)} already has its winner for ${monthLabel(row.month)}. Disqualify them first to choose someone else.`
+            : 'This quiz already has its winner. Disqualify them first to choose someone else.',
         );
       }
       filter = { _id: row._id, status: 'provisional' };
@@ -1606,16 +1787,15 @@ export async function applyWinnerAction(
   if (updated && action === 'confirm') {
     // The count above and this write are two operations, so two administrators confirming
     // two different candidates in the same second could both pass it. Re-count after the
-    // write and withdraw our own confirmation if it took the quiz over its limit — the
+    // write and withdraw our own confirmation if it took the prize over its limit — the
     // safe failure is "nobody confirmed, try again", never two people promised one prize.
-    const settings = await getQuizSettings();
     const chosen = await DailyQuizWinner.countDocuments({ groupId: row.groupId, status: { $in: ['confirmed', 'published'] } });
-    if (chosen > settings.winnersPerQuiz) {
+    if (chosen > WINNERS_PER_BAND) {
       await DailyQuizWinner.updateOne(
         { _id: row._id, status: 'confirmed', confirmedAt: at },
         { $set: { status: 'provisional' }, $unset: { confirmedAt: 1, prizeText: 1, cashAmount: 1 } },
       );
-      throw ApiError.conflict('Another winner was confirmed for this quiz at the same moment. Reload and check before confirming again.');
+      throw ApiError.conflict('Another winner was confirmed for this prize at the same moment. Reload and check before confirming again.');
     }
   }
   if (!updated) {
@@ -1657,6 +1837,13 @@ type WinnerStudentFacts = Pick<
 function winnerRowView(row: DailyQuizWinnerDocument, student: WinnerStudentFacts | undefined) {
   return {
     id: String(row._id),
+    /** `month`: one month's prize in one band; `quiz`: one day's quiz, from before the monthly prize. */
+    period: row.period === 'month' ? ('month' as const) : ('quiz' as const),
+    month: row.month ?? null,
+    band: row.band ?? null,
+    label: winnerLabel(row),
+    /** A month's prize: correct answers that month, in the band. `solveTimeMs` is then their total. */
+    correctCount: row.correctCount ?? null,
     groupId: String(row.groupId),
     day: row.day,
     classMin: row.classMin,
@@ -1747,7 +1934,11 @@ export async function listPrizeDesk(options: { view: PrizeDeskView; page: number
   );
 
   return {
-    winners: rows.map((row) => ({ ...winnerRowView(row, students.get(String(row.student))), quizExists: liveGroups.has(String(row.groupId)) })),
+    winners: rows.map((row) => ({
+      ...winnerRowView(row, students.get(String(row.student))),
+      // A month's prize was never one quiz, so there is nothing of it to have been removed.
+      quizExists: row.period === 'month' || liveGroups.has(String(row.groupId)),
+    })),
     total,
     outstanding,
   };
@@ -1785,8 +1976,13 @@ export async function publicRecentWinners(limit: number) {
       if (!student || student.status !== 'active') return null;
       // The same opt-out every public list applies — decided in one place.
       const listing = publicListingFor(student);
+      const monthly = row.period === 'month' && row.month;
       return {
+        period: monthly ? ('month' as const) : ('quiz' as const),
         day: row.day,
+        month: monthly ? row.month : null,
+        /** A month's prize: "November 2026 · Classes 9–10". */
+        prizeLabel: monthly ? `${monthLabel(row.month as MonthKey)} · ${classRangeLabel(row.classMin, row.classMax)}` : null,
         displayName: listing.displayName,
         classLevel: student.classLevel ?? null,
         place: listing.city ?? listing.schoolName,
@@ -1807,10 +2003,14 @@ export interface PastQuizProblem {
   topic: string | null;
   difficulty: string | null;
   questionText: string;
+  /** The question as a picture (Phase 7b). */
+  image: PictureView | null;
   /** Display letters only — no option id and no bank key, which a reader has no use for. */
   options: Array<{ letter: string; text: string }>;
   answer: { letter: string; text: string };
   solution: string;
+  /** The worked solution as a picture — revealed, as everything here is. */
+  solutionImage: PictureView | null;
 }
 
 export interface PastProblemGroup {
@@ -1849,9 +2049,11 @@ function pastProblemView(challenge: DailyChallengeDocument, at: Date): PastQuizP
     topic: challenge.content.topicName ?? null,
     difficulty: challenge.content.difficulty ?? null,
     questionText: challenge.content.questionText,
+    image: pictureView(challenge.content.image),
     options: options.map((option, index) => ({ letter: optionLetter(index), text: option.text })),
     answer: { letter: optionLetter(answerIndex), text: reveal.correctOptionText },
     solution: reveal.solution,
+    solutionImage: reveal.solutionImage,
   };
 }
 
@@ -1861,8 +2063,9 @@ function pastProblemView(challenge: DailyChallengeDocument, at: Date): PastQuizP
  *
  * **Never today's, and never a future one.** Today's quiz is a prize question: its solve
  * time starts when a student presses Start, so printing it on a public page would let
- * anybody read it, work it out, and then start and answer in a second — the fastest-correct
- * rule would reward whoever read the homepage first. Its answer is also not public until
+ * anybody read it, work it out, and then start and answer in a second — and a lower solve
+ * time breaks a tie for the monthly prize, so that would reward whoever read the homepage
+ * first. Its answer is also not public until
  * midnight. So the homepage gets the days before today, and every problem passes through
  * `revealOf()`, the one reveal gate: the query asks only for earlier days, and the gate is
  * what makes that a guarantee rather than an assumption.

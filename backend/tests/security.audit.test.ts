@@ -1,8 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
+import express from 'express';
+import pino from 'pino';
 import app from '../src/app';
 import { config } from '../src/config';
+import { loggerOptions } from '../src/lib/logger';
 import { isAllowedRequestOrigin } from '../src/middleware/csrf';
+import { createRequestLogger } from '../src/middleware/requestLogger';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
 import { publishAndIssue, seedExam, seedSubmittedAttempt } from './helpers/exams';
 import {
@@ -280,5 +284,41 @@ describe('the unauthenticated lookups do not publish a child’s full name', () 
     expect(res.body.certificates).toHaveLength(1);
     expect(res.body.certificates[0].studentName).toContain(SURNAME);
     expect(res.body.certificates[0].verificationCode).toBeTruthy();
+  });
+});
+
+// ===========================================================================
+// The request log (Milestone 30 Phase 7b)
+// ===========================================================================
+
+describe('the request log', () => {
+  /**
+   * The access log serialises every request and response header. It held the session cookie and
+   * every new `set-cookie` until Phase 7b — a working session for anybody who could read the logs.
+   * The probe is built from the same `loggerOptions()` and `createRequestLogger()` the app uses,
+   * writing to memory instead of being silenced as the test logger is.
+   */
+  it('never writes a session cookie, an authorization header or a set-cookie', async () => {
+    const lines: string[] = [];
+    const sink = { write: (line: string) => void lines.push(line) };
+    const probe = express();
+    probe.use(createRequestLogger(pino(loggerOptions('info'), sink)));
+    probe.get('/probe', (_req, res) => {
+      res.cookie('refresh_token', 'refresh-token-value');
+      res.json({ ok: true });
+    });
+
+    await request(probe)
+      .get('/probe')
+      .set('Cookie', 'access_token=access-token-value')
+      .set('Authorization', 'Bearer job-secret-value')
+      .expect(200);
+
+    const written = lines.join('\n');
+    expect(written).toContain('request completed');
+    expect(written).toContain('[redacted]');
+    for (const secret of ['access-token-value', 'refresh-token-value', 'job-secret-value']) {
+      expect(written, secret).not.toContain(secret);
+    }
   });
 });

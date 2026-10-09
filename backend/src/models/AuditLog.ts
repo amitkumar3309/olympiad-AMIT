@@ -90,6 +90,7 @@ export const AUDIT_ACTIONS = [
   'dailyquiz.updated',
   'dailyquiz.deleted',
   'dailyquiz.winners.computed',
+  'dailyquiz.monthly.computed',
   'dailyquiz.winner.confirmed',
   'dailyquiz.winner.disqualified',
   'dailyquiz.winner.published',

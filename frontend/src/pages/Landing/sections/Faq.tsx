@@ -55,7 +55,7 @@ function dailyQuizAnswer(prize: QuizPrizeInfo | null): string {
     prize && !prize.instantResult
       ? 'Your result, the correct answer and the full solution unlock the next day at 12:00 AM.'
       : 'You see straight away whether you were right; the correct answer and the full solution unlock the next day at 12:00 AM.'
-  return `One question a day for your class group, and one attempt. ${result} Each day’s winner gets a prize — the Daily Quiz & Rewards Rules explain how winners are chosen.`
+  return `One question a day for your class group, and one attempt. ${result} Every month, the student who answers the most correctly in each class band wins a prize — the Daily Quiz & Rewards Rules explain how winners are chosen.`
 }
 
 export interface FaqProps {

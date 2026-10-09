@@ -19,6 +19,8 @@ import AdminShell from './AdminShell'
 import Spinner from '../../components/Spinner'
 import Button from '../../components/Button'
 import MathText from '../../components/MathText'
+import QuestionPicture from '../../components/QuestionPicture'
+import QuestionPictureField, { type PictureDraft } from '../../components/QuestionPictureField'
 import { Alert, Icon } from '../../components/ui'
 import styles from './QuestionForm.module.css'
 import { humanizeError } from '../../lib/errors'
@@ -31,12 +33,16 @@ interface OptionDraft {
 
 interface FormState {
   questionText: string
+  /** The question as a picture (Milestone 30 Phase 7b): then the text is optional. */
+  image: PictureDraft | null
   type: QuestionType
   options: OptionDraft[]
   booleanAnswer: boolean
   numericAnswer: string
   tolerance: string
   solution: string
+  /** The worked solution as a picture (Phase 7b): instead of the text, or beside it. */
+  solutionImage: PictureDraft | null
   topic: string
   subtopic: string
   classLevel: ClassLevel
@@ -46,8 +52,18 @@ interface FormState {
   tags: string
 }
 
+/** A stored picture as the form holds it — and back, as the API names it (key and description only). */
+function draftOf(picture: AdminQuestion['image']): PictureDraft | null {
+  return picture ? { key: picture.key, url: picture.url, width: picture.width, height: picture.height, alt: picture.alt } : null
+}
+
+function refOf(draft: PictureDraft | null) {
+  return draft ? { key: draft.key, alt: draft.alt.trim() } : null
+}
+
 const EMPTY_STATE: FormState = {
   questionText: '',
+  image: null,
   type: 'single_choice',
   options: [
     { text: '', isCorrect: true },
@@ -59,6 +75,7 @@ const EMPTY_STATE: FormState = {
   numericAnswer: '',
   tolerance: '',
   solution: '',
+  solutionImage: null,
   topic: '',
   subtopic: '',
   classLevel: 'Class 9',
@@ -162,12 +179,14 @@ export default function QuestionForm() {
       const q = res.question
       setForm({
         questionText: q.questionText,
+        image: draftOf(q.image),
         type: q.type,
         options: q.options.length > 0 ? q.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) : EMPTY_STATE.options,
         booleanAnswer: q.booleanAnswer ?? true,
         numericAnswer: q.numericAnswer === null ? '' : String(q.numericAnswer),
         tolerance: q.tolerance === null ? '' : String(q.tolerance),
         solution: q.solution ?? '',
+        solutionImage: draftOf(q.solutionImage),
         topic: q.topic?.id ?? '',
         subtopic: q.subtopic?.id ?? '',
         classLevel: q.classLevel,
@@ -193,12 +212,14 @@ export default function QuestionForm() {
 
     return {
       questionText: form.questionText.trim(),
+      image: refOf(form.image),
       type: form.type,
       options: usesOptions(form.type) ? trimmedOptions : [],
       booleanAnswer: form.type === 'true_false' ? form.booleanAnswer : null,
       numericAnswer: form.type === 'numeric' && form.numericAnswer !== '' ? Number(form.numericAnswer) : null,
       tolerance: form.type === 'numeric' && form.tolerance !== '' ? Number(form.tolerance) : null,
       solution: form.solution.trim() === '' ? null : form.solution.trim(),
+      solutionImage: refOf(form.solutionImage),
       topic: form.topic,
       subtopic: form.subtopic === '' ? null : form.subtopic,
       classLevel: form.classLevel,
@@ -416,10 +437,32 @@ export default function QuestionForm() {
 
           <div className="form-group">
             <label htmlFor="q-text">
-              Question text <Required />
+              Question text {form.image ? <span className={styles.hint}>(optional with a picture)</span> : <Required />}
             </label>
-            <textarea id="q-text" className="form-control" rows={4} value={form.questionText} onChange={(e) => set('questionText', e.target.value)} required />
+            <textarea
+              id="q-text"
+              className="form-control"
+              rows={4}
+              value={form.questionText}
+              onChange={(e) => set('questionText', e.target.value)}
+              required={!form.image}
+            />
+            {form.image && (
+              <p className={styles.hint}>The picture is the question. Add words only if they help — “Look at the figure.”</p>
+            )}
           </div>
+
+          {/* Picture questions (Milestone 30 Phase 7b — PLAN.md Q19): the uploaded picture IS the
+              question, shown to students exactly as it is; the options and the answer are typed
+              below as for any question. Nothing reads the picture. */}
+          <QuestionPictureField
+            label="Picture of the question"
+            hint="Optional. For a question that is easier to show than to type — a diagram, a scanned page. Crop it to this one question."
+            value={form.image}
+            onChange={(next) => set('image', next)}
+            describeRequired
+            describeHint="One line, read aloud instead of the picture — for a student who cannot see it, this is the question. Say what it shows and asks."
+          />
 
           {usesOptions(form.type) && (
             // A fieldset, not a <label> tied to nothing: "Options" names a group of
@@ -516,8 +559,18 @@ export default function QuestionForm() {
           <div className="form-group">
             <label htmlFor="q-solution">Worked solution</label>
             <textarea id="q-solution" className="form-control" rows={4} value={form.solution} onChange={(e) => set('solution', e.target.value)} />
-            <p className={styles.hint}>Optional while drafting, but required before the question can be published.</p>
+            <p className={styles.hint}>
+              Optional while drafting. Before the question can be published it needs a solution — written here, as a
+              picture below, or both.
+            </p>
           </div>
+          <QuestionPictureField
+            label="Picture of the worked solution"
+            hint="Optional — a solution worked on paper, photographed. Students see it only where they would see the written solution."
+            value={form.solutionImage}
+            onChange={(next) => set('solutionImage', next)}
+            describeRequired={false}
+          />
 
           <div className={styles.formActions}>
             <Button type="submit" loading={saving}>
@@ -537,13 +590,14 @@ export default function QuestionForm() {
         <aside className={styles.preview}>
           <h2 className={styles.previewTitle}>Preview</h2>
           <div className={styles.previewCard}>
-            {form.questionText.trim() === '' ? (
-              <p className={styles.previewEmpty}>Start typing the question to see it rendered here.</p>
-            ) : (
+            {form.questionText.trim() === '' && !form.image ? (
+              <p className={styles.previewEmpty}>Start typing the question, or add a picture of it, to see it here.</p>
+            ) : form.questionText.trim() !== '' ? (
               <MathText block className={styles.previewStem}>
                 {form.questionText}
               </MathText>
-            )}
+            ) : null}
+            <QuestionPicture picture={form.image} name="the question" eager />
 
             {usesOptions(form.type) && form.options.some((o) => o.text.trim()) && (
               <ol className={styles.previewOptions}>
@@ -570,10 +624,11 @@ export default function QuestionForm() {
               </p>
             )}
 
-            {form.solution.trim() !== '' && (
+            {(form.solution.trim() !== '' || form.solutionImage) && (
               <div className={styles.previewSolution}>
                 <strong>Solution</strong>
-                <MathText block>{form.solution}</MathText>
+                {form.solution.trim() !== '' && <MathText block>{form.solution}</MathText>}
+                <QuestionPicture picture={form.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
               </div>
             )}
           </div>

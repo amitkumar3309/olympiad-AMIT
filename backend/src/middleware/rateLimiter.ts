@@ -279,6 +279,20 @@ export const importLimiter = limiter({
 });
 
 /**
+ * Uploading a question's picture (Milestone 30 Phase 7b — picture questions).
+ *
+ * Each upload is up to a megabyte read, measured and written to the database, so it has a budget
+ * of its own rather than the general limiter's, mounted **ahead of the permission check** for the
+ * reason `importLimiter` is. An afternoon of authoring — a hundred picture questions, each with a
+ * solution picture — fits inside an hour's budget.
+ */
+export const pictureUploadLimiter = limiter({
+  windowMs: HOUR,
+  limit: 300,
+  message: 'Too many pictures uploaded. Please wait a while before adding more.',
+});
+
+/**
  * Administrative acts on somebody else's account.
  *
  * These sat behind the general `/api` limiter alone, which was recorded as an open gap

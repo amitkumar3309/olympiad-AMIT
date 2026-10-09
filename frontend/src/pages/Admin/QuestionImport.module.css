@@ -420,7 +420,8 @@
   padding: 2px 8px;
   border-radius: var(--radius-pill);
   background: var(--warning-soft);
-  color: var(--warning);
+  /* The words' colour, never the fill's: `--warning` as text failed axe here (Phase 7b's browser pass). */
+  color: var(--warning-text);
   font-weight: 700;
   font-size: var(--text-2xs);
 }
@@ -489,6 +490,14 @@
   align-items: center;
   gap: 10px;
   width: 100%;
+}
+
+/* A picture's description (Phase 7b): the one line a screen reader says instead of it. */
+.describe {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0;
+  font-weight: 600;
 }
 
 .answerLine {

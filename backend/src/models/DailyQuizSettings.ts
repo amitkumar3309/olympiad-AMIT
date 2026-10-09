@@ -22,6 +22,13 @@ import { WINNER_RULES, type WinnerRule } from '../lib/dailyQuiz';
  * moment an answer lands would tell the student it was right. The brief keeps this switch
  * because instant feedback plus a cash prize makes answer-elimination with several
  * accounts possible (§6.7).
+ *
+ * ## `winnerRule` and `winnersPerQuiz` are retired
+ *
+ * They chose and counted each quiz's winners. Since 2026-10-09 the prize is monthly, one
+ * winner per class band, by a rule fixed in code (`lib/dailyQuiz.ts`, PLAN.md Q24): nothing
+ * reads them, the settings page no longer offers them, and they stay in the schema only so a
+ * saved document still loads.
  */
 export interface DailyQuizSettingsDocument extends Document {
   key: string;
@@ -40,9 +47,16 @@ export interface DailyQuizSettingsDocument extends Document {
 
 export const DAILY_QUIZ_SETTINGS_KEY = 'default';
 
+/**
+ * The headline every install had until the prize became monthly — no longer true, so a saved
+ * document still carrying it is read as the new default (`getQuizSettings()`). Any headline an
+ * administrator wrote themselves is left alone.
+ */
+export const RETIRED_PRIZE_HEADLINE = 'Solve daily. Win daily.';
+
 /** The values in force when no settings document has been saved. One definition. */
 export const DAILY_QUIZ_DEFAULTS = {
-  prizeHeadline: 'Solve daily. Win daily.',
+  prizeHeadline: 'Solve daily. Win every month.',
   prizeText: 'Surprise gift + cash prize',
   cashAmount: null as number | null,
   winnerRule: 'FASTEST_CORRECT' as WinnerRule,
