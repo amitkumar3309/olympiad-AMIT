@@ -10,6 +10,7 @@ import type {
   ParseOutcome,
 } from '../lib/importTypes';
 import {
+  fixedTypeFor,
   inferType,
   normaliseLabel,
   readAcceptedAnswers,
@@ -314,11 +315,15 @@ export function readRow(
 
   const notes: string[] = [];
 
-  // ---- Type: stated, or inferred from the row's own shape ------------------
+  // ---- Type: the form's, or stated, or inferred from the row's own shape ---
   const statedType = cellText(at('type'));
   let type: QuestionType;
 
-  if (statedType.length > 0) {
+  if (defaults.typeIsFixed && defaults.questionType) {
+    const fixed = fixedTypeFor(statedType, defaults.questionType);
+    if ('reason' in fixed) return fail(fixed.reason);
+    type = fixed.type;
+  } else if (statedType.length > 0) {
     const resolved = readQuestionType(statedType);
     if (!resolved) {
       return fail(

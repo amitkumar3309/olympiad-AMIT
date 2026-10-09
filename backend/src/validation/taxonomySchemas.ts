@@ -85,6 +85,13 @@ export type CreateTopicInput = z.infer<typeof createTopicSchema>;
  */
 export const BULK_CHAPTER_MAX = 60;
 
+/**
+ * A chapter's name, by the same rules a chapter created by hand meets. Exported for the simplified
+ * question upload (owner, 2026-10-09), whose topic is a name typed on the form — or read from a
+ * file — that becomes a chapter when its questions are saved.
+ */
+export const chapterNameSchema = taxonomyName('Topic', 120);
+
 export const createChaptersSchema = z.object({
   names: z
     .array(taxonomyName('Chapter name', 120))

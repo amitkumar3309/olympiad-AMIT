@@ -14,7 +14,7 @@ import {
   type Difficulty,
 } from '../models';
 import { CLASS_LEVELS, isClassLevel, type ClassLevel } from '../lib/classLevels';
-import { DIFFICULTIES } from '../models/Question';
+import { DIFFICULTIES, type QuestionType } from '../models/Question';
 import { createQuestionSchema } from '../validation/questionSchemas';
 import { createQuestion, toQuestionContent } from './questionService';
 import { reasonFrom, screenEach, type ScreenEntry, type ScreenTarget } from './questionGeneratorService';
@@ -25,7 +25,9 @@ import {
   detectionNote,
   type DetectableChapter,
 } from '../lib/chapterDetection';
-import { requireImplicitSubject, type Actor } from './taxonomyService';
+import { createTopic, requireImplicitSubject, type Actor } from './taxonomyService';
+import { chapterNameSchema } from '../validation/taxonomySchemas';
+import { slugify } from '../lib/slug';
 import type {
   ImportBatchKind,
   ImportDefaults,
@@ -78,10 +80,18 @@ import { imageImportParser } from './imageImportParser';
  * must not be able to scatter questions; an imported batch is filed row by row because a
  * `Class` and a `Topic` column is what a real spreadsheet of two hundred questions looks like.
  * A parser still never sees an id — it reports the *names it read* (`ImportedTaxonomyHint`) and
- * this module resolves them against the live taxonomy. A name that resolves to nothing is an
- * error reported against that row for the examiner to fix, **never a `Topic` that gets
- * created**: an importer that could add taxonomy rows would let one bad spreadsheet reshape
- * the syllabus.
+ * this module resolves them against the live taxonomy. For the Daily Quiz import, a name that
+ * resolves to nothing is an error reported against that row for the examiner to fix.
+ *
+ * ## The question upload: the form decides (owner, 2026-10-09)
+ *
+ * "Remove the part where he/she has to choose the chapters." The question upload page now sends
+ * `formDecides`: the class and the question type chosen on the form are every question's, and the
+ * topic is a **name** — typed on the form, else the row's own, else the chapter the question's
+ * words point to, else General (`resolveFormPlacement()`). A name the bank does not have becomes a
+ * chapter **when its questions are approved**, by `approveImport()`, and never before: the preview
+ * still writes nothing but its `ImportBatch`. That reverses the earlier rule that an import never
+ * creates a chapter, on purpose — see the ADR of that date in DECISIONS.md.
  */
 
 // ---------------------------------------------------------------------------
@@ -187,7 +197,10 @@ export function importCeiling(): number {
  * has somewhere to go or has a sentence explaining why it does not.
  */
 interface ResolvedPlacement {
-  topic: Types.ObjectId;
+  /** The chapter, when it exists. Null only in the simplified upload, for a topic not created yet. */
+  topic: Types.ObjectId | null;
+  /** That topic's name, when `topic` is null: it becomes a chapter when the question is approved. */
+  newTopicName: string | null;
   subtopic: Types.ObjectId | null;
   classLevel: ClassLevel;
   difficulty: Difficulty;
@@ -349,7 +362,7 @@ function resolvePlacement(
     subtopic = found;
   }
 
-  return { placement: { topic, subtopic, classLevel, difficulty } };
+  return { placement: { topic, newTopicName: null, subtopic, classLevel, difficulty } };
 }
 
 /**
@@ -387,6 +400,113 @@ export function normaliseDifficulty(value: string): Difficulty | null {
 }
 
 // ---------------------------------------------------------------------------
+// The simplified upload — the form decides (owner, 2026-10-09)
+// ---------------------------------------------------------------------------
+
+/** Where a question goes when nothing names a topic for it: a chapter of this name. */
+export const GENERAL_TOPIC = 'General';
+
+/** A topic as a person typed it, its spaces tidied. Empty is none. */
+function tidyTopicName(value: string | null | undefined): string | null {
+  const tidied = (value ?? '').trim().replace(/\s+/gu, ' ');
+  return tidied.length > 0 ? tidied : null;
+}
+
+/**
+ * A topic name, held to the rules every chapter's name meets (`chapterNameSchema`): null when
+ * there is none, otherwise the name or why it cannot be one.
+ */
+function readTopicName(value: string | null | undefined): { name: string } | { problem: string } | null {
+  const tidied = tidyTopicName(value);
+  if (tidied === null) return null;
+  const parsed = chapterNameSchema.safeParse(tidied);
+  return parsed.success ? { name: parsed.data } : { problem: parsed.error.issues[0]?.message ?? 'it is not a usable name' };
+}
+
+/** One stand-in id per new topic name, so the screener sees a chapter where approval will make one. */
+function standInTopic(standIns: Map<string, string>, name: string | null): string {
+  const key = (name ?? '').toLowerCase();
+  let id = standIns.get(key);
+  if (!id) {
+    id = new Types.ObjectId().toString();
+    standIns.set(key, id);
+  }
+  return id;
+}
+
+/**
+ * Where a question goes in the simplified upload (owner, 2026-10-09: "remove the part where
+ * he/she has to choose the chapters … an optional field to write the topic … after submission it
+ * should reflect in the respective chosen class").
+ *
+ * **The class is the form's.** Every question goes to the class chosen for the upload; a file that
+ * names another says so in a note on the question rather than moving it.
+ *
+ * **The topic is a name, never a chapter to choose**, taken in this order: the one typed on the
+ * form, which is every question's; the row's own Topic; the chapter the question's own words point
+ * to (`lib/chapterDetection.ts` — only an unambiguous match, and announced); a chapter an older
+ * caller passed by id, as the fallback it always was; and otherwise General. A name the bank has is
+ * that chapter; one it does not have is carried as `newTopicName` and becomes a chapter when the
+ * question is approved — nothing here writes. A subtopic is kept only when the file names one of
+ * the chapter it went to.
+ */
+function resolveFormPlacement(
+  candidate: ImportedCandidate,
+  defaults: ImportDefaults,
+  formTopic: string | null,
+  fallbackTopic: Types.ObjectId | null,
+  index: TopicIndex,
+  notes: string[],
+): { placement: ResolvedPlacement } | { reason: string; unknownChapter?: string } {
+  const hint = candidate.taxonomy;
+  const classLevel = defaults.classLevel;
+  if (hint.classLevel !== null && normaliseClassLevel(hint.classLevel) !== classLevel) {
+    notes.push(`The file says "${hint.classLevel}"; it goes to ${classLevel}, the class chosen for this upload.`);
+  }
+
+  let difficulty = defaults.difficulty;
+  if (hint.difficulty !== null) {
+    const stated = normaliseDifficulty(hint.difficulty);
+    if (!stated) {
+      return { reason: `"${hint.difficulty}" is not a difficulty. Use Easy, Medium or Hard.` };
+    }
+    difficulty = stated;
+  }
+
+  let name = formTopic;
+  if (name === null && hint.topicName !== null) {
+    const fromFile = readTopicName(hint.topicName);
+    if (fromFile && 'name' in fromFile) name = fromFile.name;
+    else if (fromFile) notes.push(`"${hint.topicName}" cannot be a topic's name (${fromFile.problem}), so it was not used.`);
+  }
+
+  let topic: Types.ObjectId | null = null;
+  if (name === null) {
+    // The author's own tags are often more explicit than the prose, so they are evidence too.
+    const haystack = [candidate.content.questionText, ...candidate.content.tags].join(' ');
+    const outcome = detectChapter(haystack, index.detectable);
+    if (outcome.kind === 'matched') {
+      topic = new Types.ObjectId(outcome.match.topicId);
+      notes.push(detectionNote(outcome.match));
+    } else if (fallbackTopic) {
+      topic = fallbackTopic;
+    } else {
+      name = GENERAL_TOPIC;
+    }
+  }
+  if (topic === null && name !== null) topic = index.chapters.get(name.toLowerCase()) ?? null;
+
+  let subtopic: Types.ObjectId | null = null;
+  if (hint.subtopicName !== null) {
+    const found = topic ? index.subtopics.get(`${String(topic)}::${hint.subtopicName.trim().toLowerCase()}`) : undefined;
+    if (found) subtopic = found;
+    else notes.push(`"${hint.subtopicName}" is not a subtopic of that topic, so it was left out.`);
+  }
+
+  return { placement: { topic, newTopicName: topic ? null : name, subtopic, classLevel, difficulty } };
+}
+
+// ---------------------------------------------------------------------------
 // Previewing
 // ---------------------------------------------------------------------------
 
@@ -409,6 +529,14 @@ export interface PreviewImportInput {
   negativeMarks: number;
   /** The answer shape to assume when a file does not label one. Null means infer per row. */
   questionType: ImportDefaults['questionType'];
+  /**
+   * The simplified upload (owner, 2026-10-09): the form, not the file, decides each question's
+   * class and type, and its topic is a name — `resolveFormPlacement()`. The Daily Quiz import
+   * leaves this off and reads both from its file, as before.
+   */
+  formDecides?: boolean;
+  /** The topic typed on the form. With `formDecides`, every question goes in a chapter of this name. */
+  topicName?: string | null;
 }
 
 /** One candidate offered for review, with where it goes and what to look at twice. */
@@ -417,7 +545,8 @@ export interface PreviewedQuestion extends GeneratedCandidate {
   clientId: string;
   /** Where inside the upload it came from: `paper.xlsx — Row 14`. */
   sourceRef: string;
-  topic: string;
+  /** The chapter's id — or null for a topic the bank does not have yet, made on approval. */
+  topic: string | null;
   topicName: string;
   subtopic: string | null;
   classLevel: ClassLevel;
@@ -488,14 +617,18 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
   const { subject, topic } = await resolveImportTarget(input.topic ?? null, input.subtopic ?? null);
   const index = await buildTopicIndex(subject);
 
+  const formDecides = input.formDecides === true;
   const defaults: ImportDefaults = {
     classLevel: input.classLevel,
     difficulty: input.difficulty,
     questionType: input.questionType,
+    typeIsFixed: formDecides && input.questionType !== null,
     marks: input.marks,
     negativeMarks: input.negativeMarks,
     topicName: null,
   };
+  /** The topic typed on the form, in the simplified upload: every question's. */
+  const formTopic = formDecides ? tidyTopicName(input.topicName) : null;
 
   const ceiling = importCeiling();
   const candidates: ImportedCandidate[] = [];
@@ -586,7 +719,9 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
      * question it is about rather than becoming a batch remark nobody can attach to a row.
      */
     const notes = [...candidate.notes];
-    const resolution = resolvePlacement(candidate, defaults, topic, index, notes);
+    const resolution = formDecides
+      ? resolveFormPlacement(candidate, defaults, formTopic, topic, index, notes)
+      : resolvePlacement(candidate, defaults, topic, index, notes);
     if ('reason' in resolution) {
       rejected.push({ index: position + 1, reason: `${candidate.sourceRef}: ${resolution.reason}` });
       // Deduped case-insensitively but reported as the file spelled it, because that is the string
@@ -601,12 +736,14 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
   }
 
   const against = await bankTextFor(placeable.map((entry) => entry.placement));
+  const standIns = new Map<string, string>();
 
   const entries: ScreenEntry[] = placeable.map(({ candidate, placement }) => ({
     candidate: candidate.content,
     target: {
       subject: String(subject),
-      topic: String(placement.topic),
+      // A topic made on approval has no id yet; the screener only checks that a chapter is there.
+      topic: placement.topic ? String(placement.topic) : standInTopic(standIns, placement.newTopicName),
       subtopic: placement.subtopic ? String(placement.subtopic) : null,
       classLevel: placement.classLevel,
       difficulty: placement.difficulty,
@@ -637,8 +774,10 @@ export async function previewImport(input: PreviewImportInput, actor: Actor): Pr
       ...entry.candidate,
       clientId: `${stamp}-${entry.index}`,
       sourceRef: source.candidate.sourceRef,
-      topic: String(source.placement.topic),
-      topicName: index.displayNames.get(String(source.placement.topic)) ?? 'Unknown chapter',
+      topic: source.placement.topic ? String(source.placement.topic) : null,
+      topicName: source.placement.topic
+        ? (index.displayNames.get(String(source.placement.topic)) ?? 'Unknown chapter')
+        : (source.placement.newTopicName ?? GENERAL_TOPIC),
       subtopic: source.placement.subtopic ? String(source.placement.subtopic) : null,
       classLevel: source.placement.classLevel,
       difficulty: source.placement.difficulty,
@@ -751,7 +890,7 @@ async function resolveImportTarget(
 
 /** The duplicate-detection key: a question is only compared against its own chapter and class. */
 function bankKey(placement: Pick<ResolvedPlacement, 'topic' | 'classLevel'>): string {
-  return `${String(placement.topic)}::${placement.classLevel}`;
+  return `${placement.topic ? String(placement.topic) : 'new'}::${placement.classLevel}`;
 }
 
 /**
@@ -762,10 +901,13 @@ function bankKey(placement: Pick<ResolvedPlacement, 'topic' | 'classLevel'>): st
  * Bounded at 200 texts per pair for the same reason generation bounds it — the comparison is
  * O(rows × bank) and an unbounded bank would make a large import quadratic.
  */
-async function bankTextFor(placements: readonly ResolvedPlacement[]): Promise<Map<string, string[]>> {
+async function bankTextFor(
+  placements: ReadonlyArray<Pick<ResolvedPlacement, 'topic' | 'classLevel'>>,
+): Promise<Map<string, string[]>> {
   const pairs = new Map<string, { topic: Types.ObjectId; classLevel: ClassLevel }>();
   for (const placement of placements) {
-    pairs.set(bankKey(placement), { topic: placement.topic, classLevel: placement.classLevel });
+    // A topic the bank does not have yet holds no questions to compare against.
+    if (placement.topic) pairs.set(bankKey(placement), { topic: placement.topic, classLevel: placement.classLevel });
   }
 
   const result = new Map<string, string[]>();
@@ -791,7 +933,9 @@ async function bankTextFor(placements: readonly ResolvedPlacement[]): Promise<Ma
 
 /** One reviewed candidate as the screen sends it back to be checked. */
 export interface ValidateImportQuestion extends GeneratedCandidate {
-  topic: string;
+  /** Null for a topic typed as a name that the bank does not have yet. */
+  topic: string | null;
+  topicName?: string | null;
   subtopic: string | null;
   classLevel: ClassLevel;
   difficulty: Difficulty;
@@ -832,7 +976,7 @@ export async function validateImport(input: {
    * rows is part of what this is for.
    */
   const placements = input.questions.map((question) => ({
-    topic: new Types.ObjectId(question.topic),
+    topic: question.topic ? new Types.ObjectId(question.topic) : null,
     subtopic: question.subtopic ? new Types.ObjectId(question.subtopic) : null,
     classLevel: question.classLevel,
     difficulty: question.difficulty,
@@ -842,15 +986,18 @@ export async function validateImport(input: {
 
   // The subject is derived from each question's own topic rather than accepted, exactly as it is on
   // the approval path — so a client cannot pair a topic with a subject it does not belong to.
-  const subjectByTopic = await subjectsFor(placements.map((placement) => placement.topic));
+  const subjectByTopic = await subjectsFor(placements.flatMap((placement) => (placement.topic ? [placement.topic] : [])));
+  // A topic made on approval is made in the implicit subject, as every new chapter is.
+  const newTopicSubject = placements.some((placement) => !placement.topic) ? String(await requireImplicitSubject()) : '';
+  const standIns = new Map<string, string>();
 
   const entries: ScreenEntry[] = input.questions.map((question, position) => {
     const placement = placements[position]!;
     return {
       candidate: question,
       target: {
-        subject: subjectByTopic.get(String(placement.topic)) ?? '',
-        topic: question.topic,
+        subject: placement.topic ? (subjectByTopic.get(String(placement.topic)) ?? '') : newTopicSubject,
+        topic: question.topic ?? standInTopic(standIns, question.topicName ?? null),
         subtopic: question.subtopic,
         classLevel: question.classLevel,
         difficulty: question.difficulty,
@@ -893,7 +1040,9 @@ async function subjectsFor(topics: readonly Types.ObjectId[]): Promise<Map<strin
 
 /** One reviewed candidate, carrying its own placement because an import files row by row. */
 export interface ApprovedImportQuestion extends GeneratedCandidate {
-  topic: string;
+  /** Null for a topic typed as a name: `topicName` is made a chapter before the question is saved. */
+  topic: string | null;
+  topicName?: string | null;
   subtopic: string | null;
   classLevel: ClassLevel;
   difficulty: Difficulty;
@@ -904,11 +1053,70 @@ export interface ApprovedImportQuestion extends GeneratedCandidate {
 export interface ApproveImportInput {
   batchId: string;
   questions: ApprovedImportQuestion[];
+  /** Whether a topic the bank does not have may be made a chapter: the caller holds `taxonomy:write`. */
+  mayCreateChapters?: boolean;
 }
 
 export interface ApproveImportOutcome {
   created: QuestionDocument[];
   rejected: RejectedCandidate[];
+  /** The chapters made for topics typed as names, so the route can audit each one. */
+  chaptersCreated: Array<{ id: string; name: string }>;
+}
+
+/**
+ * The chapter for a topic typed as a name — found, or made (the simplified upload, owner 2026-10-09).
+ *
+ * Found by name in the batch's subject, ignoring case and spacing, so "algebra" files under
+ * "Algebra". Made through `createTopic()`, which owns a chapter's rules, and **only by approval**:
+ * the preview wrote nothing, so a misspelt topic becomes a chapter only once its questions are
+ * saved, and is then renamed under Chapters like any other. A name no chapter may have, or one an
+ * archived chapter holds, refuses the question with the reason rather than filing it elsewhere.
+ */
+function chapterResolver(subjectId: string, actor: Actor, mayCreate: boolean) {
+  const known = new Map<string, string>();
+  const created: Array<{ id: string; name: string }> = [];
+  let loaded = false;
+
+  async function idFor(raw: string | null): Promise<string | { reason: string }> {
+    const read = readTopicName(raw);
+    if (read === null) return { reason: 'This question has no topic. Type one, or leave the topic blank for General.' };
+    if ('problem' in read) return { reason: `"${raw}" cannot be a topic: ${read.problem}` };
+
+    if (!loaded) {
+      loaded = true;
+      const rows = await Topic.find({ subject: subjectId, parent: null, status: 'active' }).select('name').lean();
+      for (const row of rows) known.set(tidyTopicName(row.name)!.toLowerCase(), String(row._id));
+    }
+
+    const key = read.name.toLowerCase();
+    const existing = known.get(key);
+    if (existing) return existing;
+    if (!mayCreate) {
+      return { reason: `There is no topic called "${read.name}" yet, and this account cannot add topics. Choose one that exists.` };
+    }
+
+    try {
+      const topic = await createTopic({ subject: subjectId, parent: null, name: read.name }, actor);
+      const id = String(topic._id);
+      known.set(key, id);
+      created.push({ id, name: topic.name });
+      return id;
+    } catch (err) {
+      // Two approvals making the same topic at once: the one that won is this one's too.
+      const same = await Topic.findOne({ subject: subjectId, parent: null, slug: slugify(read.name) })
+        .select('name status')
+        .lean();
+      if (same?.status === 'active') {
+        known.set(key, String(same._id));
+        return String(same._id);
+      }
+      if (same) return { reason: `A topic called "${same.name}" was archived. Restore it under Chapters, or type another topic.` };
+      return { reason: err instanceof ApiError ? err.message : 'That topic could not be made.' };
+    }
+  }
+
+  return { idFor, created };
 }
 
 /**
@@ -937,15 +1145,23 @@ export async function approveImport(input: ApproveImportInput, actor: Actor): Pr
   const origin = await readImportOrigin(input.batchId);
   const created: QuestionDocument[] = [];
   const rejected: RejectedCandidate[] = [];
+  const chapters = chapterResolver(origin.subjectId, actor, input.mayCreateChapters === true);
 
   for (const [index, candidate] of input.questions.entries()) {
+    // A topic typed as a name (the simplified upload) becomes its chapter here, and only here.
+    const topic = candidate.topic ?? (await chapters.idFor(candidate.topicName ?? null));
+    if (typeof topic !== 'string') {
+      rejected.push({ index: index + 1, reason: topic.reason });
+      continue;
+    }
+
     const parsed = createQuestionSchema.safeParse({
       ...candidate,
       // The subject is not accepted from the client at all: it is whatever the chosen topic
       // belongs to, resolved inside `createQuestion()`. Passing the topic's own subject keeps
       // the pair consistent by construction rather than by validation.
       subject: origin.subjectId,
-      topic: candidate.topic,
+      topic,
       subtopic: candidate.subtopic,
       classLevel: candidate.classLevel,
       difficulty: candidate.difficulty,
@@ -979,7 +1195,7 @@ export async function approveImport(input: ApproveImportInput, actor: Actor): Pr
     );
   }
 
-  return { created, rejected };
+  return { created, rejected, chaptersCreated: chapters.created };
 }
 
 /**
@@ -1016,9 +1232,14 @@ export const PICTURE_IMPORT_DESCRIPTOR = {
 export interface PictureImportInput {
   /** Pictures already stored by `POST /admin/question-images`, with the file names they came from. */
   pictures: Array<{ key: string; name: string }>;
-  topic: string;
+  /** A chapter chosen by id — kept for older callers. The upload form types a name instead. */
+  topic?: string | null;
+  /** The topic typed on the form (owner, 2026-10-09). With neither, the pictures go under General. */
+  topicName?: string | null;
   subtopic?: string | null;
   classLevel: ClassLevel;
+  /** The type chosen on the form, so each picture's card asks for the answer that type needs. */
+  questionType?: QuestionType;
   difficulty: Difficulty;
   marks: number;
   negativeMarks: number;
@@ -1032,14 +1253,16 @@ export interface PreviewedPictureQuestion extends PreviewedQuestion {
 /**
  * A batch of pictures as draft candidates (PLAN.md Q19 — instead of OCR, "as of now").
  *
- * Each picture becomes one single-choice candidate that is nothing yet but its picture: the
- * examiner describes it, writes the options, marks the right one and gives the worked solution on
- * the review screen, and approves through `approveImport()` like every other format — re-validated
- * from scratch there, saved as drafts. **Nothing reads a picture** (no model, no OCR), and nothing
- * here writes a question: the only row stored is the `ImportBatch`, which approval reads the
- * provenance back from (`picture_import`, deterministic).
+ * Each picture becomes one candidate of the type chosen on the form that is nothing yet but its
+ * picture: the examiner describes it, gives the answer that type needs (options and the right ones,
+ * true or false, or the accepted words) and the worked solution on the review screen, and approves
+ * through `approveImport()` like every other format — re-validated from scratch there, saved as
+ * drafts. **Nothing reads a picture** (no model, no OCR), and nothing here writes a question: the
+ * only row stored is the `ImportBatch`, which approval reads the provenance back from
+ * (`picture_import`, deterministic).
  *
- * A chapter is required, because there are no words to detect one from.
+ * The topic is the one typed on the form, or General — there are no words to work one out from. A
+ * name the bank does not have yet becomes a chapter when the questions are approved.
  */
 export async function previewPictureImport(
   input: PictureImportInput,
@@ -1047,16 +1270,20 @@ export async function previewPictureImport(
 ): Promise<{ batchId: string; questions: PreviewedPictureQuestion[] }> {
   const startedAt = Date.now();
   const sizes = await requireQuestionImages(input.pictures.map((picture) => picture.key));
-  const { subject, topic } = await resolveImportTarget(input.topic, input.subtopic ?? null);
+  const { subject, topic } = await resolveImportTarget(input.topic ?? null, input.subtopic ?? null);
   const index = await buildTopicIndex(subject);
   const stamp = Date.now().toString(36);
+  const typed = tidyTopicName(input.topicName);
+  const name = typed ?? (topic ? (index.displayNames.get(String(topic)) ?? GENERAL_TOPIC) : GENERAL_TOPIC);
+  const chapter = typed ? (index.chapters.get(typed.toLowerCase()) ?? null) : (topic ?? index.chapters.get(name.toLowerCase()) ?? null);
+  const type = input.questionType ?? 'single_choice';
 
   const questions = input.pictures.map((picture, position): PreviewedPictureQuestion => {
     const size = sizes.get(picture.key)!;
     return {
       questionText: '',
       image: { key: picture.key, alt: '', url: questionImageUrl(picture.key), width: size.width, height: size.height },
-      type: 'single_choice',
+      type,
       options: [],
       booleanAnswer: null,
       numericAnswer: null,
@@ -1069,9 +1296,9 @@ export async function previewPictureImport(
       tags: [],
       clientId: `${stamp}-${position + 1}`,
       sourceRef: picture.name,
-      topic: String(topic),
-      topicName: index.displayNames.get(String(topic)) ?? 'Unknown chapter',
-      subtopic: input.subtopic ?? null,
+      topic: chapter ? String(chapter) : null,
+      topicName: chapter ? (index.displayNames.get(String(chapter)) ?? name) : name,
+      subtopic: topic && chapter && String(chapter) === String(topic) ? (input.subtopic ?? null) : null,
       classLevel: input.classLevel,
       difficulty: input.difficulty,
       schedule: null,
@@ -1096,7 +1323,7 @@ export async function previewPictureImport(
     })),
     defaultClassLevel: input.classLevel,
     defaultDifficulty: input.difficulty,
-    defaultTopic: topic,
+    defaultTopic: chapter,
     subject,
     status: 'succeeded',
     examined: questions.length,

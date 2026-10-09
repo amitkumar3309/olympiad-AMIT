@@ -347,7 +347,7 @@ describe('reading a Word document', () => {
     expect(options[0]!.text).toBe('$12$ rupees, which is a twenty per cent margin');
   });
 
-  it('reads metadata lines and uses them per question', async () => {
+  it('reads metadata lines and uses them per question — apart from the class, which the form decides', async () => {
     const { cookies, taxonomy } = await adminSetup();
 
     const body = await upload(
@@ -371,7 +371,8 @@ describe('reading a Word document', () => {
 
     expect(body.questions).toHaveLength(1);
     expect(body.questions[0]).toMatchObject({
-      classLevel: 'Class 10',
+      // The owner's simplified upload (2026-10-09): the class chosen on the form is every question's.
+      classLevel: 'Class 8',
       difficulty: 'Hard',
       marks: 6,
       negativeMarks: 2,
@@ -697,7 +698,7 @@ describe('the shared screener and taxonomy rules still apply', () => {
     expect(body.rejected[0]!.reason).toMatch(/exactly one correct option/i);
   });
 
-  it('reports a class the platform does not run, with the question number', async () => {
+  it('files a question whose Class line names no real class under the chosen class, and says so', async () => {
     const { cookies, taxonomy } = await adminSetup();
 
     const body = await upload(cookies, taxonomy, [
@@ -710,12 +711,29 @@ describe('the shared screener and taxonomy rules still apply', () => {
       ...conventionalQuestion(2, 'What is $6 + 6$ exactly?'),
     ]);
 
-    expect(body.questions).toHaveLength(1);
-    expect(body.rejected[0]!.reason).toContain('Question 1');
-    expect(body.rejected[0]!.reason).toMatch(/not a class this platform runs/i);
+    expect(body.questions).toHaveLength(2);
+    expect(body.rejected).toEqual([]);
+    expect(body.questions[0]!.classLevel).toBe('Class 8');
+    expect((body.questions[0]!.warnings as Array<{ message: string }>).map((w) => w.message).join(' ')).toMatch(
+      /file says "13"/,
+    );
   });
 
-  it('reports an unknown chapter and creates nothing', async () => {
+  it('reports a question marked as another type than the one chosen on the form', async () => {
+    const { cookies, taxonomy } = await adminSetup();
+
+    const body = await upload(
+      cookies,
+      taxonomy,
+      ['Q1. Two plus two is four.', 'Type: true_false', 'Answer: True', 'Solution: It is.', ...conventionalQuestion(2, 'What is $6 + 6$ exactly?')],
+      { questionType: 'single_choice' },
+    );
+
+    expect(body.questions).toHaveLength(1);
+    expect(body.failures[0]!.reason).toMatch(/but this upload is for single correct questions/);
+  });
+
+  it('offers an unknown chapter as a new topic, and reading the document creates nothing', async () => {
     const { cookies, taxonomy } = await adminSetup();
 
     const body = await upload(cookies, taxonomy, [
@@ -727,7 +745,8 @@ describe('the shared screener and taxonomy rules still apply', () => {
       'Solution: Add them.',
     ]);
 
-    expect(body.rejected[0]!.reason).toMatch(/no chapter called "Thermodynamics"/i);
+    expect(body.rejected).toEqual([]);
+    expect(body.questions[0]).toMatchObject({ topic: null, topicName: 'Thermodynamics' });
 
     const topics = await request(app)
       .get(`${API}/topics?subject=${taxonomy.subjectId}`)
