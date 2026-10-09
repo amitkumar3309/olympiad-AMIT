@@ -176,11 +176,6 @@
   padding: var(--space-6) var(--space-4) var(--space-4);
 }
 
-.illustration {
-  width: 100%;
-  height: auto;
-}
-
 /* Line doodles around the artwork, in the brand blue at low strength. */
 .doodle {
   position: absolute;

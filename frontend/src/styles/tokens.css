@@ -785,6 +785,20 @@
   --series-5: #fc7bb3; /* Statistics & Probability */
 
   /**
+   * The homepage's picture of the day (owner, 2026-10-09): a sky, hills, paper, a sun and the
+   * lines that draw them. Themed, so a picture sits right on either page — and redefined for the
+   * Diwali edition (section 10) as a night scene. Leaf content only: no words are drawn on them.
+   */
+  --art-sky-top: var(--royal-100);
+  --art-sky-bottom: var(--ink-25);
+  --art-hill-far: var(--royal-200);
+  --art-hill: var(--green-100);
+  --art-paper: var(--ink-0);
+  --art-sun: var(--gold-300);
+  --art-glow: var(--gold-100);
+  --art-line: var(--ink-800);
+
+  /**
    * Focus. One global ring, declared once in `base.css`, drawn at `outline-offset:
    * 2px` so it sits on the page rather than on a blue control — where it would be the
    * same colour as the fill.
@@ -975,6 +989,16 @@
   --tooltip-bg: var(--surface-raised);
   --tooltip-text: var(--text);
   --tooltip-border: var(--border-strong);
+
+  /* The picture of the day at night: a dark sky, blue hills, light lines. */
+  --art-sky-top: var(--night-950);
+  --art-sky-bottom: var(--surface-raised);
+  --art-hill-far: var(--royal-800);
+  --art-hill: var(--royal-700);
+  --art-paper: var(--night-600);
+  --art-sun: var(--gold-300);
+  --art-glow: rgba(248, 194, 79, 0.22);
+  --art-line: var(--ink-50);
 }
 
 /**
@@ -1003,6 +1027,14 @@
  * Everything else festive is a component's own markup, shown only under this attribute.
  */
 :root[data-season='diwali'] {
+  /* The picture of the day under the night sky the hero becomes. */
+  --art-sky-top: var(--festive-night-deep);
+  --art-sky-bottom: var(--festive-night);
+  --art-hill-far: var(--night-600);
+  --art-hill: var(--royal-800);
+  --art-paper: var(--night-600);
+  --art-glow: rgba(248, 194, 79, 0.28);
+  --art-line: var(--cream-50);
   --shadow-brand: 0 8px 22px -6px rgba(248, 177, 30, 0.6);
   --shadow-fab: 0 10px 26px -6px rgba(248, 177, 30, 0.6);
   --shadow-fab-hover: 0 0 0 6px rgba(248, 194, 79, 0.22), 0 16px 36px -6px rgba(248, 177, 30, 0.7);

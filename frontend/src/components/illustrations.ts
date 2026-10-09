@@ -4,7 +4,6 @@ import {
   ClipboardList,
   Flame,
   Gift,
-  GraduationCap,
   Library,
   Lightbulb,
   MailCheck,
@@ -37,7 +36,6 @@ export interface IllustrationEntry {
 }
 
 export const ILLUSTRATIONS = {
-  'hero-student': { width: 520, height: 520, icon: GraduationCap },
   'book-stack': { width: 360, height: 220, icon: BookOpen },
   trophy: { width: 220, height: 220, icon: Trophy },
   'gift-box': { width: 200, height: 200, icon: Gift },

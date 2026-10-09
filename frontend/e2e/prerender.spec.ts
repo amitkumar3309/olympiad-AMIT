@@ -40,6 +40,25 @@ test('the homepage can be read before the app has run, in the theme the device a
   expect(await page.evaluate(() => Object.keys(document.getElementById('root')!).some((key) => key.startsWith('__react')))).toBe(false)
 })
 
+test('the picture of the day is chosen before the app has run, one at a time, and changes daily', async ({ page }) => {
+  await withoutTheApp(page)
+  /** Which picture shows on a given India day, and how many show — from the drawn page alone. */
+  const pictureOn = async (isoDay: string) => {
+    await page.clock.setFixedTime(new Date(`${isoDay}T09:00:00+05:30`))
+    await page.goto('/')
+    return page.evaluate(() => {
+      const shown = [...document.querySelectorAll('svg[data-index]')].filter((svg) => getComputedStyle(svg).display !== 'none')
+      return { chosen: document.documentElement.getAttribute('data-picture'), shown: shown.map((svg) => svg.getAttribute('data-index')) }
+    })
+  }
+  const today = await pictureOn('2026-10-09')
+  const tomorrow = await pictureOn('2026-10-10')
+  // boot.js named one, and exactly that one is drawn — before React exists.
+  expect(today.shown).toEqual([today.chosen])
+  expect(tomorrow.shown).toEqual([tomorrow.chosen])
+  expect(tomorrow.chosen).not.toBe(today.chosen)
+})
+
 test('a stored choice of theme wins over the device before the app has run', async ({ page }) => {
   await withoutTheApp(page)
   await page.emulateMedia({ colorScheme: 'dark' })
