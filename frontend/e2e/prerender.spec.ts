@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import { readFileSync } from 'node:fs'
-import { expect, test, type Page } from '@playwright/test'
-import { resetBackend, seedQuiz, waitForApp } from './fixtures.ts'
+import { expect, type Page } from '@playwright/test'
+import { resetBackend, seedQuiz, waitForApp, test } from './fixtures.ts'
 
 /**
  * The homepage arrives drawn (Milestone 30, Phase 6 — `vite.prerender.ts`, `public/boot.js`):
@@ -42,15 +42,15 @@ test('the homepage can be read before the app has run, in the theme the device a
   expect(await page.evaluate(() => Object.keys(document.getElementById('root')!).some((key) => key.startsWith('__react')))).toBe(false)
 })
 
-test('the picture of the day is chosen before the app has run, one at a time, and changes daily', async ({ page }) => {
+test('the figure of the day is chosen before the app has run, one at a time, and changes daily', async ({ page }) => {
   await withoutTheApp(page)
-  /** Which picture shows on a given India day, and how many show — from the drawn page alone. */
+  /** Which figure shows on a given India day, and how many show — from the drawn page alone. */
   const pictureOn = async (isoDay: string) => {
     await page.clock.setFixedTime(new Date(`${isoDay}T09:00:00+05:30`))
     await page.goto('/')
     return page.evaluate(() => {
-      const shown = [...document.querySelectorAll('svg[data-index]')].filter((svg) => getComputedStyle(svg).display !== 'none')
-      return { chosen: document.documentElement.getAttribute('data-picture'), shown: shown.map((svg) => svg.getAttribute('data-index')) }
+      const shown = [...document.querySelectorAll('[data-picture-index]')].filter((day) => getComputedStyle(day).display !== 'none')
+      return { chosen: document.documentElement.getAttribute('data-picture'), shown: shown.map((day) => day.getAttribute('data-picture-index')) }
     })
   }
   const today = await pictureOn('2026-10-09')

@@ -122,10 +122,11 @@
   }
 
   /*
-   * 4. The homepage's picture of the day (owner, 2026-10-09): which of the drawn pictures in the
-   *    hero's square is today's, by the India date, so the page drawn at build time shows today's
-   *    from its first paint and nothing swaps when the app takes over. How many there are is
-   *    written into <meta name="amit-art"> by vite.seo.ts; CSS shows the one this names.
+   * 4. The homepage's picture of the day (owner, 2026-10-09) — since the hero was redrawn, its
+   *    figure of the day: which of the drawn figures in the hero's card is today's, by the India
+   *    date, so the page drawn at build time shows today's from its first paint and nothing swaps
+   *    when the app takes over. How many there are is written into <meta name="amit-art"> by
+   *    vite.seo.ts; CSS shows the one this names.
    */
   var art = document.querySelector('meta[name="amit-art"]')
   var pictures = art ? Number(art.getAttribute('content')) : 0

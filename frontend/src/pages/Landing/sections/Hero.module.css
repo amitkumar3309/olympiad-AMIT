@@ -1,6 +1,6 @@
 /**
- * The hero (Milestone 30, Phase 3 — the landing mockup's first band). Mobile first: one
- * column, copy then art; from 1024px the art sits to the right of the copy.
+ * The hero (Milestone 30, Phase 3 — the landing mockup's first band; quieter since 2026-10-09).
+ * Mobile first: one column, copy then art; from 1024px the art sits to the right of the copy.
  */
 
 .hero {
@@ -9,16 +9,25 @@
   padding: var(--space-8) 0 var(--space-12);
 }
 
+/* Faint graph paper, fading out towards the edges — the page's one texture. */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: center top;
+  -webkit-mask-image: radial-gradient(ellipse 70% 75% at 60% 40%, currentColor 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 75% at 60% 40%, currentColor 30%, transparent 75%);
+  pointer-events: none;
+}
+
 .inner {
+  position: relative;
   display: grid;
   gap: var(--space-10);
   align-items: center;
-}
-
-@media (min-width: 768px) {
-  .art {
-    width: min(100%, 460px);
-  }
 }
 
 @media (min-width: 1024px) {
@@ -42,27 +51,32 @@
   min-width: 0;
 }
 
-/* The settle-in: transform only, so content is never hidden if it does not run. */
+/* The settle-in: transform only, so content is never hidden if it does not run — and it carries
+   on, rather than starting again, when the app takes the drawn page over (`--drawn-for`, set by
+   src/main.tsx). */
 .copy > * {
-  animation: hero-settle 420ms var(--ease-out) both;
-  animation-delay: calc(var(--i, 0) * 55ms);
+  animation: hero-settle 520ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 60ms - var(--drawn-for, 0ms));
 }
 
 @keyframes hero-settle {
   from {
-    transform: translateY(14px);
+    transform: translateY(16px);
   }
 }
 
+/* A quiet label: a white pill with a hairline, the trophy in gold. */
 .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-3) var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--text);
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--text-body);
   font-size: var(--type-micro);
   font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-caps);
@@ -104,16 +118,17 @@
   }
 }
 
-.chips {
+/* Four facts as a checklist — one quiet mark each, in the brand blue. */
+.facts {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--space-2) var(--space-5);
   margin: var(--space-1) 0 0;
   padding: 0;
   list-style: none;
 }
 
-.chip {
+.fact {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -122,41 +137,15 @@
   font-weight: var(--weight-semibold);
 }
 
-/* A tinted disc with a saturated glyph — the categorical palette's one job. Still: the
-   doodles and the Daily Quiz button are the hero's motion, and four more moving marks
-   would compete with the one thing the page wants noticed (brief §5.7). */
-.chipIcon {
-  display: inline-grid;
-  place-items: center;
+.factMark {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-pill);
-}
-
-.chipIcon svg {
   width: 18px;
   height: 18px;
-}
-
-.gold {
-  background: var(--cat-gold);
-  color: var(--cat-gold-glyph);
-}
-
-.orange {
-  background: var(--cat-orange);
-  color: var(--cat-orange-glyph);
-}
-
-.green {
-  background: var(--cat-green);
-  color: var(--cat-green-glyph);
-}
-
-.magenta {
-  background: var(--cat-magenta);
-  color: var(--cat-magenta-glyph);
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-soft);
+  color: var(--primary-text);
+  stroke-width: 3;
 }
 
 .actions {
@@ -164,140 +153,6 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-top: var(--space-2);
-}
-
-/* ---------- art --------------------------------------------------------- */
-
-.art {
-  position: relative;
-  justify-self: center;
-  /* Smaller on a phone, where the words are what matters and the art is a bonus. */
-  width: min(100%, 320px);
-  padding: var(--space-6) var(--space-4) var(--space-4);
-}
-
-/* Line doodles around the artwork, in the brand blue at low strength. */
-.doodle {
-  position: absolute;
-  display: inline-grid;
-  place-items: center;
-  color: var(--primary-text);
-  opacity: 0.55;
-  animation: doodle-breathe var(--dur-idle-slow) var(--ease-sine) infinite;
-  pointer-events: none;
-}
-
-.doodle svg {
-  width: 30px;
-  height: 30px;
-}
-
-.doodleBulb {
-  top: 0;
-  left: 6%;
-  color: var(--medal-gold);
-  opacity: 0.85;
-}
-
-.doodlePi {
-  top: 8%;
-  right: 10%;
-  animation-delay: -2s;
-}
-
-.doodleTriangle {
-  bottom: 30%;
-  left: 0;
-  animation-delay: -4s;
-}
-
-.doodleSigma {
-  bottom: 12%;
-  right: 2%;
-  animation-delay: -6s;
-}
-
-/* Breathe and turn — around its own centre, never across the page. */
-@keyframes doodle-breathe {
-  0%,
-  100% {
-    transform: scale(1) rotate(-8deg);
-  }
-  50% {
-    transform: scale(1.12) rotate(8deg);
-  }
-}
-
-/* The handwritten accent — Caveat, used for the mockups' two accents and nothing else. */
-.hand {
-  position: absolute;
-  top: 14%;
-  right: -2%;
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  font-family: var(--font-hand);
-  font-size: var(--text-2xl);
-  line-height: 1;
-  color: var(--text);
-  transform: rotate(-6deg);
-}
-
-.hand span:nth-child(2) {
-  margin-left: var(--space-3);
-}
-
-.hand span:nth-child(3) {
-  margin-left: var(--space-6);
-  color: var(--primary-text);
-}
-
-.quote {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  max-width: 200px;
-  margin: 0;
-  padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--card-border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: var(--card-shadow);
-  font-size: var(--type-micro);
-  line-height: var(--leading-snug);
-}
-
-.quote blockquote {
-  margin: 0;
-  color: var(--text);
-  font-weight: var(--weight-medium);
-}
-
-.quote figcaption {
-  margin-top: var(--space-1);
-  color: var(--text-muted);
-  font-weight: var(--weight-semibold);
-}
-
-.quoteMark {
-  width: 16px;
-  height: 16px;
-  margin-bottom: var(--space-1);
-  color: var(--primary-text);
-}
-
-/* A phone: the handwritten words and the quote card move under the art, so nothing
-   overlaps the drawing at 360px. */
-@media (max-width: 479px) {
-  .hand {
-    display: none;
-  }
-
-  .quote {
-    position: static;
-    max-width: none;
-    margin-top: var(--space-3);
-  }
 }
 
 /* ==========================================================================
@@ -312,6 +167,11 @@
 
 .sky,
 .diwali {
+  display: none;
+}
+
+/* The night sky is the hero's backdrop during the edition, not graph paper. */
+:global(:root[data-season='diwali']) .backdrop {
   display: none;
 }
 
@@ -332,7 +192,7 @@
 /* Not on the eyebrow, the buttons or the countdown, which stand on fills of their own. */
 :global(:root[data-season='diwali']) .title,
 :global(:root[data-season='diwali']) .fullForm,
-:global(:root[data-season='diwali']) .chip,
+:global(:root[data-season='diwali']) .fact,
 :global(:root[data-season='diwali']) .diwaliKicker,
 :global(:root[data-season='diwali']) .diwaliLine {
   text-shadow: var(--festive-halo);
@@ -398,19 +258,12 @@
 }
 
 :global(:root[data-season='diwali']) .fullForm,
-:global(:root[data-season='diwali']) .chip {
+:global(:root[data-season='diwali']) .fact {
   color: var(--festive-text-muted);
 }
 
-:global(:root[data-season='diwali']) .doodle {
-  color: var(--festive-gold);
-}
-
-:global(:root[data-season='diwali']) .hand {
-  color: var(--festive-text);
-}
-
-:global(:root[data-season='diwali']) .hand span:nth-child(3) {
+:global(:root[data-season='diwali']) .factMark {
+  background: var(--festive-panel);
   color: var(--festive-gold);
 }
 

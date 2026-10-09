@@ -1,12 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { ArrowRight, BookOpen, GraduationCap, Laptop, Lightbulb, Pi, Quote, School, Sigma, Trophy, Triangle } from 'lucide-react'
+import { ArrowRight, Check, Trophy } from 'lucide-react'
 import { Diya, Lantern } from '../../../components/Diwali'
 import { ButtonLink, Countdown, clockOffset } from '../../../components/ui'
 import { api } from '../../../api/client'
-import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, AMIT_TAGLINE, FOUNDER } from '../../../lib/brand'
+import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT } from '../../../lib/brand'
 import { DIWALI_EDITION, editionEndsAt } from '../../../lib/season'
-import { HERO_QUOTE } from '../../../lib/siteConfig'
-import PictureOfTheDay from './PictureOfTheDay'
+import HeroArt from './HeroArt'
+import { useHeroDepth } from '../motion'
 import styles from './Hero.module.css'
 
 /**
@@ -14,7 +14,7 @@ import styles from './Hero.module.css'
  *
  * ## Every claim is one the product backs
  *
- * The four chips are facts the code enforces: the class list is `Class 3`–`Class 12`
+ * The four facts are ones the code enforces: the class list is `Class 3`–`Class 12`
  * (`lib/classLevels.ts`); registration asks for no board; practice, mock tests and the
  * Daily Quiz cost nothing (the entry fee gates the official Olympiad alone); and the
  * sitting is online (`/exam`). The year is owner-supplied and lives in `lib/brand.ts`.
@@ -26,11 +26,12 @@ import styles from './Hero.module.css'
  *
  * ## One orchestrated moment
  *
- * The headline, chips and buttons settle into place on load — transform only, staggered,
- * all done inside ~650ms (brief §5.7). Nothing starts invisible: if the animation never
- * runs (a background tab, reduced motion) the content is simply where it belongs. The
- * doodles around the artwork breathe and turn in place; they never translate — the
- * landing page's rule for anything that moves (CLAUDE.md).
+ * The headline, facts and buttons settle into place on load — transform only, staggered,
+ * all done inside ~650ms (brief §5.7) — and carry on rather than start again when the app
+ * takes the drawn page over (`--drawn-for`, src/main.tsx). Nothing starts invisible: if the
+ * animation never runs (a background tab, reduced motion) the content is simply where it
+ * belongs. The artwork is the figure of the day (`HeroArt`), which the pointer tilts a little
+ * on a desktop (`useHeroDepth`); behind it all, faint graph paper.
  *
  * ## The Diwali edition (Phase 7 — 8 to 15 November 2026, `lib/season.ts`)
  *
@@ -52,16 +53,17 @@ export interface HeroProps {
   registerTo: string
 }
 
-const CHIPS = [
-  { icon: GraduationCap, label: 'Classes 3 to 12', tone: 'gold' },
-  { icon: School, label: 'Any school board', tone: 'orange' },
-  { icon: BookOpen, label: 'Free to prepare', tone: 'green' },
-  { icon: Laptop, label: 'Online mode', tone: 'magenta' },
-] as const
+/** Facts the code enforces — see the note above. */
+const FACTS = ['Classes 3 to 12', 'Any school board', 'Free to prepare', 'Online'] as const
 
 export default function Hero({ signedIn, registerTo }: HeroProps) {
+  const depth = useHeroDepth()
+
   return (
-    <section className={styles.hero} aria-labelledby="hero-title">
+    <section ref={depth.stage} className={styles.hero} aria-labelledby="hero-title">
+      {/* Graph paper behind the words and the figure — decoration, hidden during the Diwali edition. */}
+      <div className={styles.backdrop} aria-hidden="true" />
+
       {/* The Diwali lanterns — decoration, shown only during the edition. */}
       <div className={styles.sky} aria-hidden="true">
         <Lantern className={`${styles.lantern} ${styles.lanternLeft}`} />
@@ -82,13 +84,11 @@ export default function Hero({ signedIn, registerTo }: HeroProps) {
             {AMIT_FULL_FORM}
           </p>
 
-          <ul className={styles.chips} style={{ '--i': 3 } as CSSProperties}>
-            {CHIPS.map(({ icon: Glyph, label, tone }) => (
-              <li key={label} className={styles.chip}>
-                <span className={`${styles.chipIcon} ${styles[tone]}`} aria-hidden="true">
-                  <Glyph />
-                </span>
-                {label}
+          <ul className={styles.facts} style={{ '--i': 3 } as CSSProperties}>
+            {FACTS.map((fact) => (
+              <li key={fact} className={styles.fact}>
+                <Check aria-hidden="true" className={styles.factMark} />
+                {fact}
               </li>
             ))}
           </ul>
@@ -125,33 +125,8 @@ export default function Hero({ signedIn, registerTo }: HeroProps) {
           </div>
         </div>
 
-        <div className={styles.art}>
-          {/* A different drawn picture each day — chosen before the first paint (owner, 2026-10-09). */}
-          <PictureOfTheDay />
-          {/* Decorative doodles — they turn and breathe in place. */}
-          <span className={`${styles.doodle} ${styles.doodleBulb}`} aria-hidden="true">
-            <Lightbulb />
-          </span>
-          <span className={`${styles.doodle} ${styles.doodlePi}`} aria-hidden="true">
-            <Pi />
-          </span>
-          <span className={`${styles.doodle} ${styles.doodleTriangle}`} aria-hidden="true">
-            <Triangle />
-          </span>
-          <span className={`${styles.doodle} ${styles.doodleSigma}`} aria-hidden="true">
-            <Sigma />
-          </span>
-          <p className={styles.hand} aria-hidden="true">
-            {AMIT_TAGLINE.split(' • ').map((word) => (
-              <span key={word}>{word}</span>
-            ))}
-          </p>
-          <figure className={styles.quote}>
-            <Quote aria-hidden="true" className={styles.quoteMark} />
-            <blockquote>{HERO_QUOTE}</blockquote>
-            <figcaption>— {FOUNDER}</figcaption>
-          </figure>
-        </div>
+        {/* The figure of the day — a new one each day, chosen before the first paint. */}
+        <HeroArt layers={depth.layers} />
       </div>
     </section>
   )
