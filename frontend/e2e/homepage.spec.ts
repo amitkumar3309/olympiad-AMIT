@@ -35,7 +35,7 @@ test('a guest goes from the floating button through the Login Gate to today’s 
   const gate = await openGateFromFab(page)
 
   // The prize line is the owner's setting, not text typed into the page.
-  await expect(gate).toContainText('Each day’s winner gets:')
+  await expect(gate).toContainText('Every month, the top scorer in each class band wins:')
   await expect(gate.getByRole('link', { name: 'How rewards work' })).toHaveAttribute('href', '/rewards/rules')
   await expectAccessible(page, 'the Login Gate')
 
