@@ -130,43 +130,60 @@ test('a picture chosen in the question editor is made smaller, described and sav
   expect(served.headers()['cache-control']).toContain('immutable')
 })
 
-test('pictures import as questions: each is described, answered and approved on the review screen', async ({ page, request }, testInfo) => {
+/**
+ * The owner's upload form (2026-10-09): what is being uploaded, the class, the question type and an
+ * optional topic — no chapter to choose. Each photo's card asks for the answer its type needs, and
+ * saving puts it in the chosen class, adding the typed topic as a chapter.
+ */
+test('photos upload as questions: class, type and topic on the form, each answered on its card, saved to that class', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'An admin page: checked once, at desktop width.')
   await seed(request)
   await signInAsAdmin(page, request)
 
   await page.goto('/admin/questions/import')
-  await page.getByRole('button', { name: 'Pictures' }).click()
-  await expect(page.getByText('Students see each picture exactly as you upload it. Nothing reads it.')).toBeVisible()
-  // No chapter can be worked out from a picture: it must be chosen first.
+  await page.getByRole('button', { name: 'Photo' }).click()
+  await expect(page.getByText('Students see each photo exactly as you upload it. Nothing reads it.')).toBeVisible()
+  await page.getByLabel('2. Class *').selectOption('Class 7')
   await page.locator('#imp-files').setInputFiles([
     { name: 'question-1.png', mimeType: 'image/png', buffer: png(900, 600, [220, 38, 38]) },
     { name: 'question-2.png', mimeType: 'image/png', buffer: png(600, 900, [22, 163, 74]) },
   ])
-  const prepare = page.getByRole('button', { name: 'Prepare the pictures' })
-  await expect(prepare).toBeDisabled()
-  await page.locator('#imp-topic').selectOption({ label: 'Algebra' })
-  await prepare.click()
+  const upload = page.getByRole('button', { name: 'Upload the photos' })
+  // Nothing is uploaded until the question type is chosen.
+  await expect(upload).toBeDisabled()
+  await page.getByLabel('3. Question type *').selectOption('single_choice')
+  await page.getByLabel('4. Topic (optional)').fill('Mensuration')
+  await upload.click()
 
-  await expect(page.getByRole('heading', { name: 'Review 2 questions' })).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByRole('heading', { name: 'Review 2 questions for Class 7' })).toBeVisible({ timeout: 30_000 })
   const cards = page.locator('[data-picked]')
   const first = cards.first()
-  // Nothing on a picture's card is filled in yet, so it opens ready to describe and answer.
-  await first.getByRole('textbox', { name: /Describe the picture/ }).fill('A red rectangle three wide and two tall; what is its area?')
+  // Each card says where it goes; the topic is new, so saving will add it.
+  await expect(first.getByText('Class 7 · Mensuration')).toBeVisible()
+  await expect(first.getByText('new topic')).toBeVisible()
+  // Nothing on a photo's card is filled in yet, so it opens ready to describe and answer.
+  await first.getByRole('textbox', { name: /Describe the photo/ }).fill('A red rectangle three wide and two tall; what is its area?')
   for (const [index, text] of ['5', '6', '9', '12'].entries()) {
     await first.getByRole('textbox', { name: `Option ${String.fromCharCode(65 + index)}`, exact: true }).fill(text)
   }
-  await first.getByRole('checkbox', { name: 'Option B is the correct answer' }).check()
+  // Single correct: one choice among the options.
+  await first.getByRole('radio', { name: 'Option B is the correct answer' }).check()
   await first.getByRole('textbox', { name: 'Worked solution' }).fill('Three times two is $6$.')
-  await expectAccessible(page, 'the picture import review')
+  await expectAccessible(page, 'the photo upload review')
 
-  // The second is not ready, so it is set aside rather than approved.
+  // The second is not ready, so it is set aside rather than saved.
   await cards.nth(1).getByRole('checkbox', { name: 'Save question 2' }).uncheck()
   await page.getByRole('button', { name: 'Check before saving' }).click()
   await expect(page.getByText('Checked: all 1 would save.')).toBeVisible()
-  await page.getByRole('button', { name: 'Approve 1 as draft' }).click()
-  await expect(page.getByRole('heading', { name: 'Saved 1 question as draft.' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Open the question bank' })).toHaveAttribute('href', '/admin/questions?source=picture_import')
+  await page.getByRole('button', { name: 'Save 1 question to Class 7' }).click()
+  await expect(page.getByRole('heading', { name: 'Saved 1 question to Class 7 as draft.' })).toBeVisible()
+  await expect(page.getByText('New topic added: Mensuration.')).toBeVisible()
+
+  // "It should reflect in the respective chosen class": the bank opens on that class.
+  const bank = page.getByRole('link', { name: 'See Class 7’s questions in the question bank' })
+  await expect(bank).toHaveAttribute('href', '/admin/questions?source=picture_import&classLevel=Class+7')
+  await bank.click()
+  await expect(page.getByLabel('Filter by class')).toHaveValue('Class 7')
 })
 
 test('a student sees today’s picture question from Start, and its solution picture only from the next day', async ({ page, request }) => {
