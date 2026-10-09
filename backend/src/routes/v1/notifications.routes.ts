@@ -249,6 +249,7 @@ router.patch(
       account.notificationPrefs = {
         announcements: updates.announcements ?? current.announcements,
         results: updates.results ?? current.results,
+        dailyQuizReminders: updates.dailyQuizReminders ?? current.dailyQuizReminders,
       };
       await account.save();
 

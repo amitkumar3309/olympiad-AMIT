@@ -258,6 +258,15 @@ export const config = {
   e2e: {
     hooksEnabled: env.E2E_TEST_HOOKS && !isProd,
   },
+  /**
+   * The scheduled jobs (`routes/v1/jobs.routes.ts`, Milestone 30 Phase 7b): an outside
+   * scheduler calls them with this secret as a bearer token. Absent, both routes answer 503
+   * naming `JOBS_SECRET`, and the Daily Quiz does not offer reminders — a reminder that
+   * nothing will ever send is a promise the page must not make.
+   */
+  jobs: {
+    secret: env.JOBS_SECRET,
+  },
   payments: {
     /** True only when an order can actually be created AND verified. */
     configured: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),

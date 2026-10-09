@@ -66,10 +66,12 @@ import {
   type QuestionDocument,
   type QuestionPicture,
   type QuizContent,
+  type ReminderRun,
   type StudentDocument,
   type WinnerStatus,
 } from '../models';
 import { findImplicitSubject, type Actor } from './taxonomyService';
+import { resolvePrefs } from './notificationService';
 import { authorPictureView, pictureView, type PictureView } from './questionImageService';
 import { gradeEntry } from './grading';
 import { publicListingFor } from './leaderboardService';
@@ -182,8 +184,30 @@ export interface QuizSettings {
   prizeText: string;
   cashAmount: number | null;
   instantResult: boolean;
+  /** The reminder programme's switch (Milestone 30 Phase 7b) — students still opt in one by one. */
+  remindersEnabled: boolean;
+  /** The most reminders one day may queue. */
+  reminderDailyCap: number;
+  /** What the reminder job did the last time the scheduler called it, or null if it never has. */
+  lastReminderRun: ReminderRun | null;
   updatedAt: Date | null;
   updatedByLabel: string | null;
+}
+
+/** A stored run as plain data — never the Mongoose subdocument, so a response cannot carry its internals. */
+function reminderRunView(run: ReminderRun | null | undefined): ReminderRun | null {
+  if (!run) return null;
+  return {
+    day: run.day,
+    at: run.at,
+    enabled: run.enabled,
+    eligible: run.eligible,
+    alreadyStarted: run.alreadyStarted,
+    alreadyReminded: run.alreadyReminded ?? 0,
+    overCap: run.overCap,
+    queued: run.queued,
+    failed: run.failed ?? 0,
+  };
 }
 
 /**
@@ -201,6 +225,10 @@ export async function getQuizSettings(): Promise<QuizSettings> {
         prizeText: doc.prizeText,
         cashAmount: doc.cashAmount ?? null,
         instantResult: doc.instantResult,
+        // `??` because a document saved before Milestone 30 Phase 7b has none of the three.
+        remindersEnabled: doc.remindersEnabled ?? DAILY_QUIZ_DEFAULTS.remindersEnabled,
+        reminderDailyCap: doc.reminderDailyCap ?? DAILY_QUIZ_DEFAULTS.reminderDailyCap,
+        lastReminderRun: reminderRunView(doc.lastReminderRun),
         updatedAt: doc.updatedAt ?? null,
         updatedByLabel: doc.updatedByLabel ?? null,
       };
@@ -208,19 +236,80 @@ export async function getQuizSettings(): Promise<QuizSettings> {
   } catch (err) {
     logger.error({ err }, 'Could not read the Daily Quiz settings; using the defaults');
   }
-  const { prizeHeadline, prizeText, cashAmount, instantResult } = DAILY_QUIZ_DEFAULTS;
-  return { prizeHeadline, prizeText, cashAmount, instantResult, updatedAt: null, updatedByLabel: null };
+  const { prizeHeadline, prizeText, cashAmount, instantResult, remindersEnabled, reminderDailyCap } = DAILY_QUIZ_DEFAULTS;
+  return {
+    prizeHeadline,
+    prizeText,
+    cashAmount,
+    instantResult,
+    remindersEnabled,
+    reminderDailyCap,
+    lastReminderRun: null,
+    updatedAt: null,
+    updatedByLabel: null,
+  };
 }
 
-export type QuizSettingsInput = Omit<QuizSettings, 'updatedAt' | 'updatedByLabel'>;
+/**
+ * What an administrator may change. The two reminder settings are **optional**: a request
+ * that leaves one out keeps the stored value, so a client written before reminders existed
+ * — or a form that does not show them — can save the prize without switching reminders off.
+ */
+export interface QuizSettingsInput {
+  prizeHeadline: string;
+  prizeText: string;
+  cashAmount: number | null;
+  instantResult: boolean;
+  remindersEnabled?: boolean;
+  reminderDailyCap?: number;
+}
 
 export async function updateQuizSettings(input: QuizSettingsInput, actor: Actor): Promise<QuizSettings> {
+  const changes: Record<string, unknown> = {
+    prizeHeadline: input.prizeHeadline,
+    prizeText: input.prizeText,
+    cashAmount: input.cashAmount,
+    instantResult: input.instantResult,
+  };
+  if (input.remindersEnabled !== undefined) changes.remindersEnabled = input.remindersEnabled;
+  if (input.reminderDailyCap !== undefined) changes.reminderDailyCap = input.reminderDailyCap;
+
   await DailyQuizSettings.findOneAndUpdate(
     { key: DAILY_QUIZ_SETTINGS_KEY },
-    { $set: { ...input, updatedBy: actor.id, updatedByLabel: actor.label } },
+    { $set: { ...changes, updatedBy: actor.id, updatedByLabel: actor.label } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   return getQuizSettings();
+}
+
+/**
+ * Stores what the reminder job just did (Milestone 30 Phase 7b), for the settings page's
+ * "Last run" line.
+ *
+ * Written **without touching `updatedAt`**: that field is "when an administrator last
+ * changed the settings" on the same page, and a job run at 07:00 every morning would
+ * otherwise make it read as though somebody had. An install with no settings document gets
+ * one with the defaults, which is what it was already running on.
+ */
+export async function recordReminderRun(run: ReminderRun): Promise<void> {
+  await DailyQuizSettings.updateOne(
+    { key: DAILY_QUIZ_SETTINGS_KEY },
+    { $set: { lastReminderRun: run } },
+    { upsert: true, setDefaultsOnInsert: true, timestamps: false },
+  );
+}
+
+/**
+ * Whether the Daily Quiz may offer this student a reminder, and whether they have one on —
+ * for today's payload. Offered only when something will really send it: the scheduler's
+ * secret is configured **and** the programme is switched on. Otherwise the page says
+ * nothing, because a reminder that never arrives is a promise the product did not keep.
+ */
+export function remindersFor(student: Pick<StudentDocument, 'notificationPrefs'>, settings: QuizSettings) {
+  return {
+    on: resolvePrefs(student).dailyQuizReminders,
+    available: Boolean(config.jobs.secret) && settings.remindersEnabled,
+  };
 }
 
 /**
@@ -907,6 +996,8 @@ export async function todayPayload(input: TodayInput) {
     today,
     prize: publicQuizInfo(settings, xpForCorrect),
     eligibility: eligibilityOf(student),
+    /** The 7:00 AM reminder: whether it can be offered, and whether this student has it on (Phase 7b). */
+    reminders: remindersFor(student, settings),
     streak: { current: facts.currentChallengeStreak, longest: facts.longestChallengeStreak },
     previous: await previousQuizSummary(studentId, today, at),
   };

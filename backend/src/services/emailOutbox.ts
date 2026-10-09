@@ -1,5 +1,11 @@
 import type { Types } from 'mongoose';
-import { EmailOutbox, type EmailCategory, type EmailOutboxDocument } from '../models';
+import {
+  EMAIL_PRIORITY,
+  EMAIL_RETENTION_DAYS,
+  EmailOutbox,
+  type EmailCategory,
+  type EmailOutboxDocument,
+} from '../models';
 import { openMailSession, type MailSession, type OutboundEmail } from '../lib/email';
 import { logger } from '../lib/logger';
 import { keepAlive } from '../lib/serverlessLifecycle';
@@ -47,6 +53,18 @@ import { isConnected } from '../db/connection';
  * None of the three is a deadline. A queue that only drains when the site is used
  * cannot promise a delivery time on a completely idle site, which is why the staff
  * action stays visible rather than hidden.
+ *
+ * **Since Milestone 30 Phase 7b there is a fourth, and it is one**: `POST /jobs/outbox`
+ * (`routes/v1/jobs.routes.ts`), which an outside scheduler calls every minute with the
+ * `JOBS_SECRET`. Where the owner has set that up, a queued message waits at most a minute
+ * on an idle site (known bug #41). The other three stay: the scheduler is configuration
+ * somebody can forget, and the queue must stay correct without it.
+ *
+ * ## The order things are sent in
+ *
+ * The claim takes the **lowest `priority`** first, then the oldest deadline — see
+ * `EMAIL_PRIORITY` in the model. That is what lets the reminder job queue a hundred
+ * messages at 07:00 without a verification email queued at 07:01 waiting behind them.
  */
 
 /**
@@ -58,6 +76,8 @@ import { isConnected } from '../db/connection';
  * being the actual problem.
  */
 const BACKOFF_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 60 * 60_000];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Bounded so one unlucky request never tries to push a whole cohort's mail. */
 const DRAIN_BATCH = 10;
@@ -101,6 +121,16 @@ export interface EnqueueInput extends OutboundEmail {
   dedupeKey?: string | null;
 }
 
+export interface EnqueueOptions {
+  /**
+   * `false` queues the row without starting a drain. For a caller queueing a **batch** —
+   * the Daily Quiz reminders — which then starts one drain itself with `kickOutbox()`.
+   * Left on, a hundred reminders would start a hundred drains, each claiming from the same
+   * queue: wasted round trips under load, and under test a hundred awaited drains.
+   */
+  dispatch?: boolean;
+}
+
 export interface EnqueueResult {
   queued: boolean;
   /** `duplicate` when a row with the same `dedupeKey` already exists. */
@@ -116,7 +146,9 @@ export interface EnqueueResult {
  * reporting it as failed because of a side effect would be a worse lie than the
  * missing side effect.
  */
-export async function enqueueEmail(input: EnqueueInput): Promise<EnqueueResult> {
+export async function enqueueEmail(input: EnqueueInput, options: EnqueueOptions = {}): Promise<EnqueueResult> {
+  const queuedAt = new Date();
+  const retentionDays = EMAIL_RETENTION_DAYS[input.category];
   try {
     await EmailOutbox.create({
       to: input.to,
@@ -124,10 +156,16 @@ export async function enqueueEmail(input: EnqueueInput): Promise<EnqueueResult> 
       text: input.text,
       html: input.html,
       category: input.category,
+      // Decided here, from the category, so no caller can queue its own mail ahead of a
+      // verification link — see `EMAIL_PRIORITY`.
+      priority: EMAIL_PRIORITY[input.category],
+      // Only a category with a retention gets the field the TTL index reads; every other
+      // row is kept for ever (see the model).
+      ...(retentionDays !== undefined ? { expiresAt: new Date(queuedAt.getTime() + retentionDays * DAY_MS) } : {}),
       student: input.student ?? null,
       dedupeKey: input.dedupeKey ?? null,
       status: 'pending',
-      nextAttemptAt: new Date(),
+      nextAttemptAt: queuedAt,
     });
   } catch (err) {
     if (isDuplicateKeyError(err)) {
@@ -140,8 +178,17 @@ export async function enqueueEmail(input: EnqueueInput): Promise<EnqueueResult> 
     return { queued: false, reason: 'error' };
   }
 
-  await dispatch();
+  if (options.dispatch !== false) await dispatch();
   return { queued: true };
+}
+
+/**
+ * Starts one drain, the way `enqueueEmail()` would have — for a caller that queued a batch
+ * with `{ dispatch: false }`. Awaited under test, held open by `keepAlive()` otherwise, so
+ * it must be called synchronously within the request, like everything that uses it.
+ */
+export async function kickOutbox(): Promise<void> {
+  await dispatch();
 }
 
 /**
@@ -323,7 +370,8 @@ export async function drainOutbox(now = new Date()): Promise<DrainOutcome> {
 }
 
 /**
- * Takes ownership of one due row, or returns null.
+ * Takes ownership of one due row, or returns null — the most important first (lowest
+ * `priority`), then the oldest deadline.
  *
  * The claim **is** the concurrency control: a single conditional write that both
  * selects and reserves. Two invocations racing for the same row cannot both win,
@@ -344,7 +392,7 @@ async function claimNext(now: Date): Promise<EmailOutboxDocument | null> {
         nextAttemptAt: new Date(now.getTime() + backoffFor(0)),
       },
     },
-    { sort: { nextAttemptAt: 1 }, returnDocument: 'after' },
+    { sort: { priority: 1, nextAttemptAt: 1 }, returnDocument: 'after' },
   );
 }
 
