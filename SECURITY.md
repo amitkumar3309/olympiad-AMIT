@@ -695,11 +695,16 @@ Real prizes, including cash, raise the value of every shortcut. What the quiz de
    by elimination. Mitigations, as the brief prescribes: a verified email is required to play (sign-in
    requires it), registration is rate limited, an **HMAC of the client IP** (keyed with `JWT_SECRET`,
    truncated, never the address) is stored per start and submission, and the winner review shows how
-   many other correct answers came from the same connection. **A flag is a prompt for a person, never a
+   many other students answered from a connection the candidate used that month. **The monthly prize
+   (2026-10-09) raises the stakes here**: it is decided first by the number of correct answers, so
+   elimination with several accounts would buy a perfect month, where before it bought one quiz's
+   race; the person who reviews a winner before announcing them is the control, with the
+   shared-connection count as their prompt. **A flag is a prompt for a person, never a
    disqualification** — siblings and whole schools share one connection. `instantResult` can be turned
-   off in the settings, which holds the result until the reveal as well.
-6. **Nothing about a prize is public until a person decides.** Winners are computed provisionally after
-   the close, confirmed, then published — each step a conditional write, each audited. The public list
+   off in the settings, which holds the result until the reveal as well — and closes elimination
+   completely, because no account then learns right or wrong before the quiz has closed.
+6. **Nothing about a prize is public until a person decides.** Winners are computed provisionally once
+   the month is over, confirmed, then published — each step a conditional write, each audited. The public list
    shows a first name, last initial, class and city or school (or only the class, for a student who
    opted out); guardian contact details appear only on the staff winner table, behind
    `challenges:write`.

@@ -8,7 +8,8 @@ import { sendError, sendSuccess } from '../../lib/apiResponse';
 import { respondToServiceError } from '../../lib/serviceError';
 import { recordAudit } from '../../lib/audit';
 import { now } from '../../lib/clock';
-import { classRangeLabel } from '../../lib/dailyQuiz';
+import { monthLabel } from '../../lib/competitionDay';
+import { classRangeLabel, prizeBand } from '../../lib/dailyQuiz';
 import { Student } from '../../models';
 import { actorFrom } from '../../services/taxonomyService';
 import { notifyDailyQuizWinner } from '../../services/systemNotifier';
@@ -25,7 +26,8 @@ import {
   applyWinnerAction,
   bulkScheduleQuizzes,
   changeQuizQuestion,
-  computeWinners,
+  computeMonthlyWinners,
+  defaultPrizeMonth,
   deleteQuiz,
   getQuizSettings,
   groupIdOf,
@@ -33,11 +35,16 @@ import {
   listQuizCandidates,
   listQuizGroups,
   loadGroup,
+  monthGroupId,
+  monthlyWinnersView,
+  prizeMonthOf,
+  prizeMonths,
   quizCalendar,
   rangeOf,
   scheduleQuiz,
   statsForGroups,
   updateQuizSettings,
+  winnerLabel,
   winnerRow,
   winnerSummaries,
   winnersForGroup,
@@ -49,6 +56,8 @@ import {
   changeQuizSchema,
   groupIdParamSchema,
   listQuizzesQuerySchema,
+  monthlyComputeParamSchema,
+  monthlyWinnersQuerySchema,
   prizeDeskQuerySchema,
   quizImportApproveSchema,
   quizImportPreviewSchema,
@@ -61,6 +70,7 @@ import {
   type CandidatesQuery,
   type ChangeQuizBody,
   type ListQuizzesQuery,
+  type MonthlyWinnersQuery,
   type PrizeDeskQuery,
   type QuizImportApproveBody,
   type QuizImportPreviewBody,
@@ -73,7 +83,7 @@ import {
 /**
  * Running the Daily Quiz (Milestone 30, Phase 2) — the daily challenge's console,
  * upgraded: schedule by class range, load weeks at once, see how each quiz landed, choose
- * and publish the winners, and set the prize.
+ * and publish each month's winners in each class band (since 2026-10-09), and set the prize.
  *
  * Gated on `challenges:write`, which is elevated, so every request re-reads the caller's
  * role and a demoted administrator loses access at once. Every change is audited — the
@@ -386,7 +396,7 @@ router.post(
         action: auditAction[action],
         targetType: 'dailyquiz',
         targetId: String(row.groupId),
-        targetLabel: `${classRangeLabel(row.classMin, row.classMax)} · ${row.day}`,
+        targetLabel: winnerLabel(row),
         metadata: { winner: String(row._id), student: String(row.student), status: row.status, reason: row.reason ?? null },
       });
 
@@ -399,6 +409,65 @@ router.post(
       sendSuccess(res, 200, { winner: await winnerRow(row), winners: await winnersForGroup(row.groupId) });
     } catch (err) {
       respondToServiceError(res, err, { log: 'Failed to update a Daily Quiz winner', fallback: 'Could not update that winner. Please try again.' });
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// The monthly prize — one winner a month in each class band (PLAN.md Q24)
+// ---------------------------------------------------------------------------
+
+/**
+ * One month's prize, band by band: whether it can be worked out yet, and each band's
+ * candidates and winner. Literal paths — declared before `/:groupId`, which would otherwise
+ * read "monthly" as a quiz id.
+ */
+router.get(
+  '/admin/daily-quiz/monthly',
+  GATE,
+  validate({ query: monthlyWinnersQuerySchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const at = now();
+      const query = req.query as unknown as MonthlyWinnersQuery;
+      const month = query.month ?? defaultPrizeMonth(at);
+      if (!prizeMonths(at).includes(month)) {
+        sendError(res, 404, `There is no monthly prize for ${monthLabel(month)}: prizes run from November 2026 to this month.`);
+        return;
+      }
+      sendSuccess(res, 200, { monthly: await monthlyWinnersView(month, at) });
+    } catch (err) {
+      respondToServiceError(res, err, { log: 'Failed to load the monthly winners', fallback: 'Could not load the monthly winners. Please try again.' });
+    }
+  },
+);
+
+/** Ranks one band's month and writes the leading few as provisional — only once the month is over. */
+router.post(
+  '/admin/daily-quiz/monthly/:month/:band/compute',
+  GATE,
+  adminActionLimiter,
+  validate({ params: monthlyComputeParamSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const at = now();
+      const { month, band } = req.params as unknown as { month: string; band: Parameters<typeof prizeBand>[0] };
+      const outcome = await computeMonthlyWinners(month, band, at);
+      const range = prizeBand(band);
+
+      await recordAudit(req, {
+        action: 'dailyquiz.monthly.computed',
+        targetType: 'dailyquiz',
+        targetId: String(monthGroupId(month, band)),
+        targetLabel: `${classRangeLabel(range.min, range.max)} · ${monthLabel(month)}`,
+        metadata: { month, band, correctAnswers: outcome.correctAnswers, students: outcome.students },
+      });
+
+      sendSuccess(res, 200, { ...outcome, winners: await winnersForGroup(monthGroupId(month, band)) });
+    } catch (err) {
+      respondToServiceError(res, err, { log: 'Failed to compute the monthly winners', fallback: 'Could not work out the candidates. Please try again.' });
     }
   },
 );
@@ -441,6 +510,7 @@ router.get('/admin/daily-quiz/:groupId', GATE, validate({ params: groupIdParamSc
     sendSuccess(res, 200, {
       quiz: adminQuizView(group, stats.get(String(id)), at, summary?.student ? { name: summary.student.name, status: summary.status } : null),
       winners,
+      prizeMonth: prizeMonthOf(first.day),
     });
   } catch (err) {
     respondToServiceError(res, err, { log: 'Failed to load a Daily Quiz', fallback: 'Could not load that quiz. Please try again.' });
@@ -496,37 +566,6 @@ router.delete(
       sendSuccess(res, 200, { deleted: true });
     } catch (err) {
       respondToServiceError(res, err, { log: 'Failed to remove a Daily Quiz', fallback: 'Could not remove that quiz. Please try again.' });
-    }
-  },
-);
-
-/** Ranks the closed quiz's correct answers and writes the leading few as provisional. */
-router.post(
-  '/admin/daily-quiz/:groupId/winners/compute',
-  GATE,
-  adminActionLimiter,
-  validate({ params: groupIdParamSchema }),
-  ensureDb,
-  async (req: Request, res: Response) => {
-    try {
-      const { groupId } = req.params as unknown as { groupId: string };
-      const outcome = await computeWinners(groupId, now());
-      const docs = await loadGroup(new Types.ObjectId(groupId));
-      const first = docs[0]!;
-      const id = groupIdOf(first);
-      const range = rangeOf(first);
-
-      await recordAudit(req, {
-        action: 'dailyquiz.winners.computed',
-        targetType: 'dailyquiz',
-        targetId: String(id),
-        targetLabel: `${classRangeLabel(range.min, range.max)} · ${first.day}`,
-        metadata: { correctAnswers: outcome.correctCount },
-      });
-
-      sendSuccess(res, 200, { ...outcome, winners: await winnersForGroup(id) });
-    } catch (err) {
-      respondToServiceError(res, err, { log: 'Failed to compute Daily Quiz winners', fallback: 'Could not compute the winners. Please try again.' });
     }
   },
 );

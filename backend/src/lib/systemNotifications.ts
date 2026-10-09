@@ -90,9 +90,9 @@ export const SYSTEM_EVENT_DEFINITIONS: Record<SystemEvent, SystemEventDefinition
     link: '/profile',
   },
   /**
-   * A Daily Quiz winner, once an administrator has published them (Milestone 30). The
-   * `results` stream: news a student and their parent would genuinely regret missing,
-   * and switchable like the exam result it resembles.
+   * A Daily Quiz winner, once an administrator has published them (Milestone 30) — a month's
+   * winner in a class band since 2026-10-09. The `results` stream: news a student and their
+   * parent would genuinely regret missing, and switchable like the exam result it resembles.
    */
   'dailyquiz.winner_published': {
     event: 'dailyquiz.winner_published',
@@ -226,6 +226,28 @@ export function dailyQuizWinnerCopy(input: { day: string; prizeText: string | nu
     title: `You won the Daily Quiz for ${input.day}!`,
     body:
       `Congratulations — yours was the winning answer in the Daily Quiz on ${input.day}.\n\n` +
+      `Your prize: ${prize}${cash}.\n\n` +
+      `The ${PRODUCT_NAME} organisers will contact your parent or guardian on the number in your profile to arrange delivery. ` +
+      `If that number is missing or out of date, update it in My Profile.`,
+  };
+}
+
+/**
+ * A monthly winner's message (since 2026-10-09 — PLAN.md Q24): the month and the class band
+ * they won, and the prize as it was snapshotted when they were confirmed.
+ */
+export function dailyQuizMonthlyWinnerCopy(input: {
+  month: string;
+  band: string;
+  prizeText: string | null;
+  cashAmount: number | null;
+}): NotificationCopy {
+  const prize = input.prizeText ?? 'a surprise gift and a cash prize';
+  const cash = input.cashAmount !== null && input.cashAmount > 0 ? ` (₹${input.cashAmount.toLocaleString('en-IN')} cash)` : '';
+  return {
+    title: `You won the Daily Quiz for ${input.month}!`,
+    body:
+      `Congratulations — you answered the most Daily Quizzes correctly in ${input.band} in ${input.month}.\n\n` +
       `Your prize: ${prize}${cash}.\n\n` +
       `The ${PRODUCT_NAME} organisers will contact your parent or guardian on the number in your profile to arrange delivery. ` +
       `If that number is missing or out of date, update it in My Profile.`,

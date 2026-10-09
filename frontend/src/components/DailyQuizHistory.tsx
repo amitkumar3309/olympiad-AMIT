@@ -59,6 +59,9 @@ export default function DailyQuizHistory() {
             <StatTile icon="ph-flame" tone="warning" label="Current streak" value={data.summary.currentStreak} />
             <StatTile icon="ph-medal" label="Best streak" value={data.summary.longestStreak} />
             <StatTile icon="ph-trophy" label="Wins" value={data.summary.wins} />
+            {data.summary.thisMonth && (
+              <StatTile icon="ph-calendar-check" tone="success" label={`${data.summary.thisMonth.label} prize score`} value={data.summary.thisMonth.correct} />
+            )}
           </div>
           {data.attempts.length === 0 ? (
             <EmptyState

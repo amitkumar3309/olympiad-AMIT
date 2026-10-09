@@ -21,7 +21,8 @@ Staff                                         Students (requireAuth, free)
         |                                              v
         |                             revealOf(challenge, now())  <-- THE reveal gate (next IST midnight)
         v                                              |
-  after the close: computeWinners() -> provisional --> confirmed --> published  (or disqualified)
+  after the month: computeMonthlyWinners(month, band) -> provisional --> confirmed --> published  (or disqualified)
+    (one winner a month per class band 3-5 / 6-8 / 9-10 / 11-12: rankMonthlyCandidates() -- most correct, then lower total time)
         |                                                             |
         +--> prize desk (GET /admin/daily-quiz/winners)               +--> notifyDailyQuizWinner()
                                                                        +--> GET /daily-quiz/winners (public, masked)

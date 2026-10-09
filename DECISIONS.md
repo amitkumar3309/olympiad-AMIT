@@ -4,6 +4,58 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — The Daily Quiz prize is monthly: one winner a month in each class band
+
+**Context.** Phase 2 gave every quiz its own winner — by default the fastest correct answer, with the
+rule and the number of winners as settings (decision 8 of the Milestone 30 Phase 2 ADR). On 2026-10-09
+the owner said there will be no daily winner: "a monthly winner who has highest score". Asked, they
+chose the score — **correct answers in the month, the lower total solve time breaking a tie**; **one
+winner per class band** (3–5, 6–8, 9–10, 11–12); **a staff check early the next month**; and **November
+counted from the launch on the 8th** (PLAN.md Q24).
+
+**Decision.**
+1. **The rule is code, not a setting.** `rankMonthlyCandidates()` in `lib/dailyQuiz.ts`, a pure
+   function: the most correct answers that month; then the lower total of the server-measured solve
+   times over them (an unknown total last); then whoever reached their total first; then the student
+   id, so the order is total and working the candidates out again cannot move a tie. The settings'
+   `winnerRule` and `winnersPerQuiz` are retired — kept in the schema so a saved document loads, read by
+   nothing, dropped from a request. The public sentence is still generated (`describeWinnerRule()`, now
+   from constants).
+2. **The prize's bands are not the quiz's groups.** Quizzes are still scheduled for three class groups a
+   day (Q3); the prize has four bands (`PRIZE_BANDS`), so Classes 9–10 and 11–12 compete apart. An answer
+   counts in the band of the class it was answered in — each attempt belongs to one class's
+   `DailyChallenge` — so a student who moves class mid-month does not carry answers across.
+3. **A month's prize is a `DailyQuizWinner` row with `period: 'month'`**, not a new collection. Its
+   `groupId` is derived from the month and the band (SHA-256 of `dailyquiz-month:v1:<month>:<band>`, cut
+   to an ObjectId), so the unique `{ groupId, student }` index means one row per student per prize, and
+   the lifecycle (provisional → confirmed → published, disqualified with a reason, contacted,
+   delivered), the conditional writes, the re-count after confirming, the prize snapshot, the
+   notification, the audit trail, the prize desk and the public list all carry over. New optional
+   fields — `period`, `month`, `band`, `correctCount` — say what a row is; `day` is the month's last day
+   and `solveTimeMs` the total. Rows from before keep `period` absent and read as one quiz's.
+4. **Candidates only once the month is over** — from IST midnight on the 1st (`monthEndsAt()`), a 409
+   naming that moment before. A field ranked mid-month is incomplete, and an early ranking invites an
+   early announcement. Staff then confirm one per band (`WINNERS_PER_BAND`) and announce.
+5. **No promise before the launch.** Nothing counts before 8 November 2026 (`MONTHLY_PRIZES_FROM`). The
+   public prize information carries that day (`prizesFrom`) and a quiz's staff page its prize month
+   (`prizeMonth`), so the quiz panel says "Monthly prizes start on Sun, 8 Nov 2026" until then rather than
+   "counts towards this month's prize".
+6. **The shared-connection prompt is per student over the month**: how many other students answered from
+   a connection this student used. Still a prompt for a person, never a verdict.
+
+Rejected: **a monthly option in the rule setting** — the owner chose one rule, and a dropdown is a way to
+change the prize without anybody deciding to; **a `MonthlyWinner` collection** — a second lifecycle
+beside the first, which would drift from it; **ranking by XP** — XP includes practice and mock tests,
+which a quiz prize must not reward, and its tie-break is who got there first, not speed; **ranking by
+accuracy** — one right out of one would beat twenty out of twenty-one; **a running monthly table for
+students** — the owner asked for a winner, not a new public list of children.
+
+**A consequence worth stating.** The prize is decided first by the number of correct answers, so answer
+elimination with several accounts would buy a perfect month rather than one quiz's race. The person who
+reviews a winner is the control, with the shared-connection count as their prompt; turning instant
+results off removes elimination entirely (SECURITY.md, the Daily Quiz's point 5). The per-quiz compute
+route is gone; a quiz's own page still lists any candidates it had.
+
 ## 2026-10-09 — The Diwali edition at night: a transparent page over a fireworks canvas in a worker
 
 **Context.** On seeing the Diwali edition the owner asked for a slower intro, for fireworks "more
@@ -522,7 +574,8 @@ per day, Q4 no automatic fill, Q12 prize copy, Q13 eligibility fields) by replyi
    the owner's R7, "ChatGPT is their choice"). A submitted answer still counts toward the streak. With
    instant results off, the XP waits for the reveal, because paying it at once would tell the student
    they were right.
-8. **Winners: computed by the rule, decided by a person.** `FASTEST_CORRECT` (server-measured solve
+8. **Winners: computed by the rule, decided by a person.** *(Superseded on 2026-10-09 by "The Daily Quiz
+   prize is monthly" above: one winner a month in each class band, by a rule in code.)* `FASTEST_CORRECT` (server-measured solve
    time, ties to the earlier submission) by default, `FIRST_CORRECT` and `MANUAL` configurable; only
    eligible students (verified email, active account, name, class, school, city, guardian phone);
    provisional → confirmed → published, or disqualified with a reason; conditional writes throughout,

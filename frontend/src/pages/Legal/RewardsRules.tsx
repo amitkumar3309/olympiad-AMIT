@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { QuizPrizeInfo } from '../../api/types'
-import { prizeLine } from '../../lib/dailyQuizCopy'
+import { bandsSentence, prizeLine } from '../../lib/dailyQuizCopy'
 import { AMIT_OLYMPIAD, SUPPORT } from '../../lib/brand'
 import LegalLayout from './LegalLayout'
 import styles from './Legal.module.css'
@@ -15,8 +15,9 @@ import styles from './Legal.module.css'
  *
  * ## The rule and the prize are the server's words
  *
- * "How winners are chosen" is the sentence the server generates from the same settings
- * its winner computation reads (`describeWinnerRule()`), and the prize line is the owner's
+ * "How winners are chosen" is the sentence the server generates from the same constants
+ * its monthly ranking reads (`describeWinnerRule()` — one winner a month in each class band,
+ * the owner's rule since 2026-10-09, PLAN.md Q24), and the prize line is the owner's
  * own wording from Admin → Daily Quiz → Settings. Both are fetched, never typed here, so
  * this page cannot drift from what actually happens. Until they load, those two passages
  * say so rather than guess.
@@ -51,7 +52,7 @@ export default function RewardsRules() {
     <LegalLayout
       title="Daily Quiz & Rewards Rules"
       lead={`How the ${AMIT_OLYMPIAD} Daily Quiz works, who can win, and how prizes are given.`}
-      updated="4 October 2026"
+      updated="9 October 2026"
     >
       <h2>1. Who can take part</h2>
       <p>
@@ -67,7 +68,11 @@ export default function RewardsRules() {
 
       <h2>3. The quiz</h2>
       <ul>
-        <li>There is one quiz a day for each class group — Classes 3–5, 6–8 and 9–12 — and each quiz has its own winner.</li>
+        <li>There is one quiz a day for each class group — Classes 3–5, 6–8 and 9–12.</li>
+        <li>
+          Prizes are monthly: one winner each month in each class band — {bandsSentence(info?.bands)}. Section 4 says
+          how the winner is chosen.
+        </li>
         <li>Each quiz is open from 12:00 AM to 11:59:59 PM India Standard Time (IST) on its day.</li>
         <li>
           You get <strong>one attempt</strong>. Your time is measured by our server from when you press Start to when
@@ -98,7 +103,7 @@ export default function RewardsRules() {
       <h2>5. Prizes</h2>
       <p className={styles.fromSettings}>
         {info
-          ? `Each quiz’s winner receives: ${prizeLine(info)}.`
+          ? `Each month’s winner in each class band receives: ${prizeLine(info)}.`
           : loading
             ? 'Loading the current prize…'
             : 'The current prize could not be loaded just now. Please refresh this page.'}
@@ -111,9 +116,10 @@ export default function RewardsRules() {
 
       <h2>6. When winners are announced</h2>
       <p>
-        After each quiz closes, our team reviews the result. A winner is shown on the website — as a first name and last
-        initial, with class and city or school — only after that review, usually the next day, and is told on their
-        dashboard and by email. A student who has chosen to hide their name from public lists is shown only by class.
+        After each month ends, our team reviews the result. A winner is shown on the website — as a first name and last
+        initial, with class and city or school — only after that review, early the following month, and is told on
+        their dashboard and by email. A student who has chosen to hide their name from public lists is shown only by
+        class.
       </p>
 
       <h2>7. Checks and disqualification</h2>

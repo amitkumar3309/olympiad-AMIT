@@ -10,7 +10,6 @@ import type {
   QuizPrizeInfo,
   QuizSettings,
   QuizWinnerRow,
-  WinnerRule,
 } from '../../api/types'
 import AdminShell from './AdminShell'
 import MathText from '../../components/MathText'
@@ -26,7 +25,6 @@ import {
   Field,
   Input,
   Pagination,
-  Select,
   SkeletonTable,
   SkeletonText,
   TabPanel,
@@ -41,6 +39,7 @@ import { humanizeError } from '../../lib/errors'
 import ScheduleDialog from './DailyQuizSchedule'
 import { QuizBankBulk, QuizFileImport } from './DailyQuizBulk'
 import WinnerTable from './DailyQuizWinners'
+import MonthlyWinners from './DailyQuizMonthly'
 import styles from './DailyQuiz.module.css'
 
 /**
@@ -51,28 +50,24 @@ import styles from './DailyQuiz.module.css'
  *    class group that has no quiz in the next three days (there is no automatic fill any
  *    more, so a gap is a day with no quiz), and every quiz with its figures.
  *  - **Import** and **From the bank** — loading weeks at once, dry run first.
+ *  - **Monthly winners** — one winner a month in each class band (owner, 2026-10-09 —
+ *    PLAN.md Q24): work out a band's candidates once the month is over, confirm, announce.
  *  - **Prize desk** — every winner still needing a person: to announce, to call, to deliver.
- *  - **Settings** — the prize, the winner rule and when results are shown, beside the public
- *    "how winners are chosen" sentence exactly as the server generates it — fetched, never
- *    re-written here, so the console cannot show different words from the site.
+ *  - **Settings** — the prize and when results are shown, beside the public "how winners are
+ *    chosen" sentence exactly as the server generates it — fetched, never re-written here, so
+ *    the console cannot show different words from the site. The rule itself is not a setting.
  *
  * Days come from the server (`calendar.today`), never the browser: a competition day is an
  * IST day, and a laptop elsewhere disagrees about which one is today.
  */
 
-type TabId = 'calendar' | 'import' | 'bank' | 'prizes' | 'settings'
-const TABS: TabId[] = ['calendar', 'import', 'bank', 'prizes', 'settings']
+type TabId = 'calendar' | 'import' | 'bank' | 'monthly' | 'prizes' | 'settings'
+const TABS: TabId[] = ['calendar', 'import', 'bank', 'monthly', 'prizes', 'settings']
 
 const PHASE_BADGE: Record<QuizPhase, { tone: BadgeTone; label: string }> = {
   upcoming: { tone: 'neutral', label: 'Upcoming' },
   open: { tone: 'danger', label: 'Live' },
   revealed: { tone: 'success', label: 'Closed' },
-}
-
-const RULE_LABELS: Record<WinnerRule, string> = {
-  FASTEST_CORRECT: 'Fastest correct answer (server-measured solve time)',
-  FIRST_CORRECT: 'First correct answer to arrive',
-  MANUAL: 'Chosen by the organisers',
 }
 
 export default function AdminDailyQuiz() {
@@ -125,7 +120,7 @@ export default function AdminDailyQuiz() {
   return (
     <AdminShell
       title="Daily Quiz"
-      subtitle="One question a day per class group. Winners get a surprise gift and a cash prize."
+      subtitle="One question a day per class group. Each month, the top scorer in every class band wins the prize."
       actions={
         <Button icon="ph-calendar-plus" disabled={!today} onClick={() => setScheduling({})}>
           Schedule a quiz
@@ -141,6 +136,7 @@ export default function AdminDailyQuiz() {
           { id: 'calendar', label: 'Calendar', icon: 'ph-calendar' },
           { id: 'import', label: 'Import a file', icon: 'ph-upload-simple' },
           { id: 'bank', label: 'From the bank', icon: 'ph-bank' },
+          { id: 'monthly', label: 'Monthly winners', icon: 'ph-trophy' },
           { id: 'prizes', label: 'Prize desk', icon: 'ph-gift', count: outstanding ?? undefined },
           { id: 'settings', label: 'Settings', icon: 'ph-gear' },
         ]}
@@ -231,7 +227,6 @@ export default function AdminDailyQuiz() {
                           <th scope="col">Played</th>
                           <th scope="col">Correct</th>
                           <th scope="col">Median time</th>
-                          <th scope="col">Winner</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -261,18 +256,6 @@ export default function AdminDailyQuiz() {
                             </td>
                             <td className={styles.figure}>{quiz.stats.correctPercent === null ? '—' : `${quiz.stats.correctPercent}%`}</td>
                             <td className={styles.figure}>{quiz.stats.medianSolveMs === null ? '—' : formatSolveTime(quiz.stats.medianSolveMs)}</td>
-                            <td>
-                              {quiz.winner ? (
-                                <>
-                                  {quiz.winner.name}
-                                  <div className={styles.muted}>{quiz.winner.status === 'published' ? 'Announced' : 'Confirmed'}</div>
-                                </>
-                              ) : quiz.phase === 'revealed' && quiz.playable ? (
-                                <Link to={`/admin/daily-quiz/${quiz.groupId}`}>Choose a winner</Link>
-                              ) : (
-                                <span className={styles.muted}>—</span>
-                              )}
-                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -307,6 +290,10 @@ export default function AdminDailyQuiz() {
             <SkeletonText lines={4} label="Loading" />
           </Card>
         )}
+      </TabPanel>
+
+      <TabPanel id="monthly" idPrefix="daily-quiz" active={tab === 'monthly'}>
+        {tab === 'monthly' && <MonthlyWinners initialMonth={params.get('month')} onChanged={() => void loadOutstanding()} />}
       </TabPanel>
 
       <TabPanel id="prizes" idPrefix="daily-quiz" active={tab === 'prizes'}>
@@ -377,7 +364,7 @@ function PrizeDesk({ onChanged }: { onChanged: () => void }) {
         title="Prize desk"
         as="h2"
         size="sm"
-        description="Every winner a person still has to act on — announce, call the parent or guardian, deliver — across all quizzes. Provisional candidates are on each quiz’s own page."
+        description="Every winner a person still has to act on — announce, call the parent or guardian, deliver — across every month and band. Candidates are worked out on the Monthly winners tab."
       />
       <Tabs
         idPrefix="prize-desk"
@@ -403,12 +390,12 @@ function PrizeDesk({ onChanged }: { onChanged: () => void }) {
           description={
             view === 'outstanding'
               ? 'Every confirmed winner has been announced and every announced prize delivered.'
-              : 'Winners appear here once they are confirmed on a quiz’s own page.'
+              : 'Winners appear here once they are confirmed on the Monthly winners tab.'
           }
         />
       ) : (
         <>
-          <WinnerTable rows={data.winners} onChanged={replace} showQuiz label="Winners across all quizzes" />
+          <WinnerTable rows={data.winners} onChanged={replace} showQuiz label="Winners across every month and band" />
           {data.pagination.totalPages > 1 && (
             <Pagination page={page} pageCount={data.pagination.totalPages} total={data.pagination.total} pageSize={20} onChange={setPage} label="Winner pages" />
           )}
@@ -472,8 +459,6 @@ function SettingsForm() {
         prizeHeadline: settings.prizeHeadline,
         prizeText: settings.prizeText,
         cashAmount: cashValue,
-        winnerRule: settings.winnerRule,
-        winnersPerQuiz: settings.winnersPerQuiz,
         instantResult: settings.instantResult,
       })
       setSettings(res.settings)
@@ -489,7 +474,7 @@ function SettingsForm() {
   return (
     <Card>
       <CardHeader
-        title="Prize and rules"
+        title="Prize"
         as="h2"
         size="sm"
         description={
@@ -521,24 +506,6 @@ function SettingsForm() {
           >
             <Input inputMode="numeric" value={cash} onChange={(event) => setCash(event.target.value)} />
           </Field>
-          <Field label="How winners are chosen">
-            <Select value={settings.winnerRule} onChange={(event) => setSettings({ ...settings, winnerRule: event.target.value as WinnerRule })}>
-              {(Object.keys(RULE_LABELS) as WinnerRule[]).map((rule) => (
-                <option key={rule} value={rule}>
-                  {RULE_LABELS[rule]}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Winners per quiz" hint="Each is a prize. Three class groups a day with one winner each is about 90 prizes a month.">
-            <Select value={String(settings.winnersPerQuiz)} onChange={(event) => setSettings({ ...settings, winnersPerQuiz: Number(event.target.value) })}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </Select>
-          </Field>
         </div>
         <Checkbox
           label="Show right or wrong as soon as an answer is submitted"
@@ -546,8 +513,9 @@ function SettingsForm() {
           checked={settings.instantResult}
           onChange={(event) => setSettings({ ...settings, instantResult: event.target.checked })}
         />
-        <Alert tone="info" title="What the site says now">
-          {published ? published.howWinnersAreChosen : 'The public wording could not be loaded.'} Saving updates it everywhere it appears.
+        <Alert tone="info" title="How winners are chosen — what the site says">
+          {published ? published.howWinnersAreChosen : 'The public wording could not be loaded.'} The rule is fixed: one winner a month in
+          each class band, four prizes a month. The prize above is what each winner is told they have won.
         </Alert>
         {saveError && <Alert tone="danger">{saveError}</Alert>}
         <div className={styles.inlineActions}>
