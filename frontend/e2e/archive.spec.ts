@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { expect, test } from '@playwright/test'
-import { advanceDays, BACKEND, expectAccessible, resetBackend, seedQuiz, waitForApp } from './fixtures.ts'
+import { expect } from '@playwright/test'
+import { advanceDays, BACKEND, expectAccessible, resetBackend, seedQuiz, waitForApp, test } from './fixtures.ts'
 
 /**
  * Milestone 30 Phase 7 — the public archive of past Daily Quizzes (`/daily-quiz/archive`).

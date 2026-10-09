@@ -1,11 +1,35 @@
 import { AxeBuilder } from '@axe-core/playwright'
-import { expect, type APIRequestContext, type Page } from '@playwright/test'
+import { test as base, expect, type APIRequestContext, type Page } from '@playwright/test'
 
 /**
  * Shared facts for the end-to-end suite. The student below is a **test account on a throwaway
  * in-memory database** (`backend/scripts/e2e-server.ts`): it exists only while the suite runs,
  * and the `/__e2e/*` hooks that create it refuse any database not named `*-e2e`.
  */
+
+/**
+ * The suite's `test`: **every page is the everyday site** unless a test asks for a festive edition
+ * (2026-10-09). An edition's dates — and a trial of one on the live site — are read by
+ * `public/boot.js` from the real clock, so a test that quietly assumed an ordinary day failed on the
+ * days one was on (the 24-hour trial broke four). This opens every page with `?season=off`'s own
+ * switch already set for the tab, which boot.js honours before the first paint. A test of the
+ * edition itself says `test.use({ everyday: false })` and pins its own date with `page.clock`.
+ */
+export const test = base.extend<{ everyday: boolean }>({
+  everyday: [true, { option: true }],
+  page: async ({ page, everyday }, use) => {
+    if (everyday) {
+      await page.addInitScript(() => {
+        try {
+          window.sessionStorage.setItem('amit-season', 'off')
+        } catch {
+          // Storage blocked: the dates decide, as they do for a visitor.
+        }
+      })
+    }
+    await use(page)
+  },
+})
 
 export const BACKEND_PORT = 8092
 export const FRONTEND_PORT = 5181

@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { expect, test } from '@playwright/test'
-import { resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
+import { expect } from '@playwright/test'
+import { resetBackend, seedQuiz, signIn, waitForApp, test } from './fixtures.ts'
 
 /**
  * What a reader meets when something fails (Milestone 30, Phase 6 — brief §10, "Reliability"),

@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test'
-import { advanceDays, expectAccessible, resetBackend, seedQuiz, signIn } from './fixtures.ts'
+import { expect } from '@playwright/test'
+import { advanceDays, expectAccessible, resetBackend, seedQuiz, signIn, test } from './fixtures.ts'
 
 /**
  * The Daily Quiz, end to end (brief §6.8): start → submit → result → profile history shows the
