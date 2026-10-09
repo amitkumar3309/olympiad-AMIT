@@ -4,7 +4,7 @@ import { Diya, Lantern } from '../../../components/Diwali'
 import { ButtonLink, Countdown, clockOffset } from '../../../components/ui'
 import { api } from '../../../api/client'
 import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, AMIT_TAGLINE, FOUNDER } from '../../../lib/brand'
-import { DIWALI_EDITION } from '../../../lib/season'
+import { DIWALI_EDITION, editionEndsAt } from '../../../lib/season'
 import { HERO_QUOTE } from '../../../lib/siteConfig'
 import PictureOfTheDay from './PictureOfTheDay'
 import styles from './Hero.module.css'
@@ -196,12 +196,12 @@ function DiwaliCountdown() {
         setCount(
           today.hasQuiz
             ? { label: 'Today’s Daily Quiz closes in', target: today.closesAt, offsetMs: clockOffset(today.serverNow), hasQuiz: true }
-            : { label: 'Diwali week ends in', target: DIWALI_EDITION.endsAt, offsetMs: clockOffset(today.serverNow), hasQuiz: false },
+            : { label: 'Diwali week ends in', target: editionEndsAt(), offsetMs: clockOffset(today.serverNow), hasQuiz: false },
         )
       })
       .catch(() => {
         // The quiz is unknown: the week's end is a fixed date, so that is still true to count to.
-        if (!cancelled) setCount({ label: 'Diwali week ends in', target: DIWALI_EDITION.endsAt, offsetMs: 0, hasQuiz: false })
+        if (!cancelled) setCount({ label: 'Diwali week ends in', target: editionEndsAt(), offsetMs: 0, hasQuiz: false })
       })
     return () => {
       cancelled = true

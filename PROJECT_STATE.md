@@ -160,6 +160,9 @@ The work happens in phases, and each one stops for the owner's approval.
 - **The owner's follow-ups of 2026-10-09** (`feat/home-motivation`): the hero's square shows **a picture
   of the day** — seven drawn pictures, one a day, chosen before the first paint by `public/boot.js`
   (`PictureOfTheDay`, `--art-*` tokens) — and the founder's quotes are signed **"— Amit"** (`FOUNDER`).
+- **A 24-hour trial of the Diwali edition on the live site** (owner, 2026-10-09, "for testing purpose"):
+  `DIWALI_EDITION.trial` in `frontend/src/lib/season.ts`, until 6:30 PM on 10 October IST, then off by
+  itself. Frontend only — no Diwali 2026 badge is awarded for it. **Set it back to `null` afterwards.**
 - **The Diwali edition, immersive** (`feat/diwali-immersive`, PLAN.md Q23): the intro is about seven
   seconds; during the edition **the whole site is the night** (the dark values under `data-season`, a
   transparent page over a fixed sky) with **fireworks behind every page** (`components/Fireworks`, a

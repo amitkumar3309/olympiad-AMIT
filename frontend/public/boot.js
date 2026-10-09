@@ -57,7 +57,8 @@
   var season = (function () {
     var meta = document.querySelector('meta[name="amit-season"]')
     var parts = meta ? (meta.getAttribute('content') || '').split(' ') : []
-    return parts.length === 5 ? parts : null
+    // Five parts, or eight while a trial is set: "… trialId trialStartsAt trialEndsAt".
+    return parts.length === 5 || parts.length === 8 ? parts : null
   })()
   if (season) {
     var kind = season[0]
@@ -73,9 +74,14 @@
     }
     var nowMs = Date.now()
     var dated = nowMs >= Date.parse(season[2]) && nowMs < Date.parse(season[3])
-    if (mode === kind || (mode !== 'off' && dated)) {
+    // A trial on the live site before the dates: the same edition for those hours, with its own
+    // id, so its intro being seen does not stop the real week's from playing (src/lib/season.ts).
+    var trial = !dated && season.length === 8 && nowMs >= Date.parse(season[6]) && nowMs < Date.parse(season[7])
+    if (mode === kind || (mode !== 'off' && (dated || trial))) {
+      var id = trial ? season[5] : season[1]
       root.setAttribute('data-season', kind)
-      playIntro(season[1], Number(season[4]) || 7300, asked === kind)
+      root.setAttribute('data-season-id', id)
+      playIntro(id, Number(season[4]) || 7300, asked === kind)
     }
   }
 

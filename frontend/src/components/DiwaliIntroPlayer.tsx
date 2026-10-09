@@ -24,8 +24,11 @@ export default function DiwaliIntroPlayer() {
     if (root.hasAttribute('data-intro')) return
     if (document.visibilityState !== 'visible') return
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    // The edition on show, as boot.js named it: a trial has its own id, so seeing its intro does
+    // not stop the real week's from playing.
+    const editionId = root.getAttribute('data-season-id') || DIWALI_EDITION.id
     try {
-      if (window.localStorage.getItem(INTRO_ID) === DIWALI_EDITION.id) return
+      if (window.localStorage.getItem(INTRO_ID) === editionId) return
     } catch {
       // Storage blocked: it plays, and cannot be remembered.
     }
@@ -42,7 +45,7 @@ export default function DiwaliIntroPlayer() {
     // one it has only just run.
     function finish() {
       try {
-        window.localStorage.setItem(INTRO_ID, DIWALI_EDITION.id)
+        window.localStorage.setItem(INTRO_ID, editionId)
       } catch {
         // Storage blocked.
       }

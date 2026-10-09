@@ -363,6 +363,7 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   `--art-*` tokens (themed, and a night scene under `data-season`). Adding one is a name in the list, a
   drawing, and a line for its index in `PictureOfTheDay.module.css`. Keep the top-right corner clear —
   the handwritten "Think Solve Grow" sits over it on a desktop.
+- **A trial of the Diwali edition on the live site is `DIWALI_EDITION.trial`** (`src/lib/season.ts`, first used 9–10 October 2026 at the owner's request): the same edition for a few hours, written into the season `<meta>` as three more parts that `public/boot.js` reads, under its own id (`data-season-id`) so a browser that saw a trial's intro still plays the real week's. It switches itself off; set it back to `null` afterwards. **Never copy a trial into `backend/src/lib/seasons.ts`** — a trial must not award the Diwali 2026 badge. A browser test that needs the everyday site must pin an ordinary date (`page.clock`), never trust the day it runs.
 - **The Diwali edition (Milestone 30 Phase 7a) switches itself on and off — 8 to 15 November 2026.**
   The dates are `src/lib/season.ts` (and `backend/src/lib/seasons.ts` for the achievement — change both);
   `vite.seo.ts` writes them into a `<meta name="amit-season">` above `public/boot.js`, which sets

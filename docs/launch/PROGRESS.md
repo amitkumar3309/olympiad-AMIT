@@ -122,6 +122,7 @@ organiser's name on invoices and certificates, and two speed findings from Phase
 | 7+ | Fireworks behind every page (Q23): `components/Fireworks` at the app's root — rockets from random places, bursting at random heights as a peony, a streaking chrysanthemum, a tilted ring or a drooping gold willow, light adding to light; drawn on a canvas in a worker; a salute as the intro hands over. Still for reduced motion, on staff pages and in a paper being answered; they hold still while a tap is answered (below). The hero's three looping SVG fireworks are gone | ✅ done |
 | 7+ | The intro for a signed-in student, once that week (Q23): `DiwaliIntroPlayer` in the student area, sharing the homepage's "seen" key; never over a timed paper | ✅ done |
 | 7+ | Tests: E2E — the student intro once and never again; the night for a reader who chose light, no theme switch, and the everyday site on the 16th; the fireworks drawing for motion, still on an admin page | ✅ done |
+| 7+ | The owner's 24-hour test of the edition on the live site (2026-10-09): `DIWALI_EDITION.trial` until 6:30 PM on 10 October IST — its own intro id, the hero counting to its end, no badge; two date-dependent tests pinned to an ordinary day. **Set the trial back to `null` after it ends** | ✅ live |
 
 ## Open questions for the owner
 

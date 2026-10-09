@@ -1,5 +1,6 @@
 /// <reference lib="dom" />
 import { expect, test, type Page } from '@playwright/test'
+import { DIWALI_EDITION } from '../src/lib/season.ts'
 import { BACKEND, E2E_ADMIN, expectAccessible, fillSignIn, resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
 
 /**
@@ -11,6 +12,8 @@ import { BACKEND, E2E_ADMIN, expectAccessible, fillSignIn, resetBackend, seedQui
  */
 
 const DIWALI_WEEK = new Date('2026-11-09T10:00:00+05:30')
+/** An ordinary day — clear of the week and of any trial — for a test that needs the everyday site. */
+const EVERYDAY = new Date('2026-12-01T10:00:00+05:30')
 
 async function at(page: Page, when: Date) {
   await page.clock.setFixedTime(when)
@@ -68,8 +71,32 @@ test.describe('the edition switches itself on and off', () => {
     }
   })
 
+  test('a trial turns the same edition on for its hours only, under its own name', async ({ page }, testInfo) => {
+    const trial = DIWALI_EDITION.trial
+    test.skip(!trial, 'No trial is set in src/lib/season.ts.')
+    test.skip(testInfo.project.name !== 'desktop', 'Dates, not layout: checked once.')
+    const minute = 60_000
+    const cases: Array<[number, string | null]> = [
+      [Date.parse(trial!.startsAt) - minute, null],
+      [Date.parse(trial!.startsAt), trial!.id],
+      [Date.parse(trial!.endsAt) - minute, trial!.id],
+      [Date.parse(trial!.endsAt), null],
+      // The real week is still the real week's.
+      [DIWALI_WEEK.getTime(), DIWALI_EDITION.id],
+    ]
+    for (const [when, expected] of cases) {
+      await at(page, new Date(when))
+      await page.goto('/')
+      const label = new Date(when).toISOString()
+      expect(await seasonOf(page), label).toBe(expected ? 'diwali' : null)
+      expect(await page.evaluate(() => document.documentElement.getAttribute('data-season-id')), label).toBe(expected)
+    }
+  })
+
   test('?season=diwali previews it for the session, and ?season=off hides it', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'Checked once.')
+    // An ordinary day, so "auto" below means the everyday site whenever the suite runs.
+    await at(page, EVERYDAY)
     await page.goto('/?season=diwali')
     expect(await seasonOf(page)).toBe('diwali')
     await page.goto('/leaderboard')
@@ -77,12 +104,25 @@ test.describe('the edition switches itself on and off', () => {
     await page.goto('/?season=off')
     expect(await seasonOf(page)).toBeNull()
     await page.goto('/?season=auto')
-    expect(await seasonOf(page)).toBeNull() // the real date is not Diwali week
+    expect(await seasonOf(page)).toBeNull() // an ordinary day
   })
 })
 
 test.describe('the intro', () => {
   test.use({ reducedMotion: 'no-preference' })
+
+  test('a browser that saw a trial’s intro still sees the real week’s', async ({ page }, testInfo) => {
+    const trial = DIWALI_EDITION.trial
+    test.skip(!trial, 'No trial is set in src/lib/season.ts.')
+    test.skip(testInfo.project.name !== 'desktop', 'Checked once.')
+    await at(page, new Date(Date.parse(trial!.startsAt) + 60_000))
+    await openToIntro(page)
+    await page.keyboard.press('Escape')
+    await expect.poll(() => introOf(page)).toBeNull()
+    // The week comes: the same browser is shown the launch moment after all.
+    await at(page, DIWALI_WEEK)
+    await openToIntro(page)
+  })
 
   test('plays once per browser, and any key ends it at once', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'desktop', 'Checked once.')

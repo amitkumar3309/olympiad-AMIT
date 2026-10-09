@@ -29,6 +29,8 @@ async function withoutTheApp(page: Page) {
 
 test('the homepage can be read before the app has run, in the theme the device asks for', async ({ page }) => {
   await withoutTheApp(page)
+  // An ordinary day: during the Diwali edition (or a trial of it) the page is the night instead.
+  await page.clock.setFixedTime(new Date('2026-12-01T10:00:00+05:30'))
   await page.emulateMedia({ colorScheme: 'dark' })
   await page.goto('/')
   await expect(page.getByRole('heading', { level: 1, name: /A\.M\.I\.T\. Olympiad/ })).toBeVisible()

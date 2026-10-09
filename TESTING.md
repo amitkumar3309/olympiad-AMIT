@@ -37,6 +37,12 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The Diwali trial (2026-10-09):** two browser tests assumed the day they ran was an ordinary one —
+> `diwali.spec.ts`'s `?season=auto` check and `prerender.spec.ts`'s dark-theme check — and failed during
+> the 24-hour trial, as they would have during the real week. Both now pin 1 December with `page.clock`.
+> Two new tests in `diwali.spec.ts` cover a trial (skipped when none is set). Any new test that needs the
+> everyday site must pin an ordinary date.
+>
 > **The Diwali edition, immersive (2026-10-09): the backend unchanged (1369 / 38); 78 browser tests
 > (54 run, 24 one-width-only), about twelve minutes.** New in `diwali.spec.ts`: a signed-in student
 > sees the intro once in the student area and never again; a reader who chose the light theme gets the

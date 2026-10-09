@@ -2,6 +2,23 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-09 — The Diwali edition on the live site for 24 hours, for testing
+
+The owner's request of 2026-10-09: "make the diwali theme go live for 24 hours from now for testing
+purpose". Branch `feat/diwali-24h-trial`.
+
+- **A trial of the edition** (`DIWALI_EDITION.trial` in `src/lib/season.ts`): the whole edition — the
+  night, the fireworks, the intro, the lights — for everybody on the live site **until 6:30 PM on
+  Saturday 10 October, India time**, when it switches itself off. The real week, 8–15 November, is
+  unchanged.
+- **The trial has its own name**, so a phone that saw its intro still plays the launch moment in
+  November; the hero's countdown counts to the trial's end.
+- **No badge for the trial**: the backend's Diwali 2026 dates are untouched, so the badge stays earnable
+  only from 8 to 15 November, as the Diwali Special band says.
+- Two browser tests that quietly assumed "today is an ordinary day" are pinned to 1 December — they would
+  equally have failed during the real Diwali week. Two new tests: the trial's hours and nothing either
+  side, and a browser that saw the trial's intro still seeing the week's.
+
 ## 2026-10-09 — The Diwali edition, immersive: a slower intro, fireworks behind every page, the whole site at night
 
 The owner's follow-up of 2026-10-09 (PLAN.md §5b, Q23). Branch `feat/diwali-immersive`.
