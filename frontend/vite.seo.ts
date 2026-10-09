@@ -2,6 +2,7 @@ import type { HtmlTagDescriptor, Plugin } from 'vite'
 import { AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, SITE_URL, SUPPORT } from './src/lib/brand.ts'
 import { DEFAULT_DESCRIPTION, DISALLOWED_PREFIXES, HOME_DESCRIPTION, HOME_TITLE, INDEXED_PATHS } from './src/lib/pageMeta.ts'
 import { seasonMetaContent } from './src/lib/season.ts'
+import { PICTURES_OF_THE_DAY } from './src/lib/pictureOfTheDay.ts'
 
 /**
  * Search and sharing, generated from the app's own constants (Milestone 30, Phase 6 — brief
@@ -140,7 +141,8 @@ export function seo(): Plugin {
           html: html
             .replace('%AMIT_HOME_TITLE%', escapeHtml(HOME_TITLE))
             .replace('%AMIT_HOME_DESCRIPTION%', escapeHtml(HOME_DESCRIPTION))
-            .replace('%AMIT_SEASON%', escapeHtml(seasonMetaContent())),
+            .replace('%AMIT_SEASON%', escapeHtml(seasonMetaContent()))
+            .replace('%AMIT_ART%', String(PICTURES_OF_THE_DAY.length)),
           tags: [
             meta({ property: 'og:type', content: 'website' }),
             meta({ property: 'og:site_name', content: AMIT_OLYMPIAD }),

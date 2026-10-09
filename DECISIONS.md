@@ -4,6 +4,24 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — The hero's picture of the day: drawn, inline, chosen before the first paint
+
+**Context.** The owner asked for the hero's empty square (the `hero-student` placeholder: a tint and a
+graduation cap) to hold "a positive and motivational" picture, "updated regularly". There is no
+artwork file, and the homepage is drawn at build time for everybody (the Phase 6 follow-up ADR below).
+
+**Decision.** Seven original drawings — a summit reached, a book that grows, a bright idea, a rocket,
+steps to a trophy, a sunrise, a target hit — as inline SVG in `PictureOfTheDay.tsx`, all seven in the
+page, with **`public/boot.js` naming today's** (`<html data-picture>`, the India day number modulo the
+count from `<meta name="amit-art">`) and CSS showing that one. Colours come from new `--art-*` tokens,
+themed in both themes and a night scene under `data-season`.
+
+Rejected: **choosing in React** (the drawn page would show one picture and the app another — a swap on
+most visits); **a photograph per day** (nothing to photograph, a network request on the first paint,
+and a fixed colour in the dark theme); **picking at random per visit** (the owner asked for "regularly",
+and a different picture on every reload reads as broken). Cost: ~10 KB of HTML, ~2–3 KB gzipped, no
+request.
+
 ## 2026-10-09 — Milestone 30 Phase 7a: a festive edition switched by its own dates; the bootstrap address before its account exists
 
 **Context.** On 2026-10-08 the owner asked for a Diwali edition of the whole site from 8 to 15 November

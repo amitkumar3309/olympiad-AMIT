@@ -115,6 +115,8 @@ organiser's name on invoices and certificates, and two speed findings from Phase
 | 7a | Tests: backend 1369 / 38 (eight new); E2E 70 — `diwali.spec.ts` (dates, preview, intro, no shift, axe, no sideways scroll), `archive.spec.ts`, the INP test also during the edition | ✅ done |
 | 7a | Screenshots in `docs/launch/screenshots/phase-7/` (below) | ✅ done |
 | 7b | Picture questions (Q19), Daily Quiz reminders (Q20) | ⬜ next |
+| 7+ | The hero's picture of the day (Q21): seven drawn pictures (a summit, a growing book, a bright idea, a rocket, steps to a trophy, a sunrise, a target hit), a different one each day by the India date — chosen by `public/boot.js` before the first paint, themed, a night version during Diwali | ✅ done |
+| 7+ | The founder's quotes signed "— Amit" (Q22) | ✅ done |
 
 ## Open questions for the owner
 

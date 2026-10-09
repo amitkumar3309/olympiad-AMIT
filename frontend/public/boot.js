@@ -1,6 +1,7 @@
 /*
- * Runs first, in the <head> of every page (Milestone 30, Phase 6). Three jobs — the third,
- * a festive edition and its intro, is described where it runs (Phase 7).
+ * Runs first, in the <head> of every page (Milestone 30, Phase 6). Four jobs — the third,
+ * a festive edition and its intro (Phase 7), and the fourth, the homepage's picture of the day,
+ * are described where they run.
  *
  * 1. The theme, before the first paint. The homepage arrives already drawn
  *    (vite.prerender.ts), so it paints before React has loaded — and before
@@ -112,6 +113,19 @@
     }
     for (var i = 0; i < events.length; i++) window.addEventListener(events[i], end, { capture: true, passive: true })
     setTimeout(end, ms)
+  }
+
+  /*
+   * 4. The homepage's picture of the day (owner, 2026-10-09): which of the drawn pictures in the
+   *    hero's square is today's, by the India date, so the page drawn at build time shows today's
+   *    from its first paint and nothing swaps when the app takes over. How many there are is
+   *    written into <meta name="amit-art"> by vite.seo.ts; CSS shows the one this names.
+   */
+  var art = document.querySelector('meta[name="amit-art"]')
+  var pictures = art ? Number(art.getAttribute('content')) : 0
+  if (pictures > 0) {
+    var indiaDay = Math.floor((Date.now() + 5.5 * 60 * 60 * 1000) / (24 * 60 * 60 * 1000))
+    root.setAttribute('data-picture', String(indiaDay % pictures))
   }
 
   var self = document.currentScript

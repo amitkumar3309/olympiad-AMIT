@@ -1,12 +1,12 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { ArrowRight, BookOpen, GraduationCap, Laptop, Lightbulb, Pi, Quote, School, Sigma, Trophy, Triangle } from 'lucide-react'
-import Illustration from '../../../components/Illustration'
 import { Diya, Firework, Lantern } from '../../../components/Diwali'
 import { ButtonLink, Countdown, clockOffset } from '../../../components/ui'
 import { api } from '../../../api/client'
-import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, AMIT_TAGLINE } from '../../../lib/brand'
+import { AMIT_COMPETITION_YEAR, AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_SHORT, AMIT_TAGLINE, FOUNDER } from '../../../lib/brand'
 import { DIWALI_EDITION } from '../../../lib/season'
 import { HERO_QUOTE } from '../../../lib/siteConfig'
+import PictureOfTheDay from './PictureOfTheDay'
 import styles from './Hero.module.css'
 
 /**
@@ -126,7 +126,8 @@ export default function Hero({ signedIn, registerTo }: HeroProps) {
         </div>
 
         <div className={styles.art}>
-          <Illustration name="hero-student" priority className={styles.illustration} />
+          {/* A different drawn picture each day — chosen before the first paint (owner, 2026-10-09). */}
+          <PictureOfTheDay />
           {/* Decorative doodles — they turn and breathe in place. */}
           <span className={`${styles.doodle} ${styles.doodleBulb}`} aria-hidden="true">
             <Lightbulb />
@@ -148,7 +149,7 @@ export default function Hero({ signedIn, registerTo }: HeroProps) {
           <figure className={styles.quote}>
             <Quote aria-hidden="true" className={styles.quoteMark} />
             <blockquote>{HERO_QUOTE}</blockquote>
-            <figcaption>— {AMIT_SHORT}</figcaption>
+            <figcaption>— {FOUNDER}</figcaption>
           </figure>
         </div>
       </div>

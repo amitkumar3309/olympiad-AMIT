@@ -26,7 +26,7 @@ import { api } from '../../api/client'
 import type { AnalyticsResponse, DashboardData, NamedPerformanceRow } from '../../api/types'
 import { activityIcon, activityTitle } from '../../lib/activity'
 import { useAuth } from '../../context/AuthContext'
-import { AMIT_SHORT } from '../../lib/brand'
+import { FOUNDER } from '../../lib/brand'
 import { formatCompactDuration, formatDateTime, formatDayLabel, formatNumber, formatTime, rotateDaily } from '../../lib/format'
 import { DAILY_QUOTES, DASHBOARD_CHAPTERS, MATHS_THOUGHTS } from '../../lib/siteConfig'
 import styles from './Dashboard.module.css'
@@ -436,7 +436,7 @@ function ThoughtCard({ today }: { today: string }) {
           <Lightbulb aria-hidden="true" /> Today’s Maths Thought
         </h2>
         <p className={styles.thoughtQuote}>“{thought}”</p>
-        <p className={styles.thoughtSign}>— {AMIT_SHORT}</p>
+        <p className={styles.thoughtSign}>— {FOUNDER}</p>
       </div>
       <div className={styles.thoughtArt} aria-hidden="true">
         <Illustration name="plant" />

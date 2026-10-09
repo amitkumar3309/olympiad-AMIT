@@ -23,7 +23,7 @@ Permanent instructions for every Claude Code session working on this repository.
 
 ## Project Purpose
 
-AMIT Maths Olympiad is a national-level math competition web platform: student registration, an online exam, results, certificates, a leaderboard, and an admin panel for managing students/questions. Founder/brand name referenced throughout the UI: "Amit Kumar".
+AMIT Maths Olympiad is a national-level math competition web platform: student registration, an online exam, results, certificates, a leaderboard, and an admin panel for managing students/questions. Founder/brand name referenced throughout the UI: "Amit Kumar". The founder's quotes on the site (the homepage's, the student motto, the dashboard's thought) are signed **"— Amit"** — `FOUNDER` in `lib/brand.ts` (owner, 2026-10-09) — never with the platform's initials.
 
 **A.M.I.T stands for the Advance Mathematics and Intelligence Test** (owner-supplied, 2026-08-28 — it was recorded nowhere in this repository before Milestone 22 Phase D, and was asked for rather than guessed). It is defined **once**, in `frontend/src/lib/brand.ts`, and shown in exactly **one** visible place: under the wordmark in the landing page hero, set as part of the logotype. Do not spell it out in another component — import the constant. `frontend/index.html` holds **no** copy since Milestone 30 Phase 6: its title, description and share tags are written in at build time from `brand.ts` by `frontend/vite.seo.ts`. The backend writes the short name through `backend/src/lib/brand.ts` (`PRODUCT_NAME`, "A.M.I.T. Olympiad") — the deliberate second copy across the split, like the contact details. The navbar deliberately keeps the four-letter wordmark **as text beside the mark**, with the expansion on the link's `title`. Its image is `assets/logo-mark.png` — the emblem cropped out of `logo.png`, served as the 6 KB `logo-mark.webp` that `frontend/scripts/make-brand-images.ts` makes from it — and it is `alt="" aria-hidden`, because the wordmark beside it already names the link; carrying the expansion on the `alt` as well made the link announce the name twice. **Do not replace that text with the full lockup image**: in `logo.png` the wordmark is 237px of 1254 and the expansion 37px, so at navbar size they are 8px and 1px — the text is the only legible instance of the name in the header, not a second one.
 
@@ -76,7 +76,11 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   vite.prerender.ts         draws / into dist/index.html, keeps dist/app.html as the shell
                             for every other route, and fails the build on a broken draw
   public/boot.js            the first script on every page: the theme before paint, and on
-                            the drawn homepage the app after the first paint
+                            the drawn homepage the app after the first paint; also the
+                            festive edition (data-season) and the picture of the day
+                            (data-picture), both decided before the first paint
+  src/lib/pictureOfTheDay.ts + pages/Landing/sections/PictureOfTheDay.tsx
+                            the hero's seven drawn pictures, one a day (2026-10-09)
   src/components/Illustration.tsx + illustrations.ts
                             the launch artwork by name; files are discovered in
                             src/assets/illustrations/ at BUILD time (M30)
@@ -346,6 +350,14 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   beyond 200 ms. If it fails, make the interaction cheaper — visible feedback first, heavy work after
   the next paint (as `ThemeContext` applies a theme change), no re-render of the page for a dialog (as
   `Landing` memoises its sections) — never loosen the bound.
+- **The hero's picture of the day is chosen before the first paint, never in a render** (owner,
+  2026-10-09). `PictureOfTheDay` draws all seven pictures inline; `public/boot.js` names today's by the
+  India date (`<html data-picture>`, the count read from `<meta name="amit-art">`, which `vite.seo.ts`
+  writes from `lib/pictureOfTheDay.ts`), and CSS shows that one. Choosing it in React would draw one
+  picture at build time and swap it when the app took over. The drawings take their colours from the
+  `--art-*` tokens (themed, and a night scene under `data-season`). Adding one is a name in the list, a
+  drawing, and a line for its index in `PictureOfTheDay.module.css`. Keep the top-right corner clear —
+  the handwritten "Think Solve Grow" sits over it on a desktop.
 - **The Diwali edition (Milestone 30 Phase 7a) switches itself on and off — 8 to 15 November 2026.**
   The dates are `src/lib/season.ts` (and `backend/src/lib/seasons.ts` for the achievement — change both);
   `vite.seo.ts` writes them into a `<meta name="amit-season">` above `public/boot.js`, which sets
