@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import mongoose from 'mongoose';
-import { isDayKey } from '../lib/competitionDay';
-import { CLASS_GROUPS, MAX_CLASS, MIN_CLASS, PRIZE_DESK_VIEWS, WINNER_RULES } from '../lib/dailyQuiz';
+import { isDayKey, isMonthKey } from '../lib/competitionDay';
+import { CLASS_GROUPS, isPrizeBandKey, MAX_CLASS, MIN_CLASS, PRIZE_DESK_VIEWS, type PrizeBandKey } from '../lib/dailyQuiz';
 import type { ImportFileKind } from '../lib/importTypes';
 import { DIFFICULTIES } from '../models/Question';
 import { QUIZ_IMPORT_MAX_ROWS } from '../services/dailyQuizImportService';
@@ -140,6 +140,18 @@ export const winnerActionParamSchema = z.object({
   action: z.enum(['confirm', 'disqualify', 'publish', 'contacted', 'delivered']),
 });
 
+const monthKey = z.string().refine(isMonthKey, 'Name a month as YYYY-MM, for example 2026-11.');
+
+/** The monthly winners page: one month, or the default when none is named. */
+export const monthlyWinnersQuerySchema = z.object({ month: monthKey.optional() });
+export type MonthlyWinnersQuery = z.infer<typeof monthlyWinnersQuerySchema>;
+
+/** Working out one month's candidates in one class band. */
+export const monthlyComputeParamSchema = z.object({
+  month: monthKey,
+  band: z.string().refine(isPrizeBandKey, 'Name a class band: 3-5, 6-8, 9-10 or 11-12.') as z.ZodType<PrizeBandKey>,
+});
+
 export const prizeDeskQuerySchema = z.object({
   view: z.enum(PRIZE_DESK_VIEWS).default('outstanding'),
   page: z.coerce.number().int().min(1).default(1),
@@ -203,14 +215,14 @@ export type QuizTemplateQuery = z.infer<typeof quizTemplateQuerySchema>;
 
 /**
  * The owner-editable settings. `cashAmount` is a whole number of rupees or null — and
- * null is the default, so no figure is ever shown until someone chooses one.
+ * null is the default, so no figure is ever shown until someone chooses one. How winners are
+ * chosen is not a setting since the prize became monthly (PLAN.md Q24): a request still
+ * naming `winnerRule` or `winnersPerQuiz` has them dropped, like any field not listed here.
  */
 export const quizSettingsSchema = z.object({
   prizeHeadline: z.string().trim().min(3, 'Add a headline.').max(80),
   prizeText: z.string().trim().min(3, 'Describe the prize.').max(120),
   cashAmount: z.number().int('Use a whole number of rupees.').min(0).max(100000).nullable(),
-  winnerRule: z.enum(WINNER_RULES),
-  winnersPerQuiz: z.number().int().min(1).max(5),
   instantResult: z.boolean(),
 });
 export type QuizSettingsBody = z.infer<typeof quizSettingsSchema>;

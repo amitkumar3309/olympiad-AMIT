@@ -56,7 +56,7 @@ export interface DailyChallengeAttemptDocument extends Document {
   answer: AttemptAnswerEntry;
   /** Copied from the student's `DailyQuizStart`. Null on a pre-Milestone-30 attempt. */
   startedAt?: Date | null;
-  /** Server-measured: `submittedAt − startedAt`. What `FASTEST_CORRECT` ranks on. */
+  /** Server-measured: `submittedAt − startedAt`. Summed over a month's correct answers, it breaks a tie for the monthly prize. */
   solveTimeMs?: number | null;
   /** The opaque id the student chose, exactly as sent. */
   selectedOptionId?: string | null;
