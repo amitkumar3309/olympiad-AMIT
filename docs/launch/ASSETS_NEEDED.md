@@ -26,7 +26,7 @@ _Milestone 30, Phase 1. Owner action: commission, license or draw these, then dr
 
 | File name | Where it appears | Display size (px) | What it shows |
 |---|---|---|---|
-| `hero-student` | Homepage hero, right of the headline | 520 × 520 | A student holding maths books, looking up and to the right; light doodles (π, a triangle, a cube) around them. **This is likely the LCP image** — make it the lightest file you can. |
+| ~~`hero-student`~~ | **No longer needed** (2026-10-09): the square is now the picture of the day — seven drawn pictures, one a day (`pages/Landing/sections/PictureOfTheDay.tsx`). A photograph or illustration of your own can join the rotation: send it and it is one name and one drawing slot. Was: homepage hero, right of the headline | 520 × 520 | A student holding maths books, looking up and to the right; light doodles (π, a triangle, a cube) around them. **This is likely the LCP image** — make it the lightest file you can. |
 | `maths-doodles` | Homepage hero background, behind the headline | 480 × 360 | Faint line doodles — a protractor, a cube, a graph, π, √ — in brand blue at low contrast. SVG ideal. |
 | `light-bulb` | "Can you crack this?" card and the dashboard's Daily Quiz card, beside "Think · Analyse · Solve · Grow" | 160 × 140 | A line-drawn light bulb with a few rays. SVG ideal. |
 | `paper-plane` | "How it works" — the plane at the end of the dashed path | 120 × 80 | A line-drawn paper plane. SVG ideal. |

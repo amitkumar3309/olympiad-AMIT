@@ -2,6 +2,19 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-09 — The hero's picture of the day, and the founder's quotes signed "— Amit"
+
+The owner's requests of 2026-10-09 (PLAN.md §5b, Q21–Q22). Branch `feat/home-motivation`.
+
+- **The picture of the day.** The hero's empty square now shows one of seven drawn pictures — a summit
+  reached, a book that grows, a bright idea, a rocket, steps to a trophy, a sunrise, a target hit — a
+  different one each day. `public/boot.js` picks today's from the India date before the first paint, so
+  the homepage drawn at build time shows it at once and nothing swaps. Themed, with a night version
+  during the Diwali edition. The `hero-student` placeholder is gone.
+- **"— Amit".** The homepage's quote, the student area's motto and the dashboard's thought of the day
+  are the founder's words and are signed with the founder's name (`FOUNDER`), not "A.M.I.T.".
+- A browser test: the picture is chosen before the app runs, exactly one shows, and tomorrow's differs.
+
 ## 2026-10-09 — Milestone 30 Phase 7a: the www address, D10, the archive, and the Diwali edition
 
 The owner's requests of 2026-10-08, first half (PLAN.md §5b). Branch `feat/diwali-launch-phase-7`.

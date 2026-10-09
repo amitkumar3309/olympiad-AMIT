@@ -3,8 +3,9 @@
 _Last updated: 2026-10-08 (**Milestone 30 — the Diwali launch: Phases 0–6 are merged (Phase 6: PR #6),
 and so is the Phase 6 follow-up that closed the last two §10 targets (PR #7); the spell-check and the
 Phase 6 screenshots are PR #8 (`feat/diwali-launch-phase-6-polish`); Phase 7a — the owner's requests of
-2026-10-08, first half: the www address, D10, the Daily Quiz archive and the Diwali edition — is complete on
-`feat/diwali-launch-phase-7`, not yet pushed**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+2026-10-08, first half: the www address, D10, the Daily Quiz archive and the Diwali edition — is merged
+(PR #10) and live, the edition previewable at `/?season=diwali`; the hero's picture of the day and the
+founder's signature are on `feat/home-motivation`**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -140,8 +141,8 @@ The work happens in phases, and each one stops for the owner's approval.
   the student export's workbook author is `PRODUCT_NAME`. **Screenshots**:
   `docs/launch/screenshots/phase-6/`, compared with the mockups in PROGRESS.md. Backend **1361 / 38
   files**. **New for the owner:** the organiser's name on invoices and certificates (PROGRESS.md).
-- **Phase 7a — the owner's requests of 2026-10-08, first half — done, on `feat/diwali-launch-phase-7`**
-  (stacked on PR #8; not pushed). Decisions in PLAN.md §5b (Q14–Q20). **`SITE_URL`** is
+- **Phase 7a — the owner's requests of 2026-10-08, first half — done, merged (PR #10) and live on
+  2026-10-09.** Decisions in PLAN.md §5b (Q14–Q20). **`SITE_URL`** is
   `https://www.amitolympiad.me`. **D10**: `/auth/login` hands the configured `ADMIN_EMAIL` with the
   configured password over to the admin route before the account exists (after the password, never
   before). **The archive**: `GET /daily-quiz/archive` + `/daily-quiz/archive` — one class group, a page of
@@ -156,6 +157,9 @@ The work happens in phases, and each one stops for the owner's approval.
   Open: taps with motion on — 220–260 ms in headless Edge, as before Phase 7a, and 320–430 ms during the
   edition — and LCP on the intro's first visit; both in PROGRESS.md. **Next: Phase 7b** (picture
   questions, reminders).
+- **The owner's follow-ups of 2026-10-09** (`feat/home-motivation`): the hero's square shows **a picture
+  of the day** — seven drawn pictures, one a day, chosen before the first paint by `public/boot.js`
+  (`PictureOfTheDay`, `--art-*` tokens) — and the founder's quotes are signed **"— Amit"** (`FOUNDER`).
 
 ## Milestone 29 at a glance
 

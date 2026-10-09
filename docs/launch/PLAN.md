@@ -171,6 +171,8 @@ Diwali edition; **7b** picture questions and Daily Quiz reminders.
 | Q18 | **A real Diwali 2026 badge**, so the Diwali Special strip's promise is true: answer any Daily Quiz from 8 to 15 November. | The `diwali_2026` achievement — 7a |
 | Q19 | **Picture questions instead of OCR, "as of now"**: the uploaded image *is* the question, the admin types the options and marks the right one, the worked solution is a second picture, plus a one-line description for screen readers. | 7b |
 | Q20 | **Daily Quiz reminder emails: opt-in, at 7:00 AM IST.** | 7b |
+| Q21 | (2026-10-09) **The hero's empty square gets a picture — "positive and motivational", "updated regularly".** | Seven drawn pictures, a different one each day (`PictureOfTheDay`) — owner's follow-up |
+| Q22 | (2026-10-09) **The quotes are the founder's: sign them "— Amit", not "— A.M.I.T."** | `FOUNDER` (`lib/brand.ts`): the hero's quote, the student motto and the dashboard's thought — owner's follow-up |
 
 ## 6. Schema changes (all additive, all reversible)
 
