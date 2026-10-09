@@ -87,11 +87,12 @@ function inspectOne(candidate: GeneratedCandidate): QualityWarning[] {
   const text = candidate.questionText;
   const solution = candidate.solution ?? '';
 
-  if (FIGURE_WORDS.test(text)) {
+  // A picture question carries the figure it refers to (Phase 7b).
+  if (FIGURE_WORDS.test(text) && !candidate.image?.key) {
     warnings.push({
       code: 'figure_reference',
       message:
-        'This refers to a diagram, figure or image. Questions are text and LaTeX only, so a student would have nothing to look at.',
+        'This refers to a diagram, figure or image, but has no picture, so a student would have nothing to look at. Add the figure as a picture, or describe it in words.',
     });
   }
 

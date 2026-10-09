@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../../api/client'
 import type { ExamAttemptInProgress, ExamPaperQuestion } from '../../api/types'
 import MathText from '../../components/MathText'
+import QuestionPicture from '../../components/QuestionPicture'
 import Button from '../../components/Button'
 import Spinner from '../../components/Spinner'
 import styles from './ExamAttempt.module.css'
@@ -181,7 +182,11 @@ export default function ExamAttempt() {
 
         {entry.question ? (
           <>
-            <MathText block className={styles.questionText}>{entry.question.questionText}</MathText>
+            {entry.question.questionText.trim() !== '' && (
+              <MathText block className={styles.questionText}>{entry.question.questionText}</MathText>
+            )}
+            {/* A picture question's picture (Milestone 30 Phase 7b) — the question itself. */}
+            <QuestionPicture picture={entry.question.image} name="the question" eager />
 
             {(entry.question.type === 'single_choice' || entry.question.type === 'multiple_choice') && (
               <ul className={styles.options}>

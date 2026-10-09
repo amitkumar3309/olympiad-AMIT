@@ -1,0 +1,30 @@
+/* A question's picture (Milestone 30 Phase 7b). The size attributes on the <img> reserve its box;
+   these rules only let it shrink to the column, never grow past the file. */
+
+.picture {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: var(--space-3) 0;
+}
+
+.image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* In the dialog: as wide as the dialog allows, and scrolled rather than squeezed when tall. */
+.enlarged {
+  max-height: 75vh;
+  overflow: auto;
+}
+
+.enlarged img {
+  display: block;
+  width: 100%;
+  height: auto;
+}

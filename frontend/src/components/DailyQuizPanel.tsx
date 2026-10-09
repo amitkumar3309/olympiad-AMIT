@@ -18,6 +18,7 @@ import {
   clockOffset,
 } from './ui'
 import MathText from './MathText'
+import QuestionPicture from './QuestionPicture'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import {
@@ -358,7 +359,9 @@ export default function DailyQuizPanel({ variant = 'page' }: DailyQuizPanelProps
           <Countdown target={today.startedAt} offsetMs={offset} direction="up" label="Time since you pressed Start" />
         </div>
         <div className={styles.question}>
-          <MathText block>{today.question.text}</MathText>
+          {today.question.text.trim() !== '' && <MathText block>{today.question.text}</MathText>}
+          {/* A picture question (Milestone 30 Phase 7b): served from Start, like the words. */}
+          <QuestionPicture picture={today.question.image} name="the question" eager />
         </div>
         <OptionGroup legend="Choose your answer" value={selected} onChange={choose} columns={2} disabled={busy === 'submit'}>
           {today.question.options.map((option) => (
@@ -547,9 +550,10 @@ export function UnlockedAnswer({ row }: { row: QuizHistoryRow }) {
         <span className={styles.day}>{formatDayKey(row.day)}</span>
         {row.topic && <Badge tone="neutral" size="sm">{row.topic}</Badge>}
       </div>
-      {row.questionText && (
+      {(row.questionText || row.questionImage) && (
         <div className={styles.question}>
-          <MathText block>{row.questionText}</MathText>
+          {row.questionText && <MathText block>{row.questionText}</MathText>}
+          <QuestionPicture picture={row.questionImage} name="the question" />
         </div>
       )}
       {row.options.length > 0 ? (
@@ -586,10 +590,11 @@ export function UnlockedAnswer({ row }: { row: QuizHistoryRow }) {
             : 'Your answer was not the correct one.'}
         {row.won && ' 🏆 You won this quiz!'}
       </p>
-      {reveal.solution && (
+      {(reveal.solution || reveal.solutionImage) && (
         <div className={styles.solution}>
           <h3>Worked solution</h3>
-          <MathText block>{reveal.solution}</MathText>
+          {reveal.solution && <MathText block>{reveal.solution}</MathText>}
+          <QuestionPicture picture={reveal.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
         </div>
       )}
       <Link to="/profile#daily-quiz-history" className={styles.historyLink}>

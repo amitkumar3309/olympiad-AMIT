@@ -20,6 +20,8 @@ import {
 import { getPracticeAvailability } from '../../services/practiceService';
 import { Subject, Topic } from '../../models';
 import { detectChapter } from '../../lib/chapterDetection';
+import { questionLabel } from '../../lib/questionLabel';
+import { authorPictureView } from '../../services/questionImageService';
 import { actorFrom } from '../../services/taxonomyService';
 import {
   createQuestionSchema,
@@ -70,6 +72,8 @@ function adminQuestionView(question: QuestionDocument) {
   return {
     id: String(question._id),
     questionText: question.questionText,
+    // Both pictures, with the keys the editor sends back to keep them on save (Phase 7b).
+    image: authorPictureView(question.image),
     type: question.type,
     options: question.options.map((option) => ({ key: option.key, text: option.text, isCorrect: option.isCorrect })),
     booleanAnswer: question.booleanAnswer ?? null,
@@ -77,6 +81,7 @@ function adminQuestionView(question: QuestionDocument) {
     tolerance: question.tolerance ?? null,
     acceptedAnswers: question.acceptedAnswers ?? [],
     solution: question.solution ?? null,
+    solutionImage: authorPictureView(question.solutionImage),
     subject: refView(question.subject),
     topic: refView(question.topic),
     subtopic: refView(question.subtopic),
@@ -279,7 +284,8 @@ router.get(
         // Fewer than asked for is not an error: the bank has what it has, and the page says so.
         questions: questions.map((question) => ({
           id: String(question._id),
-          questionText: question.questionText,
+          // A picture question with no words is named by its picture (Phase 7b).
+          questionText: questionLabel(question, 5000),
           type: question.type,
           classLevel: question.classLevel,
           difficulty: question.difficulty,
@@ -448,7 +454,7 @@ router.post(
         action: 'question.created',
         targetType: 'question',
         targetId: String(question._id),
-        targetLabel: question.questionText.slice(0, 80),
+        targetLabel: questionLabel(question),
         metadata: { type: question.type, classLevel: question.classLevel, difficulty: question.difficulty },
       });
 
@@ -473,7 +479,7 @@ router.put(
         action: 'question.updated',
         targetType: 'question',
         targetId: String(question._id),
-        targetLabel: question.questionText.slice(0, 80),
+        targetLabel: questionLabel(question),
         metadata: { revision: question.revision, status: question.status },
       });
 
@@ -503,7 +509,7 @@ router.patch(
         action: 'question.status.changed',
         targetType: 'question',
         targetId: String(question._id),
-        targetLabel: question.questionText.slice(0, 80),
+        targetLabel: questionLabel(question),
         metadata: { to: status, reason: reason ?? null },
       });
 
@@ -531,7 +537,7 @@ router.delete(
       // the delete there is nothing left to name.
       const { id } = req.params as unknown as { id: string };
       const question = await findQuestionById(id);
-      const label = question.questionText.slice(0, 80);
+      const label = questionLabel(question);
 
       await deleteQuestion(id);
 

@@ -5,8 +5,9 @@ and so is the Phase 6 follow-up that closed the last two §10 targets (PR #7); t
 Phase 6 screenshots are PR #8 (`feat/diwali-launch-phase-6-polish`); Phase 7a — the owner's requests of
 2026-10-08, first half: the www address, D10, the Daily Quiz archive and the Diwali edition — is merged
 (PR #10) and live, the edition previewable at `/?season=diwali`; the hero's picture of the day and the
-founder's signature are on `feat/home-motivation` (PR #11), the immersive Diwali edition on
-`feat/diwali-immersive` (PR #12), and the monthly Daily Quiz prize on `feat/daily-quiz-monthly-winner`**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+founder's signature are merged (PR #11); the immersive Diwali edition (PR #12) was merged into
+`feat/home-motivation` rather than `main`, and PR #13 brings it to `main`; the monthly Daily Quiz prize
+is PR #14, and picture questions are on `feat/picture-questions`**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -180,6 +181,14 @@ The work happens in phases, and each one stops for the owner's approval.
   Monthly winners**, then confirmed and announced as before; a month's prize is a `DailyQuizWinner` row
   with `period: 'month'`. Every page that named the prize says so; the rules page (a legal draft) is
   dated 9 October 2026 — LEGAL_REVIEW.md question 12. Backend **1375 / 38**; E2E **80**.
+- **Phase 7b, first half — picture questions** (`feat/picture-questions`, PLAN.md Q19 and §5c): a question
+  can be a picture (`Question.image`, described in one line) and its solution another
+  (`solutionImage`); `QuestionImage` holds the bytes under an unguessable key that is the permission to
+  fetch them (`services/questionImageService.ts`); the browser shrinks every picture, the server measures
+  and strips it. The editor attaches pictures, the import page's Image tab imports pictures **instead of
+  OCR**, and every page that shows a question shows its picture. Two fixes went first: request logs no
+  longer hold session tokens, and an oversized body is a 413 (the gallery can take its 1 MB pictures at
+  last). Backend **1399 / 39**; E2E **86**. **Next: Daily Quiz reminders (Q20).**
 
 ## Milestone 29 at a glance
 

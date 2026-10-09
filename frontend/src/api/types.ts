@@ -973,6 +973,42 @@ export interface QuestionRef {
   name: string | null
 }
 
+/**
+ * A question's picture as a page shows it (Milestone 30 Phase 7b — picture questions, PLAN.md Q19).
+ *
+ * The size is the stored file's, so an `<img>` reserves its box before the picture arrives. The
+ * address carries an unguessable key, and that key is the permission to fetch the picture: a
+ * solution's picture reaches a page only where its written solution may.
+ */
+export interface PictureView {
+  url: string
+  /** What a screen reader says instead of the picture. Empty only for a solution picture. */
+  alt: string
+  width: number
+  height: number
+}
+
+/** The author's view adds the key, which the editor sends back to keep the picture on save. */
+export interface AuthorPictureView extends PictureView {
+  key: string
+}
+
+/** How a write names a picture: which stored one, and what it shows. The size is never sent. */
+export interface PictureRef {
+  key: string
+  alt: string
+}
+
+/** `POST /admin/question-images` — one picture stored, and how to refer to it. */
+export interface StoredQuestionImage {
+  key: string
+  url: string
+  width: number
+  height: number
+  size: number
+  contentType: string
+}
+
 export interface QuestionOption {
   key: string
   text: string
@@ -992,13 +1028,18 @@ export interface QuestionOption {
  */
 export interface AdminQuestion {
   id: string
+  /** Empty only for a picture question, whose picture is `image`. */
   questionText: string
+  /** The question as a picture (Phase 7b). */
+  image: AuthorPictureView | null
   type: QuestionType
   options: QuestionOption[]
   booleanAnswer: boolean | null
   numericAnswer: number | null
   tolerance: number | null
   solution: string | null
+  /** The worked solution as a picture (Phase 7b). */
+  solutionImage: AuthorPictureView | null
   subject: QuestionRef | null
   topic: QuestionRef | null
   subtopic: QuestionRef | null
@@ -1042,13 +1083,16 @@ export interface QuestionProvenance {
 
 /** The write shape. Mirrors `createQuestionSchema` on the backend. */
 export interface QuestionInput {
+  /** May be empty when `image` is set: then the picture is the question. */
   questionText: string
+  image: PictureRef | null
   type: QuestionType
   options: Array<{ text: string; isCorrect: boolean }>
   booleanAnswer: boolean | null
   numericAnswer: number | null
   tolerance: number | null
   solution: string | null
+  solutionImage: PictureRef | null
   /**
    * Optional, and normally omitted (Milestone 21, Phase J).
    *
@@ -1524,6 +1568,8 @@ export interface PracticeReviewQuestion extends PracticeQuestion {
     acceptedAnswers?: string[]
   }
   explanation: string | null
+  /** The worked solution as a picture (Phase 7b) — revealed where the written one is. */
+  explanationImage?: PictureView | null
   /** The question has been edited since it was served. */
   revisionChanged: boolean
 }
@@ -1611,7 +1657,10 @@ export interface PracticeHistoryEntry {
 
 export interface StudentQuestion {
   id: string
+  /** Empty only for a picture question. */
   questionText: string
+  /** The question as a picture (Phase 7b) — never the solution's. */
+  image?: PictureView | null
   type: QuestionType
   options: Array<{ key: string; text: string }>
   subject: QuestionRef | null
@@ -1736,6 +1785,8 @@ export interface QuizOption {
 
 export interface QuizQuestion {
   text: string
+  /** The question as a picture (Phase 7b), served from Start like the text. */
+  image?: PictureView | null
   options: QuizOption[]
 }
 
@@ -1744,6 +1795,8 @@ export interface QuizReveal {
   correctOptionId: string | null
   correctOptionText: string | null
   solution: string | null
+  /** The worked solution as a picture (Phase 7b). */
+  solutionImage?: PictureView | null
 }
 
 export interface QuizResult {
@@ -1796,6 +1849,8 @@ export interface QuizHistoryRow {
   status: 'submitted' | 'not-submitted' | 'in-progress'
   topic: string | null
   questionText: string | null
+  /** The question as a picture (Phase 7b), once the student has started it. */
+  questionImage?: PictureView | null
   options: QuizOption[]
   selectedOptionId: string | null
   selectedOptionText: string | null
@@ -1861,9 +1916,13 @@ export interface PastQuizProblem {
   topic: string | null
   difficulty: string | null
   questionText: string
+  /** The question as a picture (Phase 7b). */
+  image?: PictureView | null
   options: Array<{ letter: string; text: string }>
   answer: { letter: string; text: string }
   solution: string
+  /** The worked solution as a picture — public here, as everything about a past quiz is. */
+  solutionImage?: PictureView | null
 }
 
 /** One class group's past problems, newest first — empty until one has been revealed. */
@@ -1918,11 +1977,14 @@ export interface AdminQuiz {
   question: {
     id: string
     text: string | null
+    /** The question as a picture (Phase 7b), as the quiz snapshotted it. */
+    image?: AuthorPictureView | null
     topic: string | null
     difficulty: Difficulty | null
     options: Array<{ id: string; text: string }>
     correctOptionId: string | null
     solution: string | null
+    solutionImage?: AuthorPictureView | null
   }
   stats: QuizStats
   winner: { name: string; status: WinnerStatus } | null
@@ -1952,6 +2014,8 @@ export interface AdminDailyQuizListResponse {
 export interface QuizCandidate {
   id: string
   questionText: string
+  /** A picture question's picture (Phase 7b), so the picker can show what the words do not. */
+  image?: PictureView | null
   classLevel: ClassLevel
   difficulty: Difficulty
   topic: string | null
@@ -2247,6 +2311,8 @@ export interface MockReviewQuestion extends MockAttemptQuestion {
     acceptedAnswers?: string[]
   }
   explanation: string | null
+  /** The worked solution as a picture (Phase 7b) — released with the written one. */
+  explanationImage?: PictureView | null
   /** The question has been edited since it was served. */
   revisionChanged: boolean
 }
@@ -2921,12 +2987,19 @@ export interface ImportParserInfo {
 
 export interface ImportStatus {
   parsers: ImportParserInfo[]
+  /**
+   * The picture import (Phase 7b), which the Image tab uses instead of reading photographs with a
+   * model: each picture becomes a question as it is. Absent from an older backend.
+   */
+  pictures?: Omit<ImportParserInfo, 'kind' | 'available'>
   templates: { excel: string }
   limits: {
     maxQuestions: number
     maxFiles: number
     maxFileBytes: Record<ImportFileKind, number>
     maxRequestBytes: number
+    /** How many pictures one picture import takes. */
+    maxPictures?: number
   }
 }
 
@@ -2959,10 +3032,19 @@ export interface ImportFileOutcome {
 }
 
 /** One question offered for review. Nothing is stored — these live in the browser. */
+/** A picture on an imported candidate: what the approval sends back, and what the card shows. */
+export interface ImportedPicture extends PictureRef {
+  url: string
+  width: number
+  height: number
+}
+
 export interface ImportedQuestion {
   clientId: string
   sourceRef: string
   questionText: string
+  /** A picture import's candidate is its picture (Phase 7b), described by the reviewer. */
+  image?: ImportedPicture | null
   type: QuestionType
   options: Array<{ text: string; isCorrect: boolean }>
   booleanAnswer: boolean | null
@@ -2970,6 +3052,7 @@ export interface ImportedQuestion {
   tolerance: number | null
   acceptedAnswers: string[]
   solution: string | null
+  solutionImage?: ImportedPicture | null
   marks: number
   negativeMarks: number
   tags: string[]
@@ -2984,7 +3067,8 @@ export interface ImportedQuestion {
 
 export interface ImportPreview {
   batchId: string
-  kind: ImportFileKind
+  /** `picture` for pictures imported as questions (Phase 7b). */
+  kind: ImportFileKind | 'picture'
   parser: Omit<ImportParserInfo, 'available'>
   questions: ImportedQuestion[]
   rejected: ImportRejection[]

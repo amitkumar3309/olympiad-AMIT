@@ -64,6 +64,14 @@ export const IMPORT_FILE_KINDS = ['excel', 'docx', 'image', 'csv', 'json'] as co
 export type ImportFileKind = (typeof IMPORT_FILE_KINDS)[number];
 
 /**
+ * What an `ImportBatch` may record: every file kind, and `picture` (Milestone 30 Phase 7b) — a
+ * batch of pictures already uploaded one by one, each of which becomes one question. Not a file
+ * kind: nothing is parsed, so it has no parser, and its route takes picture keys, not files.
+ */
+export const IMPORT_BATCH_KINDS = [...IMPORT_FILE_KINDS, 'picture'] as const;
+export type ImportBatchKind = (typeof IMPORT_BATCH_KINDS)[number];
+
+/**
  * One uploaded file, in memory.
  *
  * **`name` is a label, never a path.** It is echoed into reports so an examiner can tell

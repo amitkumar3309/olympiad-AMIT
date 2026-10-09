@@ -9,6 +9,7 @@ import { QUESTION_SORT_KEYS } from '../services/questionService';
 import { normalizeAnswerText } from '../services/grading';
 import { BLOOM_LEVELS, GENERATION_LANGUAGES } from '../lib/questionGeneratorTypes';
 import { config } from '../config';
+import { questionPictureSchema, solutionPictureSchema } from './questionImageSchemas';
 
 /**
  * The most questions one reviewed batch may contain, whatever the environment says.
@@ -67,7 +68,10 @@ const tags = z
  * `options` required or forbidden is the value of `type`.
  */
 const questionContentShape = {
-  questionText: mathText('Question text'),
+  /** Required unless the question is a picture — see `refineQuestionAnswers`. */
+  questionText: mathText('Question text', { min: 0 }),
+  /** The question as a picture (Milestone 30 Phase 7b). */
+  image: questionPictureSchema.nullish().default(null),
   type: z.enum(QUESTION_TYPES, { message: 'Choose a question type' }),
   options: z.array(optionSchema).max(8, 'A question may have at most 8 options').default([]),
   booleanAnswer: z.boolean().nullish().default(null),
@@ -83,6 +87,8 @@ const questionContentShape = {
     .max(8, 'A fill-in-the-blank question may have at most 8 accepted answers')
     .default([]),
   solution: mathText('Solution', { max: 8000 }).nullish().default(null),
+  /** The worked solution as a picture (Phase 7b): instead of the text, or beside it. */
+  solutionImage: solutionPictureSchema.nullish().default(null),
   /**
    * **Optional**, and normally absent (Milestone 21, Phase J).
    *
@@ -110,6 +116,8 @@ const questionContentShape = {
 };
 
 type QuestionContentShape = {
+  questionText: string;
+  image?: { key: string } | null;
   type: (typeof QUESTION_TYPES)[number];
   options: Array<{ key?: string; text: string; isCorrect: boolean }>;
   booleanAnswer?: boolean | null;
@@ -133,6 +141,11 @@ function refineQuestionAnswers(value: QuestionContentShape, ctx: z.RefinementCtx
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message });
 
   const isChoice = value.type === 'single_choice' || value.type === 'multiple_choice';
+
+  // A picture can be the question (Phase 7b); without one, the words are.
+  if (value.questionText.trim().length === 0 && !value.image) {
+    at('questionText', 'Question text is required — or add a picture of the question.');
+  }
 
   if (isChoice) {
     if (value.options.length < 2) {

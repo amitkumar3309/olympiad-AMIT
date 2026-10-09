@@ -25,6 +25,8 @@ export * from './RefreshToken';
 export * from './VerificationToken';
 export * from './AuditLog';
 export * from './GalleryItem';
+// A question's pictures (Milestone 30 Phase 7b).
+export * from './QuestionImage';
 export * from './Notification';
 export * from './Exam';
 export * from './Certificate';

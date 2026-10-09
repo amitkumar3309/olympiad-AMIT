@@ -120,7 +120,7 @@ Everything is `lazy()` except `Landing`. "Works" = calls real endpoints, no hard
 | `/admin/email-deliveries` | Admin/EmailDeliveries | `notifications:write` | ✅ | ✅ crawled |
 | `/admin/analytics` | Admin/Analytics | `analytics:read:any` | ✅ | ✅ crawled |
 | `/admin/performance` | Admin/QuestionPerformance | `analytics:read:any` | ✅ | ✅ crawled |
-| `/admin/questions` (+ `/new`, `/import`, `/:id/edit`) | Admin/Questions, QuestionForm, QuestionImport | `questions:write` | ✅ | ✅ crawled — all four, `/:id/edit` on the seeded quiz question |
+| `/admin/questions` (+ `/new`, `/import`, `/:id/edit`) | Admin/Questions, QuestionForm, QuestionImport | `questions:write` | ✅ | ✅ crawled — all four, `/:id/edit` on the seeded quiz question. Phase 7b: the editor's picture fields (Choose / Replace / Remove the picture, the description) and the import page's Pictures tab and picture cards (describe, options with Add and Remove, the solution picture) — browser-tested by `picture-questions.spec.ts`, with axe |
 | `/admin/taxonomy` | Admin/Taxonomy | `taxonomy:write` | ✅ | ✅ crawled |
 | `/admin/mock-tests` (+ `/new`, `/:id/edit`, `/:id/results`) | Admin/MockTests, MockTestForm, MockTestResults | `mocktests:write` | ✅ | ✅ crawled (the list and `/new`); `/:id/*` need a mock test — not reached |
 | `/admin/daily-quiz` | Admin/DailyQuiz | `challenges:write` | ✅ (Phase 2) | ✅ crawled; Enter saves the settings (D16) |

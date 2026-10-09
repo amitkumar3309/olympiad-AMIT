@@ -18,8 +18,17 @@ import { freezeClock, now, resetClock } from '../src/lib/clock';
 import { quizWindow } from '../src/lib/dailyQuiz';
 import { performReset } from '../src/services/contentResetService';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
-import { API, clearTestInbox, cookieHeader, createAdminSession, otherStudent, registerVerifyLogin } from './helpers/auth';
-import { createQuestionVia, createTaxonomy, type Taxonomy } from './helpers/questions';
+import {
+  API,
+  TINY_JPEG_BASE64,
+  TINY_PNG_BASE64,
+  clearTestInbox,
+  cookieHeader,
+  createAdminSession,
+  otherStudent,
+  registerVerifyLogin,
+} from './helpers/auth';
+import { createQuestionVia, createTaxonomy, validQuestion, type Taxonomy } from './helpers/questions';
 
 /**
  * Milestone 30, Phase 2 — the Daily Quiz, through the API (brief §6.8, "API/integration").
@@ -521,6 +530,79 @@ describe('GET /daily-quiz/past', () => {
 
     const res = await past().expect(200);
     expect(group(res.body, '9-12').problems).toEqual([]);
+  });
+});
+
+// ===========================================================================
+// A picture question as the Daily Quiz (Phase 7b)
+// ===========================================================================
+
+describe('a picture question as the Daily Quiz', () => {
+  /**
+   * A picture's key is the permission to fetch it, so it is held to the answer key's rules: the
+   * question's picture from Start (as the text is), the solution's only from the reveal — and the
+   * quiz keeps the pictures it was scheduled with, whatever later happens to the bank question.
+   */
+  it('shows the picture from Start, its solution picture only from the reveal, and keeps both', async () => {
+    const { adminCookies, taxonomy } = await seedAdmin();
+    const upload = async (type: string, base64: string) =>
+      (
+        await request(app)
+          .post(`${API}/admin/question-images`)
+          .set('Cookie', cookieHeader(adminCookies))
+          .send({ image: `data:${type};base64,${base64}` })
+          .expect(201)
+      ).body.image as { key: string; url: string };
+    const picture = await upload('image/png', TINY_PNG_BASE64);
+    const solutionPicture = await upload('image/jpeg', TINY_JPEG_BASE64);
+    const questionId = await draftQuestion(adminCookies, taxonomy, {
+      questionText: '',
+      image: { key: picture.key, alt: 'A triangle with sides 3, 4 and 5' },
+      solution: null,
+      solutionImage: { key: solutionPicture.key },
+    });
+    const day = today();
+    await schedule(adminCookies, { day, classMin: 9, classMax: 12, questionId }).expect(201);
+    const { cookies } = await registerVerifyLogin(app);
+
+    const before = JSON.stringify((await getQuiz(cookies).expect(200)).body);
+    expect(before).not.toContain(picture.key);
+    expect(before).not.toContain(solutionPicture.key);
+
+    const started = await start(cookies).expect(201);
+    expect(started.body.question.image).toEqual({ url: picture.url, alt: 'A triangle with sides 3, 4 and 5', width: 1, height: 1 });
+    expect(JSON.stringify(started.body)).not.toContain(solutionPicture.key);
+
+    const { correct } = await optionIds();
+    const submitted = await submit(cookies, correct).expect(200);
+    expect(JSON.stringify(submitted.body)).not.toContain(solutionPicture.key);
+    expect(JSON.stringify((await history(cookies).expect(200)).body)).not.toContain(solutionPicture.key);
+
+    // The bank question moves on to another picture; the quiz still shows the one it was set with.
+    const replacement = await upload('image/png', TINY_PNG_BASE64);
+    await request(app)
+      .put(`${API}/admin/questions/${questionId}`)
+      .set('Cookie', cookieHeader(adminCookies))
+      .send(
+        validQuestion(taxonomy, {
+          questionText: '',
+          image: { key: replacement.key, alt: 'Another picture' },
+          solution: null,
+          solutionImage: { key: solutionPicture.key },
+        }),
+      )
+      .expect(200);
+
+    clockTo(day, 24);
+    const revealed = await history(cookies).expect(200);
+    const row = JSON.stringify(revealed.body);
+    expect(row).toContain(solutionPicture.url);
+    expect(row).toContain(picture.url);
+    expect(row).not.toContain(replacement.key);
+
+    const archive = await request(app).get(`${API}/daily-quiz/archive?group=9-12`).expect(200);
+    expect(archive.body.problems[0].image.url).toBe(picture.url);
+    expect(archive.body.problems[0].solutionImage.url).toBe(solutionPicture.url);
   });
 });
 

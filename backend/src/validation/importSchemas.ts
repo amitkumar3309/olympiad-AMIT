@@ -4,7 +4,9 @@ import { CLASS_LEVELS } from '../lib/classLevels';
 import { DIFFICULTIES, QUESTION_TYPES } from '../models/Question';
 import { importFilesSchema } from './uploadSchemas';
 import type { ImportFileKind } from '../lib/importTypes';
-import { IMPORT_HARD_MAX } from '../services/questionImportService';
+import { IMPORT_HARD_MAX, MAX_PICTURES_PER_IMPORT } from '../services/questionImportService';
+import { questionPictureSchema, solutionPictureSchema } from './questionImageSchemas';
+import { QUESTION_IMAGE_KEY } from '../models/QuestionImage';
 import { config } from '../config';
 import { validateMathContent } from '../lib/mathContent';
 
@@ -106,7 +108,10 @@ export type PreviewImportBody = z.infer<ReturnType<typeof previewImportSchema>>;
  * placement; it cannot invent one.
  */
 export const reviewedImportQuestion = z.object({
-  questionText: mathText('Question text'),
+  /** May be empty for a picture question; `createQuestionSchema` holds the text-or-picture rule. */
+  questionText: mathText('Question text', { min: 0 }),
+  /** The question as a picture (Phase 7b) — the picture import's candidates carry one. */
+  image: questionPictureSchema.nullish().default(null),
   type: z.enum(QUESTION_TYPES),
   options: z
     .array(
@@ -127,6 +132,7 @@ export const reviewedImportQuestion = z.object({
   tolerance: z.number().min(0).finite().nullish().default(null),
   acceptedAnswers: z.array(mathText('Accepted answer', { max: 200 })).max(8).default([]),
   solution: mathText('Solution', { max: 8000 }).nullish().default(null),
+  solutionImage: solutionPictureSchema.nullish().default(null),
   marks: z.number().min(0.25).max(100),
   negativeMarks: z.number().min(0).max(100).default(0),
   tags: z.array(z.string().trim().max(40)).max(20).default([]),
@@ -140,6 +146,32 @@ export const reviewedImportQuestion = z.object({
   /** The screen's own report that the examiner changed this one. Recorded, never trusted. */
   edited: z.boolean().default(false),
 });
+
+/**
+ * A batch of pictures to become questions (Milestone 30 Phase 7b). Each picture was uploaded on its
+ * own first; this names them by key. A chapter is **required** — a picture has no words to detect
+ * one from — and the file name is a label for the review screen, never a path.
+ */
+export const pictureImportSchema = z
+  .object({
+    ...importDefaults,
+    topic: objectId('Chapter'),
+    pictures: z
+      .array(
+        z.object({
+          key: z.string().regex(QUESTION_IMAGE_KEY, 'That picture is not one this site stored. Upload it again.'),
+          name: z.string().trim().min(1).max(200),
+        }),
+      )
+      .min(1, 'Choose at least one picture')
+      .max(MAX_PICTURES_PER_IMPORT, `At most ${MAX_PICTURES_PER_IMPORT} pictures at a time`)
+      .refine((pictures) => new Set(pictures.map((picture) => picture.key)).size === pictures.length, 'The same picture is listed twice'),
+  })
+  .refine((value) => value.negativeMarks <= value.marks, {
+    path: ['negativeMarks'],
+    message: 'Negative marks cannot exceed the marks awarded.',
+  });
+export type PictureImportBody = z.infer<typeof pictureImportSchema>;
 
 /** The most questions one approval call may carry. Honours the deployment's lower limit. */
 function approvalCeiling(): number {

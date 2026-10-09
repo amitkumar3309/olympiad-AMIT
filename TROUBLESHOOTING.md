@@ -49,6 +49,21 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## An upload fails with "something went wrong" — or, since 2026-10-09, a 413
+
+**Symptom.** Before Milestone 30 Phase 7b: adding a gallery picture over about 73 KB failed with a
+generic server error, though the form says 1 MB. Since then the same upload answers **413** with "That
+is larger than this form can take — it accepts about … Choose a smaller file."
+
+**Cause.** `express.json()` refuses a body over its limit **before any route runs**. The default is
+100 KB, and an upload travels as base64 inside the JSON body (a third larger than the file). The
+gallery's path was never given an allowance, so its 1 MB promise was a 73 KB reality — and the error
+handler did not recognise body-parser's error, so it answered a 500.
+
+**Fix.** Every upload path has its own allowance in `backend/src/app.ts` (the file's limit × 1.4), and
+`bodyParserFailure()` in `middleware/errorHandler.ts` turns a too-large body into a 413 that names the
+limit in a file's terms. A new upload route needs its own line in `app.ts`, or it inherits 100 KB.
+
 ## A CSS module's rules are missing from the build, though the file is imported
 
 **Symptom.** `prerender: … CSS-module classes no stylesheet defines: _intro_…` — or, without the

@@ -460,6 +460,18 @@ export function screenEach(entries: readonly ScreenEntry[]): ScreenOutcome {
       continue;
     }
 
+    // A picture question's words are at most a line around its picture (Phase 7b), so two that
+    // read alike say nothing: it is a duplicate only of one carrying the very same picture.
+    const pictureKey = candidate.image?.key;
+    if (pictureKey) {
+      if (accepted.some((entry) => entry.candidate.image?.key === pictureKey)) {
+        duplicates.push({ index, reason: 'The same picture is already a question in this batch.' });
+        continue;
+      }
+      accepted.push({ index, candidate });
+      continue;
+    }
+
     // Against the bank first, then against the batch. Both matter: the first stops the
     // examiner re-adding what they already have, the second stops one run producing the
     // same question three times.
