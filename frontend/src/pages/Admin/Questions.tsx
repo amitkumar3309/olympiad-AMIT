@@ -23,6 +23,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import AdminShell from './AdminShell'
 import MathText from '../../components/MathText'
+import QuestionPicture from '../../components/QuestionPicture'
 import { dailyQuizHandoff, mockTestHandoff } from './questionHandoff'
 import { Alert, Button, ButtonLink, Icon, Spinner } from '../../components/ui'
 import styles from './Questions.module.css'
@@ -381,6 +382,13 @@ export default function Questions() {
           <option value="">Anyone&rsquo;s work</option>
           <option value="human">Written by hand</option>
           <option value="ai_assisted">AI-drafted</option>
+          {/* Where an import's "Open the question bank" link lands (Milestone 21; pictures since Phase 7b). */}
+          <option value="picture_import">Imported as pictures</option>
+          <option value="excel_import">Imported from Excel</option>
+          <option value="csv_import">Imported from CSV</option>
+          <option value="json_import">Imported from JSON</option>
+          <option value="docx_import">Imported from Word</option>
+          <option value="image_import">Read from a photograph</option>
         </select>
         <input
           className="form-control"
@@ -646,7 +654,7 @@ export default function Questions() {
                   onChange={(e) =>
                     setSelected((ids) => (e.target.checked ? [...ids, question.id] : ids.filter((id) => id !== question.id)))
                   }
-                  aria-label={`Select "${question.questionText.slice(0, 40)}"`}
+                  aria-label={`Select "${(question.questionText.trim() || (question.image ? `Picture: ${question.image.alt}` : '')).slice(0, 40)}"`}
                 />
                 <span className={styles[`status_${question.status}`]}>{QUESTION_STATUS_LABELS[question.status]}</span>
                 <span className={styles.badge}>{QUESTION_TYPE_LABELS[question.type]}</span>
@@ -673,9 +681,13 @@ export default function Questions() {
                 </p>
               )}
 
-              <MathText block className={styles.stem}>
-                {question.questionText}
-              </MathText>
+              {question.questionText.trim() !== '' && (
+                <MathText block className={styles.stem}>
+                  {question.questionText}
+                </MathText>
+              )}
+              {/* A picture question (Phase 7b): small in the list, enlarged on request. */}
+              <QuestionPicture picture={question.image} name="the question" className={styles.thumb} />
 
               <div className={styles.meta}>
                 {question.topic?.name ?? '—'}
@@ -717,8 +729,11 @@ export default function Questions() {
                   )}
                   <div className={styles.solution}>
                     <strong>Solution</strong>
-                    {question.solution ? (
-                      <MathText block>{question.solution}</MathText>
+                    {question.solution || question.solutionImage ? (
+                      <>
+                        {question.solution && <MathText block>{question.solution}</MathText>}
+                        <QuestionPicture picture={question.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
+                      </>
                     ) : (
                       <p className={styles.missing}>None yet — required before this question can be published.</p>
                     )}

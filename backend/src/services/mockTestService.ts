@@ -19,6 +19,8 @@ import type { Actor } from './taxonomyService';
 import { snapshotOf } from './attemptSnapshot';
 import { gradeEntries, isAnswered } from './grading';
 import { refView, studentQuestionView } from './questionView';
+import { pictureView } from './questionImageService';
+import { questionLabel } from '../lib/questionLabel';
 
 /**
  * Mock tests: authoring the paper, and sitting it.
@@ -985,6 +987,8 @@ export function attemptReviewView(
           acceptedAnswers: entry.acceptedAnswers ?? [],
         },
         explanation: question?.solution ?? null,
+        // The worked solution as a picture (Phase 7b): revealed where the text is, and nowhere else.
+        explanationImage: pictureView(question?.solutionImage),
         revisionChanged: question ? question.revision !== entry.revision : false,
       };
     }),
@@ -1066,7 +1070,8 @@ export function adminTestView(test: MockTestDocument, questions?: QuestionsById)
           order: ref.order,
           marks: ref.marks,
           negativeMarks: ref.negativeMarks,
-          questionText: question?.questionText ?? null,
+          // A picture question with no words is named by its picture (Phase 7b).
+          questionText: question ? questionLabel(question, 5000) : null,
           type: question?.type ?? null,
           difficulty: question?.difficulty ?? null,
           status: question?.status ?? null,
@@ -1211,7 +1216,7 @@ export async function testResults(test: MockTestDocument, now = new Date()) {
         return {
           id: key,
           order: ref.order,
-          questionText: questions.get(key)?.questionText ?? null,
+          questionText: questions.has(key) ? questionLabel(questions.get(key)!, 5000) : null,
           served: row.served,
           answered: row.answered,
           correct: row.correct,

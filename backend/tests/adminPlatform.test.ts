@@ -124,6 +124,33 @@ describe('gallery — behaviour', () => {
     expect(image.body.length).toBeGreaterThan(0);
   });
 
+  /**
+   * The gallery promises 1 MB a picture but had no body allowance, so anything over ~73 KB was
+   * refused before the route ran — as a 500 (found in Phase 7b). A JPEG's signature is all the
+   * validator reads of its bytes, so padding a real one makes a photograph-sized upload.
+   */
+  it('accepts a photograph near its 1 MB limit, and refuses a larger one with a 413', async () => {
+    const { cookies } = await createAdminSession(app);
+    const sized = (bytes: number) => {
+      const real = Buffer.from(TINY_JPEG_BASE64, 'base64');
+      return `data:image/jpeg;base64,${Buffer.concat([real, Buffer.alloc(bytes - real.length)]).toString('base64')}`;
+    };
+
+    const fits = await request(app)
+      .post(`${API}/admin/gallery`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ title: 'A real photograph', image: sized(900 * 1024) });
+    expect(fits.status).toBe(201);
+    expect(fits.body.item.size).toBe(900 * 1024);
+
+    const tooBig = await request(app)
+      .post(`${API}/admin/gallery`)
+      .set('Cookie', cookieHeader(cookies))
+      .send({ title: 'Too large', image: sized(1200 * 1024) });
+    expect(tooBig.status).toBe(413);
+    expect(tooBig.body.error).toContain('1.0 MB');
+  });
+
   it('shows published items to a signed-out visitor and hides archived ones', async () => {
     const { cookies } = await createAdminSession(app);
 

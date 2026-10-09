@@ -18,6 +18,7 @@ import certificatesRoutes from './certificates.routes';
 import questionsRoutes from './questions.routes';
 import questionsAdminRoutes from './questionsAdmin.routes';
 import questionsImportRoutes from './questionsImport.routes';
+import questionImagesRoutes from './questionImages.routes';
 import taxonomyRoutes from './taxonomy.routes';
 import adminRoutes from './admin.routes';
 import usersRoutes from './users.routes';
@@ -55,6 +56,7 @@ router.use(questionsRoutes);
  * routes. Express matches in mount order, so the specific paths have to be registered first.
  */
 router.use(questionsImportRoutes);
+router.use(questionImagesRoutes);
 router.use(questionsAdminRoutes);
 router.use(taxonomyRoutes);
 router.use(adminRoutes);

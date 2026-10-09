@@ -14,7 +14,9 @@ import {
 import type { ClassLevel } from '../lib/classLevels';
 import { ApiError } from '../lib/ApiError';
 import { normalizeTags } from '../lib/mathContent';
+import { questionLabel } from '../lib/questionLabel';
 import { findImplicitSubject, type Actor } from './taxonomyService';
+import { resolvePictures, sweepUnusedQuestionImagesNowAndThen, type PictureRef } from './questionImageService';
 
 /**
  * Question-bank business rules.
@@ -80,7 +82,7 @@ interface QuestionFilter {
   type?: QuestionType;
   tags?: string;
   'provenance.source'?: QuestionSource;
-  $or?: Array<{ questionText?: RegExp } | { tags?: RegExp } | { solution?: RegExp }>;
+  $or?: Array<{ questionText?: RegExp } | { tags?: RegExp } | { solution?: RegExp } | { 'image.alt'?: RegExp }>;
 }
 
 export function buildQuestionFilter(options: ListQuestionsOptions): QuestionFilter {
@@ -105,7 +107,8 @@ export function buildQuestionFilter(options: ListQuestionsOptions): QuestionFilt
 
   if (options.search) {
     const pattern = new RegExp(escapeRegex(options.search), 'i');
-    filter.$or = [{ questionText: pattern }, { tags: pattern }, { solution: pattern }];
+    // A picture question is found by what its picture shows (Phase 7b).
+    filter.$or = [{ questionText: pattern }, { tags: pattern }, { solution: pattern }, { 'image.alt': pattern }];
   }
 
   return filter;
@@ -154,6 +157,8 @@ export async function findQuestionById(id: string): Promise<QuestionDocument> {
 
 export interface QuestionContentInput {
   questionText: string;
+  /** The question as a picture (Phase 7b): a stored picture's key and its description. */
+  image: PictureRef | null;
   type: QuestionType;
   options: Array<{ key: string; text: string; isCorrect: boolean }>;
   booleanAnswer: boolean | null;
@@ -161,6 +166,8 @@ export interface QuestionContentInput {
   tolerance: number | null;
   acceptedAnswers: string[];
   solution: string | null;
+  /** The worked solution as a picture (Phase 7b). */
+  solutionImage: PictureRef | null;
   /** Optional: derived from the chapter when absent. See `resolveTaxonomy()`. */
   subject?: string | null;
   topic: string;
@@ -252,6 +259,7 @@ export function withOptionKeys(
 export function toQuestionContent(input: ValidatedQuestionContent): QuestionContentInput {
   return {
     questionText: input.questionText,
+    image: input.image ?? null,
     type: input.type,
     options: withOptionKeys(input.options),
     booleanAnswer: input.booleanAnswer ?? null,
@@ -259,6 +267,7 @@ export function toQuestionContent(input: ValidatedQuestionContent): QuestionCont
     tolerance: input.tolerance ?? null,
     acceptedAnswers: input.acceptedAnswers ?? [],
     solution: input.solution ?? null,
+    solutionImage: input.solutionImage ?? null,
     subject: input.subject ?? null,
     topic: input.topic,
     subtopic: input.subtopic ?? null,
@@ -276,6 +285,7 @@ export function toQuestionContent(input: ValidatedQuestionContent): QuestionCont
  */
 export interface ValidatedQuestionContent {
   questionText: string;
+  image?: PictureRef | null;
   type: QuestionType;
   options: Array<{ key?: string; text: string; isCorrect: boolean }>;
   booleanAnswer?: boolean | null;
@@ -283,6 +293,7 @@ export interface ValidatedQuestionContent {
   tolerance?: number | null;
   acceptedAnswers?: string[];
   solution?: string | null;
+  solutionImage?: PictureRef | null;
   subject?: string | null;
   topic: string;
   subtopic?: string | null;
@@ -309,11 +320,13 @@ export async function createQuestion(
   provenance?: QuestionProvenance,
 ): Promise<QuestionDocument> {
   const taxonomy = await resolveTaxonomy(input);
+  const pictures = await resolvePictures(input);
 
   // Always created as a draft. Publishing is a separate, explicit act so that
   // "saved" and "visible to students" can never be the same keystroke.
   return Question.create({
     questionText: input.questionText,
+    image: pictures.image,
     type: input.type,
     options: input.options,
     booleanAnswer: input.booleanAnswer,
@@ -321,6 +334,7 @@ export async function createQuestion(
     tolerance: input.tolerance,
     acceptedAnswers: input.acceptedAnswers,
     solution: input.solution,
+    solutionImage: pictures.solutionImage,
     ...taxonomy,
     classLevel: input.classLevel,
     difficulty: input.difficulty,
@@ -345,8 +359,12 @@ export async function updateQuestion(id: string, input: QuestionContentInput, ac
   }
 
   const taxonomy = await resolveTaxonomy(input);
+  const pictures = await resolvePictures(input);
 
   question.questionText = input.questionText;
+  // A different picture is a different stored picture: the one replaced is swept once nothing
+  // else refers to it (a Daily Quiz that snapshotted it keeps it alive).
+  question.image = pictures.image;
   question.type = input.type;
   question.options = input.options;
   question.booleanAnswer = input.booleanAnswer;
@@ -354,6 +372,7 @@ export async function updateQuestion(id: string, input: QuestionContentInput, ac
   question.tolerance = input.tolerance;
   question.acceptedAnswers = input.acceptedAnswers;
   question.solution = input.solution;
+  question.solutionImage = pictures.solutionImage;
   question.subject = taxonomy.subject;
   question.topic = taxonomy.topic;
   question.subtopic = taxonomy.subtopic;
@@ -446,8 +465,12 @@ export async function changeQuestionStatus(id: string, next: QuestionStatus, act
  * answer key, or no worked solution to show afterwards.
  */
 function assertPublishable(question: QuestionDocument): void {
-  if (!question.solution || question.solution.trim().length === 0) {
-    throw ApiError.conflict('Add a solution before publishing — a published question must be explainable to a student.');
+  // Written out or as a picture (Phase 7b) — either explains the answer.
+  const hasSolution = Boolean(question.solution?.trim()) || Boolean(question.solutionImage?.key);
+  if (!hasSolution) {
+    throw ApiError.conflict(
+      'Add a solution before publishing — written out or as a picture — a published question must be explainable to a student.',
+    );
   }
 
   switch (question.type) {
@@ -617,7 +640,7 @@ export async function changeQuestionStatusBulk(
   for (const id of ids) {
     try {
       const question = await changeQuestionStatus(id, next, actor);
-      outcomes.push({ id, label: question.questionText.slice(0, 80), ok: true, reason: null });
+      outcomes.push({ id, label: questionLabel(question), ok: true, reason: null });
     } catch (err) {
       /**
        * The question is re-read for its label so a report can name what failed.
@@ -626,9 +649,9 @@ export async function changeQuestionStatusBulk(
        * reported. Losing the label must not turn a reportable refusal into a thrown request.
        */
       const label = await Question.findById(id)
-        .select('questionText')
+        .select('questionText image')
         .lean()
-        .then((row) => (row ? row.questionText.slice(0, 80) : id))
+        .then((row) => (row ? questionLabel(row) || id : id))
         .catch(() => id);
 
       outcomes.push({
@@ -677,5 +700,7 @@ export async function deleteQuestion(id: string): Promise<{ deleted: true }> {
   }
 
   await Question.deleteOne({ _id: question._id });
+  // Its pictures go once nothing else shows them. Best-effort: the deletion already happened.
+  if (question.image?.key || question.solutionImage?.key) await sweepUnusedQuestionImagesNowAndThen();
   return { deleted: true };
 }

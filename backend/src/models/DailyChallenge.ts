@@ -1,7 +1,8 @@
 import mongoose, { Schema, type Document, type Types } from 'mongoose';
 import { CLASS_LEVELS, type ClassLevel } from '../lib/classLevels';
 import type { DayKey } from '../lib/competitionDay';
-import { DIFFICULTIES, type Difficulty } from './Question';
+import { DIFFICULTIES, type Difficulty, type QuestionPicture } from './Question';
+import { QUESTION_IMAGE_KEY } from './QuestionImage';
 
 /**
  * One day's challenge question for one class.
@@ -76,11 +77,23 @@ export interface QuizOption {
  * either before the reveal** — `services/dailyChallengeService.ts` is the only reader.
  */
 export interface QuizContent {
+  /** Empty only for a picture question (Phase 7b), whose picture is `image`. */
   questionText: string;
+  /**
+   * The question as a picture (Milestone 30 Phase 7b), pinned by key when the quiz was scheduled:
+   * pictures never change, so this is exactly what its students were shown. Served from Start,
+   * like the text.
+   */
+  image?: QuestionPicture | null;
   options: QuizOption[];
   correctOptionKey: string;
-  /** The worked solution — required, because unlocking it the next day is the point (R6). */
+  /**
+   * The worked solution — this or `solutionImage` is required, because unlocking it the next day
+   * is the point (R6). Empty when the solution is a picture.
+   */
   solution: string;
+  /** The worked solution as a picture (Phase 7b). Served only through `revealOf()`. */
+  solutionImage?: QuestionPicture | null;
   difficulty: Difficulty;
   /** The chapter's name at scheduling time, for display. */
   topicName: string | null;
@@ -125,12 +138,29 @@ const quizOptionSchema = new Schema<QuizOption>(
   { _id: false },
 );
 
+const quizPictureSchema = new Schema<QuestionPicture>(
+  {
+    key: { type: String, required: true, match: QUESTION_IMAGE_KEY },
+    alt: { type: String, default: '' },
+    width: { type: Number, required: true, min: 1 },
+    height: { type: Number, required: true, min: 1 },
+  },
+  { _id: false },
+);
+
+/**
+ * `questionText` and `solution` are no longer `required` (Phase 7b): a picture may stand for
+ * either, and Mongoose's `required` refuses an empty string. `quizQuestionProblem()` is the rule —
+ * a quiz is scheduled only from a question that passes it.
+ */
 const quizContentSchema = new Schema<QuizContent>(
   {
-    questionText: { type: String, required: true },
+    questionText: { type: String, default: '' },
+    image: { type: quizPictureSchema, default: null },
     options: { type: [quizOptionSchema], default: [] },
     correctOptionKey: { type: String, required: true },
-    solution: { type: String, required: true },
+    solution: { type: String, default: '' },
+    solutionImage: { type: quizPictureSchema, default: null },
     difficulty: { type: String, enum: DIFFICULTIES, required: true },
     topicName: { type: String, default: null },
     revision: { type: Number, default: 1 },

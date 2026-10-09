@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import StudentShell from '../../components/StudentShell'
 import MathText from '../../components/MathText'
+import QuestionPicture from '../../components/QuestionPicture'
 import { Button, ButtonLink, Card, EmptyState, ErrorState, Icon, SkeletonText, Tabs } from '../../components/ui'
 import { api } from '../../api/client'
 import { QUIZ_CLASS_GROUPS, type ClassLevel, type PastQuizProblem, type QuizArchivePage } from '../../api/types'
@@ -205,9 +206,12 @@ function Problem({ problem }: { problem: PastQuizProblem }) {
         </div>
       </header>
 
-      <MathText block className={styles.question}>
-        {problem.questionText}
-      </MathText>
+      {problem.questionText.trim() !== '' && (
+        <MathText block className={styles.question}>
+          {problem.questionText}
+        </MathText>
+      )}
+      <QuestionPicture picture={problem.image} name="the question" />
 
       <ol className={styles.options} aria-label="Options">
         {problem.options.map((option) => (
@@ -230,12 +234,15 @@ function Problem({ problem }: { problem: PastQuizProblem }) {
             <span className={styles.answerLabel}>Answer {problem.answer.letter}</span>{' '}
             <MathText>{problem.answer.text}</MathText>
           </p>
-          {problem.solution && (
+          {(problem.solution || problem.solutionImage) && (
             <div className={styles.solution}>
               <p className={styles.solutionLabel}>Solution</p>
-              <MathText block className={styles.explanation}>
-                {problem.solution}
-              </MathText>
+              {problem.solution && (
+                <MathText block className={styles.explanation}>
+                  {problem.solution}
+                </MathText>
+              )}
+              <QuestionPicture picture={problem.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
             </div>
           )}
         </div>

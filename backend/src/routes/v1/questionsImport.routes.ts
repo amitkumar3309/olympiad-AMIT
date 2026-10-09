@@ -12,7 +12,10 @@ import {
   approveImport,
   importCeiling,
   listImportParsers,
+  MAX_PICTURES_PER_IMPORT,
+  PICTURE_IMPORT_DESCRIPTOR,
   previewImport,
+  previewPictureImport,
   recordImportRejections,
   validateImport,
 } from '../../services/questionImportService';
@@ -23,10 +26,12 @@ import {
 } from '../../validation/uploadSchemas';
 import {
   approveImportSchema,
+  pictureImportSchema,
   previewImportSchema,
   rejectImportSchema,
   validateImportSchema,
   type ApproveImportBody,
+  type PictureImportBody,
   type PreviewImportBody,
   type ValidateImportBody,
   type RejectImportBody,
@@ -81,6 +86,11 @@ router.get(
         ...parser.descriptor,
         available: parser.isAvailable(),
       })),
+      /**
+       * Pictures imported as questions (Phase 7b), which the import page's Image tab offers instead
+       * of reading a photograph with a model. Always available: nothing reads the picture.
+       */
+      pictures: PICTURE_IMPORT_DESCRIPTOR,
       /** Where the template lives, so the page does not hardcode a path. */
       templates: { excel: '/admin/questions/import/excel/template' },
       limits: {
@@ -88,6 +98,8 @@ router.get(
         maxFiles: MAX_IMPORT_FILES,
         maxFileBytes: MAX_IMPORT_FILE_BYTES,
         maxRequestBytes: MAX_IMPORT_REQUEST_BYTES,
+        // Picture questions (Phase 7b): how many pictures one picture import takes.
+        maxPictures: MAX_PICTURES_PER_IMPORT,
       },
     });
   },
@@ -211,6 +223,58 @@ for (const kind of IMPORT_FILE_KINDS) {
   );
 }
 
+/**
+ * A batch of pictures as draft questions (Milestone 30 Phase 7b — picture questions instead of OCR).
+ *
+ * The pictures were uploaded one by one first (`POST /admin/question-images`); this makes each a
+ * candidate for the review screen and records the `ImportBatch` that approval reads the provenance
+ * from. **Writes no question** and reads no picture. Answers in the same shape as a file preview, so
+ * the review screen and its approve and validate calls are the ones every format uses.
+ */
+router.post(
+  '/admin/questions/import/pictures',
+  importLimiter,
+  requirePermission('questions:write'),
+  validate({ body: pictureImportSchema }),
+  ensureDb,
+  async (req: Request, res: Response) => {
+    try {
+      const body = req.body as PictureImportBody;
+      const outcome = await previewPictureImport(
+        {
+          pictures: body.pictures,
+          topic: body.topic,
+          subtopic: body.subtopic,
+          classLevel: body.classLevel,
+          difficulty: body.difficulty,
+          marks: body.marks,
+          negativeMarks: body.negativeMarks,
+        },
+        actorFrom(req),
+      );
+      sendSuccess(res, 200, {
+        batchId: outcome.batchId,
+        kind: 'picture',
+        parser: { ...PICTURE_IMPORT_DESCRIPTOR, kind: 'picture' },
+        questions: outcome.questions,
+        rejected: [],
+        duplicates: [],
+        failures: [],
+        batchWarnings: [],
+        files: [],
+        unknownChapters: [],
+        examined: outcome.questions.length,
+        truncated: false,
+      });
+    } catch (err) {
+      respondToServiceError(res, err, {
+        log: 'Failed to prepare a picture import',
+        fallback: 'Could not prepare those pictures. Please try again.',
+      });
+    }
+  },
+);
+
 // ---------------------------------------------------------------------------
 // Approving — the only route here that writes a question
 // ---------------------------------------------------------------------------
@@ -330,6 +394,10 @@ router.post(
       const outcome = await validateImport({
         questions: body.questions.map((question) => ({
           questionText: question.questionText,
+          // A picture question's pictures (Phase 7b): without them the dry run would judge it
+          // by words it does not need, and disagree with the approval it exists to predict.
+          image: question.image ?? null,
+          solutionImage: question.solutionImage ?? null,
           type: question.type,
           options: question.options.map((option) => ({ text: option.text, isCorrect: option.isCorrect })),
           booleanAnswer: question.booleanAnswer ?? null,

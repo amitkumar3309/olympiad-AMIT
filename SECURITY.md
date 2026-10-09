@@ -312,6 +312,14 @@ Route guards, permission-aware navigation and the unauthorized state exist to ma
 
 ## Token Handling
 
+> **Request logs held session tokens until 2026-10-09** (Milestone 30 Phase 7b). `pino-http` serialises
+> every request and response header, so the production log carried the `cookie` header — the access and
+> refresh tokens — and every `set-cookie` the API issued: a working session for anybody who could read the
+> logs. `lib/logger.ts` now redacts `cookie`, `authorization`, `proxy-authorization` and `set-cookie`
+> (`LOG_REDACTION`), and a test sends a signed-in request through the real logger and searches its output
+> for the token. Logs written before the fix may still hold tokens; sessions from then have long expired
+> or rotated, but the log store should be treated as sensitive.
+
 **Access token** — JWT, `HS256`, 15 minutes, `httpOnly` session cookie (`access_token`). Claims: `role`, `sub`, `studentId`, `email`, and `tv` (the student's `tokenVersion`). Verification is deliberately **stateless**: signature, expiry and role only, with no database read, so it stays cheap on every request.
 
 **Refresh token** — 32 bytes from `crypto.randomBytes`, opaque (not a JWT), 30 days, `httpOnly` cookie (`refresh_token`). Stored in MongoDB as a **SHA-256 hash only**; the raw value never touches the database. SHA-256 rather than bcrypt is correct here: these are high-entropy random values, not guessable passwords, so there is nothing to slow down an attacker about and lookups need to be deterministic.
@@ -474,6 +482,18 @@ and contains nothing about any visitor.
 - **Speed was not bought with security.** Nothing about the token changed: still 32 bytes from `crypto.randomBytes`, still SHA-256 at rest, still single-use, still superseding, still 24-hour TTL. The resend cooldown, its rate limiter, and the deliberately untruthful `nextResendAt` (which exists so the endpoint cannot become an account-existence oracle) are all untouched. The rejected alternative — awaiting SMTP inline in registration to force immediacy — would have reintroduced the timing oracle on `forgot-password` that the outbox was built to remove.
 
 ## File Upload Security
+
+> **Milestone 30 Phase 7b — question pictures.** `POST /admin/question-images` (staff, `questions:write`,
+> `pictureUploadLimiter` 300/hour ahead of the permission check, a 1.4 MB body allowance on that path
+> only) takes a JPEG/PNG/WebP of at most 1 MB, checked by magic bytes like every upload here. Unlike the
+> registration photo below, a question picture **is** re-read and **stripped**: `lib/imageFile.ts` walks
+> the file and drops EXIF, XMP, comments and PNG text chunks, because a revealed quiz picture becomes
+> public in the archive and a phone photo carries its GPS position; its width and height are measured
+> from the file and an absurd size is refused. It is served at `GET /question-images/:key` with **no
+> session check — the 128-bit random key is the permission**, which is why a solution picture's key may
+> appear only in a view allowed to show the solution (the answer-leak tests check it). Served with the
+> stored `Content-Type`, `nosniff` and a year's immutable caching. A body over any path's allowance is
+> now a 413, not a 500, and the gallery finally has the allowance its 1 MB limit needed.
 
 One upload exists as of Milestone 4: the mandatory registration photo on `POST /auth/register`. It is carried as a base64 data URL inside the JSON body (see [`DECISIONS.md`](DECISIONS.md)), not as multipart, so it goes through the same zod validation as every other field.
 

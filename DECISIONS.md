@@ -4,6 +4,67 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — Milestone 30 Phase 7b: picture questions — the picture is the question
+
+**Context.** The owner asked for questions that are pictures, "instead of OCR, as of now": the uploaded
+image *is* the question, the administrator types the options and marks the right one, the worked
+solution may be a second picture, and a one-line description serves a screen reader (PLAN.md Q19, §5c).
+The bank held text and LaTeX only, and the import page's Image tab read photographs with a model.
+
+**Decision.**
+1. **A picture is an attachment, not a question type.** `Question.image` and `Question.solutionImage`
+   (`{ key, alt, width, height }`), both optional; the type stays `single_choice` (or any type) —
+   `'single_choice'` is named in 34 places and the Daily Quiz requires it. The words become optional when
+   there is a picture; the solution may be written, a picture, or both, and publishing and the Daily Quiz
+   accept either.
+2. **The question picture's description is required** (1–300 characters, one line of plain text — it
+   becomes an attribute, never markup): for a student who cannot see the picture, it *is* the question.
+   The solution picture's is optional.
+3. **The bytes live in MongoDB, in their own collection** (`QuestionImage`: the bytes `select: false`,
+   the type, size, width and height, and a random 32-hex `key`), as the registration photo and the
+   gallery's do: no new service, ₹0. Beside the question rather than inside it, because several
+   pipelines read whole questions (`$sample`, `$$ROOT`) and a megabyte would ride along each time.
+4. **Served by an unguessable key, never by the database id** — `GET /question-images/:key`, with no
+   session check: **the key is the permission**. It reaches a browser only inside a view allowed to show
+   the picture: a solution picture's key only where the written solution may be (a submitted practice
+   session, a mock test's permitted review, the Daily Quiz's `revealOf()`), today's quiz picture only
+   after Start. The answer-leak tests extend to both. An ObjectId would not do: two minted in one request
+   differ by a counter, so the solution's would be a guess away from the question's.
+5. **Immutable.** A different picture is a new document, so a Daily Quiz that snapshotted one keeps
+   showing exactly what its students saw, and every copy may be cached for a year. A picture nothing
+   refers to is removed a day after upload, by a sweep the uploads themselves run at most hourly — no
+   scheduler.
+6. **Shrunk in the browser, stripped on the server.** The browser redraws every picture at most 1,600
+   pixels on its longer side as WebP (JPEG where it cannot write WebP), on white, typically 50–150 KB
+   (`frontend/src/lib/shrinkPicture.ts`). The server refuses one over 1 MB, reads its real size from the
+   file — so every `<img>` reserves its box — and strips EXIF, XMP and comments with a byte-level walk
+   (`lib/imageFile.ts`), because a revealed quiz picture becomes public in the archive and a phone photo
+   carries where it was taken. It does not trust that the browser shrank anything.
+7. **Uploaded on its own** — `POST /admin/question-images`, with a 1.4 MB body allowance on that path
+   only and `pictureUploadLimiter` (300 an hour) ahead of the permission check — so saving a question
+   stays a small request.
+8. **The import page's Image tab imports pictures, not OCR.** Up to 20 pictures, each a single-choice
+   draft candidate that the reviewer describes and answers on the same review screen, checked and saved
+   through the same `screenEach()` and `approveImport()`; provenance `picture_import`, `deterministic`,
+   read back from the `ImportBatch`. A picture candidate is a duplicate only of one with the same picture.
+   The model's route stays on the server, unused by the interface, until the owner wants it back.
+
+**Two fixes went first, because 7b builds on both.** Request logs no longer hold session tokens: `pino`
+redacts `cookie`, `authorization`, `proxy-authorization` and `set-cookie` (`LOG_REDACTION`). And a body
+over its allowance is a **413** naming the limit, not a 500 — which is also what lets the gallery take
+the 1 MB pictures it always promised: it had no allowance, so anything over about 73 KB was refused.
+
+**Budget.** At ~100 KB a picture, a picture question with a picture solution for all three class groups
+every day is ~220 MB a year of Atlas M0's 512 MB. Real use will be a fraction; the owner is asked to
+watch the database size (LAUNCH_REPORT §8), and the storage sits behind one service, so moving it to an
+object store later is a contained change.
+
+Rejected: **a `picture` question type** (34 places name `single_choice`, and the Daily Quiz needs it);
+**OCR** (the owner's "as of now", and a misread exponent is a wrong question nobody notices); **an object
+store** (a new service against ₹0, when MongoDB already holds the photos); **the database id as the
+address** (guessable from the question's); **trusting the browser's measurements or its re-encoding**
+(a script need not shrink anything, and a browser could claim any size).
+
 ## 2026-10-09 — The Daily Quiz prize is monthly: one winner a month in each class band
 
 **Context.** Phase 2 gave every quiz its own winner — by default the fastest correct answer, with the

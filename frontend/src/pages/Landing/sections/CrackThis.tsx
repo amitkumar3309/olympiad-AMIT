@@ -4,6 +4,7 @@ import { ArrowRight, CalendarDays, RotateCcw, Sparkles, Timer, Zap } from 'lucid
 import { api } from '../../../api/client'
 import type { ClassLevel, PastProblemGroup, PastQuizProblem } from '../../../api/types'
 import MathText from '../../../components/MathText'
+import QuestionPicture from '../../../components/QuestionPicture'
 import Illustration from '../../../components/Illustration'
 import { Button, OptionGroup, OptionTile, SkeletonText, TabPanel, Tabs, useInView } from '../../../components/ui'
 import { formatDayKey } from '../../../lib/format'
@@ -298,9 +299,12 @@ function PlayArea({ problem, selected, onSelect, outcome, onSubmit, canTryAnothe
             {meta && ` · ${meta}`}
           </span>
         </p>
-        <MathText block className={styles.question}>
-          {problem.questionText}
-        </MathText>
+        {problem.questionText.trim() !== '' && (
+          <MathText block className={styles.question}>
+            {problem.questionText}
+          </MathText>
+        )}
+        <QuestionPicture picture={problem.image} name="the question" />
         <OptionGroup
           legend="Choose your answer"
           value={selected}
@@ -345,12 +349,15 @@ function PlayArea({ problem, selected, onSelect, outcome, onSubmit, canTryAnothe
                   </>
                 )}
               </p>
-              {problem.solution && (
+              {(problem.solution || problem.solutionImage) && (
                 <div className={styles.solution}>
                   <p className={styles.solutionLabel}>Solution</p>
-                  <MathText block className={styles.explanation}>
-                    {problem.solution}
-                  </MathText>
+                  {problem.solution && (
+                    <MathText block className={styles.explanation}>
+                      {problem.solution}
+                    </MathText>
+                  )}
+                  <QuestionPicture picture={problem.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
                 </div>
               )}
             </div>

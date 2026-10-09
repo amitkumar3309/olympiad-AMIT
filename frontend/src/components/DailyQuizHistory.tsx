@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client'
 import type { DailyQuizHistoryResponse, QuizHistoryRow } from '../api/types'
 import MathText from './MathText'
+import QuestionPicture from './QuestionPicture'
 import { Badge, Card, CardHeader, EmptyState, ErrorState, Pagination, SkeletonText, StatTile } from './ui'
 import { formatDayKey, formatSolveTime } from '../lib/format'
 import styles from './DailyQuizHistory.module.css'
@@ -100,10 +101,11 @@ export default function DailyQuizHistory() {
                       <dd>{row.xpPending ? 'At unlock' : row.xpAwarded > 0 ? `+${row.xpAwarded}` : '0'}</dd>
                     </div>
                   </dl>
-                  {row.questionText && (
+                  {(row.questionText || row.questionImage) && (
                     <details className={styles.details}>
                       <summary>The question</summary>
-                      <MathText block>{row.questionText}</MathText>
+                      {row.questionText && <MathText block>{row.questionText}</MathText>}
+                      <QuestionPicture picture={row.questionImage} name="the question" />
                     </details>
                   )}
                   {row.revealed && row.reveal ? (
@@ -115,6 +117,7 @@ export default function DailyQuizHistory() {
                         </p>
                       )}
                       {row.reveal.solution && <MathText block>{row.reveal.solution}</MathText>}
+                      <QuestionPicture picture={row.reveal.solutionImage} name="the solution" fallbackAlt="The worked solution, as a picture" />
                     </details>
                   ) : (
                     <p className={styles.locked}>Answer and solution unlock tomorrow at 12:00 AM.</p>

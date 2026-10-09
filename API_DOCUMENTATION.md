@@ -17,6 +17,7 @@ Response envelope: `{ success: true, ... }` or `{ success: false, error: string 
 
 Middleware order on data routes: `rateLimit → validate → requireAuth → ensureDb → handler`. Validation therefore runs before any database work, and before the auth gate on public routes. Consequences worth knowing when reading the error lists below:
 - Malformed input returns **400** without touching the database.
+- A body over its path's allowance returns **413** naming the limit in a file's terms (since Milestone 30 Phase 7b — it used to fall through to a 500); a body that is not valid JSON is a **400**.
 - An unreachable database returns **503** (`"Database unavailable. Please try again shortly."`), not a 500 or a hang.
 - All `/api*` routes are rate limited (general limiter). Sensitive auth routes have their own tighter limiters, listed per endpoint below. Exceeding any of them returns **429**.
 - Routes gated by `requirePermission` run `authenticate → ensureDb → freshRoleCheck → permissionCheck` **before** `validate`, so an unauthorized caller is refused before any input is parsed. On those routes a privileged caller sees **503** if MongoDB is down, because the role can no longer be verified — see [`DECISIONS.md`](DECISIONS.md).
@@ -402,9 +403,9 @@ Both require **`taxonomy:write`** (admin and super admin; no student holds it). 
 All require **`questions:write`** except the delete, which requires **`questions:delete`**.
 
 #### `GET /api/v1/admin/questions`
-- **Query**: `page` (≥1), `limit` (1–100), `sort`, `order` (`asc`/`desc`), `search`, `status`, `subject`, `topic`, `subtopic`, `classLevel`, `difficulty`, `type`, `tag`, **`source`** (`human` | `ai_assisted`, Milestone 20 — who drafted it). `source` is on the admin listing only: it is an editorial question about the bank, and a student has no business filtering by it.
+- **Query**: `page` (≥1), `limit` (1–100), `sort`, `order` (`asc`/`desc`), `search`, `status`, `subject`, `topic`, `subtopic`, `classLevel`, `difficulty`, `type`, `tag`, **`source`** (`human` | `ai_assisted` since Milestone 20; the import sources `excel_import`, `docx_import`, `image_import`, `csv_import`, `json_import` and, since Phase 7b, `picture_import` — who or what drafted it). `source` is on the admin listing only: it is an editorial question about the bank, and a student has no business filtering by it.
 - `sort` is constrained to an **allow-list** (`createdAt`, `updatedAt`, `marks`, `difficulty`, `classLevel`); anything else is 400. Passing the parameter through would let a caller sort by an unindexed field, which is a cheap way to make the database do expensive work.
-- `search` matches `questionText`, `tags` and `solution`, case-insensitively and **literally** — the term is regex-escaped, so `.*` matches nothing rather than everything (asserted by a test). It searches the LaTeX source, so an author can find `x^2-9`.
+- `search` matches `questionText`, `tags`, `solution` and — since Phase 7b — a picture question's description (`image.alt`), case-insensitively and **literally** — the term is regex-escaped, so `.*` matches nothing rather than everything (asserted by a test). It searches the LaTeX source, so an author can find `x^2-9`.
 - Filters combine as **AND**. `_id` is appended to every sort as a tiebreaker, so pagination is stable and no question can appear on two pages.
 - **Response 200**: `{ success, questions, pagination }` — the **author's** view, including `isCorrect`, `solution` and the answer fields. This is a separate function from the student view rather than one function with an `includeAnswers` flag, so the two cannot be confused at a call site. It also carries **`provenance`** (Milestone 20): `{ source, generatorId, generatorKind, modelName, editedByReviewer, reviewedByLabel, reviewedAt, generatedAt }`. It is served because a stored field nothing reads is the shape of thing Milestone 15 deleted — the question bank prints a badge from it. It contains no credential and no prompt text.
 
@@ -412,7 +413,7 @@ All require **`questions:write`** except the delete, which requires **`questions
 - **Response 200**: `{ success, question }` (author's view). `400` malformed id, `404` unknown.
 
 #### `POST /api/v1/admin/questions`
-- **Request**: `{ questionText, type, options[], booleanAnswer, numericAnswer, tolerance, solution, subject, topic, subtopic, classLevel, difficulty, marks, negativeMarks, tags[] }`.
+- **Request**: `{ questionText, image, type, options[], booleanAnswer, numericAnswer, tolerance, solution, solutionImage, subject, topic, subtopic, classLevel, difficulty, marks, negativeMarks, tags[] }`. `image` and `solutionImage` (Phase 7b, both optional) are `{ key, alt }` — a picture stored by `POST /admin/question-images` and its one-line description, **required** for `image` and optional for `solutionImage`. The size is read from the stored picture, never the request. `questionText` may be empty when `image` is set; a picture the server no longer has is a **400** ("Upload it again").
 - **Always created as a `draft`** — "saved" and "visible to students" can never be the same keystroke. Option `key`s are assigned by the server.
 - **Validation**: per-type answer rules (a choice type needs ≥2 options and exactly one / at least two correct; `true_false` needs `booleanAnswer`; `numeric` needs `numericAnswer`), **plus rejection of the fields a type does not use**. Duplicate option text, all-options-correct, `negativeMarks > marks`, and every LaTeX rule in `lib/mathContent.ts` are refused.
 - **Response 201**: `{ success, question }`. Writes a `question.created` audit entry.
@@ -426,7 +427,7 @@ All require **`questions:write`** except the delete, which requires **`questions
 #### `PATCH /api/v1/admin/questions/:id/status`
 - **Request**: `{ status, reason? }`.
 - Permitted transitions: `draft → in_review|published|archived`, `in_review → draft|published|archived`, `published → archived|draft`, `archived → draft`. Anything else is **409**, as is moving to the status it already has.
-- **Publishing additionally requires a `solution`** and a resolvable answer key — a published question is one a student is graded on, so the things that would make grading wrong or unexplainable are blocked here rather than discovered later.
+- **Publishing additionally requires a solution** — `solution`, or `solutionImage` since Phase 7b — and a resolvable answer key — a published question is one a student is graded on, so the things that would make grading wrong or unexplainable are blocked here rather than discovered later.
 - Writes a `question.status.changed` audit entry.
 
 #### `DELETE /api/v1/admin/questions/:id`
@@ -434,6 +435,29 @@ All require **`questions:write`** except the delete, which requires **`questions
 - Permitted **only** for a question that has never been published. A currently-published question is refused, and so is one whose `publishedAt` is set even if it has since returned to draft — so unpublishing first is not a way around it. Once a question could have been answered, deleting it would orphan the attempt that references it.
 - Reads the question **before** deleting so the audit entry can still name what was destroyed. Writes `question.deleted`.
 - **Errors**: `400`, `403`, `404`, `409` (archive it instead).
+
+### Question pictures (Milestone 30 Phase 7b — picture questions)
+
+A question may **be** a picture (`image`) and its worked solution may be one (`solutionImage`). The bytes
+are a `QuestionImage`, named everywhere by an unguessable 32-hex key (`services/questionImageService.ts`).
+An audit entry or a staff list names a question with no words by its picture's description,
+`[Picture] …` (`lib/questionLabel.ts`).
+
+#### `POST /api/v1/admin/question-images`
+- **Permission**: `questions:write`. Rate limited by **`pictureUploadLimiter`** (300/hour), mounted **ahead of** the permission check.
+- **Request**: `{ image }` — a base64 data URL, JPEG/PNG/WebP, **≤ 1 MB**, checked by magic bytes (`imageDataUrl()`). This path alone has a 1.4 MB body allowance (`app.ts`). The frontend shrinks every picture first (at most 1,600 px on the longer side, WebP).
+- The server reads the picture as the format it claims, takes its **width and height from the file**, and **strips its metadata** (EXIF, XMP, comments, PNG text chunks — `lib/imageFile.ts`). A file it cannot read is **400**, and so is one over 10,000 pixels a side or 40 megapixels.
+- **Response 201**: `{ success, image: { key, url, width, height, size, contentType } }`. **Writes no question**: a question names the picture by `key` when it is saved. A picture nothing refers to is removed 24 hours after upload (the sweep runs on uploads, at most hourly).
+
+#### `GET /api/v1/question-images/:key`
+- **No session**: the key is the permission. 128 random bits, and it reaches a browser only inside a view allowed to show that picture — a **solution picture's key only where its written solution may be** (a submitted practice session's review, a mock test's permitted review, the Daily Quiz from its reveal), and today's quiz picture only after Start.
+- **Response 200**: the bytes, with the stored `Content-Type` and `Cache-Control: public, max-age=31536000, immutable` — a picture never changes. **400** for something that is not a key, **404** for one not stored.
+
+#### Where a picture appears in a response
+`{ url, alt, width, height }` (`PictureView`), with `key` added in the author's views:
+- Author: `GET /admin/questions(/:id)` → `image`, `solutionImage`; a Daily Quiz's staff views → `question.image`, `question.solutionImage`; the quiz picker's candidates → `image`.
+- Student, before any answer: every in-progress question (`studentQuestionView`: practice, mock tests, the Olympiad) → `image`; the Daily Quiz from Start → `question.image`; the quiz history → `questionImage`.
+- Only once the solution may be shown: practice and mock-test reviews → `explanationImage`; the Daily Quiz's reveal → `reveal.solutionImage`; the public past problems and archive → `image` and `solutionImage`.
 
 ---
 
@@ -548,8 +572,9 @@ The only content in this product **published to the open internet**, which is wh
 ### `POST /api/v1/admin/gallery`
 - **Permission**: `gallery:write`. **Request**: `{ title, caption?, eventDate?, displayOrder?, status?, image }`.
 - `image` is a base64 data URL — JPEG/PNG/WebP, **≤ 1 MB**, validated by **magic bytes** via the shared `imageDataUrl()` validator, so a file that merely claims to be a PNG is refused (asserted by a test). The 1 MB cap is a quarter of a registration photo's: photos are bounded by the number of entrants, gallery images by nothing, and both share a 512 MB free tier.
+- **Body allowance** (fixed in Milestone 30 Phase 7b): 1.4 MB on this path. It had none, so the 100 KB default refused any picture over about 73 KB — and the error handler answered that refusal as a 500.
 - **Response 201**: `{ success, item: GalleryItem }`. Writes a `gallery.changed` audit entry.
-- **Errors**: `400` (validation, bad image, oversize), `401`, `403`, `429`, `503`, `500`.
+- **Errors**: `400` (validation, bad image, oversize), `401`, `403`, `413` (a body over the allowance, naming it), `429`, `503`, `500`.
 
 ### `PATCH /api/v1/admin/gallery/:id`
 - **Permission**: `gallery:write`. **Request**: any of `title`, `caption`, `eventDate`, `displayOrder`, `status`.
@@ -1526,14 +1551,19 @@ rate limited.
     { "id": "excel", "label": "Excel workbook", "kind": "excel",
       "extraction": "deterministic", "basis": "…", "available": true }
   ],
+  "pictures": { "id": "picture", "label": "Pictures", "extraction": "deterministic", "basis": "…" },
   "limits": {
     "maxQuestions": 200,
     "maxFiles": 20,
     "maxFileBytes": { "excel": 5242880, "docx": 5242880, "image": 6291456 },
-    "maxRequestBytes": 25165824
+    "maxRequestBytes": 25165824,
+    "maxPictures": 20
   }
 }
 ```
+
+`pictures` and `limits.maxPictures` (Milestone 30 Phase 7b) describe the picture import below, which the
+import page's Image tab uses instead of the photograph reader.
 
 `available` is per format because they fail independently: Excel and DOCX are deterministic and always
 work, while the image path needs a model credential and reports itself unconfigured without one.
@@ -1624,6 +1654,18 @@ with an unreadable third produce nine questions and one named file error.
 `503` when no parser is registered for the format, or when one is registered but unconfigured — a
 deployment fact, not a bad request, so the message names what to fix. `400` for any file that fails
 validation, naming the file and what was wrong with it.
+
+### `POST /admin/questions/import/pictures` (Milestone 30 Phase 7b)
+
+Pictures as questions, **instead of OCR** (PLAN.md Q19). Each picture is uploaded first by
+`POST /admin/question-images`; this takes them by key and makes each a single-choice candidate that is
+nothing yet but its picture. **Writes no question and reads no picture** — the only row stored is the
+`ImportBatch` (`kind: picture`, `deterministic`) that approval reads the provenance from.
+
+- **Request**: `{ topic (required — a picture has no words to detect one from), subtopic?, classLevel, difficulty, marks, negativeMarks, pictures: [{ key, name }] }` — 1 to 20 pictures, each named once; `name` is a label for the review screen, never a path.
+- **Response 200**: the same shape as a file preview, `kind: 'picture'`, each question `{ questionText: '', image: { key, alt: '', url, width, height }, type: 'single_choice', options: [], solution: null, solutionImage: null, … }`. The reviewer describes each picture, writes its options, marks the answer and gives the solution — written or as a picture — then validates and approves through the routes below, which accept `image` and `solutionImage` (`{ key, alt }`) on every question.
+- A picture candidate is a duplicate only of one carrying the **same picture**: their words are at most a line around it.
+- **Errors**: `400` (no chapter, a picture this site did not store or has swept), `401`/`403`, `429` (`importLimiter`).
 
 ### `POST /admin/questions/import/approve`
 
