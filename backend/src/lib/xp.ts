@@ -55,7 +55,7 @@ export const XP_AWARDS: Record<ActivityType, number> = {
    * This reverses the daily challenge's rule, which paid 15 for answering at all on the
    * grounds that paying for correctness rewards looking the answer up. The brief's R7
    * accepts that a student may do so ("that's their choice"), and the quiz now carries a
-   * prize for the fastest correct answer, so correctness is what it measures. "Correct
+   * prize for the most correct answers in a month, so correctness is what it measures. "Correct
    * only" is an eligibility **rule** in `rewardService` (`REQUIRES_CORRECT`); this figure
    * is only the default **price**, which administrators may still override. A wrong
    * answer still keeps the daily streak — that is counted from submissions, not from XP.

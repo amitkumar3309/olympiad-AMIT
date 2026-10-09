@@ -5,6 +5,7 @@ import {
   AuditLog,
   DailyChallenge,
   DailyChallengeAttempt,
+  DailyQuizSettings,
   DailyQuizStart,
   DailyQuizWinner,
   Notification,
@@ -32,7 +33,8 @@ import { createQuestionVia, createTaxonomy, type Taxonomy } from './helpers/ques
  *     per call, and an answer after midnight is refused.
  *  3. **The answer key never reaches the browser before the reveal** — every student
  *     response is stringified on both sides of midnight.
- *  4. **Winners are chosen by the rule and announced by a person.**
+ *  4. **Winners are chosen by the rule and announced by a person** — one a month in each
+ *     class band since 2026-10-09 (PLAN.md Q24).
  */
 
 beforeAll(startTestDb, 60_000);
@@ -129,7 +131,7 @@ describe('authentication', () => {
     const res = await request(app).get(`${API}/daily-quiz/info`).expect(200);
     expect(res.body.info.cashAmount).toBeNull();
     expect(res.body.info.xpForCorrect).toBe(XP_AWARDS.daily_challenge_completed);
-    expect(res.body.info.howWinnersAreChosen).toMatch(/fastest solve time/i);
+    expect(res.body.info.howWinnersAreChosen).toMatch(/the most Daily Quizzes correctly/);
   });
 });
 
@@ -921,7 +923,8 @@ describe('scheduling', () => {
         request(app).get(`${prefix}/admin/daily-quiz/${groupId}`).set('Cookie', cookie),
         request(app).post(`${prefix}/admin/daily-quiz`).set('Cookie', cookie).send({}),
         request(app).post(`${prefix}/admin/daily-quiz/bulk`).set('Cookie', cookie).send({}),
-        request(app).post(`${prefix}/admin/daily-quiz/${groupId}/winners/compute`).set('Cookie', cookie),
+        request(app).get(`${prefix}/admin/daily-quiz/monthly`).set('Cookie', cookie),
+        request(app).post(`${prefix}/admin/daily-quiz/monthly/2026-11/9-10/compute`).set('Cookie', cookie),
         request(app).delete(`${prefix}/admin/daily-quiz/${groupId}`).set('Cookie', cookie),
         request(app).post(`${prefix}/admin/daily-quiz/import/csv`).set('Cookie', cookie).send({}),
       ]);
@@ -931,141 +934,267 @@ describe('scheduling', () => {
 });
 
 // ===========================================================================
-// Winners
+// Monthly winners — one a month in each class band (owner, 2026-10-09 — PLAN.md Q24)
 // ===========================================================================
 
-describe('winners', () => {
+describe('monthly winners', () => {
+  type Row = { id: string; status: string; period: string; label: string; correctCount: number; solveTimeMs: number; student: { name: string } };
+
+  /** A student in a class, distinct by `n`. */
+  function student(firstName: string, lastName: string, n: number, classLevel = 'Class 9') {
+    return registerVerifyLogin(app, {
+      firstName,
+      lastName,
+      classLevel,
+      mobile: `91000000${String(n).padStart(2, '0')}`,
+      email: `${firstName.toLowerCase()}@example.com`,
+    });
+  }
+
+  /** What a winner needs beyond registering: a city and a parent or guardian's phone. */
   async function eligible(studentId: string): Promise<void> {
     await Student.updateOne({ studentId }, { $set: { city: 'Jaipur', guardianPhone: '9876500000' } });
   }
 
-  it('ranks by the rule, waits for a person, and announces only what was published', async () => {
-    const { adminCookies, groupId } = await seedTodaysQuiz();
-    const admin = cookieHeader(adminCookies);
-    const day = today();
-    const { correct } = await optionIds();
+  /** A Classes 9–12 quiz on each day, from fresh drafts, scheduled the day before the first. */
+  async function scheduleDays(days: string[]): Promise<{ admin: string }> {
+    clockTo(shiftDay(days[0]!, 1), 12);
+    const { adminCookies, taxonomy } = await seedAdmin();
+    for (const day of days) {
+      const questionId = await draftQuestion(adminCookies, taxonomy);
+      await schedule(adminCookies, { day, classMin: 9, classMax: 12, questionId }).expect(201);
+    }
+    return { admin: cookieHeader(adminCookies) };
+  }
 
-    const fast = await registerVerifyLogin(app, { firstName: 'Asha', lastName: 'Verma', mobile: '9100000001', email: 'asha@example.com' });
-    const slow = await registerVerifyLogin(app, { firstName: 'Ravi', lastName: 'Singh', mobile: '9100000002', email: 'ravi@example.com' });
-    const fastest = await registerVerifyLogin(app, { firstName: 'Neel', lastName: 'Rao', mobile: '9100000003', email: 'neel@example.com' });
-    await eligible(fast.studentId);
-    await eligible(slow.studentId);
-    // `fastest` has no city or guardian phone: quickest of all, and not eligible.
+  /** A day's correct and wrong option ids — the same in every class of a quiz. */
+  async function optionsOn(day: string): Promise<{ correct: string; wrong: string }> {
+    const content = (await DailyChallenge.findOne({ day }))!.content!;
+    return {
+      correct: content.options.find((option) => option.key === content.correctOptionKey)!.id,
+      wrong: content.options.find((option) => option.key !== content.correctOptionKey)!.id,
+    };
+  }
 
+  /** Starts at 06:00 IST on `day` and submits `ms` later — right, unless told otherwise. */
+  async function answer(day: string, cookies: Record<string, string>, ms: number, right = true): Promise<void> {
     clockTo(day, 6);
-    await start(fast.cookies).expect(201);
-    await start(slow.cookies).expect(201);
-    await start(fastest.cookies).expect(201);
-    clockTo(day, 6, 5_000);
-    await submit(fastest.cookies, correct).expect(200);
-    clockTo(day, 6, 12_000);
-    await submit(fast.cookies, correct).expect(200);
-    clockTo(day, 6, 70_000);
-    await submit(slow.cookies, correct).expect(200);
+    await start(cookies).expect(201);
+    clockTo(day, 6, ms);
+    const { correct, wrong } = await optionsOn(day);
+    await submit(cookies, right ? correct : wrong).expect(200);
+  }
 
-    const compute = () => request(app).post(`${API}/admin/daily-quiz/${groupId}/winners/compute`).set('Cookie', admin);
-    const early = await compute();
+  const compute = (admin: string, month: string, band: string) =>
+    request(app).post(`${API}/admin/daily-quiz/monthly/${month}/${band}/compute`).set('Cookie', admin);
+  const action = (admin: string, winnerId: string, name: string, body: Record<string, unknown> = {}) =>
+    request(app).post(`${API}/admin/daily-quiz/winners/${winnerId}/${name}`).set('Cookie', admin).send(body);
+
+  it('ranks each band’s month by correct answers, then total solve time, and waits for a person', async () => {
+    const { admin } = await scheduleDays(['2026-11-10', '2026-11-11']);
+    const asha = await student('Asha', 'Verma', 1);
+    const ravi = await student('Ravi', 'Singh', 2);
+    const neel = await student('Neel', 'Rao', 3, 'Class 10');
+    const meera = await student('Meera', 'Iyer', 4, 'Class 11');
+    await eligible(asha.studentId);
+    await eligible(ravi.studentId);
+    await eligible(meera.studentId);
+    // Neel has no city and no guardian phone: as many right as anyone, the quickest, and not eligible.
+
+    await answer('2026-11-10', asha.cookies, 12_000);
+    await answer('2026-11-10', ravi.cookies, 70_000);
+    await answer('2026-11-10', neel.cookies, 5_000);
+    await answer('2026-11-10', meera.cookies, 20_000);
+    await answer('2026-11-11', asha.cookies, 8_000, false);
+    await answer('2026-11-11', ravi.cookies, 30_000);
+    await answer('2026-11-11', neel.cookies, 5_000);
+
+    // A student sees their own month's score, counted as the page shows correctness.
+    expect((await history(ravi.cookies).expect(200)).body.summary.thisMonth).toEqual({
+      month: '2026-11',
+      label: 'November 2026',
+      correct: 2,
+    });
+
+    // Not before the month is over, and never for a month before the prizes began.
+    clockTo('2026-11-30', 23);
+    const early = await compute(admin, '2026-11', '9-10');
     expect(early.status).toBe(409);
-    expect(early.body.error).toMatch(/after midnight/);
+    expect(early.body.error).toMatch(/once the month is over/);
+    expect((await compute(admin, '2026-10', '9-10')).body.error).toMatch(/start with November 2026/);
 
-    clockTo(day, 25);
-    const computed = await compute().expect(200);
-    expect(computed.body.correctCount).toBe(3);
-    expect(computed.body.winners.map((row: { student: { name: string } }) => row.student.name)).toEqual([
-      'Asha Kumar Verma',
-      'Ravi Kumar Singh',
+    clockTo('2026-12-01', 1);
+    const band = await compute(admin, '2026-11', '9-10').expect(200);
+    expect(band.body).toMatchObject({ correctAnswers: 5, students: 3 });
+    const rows = band.body.winners as Row[];
+    expect(rows.map((row) => [row.student.name, row.correctCount, row.solveTimeMs])).toEqual([
+      ['Ravi Kumar Singh', 2, 100_000],
+      ['Asha Kumar Verma', 1, 12_000],
     ]);
-    expect(computed.body.winners.every((row: { status: string }) => row.status === 'provisional')).toBe(true);
-    expect(computed.body.winners[0].solveTimeMs).toBe(12_000);
-    expect(computed.body.ineligible[0]).toMatchObject({ name: 'Neel Kumar Rao', missing: ['city', 'guardian-phone'] });
+    expect(rows.every((row) => row.status === 'provisional' && row.period === 'month' && row.label === 'Classes 9–10 · November 2026')).toBe(true);
+    expect(band.body.ineligible[0]).toMatchObject({ name: 'Neel Kumar Rao', correctCount: 2, missing: ['city', 'guardian-phone'] });
+
+    const upper = await compute(admin, '2026-11', '11-12').expect(200);
+    expect((upper.body.winners as Row[]).map((row) => row.student.name)).toEqual(['Meera Kumar Iyer']);
+
+    const page = await request(app).get(`${API}/admin/daily-quiz/monthly?month=2026-11`).set('Cookie', admin).expect(200);
+    expect(page.body.monthly).toMatchObject({ month: '2026-11', label: 'November 2026', closed: true, countsFrom: '2026-11-08' });
+    expect(page.body.monthly.bands.map((b: { id: string; winners: Row[] }) => [b.id, b.winners.length])).toEqual([
+      ['3-5', 0],
+      ['6-8', 0],
+      ['9-10', 2],
+      ['11-12', 1],
+    ]);
 
     // Nothing is public yet.
     expect((await request(app).get(`${API}/daily-quiz/winners`)).body.winners).toEqual([]);
 
-    const action = (winnerId: string, name: string, body: Record<string, unknown> = {}) =>
-      request(app).post(`${API}/admin/daily-quiz/winners/${winnerId}/${name}`).set('Cookie', admin).send(body);
-    const [first, second] = computed.body.winners as Array<{ id: string }>;
-
-    const confirmed = await action(first!.id, 'confirm').expect(200);
-    expect(confirmed.body.winner.status).toBe('confirmed');
+    const [first, second] = rows;
+    const confirmed = await action(admin, first!.id, 'confirm').expect(200);
+    expect(confirmed.body.winner).toMatchObject({ status: 'confirmed', cashAmount: null });
     expect(confirmed.body.winner.prizeText).toBeTruthy();
-    expect(confirmed.body.winner.cashAmount).toBeNull();
-    expect((await action(second!.id, 'confirm')).status).toBe(409);
+    const again = await action(admin, second!.id, 'confirm');
+    expect(again.status).toBe(409);
+    expect(again.body.error).toMatch(/Classes 9–10 already has its winner for November 2026/);
+    // Another band's winner is another prize.
+    await action(admin, (upper.body.winners as Row[])[0]!.id, 'confirm').expect(200);
 
-    expect((await action(second!.id, 'disqualify')).status).toBe(400);
-    await action(second!.id, 'disqualify', { reason: 'Shares an account with a sibling.' }).expect(200);
-
-    // Contacting before publishing makes no sense, and is refused.
-    expect((await action(first!.id, 'contacted')).status).toBe(409);
-    await action(first!.id, 'publish').expect(200);
-
+    await action(admin, first!.id, 'publish').expect(200);
     const publicList = await request(app).get(`${API}/daily-quiz/winners`).expect(200);
     expect(publicList.body.winners).toEqual([
-      { day, displayName: 'Asha V.', classLevel: 'Class 9', place: 'Jaipur', prizeText: confirmed.body.winner.prizeText },
+      {
+        period: 'month',
+        day: '2026-11-30',
+        month: '2026-11',
+        prizeLabel: 'November 2026 · Classes 9–10',
+        displayName: 'Ravi S.',
+        classLevel: 'Class 9',
+        place: 'Jaipur',
+        prizeText: confirmed.body.winner.prizeText,
+      },
     ]);
     expect(JSON.stringify(publicList.body)).not.toContain('9876500000');
 
     const notice = await Notification.findOne({ dedupeKey: `dailyquiz-winner:${first!.id}` });
-    expect(notice?.title).toMatch(/You won the Daily Quiz/);
+    expect(notice?.title).toBe('You won the Daily Quiz for November 2026!');
+    expect(notice?.body).toMatch(/the most Daily Quizzes correctly in Classes 9–10 in November 2026/);
 
-    const desk = () => request(app).get(`${API}/admin/daily-quiz/winners?view=outstanding`).set('Cookie', admin);
-    expect((await desk().expect(200)).body.outstanding).toBe(1);
-    await action(first!.id, 'contacted').expect(200);
-    await action(first!.id, 'delivered').expect(200);
-    expect((await desk()).body.outstanding).toBe(0);
-
-    const record = await history(fast.cookies).expect(200);
-    expect(record.body.attempts[0].won).toBe(true);
+    // A month's prize was not won on one day: no day of the history says so; the summary counts it.
+    const record = await history(ravi.cookies).expect(200);
+    expect(record.body.attempts.some((row: { won: boolean }) => row.won)).toBe(false);
     expect(record.body.summary.wins).toBe(1);
 
+    expect(await AuditLog.countDocuments({ action: 'dailyquiz.monthly.computed' })).toBe(2);
     expect(await AuditLog.countDocuments({ action: 'dailyquiz.winner.published' })).toBe(1);
-    expect(await AuditLog.countDocuments({ action: 'dailyquiz.winner.disqualified' })).toBe(1);
   });
 
-  it('shows a student who opted out of public lists as their class only', async () => {
-    const { adminCookies, groupId } = await seedTodaysQuiz();
-    const admin = cookieHeader(adminCookies);
-    const { correct } = await optionIds();
-    const winner = await registerVerifyLogin(app);
+  it('counts November from the 8th, and each answer in the band of the class it was answered in', async () => {
+    const { admin } = await scheduleDays(['2026-11-07', '2026-11-08', '2026-11-09']);
+    const kiran = await student('Kiran', 'Das', 5, 'Class 10');
+    await eligible(kiran.studentId);
+    await answer('2026-11-07', kiran.cookies, 10_000); // before the launch: no prize counts it
+    await answer('2026-11-08', kiran.cookies, 10_000);
+    // Moved up a class mid-month: the next answer is a Class 11 answer.
+    await Student.updateOne({ studentId: kiran.studentId }, { $set: { classLevel: 'Class 11' } });
+    await answer('2026-11-09', kiran.cookies, 10_000);
+
+    clockTo('2026-12-01', 1);
+    const lower = await compute(admin, '2026-11', '9-10').expect(200);
+    expect((lower.body.winners as Row[]).map((row) => row.correctCount)).toEqual([1]);
+    const upper = await compute(admin, '2026-11', '11-12').expect(200);
+    expect((upper.body.winners as Row[]).map((row) => row.correctCount)).toEqual([1]);
+
+    // A quiz's staff page names the prize its answers count towards — none before the launch.
+    const pageOf = async (day: string) => {
+      const groupId = String((await DailyChallenge.findOne({ day }))!.groupId);
+      return (await request(app).get(`${API}/admin/daily-quiz/${groupId}`).set('Cookie', admin).expect(200)).body;
+    };
+    expect((await pageOf('2026-11-07')).prizeMonth).toBeNull();
+    expect((await pageOf('2026-11-08')).prizeMonth).toEqual({ month: '2026-11', label: 'November 2026' });
+  });
+
+  it('shows a winner who opted out of public lists as their class only', async () => {
+    const { admin } = await scheduleDays(['2026-11-12']);
+    const winner = await student('Tara', 'Shah', 6);
     await Student.updateOne(
       { studentId: winner.studentId },
       { $set: { city: 'Pune', guardianPhone: '9876500000', hideFromPublicLists: true } },
     );
-    await start(winner.cookies).expect(201);
-    await submit(winner.cookies, correct).expect(200);
+    await answer('2026-11-12', winner.cookies, 15_000);
 
-    clockTo(today(), 25);
-    const computed = await request(app).post(`${API}/admin/daily-quiz/${groupId}/winners/compute`).set('Cookie', admin).expect(200);
-    const id = computed.body.winners[0].id as string;
-    await request(app).post(`${API}/admin/daily-quiz/winners/${id}/confirm`).set('Cookie', admin).expect(200);
-    await request(app).post(`${API}/admin/daily-quiz/winners/${id}/publish`).set('Cookie', admin).expect(200);
+    clockTo('2026-12-01', 1);
+    const id = ((await compute(admin, '2026-11', '9-10').expect(200)).body.winners as Row[])[0]!.id;
+    await action(admin, id, 'confirm').expect(200);
+    await action(admin, id, 'publish').expect(200);
 
     const publicList = await request(app).get(`${API}/daily-quiz/winners`).expect(200);
-    expect(publicList.body.winners[0]).toMatchObject({ displayName: 'A Class 9 student', place: null });
+    expect(publicList.body.winners[0]).toMatchObject({
+      displayName: 'A Class 9 student',
+      place: null,
+      prizeLabel: 'November 2026 · Classes 9–10',
+    });
     expect(JSON.stringify(publicList.body)).not.toContain('Pune');
   });
 
   it('keeps every prize decision through a reset of the Daily Quiz', async () => {
-    const { adminCookies, groupId } = await seedTodaysQuiz();
-    const admin = cookieHeader(adminCookies);
-    const { correct } = await optionIds();
-    const winner = await registerVerifyLogin(app);
+    const { admin } = await scheduleDays(['2026-11-12']);
+    const winner = await student('Tara', 'Shah', 6);
     await eligible(winner.studentId);
-    await start(winner.cookies).expect(201);
-    await submit(winner.cookies, correct).expect(200);
-    clockTo(today(), 25);
-    const computed = await request(app).post(`${API}/admin/daily-quiz/${groupId}/winners/compute`).set('Cookie', admin).expect(200);
-    await request(app).post(`${API}/admin/daily-quiz/winners/${computed.body.winners[0].id}/confirm`).set('Cookie', admin).expect(200);
+    await answer('2026-11-12', winner.cookies, 15_000);
+    clockTo('2026-12-01', 1);
+    const id = ((await compute(admin, '2026-11', '9-10').expect(200)).body.winners as Row[])[0]!.id;
+    await action(admin, id, 'confirm').expect(200);
 
     await performReset('daily-challenges', 'test');
 
-    expect(await DailyChallenge.countDocuments({})).toBe(0);
-    expect(await DailyQuizStart.countDocuments({})).toBe(0);
     expect(await DailyChallengeAttempt.countDocuments({})).toBe(0);
-    const kept = await DailyQuizWinner.find({});
-    expect(kept.map((row) => row.status)).toEqual(['confirmed']);
-
+    expect((await DailyQuizWinner.find({})).map((row) => row.status)).toEqual(['confirmed']);
     const desk = await request(app).get(`${API}/admin/daily-quiz/winners?view=outstanding`).set('Cookie', admin).expect(200);
-    expect(desk.body.winners[0]).toMatchObject({ status: 'confirmed', quizExists: false });
+    expect(desk.body.winners[0]).toMatchObject({
+      status: 'confirmed',
+      period: 'month',
+      label: 'Classes 9–10 · November 2026',
+      quizExists: true,
+    });
+  });
+
+  it('opens on the last month that has ended, and has no page for a month outside the prizes', async () => {
+    const { adminCookies } = await seedAdmin();
+    const admin = cookieHeader(adminCookies);
+    clockTo('2026-12-15', 12);
+
+    const page = await request(app).get(`${API}/admin/daily-quiz/monthly`).set('Cookie', admin).expect(200);
+    expect(page.body.monthly).toMatchObject({ month: '2026-11', closed: true });
+    expect(page.body.monthly.months.map((m: { key: string }) => m.key)).toEqual(['2026-11', '2026-12']);
+
+    expect((await request(app).get(`${API}/admin/daily-quiz/monthly?month=2026-10`).set('Cookie', admin)).status).toBe(404);
+    expect((await request(app).get(`${API}/admin/daily-quiz/monthly?month=2027-01`).set('Cookie', admin)).status).toBe(404);
+    expect((await request(app).get(`${API}/admin/daily-quiz/monthly?month=2026-13`).set('Cookie', admin)).status).toBe(400);
+    expect((await compute(admin, '2026-11', '9-12')).status).toBe(400);
+  });
+
+  it('retires the daily rule: the public information, the settings and the old headline', async () => {
+    const info = (await request(app).get(`${API}/daily-quiz/info`).expect(200)).body.info;
+    expect(info).toMatchObject({ period: 'month', winnersPerBand: 1, prizesFrom: '2026-11-08', prizeHeadline: 'Solve daily. Win every month.' });
+    expect(info.bands.map((band: { label: string }) => band.label)).toEqual(['Classes 3–5', 'Classes 6–8', 'Classes 9–10', 'Classes 11–12']);
+    expect(info.howWinnersAreChosen).toMatch(/the most Daily Quizzes correctly/);
+    expect(info).not.toHaveProperty('winnerRule');
+
+    // A document saved before the change still says "Win daily": it is read as today's headline.
+    await DailyQuizSettings.create({ key: 'default', prizeHeadline: 'Solve daily. Win daily.', prizeText: 'A medal' });
+    expect((await request(app).get(`${API}/daily-quiz/info`)).body.info).toMatchObject({
+      prizeHeadline: 'Solve daily. Win every month.',
+      prizeText: 'A medal',
+    });
+
+    // The settings no longer take a winner rule: a request still sending one has it dropped.
+    const { adminCookies } = await seedAdmin();
+    const saved = await request(app)
+      .put(`${API}/admin/daily-quiz/settings`)
+      .set('Cookie', cookieHeader(adminCookies))
+      .send({ prizeHeadline: 'Win every month', prizeText: 'A medal', cashAmount: null, instantResult: true, winnerRule: 'FIRST_CORRECT', winnersPerQuiz: 3 })
+      .expect(200);
+    expect(saved.body.settings).not.toHaveProperty('winnerRule');
+    expect(saved.body.settings.prizeHeadline).toBe('Win every month');
   });
 });

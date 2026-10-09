@@ -5,7 +5,7 @@ import { api } from '../../../api/client'
 import type { PublicQuizWinner, QuizPrizeInfo } from '../../../api/types'
 import Illustration from '../../../components/Illustration'
 import { Avatar, Button, Section, Skeleton, usePrefersReducedMotion } from '../../../components/ui'
-import { prizeLine } from '../../../lib/dailyQuizCopy'
+import { bandsSentence, prizeLine } from '../../../lib/dailyQuizCopy'
 import { formatDayKey } from '../../../lib/format'
 import { RECENT_WINNERS } from '../../../lib/siteConfig'
 import styles from './Rewards.module.css'
@@ -16,10 +16,11 @@ import styles from './Rewards.module.css'
  * ## Every prize word is the owner's
  *
  * The headline and the prize line come from Admin → Daily Quiz → Settings through the
- * public `GET /daily-quiz/info` — "Solve daily. Win daily." and "Surprise gift + cash
- * prize" by default — and an amount appears only once the owner has set one. "How winners
- * are chosen" is the sentence the server generates from the same settings its winner
- * computation reads, printed verbatim, so the page and the rule cannot disagree.
+ * public `GET /daily-quiz/info` — "Solve daily. Win every month." and "Surprise gift + cash
+ * prize" by default — and an amount appears only once the owner has set one. The prize is
+ * monthly, one winner in each class band (owner, 2026-10-09 — PLAN.md Q24). "How winners are
+ * chosen" is the sentence the server generates from the same constants its ranking reads,
+ * printed verbatim, so the page and the rule cannot disagree.
  *
  * ## What is not here
  *
@@ -30,7 +31,7 @@ import styles from './Rewards.module.css'
  *
  * ## Recent winners
  *
- * The last seven **published** winners, named the way every public list names a child —
+ * The last eight **published** winners — two months of four bands — named the way every public list names a child —
  * first name and last initial, class, city or school, initials only, and anonymous for a
  * student who opted out. The row scrolls itself slowly when it overflows, pauses while a
  * pointer or keyboard focus is in it, and stands still under reduced motion.
@@ -83,14 +84,14 @@ export default function Rewards({ prize, onPlay }: RewardsProps) {
         className={`container ${styles.section}`}
         id="rewards"
         eyebrow="Rewards"
-        title={prize?.prizeHeadline ?? 'Solve daily. Win daily.'}
+        title={prize?.prizeHeadline ?? 'Solve daily. Win every month.'}
         lead={
           prize ? (
             <>
-              Answer the Daily Quiz — each day’s winner gets: <strong>{prizeLine(prize)}</strong> 🎁
+              Answer the Daily Quiz — every month, the top scorer in each class band wins: <strong>{prizeLine(prize)}</strong> 🎁
             </>
           ) : (
-            'Answer the Daily Quiz — each day’s winner gets a prize. 🎁'
+            'Answer the Daily Quiz — every month, the top scorer in each class band wins a prize. 🎁'
           )
         }
       >
@@ -102,10 +103,13 @@ export default function Rewards({ prize, onPlay }: RewardsProps) {
             </div>
             <div className={styles.cardBody}>
               <p className={styles.cardEyebrow}>
-                <Gift aria-hidden="true" /> Daily Quiz Champion
+                <Gift aria-hidden="true" /> Monthly champion
               </p>
-              <h3 className={styles.cardTitle}>{prize ? prizeLine(prize) : 'A prize every day'}</h3>
-              <p className={styles.cardText}>One question a day for your class. The winner is announced the next day.</p>
+              <h3 className={styles.cardTitle}>{prize ? prizeLine(prize) : 'A prize every month'}</h3>
+              <p className={styles.cardText}>
+                One question a day for your class. Answer the most correctly in a month to win your class band —{' '}
+                {bandsSentence(prize?.bands)}. Winners are announced early the next month.
+              </p>
               <Button variant="brand" onClick={onPlay} icon={<Zap size={18} aria-hidden="true" />}>
                 Play today’s quiz
               </Button>
@@ -146,7 +150,7 @@ export default function Rewards({ prize, onPlay }: RewardsProps) {
             <Skeleton height={72} />
           ) : winners.length === 0 ? (
             <p className={styles.firstWinner}>
-              The first winner will be announced the day after launch — will it be you?
+              The first winners are November’s — one in each class band, announced early in December. Will it be you?
             </p>
           ) : (
             // oxlint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the handlers only pause the slow carousel while it is pointed at or focused; the list is a keyboard-scrollable region (tabIndex 0), as WCAG asks of one
@@ -161,14 +165,14 @@ export default function Rewards({ prize, onPlay }: RewardsProps) {
               onBlur={() => setPaused(false)}
             >
               {winners.map((winner, i) => (
-                <li key={`${winner.day}-${i}`} className={styles.winner}>
+                <li key={`${winner.month ?? winner.day}-${i}`} className={styles.winner}>
                   <Avatar name={winner.displayName} size="sm" decorative />
                   <span className={styles.winnerText}>
                     <span className={styles.winnerName}>{winner.displayName}</span>
                     <span className={styles.winnerMeta}>
                       {[winner.classLevel, winner.place].filter(Boolean).join(' · ')}
                     </span>
-                    <span className={styles.winnerDay}>{formatDayKey(winner.day)}</span>
+                    <span className={styles.winnerDay}>{winner.prizeLabel ?? formatDayKey(winner.day)}</span>
                   </span>
                 </li>
               ))}

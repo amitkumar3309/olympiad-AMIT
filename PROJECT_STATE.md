@@ -1,11 +1,12 @@
 # PROJECT_STATE.md
 
-_Last updated: 2026-10-08 (**Milestone 30 — the Diwali launch: Phases 0–6 are merged (Phase 6: PR #6),
+_Last updated: 2026-10-09 (**Milestone 30 — the Diwali launch: Phases 0–6 are merged (Phase 6: PR #6),
 and so is the Phase 6 follow-up that closed the last two §10 targets (PR #7); the spell-check and the
 Phase 6 screenshots are PR #8 (`feat/diwali-launch-phase-6-polish`); Phase 7a — the owner's requests of
 2026-10-08, first half: the www address, D10, the Daily Quiz archive and the Diwali edition — is merged
 (PR #10) and live, the edition previewable at `/?season=diwali`; the hero's picture of the day and the
-founder's signature are on `feat/home-motivation`**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
+founder's signature are on `feat/home-motivation` (PR #11), the immersive Diwali edition on
+`feat/diwali-immersive` (PR #12), and the monthly Daily Quiz prize on `feat/daily-quiz-monthly-winner`**). Milestone 29 (a full test pass, a scale audit, and the five infrastructure fixes it
 found) closed immediately before Milestone 30._
 
 ## Milestone 30 at a glance — the Diwali launch (Sun 8 Nov 2026)
@@ -38,7 +39,8 @@ The work happens in phases, and each one stops for the owner's approval.
   option and worked solution **only from the next IST midnight** through one gate, `revealOf()`;
   +20 XP for a correct answer only. Winners: computed after the close by the configured rule,
   confirmed and announced by a person, disqualified with a reason, contacted and delivered — all
-  audited — with a prize desk across quizzes and a public, masked recent-winners list. Bulk import of
+  audited — with a prize desk across quizzes and a public, masked recent-winners list (**monthly since
+  2026-10-09** — the last bullet of this section). Bulk import of
   CSV/JSON/Excel through the existing question importer (CSV and JSON are now importer formats).
   Student side: `/daily-quiz`, the dashboard card (the same component), profile prize details and
   quiz history. Admin side: `/admin/daily-quiz` (calendar, scheduling, import, prize desk, settings)
@@ -170,6 +172,14 @@ The work happens in phases, and each one stops for the owner's approval.
   answered); the theme switch is hidden for the week; the intro plays once that week in the student area
   too (`DiwaliIntroPlayer`). Lighthouse on the first Diwali visit 87–91; taps with motion on about
   300–360 ms (PROGRESS.md).
+- **The monthly Daily Quiz prize** (`feat/daily-quiz-monthly-winner`, PLAN.md Q24): **no daily winner** —
+  each month one winner in each class band (3–5, 6–8, 9–10, 11–12), the most correct answers that month,
+  the lower total solve time breaking a tie (`rankMonthlyCandidates()`, in code; the settings' winner rule
+  and winners per quiz are retired). November counts from the 8th, and nothing is promised before it
+  (`prizesFrom`). Candidates are worked out only once the month is over, on **Admin → Daily Quiz →
+  Monthly winners**, then confirmed and announced as before; a month's prize is a `DailyQuizWinner` row
+  with `period: 'month'`. Every page that named the prize says so; the rules page (a legal draft) is
+  dated 9 October 2026 — LEGAL_REVIEW.md question 12. Backend **1375 / 38**; E2E **80**.
 
 ## Milestone 29 at a glance
 

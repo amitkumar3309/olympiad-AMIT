@@ -43,6 +43,21 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 > Two new tests in `diwali.spec.ts` cover a trial (skipped when none is set). Any new test that needs the
 > everyday site must pin an ordinary date.
 >
+> **The monthly prize (2026-10-09): 1375 passing backend tests across 38 files; 80 browser tests (55
+> run, 25 one-width-only).** `dailyQuiz.test.ts`'s "winners" became "monthly winners" — the ranking and
+> the whole flow from working out to announcing; November counted from the 8th, an answer counted in the
+> band of the class it was answered in, and a quiz's staff page naming its prize month; the public-list
+> opt-out; a reset keeping every decision; the month the page opens on, 404 and 400; the retired rule,
+> settings and headline — and `dailyQuizRules.test.ts`'s per-quiz rule tests became the monthly rule's
+> (the most correct, then the lower total time; every class in exactly one band; the shared-connection
+> count over a month; the public sentence) plus two on months. New in the browser:
+> `monthly-winners.spec.ts`, the administrator's Monthly winners tab before November has ended — four
+> bands, nothing to work out yet, the reason in the page, axe — at desktop only. The INP test's `tap()`
+> now brings a control to the middle of the screen first: a taller quiz card had put Start under the
+> phone layout's fixed bottom bar, which took the tap (TROUBLESHOOTING.md). Slowest tap 112 ms, every
+> day and during the edition. In the full run the Diwali intro-timer test timed out once while closing
+> a context and passed alone (TROUBLESHOOTING.md).
+>
 > **The Diwali edition, immersive (2026-10-09): the backend unchanged (1369 / 38); 78 browser tests
 > (54 run, 24 one-width-only), about twelve minutes.** New in `diwali.spec.ts`: a signed-in student
 > sees the intro once in the student area and never again; a reader who chose the light theme gets the

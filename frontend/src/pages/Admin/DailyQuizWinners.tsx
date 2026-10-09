@@ -13,8 +13,10 @@ import { humanizeError } from '../../lib/errors'
 import styles from './DailyQuiz.module.css'
 
 /**
- * The winner table (Milestone 30, Phase 2 — brief §6.5), shared by a quiz's own page and
- * the prize desk so a candidate is described, and acted on, the same way in both places.
+ * The winner table (Milestone 30, Phase 2 — brief §6.5), shared by the monthly winners, a
+ * quiz's own page and the prize desk so a candidate is described, and acted on, the same way
+ * everywhere. A month's row (one class band's prize, since 2026-10-09) shows its correct
+ * answers and their total solve time; a quiz's row, from before, its one solve time.
  *
  * Every action is a request the server decides: it refuses a transition the row's status
  * does not allow (confirming a disqualified student, publishing an unconfirmed one), and it
@@ -120,10 +122,10 @@ export default function WinnerTable({ rows, onChanged, showQuiz = false, label }
         <Table density="comfortable">
           <thead>
             <tr>
-              {showQuiz ? <th scope="col">Quiz</th> : <th scope="col">Rank</th>}
+              {showQuiz ? <th scope="col">Prize</th> : <th scope="col">Rank</th>}
               <th scope="col">Student</th>
               <th scope="col">Parent / guardian</th>
-              <th scope="col">Solve time</th>
+              <th scope="col">Score</th>
               <th scope="col">Checks</th>
               <th scope="col">Status</th>
               <th scope="col">Actions</th>
@@ -133,7 +135,9 @@ export default function WinnerTable({ rows, onChanged, showQuiz = false, label }
             {rows.map((row) => (
               <tr key={row.id}>
                 <td>
-                  {showQuiz ? (
+                  {showQuiz && row.period === 'month' && row.month ? (
+                    <Link to={`/admin/daily-quiz?tab=monthly&month=${row.month}`}>{row.label}</Link>
+                  ) : showQuiz ? (
                     <>
                       {row.quizExists === false ? (
                         formatDayKey(row.day)
@@ -175,14 +179,28 @@ export default function WinnerTable({ rows, onChanged, showQuiz = false, label }
                   )}
                 </td>
                 <td>
-                  <span className={styles.figure}>{row.solveTimeMs !== null ? formatSolveTime(row.solveTimeMs) : '—'}</span>
-                  <div className={styles.muted}>{formatDateTime(row.submittedAt)}</div>
+                  {row.period === 'month' ? (
+                    <>
+                      <span className={styles.figure}>{row.correctCount ?? 0} correct</span>
+                      <div className={styles.muted}>
+                        {row.solveTimeMs !== null ? `${formatSolveTime(row.solveTimeMs)} in all` : 'Total time unknown'}
+                      </div>
+                      <div className={styles.muted}>Last {formatDateTime(row.submittedAt)}</div>
+                    </>
+                  ) : (
+                    <>
+                      <span className={styles.figure}>{row.solveTimeMs !== null ? formatSolveTime(row.solveTimeMs) : '—'}</span>
+                      <div className={styles.muted}>{formatDateTime(row.submittedAt)}</div>
+                    </>
+                  )}
                 </td>
                 <td>
                   <div className={styles.checks}>
                     {row.sharedIpCount > 0 && (
                       <Badge tone="warning" size="sm" icon="ph-wifi-high">
-                        {row.sharedIpCount} other correct {row.sharedIpCount === 1 ? 'answer' : 'answers'} on this connection
+                        {row.period === 'month'
+                          ? `${row.sharedIpCount} other ${row.sharedIpCount === 1 ? 'student' : 'students'} answered from a connection they used`
+                          : `${row.sharedIpCount} other correct ${row.sharedIpCount === 1 ? 'answer' : 'answers'} on this connection`}
                       </Badge>
                     )}
                     {row.student && !row.student.eligibility.eligible && (
@@ -254,7 +272,7 @@ export default function WinnerTable({ rows, onChanged, showQuiz = false, label }
         open={disqualifying !== null}
         onClose={() => setDisqualifying(null)}
         title={`Disqualify ${disqualifying?.student?.name ?? 'this candidate'}?`}
-        description="They will not be offered as a winner for this quiz again. The reason is kept in the audit trail."
+        description={`They will not be offered as a winner for this ${disqualifying?.period === 'month' ? 'month’s prize in their class band' : 'quiz'} again. The reason is kept in the audit trail.`}
         tone="danger"
         icon="ph-prohibit"
         footer={

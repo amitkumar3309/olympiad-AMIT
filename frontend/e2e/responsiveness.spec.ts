@@ -74,9 +74,13 @@ async function recordInteractions(page: Page) {
  * A tap as a reader makes it. `locator.click()` runs its own checks inside the page just before
  * the input, and the browser counts that as input delay that no real tap has; so the control is
  * found first, the page is left to settle, and then the tap is sent at the control's centre.
+ *
+ * The control is scrolled to the middle of the screen first, as a reader would bring it there:
+ * "in view" is not enough on the phone layout, where the fixed bottom bar covers the foot of the
+ * screen and would take a tap meant for a button beneath it.
  */
 async function tap(page: Page, locator: Locator) {
-  await locator.scrollIntoViewIfNeeded()
+  await locator.evaluate((element) => element.scrollIntoView({ block: 'center' }))
   const box = await locator.boundingBox()
   if (!box) throw new Error(`nothing to tap: ${locator}`)
   await page.waitForTimeout(300)

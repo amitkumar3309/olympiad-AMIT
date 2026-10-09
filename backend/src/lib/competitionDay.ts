@@ -108,3 +108,65 @@ export function istDayBounds(key: DayKey): { start: Date; end: Date } {
 export function secondsUntilNextDay(at: Date = new Date()): number {
   return Math.max(0, Math.ceil((nextDayStartsAt(at).getTime() - at.getTime()) / 1000));
 }
+
+// ---------------------------------------------------------------------------
+// Months — the Daily Quiz's monthly prize (owner, 2026-10-09)
+// ---------------------------------------------------------------------------
+
+/**
+ * A calendar month in the competition's timezone, as `YYYY-MM`. It is a day key's first
+ * seven characters, so months compare as strings, and "the days of November" is a range of
+ * day keys from `2026-11-01` to `2026-11-30`.
+ */
+export type MonthKey = string;
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+/** The month a day belongs to. */
+export function monthOf(day: DayKey): MonthKey {
+  return day.slice(0, 7);
+}
+
+/** True for a well-formed `YYYY-MM` naming a real month. */
+export function isMonthKey(value: unknown): value is MonthKey {
+  return typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
+/** The month after this one. */
+export function nextMonth(month: MonthKey): MonthKey {
+  const year = Number(month.slice(0, 4));
+  const index = Number(month.slice(5, 7));
+  return index === 12 ? `${year + 1}-01` : `${year}-${String(index + 1).padStart(2, '0')}`;
+}
+
+/** The first and the last day of a month, as day keys. */
+export function monthDays(month: MonthKey): { first: DayKey; last: DayKey } {
+  // `shiftDay` counts backwards: one day before the 1st of next month is this month's last.
+  return { first: `${month}-01`, last: shiftDay(`${nextMonth(month)}-01`, 1) };
+}
+
+/**
+ * The instant a month ends — IST midnight on the 1st of the next, **exclusive**. Its last
+ * day's quiz closes and reveals at this moment, so from here the month's results are final.
+ */
+export function monthEndsAt(month: MonthKey): Date {
+  return dayStartsAt(`${nextMonth(month)}-01`);
+}
+
+/** "November 2026". */
+export function monthLabel(month: MonthKey): string {
+  return `${MONTH_NAMES[Number(month.slice(5, 7)) - 1] ?? month} ${month.slice(0, 4)}`;
+}

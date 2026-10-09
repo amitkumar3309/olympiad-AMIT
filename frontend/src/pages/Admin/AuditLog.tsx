@@ -49,6 +49,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   'dailyquiz.updated': 'Daily Quiz question changed',
   'dailyquiz.deleted': 'Daily Quiz removed',
   'dailyquiz.winners.computed': 'Daily Quiz winners computed',
+  'dailyquiz.monthly.computed': 'Monthly winner candidates worked out',
   'dailyquiz.winner.confirmed': 'Daily Quiz winner confirmed',
   'dailyquiz.winner.disqualified': 'Daily Quiz candidate disqualified',
   'dailyquiz.winner.published': 'Daily Quiz winner announced',

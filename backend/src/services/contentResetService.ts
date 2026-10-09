@@ -267,7 +267,7 @@ async function previewDailyChallenges(): Promise<ResetPreview> {
   const preserves = [
     'The questions themselves, in the Question Bank',
     'XP and streaks already earned — a streak is a record of days a student turned up',
-    'The Daily Quiz settings: the prize, the winner rule and the result timing',
+    'The Daily Quiz settings: the prize and the result timing',
     'Practice sessions, mock tests, the official exam and every certificate',
   ];
   if (decided > 0) {
