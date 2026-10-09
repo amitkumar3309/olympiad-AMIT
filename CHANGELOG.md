@@ -2,6 +2,32 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-09 — The Diwali edition, immersive: a slower intro, fireworks behind every page, the whole site at night
+
+The owner's follow-up of 2026-10-09 (PLAN.md §5b, Q23). Branch `feat/diwali-immersive`.
+
+- **A slower intro.** About seven seconds instead of two: embers rise through the dark; 3, 2, 1, a
+  second each, each with a ring of light; a diya catches with a burst of sparks; its light finds the
+  mathematics; the name; "Think • Solve • Grow". Any tap or key still skips it.
+- **Real fireworks, somewhere new every time.** Rockets climb from random places and burst at random
+  heights — a peony, a streaking chrysanthemum, a tilted ring, a drooping gold willow, now and then two
+  colours or a crackle — behind every page, on a canvas drawn in its own worker. A salute opens them as
+  the intro ends. Still for anybody who asked for less motion, on staff pages, and in a practice session,
+  a mock test or the Olympiad itself. The hero's three looping SVG fireworks are gone.
+- **The whole site at night** for the week, in either theme: the homepage and every signed-in page on a
+  night sky, cards with gold edges. The light/dark switch is hidden for the week — it would change
+  nothing. Words that stand straight on the sky carry a dark halo, so a burst behind them never washes
+  them out.
+- **The intro in the student area too**, once that week, for a student who has not seen it on the
+  homepage — never over a timed paper.
+- **Speed**: the fireworks hold still from the moment a finger or a key goes down until the page has
+  drawn its answer — the slowest tap with motion on went from 490–940 ms to about 300–360 ms (Phase 7a's
+  edition: 320–430) — and run at thirty frames a second, which takes a tenth to a third off the
+  processor. The edition still keeps a browser 1.6–1.8× as busy as Phase 7a's (LAUNCH_REPORT §7).
+  Lighthouse on the first Diwali visit, intro playing: 87–91.
+
+E2E: three new tests in `diwali.spec.ts` (the student intro, the night for every reader, the fireworks).
+
 ## 2026-10-09 — The hero's picture of the day, and the founder's quotes signed "— Amit"
 
 The owner's requests of 2026-10-09 (PLAN.md §5b, Q21–Q22). Branch `feat/home-motivation`.

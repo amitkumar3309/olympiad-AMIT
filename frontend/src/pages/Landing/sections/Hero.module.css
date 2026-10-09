@@ -303,10 +303,11 @@
 /* ==========================================================================
    The Diwali edition (Phase 7) — <html data-season="diwali">, 8 to 15 November 2026.
 
-   The same hero at night: a sky behind it, the name in gold, the "Launched this Diwali"
-   block and its countdown. Every rule below is keyed on the attribute, so outside the dates
-   none of it applies and the sky and the block are not even laid out. The festive tokens are
-   a night scene in either theme (tokens.css), and only festive text sits on them.
+   The same hero at night: lanterns, the name in gold, the "Launched this Diwali" block and
+   its countdown. The night sky and its fireworks are the whole site's, behind every page
+   (components/Fireworks). Every rule below is keyed on the attribute, so outside the dates
+   none of it applies and the lanterns and the block are not even laid out. The festive
+   tokens are a night scene in either theme (tokens.css), and only festive text sits on them.
    ========================================================================== */
 
 .sky,
@@ -314,12 +315,27 @@
   display: none;
 }
 
-/* The same as a scrolled header's surface, so the bar reads against the night from the top. */
+/* A soft veil of the night behind the words, and a halo round each of them: a firework
+   bursting behind the name is seen, and the name stays readable over it. Around the words the
+   sky is open. On a phone the words fill the width; from 1024px they are the left column. */
 :global(:root[data-season='diwali']) .hero {
-  background:
-    radial-gradient(ellipse 60% 55% at 78% 18%, var(--festive-night-glow), transparent 70%),
-    linear-gradient(180deg, var(--festive-night-deep), var(--festive-night));
+  background: radial-gradient(ellipse 100% 60% at 50% 40%, var(--festive-veil-soft) 45%, transparent 85%);
   color: var(--festive-text);
+}
+
+@media (min-width: 1024px) {
+  :global(:root[data-season='diwali']) .hero {
+    background: radial-gradient(ellipse 48% 75% at 28% 50%, var(--festive-veil-soft) 45%, transparent 85%);
+  }
+}
+
+/* Not on the eyebrow, the buttons or the countdown, which stand on fills of their own. */
+:global(:root[data-season='diwali']) .title,
+:global(:root[data-season='diwali']) .fullForm,
+:global(:root[data-season='diwali']) .chip,
+:global(:root[data-season='diwali']) .diwaliKicker,
+:global(:root[data-season='diwali']) .diwaliLine {
+  text-shadow: var(--festive-halo);
 }
 
 :global(:root[data-season='diwali']) .sky {
@@ -355,54 +371,10 @@
   animation-delay: calc(var(--dur-idle) / -2);
 }
 
-.firework {
-  position: absolute;
-  width: 96px;
-  height: 96px;
-}
-
-.fireworkOne {
-  top: 6%;
-  left: 38%;
-}
-
-.fireworkTwo {
-  top: 14%;
-  right: 16%;
-  width: 72px;
-  height: 72px;
-}
-
-.firework.fireworkTwo {
-  animation-delay: calc(var(--dur-idle-slow) / -3);
-}
-
-.fireworkThree {
-  top: 46%;
-  left: 2%;
-  width: 60px;
-  height: 60px;
-}
-
-.firework.fireworkThree {
-  animation-delay: calc(var(--dur-idle-slow) / -1.5);
-}
-
-/* A phone: the words fill the width, so the lanterns would hang over them. One burst, in the
-   open space beside the buttons. */
+/* A phone: the words fill the width, so the lanterns would hang over them. */
 @media (max-width: 767px) {
-  .lantern,
-  .fireworkTwo,
-  .fireworkThree {
+  .lantern {
     display: none;
-  }
-
-  .fireworkOne {
-    top: 49%;
-    left: auto;
-    right: 4%;
-    width: 64px;
-    height: 64px;
   }
 }
 
@@ -491,6 +463,11 @@
  * The word itself, in a gold that brightens towards its top. A `background-clip: text`
  * gradient reads as transparent to a contrast checker, so the colour beneath is a real gold
  * (10.80:1 on the night) — what a forced-colours reader, or a failed paint, sees.
+ *
+ * No halo: a text shadow would be drawn over the clipped gradient and dull it, and a
+ * drop-shadow filter (tried) made the word's painted box larger than the heading's, so it
+ * became the page's largest paint and was counted seconds late, after the intro. At this size
+ * and weight it reads over a passing burst without one, on the soft veil behind the words.
  */
 .diwaliWord {
   display: inline-flex;

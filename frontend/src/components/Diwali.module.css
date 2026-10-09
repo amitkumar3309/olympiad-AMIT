@@ -104,48 +104,6 @@
   }
 }
 
-/* ---------- the firework ------------------------------------------------ */
-
-/* Bursts, fades, and comes back — the visible burst is both the first and the last frame. The
-   whole SVG moves, never a shape inside it. */
-.firework {
-  display: block;
-  overflow: visible;
-  transform-origin: center;
-  animation: firework-burst var(--dur-idle-slow) var(--ease-out) infinite both;
-}
-
-.ray {
-  fill: none;
-  stroke: var(--festive-gold);
-  stroke-width: 2;
-  stroke-linecap: round;
-}
-
-.spark {
-  fill: var(--festive-flame-core);
-}
-
-@keyframes firework-burst {
-  0% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  35% {
-    opacity: 0;
-    transform: scale(1.15);
-  }
-  36% {
-    opacity: 0;
-    transform: scale(0.2);
-  }
-  60%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 /* ---------- the string of lights (only during the edition) -------------- */
 
 .lights {
@@ -204,7 +162,6 @@
    it still burns. */
 :global(:root[data-intro='play'] #root) .diyaFlame,
 :global(:root[data-intro='play'] #root) .lantern,
-:global(:root[data-intro='play'] #root) .firework,
 :global(:root[data-intro='play'] #root) .strand {
   animation-play-state: paused;
 }

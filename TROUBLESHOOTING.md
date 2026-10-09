@@ -85,13 +85,57 @@ flame, `visibility` in a keyframe, and a `backdrop-filter` re-blurring over movi
 entrance (two `transform` animations: `compositeFailed` 64). Moving both onto the compositor removed that
 main-thread work — and **doubled** the time opening the sign-in dialog took to show with motion on
 (200–310 → 310–740 ms in headless Edge with the CPU slowed 4×, nearly all of it "next frame"). It was
-reverted. Headless Edge draws without a GPU, so compositor work costs it CPU too; a phone may differ, but
-a change kept for speed has to measure faster.
+reverted. (This entry first said headless Edge draws without a GPU; it draws with this laptop's
+integrated GPU — `edge://gpu`, checked 2026-10-09.) A phone may differ, but a change kept for speed has to
+measure faster.
 
 **Measure like with like.** The INP test runs with motion reduced. To measure with motion on, copy
 `e2e/responsiveness.spec.ts` with `reducedMotion: 'no-preference'` and run it on one width with
 `--repeat-each=3`. The same code moved by ±100 ms between runs on one machine, so compare two versions
 in alternating runs, several each — never one run each.
+
+## Taps got slow with motion on once the fireworks ran behind every page
+
+**Symptom.** With the Diwali edition's canvas fireworks behind every page (2026-10-09), the slowest tap
+with motion on measured 490–940 ms — "next frame" nearly all of it — against 320–430 ms for Phase 7a's
+edition, although the fireworks are drawn in a worker and the page's thread does none of their work.
+
+**Cause.** A tap's answer still has to be composited with everything else on screen, and a full-screen
+canvas changing every frame keeps that busy: the tap's frame waited behind the fireworks' frames.
+Resolution (1.25 pixels to the point on a phone) and a 30-frame cap did not measurably help the tap (the
+cap is kept for the processor's sake — `driver.ts`).
+
+**Fix.** The fireworks **hold still** from a pointer or key going down until the page has drawn its next
+frame (`lib/fireworks/start.ts` → `hold` / `release`, which `driver.ts` also ends by itself after
+400 ms). About 300–360 ms since, level with the night sky and no fireworks (230–280 ms). Measured in
+alternating runs, four each, as the entry above says.
+
+## A browser test times out while closing a page with the fireworks
+
+**Symptom.** `diwali.spec.ts`'s intro-timer test failed with "Tearing down "context" exceeded the test
+timeout", after taking ~40 s on the runs it passed.
+
+**Cause.** Tearing a page down while its fireworks' worker is mid-frame is slow: closing took 2.4–42 s,
+and leaving the page for another one 12–21 s on a busy machine — against 0.13 s with motion reduced
+(the everyday site's own loops: 0.5–1.6 s). Pausing the worker on `pagehide` still left 1–10 s.
+
+**Fix.** `lib/fireworks/start.ts` **ends the worker on `pagehide`** when the page is being thrown away
+(a page kept for the back button only pauses): leaving a page now takes 0.2–0.3 s. The spec also
+leaves every page for `about:blank` before its browser closes (`leave()`, and an `afterEach`), because
+closing the browser outright does not always pass through `pagehide`. Do the same in any new test that
+runs with motion on during the edition.
+
+## A firework's glow made the hero's word the page's largest paint
+
+**Symptom.** Lighthouse on the Diwali homepage reported LCP at 5.9 s on one run in three, its element the
+hero's "DIWALI".
+
+**Cause.** A `filter: drop-shadow()` on the word (a halo against the fireworks) enlarged its painted box
+past the heading's, so it became the largest paint — and was counted late, after the intro.
+
+**Fix.** No filter on the word; the heading is the largest paint again (LCP 3.0–3.1 s with the intro,
+four runs). The other words carry their halo as a text shadow, and with it the heading stays the
+largest paint, at the time it is painted — measured, not assumed.
 
 ## The frontend build fails with `prerender: …`
 

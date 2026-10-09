@@ -570,7 +570,7 @@
   --dur-sweep: 700ms; /* the FAB's light streak on hover */
   --dur-celebrate: 1.4s; /* the confetti burst — the brief caps it at 1.5s */
   --dur-flicker: 800ms; /* a diya's flame (Phase 7) */
-  --intro-beat: 240ms; /* the Diwali intro's count: every step of it is a multiple of this (Phase 7) */
+  --intro-beat: 1000ms; /* the Diwali intro: one number of its count, and the unit every other step of it is timed in (Phase 7) */
   --ease-sine: cubic-bezier(0.37, 0, 0.63, 1); /* loops */
   --ease: cubic-bezier(0.44, 0, 0.56, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* entrances: fast, then settle */
@@ -592,7 +592,7 @@
   --z-modal: 70;
   --z-toast: 90;
   --z-tooltip: 100;
-  --z-intro: 200; /* the Diwali edition's two-second intro covers everything (Phase 7) */
+  --z-intro: 200; /* the Diwali edition's intro covers everything (Phase 7) */
 
   /* ==================================================================
      7. LAYOUT
@@ -840,6 +840,14 @@
   --festive-glow: 0 0 24px rgba(248, 194, 79, 0.55);
   --festive-light: rgba(248, 194, 79, 0.28); /* the diya's light, at its brightest */
   --festive-light-faint: rgba(248, 194, 79, 0.08);
+  /* The night, mostly opaque: what words and chrome stand on above the fireworks, so a burst
+     passing behind them is seen dimmed and never takes them below their contrast. The soft
+     one is for words that also carry the halo below. */
+  --festive-veil: rgba(4, 8, 31, 0.72);
+  --festive-veil-soft: rgba(4, 8, 31, 0.5);
+  /* A dark halo round each letter of words standing straight on the night sky, so a firework
+     bursting behind them never washes them out — what subtitles over a film do. */
+  --festive-halo: 0 0 12px rgba(4, 8, 31, 0.9), 0 1px 3px rgba(4, 8, 31, 0.9);
 }
 
 /**
@@ -860,8 +868,14 @@
  * a lifted surface** (they hold themed content, so they cannot stay pastel), and **the
  * categorical tints, series colours and podium fills are NOT redefined** — they are
  * theme-invariant light fills or marks, and their content is pinned or a leaf.
+ *
+ * **The Diwali edition wears it too** (owner, 2026-10-09: "whole site at night"). Its
+ * attribute is in this block's selector, so from 8 to 15 November every page is the night
+ * whichever theme a reader chose — `:root[data-season]` outranks both `:root` and
+ * `.theme-dark` — and section 10 adds what the night needs on top.
  */
-.theme-dark {
+.theme-dark,
+:root[data-season='diwali'] {
   --bg: #000000;
   --bg-subtle: #080c18;
   --surface: #121e47; /* THE CARD — royal blue */
@@ -1022,11 +1036,24 @@
  * 10. THE DIWALI EDITION (Phase 7) — `data-season`, set by public/boot.js
  * ==================================================================
  *
- * Its one app-wide change of value, 8 to 15 November 2026: the page's loudest action and the
- * Daily Quiz button glow gold. In both themes — `:root[data-season]` outranks `.theme-dark`.
+ * The whole site at night, 8 to 15 November 2026 (owner, 2026-10-09): the dark theme's values
+ * apply under this attribute in either theme (its selector above), and this block adds what
+ * the night needs on top. `:root[data-season]` outranks both `:root` and `.theme-dark`.
+ *
+ *  - **The page is transparent**, so every page stands on the night sky behind it — a fixed
+ *    layer with the fireworks on it (`components/Fireworks`). `html` keeps the night's own
+ *    colour for anything beyond the page, a phone's overscroll (base.css).
+ *  - **A band is seen through**, so the sky does not stop at it — enough of it to keep a
+ *    burst behind its words dimmed (its text 5.1:1 over the brightest spark, at worst).
+ *  - **A card's edge is a gold hairline**, and the page's loudest action and the Daily Quiz
+ *    button glow gold.
+ *
  * Everything else festive is a component's own markup, shown only under this attribute.
  */
 :root[data-season='diwali'] {
+  --bg: transparent;
+  --band-accent: rgba(26, 42, 94, 0.72); /* --surface-raised, seen through: a burst behind is dimmed */
+  --card-border: var(--festive-hairline);
   /* The picture of the day under the night sky the hero becomes. */
   --art-sky-top: var(--festive-night-deep);
   --art-sky-bottom: var(--festive-night);
