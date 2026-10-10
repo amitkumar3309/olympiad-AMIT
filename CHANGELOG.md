@@ -2,6 +2,18 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-11 — The pre-launch check: "one quiz for your class", not "your class group"
+
+A read-only walk through the live site (desktop and 390px, both themes) found three public places still
+describing the Daily Quiz as one question per class group — untrue since the quiz fills itself per class.
+Branch `fix/per-class-wording`.
+
+- The rules page (section 3, now dated 11 October 2026), the homepage's About card and the FAQ answer say
+  "one quiz a day for every class" / "for your class".
+- The Hall of Fame's subtitle ("Everyone here earned their place …") is removed, as the leaderboard's was.
+- Everything else checked out: no console errors, no broken images, no sideways scrolling at 390px, one `h1`
+  per page, the 404 page, the legal pages, and signed-in pages asking a visitor to sign in.
+
 ## 2026-10-11 — Less copy on four student screens; the Diwali trial setting removed
 
 The owner asked to remove "excess content". Branch `fix/trim-copy`.

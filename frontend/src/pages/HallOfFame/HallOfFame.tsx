@@ -110,10 +110,7 @@ export default function HallOfFame() {
   const nothingYet = boards.every((board) => board.entries.length === 0)
 
   return (
-    <StudentShell
-      title="Hall of Fame"
-      subtitle="Everyone here earned their place. Nothing on this page is seeded or sampled."
-    >
+    <StudentShell title="Hall of Fame">
       {/* --- What the platform has actually recorded ---------------------- */}
       <section className={styles.totals}>
         <div className="card">

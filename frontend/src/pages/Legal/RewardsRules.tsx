@@ -52,7 +52,7 @@ export default function RewardsRules() {
     <LegalLayout
       title="Daily Quiz & Rewards Rules"
       lead={`How the ${AMIT_OLYMPIAD} Daily Quiz works, who can win, and how prizes are given.`}
-      updated="9 October 2026"
+      updated="11 October 2026"
     >
       <h2>1. Who can take part</h2>
       <p>
@@ -68,7 +68,7 @@ export default function RewardsRules() {
 
       <h2>3. The quiz</h2>
       <ul>
-        <li>There is one quiz a day for each class group — Classes 3–5, 6–8 and 9–12.</li>
+        <li>There is one quiz a day for every class, from Class 3 to Class 12.</li>
         <li>
           Prizes are monthly: one winner each month in each class band — {bandsSentence(info?.bands)}. Section 4 says
           how the winner is chosen.
