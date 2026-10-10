@@ -1387,8 +1387,10 @@ Class-12 streams are retired into one. **A Commerce student and a Science studen
 papers**: one practice pool, one mock test list, one daily challenge per day. That is the owner’s
 decision, and it is the reason the migration exists rather than a rename.
 
-> **The migration is written and tested but has NOT been run against production.** That is the
-> owner’s to run. `npm run migrate:classes --prefix backend` reports; `-- --write` converts. It
+> **Run against production by the owner on 2026-10-11:** 244 documents converted (2 students, 238 questions,
+> 4 practice sessions), no daily-challenge collisions, nothing left holding a retired value; 9 generation
+> logs left as records. The rest of this note is how it works.
+> It was written and tested first, and was the owner’s to run. `npm run migrate:classes --prefix backend` reports; `-- --write` converts. It
 > refuses to write while **daily-challenge collisions** are unresolved — `DailyChallenge` has a
 > unique index on `{day, classLevel}`, so two streams sharing a day become one key and a mid-run
 > failure would leave the database half-converted. `Certificate` and `GenerationLog` are
