@@ -37,6 +37,20 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The automatic Daily Quiz; staff without a student area (2026-10-11): 1498 passing backend tests
+> across 44 files.** New `tests/dailyQuizAuto.test.ts` (11): a class with nothing scheduled gets a
+> generated, unpublished, playable quiz at its level; the "daily quiz" pool is used oldest first; generated
+> only ignores the pool; a staff quiz is never replaced and nothing happens when switched off; all ten classes
+> fill once; three simultaneous fills leave one quiz and no stray question; a generated text already in the
+> bank is refused; the homepage check and the job fill; only today is filled; the console shows the pools
+> and drops the warnings; a promoted admin with XP is off the leaderboard. `dailyQuiz.test.ts` gains "never
+> offers a member of staff a prize". The manual-scheduling suites (`dailyQuiz`, `dailyQuizReminders`) and
+> the browser suite's reset switch automation off. `practiceSeed.test.ts` pins the live practice bank's hash.
+> New browser spec `e2e/staff.spec.ts` (desktop): an administrator's header has no account menu, the homepage
+> says "Go to the admin panel", `/dashboard`, `/profile`, `/practice` and `/daily-quiz` lead to `/admin`, and
+> `/admin/account` works — **96 browser tests** (65 run, 31 one-width-only). Run on this branch: crawler,
+> homepage, Daily Quiz, dashboard and staff specs, 28 passed, 4 one-width-only skipped.
+
 > **The practice bank (2026-10-10): 1485 passing backend tests across 43 files.** New:
 > `tests/practiceSeed.test.ts` (32, no database) — for each class from 3 to 12, exactly 150 distinct
 > questions, four distinct options with exactly one correct, all four in maths or none, no 8-digit number

@@ -10,6 +10,7 @@ import { DailyChallenge, DailyQuizStart, EmailOutbox, Student, type ReminderRun 
 import { enqueueEmail, kickOutbox } from './emailOutbox';
 import { emailAllowedFor } from './notificationService';
 import { getQuizSettings, isPlayable, rangeOf, recordReminderRun } from './dailyChallengeService';
+import { ensureAutoQuizzes } from './dailyQuizAuto';
 
 /**
  * THE Daily Quiz reminder job (Milestone 30 Phase 7b, PLAN.md Q20): at 7:00 AM India time an
@@ -117,6 +118,10 @@ export async function queueDailyQuizReminders(at: Date = now()): Promise<Reminde
     await recordReminderRun(run);
     return run;
   }
+
+  // Fill any class still empty today first (2026-10-10), so the reminder names a quiz that is
+  // really there — this job runs at 07:00, before most students have asked.
+  await ensureAutoQuizzes(day, at);
 
   // Today's playable quizzes, one document per class — the same test `resolveQuizFor()` uses,
   // so a reminder is never sent for a quiz the page would not serve.

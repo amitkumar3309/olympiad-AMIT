@@ -16,11 +16,11 @@ import {
   termAfter,
   termFirst,
   type Template,
-} from './practiceGen';
+} from './engine';
 
 /**
  * The practice templates for Classes 8 to 12 (2026-10-10). Fifteen templates a class, ten questions
- * each, every answer computed from the numbers in the question. See `practiceGen.ts`.
+ * each, every answer computed from the numbers in the question. See `engine.ts`.
  */
 
 const TRIPLES = [

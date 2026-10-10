@@ -4,7 +4,7 @@ import { ApiError } from '../lib/ApiError';
 import { logger } from '../lib/logger';
 import { config } from '../config';
 import { now } from '../lib/clock';
-import { isClassLevel, type ClassLevel } from '../lib/classLevels';
+import { CLASS_LEVELS, isClassLevel, type ClassLevel } from '../lib/classLevels';
 import {
   dayKeyOf,
   daysBetween,
@@ -58,6 +58,7 @@ import {
   Question,
   Student,
   type AttemptAnswerEntry,
+  type AutoQuizSource,
   type ChallengeSource,
   type DailyChallengeAttemptDocument,
   type DailyChallengeDocument,
@@ -75,6 +76,7 @@ import { resolvePrefs } from './notificationService';
 import { authorPictureView, pictureView, type PictureView } from './questionImageService';
 import { gradeEntry } from './grading';
 import { publicListingFor } from './leaderboardService';
+import { autoQuizStatus, ensureAutoQuiz, ensureAutoQuizzes } from './dailyQuizAuto';
 
 /**
  * The Daily Quiz — scheduling one, serving today's, the Start/submit pair, the reveal,
@@ -188,6 +190,10 @@ export interface QuizSettings {
   remindersEnabled: boolean;
   /** The most reminders one day may queue. */
   reminderDailyCap: number;
+  /** Whether a class left without a quiz gets one automatically (2026-10-10). */
+  autoSchedule: boolean;
+  /** Where that quiz comes from. */
+  autoSource: AutoQuizSource;
   /** What the reminder job did the last time the scheduler called it, or null if it never has. */
   lastReminderRun: ReminderRun | null;
   updatedAt: Date | null;
@@ -228,6 +234,9 @@ export async function getQuizSettings(): Promise<QuizSettings> {
         // `??` because a document saved before Milestone 30 Phase 7b has none of the three.
         remindersEnabled: doc.remindersEnabled ?? DAILY_QUIZ_DEFAULTS.remindersEnabled,
         reminderDailyCap: doc.reminderDailyCap ?? DAILY_QUIZ_DEFAULTS.reminderDailyCap,
+        // A document saved before 2026-10-10 has neither; it gets the defaults (on).
+        autoSchedule: doc.autoSchedule ?? DAILY_QUIZ_DEFAULTS.autoSchedule,
+        autoSource: doc.autoSource ?? DAILY_QUIZ_DEFAULTS.autoSource,
         lastReminderRun: reminderRunView(doc.lastReminderRun),
         updatedAt: doc.updatedAt ?? null,
         updatedByLabel: doc.updatedByLabel ?? null,
@@ -236,7 +245,8 @@ export async function getQuizSettings(): Promise<QuizSettings> {
   } catch (err) {
     logger.error({ err }, 'Could not read the Daily Quiz settings; using the defaults');
   }
-  const { prizeHeadline, prizeText, cashAmount, instantResult, remindersEnabled, reminderDailyCap } = DAILY_QUIZ_DEFAULTS;
+  const { prizeHeadline, prizeText, cashAmount, instantResult, remindersEnabled, reminderDailyCap, autoSchedule, autoSource } =
+    DAILY_QUIZ_DEFAULTS;
   return {
     prizeHeadline,
     prizeText,
@@ -244,6 +254,8 @@ export async function getQuizSettings(): Promise<QuizSettings> {
     instantResult,
     remindersEnabled,
     reminderDailyCap,
+    autoSchedule,
+    autoSource,
     lastReminderRun: null,
     updatedAt: null,
     updatedByLabel: null,
@@ -262,6 +274,8 @@ export interface QuizSettingsInput {
   instantResult: boolean;
   remindersEnabled?: boolean;
   reminderDailyCap?: number;
+  autoSchedule?: boolean;
+  autoSource?: AutoQuizSource;
 }
 
 export async function updateQuizSettings(input: QuizSettingsInput, actor: Actor): Promise<QuizSettings> {
@@ -273,6 +287,8 @@ export async function updateQuizSettings(input: QuizSettingsInput, actor: Actor)
   };
   if (input.remindersEnabled !== undefined) changes.remindersEnabled = input.remindersEnabled;
   if (input.reminderDailyCap !== undefined) changes.reminderDailyCap = input.reminderDailyCap;
+  if (input.autoSchedule !== undefined) changes.autoSchedule = input.autoSchedule;
+  if (input.autoSource !== undefined) changes.autoSource = input.autoSource;
 
   await DailyQuizSettings.findOneAndUpdate(
     { key: DAILY_QUIZ_SETTINGS_KEY },
@@ -346,6 +362,9 @@ export function publicQuizInfo(settings: QuizSettings, xpForCorrect: number) {
  */
 export async function publicQuizToday(at: Date): Promise<{ day: DayKey; hasQuiz: boolean; closesAt: string; serverNow: string }> {
   const day = todayOf(at);
+  // Every class empty today gets its automatic quiz here too (2026-10-10), so the homepage's
+  // answer is the one a student who opens the quiz will find.
+  if ((await DailyChallenge.countDocuments({ day })) < CLASS_LEVELS.length) await ensureAutoQuizzes(day, at);
   const hasQuiz = Boolean(await DailyChallenge.exists({ day, content: { $ne: null } }));
   return { day, hasQuiz, closesAt: quizWindow(day).closesAt.toISOString(), serverNow: at.toISOString() };
 }
@@ -434,6 +453,8 @@ export interface ScheduleQuizInput {
   classMin: number;
   classMax: number;
   questionId: string;
+  /** `automatic` when the system filled an empty class (`dailyQuizAuto.ts`); staff schedule `scheduled`. */
+  source?: ChallengeSource;
 }
 
 function assertSchedulableDay(day: DayKey, at: Date): void {
@@ -480,7 +501,7 @@ export async function scheduleQuiz(
     day: input.day,
     classLevel,
     question: question._id,
-    source: 'scheduled' satisfies ChallengeSource,
+    source: input.source ?? 'scheduled',
     marks: question.marks,
     groupId,
     classMin: input.classMin,
@@ -679,12 +700,22 @@ export async function isUsedByAnyQuiz(questionId: Types.ObjectId | string): Prom
 // ---------------------------------------------------------------------------
 
 /**
- * Today's quiz for a class, or null. **No automatic fill** (PLAN.md Q4): a day nobody
- * scheduled has no quiz, and a pre-Milestone-30 document without a snapshot is not
+ * Today's quiz for a class, or null. A pre-Milestone-30 document without a snapshot is not
  * served as one.
+ *
+ * **Automatic fill (2026-10-10):** when the class has nothing at all **today**, this fills it
+ * (`dailyQuizAuto.ts` — an unpublished pooled or generated question, unless an administrator
+ * switched automation off) and reads again. Only today: a past day is the record of what was
+ * set, and a future day is left open for staff to schedule.
  */
 export async function resolveQuizFor(classLevel: ClassLevel, day: DayKey): Promise<DailyChallengeDocument | null> {
-  const challenge = await DailyChallenge.findOne({ day, classLevel });
+  let challenge = await DailyChallenge.findOne({ day, classLevel });
+  if (!challenge && day === todayOf(now())) {
+    const outcome = await ensureAutoQuiz(classLevel, day);
+    if (outcome === 'pool' || outcome === 'generated' || outcome === 'exists') {
+      challenge = await DailyChallenge.findOne({ day, classLevel });
+    }
+  }
   return isPlayable(challenge) ? challenge : null;
 }
 
@@ -1491,12 +1522,18 @@ export function adminQuizView(group: GroupRow, stats: QuizStats | undefined, at:
 export async function quizCalendar(at: Date = now(), count = 14) {
   const today = todayOf(at);
   const days = Array.from({ length: count }, (_unused, index) => shiftDay(today, -index));
-  const docs = await DailyChallenge.find({ day: { $gte: today, $lte: days[days.length - 1]! } })
-    .select('day classLevel groupId classMin classMax content')
-    .lean();
+  const [docs, auto] = await Promise.all([
+    DailyChallenge.find({ day: { $gte: today, $lte: days[days.length - 1]! } })
+      .select('day classLevel groupId classMin classMax content source')
+      .lean(),
+    autoQuizStatus(),
+  ]);
 
   const coveredByDay = new Map<DayKey, Set<number>>();
-  const groupsByDay = new Map<DayKey, Map<string, { groupId: string; min: number; max: number; label: string; legacy: boolean }>>();
+  const groupsByDay = new Map<
+    DayKey,
+    Map<string, { groupId: string; min: number; max: number; label: string; legacy: boolean; automatic: boolean }>
+  >();
   for (const doc of docs) {
     const n = classNumber(doc.classLevel as ClassLevel);
     // A daily challenge from before the quiz holds its class's slot but is not a quiz: it is
@@ -1517,11 +1554,14 @@ export async function quizCalendar(at: Date = now(), count = 14) {
       max,
       label: legacy ? `${classRangeLabel(min, max)} · old challenge` : classRangeLabel(min, max),
       legacy,
+      // Filled by `dailyQuizAuto.ts` rather than scheduled by a person (2026-10-10).
+      automatic: !legacy && doc.source === 'automatic',
     });
   }
 
+  // With automation on, an empty class is filled on the day, so a gap is not something to act on.
   const warnings: Array<{ group: string; label: string; day: DayKey; missingClasses: number[] }> = [];
-  for (const preset of CLASS_GROUPS) {
+  for (const preset of auto.enabled ? [] : CLASS_GROUPS) {
     for (const day of days.slice(0, 3)) {
       const covered = coveredByDay.get(day) ?? new Set<number>();
       const missing: number[] = [];
@@ -1541,6 +1581,7 @@ export async function quizCalendar(at: Date = now(), count = 14) {
       quizzes: [...(groupsByDay.get(day)?.values() ?? [])].sort((a, b) => a.min - b.min),
     })),
     warnings,
+    auto,
   };
 }
 
@@ -1709,15 +1750,19 @@ export async function computeMonthlyWinners(month: MonthKey, bandKey: PrizeBandK
     if (answer.submittedAt > tally.last.submittedAt) tally.last = answer;
   }
 
+  // Students only: staff never win a prize (owner, 2026-10-10), so a promoted admin's answers
+  // are not counted here at all — not even listed as an ineligible candidate.
   const students = new Map(
-    (await Student.find({ _id: { $in: [...tallies.keys()].map((s) => new Types.ObjectId(s)) } }).select(WINNER_STUDENT_FIELDS)).map(
-      (student) => [String(student._id), student],
-    ),
+    (
+      await Student.find({ _id: { $in: [...tallies.keys()].map((s) => new Types.ObjectId(s)) }, role: 'student' }).select(
+        WINNER_STUDENT_FIELDS,
+      )
+    ).map((student) => [String(student._id), student]),
   );
   const existing = new Map((await DailyQuizWinner.find({ groupId: id })).map((row) => [String(row.student), row]));
   const shared = sharedConnectionCounts(correctAnswers.map((answer) => ({ studentId: String(answer.student), ipHash: answer.ipHash ?? null })));
 
-  const candidates: MonthlyCandidate[] = [...tallies].map(([studentId, tally]) => {
+  const candidates: MonthlyCandidate[] = [...tallies].filter(([studentId]) => students.has(studentId)).map(([studentId, tally]) => {
     const student = students.get(studentId);
     return {
       studentId,

@@ -18,6 +18,7 @@ const Payment = lazy(() => import('./pages/Payment/Payment'))
 const Admin = lazy(() => import('./pages/Admin/Admin'))
 const AdminUsers = lazy(() => import('./pages/Admin/Users'))
 const AdminAuditLog = lazy(() => import('./pages/Admin/AuditLog'))
+const AdminAccount = lazy(() => import('./pages/Admin/Account'))
 
 /**
  * The question-bank pages are loaded on demand.
@@ -271,6 +272,15 @@ export function AppRoutes() {
             element={
               <RequirePermission permission="audit:read">
                 <AdminAuditLog />
+              </RequirePermission>
+            }
+          />
+          {/* Staff have no student profile (owner, 2026-10-10); this is their account page. */}
+          <Route
+            path="/admin/account"
+            element={
+              <RequirePermission permission="students:read">
+                <AdminAccount />
               </RequirePermission>
             }
           />

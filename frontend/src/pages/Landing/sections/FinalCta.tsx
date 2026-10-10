@@ -14,11 +14,13 @@ import styles from '../Landing.module.css'
  */
 export interface FinalCtaProps {
   signedIn: boolean
+  /** A signed-in administrator: the link goes to the admin panel. */
+  staff?: boolean
   registerTo: string
   onSignIn: () => void
 }
 
-export default function FinalCta({ signedIn, registerTo, onSignIn }: FinalCtaProps) {
+export default function FinalCta({ signedIn, staff = false, registerTo, onSignIn }: FinalCtaProps) {
   const reveal = useReveal<HTMLDivElement>({ selector: null, rise: 24 })
   return (
     <section className={`container ${styles.section}`} aria-labelledby="cta-title">
@@ -28,8 +30,8 @@ export default function FinalCta({ signedIn, registerTo, onSignIn }: FinalCtaPro
         <p className={styles.ctaLead}>Registering is free, and you can practise the same day.</p>
         <div className={styles.ctaActions}>
             {signedIn ? (
-              <ButtonLink to="/dashboard" size="lg" variant="brand" iconAfter={<ArrowRight size={18} aria-hidden="true" />}>
-                Go to your dashboard
+              <ButtonLink to={staff ? '/admin' : '/dashboard'} size="lg" variant="brand" iconAfter={<ArrowRight size={18} aria-hidden="true" />}>
+                {staff ? 'Go to the admin panel' : 'Go to your dashboard'}
               </ButtonLink>
             ) : (
               <>

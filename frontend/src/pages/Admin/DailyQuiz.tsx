@@ -4,6 +4,8 @@ import { api } from '../../api/client'
 import type {
   AdminDailyQuizListResponse,
   AdminQuiz,
+  AutoQuizSource,
+  AutoQuizStatus,
   PrizeDeskResponse,
   PrizeDeskView,
   QuizPhase,
@@ -26,6 +28,7 @@ import {
   Field,
   Input,
   Pagination,
+  Select,
   SkeletonTable,
   SkeletonText,
   TabPanel,
@@ -123,7 +126,7 @@ export default function AdminDailyQuiz() {
   return (
     <AdminShell
       title="Daily Quiz"
-      subtitle="One question a day per class group. Each month, the top scorer in every class band wins the prize."
+      subtitle="One question a day for every class. Each month, the top scorer in every class band wins the prize."
       actions={
         <Button icon="ph-calendar-plus" disabled={!today} onClick={() => setScheduling({})}>
           Schedule a quiz
@@ -154,6 +157,8 @@ export default function AdminDailyQuiz() {
           </Card>
         ) : (
           <div className={styles.stack}>
+            {data.calendar.auto && <AutoQuizPanel auto={data.calendar.auto} onSettings={() => setTab('settings')} />}
+
             {data.calendar.warnings.map((warning) => (
               <Alert
                 key={warning.group}
@@ -181,7 +186,7 @@ export default function AdminDailyQuiz() {
                     </span>
                     <span className={styles.calendarQuizzes}>
                       {day.quizzes.length === 0 ? (
-                        <span className={styles.muted}>No quiz</span>
+                        <span className={styles.muted}>{data.calendar.auto?.enabled ? 'Automatic on the day' : 'No quiz'}</span>
                       ) : (
                         day.quizzes.map((quiz) => (
                           <Link
@@ -192,6 +197,7 @@ export default function AdminDailyQuiz() {
                             title={quiz.legacy ? 'A daily challenge from before the Daily Quiz. Open it to remove it.' : undefined}
                           >
                             {quiz.label}
+                            {quiz.automatic ? ' · automatic' : ''}
                           </Link>
                         ))
                       )}
@@ -211,7 +217,11 @@ export default function AdminDailyQuiz() {
                   titleAs="h3"
                   icon="ph-calendar-blank"
                   title="No quizzes yet"
-                  description="Schedule one, import a file of them, or pick questions from the bank. Students see “No quiz today” until you do."
+                  description={
+                    data.calendar.auto?.enabled
+                      ? 'Each class gets a quiz automatically on the day. Schedule one, import a file of them, or pick questions from the bank to choose a day’s question yourself.'
+                      : 'Schedule one, import a file of them, or pick questions from the bank. Students see “No quiz today” until you do.'
+                  }
                   action={
                     <Button icon="ph-calendar-plus" onClick={() => setScheduling({})}>
                       Schedule a quiz
@@ -475,6 +485,8 @@ function SettingsForm() {
   // A backend older than Phase 7b reports no reminder settings (the two apps deploy separately):
   // the section is then left out, and a save sends only what that backend knows.
   const remindersSupported = typeof settings?.reminderDailyCap === 'number'
+  // Likewise for automation (2026-10-10).
+  const autoSupported = typeof settings?.autoSchedule === 'boolean'
 
   if (error) return <ErrorState title="Could not load the settings" error={error} />
   if (!settings) {
@@ -502,6 +514,7 @@ function SettingsForm() {
         cashAmount: cashValue,
         instantResult: settings.instantResult,
         ...(remindersSupported ? { remindersEnabled: settings.remindersEnabled, reminderDailyCap: capValue } : {}),
+        ...(autoSupported ? { autoSchedule: settings.autoSchedule, autoSource: settings.autoSource } : {}),
       })
       setSettings(res.settings)
       setCap(res.settings.reminderDailyCap === undefined ? '' : String(res.settings.reminderDailyCap))
@@ -561,6 +574,35 @@ function SettingsForm() {
           each class band, four prizes a month. The prize above is what each winner is told they have won.
         </Alert>
 
+        {/* The automatic Daily Quiz (2026-10-10). */}
+        {autoSupported && (
+          <>
+            <h3 className={styles.settingsHeading}>Automatic quiz</h3>
+            <Checkbox
+              label="Give every class a quiz automatically"
+              description="Any class with no quiz on a day gets one at the start of that day. A quiz you schedule yourself always comes first — this only fills a class nobody scheduled."
+              checked={settings.autoSchedule === true}
+              onChange={(event) => setSettings({ ...settings, autoSchedule: event.target.checked })}
+            />
+            {settings.autoSchedule && (
+              <div className={styles.formGrid}>
+                <Field
+                  label="Where the question comes from"
+                  hint="Your pool is draft questions for that class with the tag “daily quiz” (add it in the question editor's Tags, or in a Tags column when importing). The oldest is used first. Generated questions are worked out by the site for the class's level, with the answer calculated, not guessed."
+                >
+                  <Select
+                    value={settings.autoSource ?? 'pool_then_generated'}
+                    onChange={(event) => setSettings({ ...settings, autoSource: event.target.value as AutoQuizSource })}
+                  >
+                    <option value="pool_then_generated">My pool first, then generated</option>
+                    <option value="generated_only">Generated only</option>
+                  </Select>
+                </Field>
+              </div>
+            )}
+          </>
+        )}
+
         {/* The 7:00 AM reminder emails (Milestone 30 Phase 7b). */}
         {remindersSupported && (
           <>
@@ -599,5 +641,46 @@ function SettingsForm() {
         </div>
       </form>
     </Card>
+  )
+}
+
+/**
+ * The automatic Daily Quiz at a glance (2026-10-10): whether it is on, where its questions come
+ * from, and how many pooled questions each class has left — a pool running dry is not a problem
+ * (a generated question takes over) but it is worth knowing.
+ */
+function AutoQuizPanel({ auto, onSettings }: { auto: AutoQuizStatus; onSettings: () => void }) {
+  if (!auto.enabled) {
+    return (
+      <Alert
+        tone="info"
+        title="The automatic quiz is off"
+        actions={
+          <Button size="sm" variant="secondary" onClick={onSettings}>
+            Settings
+          </Button>
+        }
+      >
+        A class only has a quiz on a day somebody scheduled one.
+      </Alert>
+    )
+  }
+  const pooled = auto.source === 'pool_then_generated'
+  return (
+    <Alert
+      tone="success"
+      title="Every class gets a quiz automatically"
+      actions={
+        <Button size="sm" variant="secondary" onClick={onSettings}>
+          Settings
+        </Button>
+      }
+    >
+      {pooled
+        ? 'Each day, a class with no quiz gets the oldest question in its pool (draft questions tagged “daily quiz”), or a generated one when the pool is empty. Questions left in each pool: '
+        : 'Each day, a class with no quiz gets a generated question at its level.'}
+      {pooled && auto.pool.map((row) => `${row.classLevel}: ${formatNumber(row.count)}`).join(' · ')}
+      {pooled ? '.' : ''}
+    </Alert>
   )
 }

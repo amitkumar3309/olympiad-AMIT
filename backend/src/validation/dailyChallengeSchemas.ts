@@ -4,7 +4,7 @@ import { isDayKey, isMonthKey } from '../lib/competitionDay';
 import { CLASS_GROUPS, isPrizeBandKey, MAX_CLASS, MIN_CLASS, PRIZE_DESK_VIEWS, type PrizeBandKey } from '../lib/dailyQuiz';
 import type { ImportFileKind } from '../lib/importTypes';
 import { DIFFICULTIES } from '../models/Question';
-import { REMINDER_DAILY_CAP_MAX } from '../models/DailyQuizSettings';
+import { AUTO_QUIZ_SOURCES, REMINDER_DAILY_CAP_MAX } from '../models/DailyQuizSettings';
 import { QUIZ_IMPORT_MAX_ROWS } from '../services/dailyQuizImportService';
 import { reviewedImportQuestion } from './importSchemas';
 import { importFileSchema } from './uploadSchemas';
@@ -239,5 +239,8 @@ export const quizSettingsSchema = z.object({
       `At most ${REMINDER_DAILY_CAP_MAX} a day — that is the email provider's whole free daily quota, which sign-ups share.`,
     )
     .optional(),
+  // Automation (2026-10-10), optional for the same reason the reminder settings are.
+  autoSchedule: z.boolean().optional(),
+  autoSource: z.enum(AUTO_QUIZ_SOURCES).optional(),
 });
 export type QuizSettingsBody = z.infer<typeof quizSettingsSchema>;

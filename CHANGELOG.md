@@ -2,6 +2,33 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-11 — The Daily Quiz runs itself; staff have no student area
+
+Two owner requests. Branch `feat/auto-daily-quiz`.
+
+**"I want you to automate the daily quiz … a question is posted automatically daily for each class."**
+
+- Every class from 3 to 12 with no quiz on a day gets one of its own level (`services/dailyQuizAuto.ts`),
+  through the same `scheduleQuiz()` staff use. The question is the oldest **draft** question for that class
+  tagged **"daily quiz"** (the staff's pool), or — when the pool is empty, or the setting says so — one
+  **generated** from the practice templates (now `src/lib/mathTemplates/`), its answer computed from its own
+  numbers. Never a published question. A quiz staff schedule always wins.
+- No scheduler needed: the first request of the day fills it (a student opening the quiz, the homepage's
+  check), and so do the 7 AM reminder job and a new `POST /jobs/daily-quiz-schedule`.
+- Admin → Daily Quiz: the calendar says automation is on, shows each class's pool, marks automatic quizzes
+  and drops the "no quiz" warnings while it is on; Settings has the switch and the source. The question
+  bank's source filter gains "Generated for the Daily Quiz".
+
+**"The admin/superadmin shouldn't have a profile like student, they should be shown their features only."**
+
+- Staff get Admin and Sign out in the header — no student menu, dashboard or profile. Student pages send
+  them to `/admin`; the homepage shows "Go to the admin panel" and no quiz button. New **Admin → My
+  account** (`/admin/account`) shows the account and changes its password.
+- On the server, staff are kept off the leaderboards and the Hall of Fame and out of the monthly prize.
+
+Tests: `dailyQuizAuto.test.ts` (11) and a staff case in the monthly winners; the manual-scheduling suites
+run with automation off; the practice bank's hash is pinned. Backend 1498 tests / 44 files.
+
 ## 2026-10-10 — The practice bank: 150 questions for every class from 3 to 12
 
 The owner asked to "add 150 questions for each class (Maths is the only subject) i.e 3rd to 12th for

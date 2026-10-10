@@ -399,6 +399,7 @@ export default function Questions() {
           <option value="ai_assisted">AI-drafted</option>
           {/* Where an import's "Open the question bank" link lands (Milestone 21; pictures since Phase 7b). */}
           <option value="picture_import">Imported as pictures</option>
+          <option value="quiz_generator">Generated for the Daily Quiz</option>
           <option value="excel_import">Imported from Excel</option>
           <option value="csv_import">Imported from CSV</option>
           <option value="json_import">Imported from JSON</option>

@@ -50,6 +50,11 @@ beforeAll(startTestDb, 60_000);
 afterAll(stopTestDb);
 // Noon IST on the real day, so no test can straddle a midnight it did not ask for.
 beforeEach(() => clockTo(dayKeyOf(new Date()), 12));
+// This file is about quizzes staff schedule, so the automatic quiz (2026-10-10, on by default)
+// is switched off here; `dailyQuizAuto.test.ts` covers it.
+beforeEach(async () => {
+  await DailyQuizSettings.updateOne({ key: 'default' }, { $set: { autoSchedule: false } }, { upsert: true });
+});
 afterEach(async () => {
   resetClock();
   await clearTestDb();
@@ -197,7 +202,7 @@ describe('GET /me/daily-quiz/status', () => {
 // ===========================================================================
 
 describe('today’s quiz', () => {
-  it('says so honestly when nothing is scheduled, and never fills the day by itself', async () => {
+  it('with the automatic quiz off, says so honestly when nothing is scheduled, and never fills the day', async () => {
     const { adminCookies, taxonomy } = await seedAdmin();
     const tomorrowQuestion = await draftQuestion(adminCookies, taxonomy);
     await schedule(adminCookies, { day: shiftDay(today(), -1), classMin: 9, classMax: 12, questionId: tomorrowQuestion }).expect(201);
@@ -1195,6 +1200,23 @@ describe('monthly winners', () => {
     expect((await pageOf('2026-11-08')).prizeMonth).toEqual({ month: '2026-11', label: 'November 2026' });
   });
 
+  it('never offers a member of staff a prize, however many they answered (owner, 2026-10-10)', async () => {
+    const { admin } = await scheduleDays(['2026-11-10']);
+    const staff = await student('Sunil', 'Staff', 1);
+    const pupil = await student('Asha', 'Verma', 2);
+    await eligible(staff.studentId);
+    await eligible(pupil.studentId);
+    await answer('2026-11-10', staff.cookies, 3_000);
+    await answer('2026-11-10', pupil.cookies, 40_000);
+    // Promoted after answering: what counts is the role when the prize is decided.
+    await Student.updateOne({ studentId: staff.studentId }, { $set: { role: 'admin' } });
+
+    clockTo('2026-12-01', 1);
+    const band = await compute(admin, '2026-11', '9-10').expect(200);
+    expect((band.body.winners as Row[]).map((row) => row.student.name)).toEqual(['Asha Kumar Verma']);
+    expect(JSON.stringify(band.body.ineligible)).not.toContain('Sunil');
+  });
+
   it('shows a winner who opted out of public lists as their class only', async () => {
     const { admin } = await scheduleDays(['2026-11-12']);
     const winner = await student('Tara', 'Shah', 6);
@@ -1263,7 +1285,7 @@ describe('monthly winners', () => {
     expect(info).not.toHaveProperty('winnerRule');
 
     // A document saved before the change still says "Win daily": it is read as today's headline.
-    await DailyQuizSettings.create({ key: 'default', prizeHeadline: 'Solve daily. Win daily.', prizeText: 'A medal' });
+    await DailyQuizSettings.updateOne({ key: 'default' }, { $set: { prizeHeadline: 'Solve daily. Win daily.', prizeText: 'A medal' } }, { upsert: true });
     expect((await request(app).get(`${API}/daily-quiz/info`)).body.info).toMatchObject({
       prizeHeadline: 'Solve daily. Win every month.',
       prizeText: 'A medal',

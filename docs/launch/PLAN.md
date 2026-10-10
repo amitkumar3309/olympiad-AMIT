@@ -178,6 +178,8 @@ Diwali edition; **7b** picture questions and Daily Quiz reminders.
 | Q25 | (2026-10-09) **"Student should not have the option to practise topic wise … a random test which consists of mixed questions of their class … option for 10/20/30/40 questions."** | `/practice` offers only the size; `PRACTICE_TEST_SIZES`, `countPracticeQuestions()`; the recommendations stop linking to chapters — owner's follow-up (`feat/practice-mixed-tests`) |
 | Q26 | (2026-10-10) **"I have designed 365 pictures for the hero page … add only those picture which are correct and suitable … also keep the current 7 pictures."** The file held 335; nine were correct and suitable. | Sixteen figures of the day (`lib/pictureOfTheDay.ts`, `src/assets/figures/`) — owner's follow-up (`feat/more-daily-figures`) |
 | Q27 | (2026-10-10) **"add 150 questions for each class (Maths is the only subject) i.e 3rd to 12th for Practice sessions"** | 1,500 generated, answer-computed questions; the owner publishes them with `npm run seed:practice -- --write` (`content/practice-1500`) |
+| Q28 | (2026-10-11) **"automate the daily quiz thing, so that a question is posted automatically daily for each class"** — pool first, then generated; one per class. Reverses Q4's "no automatic fill" for unpublished questions only. | `services/dailyQuizAuto.ts`, on by default (`feat/auto-daily-quiz`) |
+| Q29 | (2026-10-11) **"the admin/superadmin shouldn't have a profile like student, they should be shown their features only"** — and kept off boards and prizes. | `isStaffRole()`, `/admin/account`, `account.role: 'student'` on every board (`feat/auto-daily-quiz`) |
 
 ## 5c. Phase 7b — the plan (2026-10-09)
 

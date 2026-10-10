@@ -13,6 +13,7 @@ import Unauthorized from './Unauthorized'
 const StudentShell = lazy(() => import('./StudentShell'))
 import EntryFeeRequired from './EntryFeeRequired'
 import { safeNext, signInHref } from '../lib/nextPath'
+import { isStaffRole } from '../lib/roleHome'
 
 /**
  * Route-level gates. These are the only place a page should be authorized; pages
@@ -37,12 +38,17 @@ function useGuestRedirect(): string {
   return signInHref(safeNext(pathname))
 }
 
-/** Requires a signed-in student account. */
+/**
+ * Requires a signed-in **student** account. Staff — a promoted admin is a student account with a
+ * role — are sent to the admin panel instead (owner, 2026-10-10): they have no student area, no
+ * dashboard, profile, practice or quiz of their own.
+ */
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { state } = useAuth()
   const guestRedirect = useGuestRedirect()
   if (state.status === 'loading') return <Spinner label="Checking your session..." />
   if (state.status === 'guest') return <Navigate to={guestRedirect} replace />
+  if (isStaffRole(state.role)) return <Navigate to="/admin" replace />
   if (state.status !== 'student') return <Navigate to="/" replace />
   return <>{children}</>
 }

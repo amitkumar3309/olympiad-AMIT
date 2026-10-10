@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import mongoose from 'mongoose';
 import { PRACTICE_PER_CLASS, practiceBanks } from '../scripts/data/practiceMaths';
@@ -15,6 +16,14 @@ describe('practice bank', () => {
 
   it('covers every class from 3 to 12', () => {
     expect(banks.map((b) => b.classLevel)).toEqual([...CLASS_LEVELS]);
+  });
+
+  it('is exactly the bank that was published to production on 2026-10-10', () => {
+    // The live bank was seeded from these texts, and the seed identifies a question by its text:
+    // a template change would make the next run add new questions beside the old ones. If this
+    // fails, a template's output changed — undo it, or decide deliberately and update the hash.
+    const hash = createHash('sha256').update(JSON.stringify(banks)).digest('hex');
+    expect(hash).toBe('bdf195bf0f4fb827690bf76ccbebb33a1616f60336499d5495118fa2e878312d');
   });
 
   it('is the same every time it is built (the seed identifies a question by its text)', () => {

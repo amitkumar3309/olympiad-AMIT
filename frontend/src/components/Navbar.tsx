@@ -8,6 +8,7 @@ import { lockScroll, unlockScroll } from './ui/scrollLock'
 import ThemeToggle from './ThemeToggle'
 import logoMark from '../assets/logo-mark.webp'
 import { AMIT_FULL_FORM, AMIT_OLYMPIAD, AMIT_TAGLINE } from '../lib/brand'
+import { isStaffRole } from '../lib/roleHome'
 import styles from './Navbar.module.css'
 
 /**
@@ -168,11 +169,13 @@ export default function Navbar() {
   })
 
   const firstName = state.status === 'student' ? state.student.firstName : null
+  // Staff have no student area (owner, 2026-10-10): the admin panel and Sign out, nothing else.
+  const studentMenu = state.status === 'student' && !isStaffRole(state.role)
 
   /*
-    Signed in: the avatar menu, plus Admin for staff. A promoted admin holds
-    `students:read` *and* has a student record, so they get both; the root administrator
-    has no student record and gets Admin and Sign out.
+    Signed in: a student gets the avatar menu (Dashboard, My Profile, Sign out). Staff — a
+    promoted admin or the super admin, both student records with a role — get Admin and Sign
+    out only: no dashboard or profile of their own (owner, 2026-10-10).
   */
   const account =
     state.status === 'loading' ? (
@@ -184,7 +187,7 @@ export default function Navbar() {
             Admin
           </ButtonLink>
         )}
-        {state.status === 'student' ? (
+        {studentMenu && state.status === 'student' ? (
           <Menu
             label={`Account menu for ${firstName}`}
             align="end"
@@ -231,7 +234,7 @@ export default function Navbar() {
   const panelAccount =
     state.status === 'loading' ? null : signedIn ? (
       <>
-        {state.status === 'student' && (
+        {studentMenu && (
           <>
             <ButtonLink to="/dashboard" icon="ph-squares-four">
               Dashboard

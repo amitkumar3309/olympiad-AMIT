@@ -40,6 +40,11 @@ afterAll(async () => {
   await stopTestDb();
 });
 // 07:00 IST on the real day — when the scheduler calls — so nothing straddles a midnight.
+// Reminders are tested against quizzes staff schedule; the automatic quiz (on by default since
+// 2026-10-10) would fill every empty class first, so it is off here.
+beforeEach(async () => {
+  await DailyQuizSettings.updateOne({ key: 'default' }, { $set: { autoSchedule: false } }, { upsert: true });
+});
 beforeEach(() => {
   config.jobs.secret = SECRET;
   freezeClock(new Date(quizWindow(dayKeyOf(new Date())).opensAt.getTime() + 7 * HOUR));
@@ -131,7 +136,7 @@ describe('the job routes need the scheduler’s secret', () => {
 
   it('answer 401 to a missing, wrong or misspelt bearer — on both prefixes', async () => {
     for (const prefix of [API, '/api']) {
-      for (const path of ['/jobs/daily-quiz-reminders', '/jobs/outbox']) {
+      for (const path of ['/jobs/daily-quiz-reminders', '/jobs/daily-quiz-schedule', '/jobs/outbox']) {
         const missing = await request(app).post(`${prefix}${path}`);
         expect(missing.status).toBe(401);
         expect(missing.headers['www-authenticate']).toContain('Bearer');
@@ -144,8 +149,9 @@ describe('the job routes need the scheduler’s secret', () => {
         expect((await request(app).post(`${prefix}${path}`).set('Authorization', `Basic ${SECRET}`)).status).toBe(401);
       }
     }
-    // A refusal did nothing: no run was recorded.
-    expect(await DailyQuizSettings.countDocuments({})).toBe(0);
+    // A refusal did nothing: no run was recorded, and no quiz was filled.
+    expect((await DailyQuizSettings.findOne({ key: 'default' }))?.lastReminderRun ?? null).toBeNull();
+    expect(await DailyChallenge.countDocuments({})).toBe(0);
   });
 
   it('answer 200 to the right secret, whatever the case of the scheme', async () => {
@@ -503,6 +509,7 @@ describe('the reminder settings', () => {
   });
 
   it('records a run on an install that never saved its settings, and still says the defaults are in use', async () => {
+    await DailyQuizSettings.deleteMany({});
     const { adminCookies } = await seedAdmin();
     await runReminders().expect(200);
     const res = await request(app).get(`${API}/admin/daily-quiz/settings`).set('Cookie', cookieHeader(adminCookies)).expect(200);
