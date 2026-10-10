@@ -37,6 +37,12 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **Sixteen figures of the day (2026-10-10).** `prerender.spec.ts` gains "across sixteen days every figure
+> shows once, and only the day's own picture is downloaded": on the drawn homepage, before the app runs,
+> each of sixteen consecutive India days shows exactly one figure, all sixteen appear, nine of them are
+> pictures that load, and no day fetches more than one picture file. **94 browser tests** (64 run, 30
+> one-width-only). Run on this branch: `prerender.spec.ts` 8/8 (6 one-width-only skipped).
+
 > **The performance pass (2026-10-10): 1451 passing backend tests across 41 files.** New:
 > `tests/cache.test.ts` (13) — fifty concurrent callers cause one computation; memory expiry; values
 > come back as JSON from either layer; a straight call when the cache is off; a value shared between

@@ -80,8 +80,8 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
                             festive edition (data-season) and the picture of the day
                             (data-picture), both decided before the first paint
   src/lib/pictureOfTheDay.ts + pages/Landing/sections/HeroArt.tsx
-                            the hero's figure of the day: seven pieces of real maths,
-                            drawn exactly, one a day (redrawn 2026-10-09)
+                            the hero's figure of the day: sixteen pieces of real maths,
+                            one a day — seven drawn in code, nine the owner's (2026-10-10)
   pages/Landing/motion.ts + motionKit.ts
                             the homepage's motion — Motion, loaded after the page is up:
                             the hero's tilt, groups rising into place, the FAQ (2026-10-09)
@@ -379,10 +379,15 @@ There is currently **no shared package**, **no `/docs` folder in use**, **no mon
   the next paint (as `ThemeContext` applies a theme change), no re-render of the page for a dialog (as
   `Landing` memoises its sections) — never loosen the bound.
 - **The hero's figure of the day is chosen before the first paint, never in a render** (owner,
-  2026-10-09; redrawn the same day — "the think grow solve picture doesn't look good"). `HeroArt` draws
-  all seven figures inline — compound growth, the Fibonacci spiral, Pythagoras, Gauss's staircase,
-  doubling, the primes, a triangle's angles — each with its formula and **one line that is true as
-  written**; `public/boot.js` names today's by the India date (`<html data-picture>`, the count read from
+  2026-10-09; redrawn the same day — "the think grow solve picture doesn't look good"). `HeroArt` holds
+  **sixteen** figures inline — seven drawn in SVG (compound growth, the Fibonacci spiral, Pythagoras,
+  Gauss's staircase, doubling, the primes, a triangle's angles) and, since 2026-10-10, **nine of the
+  owner's own designs**, each the drawing alone as a small WebP in `src/assets/figures/` (lazy, so only
+  the day's own is ever downloaded — `prerender.spec.ts` asserts it) — each with its formula and **one
+  line that is true as written** as text. The owner sent 335 designs; only the nine whose drawing shows
+  its topic were used (the rest cycled ten drawings in order regardless of topic — a "prime numbers"
+  card showed a 5 × 3 rectangle). **A new design goes in only if its drawing shows its own topic and its
+  words are correct**, with its name, formula and line as text, never as part of the picture; `public/boot.js` names today's by the India date (`<html data-picture>`, the count read from
   `<meta name="amit-art">`, which `vite.seo.ts` writes from `lib/pictureOfTheDay.ts`), and CSS shows that
   one (`[data-picture-index]`). Choosing it in React would draw one figure at build time and swap it when
   the app took over. **Geometry, not scenes**: a hand-written SVG draws mathematics exactly, and the
@@ -1152,7 +1157,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
 
 ## Testing Requirements
 
-- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1451 tests across 41 files** (measured 2026-10-10 after the performance pass; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 92 tests of which 63 run and twenty-nine are one-width-only — the link crawler with axe, keyboard use, resilience, the drawn homepage, INP, the Diwali edition, the archive, the monthly winners, picture questions, the reminders; about ten to fifteen minutes), which starts its own backend on an in-memory MongoDB, serves a **production build** of the frontend (`vite preview`, since Phase 5 — the dev server's per-module requests starved the browser during the crawl) and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
+- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1451 tests across 41 files** (measured 2026-10-10 after the performance pass; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 94 tests of which 64 run and thirty are one-width-only — the link crawler with axe, keyboard use, resilience, the drawn homepage, INP, the Diwali edition, the archive, the monthly winners, picture questions, the reminders; about ten to fifteen minutes), which starts its own backend on an in-memory MongoDB, serves a **production build** of the frontend (`vite preview`, since Phase 5 — the dev server's per-module requests starved the browser during the crawl) and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
 - `NODE_ENV=test` skips `.env` loading, so tests can never pick up real secrets, and also lowers bcrypt cost and disables rate limiters for speed/determinism. Don't "fix" any of that.
 - **The Gemini tests must never touch the network.** `setGeminiClientFactory()` in `services/geminiQuestionGenerator.ts` swaps the whole SDK client and throws outside the test environment; use it rather than a real key, and note that `enableGemini()` only needs an obviously-fake string because `isAvailable()` merely asks whether a key is present. The failing paths are the ones worth testing — a spent quota, a truncated reply, prose where JSON was asked for — and none of them can be produced on demand against a real provider.
 - Use `tests/helpers/db.ts` (real in-memory MongoDB) and `tests/helpers/auth.ts` (`registerVerifyLogin`, cookie parsing, real token extraction from the captured email) rather than writing new harnesses. **`registerVerifyLogin()` grants the entry fee by default** — a student exercising practice in production has paid, and a test student who cannot practise asserts behaviour no real student reaches. Pass `{ paid: false }` where *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants, and an admin with an entry-fee payment would appear in the payments console's collected total.

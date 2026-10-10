@@ -61,6 +61,43 @@ test('the figure of the day is chosen before the app has run, one at a time, and
   expect(tomorrow.chosen).not.toBe(today.chosen)
 })
 
+/**
+ * Sixteen figures since 2026-10-10, nine of them pictures (the owner's designs). Over sixteen days
+ * every one is shown exactly once, one at a time, and a visitor downloads that day's picture only —
+ * a picture in a hidden day is lazy, so it is never fetched.
+ */
+test('across sixteen days every figure shows once, and only the day’s own picture is downloaded', async ({ page }) => {
+  test.setTimeout(120_000)
+  await withoutTheApp(page)
+  const pictureFile = /\/assets\/(symmetry|congruent-figures|shortest-path|circle-equation|continuity|triangle-inequality|fair-division|infinity|isoperimetric)-[^/]+\.webp$/
+  const seen = new Set<string>()
+  let pictureDays = 0
+  for (let day = 0; day < 16; day += 1) {
+    const requested: string[] = []
+    const listen = (request: { url: () => string }) => {
+      if (pictureFile.test(request.url())) requested.push(request.url())
+    }
+    page.on('request', listen)
+    await page.clock.setFixedTime(new Date(Date.UTC(2026, 11, 1 + day, 4, 0, 0)))
+    await page.goto('/')
+    const shown = page.locator('[data-picture-index]:visible')
+    await expect(shown).toHaveCount(1)
+    const index = await shown.getAttribute('data-picture-index')
+    seen.add(index!)
+    const picture = shown.locator('img')
+    if ((await picture.count()) === 1) {
+      pictureDays += 1
+      // Loaded and drawn, whether it arrived as a file or (the smallest) inside the page.
+      await expect.poll(() => picture.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+    }
+    await page.waitForLoadState('networkidle')
+    page.off('request', listen)
+    expect(requested.length, `day ${day}: ${requested.join(', ')}`).toBeLessThanOrEqual(1)
+  }
+  expect(seen.size).toBe(16)
+  expect(pictureDays).toBe(9)
+})
+
 test('a stored choice of theme wins over the device before the app has run', async ({ page }) => {
   await withoutTheApp(page)
   await page.emulateMedia({ colorScheme: 'dark' })

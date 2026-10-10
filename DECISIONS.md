@@ -4,6 +4,23 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-10 — The owner's figure designs: nine of 335, the drawing as a picture, the words as text
+
+**Context.** The owner designed 335 full-HD cards for the hero's figure of the day and asked for only the
+correct and suitable ones, keeping the seven drawn figures. Each card is a complete image: label, a
+numbered title, a drawing, a formula, a line and the founder's quote. The drawings cycle through ten
+shapes by position, unrelated to the topic.
+
+**Decision.** Use the nine whose drawing shows its topic and whose words are correct. Crop each to its
+drawing (WebP, 920 px wide, lazy) and set its name, formula and line as text in `HeroArt`, in the same
+card as the seven: text in a 1920-px image shown at ~400 px would be ~7 px on a phone, invisible to a
+screen reader, and would repeat the label and quote the page already draws. Store them in
+`src/assets/figures/` (fingerprinted, cached for ever) rather than `public/`. Alternate drawn and pictured
+days.
+
+**Rejected.** All 335 as they are — a maths olympiad's homepage would show wrong pictures most days. The
+whole card as one image — illegible on a phone and duplicating the page's own label and quote.
+
 ## 2026-10-10 — Redis (Upstash), a read cache, and the leaderboard computed once a minute
 
 **Context.** The owner asked for 1,000 students at once with little waiting, and agreed to a free
