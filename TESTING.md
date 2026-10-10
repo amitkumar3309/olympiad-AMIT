@@ -37,6 +37,14 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The practice bank (2026-10-10): 1485 passing backend tests across 43 files.** New:
+> `tests/practiceSeed.test.ts` (32, no database) — for each class from 3 to 12, exactly 150 distinct
+> questions, four distinct options with exactly one correct, all four in maths or none, no 8-digit number
+> (a stray decimal), and every question accepted by `createQuestionSchema` and `validateMathContent`; the
+> bank identical on every build. `tests/practiceSeedDb.test.ts` (2) — the real runner into an in-memory
+> database: a dry run writes nothing, a write publishes 150 per class, a second run adds none, and a Class 3
+> student's 40-question practice test is drawn from Class 3 only.
+
 > **Sixteen figures of the day (2026-10-10).** `prerender.spec.ts` gains "across sixteen days every figure
 > shows once, and only the day's own picture is downloaded": on the drawn homepage, before the app runs,
 > each of sixteen consecutive India days shows exactly one figure, all sixteen appear, nine of them are

@@ -17,6 +17,7 @@
     "verify:gemini": "tsx scripts/verify-gemini.ts",
     "seed:class9": "tsx scripts/seed-class9.ts",
     "seed:class12": "tsx scripts/seed-class12.ts",
+    "seed:practice": "tsx scripts/seed-practice.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "migrate:classes": "tsx scripts/migrate-class-levels.ts",
     "retire:subjects": "tsx scripts/retire-extra-subjects.ts",

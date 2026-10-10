@@ -82,18 +82,25 @@ interface Counts {
   failed: number;
 }
 
-export interface QuestionSeedOptions {
-  /** The script's own filename, for the guard's messages. */
-  script: string;
-  /** The class every question in this seed is filed under. */
+/** One class's bank: every question in `data` is filed under `classLevel`. */
+export interface ClassBank {
   classLevel: ClassLevel;
   /** What is being seeded, one subject's worth of topics. */
   data: SeedSubject;
+}
+
+export type QuestionSeedOptions = {
+  /** The script's own filename, for the guard's messages. */
+  script: string;
   /** Written to `createdByLabel` so the bank records where a question came from. */
   label: string;
   /** Usually `process.argv`. Read for `--write` and `--local`. */
   argv: readonly string[];
-}
+} & (
+  | ClassBank
+  /** Several classes in one run (the practice bank, 2026-10-10): one connection, a line per class. */
+  | { classes: ClassBank[] }
+);
 
 /** Finds or creates a subject by name; `null` in report-only mode if it is absent. */
 async function ensureSubject(name: string, write: boolean): Promise<mongoose.Types.ObjectId | null> {
@@ -131,6 +138,9 @@ interface PublishContext {
   label: string;
   write: boolean;
   counts: Counts;
+  /** The question texts this class already has, read once per class rather than once per question:
+      1,500 questions against a remote database is 1,500 round trips saved. */
+  existing: Set<string>;
 }
 
 /**
@@ -187,14 +197,12 @@ async function publishQuestion(
     return;
   }
 
-  const already = await Question.findOne({
-    questionText: seed.questionText,
-    classLevel: ctx.classLevel,
-  }).select('_id');
-  if (already) {
+  if (ctx.existing.has(seed.questionText)) {
     ctx.counts.skipped += 1;
     return;
   }
+  // Two identical texts in one seed would both pass the check above; the second is a duplicate.
+  ctx.existing.add(seed.questionText);
 
   if (!ctx.write) {
     ctx.counts.created += 1;
@@ -234,7 +242,7 @@ async function validateOnly(seed: SeedQuestion, ctx: PublishContext): Promise<vo
 }
 
 async function seedSubject(data: SeedSubject, ctx: PublishContext): Promise<void> {
-  console.log(`\n${data.subject}`);
+  console.log(`\n${data.subject} — ${ctx.classLevel}`);
   const subjectId = await ensureSubject(data.subject, ctx.write);
 
   for (const topicSeed of data.topics) {
@@ -259,7 +267,33 @@ async function seedSubject(data: SeedSubject, ctx: PublishContext): Promise<void
 }
 
 /**
- * Seeds one class level's question bank and exits the process.
+ * Seeds each class's bank into an already-connected database and returns what happened per class.
+ * The scripts reach it through `runQuestionSeed()`; a test calls it directly against an in-memory
+ * database, which is how idempotency is checked without a production run.
+ */
+export async function seedClassBanks(
+  banks: ClassBank[],
+  options: { label: string; write: boolean },
+): Promise<Array<{ classLevel: ClassLevel; authored: number; counts: Counts }>> {
+  const results: Array<{ classLevel: ClassLevel; authored: number; counts: Counts }> = [];
+  for (const { classLevel, data } of banks) {
+    const existing = await Question.find({ classLevel }).select('questionText').lean();
+    const counts: Counts = { created: 0, skipped: 0, failed: 0 };
+    await seedSubject(data, {
+      classLevel,
+      label: options.label,
+      write: options.write,
+      counts,
+      existing: new Set(existing.map((q) => q.questionText)),
+    });
+    const authored = data.topics.reduce((sum, topic) => sum + topic.questions.length, 0);
+    results.push({ classLevel, authored, counts });
+  }
+  return results;
+}
+
+/**
+ * Seeds one class level's question bank — or several — and exits the process.
  *
  * Exits non-zero when any question was rejected by validation, so a CI step or a shell
  * `&&` chain notices — a seed that half worked is exactly the case an operator would
@@ -279,8 +313,10 @@ export async function runQuestionSeed(options: QuestionSeedOptions): Promise<voi
 
 async function seed(options: QuestionSeedOptions): Promise<void> {
   const write = options.argv.includes('--write');
+  const banks: ClassBank[] =
+    'classes' in options ? options.classes : [{ classLevel: options.classLevel, data: options.data }];
 
-  console.log(`Seeding ${options.classLevel} questions.`);
+  console.log(`Seeding ${banks.map((b) => b.classLevel).join(', ')} questions.`);
   // Refuses to continue if this would silently write to a local database — the mistake
   // that put 208 questions somewhere nobody was looking. See lib/envGuard.ts.
   assertConfiguredForWrites({ script: options.script, allowLocal: options.argv.includes('--local') });
@@ -292,29 +328,24 @@ async function seed(options: QuestionSeedOptions): Promise<void> {
 
   await connectDB();
 
-  const counts: Counts = { created: 0, skipped: 0, failed: 0 };
-  await seedSubject(options.data, {
-    classLevel: options.classLevel,
-    label: options.label,
-    write,
-    counts,
-  });
+  const results = await seedClassBanks(banks, { label: options.label, write });
 
-  const authored = options.data.topics.reduce((sum, topic) => sum + topic.questions.length, 0);
+  let failed = 0;
+  for (const { classLevel, authored, counts } of results) {
+    failed += counts.failed;
+    const live = await Question.countDocuments({ classLevel, status: 'published' });
+    console.log(`\n${'-'.repeat(60)}\n${classLevel}`);
+    console.log(`Authored in this seed : ${authored}`);
+    console.log(`${write ? 'Published' : 'Would publish'}      : ${counts.created}`);
+    console.log(`Already present      : ${counts.skipped}`);
+    console.log(`Rejected (invalid)   : ${counts.failed}`);
+    console.log(`Published for ${classLevel}: ${live}`);
+  }
 
-  console.log(`\n${'-'.repeat(60)}`);
-  console.log(`Authored in this seed : ${authored}`);
-  console.log(`${write ? 'Published' : 'Would publish'}      : ${counts.created}`);
-  console.log(`Already present      : ${counts.skipped}`);
-  console.log(`Rejected (invalid)   : ${counts.failed}`);
-
-  const live = await Question.countDocuments({ classLevel: options.classLevel, status: 'published' });
-  console.log(`Published for ${options.classLevel}: ${live}`);
-
-  if (counts.failed > 0) {
+  if (failed > 0) {
     console.error('\nSome questions were rejected by validation — fix them before relying on this bank.');
   }
 
   await disconnectDB();
-  process.exit(counts.failed > 0 ? 1 : 0);
+  process.exit(failed > 0 ? 1 : 0);
 }

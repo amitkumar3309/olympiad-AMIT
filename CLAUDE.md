@@ -288,10 +288,15 @@ AMIT Maths Olympiad is a national-level math competition web platform: student r
   scripts/verify-gemini.ts    read-only check that the key works and that
                               GEMINI_MODEL is one it can call
   scripts/lib/seedQuestions.ts  THE question-bank seed runner, shared by
-                              seed-class9.ts and seed-class12.ts (M24). A class
-                              level is a parameter; the rules — report-only by
-                              default, idempotent, validated through
-                              createQuestionSchema, published not drafted — are not
+                              seed-class9.ts, seed-class12.ts (M24) and
+                              seed-practice.ts. A class level is a parameter; the
+                              rules — report-only by default, idempotent, validated
+                              through createQuestionSchema, published not drafted —
+                              are not
+  scripts/data/practice*.ts   THE practice bank (2026-10-10): 150 Mathematics
+                              questions per class, 3 to 12, made by templates whose
+                              answer is COMPUTED from the question's own numbers.
+                              `npm run seed:practice` (-- --write) publishes it
   scripts/seed-demo.ts        THE demo provisioning path (M24): one verified
                               Class 9 student and the fee as a MANUAL captured
                               Payment. Fabricates no history. Since M30 it no
@@ -1157,7 +1162,7 @@ look wrong however carefully it is tokenised — read them before touching a sur
 
 ## Testing Requirements
 
-- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1451 tests across 41 files** (measured 2026-10-10 after the performance pass; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 94 tests of which 64 run and thirty are one-width-only — the link crawler with axe, keyboard use, resilience, the drawn homepage, INP, the Diwali edition, the archive, the monthly winners, picture questions, the reminders; about ten to fifteen minutes), which starts its own backend on an in-memory MongoDB, serves a **production build** of the frontend (`vite preview`, since Phase 5 — the dev server's per-module requests starved the browser during the crawl) and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
+- The **backend** has a test suite: `vitest` + `supertest`, plus `mongodb-memory-server` for integration tests against a **real** MongoDB — **1485 tests across 43 files** (measured 2026-10-10 after the practice bank; read the number from `npm test`, not from here). On a cold machine the first run reports three suites failing with `Hook timed out` on `startTestDb` — that is the in-memory `mongod` starting for the first time, not a test failure; re-run it. Run with `npm test --prefix backend` (from inside `backend/` when offline; see [`TESTING.md`](TESTING.md)). The **frontend** has no unit tests, and since Milestone 30 has a **Playwright end-to-end suite** (`npm run e2e` in `frontend/`, 94 tests of which 64 run and thirty are one-width-only — the link crawler with axe, keyboard use, resilience, the drawn homepage, INP, the Diwali edition, the archive, the monthly winners, picture questions, the reminders; about ten to fifteen minutes), which starts its own backend on an in-memory MongoDB, serves a **production build** of the frontend (`vite preview`, since Phase 5 — the dev server's per-module requests starved the browser during the crawl) and drives the installed Edge at desktop and 390px. See [`TESTING.md`](TESTING.md).
 - `NODE_ENV=test` skips `.env` loading, so tests can never pick up real secrets, and also lowers bcrypt cost and disables rate limiters for speed/determinism. Don't "fix" any of that.
 - **The Gemini tests must never touch the network.** `setGeminiClientFactory()` in `services/geminiQuestionGenerator.ts` swaps the whole SDK client and throws outside the test environment; use it rather than a real key, and note that `enableGemini()` only needs an obviously-fake string because `isAvailable()` merely asks whether a key is present. The failing paths are the ones worth testing — a spent quota, a truncated reply, prose where JSON was asked for — and none of them can be produced on demand against a real provider.
 - Use `tests/helpers/db.ts` (real in-memory MongoDB) and `tests/helpers/auth.ts` (`registerVerifyLogin`, cookie parsing, real token extraction from the captured email) rather than writing new harnesses. **`registerVerifyLogin()` grants the entry fee by default** — a student exercising practice in production has paid, and a test student who cannot practise asserts behaviour no real student reaches. Pass `{ paid: false }` where *not* having paid is the point. `createAdminSession()` is deliberately unpaid: staff are not entrants, and an admin with an entry-fee payment would appear in the payments console's collected total.

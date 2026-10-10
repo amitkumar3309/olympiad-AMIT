@@ -2,6 +2,28 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-10 — The practice bank: 150 questions for every class from 3 to 12
+
+The owner asked to "add 150 questions for each class (Maths is the only subject) i.e 3rd to 12th for
+Practice sessions". Branch `content/practice-1500`.
+
+- **1,500 single-choice questions**, 150 per class: fifteen question types a class, ten of each, matched to
+  that class's syllabus (Class 3 place value and money to Class 12 determinants, integrals and vectors), each
+  with a worked solution and four options. Marks 4, minus 1 for a wrong answer, as in the existing banks.
+- **Every answer is computed** by a template from the same numbers the question shows
+  (`scripts/data/practiceGen.ts`, `practiceJunior.ts`, `practiceSenior.ts`, `practiceMaths.ts`), so the key
+  cannot disagree with the question. Generation is seeded per class, so the same 1,500 come out every time
+  and a re-run skips them. Fractions in a question are in lowest terms; options are formatted alike.
+- **`npm run seed:practice`** (report only) / **`-- --write`** publishes them through the existing seed
+  runner — validated with `createQuestionSchema` and `validateMathContent`, published, idempotent by text.
+  The runner now takes several classes in one run and reads a class's existing texts once rather than once
+  per question. Topic names match the existing Class 9 and 12 banks so no near-duplicate chapter appears.
+- Tests: `practiceSeed.test.ts` (each class: 150 distinct questions, four distinct options, one correct,
+  options alike, no stray decimals, every one passing the API's own validation; the bank identical on every
+  build) and `practiceSeedDb.test.ts` (into an in-memory database: a dry run writes nothing, a write
+  publishes 150 per class, a second run adds none, a Class 3 student's 40-question test is all Class 3).
+  About 300 questions (two of every template) were also read and checked by hand.
+
 ## 2026-10-10 — The figure of the day: sixteen, with nine of the owner's designs
 
 The owner sent 335 designs for the hero ("one picture for every day for 1 year") and asked to "add only
