@@ -184,9 +184,9 @@ export default function Rewards({ prize, onPlay }: RewardsProps) {
           )}
         </div>
 
+        {/* The rule itself lives on the rules page (owner, 2026-10-11): here, only the way to it. */}
         <div className={styles.how}>
           <h3 className={styles.howTitle}>How winners are chosen</h3>
-          <p className={styles.howText}>{prize?.howWinnersAreChosen ?? 'Winners are chosen by the rule in the Daily Quiz & Rewards Rules.'}</p>
           <Link to="/rewards/rules" className={styles.rulesLink}>
             Read the Daily Quiz &amp; Rewards Rules
           </Link>

@@ -148,10 +148,7 @@ export default function Leaderboard() {
   const lastPage = Math.max(1, Math.ceil(reachableRows / PAGE_SIZE))
 
   return (
-    <StudentShell
-      title="Leaderboard"
-      subtitle="Every position here is earned — XP comes only from things students actually did."
-    >
+    <StudentShell title="Leaderboard">
       {/* --- What is being ranked ---------------------------------------- */}
       <section className={`card ${styles.controls}`}>
         <div className={styles.controlGroup}>
@@ -322,14 +319,6 @@ export default function Leaderboard() {
           </>
         )}
       </section>
-
-      <p className={styles.footNote}>
-        Equal XP shares a rank, so a board can read 1, 2, 2, 4. Where two students are level, the one who reached the
-        total first is listed above. Accounts that are suspended or deactivated do not appear.{' '}
-        <Link to="/hall-of-fame" className="link">
-          See the Hall of Fame
-        </Link>
-      </p>
     </StudentShell>
   )
 }

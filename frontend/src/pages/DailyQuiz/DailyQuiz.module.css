@@ -1,51 +1,56 @@
-/* `/daily-quiz`: the quiz, and beside it from a laptop up, how winners are chosen. */
+/* `/daily-quiz`: the quiz, and under it a short strip of what to know (2026-10-11). */
 
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5);
-  align-items: start;
+  max-width: 880px;
 }
 
-@media (min-width: 1024px) {
-  .layout {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-  }
-}
-
-.main {
+.notes {
   display: grid;
-  gap: var(--space-5);
-  min-width: 0;
-}
-
-.aside {
-  min-width: 0;
-}
-
-.headline {
-  margin: 0 0 var(--space-2);
-  font-weight: var(--weight-bold);
-  color: var(--primary-text);
-}
-
-.rule {
-  margin: 0 0 var(--space-3);
-  line-height: var(--leading-normal);
-  color: var(--text-body);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  border: var(--border-width) solid var(--card-border);
+  box-shadow: var(--card-shadow);
 }
 
 .points {
   display: grid;
-  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
   margin: 0;
-  padding-left: var(--space-5);
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 768px) {
+  .points {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.points li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   color: var(--text-body);
   line-height: var(--leading-normal);
 }
 
-/* The way into the archive of every earlier quiz (Phase 7). */
-.archive {
-  margin: var(--space-4) 0 0;
+.points li > i {
+  flex-shrink: 0;
+  color: var(--primary-text);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--card-border);
   font-weight: var(--weight-semibold);
 }
