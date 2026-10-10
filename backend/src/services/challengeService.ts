@@ -2,6 +2,7 @@ import type { PipelineStage, Types } from 'mongoose';
 import type { ClassLevel } from '../lib/classLevels';
 import { Question, STUDENT_VISIBLE_STATUSES } from '../models';
 import { findImplicitSubject } from './taxonomyService';
+import { cached } from '../lib/cache';
 
 /**
  * What a student can actually practise, derived from the published question bank.
@@ -71,6 +72,12 @@ function availabilityPipeline(classLevel: ClassLevel, subject: Types.ObjectId | 
 }
 
 export async function getAvailableChallenges(classLevel: ClassLevel): Promise<SubjectChallenge[]> {
+  // The same for every student in a class, and read on every dashboard load: once a minute
+  // per class is plenty for "N questions are ready for you" (2026-10-10).
+  return cached(`challenges:${classLevel}`, 60, () => computeAvailableChallenges(classLevel));
+}
+
+async function computeAvailableChallenges(classLevel: ClassLevel): Promise<SubjectChallenge[]> {
   const subject = await findImplicitSubject();
   const rows = await Question.aggregate<SubjectChallengeRow>(availabilityPipeline(classLevel, subject));
 

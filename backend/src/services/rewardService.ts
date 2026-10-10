@@ -1,7 +1,8 @@
 import type { Types } from 'mongoose';
 import { ApiError } from '../lib/ApiError';
 import { logger } from '../lib/logger';
-import { todayKey, type DayKey } from '../lib/competitionDay';
+import { dayKeyOf, todayKey, type DayKey } from '../lib/competitionDay';
+import { config } from '../config';
 import { summariseAchievements, type AchievementSummary } from '../lib/achievements';
 import { summariseBadges, type BadgeSummary } from '../lib/badges';
 import { summariseJourney, type JourneySummary } from '../lib/journey';
@@ -239,8 +240,26 @@ export async function grantReward(input: GrantRewardInput): Promise<RewardOutcom
  * was already signed in.
  */
 export async function grantDailyVisit(student: Types.ObjectId, at?: Date): Promise<RewardOutcome> {
-  return grantReward({ student, event: 'daily_visit', at });
+  // Every dashboard load calls this, and after the first of the day the answer is always
+  // "already claimed" — three database operations to learn nothing (2026-10-10). This server
+  // remembers the visits it has already recorded or found today and skips the repeat. The
+  // unique index stays the authority: a server that has not seen this student today asks, and
+  // a forgotten entry only costs the old three operations. Off when the cache is (tests).
+  const key = `${String(student)}:${dayKeyOf(at)}`;
+  if (config.cache.enabled && visitsRecorded.has(key)) {
+    return { granted: false, xpAwarded: 0, reason: 'already-claimed' };
+  }
+  const outcome = await grantReward({ student, event: 'daily_visit', at });
+  if (outcome.reason === 'granted' || outcome.reason === 'already-claimed') {
+    // Bounded: a day's keys are worthless the next day, and this is a hint, not a record.
+    if (visitsRecorded.size >= VISITS_REMEMBERED) visitsRecorded.clear();
+    visitsRecorded.add(key);
+  }
+  return outcome;
 }
+
+const VISITS_REMEMBERED = 20_000;
+const visitsRecorded = new Set<string>();
 
 // ---------------------------------------------------------------------------
 // Facts
