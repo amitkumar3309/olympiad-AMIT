@@ -180,7 +180,7 @@ The work happens in phases, and each one stops for the owner's approval.
   one somebody has sat still blocks for ever. Backend **1438 / 40**.
 - **Less copy on four student screens** (`fix/trim-copy`, 2026-10-11): the homepage's winners box is a heading
   and a link, `/daily-quiz` has a short strip instead of the rules box, "What to work on next" shows only
-  topics and practice, and the leaderboard lost its subtitle. The Diwali trial setting is `null` again.
+  topics and practice, and the leaderboard lost its subtitle and its footnote. The Diwali trial setting is `null` again.
 - **The Daily Quiz runs itself; staff have no student area** (`feat/auto-daily-quiz`, 2026-10-11): every
   class without a quiz on a day gets one — the "daily quiz" pool first, else a generated question — through
   `services/dailyQuizAuto.ts`, on by default (Admin → Daily Quiz → Settings). Staff see only the admin

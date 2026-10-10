@@ -232,20 +232,11 @@
   color: var(--text-muted);
 }
 
-.depthNote,
-.footNote {
+.depthNote {
+  margin: 12px 0 0;
   font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.6;
-}
-
-.depthNote {
-  margin: 12px 0 0;
-}
-
-.footNote {
-  margin: 16px 0 0;
-  max-width: 80ch;
 }
 
 @media (max-width: 600px) {

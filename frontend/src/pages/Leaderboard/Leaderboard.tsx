@@ -319,14 +319,6 @@ export default function Leaderboard() {
           </>
         )}
       </section>
-
-      <p className={styles.footNote}>
-        Equal XP shares a rank, so a board can read 1, 2, 2, 4. Where two students are level, the one who reached the
-        total first is listed above. Accounts that are suspended or deactivated do not appear.{' '}
-        <Link to="/hall-of-fame" className="link">
-          See the Hall of Fame
-        </Link>
-      </p>
     </StudentShell>
   )
 }

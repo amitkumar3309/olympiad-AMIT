@@ -15,7 +15,8 @@ The owner asked to remove "excess content". Branch `fix/trim-copy`.
   title, a line, the counts ("6 of 10 correct") and its link. Gone: the method badge and sentence, confidence
   labels, "Show the numbers", the difficulty advice, the observations and the footnote. One plain line when
   there is nothing yet.
-- **Leaderboard:** the subtitle "Every position here is earned …" removed.
+- **Leaderboard:** the subtitle "Every position here is earned …" and the note under the board (how ties are
+  ordered, who does not appear, a Hall of Fame link — it is in the menu and the footer) removed.
 - `DIWALI_EDITION.trial` is `null` again: the owner's 24-hour trial ended at 6:30 PM on 10 October; the
   edition comes back by itself on 8 November.
 
