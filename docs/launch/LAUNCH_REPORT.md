@@ -284,7 +284,7 @@ Do these in order; each says exactly where.
        emails**. The yellow box "The scheduler is not set up" should be gone. (If it is still there, the
        variable was not saved or the redeploy has not finished.)
 
-    **C. Create two jobs on cron-job.org** (free; its screens change now and then, but the fields keep
+    **C. Create three jobs on cron-job.org** (done by the owner on 2026-10-10) (free; its screens change now and then, but the fields keep
     these names).
     1. Go to **cron-job.org** → **Sign up** → confirm your email → sign in.
     2. Press **Create cronjob** and fill in:
@@ -303,7 +303,11 @@ Do these in order; each says exactly where.
        - Under **Advanced**: method **POST**, the same `Authorization` header, **Time zone** →
          **Asia/Kolkata** (this is what makes 07:00 mean 7:00 AM India time).
        - Press **Save**.
-    4. Optional but wise: in each job's **Notifications**, tick **notify me when an execution fails**.
+    4. A third job (2026-10-11), the same way: **Title** `AMIT — Daily Quiz`, **URL**
+       `https://amit-olympiad.vercel.app/api/v1/jobs/daily-quiz-schedule`, **every day at 00:01**, POST,
+       the same header, Asia/Kolkata. It creates each class's automatic quiz at midnight; without it the
+       first visit of the day does. A test run is harmless — it never replaces a quiz that exists.
+    5. Optional but wise: in each job's **Notifications**, tick **notify me when an execution fails**.
 
     **D. Check it worked.**
     1. On cron-job.org, open the **send queued email** job and press **Test run** (or wait a minute and
