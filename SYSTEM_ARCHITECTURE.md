@@ -120,7 +120,7 @@ services/contentResetService.ts
    |     counts what depends on the scope  -> blockers[] (+ the scope to reset first)
    |     names what survives               -> preserves[]
    v
-POST /api/v1/admin/reset/:scope   { confirm: "RESET CHAPTERS" }
+POST /api/v1/admin/reset/:scope   { confirm: "RESET QUESTIONS" }
    |  requirePermission('content:reset')   <- SUPER ADMIN ONLY
    |  adminActionLimiter
    |  exact phrase compared in the route
@@ -132,10 +132,11 @@ performReset(scope)
 recordAudit('content.reset', { scope, totalDeleted, deleted: {...} })
 ```
 
-The dependency order is the whole design: **daily challenges → mock tests → questions → chapters**.
-Each scope refuses while anything downstream of it exists, so emptying everything is four deliberate
-acts rather than one click with a cascade behind it. The official exam sits outside the graph — it is
-a blocker with no resolution, because its results and certificates are permanent.
+The dependency order is the whole design: **Daily Quiz → mock tests → questions** (there is no chapter
+reset since 2026-10-10). Each scope refuses while anything downstream of it exists, so emptying
+everything is three deliberate acts rather than one click with a cascade behind it. An official exam
+somebody has sat sits outside the graph — a blocker with no resolution, because its results and
+certificates are permanent; one nobody has sat goes with the questions it was built from.
 
 ## Student invoices — CURRENT (Milestone 22, Phase C)
 

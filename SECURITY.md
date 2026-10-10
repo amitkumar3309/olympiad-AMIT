@@ -966,7 +966,7 @@ be one click that destroyed four areas instead of one.
 
 ### A typed phrase, per scope
 
-`RESET QUESTIONS`, `RESET MOCK TESTS`, `RESET DAILY CHALLENGES`, `RESET CHAPTERS` — compared exactly
+`RESET QUESTIONS`, `RESET MOCK TESTS`, `RESET DAILY QUIZ` (there is no chapter reset since 2026-10-10) — compared exactly
 after trimming, wrong case refused, and **different per scope** so muscle memory from one dialog
 cannot confirm another. This is a guard against the wrong click and the wrong area, **not** an
 authorization check; the permission is. A bare `POST` with no body is a 400.

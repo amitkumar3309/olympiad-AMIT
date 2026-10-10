@@ -2,6 +2,21 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-10 — The reset: no chapter reset, and a never-sat exam no longer blocks the question bank
+
+The owner, 2026-10-10, clearing out test data: "I am not able to reset question bank" — the dialog said
+an official exam was built from the questions; it was a test exam nobody had sat — "also chapter reset
+button is also there in admin/system so I don't want that as well". Branch `fix/reset-question-bank`.
+
+- **Reset the Question Bank** deletes an official exam **nobody has sat** (no attempt, result or
+  certificate) together with its questions, listed in the dialog as "Official exams nobody has sat"
+  before the phrase is typed. An exam somebody has sat still blocks, with no way round it; an exam with no
+  questions on it is left alone.
+- **The chapter reset is gone** — from Admin → System and from the API (`chapters` is an unknown scope).
+- Tests: backend 1438 / 40 (`contentReset.test.ts`: the never-sat exam deleted and named, the sat exam
+  still blocking, the empty exam kept, the chapter scope refused; the phrase and permission tests moved
+  onto the question bank).
+
 ## 2026-10-10 — Practice is a random mixed test of 10, 20, 30 or 40 questions
 
 The owner's request of 2026-10-09: "student should not have the option to practise topic wise, when they

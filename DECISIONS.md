@@ -4,6 +4,24 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-10 — The reset: an exam nobody has sat is not permanent; no chapter reset
+
+**Context.** Clearing test data before launch, the owner could not reset the question bank: any
+`Exam` blocked it, with no resolution, and the only exam was a test one nobody had sat. The owner also
+asked for the chapter reset to be removed.
+
+**Decision.** What is permanent about the official Olympiad is its **results and certificates**. An
+exam with no `ExamAttempt`, `Result` or `Certificate` has neither, so the question-bank reset deletes
+it with the questions it was built from — counted in the preview's `deletes[]`, re-counted at the write
+so an exam started meanwhile is excluded. An exam somebody has sat remains a blocker with no
+resolution; an exam with no questions depends on nothing and stays. **The `chapters` scope is removed**:
+chapters are created by naming them on an upload, and the Chapters page archives one (refusing while
+published questions use it), which is reversible where a reset is not.
+
+**Rejected.** A separate "delete exam" button: more surface for the same rule, and the owner's need was
+the one reset. Emptying the exam's question list instead of deleting it: a published exam with no
+questions is a broken page a student could open.
+
 ## 2026-10-10 — Practice is a random mixed test; the size is the only choice
 
 **Context.** The owner, 2026-10-09: "student should not have the option to practise topic wise, when they

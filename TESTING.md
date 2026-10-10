@@ -37,6 +37,12 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The reset changes (2026-10-10): 1438 passing backend tests across 40 files.** `contentReset.test.ts`:
+> an official exam nobody has sat is listed in the question-bank preview and deleted with its questions,
+> an exam with no questions kept; one with a submitted attempt still blocks (409, nothing deleted); the
+> `chapters` scope is refused as unknown and deletes nothing; the permission and phrase tests now run
+> against the question bank.
+
 > **The mixed practice test (2026-10-10): 1437 passing backend tests across 40 files.** `practice.test.ts`:
 > the options answer `available` and `sizes` (every chapter and difficulty counted, another class's and a
 > draft not); 10 drawn from 12 with no repeats, the default 10, all of a smaller bank for 30, and 0/5/25/50/400
