@@ -1,5 +1,6 @@
 import rateLimit, { MemoryStore, ipKeyGenerator, type Options } from 'express-rate-limit';
 import { config } from '../config';
+import { SharedRateLimitStore } from './sharedRateLimitStore';
 
 /**
  * Rate limiting is disabled under test: the suite deliberately hammers the same
@@ -11,14 +12,22 @@ import { config } from '../config';
  * `dailyQuizLimiter`), which is what a school's shared address needs.
  */
 /** Every limiter's store, so the end-to-end hooks can empty them — see `resetRateLimits()`. */
-const stores: MemoryStore[] = [];
+const stores: Array<MemoryStore | SharedRateLimitStore> = [];
 
 function limiter(
-  options: Pick<Options, 'windowMs' | 'limit'> & { message: string; keyGenerator?: Options['keyGenerator'] },
+  options: Pick<Options, 'windowMs' | 'limit'> & {
+    message: string;
+    keyGenerator?: Options['keyGenerator'];
+    /**
+     * Counted in Redis for the whole platform, under this name, rather than per server
+     * (`SharedRateLimitStore`, 2026-10-10). For the low-volume limiters that exist for
+     * security; every counted request costs three Redis commands.
+     */
+    shared?: string;
+  },
 ) {
-  // The default store, made explicitly so it can be reached. One per limiter, as the
-  // library requires.
-  const store = new MemoryStore();
+  // One store per limiter, as the library requires, made explicitly so it can be reached.
+  const store = options.shared ? new SharedRateLimitStore(options.shared) : new MemoryStore();
   stores.push(store);
   return rateLimit({
     store,
@@ -81,6 +90,7 @@ export const generalLimiter = limiter({
  * everyone who shares a school's internet connection.
  */
 export const loginLimiter = limiter({
+  shared: 'login',
   windowMs: 15 * MINUTE,
   limit: 50,
   message: 'Too many login attempts. Please try again in a few minutes.',
@@ -106,6 +116,7 @@ export const loginLimiter = limiter({
  * because a resend is a *repeat* send to an address that already has one in flight.
  */
 export const registerLimiter = limiter({
+  shared: 'register',
   windowMs: HOUR,
   limit: 50,
   message: 'Too many registration attempts. Please try again later.',
@@ -117,6 +128,7 @@ export const registerLimiter = limiter({
  * not just for the account.
  */
 export const emailActionLimiter = limiter({
+  shared: 'email-action',
   windowMs: HOUR,
   limit: 5,
   message: 'Too many requests. Please wait a while before trying again.',
@@ -124,6 +136,7 @@ export const emailActionLimiter = limiter({
 
 /** Consuming a token (verify / reset): limits brute-forcing token values. */
 export const tokenSubmitLimiter = limiter({
+  shared: 'token-submit',
   windowMs: 15 * MINUTE,
   limit: 20,
   message: 'Too many attempts. Please request a new link.',
@@ -139,6 +152,7 @@ export const tokenSubmitLimiter = limiter({
  * behind the general one.
  */
 export const accountUpdateLimiter = limiter({
+  shared: 'account-update',
   windowMs: HOUR,
   limit: 20,
   message: 'Too many account changes. Please wait a while before trying again.',
@@ -226,6 +240,7 @@ export const dailyQuizLimiter = limiter({
  * address is well inside any provider ceiling.
  */
 export const paymentLimiter = limiter({
+  shared: 'payment',
   windowMs: HOUR,
   limit: 300,
   message: 'Too many payment attempts. Please wait a little before trying again.',
@@ -251,6 +266,7 @@ export const paymentLimiter = limiter({
  * failure only costs the model picker.
  */
 export const generationLimiter = limiter({
+  shared: 'generation',
   windowMs: HOUR,
   limit: config.ai.generationsPerHour,
   message: 'Too many generation requests. Please wait a while before asking for more questions.',
@@ -273,6 +289,7 @@ export const generationLimiter = limiter({
  * afternoon of importing — twenty uploads — never notices.
  */
 export const importLimiter = limiter({
+  shared: 'import',
   windowMs: HOUR,
   limit: config.imports.importsPerHour,
   message: 'Too many imports. Please wait a while before uploading more files.',
@@ -287,6 +304,7 @@ export const importLimiter = limiter({
  * solution picture — fits inside an hour's budget.
  */
 export const pictureUploadLimiter = limiter({
+  shared: 'picture-upload',
   windowMs: HOUR,
   limit: 300,
   message: 'Too many pictures uploaded. Please wait a while before adding more.',
@@ -307,6 +325,7 @@ export const pictureUploadLimiter = limiter({
  * the console is broken.
  */
 export const adminActionLimiter = limiter({
+  shared: 'admin-action',
   windowMs: HOUR,
   limit: 60,
   message: 'Too many account administration actions. Please wait a little before trying again.',
@@ -325,6 +344,7 @@ export const adminActionLimiter = limiter({
  * Generous enough that a real afternoon of slicing the roll by class never notices.
  */
 export const exportLimiter = limiter({
+  shared: 'export',
   windowMs: HOUR,
   limit: 30,
   message: 'Too many exports. Please wait a little before downloading another file.',
@@ -339,6 +359,7 @@ export const exportLimiter = limiter({
  * has no reason to be read hundreds of times an hour from one address.
  */
 export const publicLookupLimiter = limiter({
+  shared: 'public-lookup',
   windowMs: 15 * MINUTE,
   limit: 60,
   message: 'Too many lookups. Please wait a few minutes before trying again.',
