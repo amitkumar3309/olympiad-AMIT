@@ -118,7 +118,7 @@ export default function Questions() {
     null,
   )
 
-  /** The practice preview: what a student of this class would now find in the picker. */
+  /** The practice preview: what a practice test for this class would now be drawn from. */
   const [previewClass, setPreviewClass] = useState<ClassLevel | ''>('')
   const [availability, setAvailability] = useState<PracticeAvailability | null>(null)
   const [availabilityBusy, setAvailabilityBusy] = useState(false)
@@ -634,15 +634,15 @@ export default function Questions() {
               <div className={styles.availability}>
                 {availability.totalQuestions === 0 ? (
                   <p className={styles.emptyHint}>
-                    Nothing published for {availability.classLevel} yet, so its practice picker is empty. Publish
+                    Nothing published for {availability.classLevel} yet, so it has no practice tests. Publish
                     questions for that class above.
                   </p>
                 ) : (
                   <>
                     <p>
                       <strong>{availability.totalQuestions}</strong> question
-                      {availability.totalQuestions === 1 ? '' : 's'} available to practise for{' '}
-                      {availability.classLevel}:
+                      {availability.totalQuestions === 1 ? '' : 's'} in {availability.classLevel}&rsquo;s practice
+                      tests, which mix every chapter:
                     </p>
                     <ul className={styles.availabilityList}>
                       {availability.topics.map((topic) => (

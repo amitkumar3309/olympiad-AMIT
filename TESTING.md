@@ -37,6 +37,16 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The mixed practice test (2026-10-10): 1437 passing backend tests across 40 files.** `practice.test.ts`:
+> the options answer `available` and `sizes` (every chapter and difficulty counted, another class's and a
+> draft not); 10 drawn from 12 with no repeats, the default 10, all of a smaller bank for 30, and 0/5/25/50/400
+> refused with nothing written; a chapter, difficulty and subject from an older page ignored and not stored.
+> `recommendations.test.ts`: a weak topic with no link; no chapter in any practice suggestion; no difficulty
+> advice for a mastered or a struggling record; a first test quoting the class's count (another class's
+> question not counted), gone once there is a record. A browser walk-through (not committed) checked the page
+> at both widths: four sizes, 40 closed with 25 published and the reason shown, arrow keys skipping it, axe
+> clean, and a 10-question test of ten different questions.
+
 > **The homepage redesign (2026-10-09): every browser test opens on the everyday site.** Specs take
 > `test` from `e2e/fixtures.ts`, whose `page` sets `?season=off`'s switch (`sessionStorage`
 > `amit-season`) before each page loads, so the 24-hour trial — or the real Diwali week — cannot fail a

@@ -1,5 +1,6 @@
 /* ==========================================================================
-   The picker (Practice.tsx) — Milestone 23, Phase D
+   Starting a practice test (Practice.tsx) — Milestone 23, Phase D; one choice,
+   the test's size, since 2026-10-09
    ========================================================================== */
 
 .page {
@@ -8,15 +9,121 @@
   gap: var(--space-5);
 }
 
-/**
- * One column on a phone, three once there is room. `auto-fit` rather than a media
- * query, and a `min()` floor so a chapter name is never squeezed to an ellipsis.
- */
-.pickers {
+/* ---------- how many questions: a radio group drawn as four tiles ---------- */
+
+/* A fieldset carries a browser default border, padding and a min-width of
+   min-content — the last is how a wide child pushes a page sideways. */
+.sizes {
+  min-width: 0;
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: 0;
+}
+
+.sizesLegend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  color: var(--text);
+  font-size: var(--type-small);
+  font-weight: var(--weight-semibold);
+}
+
+/* Two by two on the narrowest phones, one row of four from 360px. */
+.sizeRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+@media (min-width: 360px) {
+  .sizeRow {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.size {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: var(--space-2) var(--space-1);
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast) var(--ease),
+    background-color var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+/* The native radio stays in the tree for the keyboard and a screen reader (arrow keys
+   move between sizes, one Tab stop for the group), and off the screen for everyone else. */
+.sizeInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.size:hover:not(.sizeClosed) {
+  border-color: var(--primary-border);
+  background: var(--surface-hover);
+}
+
+.size:active:not(.sizeClosed) {
+  transform: scale(var(--press-scale));
+}
+
+/* The one focus ring, on the tile, because the input itself is invisible. */
+.size:has(.sizeInput:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+/* Chosen: the border, a tint AND a tick — three channels, so the choice is plain without
+   colour vision and on a washed-out phone screen (as `ui/OptionTile` does it). */
+.sizeChosen,
+.sizeChosen:hover:not(.sizeClosed) {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.sizeChosen .sizeNumber {
+  color: var(--primary-text);
+}
+
+.sizeTick {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  color: var(--primary-text);
+}
+
+/* A size that would draw the same paper as a smaller one: a dashed edge, not a faded
+   one, so its words keep their contrast. The line under the group says why. */
+.sizeClosed {
+  border-style: dashed;
+  background: var(--fill-subtle);
+  cursor: not-allowed;
+}
+
+.sizeNumber {
+  font-size: var(--type-stat);
+  font-weight: var(--weight-bold);
+  line-height: 1;
+}
+
+.sizeWord {
+  color: var(--text-muted);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-semibold);
 }
 
 .availability {

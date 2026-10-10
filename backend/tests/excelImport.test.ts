@@ -1028,11 +1028,7 @@ describe('approving what a workbook produced', () => {
       .set('Cookie', cookieHeader(studentCookies))
       .expect(200);
 
-    const total = (options.body.subjects as Array<{ questionCount: number }>).reduce(
-      (sum, entry) => sum + entry.questionCount,
-      0,
-    );
-    expect(total).toBe(1);
+    expect(options.body.available).toBe(1);
   });
 });
 

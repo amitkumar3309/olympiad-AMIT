@@ -12,8 +12,8 @@ import { respondToServiceError } from '../../lib/serviceError';
 import { grantReward } from '../../services/rewardService';
 import {
   applyAnswer,
+  countPracticeQuestions,
   findOwnSession,
-  getPracticeAvailability,
   gradeSession,
   loadSessionQuestions,
   sessionHistoryView,
@@ -22,6 +22,7 @@ import {
   startPracticeSession,
 } from '../../services/practiceService';
 import {
+  PRACTICE_TEST_SIZES,
   listPracticeQuerySchema,
   practiceSessionParamSchema,
   saveAnswerSchema,
@@ -34,11 +35,11 @@ import {
 /**
  * The Practice Zone (Milestone 6).
  *
- * A student chooses a subject, a topic and optionally a difficulty, is served real
- * published questions for their own class, answers and navigates them, submits, and
- * gets a marked review with explanations. Everything is persisted: the session, the
- * questions served, each answer, its correctness, the score, the time taken and the
- * completion status.
+ * A student chooses how many questions — 10, 20, 30 or 40 — and is served a random mix of
+ * the questions published for their own class (owner, 2026-10-09: there is no chapter or
+ * difficulty to choose). They answer and navigate them, submit, and get a marked review
+ * with explanations. Everything is persisted: the session, the questions served, each
+ * answer, its correctness, the score, the time taken and the completion status.
  *
  * ## Two rules this file exists to hold
  *
@@ -89,12 +90,13 @@ function studentId(student: StudentDocument): Types.ObjectId {
 // ---------------------------------------------------------------------------
 
 /**
- * Real availability for the caller's class, grouped subject → topic with per-topic
- * question counts and the difficulties that actually exist.
+ * What a practice test for the caller's class can be: how many published questions it is
+ * drawn from (`available`, the same count the draw uses) and the sizes on offer.
  *
- * Every number here is a count of real published questions, so a bank with nothing for
- * this class returns an empty list and the page says so — the picker never offers a
- * combination that would then fail to start.
+ * `available` is a count of real published questions, so a bank with nothing for this
+ * class returns 0 and the page says so rather than offering a test that would then fail to
+ * start. `sizes` is the list the request schema accepts, published so the page cannot offer
+ * another.
  */
 router.get('/practice/options', requireAuth(), ensureDb, async (req: Request, res: Response) => {
   try {
@@ -103,13 +105,14 @@ router.get('/practice/options', requireAuth(), ensureDb, async (req: Request, re
 
     if (!isClassLevel(student.classLevel)) {
       // An account from before the class field existed. Honest empty rather than a crash.
-      sendSuccess(res, 200, { classLevel: null, subjects: [], reason: 'no-class' });
+      sendSuccess(res, 200, { classLevel: null, available: 0, sizes: PRACTICE_TEST_SIZES, reason: 'no-class' });
       return;
     }
 
     sendSuccess(res, 200, {
       classLevel: student.classLevel,
-      subjects: await getPracticeAvailability(student.classLevel),
+      available: await countPracticeQuestions(student.classLevel),
+      sizes: PRACTICE_TEST_SIZES,
     });
   } catch (err) {
     logger.error({ err }, 'Failed to load practice options');
@@ -137,21 +140,18 @@ router.post(
         return;
       }
 
-      const { subjectId, topicId, difficulty, questionCount } = req.body as StartPracticeInputBody;
+      const { questionCount } = req.body as StartPracticeInputBody;
 
       const session = await startPracticeSession({
         student: studentId(student),
         classLevel: student.classLevel,
-        subjectId,
-        topicId,
-        difficulty,
         questionCount,
       });
 
       const questions = await loadSessionQuestions(session);
       sendSuccess(res, 201, { session: sessionInProgressView(session, questions) });
     } catch (err) {
-      // A "nothing matches that selection" 409 from the service is an expected refusal
+      // A "nothing published for your class" 409 from the service is an expected refusal
       // and is passed through with its own message; anything else is a bug and becomes
       // a logged 500.
       respondToServiceError(res, err, {

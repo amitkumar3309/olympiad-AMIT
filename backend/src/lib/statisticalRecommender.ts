@@ -1,10 +1,7 @@
-import type { Difficulty } from '../models';
 import { MIN_AREA_SAMPLE, type NamedPerformanceRow, type StudentAnalytics } from '../services/analyticsService';
 import type { SubjectAvailability, TopicAvailability } from '../services/practiceService';
 import {
   confidenceFor,
-  nextDifficultyUp,
-  DIFFICULTY_LADDER,
   type Recommendation,
   type RecommendationBasis,
   type RecommendationDraft,
@@ -70,10 +67,6 @@ export const WEAK_ACCURACY_CEILING = 60;
  * found by running the page, not by a test.
  */
 export const STRONG_ACCURACY_FLOOR = 75;
-/** Accuracy at a difficulty above which the next level up is worth attempting. */
-export const STEP_UP_FLOOR = 75;
-/** Accuracy at a difficulty below which the student should stay and consolidate. */
-export const CONSOLIDATE_CEILING = 50;
 /** Sittings needed before a direction of travel may be claimed. */
 export const TREND_MIN_SITTINGS = 4;
 /** Answers each half of the trend window needs before the halves may be compared. */
@@ -182,25 +175,6 @@ function flattenBank(availability: SubjectAvailability[]): BankTopic[] {
   );
 }
 
-/** Which difficulties the class's published bank actually offers. */
-function bankDifficulties(availability: SubjectAvailability[]): Set<Difficulty> {
-  const levels = new Set<Difficulty>();
-  for (const subject of availability) for (const level of subject.difficulties) levels.add(level);
-  return levels;
-}
-
-/**
- * A practice deep link, built only from ids the bank really contains.
- *
- * The page validates these against its own loaded options before selecting anything, so
- * a stale link degrades to the ordinary picker rather than to an error.
- */
-function practiceHref(subjectId: string, topicId: string, difficulty?: Difficulty): string {
-  const params = new URLSearchParams({ subject: subjectId, topic: topicId });
-  if (difficulty) params.set('difficulty', difficulty);
-  return `/practice?${params.toString()}`;
-}
-
 // ---------------------------------------------------------------------------
 // 1. Weak topics
 // ---------------------------------------------------------------------------
@@ -246,11 +220,10 @@ function weakTopics(analytics: StudentAnalytics, bank: BankTopic[]): Recommendat
         basis: basisFor('topic', row.id, row.name, row.answered, row.correct, {
           availableQuestions: available?.questionCount ?? 0,
         }),
-        // Only offered when the bank can honour it. A link to a topic with no published
-        // questions for this class lands the student on an empty picker.
-        action: available
-          ? { label: `Practise ${row.name}`, href: practiceHref(available.subjectId, available.topicId) }
-          : null,
+        // No link. A practice test is a mix of the whole class's questions (owner,
+        // 2026-10-09), so "Practise Trigonometry" would be a promise the next page cannot
+        // keep. The finding is the advice: what to work on.
+        action: null,
       };
     });
 }
@@ -290,184 +263,46 @@ function strongTopics(analytics: StudentAnalytics): Recommendation[] {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Difficulty
+// 3. Practice
 // ---------------------------------------------------------------------------
 
 /**
- * What level to work at next.
+ * What to actually do next, and every item is something the product can serve.
  *
- * At most one recommendation per level, and one ordering rule that stops the section
- * contradicting itself: **if any level is flagged for consolidation, no step-up to a
- * level above it is offered.** Telling a student to shore up Easy and attempt Hard in
- * the same breath is not two pieces of advice, it is one incoherent one.
+ * A practice test is a random mix of the class's published questions (owner,
+ * 2026-10-09), so nothing here names a chapter or a difficulty: there is no way to
+ * practise one. Two sources — a first practice test for a student with no record, which
+ * is an availability statement rather than a claim about them, and a timed paper once
+ * there is a practice record but no mock test behind it.
  */
-function difficultyRecommendations(analytics: StudentAnalytics, availability: SubjectAvailability[]): Recommendation[] {
-  const offered = bankDifficulties(availability);
-  const measured = new Map(analytics.byDifficulty.map((row) => [row.difficulty, row]));
-  const byLevel = new Map<Difficulty, Recommendation>();
-
-  // Pass 1: consolidation. Runs first because it constrains what pass 2 may say.
-  let lowestConsolidating: number | null = null;
-
-  for (const level of DIFFICULTY_LADDER) {
-    const row = measured.get(level);
-    if (!row || row.answered < MIN_AREA_SAMPLE) continue;
-
-    const interval = wilsonInterval(row.correct, row.answered)!;
-    if (interval.upperPercent >= CONSOLIDATE_CEILING) continue;
-
-    const confidence = confidenceFor(row.answered);
-    const rank = DIFFICULTY_LADDER.indexOf(level);
-    lowestConsolidating = lowestConsolidating === null ? rank : Math.min(lowestConsolidating, rank);
-
-    byLevel.set(level, {
-      id: `difficulty:consolidate:${level}`,
-      kind: 'difficulty',
-      title: `Stay with ${level} for now`,
-      detail:
-        `${row.accuracyPercent}% on ${level} questions (${fraction(row.correct, row.answered)}). ` +
-        `More ${level} work will pay off more than moving up will.`,
-      priority: clampPriority((100 - interval.upperPercent) * CONFIDENCE_WEIGHT[confidence]),
-      confidence,
-      basis: basisFor('difficulty', level, level, row.answered, row.correct),
-      action: null,
-    });
-  }
-
-  // Pass 2: stepping up, from a level the student has genuinely mastered.
-  for (const level of DIFFICULTY_LADDER) {
-    const row = measured.get(level);
-    if (!row || row.answered < MIN_AREA_SAMPLE) continue;
-
-    const interval = wilsonInterval(row.correct, row.answered)!;
-    if (interval.lowerPercent < STEP_UP_FLOOR) continue;
-
-    const target = nextDifficultyUp(level);
-    if (!target || !offered.has(target) || byLevel.has(target)) continue;
-
-    // The coherence rule.
-    if (lowestConsolidating !== null && DIFFICULTY_LADDER.indexOf(target) > lowestConsolidating) continue;
-
-    const confidence = confidenceFor(row.answered);
-    const targetRow = measured.get(target);
-    byLevel.set(target, {
-      id: `difficulty:step_up:${target}`,
-      kind: 'difficulty',
-      title: `Try ${target} questions`,
-      detail:
-        `You are at ${row.accuracyPercent}% on ${level} (${fraction(row.correct, row.answered)})` +
-        `${targetRow && targetRow.answered > 0 ? `, and have answered ${targetRow.answered} ${target} question${targetRow.answered === 1 ? '' : 's'} so far` : ''}. ` +
-        `${target} questions are where the marks are now.`,
-      priority: clampPriority(interval.lowerPercent * CONFIDENCE_WEIGHT[confidence]),
-      confidence,
-      basis: basisFor('difficulty', level, level, row.answered, row.correct, {
-        answeredAtTargetLevel: targetRow?.answered ?? 0,
-      }),
-      action: null,
-    });
-  }
-
-  // Pass 3: a level the bank offers and the student has never met. Only when nothing
-  // above already speaks for that level, and only when there is a record to compare it
-  // against — "you have not tried Hard yet" is not a finding about a student who has
-  // not tried anything yet.
-  if (analytics.overall.answered >= MIN_AREA_SAMPLE) {
-    for (const level of DIFFICULTY_LADDER) {
-      if (byLevel.has(level) || !offered.has(level)) continue;
-      const row = measured.get(level);
-      if (row && row.answered > 0) continue;
-      if (lowestConsolidating !== null && DIFFICULTY_LADDER.indexOf(level) > lowestConsolidating) continue;
-
-      byLevel.set(level, {
-        id: `difficulty:untried:${level}`,
-        kind: 'difficulty',
-        title: `You have not tried a ${level} question yet`,
-        detail: `None of the ${analytics.overall.answered} questions you have answered were ${level}. Your class has ${level} questions published.`,
-        priority: 40,
-        confidence: 'high',
-        basis: basisFor('difficulty', level, level, 0, 0),
-        action: null,
-      });
-      break; // One untried level at a time — the lowest. A list of them is not advice.
-    }
-  }
-
-  return DIFFICULTY_LADDER.map((level) => byLevel.get(level)).filter(
-    (entry): entry is Recommendation => entry !== undefined,
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 4. Practice
-// ---------------------------------------------------------------------------
-
-/**
- * What to actually do next, and every item is something the bank can serve.
- *
- * Three sources in priority order: shore up a measured weakness, cover a topic never
- * attempted, and — for a student with no record at all — a plain starting point, which
- * is an availability statement rather than a claim about them.
- */
-function practiceRecommendations(facts: RecommendationFacts, bank: BankTopic[], weak: Recommendation[]): Recommendation[] {
+function practiceRecommendations(facts: RecommendationFacts): Recommendation[] {
   const { analytics } = facts;
   const out: Recommendation[] = [];
-  // A staff account has no class. The bank is then empty, so the sentences below that
-  // quote it are unreachable — the fallback exists so a type change can never print
+  // A staff account has no class. Nothing is then available, so the sentences below that
+  // quote a class are unreachable — the fallback exists so a type change can never print
   // the word "null" at a student.
   const className = facts.classLevel ?? 'your class';
 
-  // (a) The weaknesses the bank can do something about.
-  for (const weakness of weak) {
-    if (!weakness.action) continue;
-    const topicId = weakness.basis.scopeId!;
-    const topic = bank.find((entry) => entry.topicId === topicId);
-    if (!topic) continue;
-
+  // (a) A first practice test. The count is the one the practice page shows, because it
+  // comes from the same function the draw uses.
+  if (!analytics.hasData && facts.practiceQuestions > 0) {
+    const count = facts.practiceQuestions;
     out.push({
-      id: `practice:weak:${topicId}`,
+      id: 'practice:first_test',
       kind: 'practice',
-      title: `Practise ${topic.topicName}`,
+      title: 'Take your first practice test',
       detail:
-        `${topic.questionCount} published question${topic.questionCount === 1 ? '' : 's'} in ` +
-        `${topic.topicName} for ${className}, and it is your weakest measured topic at ` +
-        `${weakness.basis.accuracyPercent}%.`,
-      priority: clampPriority(weakness.priority),
-      confidence: weakness.confidence,
-      basis: basisFor('topic', topicId, topic.topicName, weakness.basis.answered, weakness.basis.correct, {
-        availableQuestions: topic.questionCount,
-      }),
-      action: { label: 'Start a session', href: practiceHref(topic.subjectId, topic.topicId) },
-    });
-  }
-
-  // (b) Coverage: published topics this student has never been served a question from.
-  // A pure fact about the record, with no performance claim attached to it.
-  const attempted = new Set(analytics.byTopic.map((row) => row.id));
-  const untouched = bank
-    .filter((topic) => !attempted.has(topic.topicId))
-    .sort((a, b) => b.questionCount - a.questionCount || a.topicName.localeCompare(b.topicName));
-
-  for (const topic of untouched) {
-    if (out.length >= MAX_PER_KIND) break;
-    out.push({
-      id: `practice:untouched:${topic.topicId}`,
-      kind: 'practice',
-      title: analytics.hasData ? `You have not tried ${topic.topicName}` : `Start with ${topic.topicName}`,
-      detail:
-        `${topic.questionCount} published question${topic.questionCount === 1 ? '' : 's'} in ` +
-        `${topic.topicName} for ${className}, and you have not answered any of them.`,
-      // Below any measured weakness: a gap in coverage is worth less than a
-      // demonstrated difficulty, and a bigger bank is worth slightly more.
-      priority: clampPriority(20 + Math.min(15, topic.questionCount)),
-      // A statement about the bank and about which questions were served, both of which
-      // are counted exactly. Nothing here is inferred from a sample.
+        `${count} published question${count === 1 ? '' : 's'} for ${className}. A practice test is a ` +
+        `random mix of them, marked the moment you submit, with the solution to every question.`,
+      priority: 35,
+      // A statement about the bank, counted exactly. Nothing here is inferred from a sample.
       confidence: 'high',
-      basis: basisFor('bank', topic.topicId, topic.topicName, 0, 0, { availableQuestions: topic.questionCount }),
-      action: { label: 'Start a session', href: practiceHref(topic.subjectId, topic.topicId) },
+      basis: basisFor('bank', null, null, 0, 0, { availableQuestions: count }),
+      action: { label: 'Start a practice test', href: '/practice' },
     });
   }
 
-  // (c) A timed paper, once there is a practice record but no mock test behind it.
+  // (b) A timed paper, once there is a practice record but no mock test behind it.
   const mockRow = analytics.bySurface.find((row) => row.surface === 'mock_test');
   if (analytics.hasData && facts.publishedMockTests > 0 && (mockRow?.attempts ?? 0) === 0 && out.length < MAX_PER_KIND) {
     out.push({
@@ -488,7 +323,7 @@ function practiceRecommendations(facts: RecommendationFacts, bank: BankTopic[], 
 }
 
 // ---------------------------------------------------------------------------
-// 5. Insights
+// 4. Insights
 // ---------------------------------------------------------------------------
 
 /**
@@ -658,15 +493,18 @@ export const statisticalEngine: RecommendationEngine = {
 
     const weak = weakTopics(facts.analytics, bank);
     const strong = strongTopics(facts.analytics);
-    const difficulty = difficultyRecommendations(facts.analytics, facts.availability);
-    const practice = practiceRecommendations(facts, bank, weak);
+    // No difficulty advice: nothing lets a student choose a difficulty since practice
+    // became a mixed test (2026-10-09), so "Try Hard questions" could not be acted on.
+    // The list stays in the contract for an engine and a page that read it.
+    const difficulty: Recommendation[] = [];
+    const practice = practiceRecommendations(facts);
     const insight = insights(facts.analytics);
 
     // Every empty section says why it is empty, in machine-readable form. A blank panel
     // with no explanation reads as a broken page.
     const measurableAreas = facts.analytics.byTopic.filter((row: NamedPerformanceRow) => row.answered >= MIN_AREA_SAMPLE);
 
-    if (bank.length === 0) notes.push('no-published-questions-for-your-class');
+    if (facts.practiceQuestions === 0) notes.push('no-published-questions-for-your-class');
     if (!facts.analytics.hasData) notes.push('nothing-submitted-yet');
     else if (measurableAreas.length === 0) notes.push(`topics-need-at-least-${MIN_AREA_SAMPLE}-answers`);
 

@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { DIFFICULTIES } from '../models/Question';
 
 /**
  * Practice Zone request validation.
@@ -19,23 +18,35 @@ const objectId = z
 export const practiceOptionsQuerySchema = z.object({});
 
 /**
- * Starting a session.
+ * How many questions a practice test may have — the owner's four sizes (2026-10-09).
  *
- * `subjectId` / `topicId` / `difficulty` are all optional: "everything for my class" is
- * a legitimate choice, and difficulty only narrows further. `classLevel` is **not**
- * accepted — the paper is always drawn for the student's own class, read from their
- * account, so a Class 6 student cannot request the Class 12 paper.
+ * `GET /practice/options` publishes this list and the page offers exactly it, so the page
+ * cannot offer a size the schema below refuses. The largest is also what stops one request
+ * from snapshotting the whole question bank into a single session document.
+ */
+export const PRACTICE_TEST_SIZES = [10, 20, 30, 40] as const;
+export type PracticeTestSize = (typeof PRACTICE_TEST_SIZES)[number];
+
+const SIZES_IN_WORDS = `${PRACTICE_TEST_SIZES.slice(0, -1).join(', ')} or ${PRACTICE_TEST_SIZES[PRACTICE_TEST_SIZES.length - 1]}`;
+
+/**
+ * Starting a practice test.
+ *
+ * A practice test is a random mix of the questions published for the student's own class
+ * (owner, 2026-10-09), so its size is the only thing a student chooses. There is no chapter,
+ * difficulty or subject field: one sent by an older page is dropped by the parse like any other
+ * unknown field, and the student gets a mixed test rather than an error. `classLevel` is not
+ * accepted either — the paper is always drawn for the class on the student's account, so a
+ * Class 6 student cannot request the Class 12 paper.
  */
 export const startPracticeSchema = z.object({
-  subjectId: objectId.optional(),
-  topicId: objectId.optional(),
-  difficulty: z.enum(DIFFICULTIES).optional(),
-  /**
-   * Bounded at both ends. The upper bound is what stops a single request from
-   * snapshotting the entire question bank into one document; the lower bound keeps a
-   * "session" meaningful.
-   */
-  questionCount: z.coerce.number().int().min(1).max(50).default(10),
+  questionCount: z.coerce
+    .number()
+    .int()
+    .refine((value) => (PRACTICE_TEST_SIZES as readonly number[]).includes(value), {
+      message: `Choose ${SIZES_IN_WORDS} questions.`,
+    })
+    .default(PRACTICE_TEST_SIZES[0]),
 });
 export type StartPracticeInputBody = z.infer<typeof startPracticeSchema>;
 

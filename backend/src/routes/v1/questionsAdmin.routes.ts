@@ -17,7 +17,7 @@ import {
   suggestPaper,
   toQuestionContent,
 } from '../../services/questionService';
-import { getPracticeAvailability } from '../../services/practiceService';
+import { countPracticeQuestions, getPracticeAvailability } from '../../services/practiceService';
 import { Subject, Topic } from '../../models';
 import { detectChapter } from '../../lib/chapterDetection';
 import { questionLabel } from '../../lib/questionLabel';
@@ -374,12 +374,13 @@ router.get(
 );
 
 /**
- * What a student of one class would currently find in the practice picker.
+ * What a practice test for one class is currently drawn from.
  *
- * The staff-side answer to "did publishing those questions actually make them practisable?", and it
- * calls **`getPracticeAvailability()`** — the very function the student route uses — rather than
- * counting questions itself. A second count would eventually disagree with the picker, and then the
- * preview would be reassuring an administrator about something untrue.
+ * The staff-side answer to "did publishing those questions actually make them practisable?". The
+ * total is **`countPracticeQuestions()`** — the very count the student's practice page shows — and
+ * the chapters are `getPracticeAvailability()`, the same questions grouped, rather than a count of
+ * its own. A second count would eventually disagree with the student's page, and then the preview
+ * would be reassuring an administrator about something untrue.
  *
  * It takes a `classLevel` because this is the staff view: an administrator publishing Class 5
  * questions needs to see the Class 5 picker and is not a Class 5 student. The student route
@@ -396,7 +397,10 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       const { classLevel } = req.query as unknown as PracticeAvailabilityQuery;
-      const subjects = await getPracticeAvailability(classLevel);
+      const [subjects, totalQuestions] = await Promise.all([
+        getPracticeAvailability(classLevel),
+        countPracticeQuestions(classLevel),
+      ]);
 
       sendSuccess(res, 200, {
         classLevel,
@@ -410,7 +414,7 @@ router.get(
             difficulties: topic.difficulties,
           })),
         ),
-        totalQuestions: subjects.reduce((sum, subject) => sum + subject.questionCount, 0),
+        totalQuestions,
       });
     } catch (err) {
       respondToServiceError(res, err, {

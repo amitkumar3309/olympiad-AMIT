@@ -469,7 +469,7 @@ describe('the Olympiad entry gate', () => {
       practice: await request(app)
         .post(`${API}/practice/sessions`)
         .set('Cookie', cookieHeader(cookies))
-        .send({ subjectId: ABSENT_ID, topicId: ABSENT_ID, questionCount: 5 }),
+        .send({ questionCount: 10 }),
       mockTest: await request(app)
         .post(`${API}/mock-tests/${ABSENT_ID}/attempts`)
         .set('Cookie', cookieHeader(cookies))
@@ -504,7 +504,8 @@ describe('the Olympiad entry gate', () => {
     const res = await freeRequests(cookies);
 
     // Each meets its ordinary handler and is refused on its own merits (the ids above
-    // are absent). The assertion is that **payment** is never what stops them.
+    // are absent, and nothing is published for practice). The assertion is that
+    // **payment** is never what stops them.
     for (const [surface, response] of Object.entries(res)) {
       expect(response.status, `${surface} must not be behind the entry fee`).not.toBe(402);
     }

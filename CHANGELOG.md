@@ -2,6 +2,25 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-10 — Practice is a random mixed test of 10, 20, 30 or 40 questions
+
+The owner's request of 2026-10-09: "student should not have the option to practise topic wise, when they
+go to practice session, a random test which consists of mixed questions of their class which are uploaded
+by the admin (they have option for 10/20/30/40 questions to select)". Branch `feat/practice-mixed-tests`.
+
+- **`/practice`**: the chapter and difficulty pickers are gone. Four size tiles — 10, 20, 30, 40 — as a real
+  radio group; a size that would draw the same paper as a smaller one is closed, and the page says why
+  ("Longer tests open as more questions are published"). The button says how many the test will have.
+- **`POST /practice/sessions`** takes only `questionCount` (10/20/30/40, else 400); an older page's chapter
+  or difficulty is dropped by the parse. **`GET /practice/options`** answers `{ classLevel, available, sizes }`
+  from `countPracticeQuestions()` — the pool the draw uses. The admin preview totals with the same count.
+- **Recommendations**: a weak topic is named with no "Practise X" link; the per-chapter, untried-chapter
+  and difficulty advice is gone; a student with no record is offered a first practice test.
+- The homepage's Practice card no longer promises "by chapter and difficulty"; history names new tests
+  "Practice test".
+- Tests: backend 1437 / 40 (practice: the four sizes, refusals, the default, a chapter from an older page
+  ignored, the count matching the draw; recommendations rewritten for the above).
+
 ## 2026-10-09 — The homepage: a figure of the day, smoother motion, a calmer page
 
 The owner's requests of 2026-10-09: a better hero picture than "the think grow solve picture", and a
