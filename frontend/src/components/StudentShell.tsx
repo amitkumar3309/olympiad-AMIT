@@ -56,10 +56,22 @@ interface StudentShellProps {
   children: ReactNode
 }
 
+/**
+ * The unread count outlives one page's shell: each route renders its own `StudentShell`, so
+ * the last answer and when it was asked are kept here, or the badge would read 0 on every
+ * page the once-a-minute check skips.
+ */
+const UNREAD_REFRESH_MS = 60_000
+let unreadCheckedAt = 0
+let lastUnread = 0
+/** Whose count `lastUnread` is — another account signing in on this tab starts afresh. */
+let unreadFor: string | null = null
+
 export default function StudentShell({ title, subtitle, actions, headless, focus, children }: StudentShellProps) {
   const { state, hasPaid } = useAuth()
   const { pathname } = useLocation()
-  const [unread, setUnread] = useState(0)
+  const me = state.status === 'student' ? state.student.studentId : null
+  const [unread, setUnread] = useState(me !== null && me === unreadFor ? lastUnread : 0)
 
   /**
    * The unread badge (Milestone 14).
@@ -70,15 +82,17 @@ export default function StudentShell({ title, subtitle, actions, headless, focus
    * anything had arrived, so a student had to think to go and look, which is not a
    * property you can rely on for "your results are out".
    *
-   * Re-read on navigation (`pathname` is a dependency) rather than polled on a timer:
-   * it is one indexed count, a student changes page far less often than any sensible
-   * poll interval, and a timer would keep firing on an idle open tab for no benefit.
+   * Re-read on navigation (`pathname` is a dependency) rather than polled on a timer — but
+   * **at most once a minute** (2026-10-10): it was three database operations on every page
+   * change, the most frequent signed-in request, for a badge that changes a few times a week.
+   * A timer would keep firing on an idle open tab for no benefit.
    * A failure is swallowed — a missing badge must never break the page around it.
    */
   const refreshUnread = useCallback((isCancelled: () => boolean = () => false) => {
     void api
       .get<{ unread: number }>('/me/notifications/unread-count')
       .then((res) => {
+        lastUnread = res.unread
         if (!isCancelled()) setUnread(res.unread)
       })
       .catch(() => {
@@ -87,13 +101,17 @@ export default function StudentShell({ title, subtitle, actions, headless, focus
   }, [])
 
   useEffect(() => {
-    if (state.status !== 'student') return
+    if (me === null) return
+    if (me === unreadFor && Date.now() - unreadCheckedAt < UNREAD_REFRESH_MS) return
+    if (me !== unreadFor) lastUnread = 0
+    unreadFor = me
+    unreadCheckedAt = Date.now()
     let cancelled = false
     refreshUnread(() => cancelled)
     return () => {
       cancelled = true
     }
-  }, [state.status, pathname, refreshUnread])
+  }, [me, pathname, refreshUnread])
 
   // Only an actual student account gets the shell. A promoted admin is still a
   // student and keeps it (they have a student record and their own progress); the

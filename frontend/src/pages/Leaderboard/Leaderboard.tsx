@@ -74,19 +74,18 @@ export default function Leaderboard() {
     const asked = searchParams.get('period')
     return (LEADERBOARD_PERIODS as readonly string[]).includes(asked ?? '') ? (asked as LeaderboardPeriod) : 'all_time'
   })
-  const [classLevel, setClassLevel] = useState<ClassLevel>(ownClass ?? 'Class 9')
+  // The class a student picked, else their own once the session is known, else Class 9 —
+  // derived rather than copied into state by an effect, which fetched the board twice on a
+  // direct load for every student not in Class 9 (2026-10-10).
+  const [chosenClass, setChosenClass] = useState<ClassLevel | null>(null)
+  const classLevel: ClassLevel = chosenClass ?? ownClass ?? 'Class 9'
+  // Only a class board depends on the class, so only a class board is re-fetched for it.
+  const boardClass = scope === 'class' ? classLevel : null
   const [page, setPage] = useState(1)
 
   const [data, setData] = useState<LeaderboardResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-
-  // A student's own class is the sensible default for a class board, but it is only
-  // known once the session has finished restoring — hence the effect rather than a
-  // lazy initial value.
-  useEffect(() => {
-    if (ownClass) setClassLevel(ownClass)
-  }, [ownClass])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -98,7 +97,7 @@ export default function Leaderboard() {
         page: String(page),
         limit: String(PAGE_SIZE),
       })
-      if (scope === 'class') params.set('classLevel', classLevel)
+      if (boardClass) params.set('classLevel', boardClass)
       setData(await api.get<LeaderboardResponse>(`/leaderboard?${params.toString()}`))
     } catch (err) {
       /*
@@ -115,11 +114,14 @@ export default function Leaderboard() {
     } finally {
       setLoading(false)
     }
-  }, [scope, period, page, classLevel])
+  }, [scope, period, page, boardClass])
 
+  // Waits for the session, which decides whether the response carries "you" and, for a class
+  // board, which class — asking before it is known was the second fetch.
+  const sessionKnown = state.status !== 'loading'
   useEffect(() => {
-    void load()
-  }, [load])
+    if (sessionKnown) void load()
+  }, [load, sessionKnown])
 
   /** Any change of what is being ranked starts again at the top of that board. */
   function changeScope(next: LeaderboardScope) {
@@ -133,7 +135,7 @@ export default function Leaderboard() {
   }
 
   function changeClass(next: ClassLevel) {
-    setClassLevel(next)
+    setChosenClass(next)
     setPage(1)
   }
 
