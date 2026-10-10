@@ -178,6 +178,9 @@ The work happens in phases, and each one stops for the owner's approval.
   **no chapter reset** any more, and a never-sat test exam no longer blocks **Reset the Question
   Bank** — an official exam nobody has sat is deleted with its questions, named in the dialog first;
   one somebody has sat still blocks for ever. Backend **1438 / 40**.
+- **Sixteen figures of the day** (`feat/more-daily-figures`, 2026-10-10): the seven drawn ones and nine
+  of the owner's 335 designs — the only ones whose drawing shows its topic — as small lazy pictures with
+  their words as text. One a day by the India date.
 - **Built for 1,000 students at once** (`perf/scale-1000`, 2026-10-10): the leaderboard is computed once
   per board per minute (guest 10–14 → 400 req/s at 50 at once), the dashboard is 34 → 20 operations
   (10 → 70 req/s), `lib/cache.ts` with an **optional Upstash Redis** (owner creating it — Vercel →

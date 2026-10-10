@@ -2,6 +2,23 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-10 — The figure of the day: sixteen, with nine of the owner's designs
+
+The owner sent 335 designs for the hero ("one picture for every day for 1 year") and asked to "add only
+those picture which are correct and suitable … also keep the current 7". Branch `feat/more-daily-figures`.
+
+- Every design was reviewed. The drawing on each was one of ten shapes taken in order, every tenth design
+  the same, whatever the topic — so "Prime Numbers" showed a 5 × 3 rectangle (a composite), "Composite
+  Numbers" a circle, "The Divisibility Rule for 9" a wave. **Nine** have a drawing that shows their own
+  topic and correct words: Symmetry (31), Congruent figures (71), Shortest path (97), the circle's
+  equation (130), Continuity (138), the triangle inequality (161), Fair division (244), Infinity (266) and
+  the isoperimetric idea (300).
+- Those nine joined the seven drawn figures: **sixteen**, one a day by the India date, alternating drawn
+  and pictured. Each picture is the design's drawing alone (3–13 KB WebP, `src/assets/figures/`); its name,
+  formula and line are text, so the design's own label, number and quote are not repeated and the words
+  stay legible on a phone. Pictures load lazily: a visitor downloads the day's own, or none.
+- Browser test: across sixteen days each figure shows exactly once and at most one picture is fetched.
+
 ## 2026-10-10 — Built for 1,000 students at once: a cached leaderboard, Redis, Mumbai
 
 The owner's request of 2026-10-10: "optimize this whole platform to handle 1000 users at once, implement
