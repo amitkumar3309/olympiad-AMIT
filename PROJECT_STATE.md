@@ -174,6 +174,10 @@ The work happens in phases, and each one stops for the owner's approval.
   `{ available, sizes }`; `POST /practice/sessions` takes only `questionCount`. The recommendations no
   longer link to a chapter or advise a difficulty; a new student is offered a first practice test. An
   uploaded question reaches practice by being **published** (a solution is required). Backend **1437 / 40**.
+- **The reset, as the owner found it** (`fix/reset-question-bank`, 2026-10-10): Admin → System has
+  **no chapter reset** any more, and a never-sat test exam no longer blocks **Reset the Question
+  Bank** — an official exam nobody has sat is deleted with its questions, named in the dialog first;
+  one somebody has sat still blocks for ever. Backend **1438 / 40**.
 - **Uploading questions is the owner's five-field form** (`feat/simple-question-upload`, 2026-10-09):
   Admin → Bulk Import asks for the file type, the class, the question type and an optional topic — no
   chapter. The form's class and type are every question's; the topic is a name (else the file's, else

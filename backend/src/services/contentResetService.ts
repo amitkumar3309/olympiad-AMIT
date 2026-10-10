@@ -5,20 +5,25 @@ import {
   DailyChallengeAttempt,
   DailyQuizStart,
   DailyQuizWinner,
+  Certificate,
   Exam,
+  ExamAttempt,
   MockTest,
   MockTestAttempt,
   Question,
   QuestionImage,
   QUESTION_STATUSES,
-  Topic,
+  Result,
 } from '../models';
+import type { Types } from 'mongoose';
 
 /**
  * THE content reset (Milestone 22, owner request 2026-08-28).
  *
- * One button per administrative area that empties it: the question bank, mock tests, the
- * Daily Quiz (the daily challenge before Milestone 30), and chapters. It exists because a
+ * One button per administrative area that empties it: the question bank, mock tests and the
+ * Daily Quiz (the daily challenge before Milestone 30). There is **no chapter reset** since
+ * 2026-10-10 (owner: "I don't want that") — a chapter is created by naming it on an upload, and
+ * an unwanted one is archived on the Chapters page, which refuses while questions use it. It exists because a
  * platform that has been loaded with trial data before launch has no other way back —
  * deleting three thousand questions one at a time is not a path anybody takes, so in
  * practice the trial data ships.
@@ -31,9 +36,8 @@ import {
  *    `SUPERADMIN_ONLY_PERMISSIONS`, on the line that table already draws: every other
  *    administrative act in this product is reversible, and these are not. A compromised
  *    *admin* session must not be able to empty the question bank.
- * 2. **It refuses rather than cascades.** Deleting chapters while questions are filed
- *    under them would leave every question pointing at a chapter that no longer exists —
- *    invisible to every filter, unfixable through the interface. So a reset **names its
+ * 2. **It refuses rather than cascades.** Deleting questions while a mock test or a Daily
+ *    Quiz is built from them would leave papers that cannot be served. So a reset **names its
  *    blockers and refuses**, and the administrator resets in dependency order. A cascade
  *    would be one click that quietly destroyed four areas instead of the one that was
  *    asked for.
@@ -44,7 +48,7 @@ import {
  *    is a real loss of a student's history — but their **XP is untouched**, because
  *    `StudentActivity` is a record of something that genuinely happened and taking it
  *    back would re-rank the leaderboard against children who did nothing wrong. So is the
- *    official exam, its results and every certificate: none of the four scopes can reach
+ *    official exam, its results and every certificate: none of the three scopes can reach
  *    them.
  * 5. **A phrase must be typed.** The route requires the scope's own confirmation phrase
  *    in the body, so neither a stray click nor a bare `POST` can empty a collection.
@@ -58,7 +62,7 @@ import {
  * an attempt with no mock test is a row the student's page cannot render.
  */
 
-export const RESET_SCOPES = ['questions', 'mock-tests', 'daily-challenges', 'chapters'] as const;
+export const RESET_SCOPES = ['questions', 'mock-tests', 'daily-challenges'] as const;
 export type ResetScope = (typeof RESET_SCOPES)[number];
 
 /** The words an administrator has to type. Distinct per scope, so one cannot be pasted into another. */
@@ -66,14 +70,12 @@ export const CONFIRM_PHRASES: Record<ResetScope, string> = {
   questions: 'RESET QUESTIONS',
   'mock-tests': 'RESET MOCK TESTS',
   'daily-challenges': 'RESET DAILY QUIZ',
-  chapters: 'RESET CHAPTERS',
 };
 
 const SCOPE_LABELS: Record<ResetScope, string> = {
   questions: 'Question Bank',
   'mock-tests': 'Mock Tests',
   'daily-challenges': 'Daily Quiz',
-  chapters: 'Chapters',
 };
 
 /**
@@ -140,6 +142,30 @@ export interface ResetPreview {
 // Preview
 // ---------------------------------------------------------------------------
 
+/**
+ * The official exams built from questions, split by whether anybody has sat them.
+ *
+ * An exam somebody has sat — an attempt, a result or a certificate points at it — is a permanent
+ * record, and there is no reset for it. An exam **nobody has sat** has no results and no
+ * certificates, only references to questions (owner, 2026-10-10: a test exam, never sat, was
+ * blocking the question-bank reset for ever). Such an exam goes with the questions it was built
+ * from, named in the preview first; one with no questions on it depends on nothing and stays.
+ */
+async function examsBuiltFromQuestions(): Promise<{ sat: number; unsatIds: Types.ObjectId[] }> {
+  const [attempted, resulted, certified] = await Promise.all([
+    ExamAttempt.distinct('exam'),
+    Result.distinct('exam'),
+    Certificate.distinct('exam'),
+  ]);
+  const satIds = [...attempted, ...resulted, ...certified] as Types.ObjectId[];
+  const withQuestions = { 'questions.0': { $exists: true } };
+  const [sat, unsat] = await Promise.all([
+    Exam.countDocuments({ ...withQuestions, _id: { $in: satIds } }),
+    Exam.find({ ...withQuestions, _id: { $nin: satIds } }).distinct('_id'),
+  ]);
+  return { sat, unsatIds: unsat as Types.ObjectId[] };
+}
+
 async function previewQuestions(): Promise<ResetPreview> {
   const [total, byStatus, mockTests, challenges, exams, pictures] = await Promise.all([
     Question.countDocuments({}),
@@ -151,7 +177,7 @@ async function previewQuestions(): Promise<ResetPreview> {
     ),
     MockTest.countDocuments({}),
     DailyChallenge.countDocuments({}),
-    Exam.countDocuments({}),
+    examsBuiltFromQuestions(),
     // Pictures belong to questions (Phase 7b); with the bank empty nothing can show one.
     QuestionImage.countDocuments({}),
   ]);
@@ -173,15 +199,16 @@ async function previewQuestions(): Promise<ResetPreview> {
       resolveWith: 'daily-challenges',
     });
   }
-  if (exams > 0) {
-    // Deliberately has no `resolveWith`: there is no reset for the official Olympiad, and
-    // there must not be — its results and certificates are a permanent record.
+  if (exams.sat > 0) {
+    // Deliberately has no `resolveWith`: there is no reset for an official exam somebody has
+    // sat, and there must not be — its results and certificates are a permanent record.
     blockers.push({
-      label: `${countOf(exams, 'official exam')} built from these questions. There is no reset for the official Olympiad — its results and certificates are permanent`,
-      count: exams,
+      label: `${countOf(exams.sat, 'official exam')} built from these questions and already sat. There is no reset for the official Olympiad — its results and certificates are permanent`,
+      count: exams.sat,
       resolveWith: null,
     });
   }
+  const unsatExams = exams.unsatIds.length;
 
   return {
     scope: 'questions',
@@ -199,16 +226,26 @@ async function previewQuestions(): Promise<ResetPreview> {
       ...(pictures > 0
         ? [{ label: 'Question pictures', count: pictures, text: phrase(pictures, 'question picture') }]
         : []),
+      ...(unsatExams > 0
+        ? [
+            {
+              label: 'Official exams nobody has sat',
+              count: unsatExams,
+              text: phrase(unsatExams, 'official exam'),
+              note: 'built from these questions and never sat — no attempts, results or certificates. They would point at nothing',
+            },
+          ]
+        : []),
     ],
     preserves: [
       'Chapters and subtopics',
       'Practice sessions students have already sat — each one snapshots its own questions and answer key, so it still opens and still shows the right marks',
       'XP, levels, streaks and the leaderboard',
-      'The official exam, its results and every certificate',
+      'Every official exam somebody has sat, its results and every certificate',
     ],
     blockers,
     canReset: blockers.length === 0 && total > 0,
-    totalToDelete: total,
+    totalToDelete: total + unsatExams,
   };
 }
 
@@ -319,43 +356,6 @@ async function previewDailyChallenges(): Promise<ResetPreview> {
   };
 }
 
-async function previewChapters(): Promise<ResetPreview> {
-  const [chapters, subtopics, questions] = await Promise.all([
-    Topic.countDocuments({ parent: null }),
-    Topic.countDocuments({ parent: { $ne: null } }),
-    Question.countDocuments({}),
-  ]);
-
-  const blockers: ResetBlocker[] = [];
-  if (questions > 0) {
-    // `Question.topic` is `required`, so a question whose chapter is gone is not merely
-    // untidy — it is invisible to every filter an administrator can construct, and there
-    // is no screen that can put it right.
-    blockers.push({
-      label: `${countOf(questions, 'question')} filed under these chapters and would be left pointing at nothing`,
-      count: questions,
-      resolveWith: 'questions',
-    });
-  }
-
-  return {
-    scope: 'chapters',
-    label: SCOPE_LABELS.chapters,
-    confirmPhrase: CONFIRM_PHRASES.chapters,
-    deletes: [
-      { label: 'Chapters', count: chapters, text: phrase(chapters, 'chapter') },
-      { label: 'Subtopics', count: subtopics, text: phrase(subtopics, 'subtopic') },
-    ],
-    preserves: [
-      'The subject itself, so new chapters can be added straight away',
-      'Everything outside the taxonomy — students, payments and the official exam',
-    ],
-    blockers,
-    canReset: blockers.length === 0 && chapters + subtopics > 0,
-    totalToDelete: chapters + subtopics,
-  };
-}
-
 /** What this reset would destroy, counted from the collections rather than estimated. */
 export async function previewReset(scope: ResetScope): Promise<ResetPreview> {
   switch (scope) {
@@ -365,8 +365,6 @@ export async function previewReset(scope: ResetScope): Promise<ResetPreview> {
       return previewMockTests();
     case 'daily-challenges':
       return previewDailyChallenges();
-    case 'chapters':
-      return previewChapters();
   }
 }
 
@@ -408,6 +406,11 @@ export async function performReset(scope: ResetScope, actorLabel: string): Promi
 
   switch (scope) {
     case 'questions': {
+      // Dependents first: the exams nobody has sat, re-counted now rather than taken from the
+      // dialog, so an exam somebody started a minute ago is never among them.
+      const { unsatIds } = await examsBuiltFromQuestions();
+      const exams = unsatIds.length > 0 ? ((await Exam.deleteMany({ _id: { $in: unsatIds } })).deletedCount ?? 0) : 0;
+      if (exams > 0) deleted.push({ label: 'Official exams nobody has sat', count: exams, text: phrase(exams, 'official exam') });
       const result = await Question.deleteMany({});
       const count = result.deletedCount ?? 0;
       deleted.push({ label: 'Questions', count, text: phrase(count, 'question') });
@@ -449,16 +452,6 @@ export async function performReset(scope: ResetScope, actorLabel: string): Promi
         count: challenges,
         text: phrase(challenges, 'scheduled quiz day', 'scheduled quiz days'),
       });
-      break;
-    }
-
-    case 'chapters': {
-      // Subtopics before chapters, so a failure between them cannot leave a subtopic whose
-      // parent has gone — `depth` is derived from `parent`, and an orphan is unreachable.
-      const subtopics = (await Topic.deleteMany({ parent: { $ne: null } })).deletedCount ?? 0;
-      const chapters = (await Topic.deleteMany({ parent: null })).deletedCount ?? 0;
-      deleted.push({ label: 'Subtopics', count: subtopics, text: phrase(subtopics, 'subtopic') });
-      deleted.push({ label: 'Chapters', count: chapters, text: phrase(chapters, 'chapter') });
       break;
     }
   }

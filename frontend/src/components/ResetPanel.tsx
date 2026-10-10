@@ -33,7 +33,7 @@ import { humanizeError } from '../lib/errors'
  * something staff avoid and work around.
  */
 
-export type ResetScope = 'questions' | 'mock-tests' | 'daily-challenges' | 'chapters'
+export type ResetScope = 'questions' | 'mock-tests' | 'daily-challenges'
 
 interface ResetLine {
   label: string
@@ -73,14 +73,12 @@ const SCOPE_TITLES: Record<ResetScope, string> = {
   questions: 'Reset the Question Bank',
   'mock-tests': 'Reset all mock tests',
   'daily-challenges': 'Reset the Daily Quiz',
-  chapters: 'Reset all chapters',
 }
 
 const SCOPE_BLURBS: Record<ResetScope, string> = {
-  questions: 'Deletes every question — published, draft, in review and archived. Chapters are kept.',
+  questions: 'Deletes every question — published, draft, in review and archived — and any official exam built from them that nobody has sat. Chapters are kept.',
   'mock-tests': 'Deletes every mock test and every attempt students have made at one.',
   'daily-challenges': 'Deletes every scheduled quiz, every answer and every unreviewed winner candidate. Prize decisions and the settings are kept.',
-  chapters: 'Deletes every chapter and subtopic. The subject itself is kept.',
 }
 
 export default function ResetPanel({ scope, onDone }: ResetPanelProps) {

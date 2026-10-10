@@ -1461,23 +1461,25 @@ observed from the actual payment.
 One endpoint per administrative area that empties it. **The most destructive capability in the
 product**, and the only one that deletes thousands of rows from a single request.
 
-Four scopes: `questions`, `mock-tests`, `daily-challenges`, `chapters`.
+Three scopes: `questions`, `mock-tests`, `daily-challenges`. **Changed 2026-10-10 (owner):** there is **no chapter reset** any more, and an official exam **nobody has sat** (no attempt, result or certificate) no longer blocks the question bank — it is deleted with the questions it was built from, named in the preview first. An exam somebody has sat still blocks, with no resolution. `chapters` is an unknown scope (400).
 
 ### It refuses rather than cascades
-Deleting chapters while questions are filed under them would leave every question pointing at a
-chapter that no longer exists — invisible to every filter, unfixable through the interface. So a
-reset **names its blockers and refuses**, and the administrator resets in dependency order:
-daily challenges → mock tests → questions → chapters. A cascade would be one click that quietly
-destroyed four areas instead of the one that was asked for.
+Deleting questions while a mock test or a Daily Quiz is built from them would leave papers that
+cannot be served. So a reset **names its blockers and refuses**, and the administrator resets in
+dependency order: Daily Quiz → mock tests → questions. A cascade would be one click that quietly
+destroyed three areas instead of the one that was asked for.
 
-The **official exam is a blocker with no resolution**: there is no reset for it, and there must not
-be — its results and certificates are a permanent record.
+An **official exam somebody has sat is a blocker with no resolution**: there is no reset for it, and
+there must not be — its results and certificates are a permanent record. An official exam **nobody
+has sat** has neither, so the `questions` reset lists it under `deletes[]` ("Official exams nobody
+has sat") and deletes it before the questions, re-counting at the moment of the write. An exam with
+no questions on it depends on nothing and is left alone.
 
 ### `GET /api/v1/admin/reset/:scope/preview`
 - **Permission**: `content:reset` — **super admin only**, on the same line `users:delete` is drawn on.
 - **Response 200**: `{ success, preview: { scope, label, confirmPhrase, deletes[], preserves[], blockers[], canReset, totalToDelete } }`
 - `deletes[]` carries `{ label, count, text, note? }` — `text` is the count already agreeing with its noun (`1 chapter` / `26 chapters`), built server-side because a client joining a count to a label produces "1 scheduled daily challenges", and this is the sentence somebody reads immediately before deleting data they cannot get back.
-- `blockers[]` carries `{ label, count, resolveWith }`, where `resolveWith` is the scope to reset first (or `null` for the official exam).
+- `blockers[]` carries `{ label, count, resolveWith }`, where `resolveWith` is the scope to reset first (or `null` for an official exam somebody has sat).
 - **Writes nothing.** Safe to load on arrival, which is the point: the counts should be visible *before* the decision.
 - **Errors**: `400` unknown scope, `401`, `403`, `503`, `500`.
 
