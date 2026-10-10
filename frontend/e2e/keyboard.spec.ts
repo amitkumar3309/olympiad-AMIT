@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { expect, test, type Page } from '@playwright/test'
-import { BACKEND, E2E_ADMIN, resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
+import { expect, type Page } from '@playwright/test'
+import { BACKEND, E2E_ADMIN, resetBackend, seedQuiz, signIn, waitForApp, test } from './fixtures.ts'
 
 /**
  * Everything works from the keyboard alone (Milestone 30, Phase 6 — brief §10, "Accessibility":

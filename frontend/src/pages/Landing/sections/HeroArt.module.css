@@ -1,0 +1,332 @@
+/*
+ * The hero's figure of the day (2026-10-09) — see HeroArt.tsx. Tokens only: the card, the graph
+ * paper and every stroke and tint come from `tokens.css`, so the figure is right in the dark theme
+ * and at night during the Diwali edition with no rules of its own.
+ */
+
+.stage {
+  position: relative;
+  justify-self: center;
+  width: min(100%, 360px);
+}
+
+@media (min-width: 768px) {
+  .stage {
+    width: min(100%, 460px);
+  }
+}
+
+/* The one soft light behind the card. */
+.glow {
+  position: absolute;
+  inset: 6% -10% 12%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--hero-glow), transparent);
+  pointer-events: none;
+}
+
+/* A layer the pointer may move (pages/Landing/motion.ts). Nothing else about it. */
+.layer {
+  position: relative;
+}
+
+/*
+ * The card settles once when the page is first drawn — transform only, so it is never hidden if
+ * the animation does not run — and carries on, rather than starting again, when the app takes the
+ * drawn page over (`--drawn-for`, set by src/main.tsx).
+ */
+.card {
+  position: relative;
+  padding: var(--space-4) var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-2xl);
+  background: var(--surface);
+  box-shadow: var(--showcase-shadow);
+  animation: art-settle var(--dur-entrance) var(--ease-out) both;
+  animation-delay: calc(180ms - var(--drawn-for, 0ms));
+}
+
+/* Deeper at the foot from 768px, where the quote overlaps it — so it never covers the caption. */
+@media (min-width: 768px) {
+  .card {
+    padding-bottom: var(--space-8);
+  }
+}
+
+@keyframes art-settle {
+  from {
+    transform: translateY(18px) scale(0.98);
+  }
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--primary-text);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+/* Today's figure, as public/boot.js named it before the first paint — one line per figure, in the
+   order of `PICTURES_OF_THE_DAY`. Without the script, the first. */
+.day {
+  display: none;
+}
+
+:global(:root[data-picture='0']) .day[data-picture-index='0'],
+:global(:root[data-picture='1']) .day[data-picture-index='1'],
+:global(:root[data-picture='2']) .day[data-picture-index='2'],
+:global(:root[data-picture='3']) .day[data-picture-index='3'],
+:global(:root[data-picture='4']) .day[data-picture-index='4'],
+:global(:root[data-picture='5']) .day[data-picture-index='5'],
+:global(:root[data-picture='6']) .day[data-picture-index='6'],
+:global(:root:not([data-picture])) .day[data-picture-index='0'] {
+  display: block;
+}
+
+.name {
+  margin: var(--space-1) 0 var(--space-3);
+  color: var(--text);
+  font-size: var(--type-card-title);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-snug);
+}
+
+/* Graph paper. */
+.canvas {
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background-color: var(--figure-paper);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-position: -1px -1px;
+  background-size: 16px 16px;
+}
+
+.canvas svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.formula {
+  margin: var(--space-4) 0 var(--space-1);
+  color: var(--primary-text);
+  font-size: var(--type-stat);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-snug);
+  font-variant-numeric: tabular-nums;
+}
+
+.formula sup {
+  font-size: 0.6em;
+  line-height: 0;
+}
+
+.caption {
+  margin: 0;
+  color: var(--text-body);
+  font-size: var(--type-small);
+  line-height: var(--leading-normal);
+}
+
+/* ---------- the figures' marks -------------------------------------------------------------- */
+
+.curve,
+.stroke {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stroke {
+  stroke-width: 2.5;
+}
+
+.strokeSoft {
+  stroke: var(--primary-border);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.hair {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.dash {
+  stroke: var(--text-subtle);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 4;
+}
+
+.axis {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.areaBlue {
+  fill: var(--series-1);
+  fill-opacity: 0.1;
+}
+
+.cell {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.tone1 {
+  fill: var(--series-1);
+  fill-opacity: 0.12;
+}
+
+.tone2 {
+  fill: var(--series-2);
+  fill-opacity: 0.18;
+}
+
+.tone3 {
+  fill: var(--series-3);
+  fill-opacity: 0.16;
+}
+
+.tone4 {
+  fill: var(--series-4);
+  fill-opacity: 0.16;
+}
+
+.tone5 {
+  fill: var(--series-5);
+  fill-opacity: 0.24;
+}
+
+.stairLow {
+  fill: var(--primary);
+  fill-opacity: 0.85;
+}
+
+.stairHigh {
+  fill: var(--accent-strong);
+  fill-opacity: 0.38;
+}
+
+/* The gaps between the staircase's cells, drawn in the card's own colour. */
+.gap {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.dot {
+  fill: var(--primary);
+}
+
+.ring {
+  fill: var(--surface);
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+.goldDot {
+  fill: var(--accent-strong);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.faintDot {
+  fill: var(--text-subtle);
+}
+
+.wedge1,
+.wedge2,
+.wedge3 {
+  fill-opacity: 0.32;
+  stroke-width: 1.5;
+}
+
+.wedge1 {
+  fill: var(--series-1);
+  stroke: var(--series-1);
+}
+
+.wedge2 {
+  fill: var(--series-2);
+  stroke: var(--series-2);
+}
+
+.wedge3 {
+  fill: var(--series-3);
+  stroke: var(--series-3);
+}
+
+/* Words drawn in the figures: decoration (the figure is hidden from assistive technology), but at
+   text contrast all the same. */
+.label {
+  fill: var(--text-muted);
+  font-weight: var(--weight-semibold);
+}
+
+.labelStrong {
+  fill: var(--text);
+  font-weight: var(--weight-black);
+}
+
+.onDot {
+  fill: var(--primary-on);
+  font-weight: var(--weight-bold);
+}
+
+/* ---------- the founder's quote, over the card's foot ---------------------------------------- */
+
+/* Under the card on a phone. From 768px it reaches out past the card's left edge and overlaps the
+   card's deeper foot by less than the foot is deep — in the flow rather than positioned, so a
+   longer quote moves what is below it instead of covering the caption. */
+.quoteLayer {
+  margin-top: var(--space-3);
+}
+
+@media (min-width: 768px) {
+  .quoteLayer {
+    width: 260px;
+    margin: calc(-1 * var(--space-5)) 0 0 calc(-1 * var(--space-8));
+  }
+}
+
+.quote {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--card-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--showcase-shadow);
+  font-size: var(--type-small);
+  line-height: var(--leading-snug);
+  animation: art-settle var(--dur-entrance) var(--ease-out) both;
+  animation-delay: calc(320ms - var(--drawn-for, 0ms));
+}
+
+.quote blockquote {
+  margin: 0;
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.quote figcaption {
+  margin-top: var(--space-1);
+  color: var(--text-muted);
+  font-weight: var(--weight-semibold);
+}
+
+.quoteMark {
+  width: 18px;
+  height: 18px;
+  margin-bottom: var(--space-1);
+  color: var(--primary-text);
+}

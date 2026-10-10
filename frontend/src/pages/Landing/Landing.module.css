@@ -309,8 +309,15 @@
   transition: transform var(--dur-fast) var(--ease-out);
 }
 
-.faqItem[open] .faqCaret {
+/* Turned up while open — and back down as soon as an answer starts closing (`smoothToggle` marks it). */
+.faqItem[open]:not([data-closing]) .faqCaret {
   transform: rotate(180deg);
+}
+
+/* The answer's box: what `smoothToggle` opens and closes. No padding of its own, so its height
+   runs all the way to nothing. */
+.faqBody {
+  min-width: 0;
 }
 
 .faqItem p {
@@ -323,42 +330,62 @@
 
 /* ------------------------------------------------------------------ CTA ---- */
 
-/* The closing banner: art, words and buttons on the pale brand tint. */
+/* The closing band (2026-10-09): the tagline, the question and the two actions, centred on the hero's
+   graph paper — the page ends the way it began. It replaced a placeholder picture and a handwritten line. */
 .cta {
   position: relative;
+  isolation: isolate;
   display: grid;
-  gap: var(--space-6);
-  align-items: center;
-  padding: var(--space-8) var(--space-5);
+  justify-items: center;
+  gap: var(--space-3);
+  padding: var(--space-12) var(--space-5);
+  overflow: hidden;
+  border: var(--border-width) solid var(--card-border);
   border-radius: var(--radius-2xl);
   background: var(--band-accent);
-  border: var(--border-width) solid var(--card-border);
-  overflow: hidden;
   text-align: center;
+}
+
+.cta::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-position: center;
+  background-size: 32px 32px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 85% at 50% 50%, currentColor 25%, transparent 78%);
+  mask-image: radial-gradient(ellipse 60% 85% at 50% 50%, currentColor 25%, transparent 78%);
 }
 
 @media (min-width: 900px) {
   .cta {
-    grid-template-columns: 280px minmax(0, 1fr) 200px;
-    padding: var(--space-8) var(--space-10);
-    text-align: start;
+    padding: var(--space-16) var(--space-10);
   }
 }
 
-.ctaArt {
-  justify-self: center;
-  width: min(100%, 260px);
+.ctaEyebrow {
+  margin: 0;
+  color: var(--primary-text);
+  font-size: var(--type-micro);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
 }
 
-.ctaCopy h2 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--type-section-title);
+.cta h2 {
+  margin: 0;
+  font-size: var(--text-3xl);
   font-weight: var(--weight-black);
+  line-height: var(--leading-tight);
   letter-spacing: var(--tracking-display);
 }
 
-.ctaCopy p {
-  margin: 0 0 var(--space-5);
+.ctaLead {
+  max-width: 46ch;
+  margin: 0 0 var(--space-3);
   color: var(--text-body);
   font-size: var(--type-body);
 }
@@ -368,19 +395,4 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: var(--space-3);
-}
-
-@media (min-width: 900px) {
-  .ctaActions {
-    justify-content: flex-start;
-  }
-}
-
-.ctaHand {
-  margin: 0;
-  font-family: var(--font-hand);
-  font-size: var(--text-2xl);
-  line-height: 1.1;
-  color: var(--primary-text);
-  transform: rotate(-4deg);
 }

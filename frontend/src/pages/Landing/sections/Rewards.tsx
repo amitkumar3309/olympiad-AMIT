@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Award, BadgeCheck, Gift, Medal, Zap } from 'lucide-react'
+import { Award, BadgeCheck, Gift, Medal, Trophy, Zap } from 'lucide-react'
 import { api } from '../../../api/client'
 import type { PublicQuizWinner, QuizPrizeInfo } from '../../../api/types'
-import Illustration from '../../../components/Illustration'
 import { Avatar, Button, Section, Skeleton, usePrefersReducedMotion } from '../../../components/ui'
 import { bandsSentence, prizeLine } from '../../../lib/dailyQuizCopy'
 import { formatDayKey } from '../../../lib/format'
 import { RECENT_WINNERS } from '../../../lib/siteConfig'
+import { useReveal } from '../motion'
 import styles from './Rewards.module.css'
 
 /**
@@ -50,6 +50,7 @@ export default function Rewards({ prize, onPlay }: RewardsProps) {
   const rowRef = useRef<HTMLOListElement>(null)
   const [paused, setPaused] = useState(false)
   const reduced = usePrefersReducedMotion()
+  const reveal = useReveal<HTMLDivElement>()
 
   useEffect(() => {
     let cancelled = false
@@ -88,18 +89,21 @@ export default function Rewards({ prize, onPlay }: RewardsProps) {
         lead={
           prize ? (
             <>
-              Answer the Daily Quiz — every month, the top scorer in each class band wins: <strong>{prizeLine(prize)}</strong> 🎁
+              Answer the Daily Quiz — every month, the top scorer in each class band wins: <strong>{prizeLine(prize)}</strong>.
             </>
           ) : (
-            'Answer the Daily Quiz — every month, the top scorer in each class band wins a prize. 🎁'
+            'Answer the Daily Quiz — every month, the top scorer in each class band wins a prize.'
           )
         }
       >
-        <div className={styles.cards}>
+        <div ref={reveal} className={styles.cards}>
           <article className={`${styles.card} ${styles.champion}`}>
             <span className={styles.shine} aria-hidden="true" />
+            {/* A drawn gold medal, where a placeholder picture stood (2026-10-09). */}
             <div className={styles.championArt} aria-hidden="true">
-              <Illustration name="gift-box" />
+              <span className={styles.medal}>
+                <Trophy />
+              </span>
             </div>
             <div className={styles.cardBody}>
               <p className={styles.cardEyebrow}>

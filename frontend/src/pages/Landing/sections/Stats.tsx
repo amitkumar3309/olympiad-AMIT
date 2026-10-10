@@ -4,6 +4,7 @@ import { api } from '../../../api/client'
 import type { PublicStats } from '../../../api/types'
 import { CountUp, StatTile } from '../../../components/ui'
 import { HOME_STATS } from '../../../lib/siteConfig'
+import { useReveal } from '../motion'
 import styles from '../Landing.module.css'
 
 /**
@@ -29,6 +30,7 @@ const FIGURES = [
 
 export default function Stats() {
   const [stats, setStats] = useState<PublicStats | null>(null)
+  const reveal = useReveal<HTMLDivElement>()
 
   useEffect(() => {
     let cancelled = false
@@ -50,7 +52,7 @@ export default function Stats() {
 
   return (
     <section className={`container ${styles.stats}`} aria-label="The Olympiad so far">
-      <div className={styles.statGrid}>
+      <div ref={reveal} className={styles.statGrid}>
         {shown.map(({ key, label, icon: Glyph, tone }) => (
           <StatTile
             key={key}

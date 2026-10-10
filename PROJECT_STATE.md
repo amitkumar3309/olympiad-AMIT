@@ -161,14 +161,21 @@ The work happens in phases, and each one stops for the owner's approval.
   Open: taps with motion on — 220–260 ms in headless Edge, as before Phase 7a, and 320–430 ms during the
   edition — and LCP on the intro's first visit; both in PROGRESS.md. **Next: Phase 7b** (picture
   questions, reminders).
-- **The owner's follow-ups of 2026-10-09** (`feat/home-motivation`): the hero's square shows **a picture
-  of the day** — seven drawn pictures, one a day, chosen before the first paint by `public/boot.js`
-  (`PictureOfTheDay`, `--art-*` tokens) — and the founder's quotes are signed **"— Amit"** (`FOUNDER`).
+- **The homepage, calmer and smoother** (`feat/homepage-premium`, owner 2026-10-09): the hero's art is
+  **a figure of the day** — seven pieces of real mathematics drawn exactly (`HeroArt`), one a day, chosen
+  before the first paint by `public/boot.js`; **Motion** (13.4.4), loaded after the page is up, tilts it
+  towards a mouse, brings groups of cards into place as they are scrolled to and opens the FAQ smoothly
+  (`pages/Landing/motion.ts`); placeholder pictures, the emoji and the handwritten lines are gone.
+  Browser tests now open on the everyday site unless they test the edition. E2E **92** (63 run), all
+  passing after merging `main`.
 - **Uploading questions is the owner's five-field form** (`feat/simple-question-upload`, 2026-10-09):
   Admin → Bulk Import asks for the file type, the class, the question type and an optional topic — no
   chapter. The form's class and type are every question's; the topic is a name (else the file's, else
   detected, else General) that **becomes a chapter when the questions are saved**. The Daily Quiz import
   is unchanged. The save links to the question bank filtered to the class.
+- **The owner's follow-ups of 2026-10-09** (`feat/home-motivation`): the hero showed a picture of the
+  day (since redrawn as the figure of the day, above) and the founder's quotes are signed **"— Amit"**
+  (`FOUNDER`).
 - **A 24-hour trial of the Diwali edition on the live site** (owner, 2026-10-09, "for testing purpose"):
   `DIWALI_EDITION.trial` in `frontend/src/lib/season.ts`, until 6:30 PM on 10 October IST, then off by
   itself. Frontend only — no Diwali 2026 badge is awarded for it. **Set it back to `null` afterwards.**

@@ -51,12 +51,13 @@
   min-width: 0;
 }
 
+/* In sentence case like every other section's heading (2026-10-09) — capitals were the one
+   heading on the page that shouted. */
 .title {
   margin: 0;
   font-size: var(--type-section-title);
-  font-weight: var(--weight-black);
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-tight);
-  text-transform: uppercase;
 }
 
 .lead {

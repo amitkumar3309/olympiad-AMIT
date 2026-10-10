@@ -22,6 +22,7 @@ import Journey from './sections/Journey'
 import TopScholars from './sections/TopScholars'
 import Faq from './sections/Faq'
 import FinalCta from './sections/FinalCta'
+import { usePreloadMotion } from './motion'
 import styles from './Landing.module.css'
 
 /**
@@ -90,6 +91,8 @@ export default function Landing() {
   const [searchParams] = useSearchParams()
   const { pathname, hash } = useLocation()
   const reducedMotion = usePrefersReducedMotion()
+  // The homepage's motion library, fetched once the page has settled (pages/Landing/motion.ts).
+  usePreloadMotion()
 
   const [loginOpen, setLoginOpen] = useState(false)
   /** Where the sign-in dialog leads — set when it is opened from the Login Gate. */

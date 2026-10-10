@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
-import { expect, test, type Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { DIWALI_EDITION } from '../src/lib/season.ts'
-import { BACKEND, E2E_ADMIN, expectAccessible, fillSignIn, resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
+import { BACKEND, E2E_ADMIN, expectAccessible, fillSignIn, resetBackend, seedQuiz, signIn, waitForApp, test } from './fixtures.ts'
 
 /**
  * Milestone 30 Phase 7 — the Diwali edition (`src/lib/season.ts`, `public/boot.js`).
@@ -10,6 +10,10 @@ import { BACKEND, E2E_ADMIN, expectAccessible, fillSignIn, resetBackend, seedQui
  * scripts run: boot.js reads it before the first paint and puts `data-season` on <html>. The
  * server's clock is untouched (the countdown and the archive read that one).
  */
+
+// This file tests the edition itself: its pages follow the dates each test pins, not the suite's
+// everyday default (fixtures.ts).
+test.use({ everyday: false })
 
 const DIWALI_WEEK = new Date('2026-11-09T10:00:00+05:30')
 /** An ordinary day — clear of the week and of any trial — for a test that needs the everyday site. */

@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test'
-import { resetBackend, seedQuiz, signIn, waitForApp } from './fixtures.ts'
+import { expect, type Locator, type Page, type TestInfo } from '@playwright/test'
+import { resetBackend, seedQuiz, signIn, waitForApp, test } from './fixtures.ts'
 
 /**
  * Interaction to Next Paint (Milestone 30, Phase 6 — brief §10: "INP ≤ 200 ms").
@@ -105,6 +105,9 @@ test('every interaction a student makes answers within 200 ms on a slowed phone'
 })
 
 test.describe('during the Diwali edition', () => {
+  // The edition itself, on the date pinned below — not the suite's everyday default (fixtures.ts).
+  test.use({ everyday: false })
+
   test('every interaction still answers within 200 ms with the edition drawn', async ({ page }, testInfo) => {
     await page.clock.setFixedTime(new Date('2026-11-09T10:00:00+05:30'))
     // Already seen: the intro is diwali.spec.ts's; these taps are on the page beneath it.

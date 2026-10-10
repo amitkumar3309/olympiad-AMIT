@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { expect, test, type Page } from '@playwright/test'
-import { BACKEND, E2E_STUDENT, TINY_JPEG, advanceDays, expectAccessible, fillSignIn, lastVerificationLink, resetBackend, seedQuiz, waitForApp } from './fixtures.ts'
+import { expect, type Page } from '@playwright/test'
+import { BACKEND, E2E_STUDENT, TINY_JPEG, advanceDays, expectAccessible, fillSignIn, lastVerificationLink, resetBackend, seedQuiz, waitForApp, test } from './fixtures.ts'
 
 /**
  * The homepage's way into the Daily Quiz (Milestone 30, Phase 3 — brief §7.3), end to end, at

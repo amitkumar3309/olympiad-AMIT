@@ -4,6 +4,49 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-09 — The homepage: a figure of the day, and Motion for its animations, loaded after the page
+
+**Context.** Two requests from the owner on 2026-10-09: "The think grow solve picture doesn't look good on
+the hero page, I want something more better, either search a relevant picture from internet and use that
+or generate one by yourself", and "I want the homepage to look more premium and better, use react
+animations for smoother effects, I don't want it to look like a cheap AI slop website". The hero showed
+one of seven cartoon scenes drawn in code, with four doodles and a handwritten "Think Solve Grow" around
+it; two cards used placeholder pictures (no illustration has been supplied); the closing banner had a
+placeholder and a second handwritten line; the facts under the title were four coloured circles.
+
+**Decision.**
+1. **The hero's art is a figure of the day**: seven pieces of real mathematics drawn exactly on graph
+   paper — compound growth (1.01³⁶⁵), the Fibonacci spiral, Pythagoras, Gauss's staircase, doubling, the
+   primes to 100 and a triangle's angles — each with its formula and one line that is true as written,
+   on a raised card beside the founder's quote. Still one a day, still chosen by `public/boot.js` before
+   the first paint; the owner's "positive and motivational … updated regularly" is kept.
+2. **Motion** (`motion`, MIT, free — formerly Framer Motion) **drives the homepage's motion**: the
+   figure tilting towards the pointer on springs, groups of cards rising into place as they are scrolled
+   to, the FAQ opening smoothly. Pinned to **13.4.4**, the newest release at least two weeks old (14.0.0
+   was a week-old major). **Loaded on demand, after the page is up** (`motionKit.ts`, 19 kB gzipped,
+   fetched at 1.5 s): the entry bundle grew by about 2 kB gzipped, so neither the build-time draw nor a
+   tap's 200 ms budget waits on it.
+3. **Motion never hides content.** Nothing is hidden in the drawn page; a group is lowered only after
+   its observer has reported it entirely off screen, and it comes back when scrolled to, when a control
+   in it is focused, before printing, or at once if Motion is not there within 400 ms. Reduced motion
+   turns it all off.
+4. **A quieter page**: the facts became a checklist; the eyebrow a white pill; faint graph paper behind
+   the hero and the closing band; the prize card's placeholder became a drawn gold medal; the closing
+   banner became a centred band with the tagline; the 🎁 emoji and both handwritten lines went.
+5. **The hero's entrance plays once**: React's first commit replaced the drawn elements and started
+   their entrance again; `main.tsx` now records how long the drawn page had been on screen
+   (`--drawn-for`) and the stylesheets subtract it.
+6. **Browser tests open on the everyday site** unless they test the edition (`test.use({ everyday:
+   false })`), so the trial, or the real week, no longer fails unrelated tests.
+
+**Why not a photograph from the internet.** It needs a licence nobody here can check, a download, a
+request ahead of the page's largest paint, and probably a stock photo of children — and it would not
+change daily or turn to night in the dark theme. **Why not an AI-generated picture**: the owner asked for
+a site that does not look like AI slop, and the mockups' own AI art had garbled lettering (CLAUDE.md).
+**Why not Motion's React components** (`motion.div` with `initial` and `whileInView`): they render their
+starting state in the first render, which the build-time draw would carry as hidden content, and they
+would sit in the entry bundle.
+
 ## 2026-10-09 — The question upload: the form decides the class and the type, and a topic is a name
 
 **Context.** The owner (2026-10-09): "Simplify the question upload process for admin, remove the part

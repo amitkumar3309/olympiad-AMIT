@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { expect, test } from '@playwright/test'
-import { BACKEND, E2E_ADMIN, expectAccessible, fillSignIn, resetBackend, waitForApp } from './fixtures.ts'
+import { expect } from '@playwright/test'
+import { BACKEND, E2E_ADMIN, expectAccessible, fillSignIn, resetBackend, waitForApp, test } from './fixtures.ts'
 
 /**
  * The monthly winners (owner, 2026-10-09 — PLAN.md Q24): one winner a month in each class band.

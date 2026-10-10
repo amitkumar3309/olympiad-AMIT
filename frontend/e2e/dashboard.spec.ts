@@ -1,6 +1,6 @@
 /// <reference lib="dom" />
-import { expect, test } from '@playwright/test'
-import { expectAccessible, resetBackend, seedQuiz, signIn } from './fixtures.ts'
+import { expect } from '@playwright/test'
+import { expectAccessible, resetBackend, seedQuiz, signIn, test } from './fixtures.ts'
 
 /**
  * The student dashboard and its chrome (Milestone 30, Phase 4 — brief §8), at desktop width and

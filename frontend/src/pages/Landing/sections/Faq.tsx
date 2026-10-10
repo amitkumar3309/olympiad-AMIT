@@ -1,5 +1,6 @@
 import type { QuizPrizeInfo } from '../../../api/types'
 import { Icon, Section } from '../../../components/ui'
+import { smoothToggle, useReveal } from '../motion'
 import styles from '../Landing.module.css'
 
 /**
@@ -64,16 +65,21 @@ export interface FaqProps {
 
 export default function Faq({ prize }: FaqProps) {
   const faqs = [...FAQS.slice(0, 2), { q: 'How does the Daily Quiz work?', a: dailyQuizAnswer(prize) }, ...FAQS.slice(2)]
+  const reveal = useReveal<HTMLDivElement>({ rise: 16, gap: 0.04 })
   return (
     <Section id="faq" className={`container ${styles.section} ${styles.faqSection}`} eyebrow="Questions" title="Before you register">
-      <div className={styles.faqList}>
+      <div ref={reveal} className={styles.faqList}>
         {faqs.map((f) => (
+          // A native <details>, so it opens before the app has taken the drawn page over; once Motion
+          // is here, the answer slides open instead of jumping (`smoothToggle`).
           <details className={styles.faqItem} key={f.q}>
-            <summary>
+            <summary onClick={smoothToggle}>
               <span>{f.q}</span>
               <Icon name="ph-caret-down" weight="bold" className={styles.faqCaret} />
             </summary>
-            <p>{f.a}</p>
+            <div className={styles.faqBody}>
+              <p>{f.a}</p>
+            </div>
           </details>
         ))}
       </div>

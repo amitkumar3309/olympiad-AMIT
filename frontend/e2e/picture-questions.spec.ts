@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import { deflateSync } from 'node:zlib'
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
-import { advanceDays, BACKEND, E2E_ADMIN, E2E_STUDENT, expectAccessible, fillSignIn, resetBackend, signIn, waitForApp } from './fixtures.ts'
+import { expect, type APIRequestContext, type Page } from '@playwright/test'
+import { advanceDays, BACKEND, E2E_ADMIN, E2E_STUDENT, expectAccessible, fillSignIn, resetBackend, signIn, waitForApp, test } from './fixtures.ts'
 
 /**
  * Picture questions (Milestone 30 Phase 7b — PLAN.md Q19): the uploaded picture **is** the
