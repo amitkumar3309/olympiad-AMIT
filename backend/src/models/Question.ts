@@ -74,6 +74,8 @@ export const QUESTION_SOURCES = [
   'json_import',
   // Milestone 30 Phase 7b: pictures uploaded as questions, read by nothing (no OCR).
   'picture_import',
+  // 2026-10-10: generated for an automatic Daily Quiz from the maths templates — answer computed.
+  'quiz_generator',
 ] as const;
 export type QuestionSource = (typeof QUESTION_SOURCES)[number];
 

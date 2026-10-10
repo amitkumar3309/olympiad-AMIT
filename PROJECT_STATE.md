@@ -178,6 +178,12 @@ The work happens in phases, and each one stops for the owner's approval.
   **no chapter reset** any more, and a never-sat test exam no longer blocks **Reset the Question
   Bank** — an official exam nobody has sat is deleted with its questions, named in the dialog first;
   one somebody has sat still blocks for ever. Backend **1438 / 40**.
+- **The Daily Quiz runs itself; staff have no student area** (`feat/auto-daily-quiz`, 2026-10-11): every
+  class without a quiz on a day gets one — the "daily quiz" pool first, else a generated question — through
+  `services/dailyQuizAuto.ts`, on by default (Admin → Daily Quiz → Settings). Staff see only the admin
+  panel (header, routes, homepage), change their password at `/admin/account`, and are never ranked or
+  awarded. Optional: a cron-job.org job calling `POST /jobs/daily-quiz-schedule` at 00:01 IST makes the
+  quizzes exist at midnight rather than at the first visit (needs `JOBS_SECRET`).
 - **The practice bank** (`content/practice-1500`, 2026-10-10): 150 generated Mathematics questions per
   class, 3 to 12, every answer computed. **Not in production until the owner runs**
   `npm run seed:practice -- --write` from `backend/` (report only without `--write`; safe to repeat).

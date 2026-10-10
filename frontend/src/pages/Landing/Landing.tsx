@@ -8,7 +8,7 @@ import { api } from '../../api/client'
 import type { QuizPrizeInfo } from '../../api/types'
 import { useAuth } from '../../context/AuthContext'
 import { useInView, usePrefersReducedMotion } from '../../components/ui'
-import { roleHome } from '../../lib/roleHome'
+import { isStaffRole, roleHome } from '../../lib/roleHome'
 import { registerHref, safeNext, type NextPath } from '../../lib/nextPath'
 import { HOME_SECTIONS, type HomeSectionId } from '../../lib/siteConfig'
 import LoginDialog from '../Auth/LoginDialog'
@@ -100,7 +100,10 @@ export default function Landing() {
   const [gateOpen, setGateOpen] = useState(false)
   const [prize, setPrize] = useState<QuizPrizeInfo | null>(null)
 
-  const isStudent = state.status === 'student'
+  const signedIn = state.status === 'student' || state.status === 'admin'
+  // Staff have no student area (owner, 2026-10-10): their way on is the admin panel.
+  const staff = signedIn && isStaffRole(state.role)
+  const isStudent = signedIn && !staff
   const ref = searchParams.get('ref')?.trim() || null
   const registerTo = registerHref(null, ref)
 
@@ -147,9 +150,10 @@ export default function Landing() {
 
   /** The one Daily Quiz entry: straight in for a student, the Login Gate for a guest. */
   const play = useCallback(() => {
-    if (isStudent) navigate('/daily-quiz')
+    if (staff) navigate('/admin/daily-quiz')
+    else if (isStudent) navigate('/daily-quiz')
     else setGateOpen(true)
-  }, [isStudent, navigate])
+  }, [isStudent, staff, navigate])
 
   function signInFromGate() {
     setGateOpen(false)
@@ -170,9 +174,9 @@ export default function Landing() {
    */
   const page = useMemo(() => {
     const sections: Record<HomeSectionId, ReactNode> = {
-      hero: <Hero signedIn={isStudent} registerTo={registerTo} />,
+      hero: <Hero signedIn={signedIn} staff={staff} registerTo={registerTo} />,
       // Shown only during the Diwali edition (Phase 7) — CSS decides, from <html data-season>.
-      diwali: <DiwaliSpecial signedIn={isStudent} registerTo={registerTo} onPlay={play} />,
+      diwali: <DiwaliSpecial signedIn={signedIn} registerTo={registerTo} onPlay={play} />,
       stats: <Stats />,
       crack: <DeferredCrackThis onPlay={play} classLevel={classLevel} />,
       rewards: <Rewards prize={prize} onPlay={play} />,
@@ -181,7 +185,7 @@ export default function Landing() {
       journey: <Journey />,
       scholars: <TopScholars />,
       faq: <Faq prize={prize} />,
-      cta: <FinalCta signedIn={isStudent} registerTo={registerTo} onSignIn={openSignIn} />,
+      cta: <FinalCta signedIn={signedIn} staff={staff} registerTo={registerTo} onSignIn={openSignIn} />,
     }
     return (
       <>
@@ -195,10 +199,11 @@ export default function Landing() {
 
         <Footer />
 
-        <HomeQuizFab onGuestClick={openGate} />
+        {/* Not for staff: the button asks for a student's own quiz. */}
+        {!staff && <HomeQuizFab onGuestClick={openGate} />}
       </>
     )
-  }, [isStudent, registerTo, play, classLevel, prize, openSignIn, openGate])
+  }, [signedIn, staff, registerTo, play, classLevel, prize, openSignIn, openGate])
 
   return (
     <div className={styles.page}>

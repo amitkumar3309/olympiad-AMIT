@@ -1,0 +1,16 @@
+/* My account (2026-10-10): label above value, no user-agent indent on the value. */
+.details {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.details dt {
+  font-size: var(--type-small);
+  color: var(--text-muted);
+}
+
+.details dd {
+  margin: var(--space-1) 0 0;
+  font-weight: 600;
+}

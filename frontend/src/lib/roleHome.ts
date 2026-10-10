@@ -30,5 +30,18 @@ import type { Role } from '../api/types'
  * the role → permission table is never reimplemented on the frontend.
  */
 export function roleHome(role: Role): string {
-  return role === 'student' ? '/dashboard' : '/admin'
+  return isStaffRole(role) ? '/admin' : '/dashboard'
+}
+
+/**
+ * Whether an account is staff — an administrator or the super admin (owner, 2026-10-10: "the
+ * admin/superadmin shouldn't have a profile like student, they should be shown their features
+ * only"). A promoted admin is a student account with a role, so `status` cannot answer this.
+ *
+ * Like `roleHome()`, this only decides what the screens offer — no student menu, no student
+ * pages, the admin panel instead. What staff may *do* is still `can()`, and the server keeps
+ * staff off the leaderboards and out of the prizes on its own.
+ */
+export function isStaffRole(role: Role): boolean {
+  return role !== 'student'
 }

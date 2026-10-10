@@ -50,13 +50,15 @@ import styles from './Hero.module.css'
 export interface HeroProps {
   /** A signed-in student gets "Go to dashboard" instead of "Register for free". */
   signedIn: boolean
+  /** A signed-in administrator: the link goes to the admin panel, not a student dashboard. */
+  staff?: boolean
   registerTo: string
 }
 
 /** Facts the code enforces — see the note above. */
 const FACTS = ['Classes 3 to 12', 'Any school board', 'Free to prepare', 'Online'] as const
 
-export default function Hero({ signedIn, registerTo }: HeroProps) {
+export default function Hero({ signedIn, staff = false, registerTo }: HeroProps) {
   const depth = useHeroDepth()
 
   return (
@@ -110,8 +112,8 @@ export default function Hero({ signedIn, registerTo }: HeroProps) {
 
           <div className={styles.actions} style={{ '--i': 5 } as CSSProperties}>
             {signedIn ? (
-              <ButtonLink to="/dashboard" size="lg" variant="brand" iconAfter={<ArrowRight size={18} aria-hidden="true" />}>
-                Go to dashboard
+              <ButtonLink to={staff ? '/admin' : '/dashboard'} size="lg" variant="brand" iconAfter={<ArrowRight size={18} aria-hidden="true" />}>
+                {staff ? 'Go to the admin panel' : 'Go to dashboard'}
               </ButtonLink>
             ) : (
               <ButtonLink to={registerTo} size="lg" variant="brand" iconAfter={<ArrowRight size={18} aria-hidden="true" />}>

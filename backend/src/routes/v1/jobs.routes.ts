@@ -6,6 +6,7 @@ import { sendError, sendSuccess } from '../../lib/apiResponse';
 import { logger } from '../../lib/logger';
 import { drainOutbox } from '../../services/emailOutbox';
 import { queueDailyQuizReminders } from '../../services/dailyQuizReminders';
+import { ensureTodaysQuizzes } from '../../services/dailyQuizAuto';
 
 /**
  * The scheduled jobs (Milestone 30 Phase 7b, PLAN.md Q20) — called by an outside scheduler,
@@ -84,6 +85,20 @@ router.post('/jobs/daily-quiz-reminders', requireJobSecret, ensureDb, async (_re
   } catch (err) {
     logger.error({ err }, 'The Daily Quiz reminder job failed');
     sendError(res, 500, 'Could not queue today’s reminders. Nothing was sent twice; calling again is safe.');
+  }
+});
+
+/**
+ * Fills today's automatic Daily Quizzes (2026-10-10) — every class without one. Optional: the
+ * first visit of the day does the same, so this only makes the quizzes exist at midnight rather
+ * than at the first request. Safe to call any number of times; a filled class is left alone.
+ */
+router.post('/jobs/daily-quiz-schedule', requireJobSecret, ensureDb, async (_req: Request, res: Response) => {
+  try {
+    sendSuccess(res, 200, { classes: await ensureTodaysQuizzes() });
+  } catch (err) {
+    logger.error({ err }, 'The automatic Daily Quiz job failed');
+    sendError(res, 500, 'Could not fill today’s quizzes. Calling again is safe.');
   }
 });
 

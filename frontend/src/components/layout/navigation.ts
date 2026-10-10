@@ -253,6 +253,14 @@ export const ADMIN_NAV: NavGroup[] = [
       { to: '/admin/audit-log', label: 'Audit Log', icon: 'ph-scroll', permission: 'audit:read' },
     ],
   },
+  /**
+   * The signed-in member of staff's own account (2026-10-10): staff have no student profile,
+   * so changing their password lives here. Every staff role holds `students:read`.
+   */
+  {
+    label: 'Account',
+    items: [{ to: '/admin/account', label: 'My account', icon: 'ph-user-gear', permission: 'students:read' }],
+  },
 ]
 
 /**

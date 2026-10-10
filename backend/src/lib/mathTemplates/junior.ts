@@ -14,11 +14,11 @@ import {
   signed,
   type Rng,
   type Template,
-} from './practiceGen';
+} from './engine';
 
 /**
  * The practice templates for Classes 3 to 7 (2026-10-10). Fifteen templates a class, ten questions
- * each, every answer computed from the numbers in the question. See `practiceGen.ts`.
+ * each, every answer computed from the numbers in the question. See `engine.ts`.
  */
 
 const PLACE_NAMES = ['ones', 'tens', 'hundreds', 'thousands', 'ten thousands', 'lakhs'] as const;

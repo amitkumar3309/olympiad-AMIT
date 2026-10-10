@@ -240,7 +240,9 @@ function scopedPipeline(input: LeaderboardScopeInput): PipelineStage[] {
     { $match: { xp: { $gt: 0 } } },
     { $lookup: { from: 'students', localField: '_id', foreignField: '_id', as: 'account' } },
     { $unwind: '$account' },
-    { $match: { 'account.status': 'active' } },
+    // Staff are not ranked (owner, 2026-10-10): a promoted admin is a student account with a
+    // role, and must not take a place among the children who compete.
+    { $match: { 'account.status': 'active', 'account.role': 'student' } },
   );
 
   if (input.scope === 'class') {

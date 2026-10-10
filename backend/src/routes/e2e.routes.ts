@@ -9,7 +9,7 @@ import { dayKeyOf } from '../lib/competitionDay';
 import { logger } from '../lib/logger';
 import { hashPassword } from '../lib/password';
 import { slugify } from '../lib/slug';
-import { EmailOutbox, Student, Subject, Topic } from '../models';
+import { DailyQuizSettings, EmailOutbox, Student, Subject, Topic } from '../models';
 import { groupIdOf, scheduleQuiz } from '../services/dailyChallengeService';
 import { createQuestion, toQuestionContent } from '../services/questionService';
 import { createQuestionSchema } from '../validation/questionSchemas';
@@ -80,6 +80,9 @@ router.post('/__e2e/reset', ensureDb, async (_req: Request, res: Response) => {
     await resetRateLimits();
     const collections = await mongoose.connection.db!.collections();
     await Promise.all(collections.map((collection) => collection.deleteMany({})));
+    // The browser suite seeds exactly the quizzes each test needs; the automatic quiz (on by
+    // default since 2026-10-10) would add one for every other class. It is tested in the backend.
+    await DailyQuizSettings.create({ key: 'default', autoSchedule: false });
     sendSuccess(res, 200, { reset: true, collections: collections.length });
   } catch (err) {
     logger.error({ err }, 'E2E reset failed');

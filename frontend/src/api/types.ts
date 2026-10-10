@@ -2005,14 +2005,30 @@ export interface AdminQuiz {
 export interface QuizCalendarDay {
   day: string
   coveredClasses: number[]
-  /** `legacy`: a daily challenge from before the quiz, holding the slot without being a quiz. */
-  quizzes: Array<{ groupId: string; min: number; max: number; label: string; legacy: boolean }>
+  /**
+   * `legacy`: a daily challenge from before the quiz, holding the slot without being a quiz.
+   * `automatic`: filled by the server because nobody scheduled the class (2026-10-10).
+   */
+  quizzes: Array<{ groupId: string; min: number; max: number; label: string; legacy: boolean; automatic?: boolean }>
+}
+
+/** Where an automatic quiz comes from: the staff's "daily quiz" pool first, or generated only. */
+export type AutoQuizSource = 'pool_then_generated' | 'generated_only'
+
+/** The automatic Daily Quiz (2026-10-10): on or off, its source, and each class's pool left. */
+export interface AutoQuizStatus {
+  enabled: boolean
+  source: AutoQuizSource
+  pool: Array<{ classLevel: ClassLevel; count: number }>
 }
 
 export interface QuizCalendar {
   today: string
   days: QuizCalendarDay[]
+  /** Empty while automation is on — an empty class is filled on the day. */
   warnings: Array<{ group: string; label: string; day: string; missingClasses: number[] }>
+  /** Absent from a server older than 2026-10-10. */
+  auto?: AutoQuizStatus
 }
 
 export interface AdminDailyQuizListResponse {
@@ -2070,6 +2086,9 @@ export interface QuizSettings {
   /** The most reminder emails one day may queue (0–300). Absent before Phase 7b. */
   reminderDailyCap?: number
   lastReminderRun?: ReminderRun | null
+  /** Fill every class nobody scheduled, automatically (2026-10-10). Absent from an older server. */
+  autoSchedule?: boolean
+  autoSource?: AutoQuizSource
   updatedAt: string | null
   updatedByLabel: string | null
 }

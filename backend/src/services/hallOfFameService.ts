@@ -131,7 +131,8 @@ function listed(account: AccountFields): { displayName: string; schoolName: stri
 const JOIN_ACTIVE_ACCOUNT: PipelineStage[] = [
   { $lookup: { from: 'students', localField: '_id', foreignField: '_id', as: 'account' } },
   { $unwind: '$account' },
-  { $match: { 'account.status': 'active' } },
+  // Staff are not honoured on a board children compete on (owner, 2026-10-10).
+  { $match: { 'account.status': 'active', 'account.role': 'student' } },
 ];
 
 function accountOf(row: { account?: AccountFields }): AccountFields {

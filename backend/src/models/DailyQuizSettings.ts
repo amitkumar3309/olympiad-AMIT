@@ -61,6 +61,14 @@ export interface ReminderRun {
   failed: number;
 }
 
+/**
+ * Where an automatic Daily Quiz comes from (owner, 2026-10-10): the staff's own pool first — draft
+ * questions tagged "daily quiz" — and a generated question when the pool has none for the class; or
+ * generated questions only.
+ */
+export const AUTO_QUIZ_SOURCES = ['pool_then_generated', 'generated_only'] as const;
+export type AutoQuizSource = (typeof AUTO_QUIZ_SOURCES)[number];
+
 export interface DailyQuizSettingsDocument extends Document {
   key: string;
   prizeHeadline: string;
@@ -72,6 +80,9 @@ export interface DailyQuizSettingsDocument extends Document {
   instantResult: boolean;
   remindersEnabled: boolean;
   reminderDailyCap: number;
+  /** Fill every class left without a quiz on a day automatically (2026-10-10). */
+  autoSchedule: boolean;
+  autoSource: AutoQuizSource;
   lastReminderRun: ReminderRun | null;
   updatedBy?: Types.ObjectId | null;
   updatedByLabel?: string | null;
@@ -105,6 +116,10 @@ export const DAILY_QUIZ_DEFAULTS = {
   instantResult: true,
   remindersEnabled: true,
   reminderDailyCap: 100,
+  // On by default: the owner asked for the Daily Quiz to run itself (2026-10-10). A quiz staff
+  // schedule always wins — automation fills only a class that has none.
+  autoSchedule: true,
+  autoSource: 'pool_then_generated' as AutoQuizSource,
 };
 
 const reminderRunSchema = new Schema<ReminderRun>(
@@ -139,6 +154,8 @@ const dailyQuizSettingsSchema = new Schema<DailyQuizSettingsDocument>(
       max: REMINDER_DAILY_CAP_MAX,
       default: DAILY_QUIZ_DEFAULTS.reminderDailyCap,
     },
+    autoSchedule: { type: Boolean, required: true, default: DAILY_QUIZ_DEFAULTS.autoSchedule },
+    autoSource: { type: String, enum: AUTO_QUIZ_SOURCES, required: true, default: DAILY_QUIZ_DEFAULTS.autoSource },
     lastReminderRun: { type: reminderRunSchema, default: null },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'Student', default: null },
     updatedByLabel: { type: String, default: null },

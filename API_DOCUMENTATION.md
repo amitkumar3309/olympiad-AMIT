@@ -1176,7 +1176,9 @@ Quizzes newest first (`page`, `limit` ≤ 100, `from`, `to`), each `{ groupId, d
 `classMin`, `classMax`, optional `search`, `page`, `limit` ≤ 50. Bank questions that can be a quiz for the range: single choice, **unpublished** (draft or in review), a worked solution, a class inside the range, the implicit subject, never used by another quiz. `ready` is false when the options are not 2–6 with exactly one correct.
 
 #### `GET` / `PUT /api/v1/admin/daily-quiz/settings`
-`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), instantResult, remindersEnabled?, reminderDailyCap? }`. Audited with before and after.
+`{ prizeHeadline, prizeText, cashAmount (whole rupees 0–1,00,000 or null), instantResult, remindersEnabled?, reminderDailyCap?, autoSchedule?, autoSource? }`. Audited with before and after.
+
+**The automatic quiz (2026-10-11):** `autoSchedule` (default **true**) fills every class with no quiz on a day; `autoSource` is `pool_then_generated` (default — the oldest draft question for the class tagged "daily quiz", else a generated one) or `generated_only`. Both optional on `PUT`, like the reminder settings. `GET /admin/daily-quiz` carries `calendar.auto: { enabled, source, pool: [{ classLevel, count }] }`, marks a quiz the server filled with `automatic: true`, and returns **no** `warnings` while automation is on.
 
 The reminder settings (Milestone 30 Phase 7b): `remindersEnabled` (default **true** — each student still turns reminders on for themselves, so it sends nothing alone) and `reminderDailyCap` (a whole number **0–300**, default **100** — the email provider's free quota is 300 a day and is shared with sign-ups; **400** outside it). Both are **optional on `PUT`: an omitted one keeps its stored value**, so a client that does not know about reminders cannot switch them off by saving the prize. Both responses also carry `settings.lastReminderRun` — what the reminder job did the last time the scheduler called it, `{ day, at, enabled, eligible, alreadyStarted, alreadyReminded, overCap, queued, failed }` or `null` if it never has — and `scheduler: { configured }`, whether the server has `JOBS_SECRET` (a yes or no, never the value). `lastReminderRun` cannot be written through this route; the job writes it, without changing `updatedAt` (which stays "when an administrator last changed the settings"). Since 2026-10-09 the winner rule is not a setting — one winner a month in each class band, in code — and a body still carrying `winnerRule` or `winnersPerQuiz` has them dropped. A saved headline still reading the retired "Solve daily. Win daily." is served as the new default, "Solve daily. Win every month."
 
@@ -1229,12 +1231,15 @@ Once a day at **07:00 Asia/Kolkata**. Queues today's Daily Quiz reminder emails 
 
 The email names the class range, the topic and the closing time ("open until 11:59 PM tonight, India time") — what the quiz card shows before Start — and **never the question or an option**; a button to `<FRONTEND_URL>/daily-quiz`; and how to turn reminders off.
 
+#### `POST /api/v1/jobs/daily-quiz-schedule`
+Optional, once a day just after **00:00 Asia/Kolkata** (2026-10-11). Fills today's automatic Daily Quizzes — every class with none (`services/dailyQuizAuto.ts`) — and answers `{ success, classes: { "Class 3": "generated" | "pool" | "exists" | "off" | "failed", … } }`. Without it, the first request of the day that asks about a class fills it (`resolveQuizFor()`, and `GET /daily-quiz/today` fills every class); the 07:00 reminder job also fills first. Safe to call any number of times. **500** if it fails — calling again is safe.
+
 #### `POST /api/v1/jobs/outbox`
 Every minute. Sends up to 10 due emails, highest priority first — exactly `POST /admin/email-deliveries/drain` without a person — and answers `{ success, drain: { claimed, sent, failed, retrying } }`. This is what gives the queue a deadline on an idle site (known bug #41).
 
 ### Test-only hooks — never in a real deployment
 
-`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset` (empties every collection, puts the clock back and, since 2026-10-05, empties the rate limiters' counters), `POST /__e2e/rate-limits/reset` (empties the limiters' counters and nothing else — the link crawler calls it before each page; Milestone 30 Phase 5), `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
+`POST /__e2e/clock` (`{ offsetMs }` or `{ advanceDays }`), `POST /__e2e/reset` (empties every collection, puts the clock back and, since 2026-10-05, empties the rate limiters' counters; since 2026-10-11 it saves Daily Quiz settings with the automatic quiz **off**, so each browser test has only the quizzes it seeds), `POST /__e2e/rate-limits/reset` (empties the limiters' counters and nothing else — the link crawler calls it before each page; Milestone 30 Phase 5), `POST /__e2e/seed`. Mounted only when `E2E_TEST_HOOKS=true` and `NODE_ENV` is not `production`, and each refuses unless the connected database's name ends in `-e2e`. Used by the Playwright suite through `backend/scripts/e2e-server.ts`. A backend test asserts they answer **404** in a normal app.
 
 ---
 

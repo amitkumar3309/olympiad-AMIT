@@ -50,10 +50,13 @@ import { QUESTION_IMAGE_KEY } from './QuestionImage';
  *    an author editing the bank question afterwards changes nothing about a quiz already
  *    set — and the bank question itself is never published to practice until the answer
  *    has been revealed (see `questionService`).
- *  - **No more automatic days.** A day nobody scheduled has no quiz (PLAN.md Q4): an
- *    automatic pick came from the published practice bank, whose solutions a student can
- *    already read, which is not acceptable once a day carries a prize. `source:
- *    'automatic'` survives on documents written before that, as a record.
+ *  - **Automatic days came back on 2026-10-10 (owner), from different questions.** The
+ *    Milestone 30 rule (PLAN.md Q4) removed the old fill because it picked from the
+ *    *published* practice bank, whose solutions a student can already read. The new fill
+ *    (`services/dailyQuizAuto.ts`) uses an unpublished question — the staff's own pool,
+ *    tagged "daily quiz", or one generated for the day — and goes through `scheduleQuiz()`
+ *    like any other, with `source: 'automatic'`. Documents from before Milestone 30 with that
+ *    source and no `content` are still not served.
  *
  * Documents from before Milestone 30 have no `groupId`, range or `content`; a reader
  * treats such a document as its own one-class group and does not serve it as a quiz.

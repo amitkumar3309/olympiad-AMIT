@@ -1057,7 +1057,12 @@ shared with every sign-up) and `lastReminderRun` (an embedded `{ day, at, enable
 alreadyStarted, alreadyReminded, overCap, queued, failed }`, default **null**), written only by the
 reminder job — with `timestamps: false`, so a run never changes `updatedAt` — and shown on the
 settings page so the owner can see the scheduler is calling. A document saved before these existed
-reads them as their defaults; no back-fill. **Retired 2026-10-09, kept so a saved document still loads:** `winnerRule`
+reads them as their defaults; no back-fill. **The automatic quiz (2026-10-11):** `autoSchedule` (Boolean,
+default **true**) and `autoSource` (`pool_then_generated` default, or `generated_only`); a document saved
+before reads both as their defaults. `DailyChallenge.source: 'automatic'` is written again — by
+`services/dailyQuizAuto.ts`, with a snapshot — and `Question.provenance.source` gained **`quiz_generator`**
+(a question generated for an automatic quiz, `generatorKind: deterministic`). No migration.
+**Retired 2026-10-09, kept so a saved document still loads:** `winnerRule`
 (`FASTEST_CORRECT` default, `FIRST_CORRECT`, `MANUAL`) and `winnersPerQuiz` (1–5, default 1) — the
 monthly rule is in code (`lib/dailyQuiz.ts`); nothing reads them, and only a first save still stores
 their defaults.
