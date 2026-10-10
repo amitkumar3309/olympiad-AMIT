@@ -5,17 +5,18 @@ import {
   AuditLog,
   DailyChallenge,
   DailyChallengeAttempt,
+  Exam,
   MockTest,
   MockTestAttempt,
   Question,
   Student,
   StudentActivity,
-  Subject,
   Topic,
 } from '../src/models';
 import { startTestDb, stopTestDb, clearTestDb } from './helpers/db';
+import { seedExam, seedSubmittedAttempt } from './helpers/exams';
 import { API, clearTestInbox, cookieHeader, createAdminSession, loginRootAdmin, registerVerifyLogin } from './helpers/auth';
-import { createTaxonomy, createPublishedQuestion, type Taxonomy } from './helpers/questions';
+import { createQuestionVia, createTaxonomy, createPublishedQuestion, type Taxonomy } from './helpers/questions';
 
 /**
  * Milestone 22 — the content reset.
@@ -113,12 +114,12 @@ describe('only a super admin may reset anything', () => {
   it('refuses a plain student and a guest, on both URL prefixes', async () => {
     const student = await registerVerifyLogin(app, { email: 'plain-reset@example.com', mobile: '9600000002' });
 
-    const asStudent = await reset('chapters', student.cookies, 'RESET CHAPTERS');
-    const asGuest = await request(app).post(`${API}/admin/reset/chapters`).send({ confirm: 'RESET CHAPTERS' });
+    const asStudent = await reset('questions', student.cookies, 'RESET QUESTIONS');
+    const asGuest = await request(app).post(`${API}/admin/reset/questions`).send({ confirm: 'RESET QUESTIONS' });
     const onAlias = await request(app)
-      .post('/api/admin/reset/chapters')
+      .post('/api/admin/reset/questions')
       .set('Cookie', cookieHeader(student.cookies))
-      .send({ confirm: 'RESET CHAPTERS' });
+      .send({ confirm: 'RESET QUESTIONS' });
 
     expect(asStudent.status).toBe(403);
     expect(asGuest.status).toBe(401);
@@ -128,13 +129,13 @@ describe('only a super admin may reset anything', () => {
   it('deletes nothing when it refuses', async () => {
     const admin = await createAdminSession(app, { email: 'reset-admin@example.com', mobile: '9600000003' });
     const taxonomy = await createTaxonomy(app, admin.cookies);
+    await createQuestionVia(app, admin.cookies, taxonomy);
 
-    await reset('chapters', admin.cookies, 'RESET CHAPTERS').expect(403);
+    await reset('questions', admin.cookies, 'RESET QUESTIONS').expect(403);
 
-    // The assertion that matters: a 403 that had already deleted half the chapters would
-    // pass a status-code-only test.
-    expect(await Topic.countDocuments({})).toBeGreaterThan(0);
-    expect(await Topic.findById(taxonomy.topicId)).not.toBeNull();
+    // The assertion that matters: a 403 that had already deleted half the bank would pass a
+    // status-code-only test.
+    expect(await Question.countDocuments({})).toBe(1);
   });
 });
 
@@ -144,45 +145,48 @@ describe('only a super admin may reset anything', () => {
 
 describe('the confirmation phrase', () => {
   it('refuses a missing one, and says nothing was deleted', async () => {
-    const { root } = await rootWithTaxonomy();
-    const before = await Topic.countDocuments({});
+    const { root, taxonomy } = await rootWithTaxonomy();
+    await publishedQuestion(root, taxonomy);
 
-    const res = await request(app).post(`${API}/admin/reset/chapters`).set('Cookie', cookieHeader(root)).send({});
+    const res = await request(app).post(`${API}/admin/reset/questions`).set('Cookie', cookieHeader(root)).send({});
 
     expect(res.status).toBe(400);
-    expect(await Topic.countDocuments({})).toBe(before);
+    expect(await Question.countDocuments({})).toBe(1);
   });
 
   it('refuses the wrong words, and names the right ones', async () => {
-    const { root } = await rootWithTaxonomy();
+    const { root, taxonomy } = await rootWithTaxonomy();
+    await publishedQuestion(root, taxonomy);
 
-    const res = await reset('chapters', root, 'yes delete everything');
+    const res = await reset('questions', root, 'yes delete everything');
 
     expect(res.status).toBe(400);
-    expect(res.body.error).toContain('RESET CHAPTERS');
-    expect(await Topic.countDocuments({})).toBeGreaterThan(0);
+    expect(res.body.error).toContain('RESET QUESTIONS');
+    expect(await Question.countDocuments({})).toBe(1);
   });
 
   it("refuses another scope's phrase", async () => {
-    const { root } = await rootWithTaxonomy();
+    const { root, taxonomy } = await rootWithTaxonomy();
+    await publishedQuestion(root, taxonomy);
 
     // The phrases differ per scope precisely so one dialog's confirmation cannot be
     // pasted into another and empty the wrong area.
-    const res = await reset('chapters', root, 'RESET QUESTIONS');
+    const res = await reset('questions', root, 'RESET MOCK TESTS');
 
     expect(res.status).toBe(400);
-    expect(await Topic.countDocuments({})).toBeGreaterThan(0);
+    expect(await Question.countDocuments({})).toBe(1);
   });
 
   it('accepts the phrase with surrounding whitespace but not in the wrong case', async () => {
-    const { root } = await rootWithTaxonomy();
+    const { root, taxonomy } = await rootWithTaxonomy();
+    await publishedQuestion(root, taxonomy);
 
-    const wrongCase = await reset('chapters', root, 'reset chapters');
+    const wrongCase = await reset('questions', root, 'reset questions');
     expect(wrongCase.status).toBe(400);
 
-    const padded = await reset('chapters', root, '  RESET CHAPTERS  ');
+    const padded = await reset('questions', root, '  RESET QUESTIONS  ');
     expect(padded.status).toBe(200);
-    expect(await Topic.countDocuments({})).toBe(0);
+    expect(await Question.countDocuments({})).toBe(0);
   });
 
   it('refuses an unknown scope rather than guessing at one', async () => {
@@ -196,6 +200,18 @@ describe('the confirmation phrase', () => {
     // There is no reset for students, payments or the official exam, and a typo must not
     // fall through to something that does exist.
     expect(res.status).toBe(400);
+  });
+
+  it('has no chapter reset — the owner does not want one (2026-10-10)', async () => {
+    const { root } = await rootWithTaxonomy();
+    const before = await Topic.countDocuments({});
+
+    const previewed = await preview('chapters', root);
+    const res = await reset('chapters', root, 'RESET CHAPTERS');
+
+    expect(previewed.status).toBe(400);
+    expect(res.status).toBe(400);
+    expect(await Topic.countDocuments({})).toBe(before);
   });
 });
 
@@ -223,7 +239,7 @@ describe('the preview', () => {
     await publishedQuestion(root, taxonomy);
 
     await preview('questions', root).expect(200);
-    await preview('chapters', root).expect(200);
+    await preview('daily-challenges', root).expect(200);
 
     expect(await Question.countDocuments({})).toBe(1);
     expect(await Topic.countDocuments({})).toBeGreaterThan(0);
@@ -252,23 +268,6 @@ describe('the preview', () => {
 // ---------------------------------------------------------------------------
 
 describe('a reset that would orphan rows is refused', () => {
-  it('will not empty the chapters while questions are filed under them', async () => {
-    const { root, taxonomy } = await rootWithTaxonomy();
-    await publishedQuestion(root, taxonomy);
-
-    const body = (await preview('chapters', root).expect(200)).body as PreviewBody;
-    expect(body.preview.canReset).toBe(false);
-    expect(body.preview.blockers[0]?.resolveWith).toBe('questions');
-
-    const res = await reset('chapters', root, 'RESET CHAPTERS');
-
-    // Refused at the moment of the write, not only in the dialog — and the message names
-    // what to do about it.
-    expect(res.status).toBe(409);
-    expect(res.body.error).toContain('question');
-    expect(await Topic.countDocuments({})).toBeGreaterThan(0);
-  });
-
   it('will not empty the question bank while a mock test is built from it', async () => {
     const { root, taxonomy } = await rootWithTaxonomy();
     await createMockTest(await publishedQuestion(root, taxonomy));
@@ -288,11 +287,64 @@ describe('a reset that would orphan rows is refused', () => {
 
     await reset('mock-tests', root, 'RESET MOCK TESTS').expect(200);
     await reset('questions', root, 'RESET QUESTIONS').expect(200);
-    await reset('chapters', root, 'RESET CHAPTERS').expect(200);
 
     expect(await MockTest.countDocuments({})).toBe(0);
     expect(await Question.countDocuments({})).toBe(0);
-    expect(await Topic.countDocuments({})).toBe(0);
+    // The chapters stay: there is no chapter reset.
+    expect(await Topic.countDocuments({})).toBeGreaterThan(0);
+  });
+
+  /**
+   * Owner, 2026-10-10: a test exam nobody had sat blocked the question-bank reset for ever. An
+   * exam with no attempt, result or certificate is not a permanent record, so it goes with the
+   * questions it was built from — named in the preview first.
+   */
+  it('deletes an official exam nobody has sat along with its questions, and says so first', async () => {
+    const root = await loginRootAdmin(app);
+    const { exam } = await seedExam(app, root, { questionCount: 2 });
+    const empty = await Exam.create({
+      title: 'Not set yet',
+      examCode: 'AMIT-EMPTY-001',
+      classLevel: 'Class 9',
+      durationMinutes: 60,
+      totalMarks: 0,
+      opensAt: new Date(Date.now() + 86_400_000),
+      closesAt: new Date(Date.now() + 2 * 86_400_000),
+      status: 'draft',
+      questions: [],
+    });
+
+    const body = (await preview('questions', root).expect(200)).body as PreviewBody;
+    expect(body.preview.blockers).toEqual([]);
+    expect(body.preview.canReset).toBe(true);
+    const line = body.preview.deletes.find((entry) => entry.label === 'Official exams nobody has sat');
+    expect(line?.count).toBe(1);
+    expect(line?.note).toContain('never sat');
+    expect(body.preview.totalToDelete).toBe(3);
+
+    const res = await reset('questions', root, 'RESET QUESTIONS').expect(200);
+    expect(res.body.totalDeleted).toBe(3);
+    expect(await Exam.findById(exam._id)).toBeNull();
+    expect(await Question.countDocuments({})).toBe(0);
+    // An exam with no questions on it depends on nothing, and stays.
+    expect(await Exam.findById(empty._id)).not.toBeNull();
+  });
+
+  it('will not empty the question bank while an official exam somebody has sat is built from it', async () => {
+    const root = await loginRootAdmin(app);
+    const { exam } = await seedExam(app, root, { questionCount: 2 });
+    const student = await registerVerifyLogin(app, { email: 'sat-the-exam@example.com', mobile: '9600000020' });
+    await seedSubmittedAttempt(exam, student.studentId, 1);
+
+    const body = (await preview('questions', root).expect(200)).body as PreviewBody;
+    expect(body.preview.canReset).toBe(false);
+    expect(body.preview.blockers[0]?.resolveWith).toBeNull();
+
+    const res = await reset('questions', root, 'RESET QUESTIONS');
+    expect(res.status).toBe(409);
+    expect(res.body.error).toContain('1 official exam is built from these questions and already sat');
+    expect(await Exam.findById(exam._id)).not.toBeNull();
+    expect(await Question.countDocuments({})).toBe(2);
   });
 });
 
@@ -391,22 +443,6 @@ describe('resetting the Daily Quiz', () => {
     expect(await DailyChallengeAttempt.countDocuments({})).toBe(0);
     // The question is bank content, not challenge content.
     expect(await Question.countDocuments({})).toBe(1);
-  });
-});
-
-describe('resetting chapters', () => {
-  it('deletes chapters and subtopics but keeps the subject', async () => {
-    const { root, taxonomy } = await rootWithTaxonomy();
-
-    const res = await reset('chapters', root, 'RESET CHAPTERS').expect(200);
-
-    expect(await Topic.countDocuments({})).toBe(0);
-    expect(res.body.totalDeleted).toBeGreaterThan(0);
-
-    // The subject survives. That matters rather than being incidental: `Topic` is scoped
-    // by subject and `requireImplicitSubject()` refuses a write without one, so deleting
-    // it here would leave an administrator unable to create the first replacement chapter.
-    expect(await Subject.findById(taxonomy.subjectId)).not.toBeNull();
   });
 });
 

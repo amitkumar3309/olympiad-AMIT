@@ -30,7 +30,8 @@ import styles from './System.module.css'
  *
  * **The order below is the order the API requires.** A reset that would orphan rows is
  * refused with its blockers named, and the chain runs daily challenges → mock tests →
- * questions → chapters. Working down the page is the sequence that succeeds.
+ * questions. Working down the page is the sequence that succeeds. There is no chapter reset
+ * (owner, 2026-10-10).
  *
  * ## What is deliberately not here
  *
@@ -45,8 +46,7 @@ import styles from './System.module.css'
 const RESET_SCOPES: Array<{ scope: ResetScope; note: string }> = [
   { scope: 'daily-challenges', note: 'Nothing depends on a scheduled quiz, so this one is never blocked. Confirmed, announced and disqualified winners are kept.' },
   { scope: 'mock-tests', note: 'Nothing depends on a mock test, so this one is never blocked. XP already earned is kept.' },
-  { scope: 'questions', note: 'Blocked while a mock test or a Daily Quiz still uses a question.' },
-  { scope: 'chapters', note: 'Blocked while any question is still filed under a chapter.' },
+  { scope: 'questions', note: 'Blocked while a mock test, a Daily Quiz or an official exam somebody has sat still uses a question. An official exam nobody has sat goes with its questions.' },
 ]
 
 export default function System() {
@@ -132,8 +132,9 @@ export default function System() {
               <li>
                 <Icon name="ph-lock-key" weight="bold" className={styles.ruleIcon} />
                 <span>
-                  <strong>The official Olympiad cannot be reset.</strong> Its results and the certificates
-                  issued from them are permanent, and there is deliberately no path here that touches them.
+                  <strong>An official exam somebody has sat cannot be reset.</strong> Its results and the
+                  certificates issued from them are permanent, and there is deliberately no path here that touches
+                  them. An exam nobody has sat has neither, so it goes with the questions it was built from.
                 </span>
               </li>
             </ul>
