@@ -2,6 +2,14 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-11 — The Class 12 streams retired on the live database
+
+The owner ran `npm run migrate:classes -- --write` against production (dry run first): 2 students, 238
+questions and 4 practice sessions moved from `Class 12 - Science/Commerce/Humanities` to `Class 12`; no
+daily-challenge collisions; 9 generation logs left unchanged as records. The 238 questions — the original
+Class 12 bank, unreachable since the streams were merged — are now Class 12's again, so the published
+Mathematics ones join Class 12 practice.
+
 ## 2026-10-11 — The pre-launch check: "one quiz for your class", not "your class group"
 
 A read-only walk through the live site (desktop and 390px, both themes) found three public places still
