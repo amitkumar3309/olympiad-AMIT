@@ -2,6 +2,15 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-11 — The Daily Quiz pool, batch 1: 100 olympiad-style questions
+
+`docs/content/daily-quiz-pool-batch-1/`: 10 questions for each class from 3 to 12, one CSV per class in the
+question importer's format, a readable `REVIEW.md`, and `make_pool.py`, which holds the questions with an
+independent check of every answer (99 by code, one ordering puzzle by hand) and regenerates the files
+byte for byte. Uploaded through Admin → Bulk Import with each file's class chosen on the form, they become
+drafts tagged "daily quiz" — the automatic quiz's pool. Imported on a test copy with the live chapter
+names: no rejections, 10 per class, and the next automatic quiz for every class came from the pool.
+
 ## 2026-10-11 — The Class 12 streams retired on the live database
 
 The owner ran `npm run migrate:classes -- --write` against production (dry run first): 2 students, 238
