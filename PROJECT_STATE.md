@@ -186,6 +186,9 @@ The work happens in phases, and each one stops for the owner's approval.
   `services/dailyQuizAuto.ts`, on by default (Admin → Daily Quiz → Settings). Staff see only the admin
   panel (header, routes, homepage), change their password at `/admin/account`, and are never ranked or
   awarded.
+- **Daily Quiz pool, batch 1** (`content/daily-quiz-pool-1`, 2026-10-11): 100 checked olympiad-style
+  questions, 10 per class, in `docs/content/daily-quiz-pool-batch-1/` — **not uploaded yet**; the owner
+  uploads each class's CSV through Admin → Bulk Import (choosing that class on the form). Ten days of quizzes.
 - **The scheduled jobs are live** (owner, 2026-10-10): `JOBS_SECRET` is set on the backend and cron-job.org
   calls three jobs — `/jobs/outbox` every minute, `/jobs/daily-quiz-schedule` at 00:01 IST and
   `/jobs/daily-quiz-reminders` at 07:00 IST (a test run answered 200). Known bug #41 is closed.
