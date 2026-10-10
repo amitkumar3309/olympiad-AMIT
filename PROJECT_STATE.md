@@ -178,6 +178,9 @@ The work happens in phases, and each one stops for the owner's approval.
   **no chapter reset** any more, and a never-sat test exam no longer blocks **Reset the Question
   Bank** — an official exam nobody has sat is deleted with its questions, named in the dialog first;
   one somebody has sat still blocks for ever. Backend **1438 / 40**.
+- **The practice bank** (`content/practice-1500`, 2026-10-10): 150 generated Mathematics questions per
+  class, 3 to 12, every answer computed. **Not in production until the owner runs**
+  `npm run seed:practice -- --write` from `backend/` (report only without `--write`; safe to repeat).
 - **Sixteen figures of the day** (`feat/more-daily-figures`, 2026-10-10): the seven drawn ones and nine
   of the owner's 335 designs — the only ones whose drawing shows its topic — as small lazy pictures with
   their words as text. One a day by the India date.

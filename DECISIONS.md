@@ -4,6 +4,27 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-10 — The practice bank is generated, and every answer is computed
+
+**Context.** The owner asked for 150 practice questions for each of Classes 3 to 12 — 1,500 in all. The
+seed is the one path that publishes questions without a person reviewing each, and a wrong answer key is a
+wrong mark on a child's practice test.
+
+**Decision.** Generate them from templates: fifteen per class, matched to the syllabus, each turning random
+numbers into a question, its four options and a worked solution, with the **answer computed** from those
+numbers. Seeded per class, so the output is identical on every run (the seed runner identifies a question
+by its text). Published through the existing runner with the API's own validation; tested for count,
+uniqueness, one correct option, matching option formats and validity; samples of every template read by
+hand.
+
+**Rejected.** Writing 1,500 by hand or with a model — either way some keys would be wrong and nothing would
+show which. Unseeded randomness — every run would add 1,500 new questions beside the old ones.
+
+**Consequence.** Questions are computational rather than olympiad puzzles; the seed's job is volume for
+practice, and the owner's own questions still come through the importer. Changing a template changes its
+questions, so a re-run would add the new ones beside the old — change templates before the first `--write`,
+or remove the old ones first.
+
 ## 2026-10-10 — The owner's figure designs: nine of 335, the drawing as a picture, the words as text
 
 **Context.** The owner designed 335 full-HD cards for the hero's figure of the day and asked for only the
