@@ -19,7 +19,8 @@
     "seed:class12": "tsx scripts/seed-class12.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "migrate:classes": "tsx scripts/migrate-class-levels.ts",
-    "retire:subjects": "tsx scripts/retire-extra-subjects.ts"
+    "retire:subjects": "tsx scripts/retire-extra-subjects.ts",
+    "load-test": "tsx scripts/load-test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.17.1",
