@@ -1,6 +1,7 @@
 import type { PipelineStage, Types } from 'mongoose';
 import { shiftDay, todayKey, type DayKey } from '../lib/competitionDay';
 import { StudentActivity } from '../models';
+import { cached } from '../lib/cache';
 
 /**
  * **The one place a rank is decided in this backend.**
@@ -215,12 +216,9 @@ interface LeaderboardAggregateRow {
  * The `$lookup` runs before any `$limit` on purpose: filtering afterwards would let a
  * suspended account consume a place in the top ten and silently shorten the list.
  *
- * Scale note — this groups the activity collection on every call. That is appropriate
- * for a first cohort of a few hundred students (photo storage caps it near 250 anyway;
- * see DATABASE_SCHEMA.md). If the field grows by an order of magnitude, this is the
- * query to put behind a cached materialised standing, and the reason it is isolated in
- * one function. The period boards are cheaper than the all-time one, because the
- * `occurredOn` index narrows them before the grouping.
+ * Scale note — this groups the activity collection, so it runs once per board per minute
+ * (`loadBoard()`, 2026-10-10), never once per request. The period boards are cheaper than
+ * the all-time one, because the `occurredOn` index narrows them before the grouping.
  */
 function scopedPipeline(input: LeaderboardScopeInput): PipelineStage[] {
   const { from } = periodWindow(input.period, input.today ?? todayKey());
@@ -269,9 +267,67 @@ const ROW_PROJECTION: PipelineStage = {
   },
 };
 
-async function countMatching(pipeline: PipelineStage[], extra: PipelineStage[] = []): Promise<number> {
-  const [row] = await StudentActivity.aggregate<{ n: number }>([...pipeline, ...extra, { $count: 'n' }]);
-  return row?.n ?? 0;
+// ---------------------------------------------------------------------------
+// The board, worked out once a minute
+// ---------------------------------------------------------------------------
+
+/**
+ * Every ranked student on one board, in ranking order — the whole board from **one**
+ * aggregation (2026-10-10).
+ *
+ * Before, a page ran three aggregations over the activity log (the rows, the total, the
+ * count-ahead) and a student's standing two or three more, so 1,000 students at once queued
+ * for seconds (50 at once: about 20 requests a second, 3 s each). Now the board is computed
+ * once per minute per key (`lib/cache.ts`), and a page, a total and a rank are arithmetic over
+ * it. Still nothing stored: it is the same `$sum` over `StudentActivity`, and it expires.
+ *
+ * A board is at most a few thousand small rows, and only what a row prints is kept. Up to a
+ * minute stale for other students' XP, which a student cannot perceive; a student's **own**
+ * XP is always fresh in `getStandingFor()`.
+ */
+interface BoardEntry {
+  /** The account's ObjectId as a string. */
+  id: string;
+  xp: number;
+  studentId: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  classLevel?: string;
+  schoolName?: string;
+  city?: string;
+  hideFromPublicLists?: boolean;
+}
+
+const BOARD_TTL_SECONDS = 60;
+
+async function computeBoard(input: LeaderboardScopeInput): Promise<BoardEntry[]> {
+  const rows = await StudentActivity.aggregate<LeaderboardAggregateRow>([
+    ...scopedPipeline(input),
+    { $sort: RANKING_ORDER },
+    ROW_PROJECTION,
+  ]);
+  return rows.map(({ _id, ...row }) => ({ ...row, id: String(_id) }));
+}
+
+function loadBoard(input: LeaderboardScopeInput): Promise<BoardEntry[]> {
+  const today = input.today ?? todayKey();
+  const classLevel = input.scope === 'class' ? input.classLevel : '-';
+  return cached(`lb:${input.scope}:${classLevel}:${input.period}:${today}`, BOARD_TTL_SECONDS, () =>
+    computeBoard({ ...input, today }),
+  );
+}
+
+/** How many entries hold strictly more XP than `xp`. The board is sorted by XP descending. */
+function countAhead(board: BoardEntry[], xp: number): number {
+  let low = 0;
+  let high = board.length;
+  while (low < high) {
+    const middle = (low + high) >> 1;
+    if (board[middle]!.xp > xp) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,44 +354,22 @@ export interface LeaderboardPage {
  *
  * ## How the ranks are computed across a page boundary
  *
- * Rank is *position in the full ordering*, not position in the page, and equal XP
- * shares a rank. Both facts survive pagination without loading the whole board:
- *
- *  - The **first** row's rank is one plus the number of students strictly ahead of it
- *    on XP — a single `$count`. This is the only row whose rank cannot be derived from
- *    the page itself, precisely because a tie may straddle the page boundary: the row
- *    above it (on the previous page) might hold the same XP, in which case they share a
- *    rank, and counting-ahead gets that right where `skip + 1` would not.
- *  - Every **later** row either has strictly less XP than the row above it, in which
- *    case its rank is its absolute position (`skip + index + 1`), or the same XP, in
- *    which case it inherits. That is the definition of standard competition ranking,
- *    applied with nothing more than the previous row in hand.
- *
- * Three aggregations per page (the rows, the total, the count-ahead) and no
- * `$setWindowFields`, which would tie the correctness of a student's rank to the
- * MongoDB server version underneath it.
+ * Rank is *position in the full ordering*, not position in the page, and equal XP shares a
+ * rank. The **first** row's rank is one plus the number of students strictly ahead of it on
+ * XP — a tie may straddle the page boundary, and counting-ahead gets that right where
+ * `skip + 1` would not. Every **later** row either has strictly less XP than the row above it,
+ * in which case its rank is its absolute position (`skip + index + 1`), or the same XP, in
+ * which case it inherits. That is standard competition ranking.
  */
 export async function getLeaderboardPage(
   input: LeaderboardScopeInput,
   { page, limit }: LeaderboardPageInput,
 ): Promise<LeaderboardPage> {
-  const pipeline = scopedPipeline(input);
+  const board = await loadBoard(input);
   const skip = (page - 1) * limit;
+  const rows = board.slice(skip, skip + limit);
 
-  const [total, rows] = await Promise.all([
-    countMatching(pipeline),
-    StudentActivity.aggregate<LeaderboardAggregateRow>([
-      ...pipeline,
-      { $sort: RANKING_ORDER },
-      { $skip: skip },
-      { $limit: limit },
-      ROW_PROJECTION,
-    ]),
-  ]);
-
-  const firstRank = rows.length > 0 ? (await countMatching(pipeline, [{ $match: { xp: { $gt: rows[0]!.xp } } }])) + 1 : 1;
-
-  let currentRank = firstRank;
+  let currentRank = rows.length > 0 ? countAhead(board, rows[0]!.xp) + 1 : 1;
   const ranked: LeaderboardRow[] = rows.map((row, index) => {
     if (index > 0 && row.xp !== rows[index - 1]!.xp) currentRank = skip + index + 1;
     return {
@@ -347,6 +381,7 @@ export async function getLeaderboardPage(
     };
   });
 
+  const total = board.length;
   return {
     scope: input.scope,
     classLevel: input.scope === 'class' ? input.classLevel : null,
@@ -399,10 +434,14 @@ export async function xpInWindow(student: Types.ObjectId, from: DayKey | null): 
  * a student looking at a class that is not theirs. The `xp` is still reported, because
  * it is true and the student earned it — what they have not got is a position.
  *
- * Eligibility is decided by running the board's own pipeline filtered to this student,
- * rather than by re-reading the account and re-checking the rules here. One definition
- * of who appears on a board; a second copy would be the thing that eventually lets a
- * suspended account show a rank on the page while being absent from the list under it.
+ * Eligibility is decided by the board itself — the student is on it or not — rather than by
+ * re-reading the account and re-checking the rules here. One definition of who appears on a
+ * board; a second copy would be the thing that eventually lets a suspended account show a rank
+ * on the page while being absent from the list under it.
+ *
+ * The student's own XP is **fresh** (read now, or handed in by the caller); the others' comes
+ * from the cached board, up to a minute old. So a student who has just earned XP sees their
+ * rank move at once, and one who has just earned their first XP is unranked for up to a minute.
  */
 export async function getStandingFor(
   student: Types.ObjectId,
@@ -410,22 +449,22 @@ export async function getStandingFor(
   knownXp?: number,
 ): Promise<LeaderboardStanding> {
   const { from } = periodWindow(input.period, input.today ?? todayKey());
-  const pipeline = scopedPipeline(input);
 
-  const [xp, totalRanked] = await Promise.all([
+  const [xp, board] = await Promise.all([
     knownXp === undefined ? xpInWindow(student, from) : Promise.resolve(knownXp),
-    countMatching(pipeline),
+    loadBoard(input),
   ]);
+  const totalRanked = board.length;
 
   if (xp <= 0) return { rank: null, xp: Math.max(xp, 0), totalRanked };
 
-  // `_id` after the `$group` is the student's ObjectId, and `student` is already one —
-  // which matters, because `$match` inside an aggregation does **not** cast a string to
-  // an ObjectId the way `find()` would, and would silently match nothing.
-  const onThisBoard = await countMatching(pipeline, [{ $match: { _id: student } }]);
-  if (onThisBoard === 0) return { rank: null, xp, totalRanked };
+  const me = String(student);
+  const mine = board.find((entry) => entry.id === me);
+  if (!mine) return { rank: null, xp, totalRanked };
 
-  const ahead = await countMatching(pipeline, [{ $match: { xp: { $gt: xp } } }]);
+  // Everybody else strictly ahead of this student's current XP. Their own cached row is left
+  // out, because it may hold an older, lower total.
+  const ahead = countAhead(board, xp) - (mine.xp > xp ? 1 : 0);
   return { rank: ahead + 1, xp, totalRanked };
 }
 
