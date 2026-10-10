@@ -81,6 +81,15 @@
 :global(:root[data-picture='4']) .day[data-picture-index='4'],
 :global(:root[data-picture='5']) .day[data-picture-index='5'],
 :global(:root[data-picture='6']) .day[data-picture-index='6'],
+:global(:root[data-picture='7']) .day[data-picture-index='7'],
+:global(:root[data-picture='8']) .day[data-picture-index='8'],
+:global(:root[data-picture='9']) .day[data-picture-index='9'],
+:global(:root[data-picture='10']) .day[data-picture-index='10'],
+:global(:root[data-picture='11']) .day[data-picture-index='11'],
+:global(:root[data-picture='12']) .day[data-picture-index='12'],
+:global(:root[data-picture='13']) .day[data-picture-index='13'],
+:global(:root[data-picture='14']) .day[data-picture-index='14'],
+:global(:root[data-picture='15']) .day[data-picture-index='15'],
 :global(:root:not([data-picture])) .day[data-picture-index='0'] {
   display: block;
 }
@@ -106,7 +115,8 @@
   background-size: 16px 16px;
 }
 
-.canvas svg {
+.canvas svg,
+.canvas img {
   display: block;
   width: 100%;
   height: auto;

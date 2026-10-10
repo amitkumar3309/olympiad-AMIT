@@ -4,6 +4,15 @@ import { FOUNDER } from '../../../lib/brand'
 import { PICTURES_OF_THE_DAY, type PictureOfTheDay } from '../../../lib/pictureOfTheDay'
 import { HERO_QUOTE } from '../../../lib/siteConfig'
 import styles from './HeroArt.module.css'
+import symmetry from '../../../assets/figures/symmetry.webp'
+import congruentFigures from '../../../assets/figures/congruent-figures.webp'
+import shortestPath from '../../../assets/figures/shortest-path.webp'
+import circleEquation from '../../../assets/figures/circle-equation.webp'
+import continuity from '../../../assets/figures/continuity.webp'
+import triangleInequality from '../../../assets/figures/triangle-inequality.webp'
+import fairDivision from '../../../assets/figures/fair-division.webp'
+import infinity from '../../../assets/figures/infinity.webp'
+import isoperimetric from '../../../assets/figures/isoperimetric.webp'
 
 /**
  * The hero's artwork (redrawn 2026-10-09 — the owner: "The think grow solve picture doesn't look
@@ -21,9 +30,18 @@ import styles from './HeroArt.module.css'
  *
  * ## Chosen before the first paint
  *
- * All seven are in the page and CSS shows today's, which `public/boot.js` names on `<html
+ * All sixteen are in the page and CSS shows today's, which `public/boot.js` names on `<html
  * data-picture>` from the India date — the homepage is drawn at build time for everybody, so a
- * choice made in React would draw one and swap to another when the app took over.
+ * choice made in React would draw one and swap to another when the app took over. The nine that are
+ * pictures load lazily, and a lazy image inside a hidden day is never fetched: a visitor downloads
+ * today's picture only (3–13 KB), or none on a drawn day.
+ *
+ * ## The owner's nine (2026-10-10)
+ *
+ * From 335 designs the owner made, the nine whose drawing shows its own topic and whose words are
+ * correct. Only the drawing is the picture — cropped from the design and stored in
+ * `src/assets/figures/` — while its name, formula and line are text here: legible on a phone, the
+ * same card as the seven, and the design's own label, number and quote not repeated.
  *
  * ## Depth
  *
@@ -48,14 +66,24 @@ export default function HeroArt({ layers }: HeroArtProps) {
           <p className={styles.eyebrow}>Today’s figure</p>
           {PICTURES_OF_THE_DAY.map((name, index) => {
             const figure = FIGURES[name]
-            const Drawing = figure.Drawing
             return (
               <div key={name} className={styles.day} data-picture-index={index}>
                 <p className={styles.name}>{figure.name}</p>
                 <div className={styles.canvas}>
-                  <svg viewBox="0 0 320 200" focusable="false">
-                    <Drawing />
-                  </svg>
+                  {'picture' in figure ? (
+                    <img
+                      src={figure.picture.src}
+                      width={figure.picture.width}
+                      height={figure.picture.height}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  ) : (
+                    <svg viewBox="0 0 320 200" focusable="false">
+                      <figure.Drawing />
+                    </svg>
+                  )}
                 </div>
                 <p className={styles.formula}>{figure.formula}</p>
                 <p className={styles.caption}>{figure.line}</p>
@@ -79,12 +107,15 @@ export default function HeroArt({ layers }: HeroArtProps) {
 // The figures — each drawn on a 320 × 200 page, with its geometry worked out once, here
 // ---------------------------------------------------------------------------------------------
 
-interface Figure {
+type Figure = {
   name: string
   formula: ReactNode
   line: string
-  Drawing: () => ReactNode
-}
+} & (
+  | { Drawing: () => ReactNode }
+  /** One of the owner's designs: the drawing alone, 920 px wide, at its own proportions. */
+  | { picture: { src: string; width: number; height: number } }
+)
 
 const fixed = (value: number) => Number(value.toFixed(1))
 
@@ -466,7 +497,8 @@ function Angles() {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The seven, by name — every one of `PICTURES_OF_THE_DAY` must have its drawing and its words
+// The sixteen, by name — every one of `PICTURES_OF_THE_DAY` must have its drawing (or picture) and
+// its words
 // ---------------------------------------------------------------------------------------------
 
 const FIGURES: Record<PictureOfTheDay, Figure> = {
@@ -523,5 +555,65 @@ const FIGURES: Record<PictureOfTheDay, Figure> = {
     formula: 'a + b + c = 180°',
     line: 'Three corners always make a straight line.',
     Drawing: Angles,
+  },
+
+  // The owner's nine, in their own words (designs 31, 71, 97, 130, 138, 161, 244, 266 and 300).
+  symmetry: {
+    name: 'Symmetry',
+    formula: 'Mirror halves match',
+    line: 'A line of symmetry divides a figure into matching mirror images.',
+    picture: { src: symmetry, width: 920, height: 367 },
+  },
+  'congruent-figures': {
+    name: 'Congruent figures',
+    formula: 'Same shape and same size',
+    line: 'Congruent figures can be matched exactly by rigid motions.',
+    picture: { src: congruentFigures, width: 920, height: 367 },
+  },
+  'shortest-path': {
+    name: 'Shortest path',
+    formula: 'Minimise total edge weight',
+    line: 'A shortest-path problem finds the least-cost route through a network.',
+    picture: { src: shortestPath, width: 920, height: 424 },
+  },
+  'circle-equation': {
+    name: 'The circle’s equation',
+    formula: (
+      <>
+        (x − h)<sup>2</sup> + (y − k)<sup>2</sup> = r<sup>2</sup>
+      </>
+    ),
+    line: 'A circle consists of points at distance r from its centre (h, k).',
+    picture: { src: circleEquation, width: 920, height: 575 },
+  },
+  continuity: {
+    name: 'Continuity',
+    formula: 'No jump at the point',
+    line: 'A continuous function has no break at the point under consideration.',
+    picture: { src: continuity, width: 920, height: 249 },
+  },
+  'triangle-inequality': {
+    name: 'The triangle inequality',
+    formula: 'a + b > c',
+    line: 'The sum of any two side lengths of a triangle must exceed the third.',
+    picture: { src: triangleInequality, width: 920, height: 367 },
+  },
+  'fair-division': {
+    name: 'Fair division',
+    formula: 'Allocate without envy when possible',
+    line: 'Fair-division methods aim to divide resources according to explicit fairness criteria.',
+    picture: { src: fairDivision, width: 920, height: 575 },
+  },
+  infinity: {
+    name: 'Infinity',
+    formula: '∞ is not an ordinary number',
+    line: 'Infinity describes unboundedness or infinite size, depending on context.',
+    picture: { src: infinity, width: 920, height: 575 },
+  },
+  isoperimetric: {
+    name: 'The isoperimetric idea',
+    formula: 'Circle maximises area for fixed perimeter',
+    line: 'Among plane shapes with a given perimeter, the circle encloses the greatest area.',
+    picture: { src: isoperimetric, width: 920, height: 575 },
   },
 }
