@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import StudentShell from '../../components/StudentShell'
 import DailyQuizPanel from '../../components/DailyQuizPanel'
-import { Card, CardHeader, SkeletonText } from '../../components/ui'
+import { Icon } from '../../components/ui'
 import { api } from '../../api/client'
 import type { QuizPrizeInfo } from '../../api/types'
 import styles from './DailyQuiz.module.css'
@@ -11,17 +11,17 @@ import styles from './DailyQuiz.module.css'
  * `/daily-quiz` — today's question, one attempt, answer unlocked the next day
  * (Milestone 30, Phase 2; brief §6.4).
  *
- * The quiz itself is `components/DailyQuizPanel`, shared with the dashboard card. This
- * page adds the one thing a student should be able to read before playing for a prize:
- * how the winner is chosen, in the sentence the server generates from the same constants
- * it ranks by — so the page and the ranking cannot disagree.
+ * The quiz itself is `components/DailyQuizPanel`, shared with the dashboard card. Under it, a
+ * short strip of what a student needs to know before playing (owner, 2026-10-11: the long "how
+ * winners are chosen" box beside the quiz was too much). The winner rule itself is not restated
+ * here — it is the sentence the server generates, printed in full on the rules page, which the
+ * strip links to — so the page and the ranking still cannot disagree.
  *
  * **Lazily loaded** by `App.tsx`: the panel renders maths through `MathText`, which pulls
  * in KaTeX and must stay out of the entry bundle.
  */
 export default function DailyQuizPage() {
   const [info, setInfo] = useState<QuizPrizeInfo | null>(null)
-  const [infoFailed, setInfoFailed] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -31,45 +31,44 @@ export default function DailyQuizPage() {
         if (!cancelled) setInfo(res.info)
       })
       .catch(() => {
-        if (!cancelled) setInfoFailed(true)
+        // The strip falls back to wording that needs no settings.
       })
     return () => {
       cancelled = true
     }
   }, [])
 
+  // Until the settings arrive, the default: right or wrong is shown at once.
+  const instant = info?.instantResult ?? true
+
   return (
     <StudentShell title="Daily Quiz" subtitle="One question a day · the answer unlocks tomorrow">
       <div className={styles.layout}>
-        <div className={styles.main}>
-          <DailyQuizPanel />
-        </div>
-        <Card as="section" className={styles.aside} aria-labelledby="how-winners">
-          <CardHeader title={<span id="how-winners">How winners are chosen</span>} as="h2" size="sm" />
-          {info ? (
-            <>
-              <p className={styles.headline}>{info.prizeHeadline}</p>
-              <p className={styles.rule}>{info.howWinnersAreChosen}</p>
-              <ul className={styles.points}>
-                <li>The quiz opens at 12:00 AM and closes at 11:59 PM, India time.</li>
-                <li>One attempt per student. Your first answer is final.</li>
-                <li>
-                  {info.instantResult
-                    ? 'You see right or wrong as soon as you submit; the correct option and the full solution unlock the next day.'
-                    : 'Results, the correct option and the full solution all unlock the next day.'}
-                </li>
-                <li>Winners are announced early the following month, once the organisers have checked them.</li>
-              </ul>
-            </>
-          ) : infoFailed ? (
-            <p className={styles.rule}>The rules could not be loaded just now. They are the same for every student, every day.</p>
-          ) : (
-            <SkeletonText lines={4} label="Loading how winners are chosen" />
-          )}
-          <p className={styles.archive}>
-            <Link to="/daily-quiz/archive">Earlier quizzes, with their answers</Link>
+        <DailyQuizPanel />
+
+        <section className={styles.notes} aria-labelledby="quiz-notes">
+          <h2 id="quiz-notes" className="sr-only">
+            Good to know
+          </h2>
+          <ul className={styles.points}>
+            <li>
+              <Icon name="ph-clock" size="lg" />
+              <span>Open until 11:59 PM, India time</span>
+            </li>
+            <li>
+              <Icon name="ph-lock-key-open" size="lg" />
+              <span>{instant ? 'Right or wrong at once; the answer unlocks tomorrow' : 'Your result and the answer unlock tomorrow'}</span>
+            </li>
+            <li>
+              <Icon name="ph-trophy" size="lg" />
+              <span>{info?.prizeHeadline ?? 'A prize every month'}</span>
+            </li>
+          </ul>
+          <p className={styles.links}>
+            <Link to="/rewards/rules">How winners are chosen</Link>
+            <Link to="/daily-quiz/archive">Past quizzes and answers</Link>
           </p>
-        </Card>
+        </section>
       </div>
     </StudentShell>
   )

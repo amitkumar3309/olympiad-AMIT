@@ -2,6 +2,23 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-11 — Less copy on four student screens; the Diwali trial setting removed
+
+The owner asked to remove "excess content". Branch `fix/trim-copy`.
+
+- **Homepage, "How winners are chosen":** the heading and the link to the Daily Quiz & Rewards Rules, on one
+  line. The rule itself is on the rules page.
+- **`/daily-quiz`:** the long side box (headline, the rule paragraph, four bullets) became a short strip under
+  the quiz — open until 11:59 PM, when the answer unlocks, the prize headline — with links to "How winners are
+  chosen" (the rules page) and the past quizzes. The page is one column now.
+- **My Progress, "What to work on next":** only the topics to work on, where to practise and strengths, each a
+  title, a line, the counts ("6 of 10 correct") and its link. Gone: the method badge and sentence, confidence
+  labels, "Show the numbers", the difficulty advice, the observations and the footnote. One plain line when
+  there is nothing yet.
+- **Leaderboard:** the subtitle "Every position here is earned …" removed.
+- `DIWALI_EDITION.trial` is `null` again: the owner's 24-hour trial ended at 6:30 PM on 10 October; the
+  edition comes back by itself on 8 November.
+
 ## 2026-10-11 — The Daily Quiz runs itself; staff have no student area
 
 Two owner requests. Branch `feat/auto-daily-quiz`.

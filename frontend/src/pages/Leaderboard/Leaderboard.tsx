@@ -148,10 +148,7 @@ export default function Leaderboard() {
   const lastPage = Math.max(1, Math.ceil(reachableRows / PAGE_SIZE))
 
   return (
-    <StudentShell
-      title="Leaderboard"
-      subtitle="Every position here is earned — XP comes only from things students actually did."
-    >
+    <StudentShell title="Leaderboard">
       {/* --- What is being ranked ---------------------------------------- */}
       <section className={`card ${styles.controls}`}>
         <div className={styles.controlGroup}>

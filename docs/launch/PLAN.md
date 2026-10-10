@@ -180,6 +180,7 @@ Diwali edition; **7b** picture questions and Daily Quiz reminders.
 | Q27 | (2026-10-10) **"add 150 questions for each class (Maths is the only subject) i.e 3rd to 12th for Practice sessions"** | 1,500 generated, answer-computed questions; the owner publishes them with `npm run seed:practice -- --write` (`content/practice-1500`) |
 | Q28 | (2026-10-11) **"automate the daily quiz thing, so that a question is posted automatically daily for each class"** — pool first, then generated; one per class. Reverses Q4's "no automatic fill" for unpublished questions only. | `services/dailyQuizAuto.ts`, on by default (`feat/auto-daily-quiz`) |
 | Q29 | (2026-10-11) **"the admin/superadmin shouldn't have a profile like student, they should be shown their features only"** — and kept off boards and prizes. | `isStaffRole()`, `/admin/account`, `account.role: 'student'` on every board (`feat/auto-daily-quiz`) |
+| Q30 | (2026-10-11) **"help me remove the excess content"** — the homepage winners box, the Daily Quiz page's rules box, "What to work on next", the leaderboard subtitle. | Shorter copy on the four (`fix/trim-copy`); the Diwali trial setting reset to `null` |
 
 ## 5c. Phase 7b — the plan (2026-10-09)
 

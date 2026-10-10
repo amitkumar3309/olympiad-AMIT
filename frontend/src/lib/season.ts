@@ -46,9 +46,8 @@ export const DIWALI_EDITION: FestiveEdition = {
   id: 'diwali-2026',
   startsAt: '2026-11-08T00:00:00+05:30',
   endsAt: '2026-11-16T00:00:00+05:30',
-  // The owner's 24-hour test on the live site (2026-10-09): until 6:30 PM on 10 October, India
-  // time. It switches itself off; set this back to null afterwards.
-  trial: { id: 'diwali-2026-trial', startsAt: '2026-10-09T17:30:00+05:30', endsAt: '2026-10-10T18:30:00+05:30' },
+  // The owner's 24-hour trial on the live site ran 9–10 October 2026 and has ended.
+  trial: null,
 }
 
 const within = (nowMs: number, startsAt: string, endsAt: string) => nowMs >= Date.parse(startsAt) && nowMs < Date.parse(endsAt)
