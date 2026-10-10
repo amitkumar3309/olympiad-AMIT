@@ -31,11 +31,14 @@
 >
 > **Two parts of this remain open, and neither is cosmetic:**
 >
-> - **The store is still `MemoryStore`.** The limits are now correctly keyed but still live in one
->   serverless instance and still reset on every cold start, so they bound a single instance
->   rather than the platform. Per-account lockout (`MAX_FAILED_LOGINS`) remains the durable
->   brute-force control. Moving the store to Redis is step 4 of
->   [`SCALE_READINESS.md`](SCALE_READINESS.md).
+> - ~~**The store is still `MemoryStore`.**~~ **Closed 2026-10-10, once Redis is connected:** the
+>   security limiters (sign-in, registration, email actions, token submits, account updates,
+>   payments, generation, imports, picture uploads, admin actions, exports, public lookups) count
+>   in Upstash Redis for the whole platform (`middleware/sharedRateLimitStore.ts`) and survive cold
+>   starts. Without Redis — or while it is down — they fall back to per-instance counting, as
+>   before, and fail open rather than refuse a sign-in. The general limiter and the per-account
+>   practice / quiz limiters stay per instance on purpose (Redis's free-tier budget).
+>   Per-account lockout (`MAX_FAILED_LOGINS`) remains the durable brute-force control.
 > - ~~**`loginLimiter`'s number was written for a platform-wide bucket.**~~ **Re-tuned the same
 >   day: 50 per 15 minutes.** A school computer lab behind one NAT address now signs in
 >   completely (verified: 40 of 40, where 10 of 40 got through before), while 55 attempts from one

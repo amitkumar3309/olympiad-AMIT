@@ -7,6 +7,37 @@ This file is the **report and the plan**, written before any fix was applied. Fi
 landed since; the per-phase history is in [`CHANGELOG.md`](CHANGELOG.md) and the current snapshot
 is in [`PROJECT_STATE.md`](PROJECT_STATE.md). Findings below are marked ✅ or ⏳ individually.
 
+> ### Status as of 2026-10-10 — the 1,000-students pass
+>
+> The owner asked for the platform to carry 1,000 students at once "as fast as possible". Applied
+> (branch `perf/scale-1000`):
+>
+> - **Step 3 — the `Student.status` index** (with `registeredAt`, for "registered today").
+> - **Step 4 — Redis, optional:** `lib/cache.ts` (memory → Upstash → compute, one computation per
+>   key at a time) and `middleware/sharedRateLimitStore.ts` for the security limiters. The owner
+>   is creating the free Upstash database (Mumbai); until then the cache runs per server.
+> - **P1-4 fixed differently from the plan's wording:** the leaderboard is not cached response by
+>   response but **board by board** — one aggregation a minute per board, with pages, totals and
+>   every student's rank computed from it (a student's own XP fresh).
+> - **The backend region** pinned to Mumbai (`bom1`), beside the cluster — Vercel's default is
+>   Washington.
+> - Smaller: the dashboard's daily visit no longer costs three operations on every load, the
+>   class's question count and the implicit subject are cached for a minute, the unread badge is
+>   asked at most once a minute, and `/leaderboard` no longer fetches twice on a direct load.
+>
+> Measured with `npm run load-test` (old and new code back to back, same machine):
+>
+> | 50 requests at once, 1,000 students, 60,000 XP rows | before (`main`) | after |
+> |---|---|---|
+> | `GET /leaderboard` (guest) | 10–14 req/s, p50 5–19 s, 3 DB ops | **400–430 req/s, p50 0.1 s, 0 DB ops** |
+> | `GET /leaderboard` (signed in) | 10 req/s, p50 8–9 s, 7 DB ops | **180–200 req/s, p50 0.26 s, 1 DB op** |
+> | `GET /me/dashboard` | 10 req/s, p50 9–26 s, 34 DB ops | **70 req/s, p50 0.75 s, 20 DB ops** |
+>
+> **What still limits 1,000 at once is the free Atlas tier**, not the code: about **100
+> operations a second**. A dashboard is still ~20 operations (all small, indexed, per student),
+> so 1,000 dashboards in one minute is ~20,000 operations — over three minutes of the M0's
+> budget. See Part 5: **Atlas Flex** (~US$8–30/month, ~500 ops/s) or **M10** for launch week.
+>
 > ### Status as of 2026-09-27
 >
 > **Fixed and verified live:** `app.set('trust proxy', 1)` (14 sign-ins from 14 addresses all

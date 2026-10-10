@@ -251,6 +251,13 @@ studentSchema.index({ registeredAt: -1 });
 studentSchema.index({ classLevel: 1, registeredAt: -1 });
 
 /**
+ * `/public/stats` counts active accounts (and, with `registeredAt`, today's) on the most public
+ * page in the product. Both were whole-collection scans (SCALE_READINESS P1-5; applied
+ * 2026-10-10). The second key serves "registered today" from the same index.
+ */
+studentSchema.index({ status: 1, registeredAt: -1 });
+
+/**
  * `fullName` is derived, never supplied. Keeping it in sync here rather than at
  * each call site means there is exactly one definition of how the three name
  * parts join, and the existing readers of `fullName` need no change.

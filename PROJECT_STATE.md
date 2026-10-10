@@ -178,6 +178,12 @@ The work happens in phases, and each one stops for the owner's approval.
   **no chapter reset** any more, and a never-sat test exam no longer blocks **Reset the Question
   Bank** — an official exam nobody has sat is deleted with its questions, named in the dialog first;
   one somebody has sat still blocks for ever. Backend **1438 / 40**.
+- **Built for 1,000 students at once** (`perf/scale-1000`, 2026-10-10): the leaderboard is computed once
+  per board per minute (guest 10–14 → 400 req/s at 50 at once), the dashboard is 34 → 20 operations
+  (10 → 70 req/s), `lib/cache.ts` with an **optional Upstash Redis** (owner creating it — Vercel →
+  backend → Storage), the security rate limiters shared through Redis, the backend in **Mumbai**
+  (`bom1`), a `Student.status` index, and `npm run load-test`. **Open (owner):** the free Atlas tier's
+  ~100 operations a second is now the ceiling — Flex or M10 for launch week. Backend **1451 / 41**.
 - **Uploading questions is the owner's five-field form** (`feat/simple-question-upload`, 2026-10-09):
   Admin → Bulk Import asks for the file type, the class, the question type and an optional topic — no
   chapter. The form's class and type are every question's; the topic is a name (else the file's, else

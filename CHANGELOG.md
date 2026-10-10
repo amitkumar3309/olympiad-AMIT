@@ -2,6 +2,30 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-10 — Built for 1,000 students at once: a cached leaderboard, Redis, Mumbai
+
+The owner's request of 2026-10-10: "optimize this whole platform to handle 1000 users at once, implement
+redis or whatever is needed … there shouldn't be much loading or buffering time". Branch `perf/scale-1000`.
+
+- **Measured first**: `npm run load-test` (new, `backend/scripts/load-test.ts`) — an in-memory database
+  with 1,000 students and 60,000 XP rows, 50 clients at once, and database operations per request.
+- **The leaderboard is computed once per board per minute** (`loadBoard()`), not three to six times per
+  request; a student's own XP stays fresh. Guest board 10–14 → **400–430 req/s** (p50 5–19 s → 0.1 s);
+  signed in 10 → **180–200 req/s**.
+- **`lib/cache.ts`** (memory → optional Upstash Redis → compute, one computation per key at a time) and
+  **`lib/redis.ts`** (Upstash REST over `fetch`; never throws, 400 ms timeout, 30 s cool-off).
+- **The dashboard**: 34 → **20 database operations**, 10 → **70 req/s** (p50 9–26 s → 0.75 s) — the
+  cached boards, the daily visit remembered per server, the class's question count and the implicit
+  subject cached for a minute.
+- **The security rate limiters count in Redis** for the whole platform (`sharedRateLimitStore.ts`) once
+  Redis is connected; they fall back to per-server counting.
+- **`Student {status, registeredAt}`** index; **the backend pinned to Mumbai** (`bom1`, beside Atlas).
+- Frontend: the unread badge at most once a minute; `/leaderboard` no longer fetches twice on a direct load.
+- New optional variables: `KV_REST_API_URL` / `KV_REST_API_TOKEN` (or `UPSTASH_REDIS_REST_*`), `CACHE_ENABLED`.
+- Tests: backend 1451 / 41 (`tests/cache.test.ts`, 13: one computation for fifty callers, expiry, JSON
+  values, off when disabled, shared through a fake Upstash, Redis down, invalidation; the shared limiter
+  across two servers, one window, memory fallback; a cached board with a student's fresh rank and ties).
+
 ## 2026-10-10 — The reset: no chapter reset, and a never-sat exam no longer blocks the question bank
 
 The owner, 2026-10-10, clearing out test data: "I am not able to reset question bank" — the dialog said

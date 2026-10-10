@@ -273,6 +273,26 @@ const envSchema = z.object({
    */
   JOBS_SECRET: z.string().trim().min(32).optional(),
   /**
+   * The shared cache and rate-limit store (2026-10-10): an Upstash Redis database, reached over
+   * its REST API so a serverless function holds no connection open. Vercel's Upstash integration
+   * names the pair `KV_REST_API_URL` / `KV_REST_API_TOKEN`; Upstash's own console names them
+   * `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`. Either pair works.
+   *
+   * **Optional**, and the site is fully correct without it: the cache falls back to each
+   * server's own memory and the rate limiters to their per-server store. The token is a
+   * credential — never log it.
+   */
+  KV_REST_API_URL: z.string().url().optional(),
+  KV_REST_API_TOKEN: z.string().min(1).optional(),
+  UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+  UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+  /**
+   * The read cache (`lib/cache.ts`). On by default and off under `NODE_ENV=test`, where a
+   * test writes and reads back in the same breath; `CACHE_ENABLED=true` turns it on there (the
+   * load test) and `false` turns it off anywhere (the browser suite).
+   */
+  CACHE_ENABLED: z.enum(['true', 'false', '1', '0']).optional(),
+  /**
    * Mounts `/__e2e/*`, the browser test suite's hooks: move the server clock, reset and
    * seed the database (Milestone 30, Phase 2). **Off by default**, refused outright when
    * `NODE_ENV=production`, and the hooks additionally refuse any database whose name does

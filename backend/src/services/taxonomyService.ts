@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { Subject, Topic, Question, MAX_TOPIC_DEPTH, type SubjectDocument, type TopicDocument, type TaxonomyStatus } from '../models';
 import { slugify } from '../lib/slug';
 import { ApiError } from '../lib/ApiError';
+import { cached, invalidate } from '../lib/cache';
 
 /**
  * Taxonomy business rules, kept out of the route handlers.
@@ -55,7 +56,7 @@ export interface CreateSubjectInput {
 
 export async function createSubject(input: CreateSubjectInput, actor: Actor): Promise<SubjectDocument> {
   try {
-    return await Subject.create({
+    const created = await Subject.create({
       name: input.name,
       slug: slugify(input.name),
       description: input.description ?? null,
@@ -63,6 +64,9 @@ export async function createSubject(input: CreateSubjectInput, actor: Actor): Pr
       createdBy: actor.id,
       createdByLabel: actor.label,
     });
+    // A new subject can change which one is implicit, so nobody may read the old answer.
+    await invalidate('implicit-subject');
+    return created;
   } catch (err) {
     if (isDuplicateKeyError(err)) {
       throw ApiError.conflict(`A subject named "${input.name}" already exists.`);
@@ -98,7 +102,10 @@ export async function updateSubject(id: string, input: UpdateSubjectInput): Prom
   if (input.status !== undefined) subject.status = input.status;
 
   try {
-    return await subject.save();
+    const saved = await subject.save();
+    // Renaming or archiving a subject can change which one is implicit.
+    await invalidate('implicit-subject');
+    return saved;
   } catch (err) {
     if (isDuplicateKeyError(err)) {
       throw ApiError.conflict(`A subject named "${input.name}" already exists.`);
@@ -272,12 +279,18 @@ async function assertNoPublishedQuestions(match: PublishedQuestionMatch, label: 
  * than one: taking the first row would let a stray second subject capture everything.
  */
 export async function findImplicitSubject(): Promise<mongoose.Types.ObjectId | null> {
-  const active = await Subject.find({ status: 'active' }).select('name').lean();
-  if (active.length === 0) return null;
-  if (active.length === 1) return active[0]!._id as mongoose.Types.ObjectId;
+  // Asked by almost every student page and answered the same for everybody, so it is read at
+  // most once a minute per server (2026-10-10). Cached as the id's string, because a cached
+  // value is JSON — and an aggregation's `$match` needs a real ObjectId back.
+  const id = await cached('implicit-subject', 60, async () => {
+    const active = await Subject.find({ status: 'active' }).select('name').lean();
+    if (active.length === 0) return null;
+    if (active.length === 1) return String(active[0]!._id);
 
-  const maths = active.find((subject) => /^(math|maths|mathematics)$/iu.test(subject.name.trim()));
-  return maths ? (maths._id as mongoose.Types.ObjectId) : null;
+    const maths = active.find((subject) => /^(math|maths|mathematics)$/iu.test(subject.name.trim()));
+    return maths ? String(maths._id) : null;
+  });
+  return id === null ? null : new mongoose.Types.ObjectId(id);
 }
 
 /** The same, but insisting — for a write, where a guess would misfile data. */

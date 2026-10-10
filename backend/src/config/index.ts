@@ -267,6 +267,22 @@ export const config = {
   jobs: {
     secret: env.JOBS_SECRET,
   },
+  /**
+   * The read cache and the shared rate-limit store (`lib/cache.ts`, `lib/redis.ts`). Redis is
+   * optional: with no URL and token the cache lives in each server's memory, and every read is
+   * still correct — only less shared.
+   */
+  cache: {
+    enabled:
+      env.CACHE_ENABLED === undefined ? !isTest : env.CACHE_ENABLED === 'true' || env.CACHE_ENABLED === '1',
+    redis:
+      (env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL) && (env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN)
+        ? {
+            url: (env.KV_REST_API_URL ?? env.UPSTASH_REDIS_REST_URL)!,
+            token: (env.KV_REST_API_TOKEN ?? env.UPSTASH_REDIS_REST_TOKEN)!,
+          }
+        : null,
+  },
   payments: {
     /** True only when an order can actually be created AND verified. */
     configured: Boolean(env.RAZORPAY_KEY_ID && env.RAZORPAY_KEY_SECRET),

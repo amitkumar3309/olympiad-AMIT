@@ -38,6 +38,9 @@ async function main(): Promise<void> {
   // A scheduler secret (Milestone 30 Phase 7b), so the Daily Quiz offers its reminder and the
   // crawler checks that button like every other. A test value; nothing here schedules anything.
   process.env.JOBS_SECRET = 'e2e-only-jobs-secret-not-used-anywhere-else-0123456789';
+  // The read cache off: a browser test earns XP and looks at the board in the same breath,
+  // and the cache's own rules are the backend tests' (tests/cache.test.ts).
+  process.env.CACHE_ENABLED = 'false';
 
   console.log(`[e2e-server] in-memory MongoDB at ${process.env.MONGO_URI}`);
   console.log(`[e2e-server] API on :${process.env.PORT}, accepting ${process.env.FRONTEND_URL}`);

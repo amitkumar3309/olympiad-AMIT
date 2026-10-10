@@ -4,6 +4,38 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-10 — Redis (Upstash), a read cache, and the leaderboard computed once a minute
+
+**Context.** The owner asked for 1,000 students at once with little waiting, and agreed to a free
+Upstash Redis. A load test on 1,000 students showed the leaderboard (3–7 full aggregations of the XP
+log per request) and the dashboard (34 operations) answering about 10 requests a second at 50 at once,
+taking 5–26 s. The live database is Atlas M0 in Mumbai — about 100 operations a second — and the backend
+ran in Vercel's default region, Washington.
+
+**Decision.**
+- **Upstash over REST with `fetch`**, no package: no socket for a frozen serverless function to hold,
+  nothing new to install. **Optional**: the site is correct without it; every call times out at 400 ms,
+  answers `undefined` on failure and rests 30 s.
+- **One cache, three layers** (`lib/cache.ts`): memory (≤30 s), Redis, compute — with concurrent misses
+  sharing one computation. Values are JSON. It expires and is never a record; nothing about money,
+  marks, winners or entitlements is read from it (the payment settings stay uncached).
+- **The leaderboard caches boards, not responses.** One aggregation per board per minute; pages, totals
+  and ranks are computed from it, and a student's own XP is read fresh so their rank moves at once. This
+  keeps "nothing is stored" — a board expires — and one ranking function.
+- **Redis only for low-volume work**: the boards (memory-fronted) and the security limiters (three
+  commands per counted request). The general limiter and per-student data stay out — the free tier is
+  500,000 commands a month.
+- **The backend in `bom1`**, beside the cluster.
+
+**Rejected.** Edge-caching the leaderboard on Vercel's CDN: its cache key ignores cookies, so a signed-in
+student would be served a guest's response without their own row. A per-student dashboard cache in
+Redis: tens of thousands of commands a day, past the free tier. A materialised standings collection: a
+second source of truth about rank.
+
+**Still the owner's decision:** the free Atlas tier's ~100 operations a second is now the ceiling. A
+dashboard is ~20 small operations, so a launch-day burst of 1,000 needs Atlas Flex or M10 (SCALE_READINESS
+Part 5).
+
 ## 2026-10-10 — The reset: an exam nobody has sat is not permanent; no chapter reset
 
 **Context.** Clearing test data before launch, the owner could not reset the question bank: any
