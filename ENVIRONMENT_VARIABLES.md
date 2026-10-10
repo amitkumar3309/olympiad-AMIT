@@ -355,6 +355,21 @@ reliable minute-level schedule is a paid plan. The owner chose a free external p
 Milestone 30 Phase 7b ADR in [`DECISIONS.md`](DECISIONS.md)), which is why the routes are on the public
 internet behind this secret rather than behind Vercel's own cron header.
 
+## Redis — the shared cache and rate-limit store (2026-10-10)
+
+| Variable | Required? | What it does | Where to get it | Example |
+|---|---|---|---|---|
+| `KV_REST_API_URL` | optional | The REST address of an **Upstash Redis** database. With the token below, the read cache (`lib/cache.ts`) is shared by every server and the security rate limiters (sign-in, registration, emails, payments, uploads) count once for the whole platform instead of per server. **Unset**: the cache lives in each server's memory and the limiters count per server, as before — the site is fully correct either way. | Vercel → backend project → **Storage** → Create Database → **Upstash for Redis** (region **Mumbai**, plan **Free**) → Connect to the backend project. Vercel writes this variable for you. | `https://example-12345.upstash.io` |
+| `KV_REST_API_TOKEN` | optional (with the URL) | The database's REST token. A credential: sent only as a header, never logged. | Written by the same integration. | `AXyz…` (never paste a real one anywhere) |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | optional | The same pair under the names Upstash's own console uses. Read only when the `KV_` pair is absent. | upstash.com → your database → REST API. | as above |
+| `CACHE_ENABLED` | optional | `false` turns the read cache off anywhere (the browser suite does). Default: on, except under `NODE_ENV=test`, where `true` turns it on (the load test does). | You set it, rarely. | `false` |
+
+**What it costs.** The free Upstash tier is 500,000 commands a month. The cache asks Redis only when a
+server's own memory has nothing (at most once per key per server every 30 seconds), and only the
+low-volume security limiters count in Redis (three commands per counted request) — the general limiter
+on every API call stays in memory. So a normal month should stay inside the free tier; Upstash's
+dashboard shows the count.
+
 ## End-to-end test hooks (Milestone 30, Phase 2)
 
 | Variable | Required? | What it does | Where to get it | Example |

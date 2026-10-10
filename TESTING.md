@@ -37,6 +37,18 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The performance pass (2026-10-10): 1451 passing backend tests across 41 files.** New:
+> `tests/cache.test.ts` (13) — fifty concurrent callers cause one computation; memory expiry; values
+> come back as JSON from either layer; a straight call when the cache is off; a value shared between
+> "servers" through a fake Upstash (`fetch` stubbed — nothing reaches the network), namespaced and given
+> its time to live; Redis down → computed, and Redis rested; `invalidate()`; the shared rate-limit
+> counter across two servers, one fixed window, and the memory fallback with Redis down or absent; a
+> cached board on which a student's own new XP moves their rank at once, and ties across a page. The
+> cache is off in every other suite and in the browser suite (`CACHE_ENABLED=false`).
+> **`npm run load-test --prefix backend`** measures requests a second, p50/p95 and database operations
+> per request on an in-memory database (1,000 students by default); compare old and new code back to
+> back, because a laptop's absolute numbers drift.
+
 > **The reset changes (2026-10-10): 1438 passing backend tests across 40 files.** `contentReset.test.ts`:
 > an official exam nobody has sat is listed in the question-bank preview and deleted with its questions,
 > an exam with no questions kept; one with a submitted attempt still blocks (409, nothing deleted); the
