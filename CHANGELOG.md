@@ -2,6 +2,29 @@
 
 Chronological development history. For current state, see [`PROJECT_STATE.md`](PROJECT_STATE.md) instead — do not let this file's older entries get treated as current fact.
 
+## 2026-10-13 — A contact form, page-view counts, database backups, and no WhatsApp promise
+
+From the owner's launch checklist. Branch `feat/contact-form-analytics`.
+
+- **Contact form** on `/contact`: name, email, what it is about, message — every problem at once on its
+  field, a honeypot for bots, five messages an hour from one address. Each message is stored and shown at
+  the new **Admin → Messages** (to answer / handled), and the support address is emailed, up to 40 a day
+  (the free email quota is shared with sign-ups). Nothing is ever emailed to the address a visitor typed.
+- **Page-view counts:** Vercel Web Analytics, cookieless, loaded after the page and only on the live
+  address — chosen over Google Analytics because most visitors are children (DPDP Act). It counts once the
+  owner switches it on in Vercel.
+- **Backups:** `npm run backup:db` copies the whole database to one file on the owner's computer;
+  `npm run restore:db` puts one back (report-only first; refuses to mix into a database that holds data).
+  Backup files are git-ignored.
+- **A phone photo is accepted at registration and on My Profile.** It used to be refused over 2 MB (an
+  ordinary phone photo is 3–6 MB); it is now redrawn in the browser to at most 900 px and 400 KB first —
+  which also means the free database holds thousands of photos instead of about 250.
+- **Registration no longer promises "WhatsApp updates"**: none are sent. The mobile number's hint says it
+  can sign in with it; the email's says updates come there.
+- Tests: `contact.test.ts` (6), `backup.test.ts` (2 — an exact round trip of 1,203 documents with dates, a
+  photo's bytes and a unique index; the refusal to mix), `e2e/contact.spec.ts`, `e2e/photo.spec.ts`. Backend 1506 tests / 46
+  files; 100 browser tests.
+
 ## 2026-10-11 — The Daily Quiz pool, batch 1: 100 olympiad-style questions
 
 `docs/content/daily-quiz-pool-batch-1/`: 10 questions for each class from 3 to 12, one CSV per class in the

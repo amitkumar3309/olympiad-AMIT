@@ -87,6 +87,18 @@ parental consent** for anyone under 18; what is built is a minimum, not a legal 
       guardian be told (or agree) — given that the address is often the parent's?
     - **c.** Should the 14-day record of reminders be stated alongside the retention answer in question 7?
 
+### The contact form and page-view counts (built 2026-10-13)
+
+14. **The contact form.** It collects a name, an email address and a message (and notes the account if the
+    sender is signed in), keeps them for staff to answer, and emails them to the support address. The
+    Privacy Policy does not mention it. Questions: should it, and **how long should messages be kept**
+    (at present, until deleted by hand — nothing deletes them automatically)?
+15. **Page-view counts.** The site counts page views with Vercel Web Analytics, which sets no cookie and
+    stores no personal data (a visitor is recognised for one day by a hash Vercel discards). Google
+    Analytics was deliberately not used because the DPDP Act forbids tracking or behavioural monitoring of
+    children. Questions: does the Privacy Policy need to mention the page-view counts, and is Vercel Web
+    Analytics acceptable under the Act as it is used here?
+
 ## What the drafts deliberately do not say
 
 - No refund window, refund timeline or cancellation remedy (questions 4–6).

@@ -4,6 +4,30 @@ Lightweight Architecture Decision Records. Add a new entry (don't edit old ones 
 
 ---
 
+## 2026-10-13 — Page-view counts without tracking; a contact form that mails only us; backups by hand
+
+**Context.** The owner's launch checklist asked for Google Analytics, a working contact form and backups.
+Most of the site's visitors are children, and India's DPDP Act 2023 forbids tracking or behavioural
+monitoring of a child; the free Atlas tier takes no backups; the free email quota (300 a day) is shared
+with every sign-up.
+
+**Decision.** (1) **Vercel Web Analytics** for page-view counts — no cookie, no personal data, served from
+the site's own address so the CSP is unchanged — loaded after `load` and only on `SITE_URL`; **Google
+Search Console** (verified by DNS, no code) for search. The owner chose this over Google Analytics.
+(2) **A contact form** that stores every message (`ContactMessage`, read at Admin → Messages) and emails
+**only the support address**, at `announcement` priority and at most 40 a day; a honeypot and a shared
+five-an-hour limit. (3) **Backups by a script the owner runs** — one gzipped Extended-JSON file of every
+collection with its indexes, and a restore that refuses to mix into a database holding data.
+(4) **A student photo is redrawn in the browser** to at most 900 px and 400 KB before upload: the 2 MB
+limit refused ordinary phone photos (3–6 MB) and, met, filled the 512 MB free database after about 250
+students. The server's limit and magic-byte check stay as the authority.
+
+**Rejected.** Google Analytics (behavioural tracking of children; a consent banner and a legal sign-off
+before launch). A confirmation email to the sender (the form would mail any address typed into it). An
+automated backup to a cloud folder or a GitHub Action (children's personal data in a third place, and a
+credential to keep there); an Atlas upgrade (paid — the owner's call later). `mongodump` (an extra
+install on the owner's machine; the script needs only `npm`).
+
 ## 2026-10-11 — The Daily Quiz fills itself, from unpublished questions only
 
 **Context.** Milestone 30 (PLAN.md Q4) removed the daily challenge's automatic fill because it picked a

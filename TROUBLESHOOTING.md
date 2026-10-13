@@ -49,6 +49,17 @@
 > `config.mongo.maxPoolSize` is now **5** with a 30-second idle reap. Verified: 60 concurrent
 > requests left **9** connections open across all clients, against 121 before.
 
+## The database is lost or damaged: restoring from a backup (2026-10-13)
+
+The free Atlas tier keeps no backups of its own, so the only copies are the files `npm run backup:db`
+writes. To restore one: put the target's `MONGO_URI` in `backend/.env` (a **new, empty** database is the
+safe target — Atlas → your cluster → **Browse Collections** shows it empty), then from `backend/`:
+`npm run restore:db -- <file>` (report only: what is in the file and whether the target is empty), then
+`npm run restore:db -- <file> --write`. Only for a real disaster, over the live database:
+`--write --replace`, which **drops** each collection it restores first — everything students did since the
+backup was taken is lost. **Test a backup now and then** by restoring it into a new database and comparing
+the counts it prints with the backup's; a backup nobody has restored is a hope, not a backup.
+
 ## The browser suite's build fails with `ENOENT … node_modules/.e2e-dist/index.html` (a git worktree)
 
 **Symptom.** `npm run e2e` (or one spec) in a git worktree stops before any test, with the web server
