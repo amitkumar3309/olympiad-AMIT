@@ -7,6 +7,7 @@ import PasswordRules from '../../components/PasswordRules'
 import { formatCooldown, useResendCooldown } from '../../lib/resendCooldown'
 import { SUPPORT } from '../../lib/brand'
 import type { NextPath } from '../../lib/nextPath'
+import { PHOTO_ACCEPT_ATTRIBUTE, readPhotoFile, type SelectedPhoto } from '../../lib/photo'
 import { CLASS_LEVELS, type ClassLevel, type ReferralCheck } from '../../api/types'
 import styles from './RegisterForm.module.css'
 
@@ -69,15 +70,6 @@ type FormField = keyof typeof EMPTY_FORM
 type ErrorKey = FormField | 'photo' | 'guardianConsent'
 type Errors = Partial<Record<ErrorKey, string>>
 
-interface SelectedPhoto {
-  dataUrl: string
-  name: string
-  size: number
-}
-
-/** Kept in step with the backend's `MAX_PHOTO_BYTES`. */
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024
-const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 /** Field ids are fixed so the error summary can move focus to one. */
 const fieldId = (field: ErrorKey) => `reg-${field}`
@@ -136,16 +128,6 @@ const REQUIRED: FormField[] = [
   'mobile',
   'email',
 ]
-
-/** Reads a chosen file into the base64 data URL the API expects. */
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(new Error('Could not read that file.'))
-    reader.readAsDataURL(file)
-  })
-}
 
 export interface RegisterFormProps {
   /** The `?ref=` code, already checked against the server by the page. */
@@ -255,27 +237,15 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
       setPhoto(null)
       return
     }
-    if (!ACCEPTED_PHOTO_TYPES.includes(file.type)) {
+    // Redrawn smaller in the browser (lib/photo.ts), so an ordinary phone photo is accepted.
+    const result = await readPhotoFile(file)
+    if ('error' in result) {
       setPhoto(null)
-      setErrors((current) => ({ ...current, photo: 'The photograph must be a JPEG, PNG or WebP image.' }))
+      setErrors((current) => ({ ...current, photo: result.error }))
       event.target.value = ''
       return
     }
-    if (file.size > MAX_PHOTO_BYTES) {
-      setPhoto(null)
-      setErrors((current) => ({
-        ...current,
-        photo: `That photograph is ${(file.size / (1024 * 1024)).toFixed(1)} MB. Please choose one of 2 MB or less.`,
-      }))
-      event.target.value = ''
-      return
-    }
-    try {
-      setPhoto({ dataUrl: await readAsDataUrl(file), name: file.name, size: file.size })
-    } catch {
-      setPhoto(null)
-      setErrors((current) => ({ ...current, photo: 'Could not read that file. Please choose it again.' }))
-    }
+    setPhoto(result.photo)
   }
 
   function handleDetailsSubmit(event: FormEvent) {
@@ -477,7 +447,7 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
               id={fieldId('photo')}
               label="Passport-style photograph"
               required
-              hint="JPEG, PNG or WebP, up to 2 MB. This appears on your certificate."
+              hint="A JPEG, PNG or WebP photo — straight from your phone is fine. This appears on your certificate."
               error={errors.photo}
             >
               {/*
@@ -492,7 +462,7 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
                 id={fieldId('photo')}
                 type="file"
                 className={styles.file}
-                accept={ACCEPTED_PHOTO_TYPES.join(',')}
+                accept={PHOTO_ACCEPT_ATTRIBUTE}
                 aria-describedby={errors.photo ? 'reg-photo-hint reg-photo-error' : 'reg-photo-hint'}
                 aria-invalid={errors.photo ? true : undefined}
                 onChange={handlePhotoChange}
