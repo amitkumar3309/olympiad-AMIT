@@ -365,6 +365,17 @@ export const publicLookupLimiter = limiter({
   message: 'Too many lookups. Please wait a few minutes before trying again.',
 });
 
+/**
+ * The Contact page's form (2026-10-13): five messages an hour from one address. Each one may
+ * send a notification email, and the provider's free quota is shared with sign-ups.
+ */
+export const contactLimiter = limiter({
+  shared: 'contact',
+  windowMs: HOUR,
+  limit: 5,
+  message: 'You have sent several messages in the last hour. Please wait a while, or email us directly.',
+});
+
 /** Refresh is called routinely by every active client, so this is generous. */
 export const refreshLimiter = limiter({
   windowMs: 15 * MINUTE,

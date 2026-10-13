@@ -172,6 +172,8 @@ export const ADMIN_NAV: NavGroup[] = [
       { to: '/admin/users', label: 'All Students', icon: 'ph-users-three', permission: 'students:read' },
       { to: '/admin/payments', label: 'Payments', icon: 'ph-currency-inr', permission: 'students:read' },
       { to: '/admin/referrals', label: 'Referrals', icon: 'ph-share-network', permission: 'students:read' },
+      // The Contact page's form (2026-10-13).
+      { to: '/admin/messages', label: 'Messages', icon: 'ph-envelope-simple', permission: 'students:read' },
     ],
   },
   {

@@ -56,3 +56,31 @@
   overflow-wrap: anywhere;
   font-weight: var(--weight-semibold);
 }
+
+/* The contact form (2026-10-13). */
+.form {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-8);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .formGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* The honeypot: off screen rather than display:none, which some bots know to skip. */
+.trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

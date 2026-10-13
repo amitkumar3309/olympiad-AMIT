@@ -528,7 +528,7 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
                 id={fieldId('mobile')}
                 label="Mobile number"
                 required
-                hint="Used for WhatsApp updates. 10 digits, no country code."
+                hint="You can sign in with it. 10 digits, no country code."
                 error={errors.mobile}
               >
                 <Input
@@ -546,7 +546,7 @@ export default function RegisterForm({ referral, onRequestLogin, next = null }: 
                 id={fieldId('email')}
                 label="Email address"
                 required
-                hint="We send the verification link here — you need it to sign in."
+                hint="We send the verification link and all our updates here — you need the link to sign in."
                 error={errors.email}
               >
                 <Input

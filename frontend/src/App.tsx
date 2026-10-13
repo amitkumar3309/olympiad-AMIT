@@ -19,6 +19,7 @@ const Admin = lazy(() => import('./pages/Admin/Admin'))
 const AdminUsers = lazy(() => import('./pages/Admin/Users'))
 const AdminAuditLog = lazy(() => import('./pages/Admin/AuditLog'))
 const AdminAccount = lazy(() => import('./pages/Admin/Account'))
+const AdminMessages = lazy(() => import('./pages/Admin/Messages'))
 
 /**
  * The question-bank pages are loaded on demand.
@@ -272,6 +273,15 @@ export function AppRoutes() {
             element={
               <RequirePermission permission="audit:read">
                 <AdminAuditLog />
+              </RequirePermission>
+            }
+          />
+          {/* What visitors sent through the Contact page's form (2026-10-13). */}
+          <Route
+            path="/admin/messages"
+            element={
+              <RequirePermission permission="students:read">
+                <AdminMessages />
               </RequirePermission>
             }
           />

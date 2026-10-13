@@ -9,6 +9,7 @@ import './styles/theme.css'
  */
 import introStyles from './components/DiwaliIntro.module.css'
 import App from './App.tsx'
+import { SITE_URL } from './lib/brand'
 
 /**
  * Phosphor, the icon font's two weights (see the note in index.html), added once the page has
@@ -30,6 +31,27 @@ function addIconStylesheets() {
 }
 if (document.readyState === 'complete') addIconStylesheets()
 else window.addEventListener('load', addIconStylesheets, { once: true })
+
+/**
+ * Page-view counts (owner, 2026-10-13): Vercel Web Analytics, chosen over Google Analytics because
+ * most visitors are children and India's DPDP Act forbids tracking or behavioural monitoring of a
+ * child. It sets no cookie and stores no personal data, and its script and its reports are on this
+ * site's own address, so the Content Security Policy needs nothing new.
+ *
+ * **Only on the live address**: anywhere else — a preview deployment, `vite preview`, the browser
+ * suite — the path does not exist, and a failed request is a console error the crawler fails on.
+ * After `load`, like the icons: nothing a visitor sees waits for it. It counts nothing until Web
+ * Analytics is switched on for the frontend project in Vercel.
+ */
+function addPageViewCounter() {
+  if (window.location.origin !== SITE_URL) return
+  const script = document.createElement('script')
+  script.defer = true
+  script.src = '/_vercel/insights/script.js'
+  document.head.appendChild(script)
+}
+if (document.readyState === 'complete') addPageViewCounter()
+else window.addEventListener('load', addPageViewCounter, { once: true })
 
 /**
  * Takes the Diwali intro's markup out of the page once it has ended — at once when it never

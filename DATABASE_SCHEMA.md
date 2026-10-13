@@ -1095,3 +1095,14 @@ there is no model. Additive enum values; nothing back-filled.
 
 `csv_import` and `json_import` join the source enum, and `ImportBatch.kind` accepts `csv` and
 `json` — the two tabular formats the Daily Quiz import (and the Question Bank's import) read.
+
+## `ContactMessage` (2026-10-13)
+
+One message sent through the Contact page's form (`services/contactService.ts`). Fields: `name` (≤80),
+`email` (lower-cased, ≤254), `topic` (`account` | `payment` | `daily-quiz` | `olympiad` | `other`),
+`message` (≤2000), `student` (the signed-in account that sent it, or null), `status` (`new` | `handled`,
+default `new`), `emailed` (whether a notification to the support address was queued — false once the day's
+cap of 40 is reached), `ipHash` (a keyed SHA-256 of the sender's address, never the address), `handledBy`,
+`handledByLabel`, `handledAt`, timestamps. Indexes `{ status, createdAt: -1 }` (the admin list) and
+`{ emailed, createdAt: -1 }` (the daily cap). **No TTL** — how long to keep messages is a legal-review
+question (LEGAL_REVIEW.md 14). Nothing in it is ever emailed to the `email` it holds.

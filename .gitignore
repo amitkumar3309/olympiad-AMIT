@@ -10,3 +10,7 @@ build/
 .env*
 !.env.example
 !**/.env.example
+
+# Database backups (npm run backup:db) hold every student's personal data. Never commit one.
+backend/backups/
+*.backup.json.gz
