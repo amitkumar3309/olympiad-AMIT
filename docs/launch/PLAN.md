@@ -181,6 +181,7 @@ Diwali edition; **7b** picture questions and Daily Quiz reminders.
 | Q28 | (2026-10-11) **"automate the daily quiz thing, so that a question is posted automatically daily for each class"** — pool first, then generated; one per class. Reverses Q4's "no automatic fill" for unpublished questions only. | `services/dailyQuizAuto.ts`, on by default (`feat/auto-daily-quiz`) |
 | Q29 | (2026-10-11) **"the admin/superadmin shouldn't have a profile like student, they should be shown their features only"** — and kept off boards and prizes. | `isStaffRole()`, `/admin/account`, `account.role: 'student'` on every board (`feat/auto-daily-quiz`) |
 | Q30 | (2026-10-11) **"help me remove the excess content"** — the homepage winners box, the Daily Quiz page's rules box, "What to work on next", the leaderboard subtitle. | Shorter copy on the four (`fix/trim-copy`); the Diwali trial setting reset to `null` |
+| Q31 | (2026-10-13) The owner's launch checklist: links, contact form, speed, HTTPS, browsers, typos, WhatsApp, domain email, Google Analytics, Search Console, backups, the payment page. | Contact form + Admin → Messages; Vercel Web Analytics instead of Google Analytics (DPDP); `backup:db`/`restore:db`; the WhatsApp promise removed (`feat/contact-form-analytics`). Search Console, domain email and a live payment are the owner's |
 
 ## 5c. Phase 7b — the plan (2026-10-09)
 

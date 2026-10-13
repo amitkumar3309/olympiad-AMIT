@@ -27,6 +27,7 @@ import referralRoutes from './referrals.routes';
 import miscRoutes from './misc.routes';
 import paymentRoutes from './payments.routes';
 import jobRoutes from './jobs.routes';
+import contactRoutes from './contact.routes';
 
 const router = Router();
 
@@ -67,6 +68,8 @@ router.use(referralRoutes);
 router.use(paymentRoutes);
 // The scheduled jobs (Milestone 30 Phase 7b): an outside scheduler with JOBS_SECRET, never a person.
 router.use(jobRoutes);
+// The Contact page's form and the staff inbox for it (2026-10-13).
+router.use(contactRoutes);
 router.use(miscRoutes);
 
 export default router;

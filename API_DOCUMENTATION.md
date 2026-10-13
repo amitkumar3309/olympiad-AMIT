@@ -956,6 +956,24 @@ Every endpoint in `routes/v1/` now reads from the database. The three that were 
 
 ---
 
+## Contact form and Admin → Messages (2026-10-13)
+
+#### `POST /api/v1/contact` — public
+`{ name (2–80), email, topic: account | payment | daily-quiz | olympiad | other, message (10–2000), website? }`.
+Behind `contactLimiter` (5 an hour per address, shared). **201** `{ success, message }` — the same answer when
+the honeypot `website` is filled, in which case nothing is stored. Stores a `ContactMessage` (the signed-in
+account, if any, as `student`) and queues one email to the support address (`announcement`), unless 40 have
+been queued today (India time) — the message is then stored only, `emailed: false`. **Never emails the sender.**
+**400** names each invalid field; **429** when over the limit.
+
+#### `GET /api/v1/admin/contact-messages?status=new|handled|all&page&limit` — `students:read`
+`{ success, messages: [{ id, name, email, topic, topicLabel, message, status, emailed, fromAccount, handledByLabel, handledAt, createdAt }], unhandled, pagination }`, newest first; `status` defaults to `new`.
+
+#### `PATCH /api/v1/admin/contact-messages/:id` — `students:read`, `adminActionLimiter`
+`{ status: 'new' | 'handled' }` → `{ success, message }`; handling records who and when. **404** for no such message.
+
+---
+
 ## PLANNED (not implemented)
 
 No routes exist for: exam attempt submission, published results, certificate issuance tied to a real result, payments/orders, notifications, practice/mock-test sessions, changing your own email address or mobile number, or admin-initiated account deletion. Grep `backend/src/routes/v1/` before building against an assumed endpoint.

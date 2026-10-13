@@ -2,6 +2,7 @@ import { Mail, Phone } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { AMIT_OLYMPIAD, SUPPORT, SUPPORT_TEL_HREF } from '../../lib/brand'
 import LegalLayout from './LegalLayout'
+import ContactForm from './ContactForm'
 import styles from './Contact.module.css'
 
 /**
@@ -13,7 +14,7 @@ import styles from './Contact.module.css'
  */
 export default function Contact() {
   return (
-    <LegalLayout title="Contact us" lead={`How to reach the ${AMIT_OLYMPIAD} team.`} updated="4 October 2026">
+    <LegalLayout title="Contact us" lead={`How to reach the ${AMIT_OLYMPIAD} team.`} updated="13 October 2026">
       <ul className={styles.ways}>
         <li>
           <a href={`mailto:${SUPPORT.email}`} className={styles.way}>
@@ -34,6 +35,9 @@ export default function Contact() {
           </a>
         </li>
       </ul>
+
+      <h2>Send us a message</h2>
+      <ContactForm />
 
       <h2>Before you write</h2>
       <ul>

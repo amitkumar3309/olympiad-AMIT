@@ -37,6 +37,20 @@ _Last updated: 2026-08-15 (Milestone 18 — review before approval)._
 
 ## Current State
 
+> **The contact form and backups (2026-10-13): 1506 passing backend tests across 46 files.** New
+> `tests/contact.test.ts` (6): stored and emailed to support only, never to the sender, escaped and with a
+> subject that carries none of the message; every invalid field named; a honeypot answered and nothing
+> kept; the account noted when signed in; the daily email cap; Admin → Messages is staff only, lists and
+> marks handled. `tests/backup.test.ts` (2): 1,203 documents with dates, a photo's bytes, nested fields and a
+> unique index restored exactly; a restore refused into a non-empty database unless replacing.
+> New browser spec `e2e/contact.spec.ts` (both widths): every problem shown at once, the message sent, axe
+> clean, and — at desktop — read and marked handled in Admin → Messages. `e2e/photo.spec.ts` (both widths): a
+> 4000 × 3000 JPEG over 3 MB is accepted at registration and arrives at most 900 px and 400 KB. **100 browser
+> tests** (67 run, 33 skip: 31 one-width-only, 2 Diwali-trial tests while no trial is set). The
+> full run on this branch passed except the two phone tap-speed tests and one time-out, all on a machine
+> another project was running tests on; alternating runs against `main` showed `main` slower, not faster
+> (slowest tap 672 / 408 ms on `main`, 200 / 192 ms on the branch), and the picture tests pass when re-run.
+
 > **The automatic Daily Quiz; staff without a student area (2026-10-11): 1498 passing backend tests
 > across 44 files.** New `tests/dailyQuizAuto.test.ts` (11): a class with nothing scheduled gets a
 > generated, unpublished, playable quiz at its level; the "daily quiz" pool is used oldest first; generated

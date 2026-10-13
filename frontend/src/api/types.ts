@@ -3247,3 +3247,33 @@ export interface PaperSuggestion {
   requested: number
   questions: SuggestedQuestion[]
 }
+
+// ---------------------------------------------------------------------------
+// The Contact page's form and Admin → Messages (2026-10-13)
+// ---------------------------------------------------------------------------
+
+export type ContactTopic = 'account' | 'payment' | 'daily-quiz' | 'olympiad' | 'other'
+
+export interface ContactMessage {
+  id: string
+  name: string
+  email: string
+  topic: ContactTopic
+  topicLabel: string
+  message: string
+  status: 'new' | 'handled'
+  /** False when the daily cap on notification emails had been reached. */
+  emailed: boolean
+  /** Sent while signed in to a student account. */
+  fromAccount: boolean
+  handledByLabel: string | null
+  handledAt: string | null
+  createdAt: string
+}
+
+export interface ContactMessagesResponse {
+  messages: ContactMessage[]
+  /** Messages still to answer, whatever the filter. */
+  unhandled: number
+  pagination: Pagination
+}

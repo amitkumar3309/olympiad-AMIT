@@ -186,6 +186,13 @@ The work happens in phases, and each one stops for the owner's approval.
   `services/dailyQuizAuto.ts`, on by default (Admin → Daily Quiz → Settings). Staff see only the admin
   panel (header, routes, homepage), change their password at `/admin/account`, and are never ranked or
   awarded.
+- **Contact form, page-view counts, backups** (`feat/contact-form-analytics`, 2026-10-13): `/contact` has a
+  form (messages at Admin → Messages; support emailed, 40 a day at most; never the sender);
+  Vercel Web Analytics loads on the live address — **counts nothing until the owner switches Web Analytics
+  on for the frontend project in Vercel**; `npm run backup:db` / `restore:db` — **the owner should take a
+  backup weekly** (and before any risky change), kept off the repository. Registration no longer promises
+  WhatsApp updates. **Google Search Console** is the owner's to set up (DNS verification, then submit
+  `https://www.amitolympiad.me/sitemap.xml`).
 - **Daily Quiz pool, batch 1** (`content/daily-quiz-pool-1`, 2026-10-11): 100 checked olympiad-style
   questions, 10 per class, in `docs/content/daily-quiz-pool-batch-1/` — **not uploaded yet**; the owner
   uploads each class's CSV through Admin → Bulk Import (choosing that class on the form). Ten days of quizzes.

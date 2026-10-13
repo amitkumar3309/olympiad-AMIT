@@ -161,6 +161,7 @@ const ROUTES: ReadonlyArray<readonly [string, PageMeta]> = [
   ['/admin/system', { title: 'Admin · System' }],
   ['/admin/audit-log', { title: 'Admin · Audit log' }],
   ['/admin/account', { title: 'Admin · My account' }],
+  ['/admin/messages', { title: 'Admin · Messages' }],
 
   // Development only — absent from a production build.
   ['/design-system', { title: 'Design system' }],

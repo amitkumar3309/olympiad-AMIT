@@ -36,4 +36,5 @@ export * from './Payment';
 export * from './PaymentSettings';
 export * from './ImportBatch';
 export * from './Referral';
+export * from './ContactMessage';
 export * from './ReferralSettings';

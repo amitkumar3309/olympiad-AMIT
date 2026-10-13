@@ -9,9 +9,19 @@
  * which a browser cannot be trusted to report), so a stale copy here can only ever
  * make the client stricter, never the API looser.
  */
+import { redrawWithin } from './shrinkPicture'
 
 /** Kept in step with the backend's `MAX_PHOTO_BYTES`. */
 export const MAX_PHOTO_BYTES = 2 * 1024 * 1024
+/**
+ * The largest file a student may *choose* (2026-10-13). It is redrawn before upload — at most
+ * 900 px on its longest side and 400 KB — so an ordinary 3–6 MB phone photo is accepted rather than
+ * refused, and the free database (512 MB, shared with everything) holds thousands of photos instead
+ * of about 250. 900 px is still sharper than a passport photo printed on the certificate needs.
+ */
+export const MAX_CHOSEN_PHOTO_BYTES = 25 * 1024 * 1024
+const PHOTO_SIDES = [900, 720, 560] as const
+const PHOTO_TARGET_BYTES = 400 * 1024
 export const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 export const PHOTO_ACCEPT_ATTRIBUTE = ACCEPTED_PHOTO_TYPES.join(',')
 
@@ -43,10 +53,20 @@ export async function readPhotoFile(file: File): Promise<{ photo: SelectedPhoto 
   if (!ACCEPTED_PHOTO_TYPES.includes(file.type)) {
     return { error: 'The photo must be a JPEG, PNG or WebP image.' }
   }
-  if (file.size > MAX_PHOTO_BYTES) {
-    return { error: `The photo must be ${Math.round(MAX_PHOTO_BYTES / 1024)} KB or smaller.` }
+  if (file.size > MAX_CHOSEN_PHOTO_BYTES) {
+    return { error: `That photo is ${formatBytes(file.size)}. Please choose one under ${formatBytes(MAX_CHOSEN_PHOTO_BYTES)}.` }
   }
 
+  const redrawn = await redrawWithin(file, PHOTO_SIDES, PHOTO_TARGET_BYTES)
+  if (redrawn === 'unreadable') {
+    return { error: 'That file could not be opened as a photo. Save it again as a JPEG and choose that.' }
+  }
+  if (redrawn) return { photo: { dataUrl: redrawn.dataUrl, name: file.name, size: redrawn.bytes } }
+
+  // This browser could not redraw it: send it as it is if the server will take it.
+  if (file.size > MAX_PHOTO_BYTES) {
+    return { error: `That photo is ${formatBytes(file.size)}. Please choose one of 2 MB or less.` }
+  }
   try {
     const dataUrl = await readAsDataUrl(file)
     return { photo: { dataUrl, name: file.name, size: file.size } }

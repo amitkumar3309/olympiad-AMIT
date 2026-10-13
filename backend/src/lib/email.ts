@@ -467,6 +467,35 @@ export function buildNotificationEmail(input: {
 }
 
 /**
+ * A message from the Contact page's form, to the support address (2026-10-13).
+ *
+ * Everything in it was typed by a stranger, so every field goes through `layout()`'s escaping and
+ * the subject carries no part of the message. There is no button: the reply goes from the
+ * support mailbox to the address the sender gave, which is printed so it can be copied.
+ */
+export function buildContactNotificationEmail(input: {
+  to: string;
+  name: string;
+  email: string;
+  topic: string;
+  message: string;
+}): OutboundEmail {
+  const body = `From: ${input.name} <${input.email}>\nAbout: ${input.topic}\n\n${input.message}`;
+  const footer = `Sent from the Contact page. Reply to ${input.email} from your own mailbox. It is also in Admin → Messages.`;
+  return {
+    to: input.to,
+    subject: `${PRODUCT_NAME} — a message from the Contact page`,
+    text: `${body}\n\n—\n${footer}`,
+    html: layout({
+      preheader: `${input.topic} — from ${input.name}`.slice(0, 140),
+      heading: 'A message from the Contact page',
+      body,
+      footer,
+    }),
+  };
+}
+
+/**
  * The Daily Quiz reminder (Milestone 30 Phase 7b, PLAN.md Q20) — sent at 7:00 AM to a student
  * who turned reminders on, on a day their class has a quiz they have not started.
  *

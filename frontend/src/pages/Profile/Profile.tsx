@@ -370,7 +370,7 @@ export default function Profile() {
               <input type="file" accept={PHOTO_ACCEPT_ATTRIBUTE} onChange={(e) => void handlePhotoChoice(e)} />
               <span>Choose a new photo</span>
             </label>
-            <p className={styles.hint}>JPEG, PNG or WebP, up to 2 MB.</p>
+            <p className={styles.hint}>A JPEG, PNG or WebP photo — straight from your phone is fine.</p>
 
             {selectedPhoto && (
               <div className={styles.pendingPhoto}>

@@ -73,6 +73,36 @@ async function encode(image: HTMLImageElement, width: number, height: number): P
 }
 
 /**
+ * Redraws a picture at the first of `sides` (its longest edge, never enlarged) whose file fits
+ * `maxBytes` (2026-10-13 — shared with the student photo, `lib/photo.ts`). `'unreadable'` when the
+ * file does not open as a picture; null when this browser cannot draw one or nothing fits.
+ */
+export async function redrawWithin(
+  file: File,
+  sides: readonly number[],
+  maxBytes: number,
+): Promise<ShrunkPicture | 'unreadable' | null> {
+  let image: HTMLImageElement
+  try {
+    image = await decode(file)
+  } catch {
+    return 'unreadable'
+  }
+  const naturalWidth = image.naturalWidth
+  const naturalHeight = image.naturalHeight
+  if (!naturalWidth || !naturalHeight) return 'unreadable'
+  for (const side of sides) {
+    const scale = Math.min(1, side / Math.max(naturalWidth, naturalHeight))
+    const width = Math.max(1, Math.round(naturalWidth * scale))
+    const height = Math.max(1, Math.round(naturalHeight * scale))
+    const blob = await encode(image, width, height)
+    if (!blob) return null
+    if (blob.size <= maxBytes) return { dataUrl: await readAsDataUrl(blob), width, height, bytes: blob.size }
+  }
+  return null
+}
+
+/**
  * Reads a chosen file and returns it shrunk for upload — or a message for the two failures an
  * author can fix (the wrong kind of file, a picture still too large), to show beside the field.
  */

@@ -800,6 +800,15 @@ cap (staff-editable, at most 300 — the provider's whole free quota) and the se
 first, reminders last) keep a reminder batch from starving verification links, which is an
 availability property: a student who cannot get their link cannot sign in.
 
+## The contact form (2026-10-13)
+
+A public form that sends email is a tool for abusing the email quota and the platform's name, so: **it
+never emails the address a visitor typed** (only the fixed support address); five messages an hour from one
+address (`contactLimiter`, shared in Redis); a honeypot field answered like any message and stored nowhere;
+notification emails stop at 40 a day (stored messages do not); every field reaches the email through
+`escapeHtml()` and the subject carries none of the message; the sender's address is kept as a keyed hash
+(`ipHash`), never in the clear. The CSRF origin check covers it like every other state-changing route.
+
 ## Remaining Gaps, in priority order
 
 Items 1 and 5 of the previous list — CSRF and administrative rate limiting — were closed by the 2026-08-17 audit and now have sections of their own above. A double-submit CSRF token, listed here as item 7 until 2026-10-08, is not a gap: the origin check is the defence, and a token on top of it is a deliberate non-addition — see "Why not a double-submit token" for the shape it should take if one is ever wanted.
